@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "crates/consensus",
+    "crates/core",
+    "crates/evm",
+    "crates/net",
+    "crates/rpc",
+    "crates/storage",
+]
+
+[workspace.package]
+name = "ethereum_rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace.dependencies]
