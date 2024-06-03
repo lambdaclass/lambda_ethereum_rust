@@ -13,15 +13,15 @@ Ethereum Execution client
 
 ## First Milestone (Blocks)
 
-*Needs: RLP, DevP2P*
+*Needs: RLP*
 
 - Spin a local-net with https://github.com/kurtosis-tech/ethereum-package
     - Add CLI to the node with minimal configuration
-- Receive block headers and bodies through gossip
+- Receive blocks from consensus node
 - Store block headers and bodies in DB
 - Store transactions and receipts
 - Support the following RPC endpoints
-    - `eth_chainId`
+    - `engine_newPayloadV3` (partially)
     - `eth_getBlockByHash`
     - `eth_getBlockByNumber`
     - `eth_blockNumber`
@@ -32,7 +32,7 @@ Ethereum Execution client
 
 ## Second Milestone (EVM)
 
-*Needs: rEVM integration*, *Patricia Merkle Tree*
+*Needs: rEVM integration, Patricia Merkle Tree*
 
 - Call the EVM to perform the state transition
 - Verify post state hash
@@ -45,17 +45,18 @@ Ethereum Execution client
 
 ## Third Milestone (Consensus)
 
-Needs: *Block downloader, Blockchain tree*
+*Needs: Block downloader, Blockchain tree*
 
 - Support for forkchoice update from consensus client
 - Downloading missing blocks
 - Support the following RPC endpoints:
-    - `engine_exchangeCapabilities`
     - `eth_syncing`
     - `engine_forkchoiceUpdatedV3`
-    - `engine_newPayloadV3`
+    - `engine_newPayloadV3` (full)
 
 ## Fourth Milestone (Transactions)
+
+*Needs: DevP2P*
 
 - Support to download initial unconfirmed transactions via p2p request
 - Support receiving and re-propagating transactions in gossip
