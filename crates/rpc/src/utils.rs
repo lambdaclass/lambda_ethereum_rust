@@ -5,10 +5,10 @@ pub enum RpcErr {
     MethodNotFound,
 }
 
-impl Into<RpcErrorResponse> for RpcErr {
-    fn into(self) -> RpcErrorResponse {
+impl Into<RpcErrorMetadata> for RpcErr {
+    fn into(self) -> RpcErrorMetadata {
         match self {
-            RpcErr::MethodNotFound => RpcErrorResponse {
+            RpcErr::MethodNotFound => RpcErrorMetadata {
                 code: -32601,
                 message: "Method not found".to_string(),
             },
@@ -25,7 +25,21 @@ pub struct RpcRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RpcErrorResponse {
+pub struct RpcErrorMetadata {
     pub code: i32,
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RpcSuccessResponse {
+    pub id: i32,
+    pub jsonrpc: String,
+    pub result: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RpcErrorResponse {
+    pub id: i32,
+    pub jsonrpc: String,
+    pub error: RpcErrorMetadata,
 }

@@ -4,8 +4,8 @@ use eth::{
     block::get_block_by_number,
     client::{chain_id, syncing},
 };
-use serde_json::{json, Value};
-use utils::{RpcErr, RpcErrorResponse, RpcRequest};
+use serde_json::Value;
+use utils::{RpcErr, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
 
 mod engine;
 mod eth;
@@ -33,18 +33,21 @@ pub async fn handle_request(body: String) -> Json<Value> {
     };
 
     match res {
-        Ok(result) => Json(json!({
-            "id": req.id,
-            "jsonrpc": "2.0",
-            "result": result,
-        })),
-        Err(error) => {
-            let error: RpcErrorResponse = error.into();
-            Json(json!({
-                "id": req.id,
-                "jsonrpc": "2.0",
-                "error": error,
-            }))
-        }
+        Ok(result) => Json(
+            serde_json::to_value(&RpcSuccessResponse {
+                id: req.id,
+                jsonrpc: "2.0".to_string(),
+                result: result,
+            })
+            .unwrap(),
+        ),
+        Err(error) => Json(
+            serde_json::to_value(&RpcErrorResponse {
+                id: req.id,
+                jsonrpc: "2.0".to_string(),
+                error: error.into(),
+            })
+            .unwrap(),
+        ),
     }
 }
