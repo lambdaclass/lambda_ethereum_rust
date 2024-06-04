@@ -34,14 +34,14 @@ pub async fn handle_request(body: String) -> Json<Value> {
 
     match res {
         Ok(result) => Json(json!({
-            "id": 1,
+            "id": req.id,
             "jsonrpc": "2.0",
             "result": result,
         })),
         Err(error) => {
             let error: RpcErrorResponse = error.into();
             Json(json!({
-                "id": 1,
+                "id": req.id,
                 "jsonrpc": "2.0",
                 "error": error,
             }))

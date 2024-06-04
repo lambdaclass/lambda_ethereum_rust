@@ -18,6 +18,8 @@ impl Into<RpcErrorResponse> for RpcErr {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcRequest {
+    pub id: i32,
+    pub jsonrpc: String,
     pub method: String,
     pub params: Option<Value>,
 }
