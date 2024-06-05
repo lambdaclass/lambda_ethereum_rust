@@ -30,7 +30,6 @@ jobs:
 
       - name: Run cargo build
         run: |
-          cd ensure-no_std
           cargo build
 
 
