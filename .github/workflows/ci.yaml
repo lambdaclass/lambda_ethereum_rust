@@ -31,5 +31,19 @@ jobs:
       - name: Run cargo build
         run: |
           cargo build
+  
+  docker-build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        load: true # Important for building without pushing
 
 
