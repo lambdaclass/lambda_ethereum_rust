@@ -5,6 +5,7 @@ use eth::{
     client::{chain_id, syncing},
 };
 use serde_json::Value;
+use tracing::info;
 use utils::{RpcErr, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
 
 mod engine;
@@ -13,11 +14,12 @@ mod utils;
 
 #[tokio::main]
 pub async fn start_api() {
-    tracing_subscriber::fmt::init();
-
     let app = Router::new().route("/", post(handle_request));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8551").await.unwrap();
+    let url = "0.0.0.0:8551";
+    let listener = tokio::net::TcpListener::bind(url).await.unwrap();
+    info!("RPC server listening on: {}", url);
+
     axum::serve(listener, app).await.unwrap();
 }
 
