@@ -6,7 +6,10 @@ members = [
     "crates/net",
     "crates/rpc",
     "crates/storage",
+    "ethereum_rust",
 ]
+resolver = "2"
+
 
 [workspace.package]
 name = "ethereum_rust"
