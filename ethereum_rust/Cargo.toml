@@ -9,3 +9,4 @@ edition = "2021"
 tracing.workspace = true
 tracing-subscriber.workspace = true
 rpc.workspace = true
+clap = { version = "4.5.4", features = ["cargo"] }
