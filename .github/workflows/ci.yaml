@@ -21,6 +21,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          components: rustfmt, clippy
 
       - name: Set up cargo cache
         uses: Swatinem/rust-cache@v2
@@ -31,6 +32,14 @@ jobs:
       - name: Run cargo build
         run: |
           cargo build
+      
+      - name: Run cargo clippy
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run cargo fmt
+        run: |
+          cargo fmt --all -- --check
   
   docker-build:
     name: Build Docker image
