@@ -1,3 +1,5 @@
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
 use bytes::BufMut;
 use tinyvec::ArrayVec;
 
@@ -134,6 +136,12 @@ impl RLPEncode for usize {
     }
 }
 
+impl RLPEncode for () {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        buf.put_u8(0x80);
+    }
+}
+
 impl RLPEncode for [u8] {
     #[inline(always)]
     fn encode(&self, buf: &mut dyn BufMut) {
@@ -206,8 +214,31 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
     }
 }
 
+impl RLPEncode for Ipv4Addr {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.octets().encode(buf)
+    }
+}
+
+impl RLPEncode for Ipv6Addr {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.octets().encode(buf)
+    }
+}
+
+impl RLPEncode for IpAddr {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        match self {
+            IpAddr::V4(ip) => ip.encode(buf),
+            IpAddr::V6(ip) => ip.encode(buf),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::net::IpAddr;
+
     use super::RLPEncode;
 
     #[test]
@@ -409,6 +440,34 @@ mod tests {
             buf
         };
         let expected: [u8; 1] = [0xc0];
+        assert_eq!(encoded, expected);
+    }
+
+    #[test]
+    fn can_encode_ip() {
+        // encode an IPv4 address
+        let message = "192.168.0.1";
+        let ip: IpAddr = message.parse().unwrap();
+        let encoded = {
+            let mut buf = vec![];
+            ip.encode(&mut buf);
+            buf
+        };
+        let expected: [u8; 5] = [0x84, 192, 168, 0, 1];
+        assert_eq!(encoded, expected);
+
+        // encode an IPv6 address
+        let message = "2001:0000:130F:0000:0000:09C0:876A:130B";
+        let ip: IpAddr = message.parse().unwrap();
+        let encoded = {
+            let mut buf = vec![];
+            ip.encode(&mut buf);
+            buf
+        };
+        let expected: [u8; 17] = [
+            0x90, 0x20, 0x01, 0x00, 0x00, 0x13, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x09, 0xc0, 0x87,
+            0x6a, 0x13, 0x0b,
+        ];
         assert_eq!(encoded, expected);
     }
 }
