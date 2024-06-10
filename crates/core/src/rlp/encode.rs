@@ -1,7 +1,7 @@
 use bytes::BufMut;
-use tinyvec::{Array, ArrayVec};
+use tinyvec::ArrayVec;
 
-trait RLPEncode {
+pub trait RLPEncode {
     fn encode(&self, buf: &mut dyn BufMut);
 
     fn length(&self) -> usize {
@@ -168,19 +168,47 @@ impl RLPEncode for str {
     }
 }
 
+impl RLPEncode for &str {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for String {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl<T: RLPEncode> RLPEncode for Vec<T> {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        if self.is_empty() {
+            buf.put_u8(0xc0);
+        } else {
+            let mut total_len = 0;
+            for item in self {
+                total_len += item.length();
+            }
+            if total_len < 56 {
+                buf.put_u8(0xc0 + total_len as u8);
+            } else {
+                let mut bytes = ArrayVec::<[u8; 8]>::new();
+                bytes.extend_from_slice(&total_len.to_be_bytes());
+                let start = bytes.iter().position(|&x| x != 0).unwrap();
+                let len = bytes.len() - start;
+                buf.put_u8(0xf7 + len as u8);
+                buf.put_slice(&bytes[start..]);
+            }
+            for item in self {
+                item.encode(buf);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::RLPEncode;
-
-    // fn can_parse_string_list() {
-    //     // encoded message
-    //     let encoded: [u8; 9] = [0xc8, 0x83, b'c', b'a', b't', 0x83, b'd', b'o', b'g'];
-    // }
-
-    // fn can_parse_empty_list() {
-    //     // encoded message
-    //     let encoded: [u8; 1] = [0xc0];
-    // }
 
     #[test]
     fn can_encode_booleans() {
@@ -358,6 +386,29 @@ mod tests {
             buf
         };
         let expected: [u8; 1] = [0x80];
+        assert_eq!(encoded, expected);
+    }
+
+    #[test]
+    fn can_encode_lists_of_str() {
+        // encode ["cat", "dog"]
+        let message = vec!["cat", "dog"];
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        let expected: [u8; 9] = [0xc8, 0x83, b'c', b'a', b't', 0x83, b'd', b'o', b'g'];
+        assert_eq!(encoded, expected);
+
+        // encode empty list
+        let message: Vec<&str> = vec![];
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        let expected: [u8; 1] = [0xc0];
         assert_eq!(encoded, expected);
     }
 }
