@@ -35,7 +35,7 @@ jobs:
       
       - name: Run cargo clippy
         run: |
-          cargo clippy --all-targets --all-features -- -D warnings
+          cargo clippy --all-targets --all-features --workspace -- -D warnings
 
       - name: Run cargo fmt
         run: |
