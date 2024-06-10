@@ -56,7 +56,7 @@ impl RLPEncode for u16 {
             // 0, also known as null or the empty string is 0x80
             0 => buf.put_u8(0x80),
             // for a single byte whose value is in the [0x00, 0x7f] range, that byte is its own RLP encoding.
-            n @ 1..=0x7f => buf.put_u16(n),
+            n @ 1..=0x7f => buf.put_u8(n as u8),
             // Otherwise, if a string is 0-55 bytes long, the RLP encoding consists of a
             // single byte with value 0x80 plus the length of the string followed by the string.
             n => {
@@ -91,6 +91,50 @@ impl RLPEncode for u32 {
         }
     }
 }
+
+impl RLPEncode for u64 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        match *self {
+            // 0, also known as null or the empty string is 0x80
+            0 => buf.put_u8(0x80),
+            // for a single byte whose value is in the [0x00, 0x7f] range, that byte is its own RLP encoding.
+            n @ 1..=0x7f => buf.put_u8(n as u8),
+            // Otherwise, if a string is 0-55 bytes long, the RLP encoding consists of a
+            // single byte with value 0x80 plus the length of the string followed by the string.
+            n => {
+                let mut bytes = ArrayVec::<[u8; 8]>::new();
+                bytes.extend_from_slice(&n.to_be_bytes());
+                let start = bytes.iter().position(|&x| x != 0).unwrap();
+                let len = bytes.len() - start;
+                buf.put_u8(0x80 + len as u8);
+                buf.put_slice(&bytes[start..]);
+            }
+        }
+    }
+}
+
+impl RLPEncode for usize {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        match *self {
+            // 0, also known as null or the empty string is 0x80
+            0 => buf.put_u8(0x80),
+            // for a single byte whose value is in the [0x00, 0x7f] range, that byte is its own RLP encoding.
+            n @ 1..=0x7f => buf.put_u8(n as u8),
+            // Otherwise, if a string is 0-55 bytes long, the RLP encoding consists of a
+            // single byte with value 0x80 plus the length of the string followed by the string.
+            n => {
+                let mut bytes = ArrayVec::<[u8; 8]>::new();
+                bytes.extend_from_slice(&n.to_be_bytes());
+                let start = bytes.iter().position(|&x| x != 0).unwrap();
+                let len = bytes.len() - start;
+                buf.put_u8(0x80 + len as u8);
+                buf.put_slice(&bytes[start..]);
+            }
+        }
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests {
@@ -176,6 +220,52 @@ mod tests {
 
     #[test]
     fn can_encode_u8() {
+        let mut encoded = Vec::new();
+        0u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x80]);
+
+        let mut encoded = Vec::new();
+        1u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x01]);
+
+        let mut encoded = Vec::new();
+        0x7Fu8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x7f]);
+
+        let mut encoded = Vec::new();
+        0x80u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x80 + 1, 0x80]);
+
+        let mut encoded = Vec::new();
+        0x90u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x80 + 1, 0x90]);
+    }
+
+    #[test]
+    fn can_encode_u64() {
+        let mut encoded = Vec::new();
+        0u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x80]);
+
+        let mut encoded = Vec::new();
+        1u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x01]);
+
+        let mut encoded = Vec::new();
+        0x7Fu8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x7f]);
+
+        let mut encoded = Vec::new();
+        0x80u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x80 + 1, 0x80]);
+
+        let mut encoded = Vec::new();
+        0x90u8.encode(&mut encoded);
+        assert_eq!(encoded, vec![0x80 + 1, 0x90]);
+    }
+
+    #[test]
+    fn can_encode_usize() {
         let mut encoded = Vec::new();
         0u8.encode(&mut encoded);
         assert_eq!(encoded, vec![0x80]);
