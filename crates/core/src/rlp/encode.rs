@@ -162,24 +162,19 @@ impl<const N: usize> RLPEncode for [u8; N] {
     }
 }
 
+impl RLPEncode for str {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::RLPEncode;
 
-    // #[test]
-    // fn can_parse_dog_string() {
-    //     // encoded message
-    //     let encoded: [u8; 4] = [0x83, b'd', b'o', b'g'];
-    // }
-
     // fn can_parse_string_list() {
     //     // encoded message
     //     let encoded: [u8; 9] = [0xc8, 0x83, b'c', b'a', b't', 0x83, b'd', b'o', b'g'];
-    // }
-
-    // fn can_parse_empty_string() {
-    //     // encoded message
-    //     let encoded: [u8; 1] = [0x80];
     // }
 
     // fn can_parse_empty_list() {
@@ -341,5 +336,28 @@ mod tests {
             buf
         };
         assert_eq!(encoded, vec![0x82, 0x04, 0x00]);
+    }
+
+    #[test]
+    fn can_encode_strings() {
+        // encode dog
+        let message = "dog";
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        let expected: [u8; 4] = [0x83, b'd', b'o', b'g'];
+        assert_eq!(encoded, expected);
+
+        // encode empty string
+        let message = "";
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        let expected: [u8; 1] = [0x80];
+        assert_eq!(encoded, expected);
     }
 }
