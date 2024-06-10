@@ -134,7 +134,33 @@ impl RLPEncode for usize {
     }
 }
 
+impl RLPEncode for [u8] {
+    #[inline(always)]
+    fn encode(&self, buf: &mut dyn BufMut) {
+        if self.len() == 1 && self[0] < 0x80 {
+            buf.put_u8(self[0]);
+        } else {
+            let len = self.len();
+            if len < 56 {
+                buf.put_u8(0x80 + len as u8);
+            } else {
+                let mut bytes = ArrayVec::<[u8; 8]>::new();
+                bytes.extend_from_slice(&len.to_be_bytes());
+                let start = bytes.iter().position(|&x| x != 0).unwrap();
+                let len = bytes.len() - start;
+                buf.put_u8(0xb7 + len as u8);
+                buf.put_slice(&bytes[start..]);
+            }
+            buf.put_slice(self);
+        }
+    }
+}
 
+impl<const N: usize> RLPEncode for [u8; N] {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_ref().encode(buf)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -287,18 +313,33 @@ mod tests {
         assert_eq!(encoded, vec![0x80 + 1, 0x90]);
     }
 
-    // fn can_parse_byte_zero() {
-    //     // encoded message
-    //     let encoded: [u8; 1] = [0x00];
-    // }
+    #[test]
+    fn can_encode_bytes() {
+        // encode byte 0x00
+        let message: [u8; 1] = [0x00];
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        assert_eq!(encoded, vec![0x00]);
 
-    // fn can_parse_byte_f() {
-    //     // encoded message
-    //     let encoded: [u8; 1] = [0x0f];
-    // }
+        // encode byte 0x0f
+        let message: [u8; 1] = [0x0f];
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        assert_eq!(encoded, vec![0x0f]);
 
-    // fn can_parse_bytes_0400() {
-    //     // encoded message
-    //     let encoded: [u8; 3] = [0x82, 0x04, 0x00];
-    // }
+        // encode bytes '\x04\x00'
+        let message: [u8; 2] = [0x04, 0x00];
+        let encoded = {
+            let mut buf = vec![];
+            message.encode(&mut buf);
+            buf
+        };
+        assert_eq!(encoded, vec![0x82, 0x04, 0x00]);
+    }
 }
