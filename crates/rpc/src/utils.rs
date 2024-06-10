@@ -5,9 +5,9 @@ pub enum RpcErr {
     MethodNotFound,
 }
 
-impl Into<RpcErrorMetadata> for RpcErr {
-    fn into(self) -> RpcErrorMetadata {
-        match self {
+impl From<RpcErr> for RpcErrorMetadata {
+    fn from(value: RpcErr) -> Self {
+        match value {
             RpcErr::MethodNotFound => RpcErrorMetadata {
                 code: -32601,
                 message: "Method not found".to_string(),
