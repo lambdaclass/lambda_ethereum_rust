@@ -237,6 +237,24 @@ impl RLPEncode for IpAddr {
 
 // encoding for Ethereum types
 
+impl RLPEncode for ethereum_types::H32 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::H64 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::H128 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
 impl RLPEncode for ethereum_types::Address {
     fn encode(&self, buf: &mut dyn BufMut) {
         self.as_bytes().encode(buf)
@@ -244,6 +262,12 @@ impl RLPEncode for ethereum_types::Address {
 }
 
 impl RLPEncode for ethereum_types::H256 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::H264 {
     fn encode(&self, buf: &mut dyn BufMut) {
         self.as_bytes().encode(buf)
     }
@@ -264,6 +288,9 @@ impl RLPEncode for ethereum_types::Signature {
 #[cfg(test)]
 mod tests {
     use std::net::IpAddr;
+
+    use ethereum_types::Address;
+    use hex_literal::hex;
 
     use super::RLPEncode;
 
@@ -494,6 +521,18 @@ mod tests {
             0x90, 0x20, 0x01, 0x00, 0x00, 0x13, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x09, 0xc0, 0x87,
             0x6a, 0x13, 0x0b,
         ];
+        assert_eq!(encoded, expected);
+    }
+
+    #[test]
+    fn can_encode_addresses() {
+        let address = Address::from(hex!("ef2d6d194084c2de36e0dabfce45d046b37d1106"));
+        let encoded = {
+            let mut buf = vec![];
+            address.encode(&mut buf);
+            buf
+        };
+        let expected = hex!("94ef2d6d194084c2de36e0dabfce45d046b37d1106");
         assert_eq!(encoded, expected);
     }
 }
