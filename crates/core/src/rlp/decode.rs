@@ -7,11 +7,11 @@ pub trait RLPDecode: Sized {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError>;
 }
 
-// integer decoding impsl
+// integer decoding impls
 impl RLPDecode for u8 {
     fn decode(buf: &[u8]) -> Result<Self, RLPDecodeError> {
         let bytes = Bytes::copy_from_slice(buf);
-        
+
         Ok(0)
     }
 }
