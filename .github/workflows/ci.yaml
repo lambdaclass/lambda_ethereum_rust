@@ -40,7 +40,11 @@ jobs:
       - name: Run cargo fmt
         run: |
           cargo fmt --all -- --check
-  
+
+      - name: Run cargo test
+        run: |
+          cargo test
+      
   docker-build:
     name: Build Docker image
     runs-on: ubuntu-latest
