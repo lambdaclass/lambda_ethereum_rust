@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 bytes = "1.6.0"
 tinyvec = "1.6.0"
-primitive-types = "0.12.2"
+ethereum-types.workspace = true

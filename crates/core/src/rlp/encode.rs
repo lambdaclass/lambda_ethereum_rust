@@ -235,6 +235,32 @@ impl RLPEncode for IpAddr {
     }
 }
 
+// encoding for Ethereum types
+
+impl RLPEncode for ethereum_types::Address {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::H256 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::H512 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::Signature {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_bytes().encode(buf)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::IpAddr;
