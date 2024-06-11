@@ -1,16 +1,13 @@
 use std::future::IntoFuture;
 
 use axum::{routing::post, Json, Router};
-use engine::capabilities::exchange_capabilities;
-use eth::{
-    block::get_block_by_number,
-    client::{chain_id, syncing},
-};
+use eth::{block, client};
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
 
+mod admin;
 mod engine;
 mod eth;
 mod utils;
@@ -31,6 +28,9 @@ pub async fn start_api(http_addr: &str, http_port: &str, authrpc_addr: &str, aut
     let http_server = axum::serve(http_listener, http_router)
         .with_graceful_shutdown(shutdown_signal())
         .into_future();
+
+    info!("Starting HTTP server at {}", http_url);
+    info!("Starting HTTP server at {}", authrpc_url);
 
     let res = tokio::try_join!(authrpc_server, http_server);
     match res {
@@ -53,34 +53,42 @@ pub async fn handle_authrpc_request(body: String) -> Json<Value> {
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
 
     let res: Result<Value, RpcErr> = match req.method.as_str() {
-        "engine_exchangeCapabilities" => exchange_capabilities(),
+        "engine_exchangeCapabilities" => {
+            engine::exchange_capabilities(req.params.unwrap().get(0).cloned())
+        }
+        "eth_chainId" => client::chain_id(),
+        "eth_syncing" => client::syncing(),
+        "eth_getBlockByNumber" => block::get_block_by_number(),
+        "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
+        "engine_newPayloadV3" => engine::new_payload_v3(req.params.unwrap().get(0).cloned()),
         _ => Err(RpcErr::MethodNotFound),
     };
 
-    rpc_response(req, res)
+    rpc_response(req.id, res)
 }
 
 pub async fn handle_http_request(body: String) -> Json<Value> {
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
 
     let res: Result<Value, RpcErr> = match req.method.as_str() {
-        "eth_chainId" => chain_id(),
-        "eth_syncing" => syncing(),
-        "eth_getBlockByNumber" => get_block_by_number(),
+        "eth_chainId" => client::chain_id(),
+        "eth_syncing" => client::syncing(),
+        "eth_getBlockByNumber" => block::get_block_by_number(),
+        "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),
     };
 
-    rpc_response(req, res)
+    rpc_response(req.id, res)
 }
 
-fn rpc_response<E>(req: RpcRequest, res: Result<Value, E>) -> Json<Value>
+fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
 where
     E: Into<RpcErrorMetadata>,
 {
     match res {
         Ok(result) => Json(
             serde_json::to_value(&RpcSuccessResponse {
-                id: req.id,
+                id: id,
                 jsonrpc: "2.0".to_string(),
                 result: result,
             })
@@ -88,7 +96,7 @@ where
         ),
         Err(error) => Json(
             serde_json::to_value(&RpcErrorResponse {
-                id: req.id,
+                id: id,
                 jsonrpc: "2.0".to_string(),
                 error: error.into(),
             })

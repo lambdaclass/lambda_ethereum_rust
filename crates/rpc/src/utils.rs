@@ -21,7 +21,7 @@ pub struct RpcRequest {
     pub id: i32,
     pub jsonrpc: String,
     pub method: String,
-    pub params: Option<Value>,
+    pub params: Option<Vec<Value>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
