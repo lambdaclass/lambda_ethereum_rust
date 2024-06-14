@@ -1,5 +1,5 @@
-# ethereum_rust
-Ethereum Execution client
+# Ethrex
+ETHereum Rust EXecution client
 
 # Milestones
 
