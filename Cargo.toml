@@ -7,6 +7,7 @@ members = [
     "crates/net",
     "crates/rpc",
     "crates/storage",
+    "ef_tests",
 ]
 resolver = "2"
 
@@ -20,3 +21,6 @@ rpc = { path = "./crates/rpc" }
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
+
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
