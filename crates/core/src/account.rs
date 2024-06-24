@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use ethereum_types::{H256, U256};
 use serde::Deserialize;
 
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 pub struct Account {
     #[serde(default)]
-    code: Vec<u8>,
+    pub code: Vec<u8>,
     #[serde(default)]
-    storage: HashMap<H256, H256>,
-    balance: U256,
+    pub storage: HashMap<H256, H256>,
+    pub balance: U256,
     #[serde(default)]
-    nonce: u64,
+    pub nonce: u64,
 }
