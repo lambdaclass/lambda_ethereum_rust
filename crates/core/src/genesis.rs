@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethereum_types::{H256, U256};
+use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -11,7 +11,7 @@ pub struct Genesis {
     /// The initial state of the accounts in the genesis block.
     alloc: HashMap<H256, Account>,
     /// Genesis header values
-    coinbase: H256,
+    coinbase: Address,
     difficulty: U256,
     extra_data: Vec<u8>,
     gas_limit: u64,
