@@ -22,31 +22,35 @@ pub struct Genesis {
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     chain_id: U256,
-    homestead_block: Option<U256>,
+    homestead_block: Option<u64>,
 
-    dao_fork_block: Option<U256>,
+    dao_fork_block: Option<u64>,
     #[serde(default)]
     dao_fork_support: bool,
 
-    eip150_block: Option<U256>,
-    eip155_block: Option<U256>,
-    eip158_block: Option<U256>,
+    eip150_block: Option<u64>,
+    eip155_block: Option<u64>,
+    eip158_block: Option<u64>,
 
-    byzantinum_block: Option<U256>,
-    constantinople_block: Option<U256>,
-    petersburg_block: Option<U256>,
-    instanbul_block: Option<U256>,
-    muir_glacier_block: Option<U256>,
-    berlin_block: Option<U256>,
-    london_block: Option<U256>,
-    arrow_glacier_block: Option<U256>,
-    gray_glacier_block: Option<U256>,
-    merge_netsplit_block: Option<U256>,
+    byzantinum_block: Option<u64>,
+    constantinople_block: Option<u64>,
+    petersburg_block: Option<u64>,
+    instanbul_block: Option<u64>,
+    muir_glacier_block: Option<u64>,
+    berlin_block: Option<u64>,
+    london_block: Option<u64>,
+    arrow_glacier_block: Option<u64>,
+    gray_glacier_block: Option<u64>,
+    merge_netsplit_block: Option<u64>,
 
     shangai_time: Option<u64>,
     cancun_time: Option<u64>,
     prague_time: Option<u64>,
-    verkle_time: Option<u64>
+    verkle_time: Option<u64>,
+
+    terminal_total_difficulty: Option<U256>,
+    #[serde(default)]
+    terminal_total_difficulty_passed: bool,
 }
 
 pub type Account = u32; // TODO(placeholder)
