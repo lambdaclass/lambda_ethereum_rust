@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "ethereum_rust",
+    "ethrex",
     "crates/consensus",
     "crates/core",
     "crates/evm",
@@ -11,7 +11,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-name = "ethereum_rust"
+name = "ethrex"
 version = "0.1.0"
 edition = "2021"
 
