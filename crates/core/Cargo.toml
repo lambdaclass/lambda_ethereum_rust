@@ -8,12 +8,8 @@ edition = "2021"
 [dependencies]
 bytes = "1.6.0"
 tinyvec = "1.6.0"
-<<<<<<< HEAD
-ethereum-types.workspace = true
-serde.workspace = true
-=======
 ethereum-types = "0.14.1"
->>>>>>> 0bb09e2cb93579724768c955158029958281bd89
+serde.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"

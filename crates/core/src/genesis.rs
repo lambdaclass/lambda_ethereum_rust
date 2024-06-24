@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-
+use crate::account::Account;
 use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,7 +20,6 @@ pub struct Genesis {
     timestamp: u64,
 }
 
-
 /// Blockchain settings defined per block
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
@@ -31,7 +30,6 @@ pub struct ChainConfig {
 
     /// Block numbers for the block where each fork was activated
     /// (None = no fork, 0 = fork is already active)
-
     homestead_block: Option<u64>,
 
     dao_fork_block: Option<u64>,
@@ -56,7 +54,6 @@ pub struct ChainConfig {
 
     /// Timestamp at which each fork was activated
     /// (None = no fork, 0 = fork is already active)
-
     shangai_time: Option<u64>,
     cancun_time: Option<u64>,
     prague_time: Option<u64>,
@@ -68,5 +65,3 @@ pub struct ChainConfig {
     #[serde(default)]
     terminal_total_difficulty_passed: bool,
 }
-
-pub type Account = u32; // TODO(placeholder)
