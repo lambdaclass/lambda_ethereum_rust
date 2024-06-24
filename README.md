@@ -82,7 +82,7 @@ just build
 ```
 
 ## Test
-To run the tests from a crate run:
+To run the tests from a crate, run:
 ```
 just test <crate>
 ```
