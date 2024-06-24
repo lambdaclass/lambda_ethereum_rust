@@ -10,7 +10,7 @@ pub struct Genesis {
     /// Chain configuration
     pub config: ChainConfig,
     /// The initial state of the accounts in the genesis block.
-    pub alloc: HashMap<H256, Account>,
+    pub alloc: HashMap<Address, Account>,
     /// Genesis header values
     pub coinbase: Address,
     pub difficulty: U256,
