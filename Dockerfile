@@ -1,6 +1,6 @@
 FROM rust:1.76 as builder
 
-WORKDIR /usr/src/ethereum_rust
+WORKDIR /usr/src/ethrex
 
 COPY . .
 
@@ -17,4 +17,4 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /usr/local/bin
 
-COPY --from=builder /usr/src/ethereum_rust/target/release/ethereum_rust .
+COPY --from=builder /usr/src/ethrex/target/release/ethrex .
