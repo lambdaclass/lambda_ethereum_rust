@@ -1,8 +1,11 @@
 build:
     cargo build --all
 
-test:
+test-all:
     cargo test --all
+
+test crate:
+    cargo test -p {{crate}}
 
 clean:
     cargo clean
