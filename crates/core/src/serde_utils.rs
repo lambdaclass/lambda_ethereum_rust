@@ -5,7 +5,7 @@ pub mod u256 {
     use ethereum_types::U256;
     use serde_json::Number;
 
-    pub fn deser_from_number<'de, D>(d: D) -> Result<U256, D::Error>
+    pub fn deser_number<'de, D>(d: D) -> Result<U256, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -23,7 +23,7 @@ pub mod u256 {
         ))
     }
 
-    pub fn deser_from_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
+    pub fn deser_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -35,7 +35,7 @@ pub mod u256 {
 pub mod u64 {
     use super::*;
 
-    pub fn deser_from_dec_str<'de, D>(d: D) -> Result<u64, D::Error>
+    pub fn deser_dec_str<'de, D>(d: D) -> Result<u64, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -45,7 +45,7 @@ pub mod u64 {
             .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
     }
 
-    pub fn deser_from_hex_str<'de, D>(d: D) -> Result<u64, D::Error>
+    pub fn deser_hex_str<'de, D>(d: D) -> Result<u64, D::Error>
     where
         D: Deserializer<'de>,
     {

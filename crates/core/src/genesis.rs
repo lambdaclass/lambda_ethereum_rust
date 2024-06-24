@@ -16,12 +16,12 @@ pub struct Genesis {
     pub coinbase: Address,
     pub difficulty: U256,
     pub extra_data: Bytes,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_from_hex_str")]
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     pub gas_limit: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_from_hex_str")]
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     pub nonce: u64,
     pub mixhash: H256,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_from_dec_str")]
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
     pub timestamp: u64,
 }
 
@@ -31,7 +31,7 @@ pub struct Genesis {
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_from_number")]
+    #[serde(deserialize_with = "crate::serde_utils::u256::deser_number")]
     pub chain_id: U256,
 
     /// Block numbers for the block where each fork was activated
