@@ -20,4 +20,3 @@ rpc = { path = "./crates/rpc" }
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
-ethereum-types = "0.14.1"
