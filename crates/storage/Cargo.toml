@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 libmdbx.workspace = true
+anyhow = "1.0.86"
