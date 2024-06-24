@@ -68,7 +68,7 @@ pub struct ChainConfig {
     /// Amount of total difficulty reached by the network that triggers the consensus upgrade.
     #[serde(
         default,
-        deserialize_with = "crate::serde_utils::u256::deser_option_from_number"
+        deserialize_with = "crate::serde_utils::u256::deser_number_opt"
     )]
     pub terminal_total_difficulty: Option<U256>,
     /// Network has already passed the terminal total difficult

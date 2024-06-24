@@ -13,7 +13,7 @@ pub mod u256 {
         U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
     }
 
-    pub fn deser_option_from_number<'de, D>(d: D) -> Result<Option<U256>, D::Error>
+    pub fn deser_number_opt<'de, D>(d: D) -> Result<Option<U256>, D::Error>
     where
         D: Deserializer<'de>,
     {
