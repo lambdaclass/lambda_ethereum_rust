@@ -1,4 +1,5 @@
 use crate::account::Account;
+use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -14,10 +15,13 @@ pub struct Genesis {
     /// Genesis header values
     pub coinbase: Address,
     pub difficulty: U256,
-    pub extra_data: Vec<u8>,
+    pub extra_data: Bytes,
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_from_hex_str")]
     pub gas_limit: u64,
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_from_hex_str")]
     pub nonce: u64,
-    pub mix_hash: H256,
+    pub mixhash: H256,
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_from_dec_str")]
     pub timestamp: u64,
 }
 
@@ -27,6 +31,7 @@ pub struct Genesis {
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier
+    #[serde(deserialize_with = "crate::serde_utils::u256::deser_from_number")]
     pub chain_id: U256,
 
     /// Block numbers for the block where each fork was activated
@@ -61,8 +66,28 @@ pub struct ChainConfig {
     pub verkle_time: Option<u64>,
 
     /// Amount of total difficulty reached by the network that triggers the consensus upgrade.
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_utils::u256::deser_option_from_number"
+    )]
     pub terminal_total_difficulty: Option<U256>,
     /// Network has already passed the terminal total difficult
     #[serde(default)]
     pub terminal_total_difficulty_passed: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::BufReader};
+
+    use super::*;
+
+    #[test]
+    fn deserialize_genesis_file() {
+        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+        dbg!(genesis);
+    }
 }
