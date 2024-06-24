@@ -9,6 +9,7 @@ edition = "2021"
 bytes = "1.6.0"
 tinyvec = "1.6.0"
 ethereum-types.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"
