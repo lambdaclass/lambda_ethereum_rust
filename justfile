@@ -1,8 +1,8 @@
 build:
-    cargo build --all
+    cargo build --workspace
 
 test-all:
-    cargo test --all
+    cargo test --workspace
 
 test crate:
     cargo test -p {{crate}}
