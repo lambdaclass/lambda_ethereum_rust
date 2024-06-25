@@ -23,7 +23,7 @@ fn main() {
     let authrpc_port = matches
         .get_one::<String>("authrpc.port")
         .expect("authrpc.port is required");
-    let network = matches
+    let genesis_file_path = matches
     .get_one::<String>("network")
     .expect("network is required");
 

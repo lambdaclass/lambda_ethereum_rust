@@ -36,7 +36,7 @@ pub fn cli() -> Command {
             Arg::new("network")
                 .long("network")
                 .default_value("")
-                .value_name("GENESIS_FILE")
+                .value_name("GENESIS_FILE_PATH")
                 .action(ArgAction::Set),
         )
 }
