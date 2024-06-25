@@ -23,6 +23,9 @@ fn main() {
     let authrpc_port = matches
         .get_one::<String>("authrpc.port")
         .expect("authrpc.port is required");
+    let network = matches
+    .get_one::<String>("network")
+    .expect("network is required");
 
     rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port);
 }
