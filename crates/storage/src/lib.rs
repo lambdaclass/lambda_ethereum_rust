@@ -1,6 +1,6 @@
 mod block;
 
-use block::{BlockHeaderRLP, BlockNumber};
+use block::{BlockBodyRLP, BlockHeaderRLP, BlockNumber};
 use libmdbx::{
     orm::{table, Database},
     table_info,
@@ -12,11 +12,16 @@ table!(
     /// Block headers table.
     ( Headers ) BlockNumber => BlockHeaderRLP
 );
-
+table!(
+    /// Block bodies table.
+    ( BlockBodies ) BlockNumber => BlockBodyRLP
+);
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
-    let tables = [table_info!(Headers)].into_iter().collect();
+    let tables = [table_info!(Headers), table_info!(BlockBodies)]
+        .into_iter()
+        .collect();
     let path = path.map(|p| p.as_ref().to_path_buf());
     Database::create(path, &tables).unwrap()
 }
