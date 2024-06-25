@@ -11,3 +11,4 @@ tracing-subscriber.workspace = true
 rpc.workspace = true
 clap = { version = "4.5.4", features = ["cargo"] }
 serde_json.workspace = true
+core.workspace = true
