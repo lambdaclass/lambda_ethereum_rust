@@ -3,6 +3,7 @@ use serde_json::Value;
 
 pub enum RpcErr {
     MethodNotFound,
+    BadParams,
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -11,6 +12,10 @@ impl From<RpcErr> for RpcErrorMetadata {
             RpcErr::MethodNotFound => RpcErrorMetadata {
                 code: -32601,
                 message: "Method not found".to_string(),
+            },
+            RpcErr::BadParams => RpcErrorMetadata {
+                code: -1,
+                message: "Invalid params".to_string(),
             },
         }
     }
@@ -21,7 +26,7 @@ pub struct RpcRequest {
     pub id: i32,
     pub jsonrpc: String,
     pub method: String,
-    pub params: Option<Value>,
+    pub params: Option<Vec<Value>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

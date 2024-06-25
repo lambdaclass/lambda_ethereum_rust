@@ -1,8 +1,8 @@
 use clap::{Arg, ArgAction, Command};
 
 pub fn cli() -> Command {
-    Command::new("Ethereum Rust")
-        .about("Ethereum Execution client in Rust")
+    Command::new("Ethrex")
+        .about("Ethereum Rust Execution client")
         .author("Lambdaclass")
         .arg(
             Arg::new("http.addr")
