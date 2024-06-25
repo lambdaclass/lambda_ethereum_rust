@@ -133,5 +133,36 @@ mod tests {
     };
         assert_eq!(genesis.alloc[&addr_a], expected_account_a);
         // Check some storage values from another account
+        let addr_b = Address::from_str("0x4242424242424242424242424242424242424242").unwrap();
+        assert!(genesis.alloc.contains_key(&addr_b));
+        let addr_b_storage = &genesis.alloc[&addr_b].storage;
+        assert_eq!(
+            addr_b_storage.get(
+                &H256::from_str(
+                    "0x0000000000000000000000000000000000000000000000000000000000000022"
+                )
+                .unwrap()
+            ),
+            Some(
+                &H256::from_str(
+                    "0xf5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
+                )
+                .unwrap()
+            )
+        );
+        assert_eq!(
+            addr_b_storage.get(
+                &H256::from_str(
+                    "0x0000000000000000000000000000000000000000000000000000000000000038"
+                )
+                .unwrap()
+            ),
+            Some(
+                &H256::from_str(
+                    "0xe71f0aa83cc32edfbefa9f4d3e0174ca85182eec9f3a09f6a6c0df6377a510d7"
+                )
+                .unwrap()
+            )
+        );
     }
 }
