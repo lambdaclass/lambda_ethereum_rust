@@ -90,7 +90,7 @@ where
             serde_json::to_value(&RpcSuccessResponse {
                 id: id,
                 jsonrpc: "2.0".to_string(),
-                result: result,
+                result,
             })
             .unwrap(),
         ),
