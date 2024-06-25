@@ -54,13 +54,13 @@ pub async fn handle_authrpc_request(body: String) -> Json<Value> {
 
     let res: Result<Value, RpcErr> = match req.method.as_str() {
         "engine_exchangeCapabilities" => {
-            engine::exchange_capabilities(req.params.unwrap().get(0).cloned())
+            engine::exchange_capabilities(req.params.unwrap().first().cloned())
         }
         "eth_chainId" => client::chain_id(),
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => block::get_block_by_number(),
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
-        "engine_newPayloadV3" => engine::new_payload_v3(req.params.unwrap().get(0).cloned()),
+        "engine_newPayloadV3" => engine::new_payload_v3(req.params.unwrap().first().cloned()),
         _ => Err(RpcErr::MethodNotFound),
     };
 
@@ -87,16 +87,16 @@ where
 {
     match res {
         Ok(result) => Json(
-            serde_json::to_value(&RpcSuccessResponse {
-                id: id,
+            serde_json::to_value(RpcSuccessResponse {
+                id,
                 jsonrpc: "2.0".to_string(),
                 result,
             })
             .unwrap(),
         ),
         Err(error) => Json(
-            serde_json::to_value(&RpcErrorResponse {
-                id: id,
+            serde_json::to_value(RpcErrorResponse {
+                id,
                 jsonrpc: "2.0".to_string(),
                 error: error.into(),
             })
