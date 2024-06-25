@@ -1,4 +1,4 @@
-use super::error::RLPDecodeError;
+use super::{constants::RLP_NULL, error::RLPDecodeError};
 use bytes::Bytes;
 
 pub trait RLPDecode: Sized {
@@ -36,7 +36,7 @@ impl RLPDecode for bool {
         }
 
         if len == 1 {
-            return Ok(buf[0] != 0x80);
+            return Ok(buf[0] != RLP_NULL);
         }
 
         Ok(false)
@@ -49,8 +49,8 @@ impl RLPDecode for u8 {
         match buf.len() {
             0 => Err(RLPDecodeError::InvalidLength),
             1 if (0x00..=0x7f).contains(&buf[0]) => Ok(buf[0]),
-            1 if buf[0] == 0x80 => Ok(0),
-            2 if buf[0] == 0x81 => Ok(buf[1]),
+            1 if buf[0] == RLP_NULL => Ok(0),
+            2 if buf[0] == RLP_NULL + 1 => Ok(buf[1]),
             _ => Err(RLPDecodeError::InvalidLength),
         }
     }
@@ -68,26 +68,24 @@ impl RLPDecode for u16 {
 
 impl<const N: usize> RLPDecode for [u8; N] {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let rlp_iter = rlp.iter();
+        let mut rlp_iter = rlp.iter();
         let mut len = 0;
         let first_byte = match rlp_iter.next() {
             Some(&first_byte) => first_byte,
             None => return Err(RLPDecodeError::InvalidLength),
         };
 
-
         match first_byte {
             0..=0x7F => len = 1,
-            0x80..=0xB7 => len = (first_byte - 0x80) as usize,
+            RLP_NULL..=0xB7 => len = (first_byte - RLP_NULL) as usize,
             b @ 0xB8..=0xBF => {
                 let content_type = match b >= 0xF8 {
                     //
                     true => 0xF7,
                     false => 0xB7,
                 };
-
-
             }
+            _ => todo!(),
         }
         Ok([0; N])
     }
@@ -103,7 +101,7 @@ mod tests {
         let decoded = bool::decode(&rlp).unwrap();
         assert_eq!(decoded, true);
 
-        let rlp = vec![0x80];
+        let rlp = vec![RLP_NULL];
         let decoded = bool::decode(&rlp).unwrap();
         assert_eq!(decoded, false);
     }
@@ -114,7 +112,7 @@ mod tests {
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 1);
 
-        let rlp = vec![0x80];
+        let rlp = vec![RLP_NULL];
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 0);
 
@@ -122,15 +120,15 @@ mod tests {
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 127);
 
-        let rlp = vec![0x81u8, 0x80];
+        let rlp = vec![RLP_NULL + 1, RLP_NULL];
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 128);
 
-        let rlp = vec![0x80 + 1, 0x90];
+        let rlp = vec![RLP_NULL + 1, 0x90];
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 144);
 
-        let rlp = vec![0x81, 0xFF];
+        let rlp = vec![RLP_NULL + 1, 0xFF];
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 255);
     }
@@ -141,7 +139,7 @@ mod tests {
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 1);
 
-        let rlp = vec![0x80];
+        let rlp = vec![RLP_NULL];
         let decoded = u8::decode(&rlp).unwrap();
         assert_eq!(decoded, 0);
 
@@ -159,7 +157,7 @@ mod tests {
 
     #[test]
     fn can_decode_fixed_length_array() {
-        let rlp = vec![0x83, 0x02, 0x03, 0x04];
+        let rlp = vec![RLP_NULL + 3, 0x02, 0x03, 0x04];
         let decoded = <[u8; 3]>::decode(&rlp).unwrap();
         assert_eq!(decoded, [0x02, 0x03, 0x04]);
     }
