@@ -39,7 +39,7 @@ pub struct ChainConfig {
     pub homestead_block: Option<u64>,
 
     pub dao_fork_block: Option<u64>,
-    /// Whether the nodes supports or opposes the DAO hard-fork
+    /// Whether the node supports or opposes the DAO hard-fork
     #[serde(default)]
     pub dao_fork_support: bool,
 
