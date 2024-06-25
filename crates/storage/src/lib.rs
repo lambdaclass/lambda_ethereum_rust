@@ -1,6 +1,7 @@
 mod block;
 
-use block::{BlockHeaderRLP, BlockNumber};
+use block::BlockHeaderRLP;
+use core::types::BlockNumber;
 use libmdbx::{
     orm::{table, Database},
     table_info,

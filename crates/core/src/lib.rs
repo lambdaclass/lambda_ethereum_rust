@@ -1,2 +1,3 @@
 pub use ethereum_types::*;
-mod rlp;
+pub mod rlp;
+pub mod types;
