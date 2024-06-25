@@ -19,3 +19,4 @@ rpc = { path = "./crates/rpc" }
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
+libmdbx = { version = "0.5.0", features = ["orm"] }
