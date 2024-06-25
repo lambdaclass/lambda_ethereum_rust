@@ -58,3 +58,41 @@ impl RLPEncode for BlockHeader {
         self.parent_beacon_block_root.encode(buf);
     }
 }
+
+// TODO: replace with actual types
+pub type SyncAggregate = H256;
+pub type ExecutionPayload = H256;
+pub type BLSSignature = H256;
+pub type Eth1Data = H256;
+
+// The body of a block on the chain
+// source: https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/block-proposal/#how-is-a-block-created
+// TODO: replace with actual types
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BlockBody {
+    randao_reveal: BLSSignature,
+    eth1_data: Eth1Data,
+    graffiti: H256,
+    proposer_slashings: Vec<H256>, // List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
+    attester_slashings: Vec<H256>, // List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
+    attestations: Vec<H256>,       // List[Attestation, MAX_ATTESTATIONS],
+    deposits: Vec<H256>,           // List[Deposit, MAX_DEPOSITS],
+    voluntary_exits: Vec<H256>,    // List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS],
+    sync_aggregate: SyncAggregate,
+    execution_payload: ExecutionPayload,
+}
+
+impl RLPEncode for BlockBody {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        self.randao_reveal.encode(buf);
+        self.eth1_data.encode(buf);
+        self.graffiti.encode(buf);
+        self.proposer_slashings.encode(buf);
+        self.attester_slashings.encode(buf);
+        self.attestations.encode(buf);
+        self.deposits.encode(buf);
+        self.voluntary_exits.encode(buf);
+        self.sync_aggregate.encode(buf);
+        self.execution_payload.encode(buf);
+    }
+}
