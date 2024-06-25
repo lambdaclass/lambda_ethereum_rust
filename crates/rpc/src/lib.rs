@@ -31,7 +31,7 @@ pub async fn start_api(http_addr: &str, http_port: &str, authrpc_addr: &str, aut
         .into_future();
 
     info!("Starting HTTP server at {}", http_url);
-    info!("Starting HTTP server at {}", authrpc_url);
+    info!("Starting Auth-RPC server at {}", authrpc_url);
 
     let res = tokio::try_join!(authrpc_server, http_server);
     match res {
