@@ -1,6 +1,7 @@
 use std::future::IntoFuture;
 
 use axum::{routing::post, Json, Router};
+use engine::ExchangeCapabilitiesRequest;
 use eth::{block, client};
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -51,20 +52,37 @@ fn create_url(addr: &str, port: &str) -> String {
 
 pub async fn handle_authrpc_request(body: String) -> Json<Value> {
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
+    let res = map_requests(&req);
+    rpc_response(req.id, res)
+}
 
-    let res: Result<Value, RpcErr> = match req.method.as_str() {
+pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
         "engine_exchangeCapabilities" => {
-            engine::exchange_capabilities(req.params.unwrap().first().cloned())
+            let capabilities: ExchangeCapabilitiesRequest = req
+                .params
+                .as_ref()
+                .ok_or(RpcErr::BadParams)?
+                .first()
+                .ok_or(RpcErr::BadParams)
+                .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
+            engine::exchange_capabilities(&capabilities)
         }
         "eth_chainId" => client::chain_id(),
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => block::get_block_by_number(),
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
-        "engine_newPayloadV3" => engine::new_payload_v3(req.params.unwrap().first().cloned()),
+        "engine_newPayloadV3" => {
+            let block = req
+                .params
+                .as_ref()
+                .ok_or(RpcErr::BadParams)?
+                .first()
+                .ok_or(RpcErr::BadParams)?;
+            engine::new_payload_v3(block)
+        }
         _ => Err(RpcErr::MethodNotFound),
-    };
-
-    rpc_response(req.id, res)
+    }
 }
 
 pub async fn handle_http_request(body: String) -> Json<Value> {
