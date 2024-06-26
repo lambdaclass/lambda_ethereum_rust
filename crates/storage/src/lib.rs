@@ -1,6 +1,6 @@
 mod block;
 
-use block::{BlockBodyRLP, BlockHeaderRLP};
+use block::{BlockHeaderRLP, BodyRLP};
 use core::types::BlockNumber;
 use libmdbx::{
     orm::{table, Database},
@@ -15,12 +15,12 @@ table!(
 );
 table!(
     /// Block bodies table.
-    ( BlockBodies ) BlockNumber => BlockBodyRLP
+    ( Bodies ) BlockNumber => BodyRLP
 );
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
-    let tables = [table_info!(Headers), table_info!(BlockBodies)]
+    let tables = [table_info!(Headers), table_info!(Bodies)]
         .into_iter()
         .collect();
     let path = path.map(|p| p.as_ref().to_path_buf());
