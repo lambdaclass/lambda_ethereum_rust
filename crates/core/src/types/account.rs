@@ -2,36 +2,48 @@ use std::collections::HashMap;
 
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
-use serde::Deserialize;
+use tiny_keccak::{Hasher, Sha3};
 
 use crate::rlp::encode::RLPEncode;
 
+use super::GenesisAccount;
+
 #[allow(unused)]
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Account {
-    #[serde(flatten)]
     pub info: AccountInfo,
-    #[serde(default)]
-    pub storage: AccountStorage,
+    pub code: Bytes,
+    pub storage: HashMap<H256, H256>,
 }
 
-// We use two separate structs for better compatibility with DB structure
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct AccountInfo {
-    #[serde(default)]
-    pub code: Bytes,
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_dec_str")]
+    pub code_hash: H256,
     pub balance: U256,
-    #[serde(default, deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
     pub nonce: u64,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Default)]
-pub struct AccountStorage(pub HashMap<H256, H256>);
+impl From<GenesisAccount> for Account {
+    fn from(genesis: GenesisAccount) -> Self {
+        Self {
+            info: AccountInfo { code_hash: code_hash(&genesis.code), balance: genesis.balance, nonce: genesis.nonce },
+            code: genesis.code,
+            storage: genesis.storage,
+        }
+    }
+}
+
+fn code_hash(code: &Bytes) -> H256 {
+    let mut sha3 = Sha3::v256();
+    let mut output = [0; 32];
+    sha3.update(code.as_ref());
+    sha3.finalize(&mut output);
+    H256(output)
+}
 
 impl RLPEncode for AccountInfo {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        self.code.encode(buf);
+        self.code_hash.encode(buf);
         self.balance.encode(buf);
         self.nonce.encode(buf);
     }
