@@ -225,6 +225,17 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
 
 impl<T: RLPEncode, S: RLPEncode> RLPEncode for (T, S) {
     fn encode(&self, buf: &mut dyn BufMut) {
+        let total_len = self.0.length() + self.1.length();
+        if total_len < 56 {
+            buf.put_u8(0xc0 + total_len as u8);
+        } else {
+            let mut bytes = ArrayVec::<[u8; 8]>::new();
+            bytes.extend_from_slice(&total_len.to_be_bytes());
+            let start = bytes.iter().position(|&x| x != 0).unwrap();
+            let len = bytes.len() - start;
+            buf.put_u8(0xf7 + len as u8);
+            buf.put_slice(&bytes[start..]);
+        }
         self.0.encode(buf);
         self.1.encode(buf);
     }
@@ -567,6 +578,16 @@ mod tests {
         let bytes = [0xff; 32];
         let mut expected: Vec<u8> = bytes.into();
         expected.insert(0, 0x80 + 32);
+        assert_eq!(encoded, expected);
+    }
+
+    #[test]
+    fn can_encode_tuple() {
+        // TODO: check if works for tuples with total length greater than 55 bytes
+        let tuple: (u8, u8) = (0x01, 0x02);
+        let mut encoded = Vec::new();
+        tuple.encode(&mut encoded);
+        let expected = vec![0xc0 + 2, 0x01, 0x02];
         assert_eq!(encoded, expected);
     }
 }

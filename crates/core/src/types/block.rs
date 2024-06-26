@@ -60,7 +60,6 @@ impl RLPEncode for BlockHeader {
 }
 
 // The body of a block on the chain
-// TODO: rename it to `Body`
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Body {
     transactions: Vec<Transaction>,
