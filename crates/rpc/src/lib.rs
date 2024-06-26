@@ -13,7 +13,6 @@ mod engine;
 mod eth;
 mod utils;
 
-#[tokio::main]
 pub async fn start_api(http_addr: &str, http_port: &str, authrpc_addr: &str, authrpc_port: &str) {
     let http_router = Router::new().route("/", post(handle_http_request));
     let http_url = create_url(http_addr, http_port);

@@ -4,7 +4,9 @@ use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
 mod cli;
-fn main() {
+
+#[tokio::main]
+async fn main() {
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::DEBUG)
         .finish();
@@ -31,10 +33,10 @@ fn main() {
 
     let _genesis = read_genesis_file(genesis_file_path);
 
-    rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port);
+    rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port).await;
 }
 
-fn read_genesis_file(genesis_file_path: &String) -> Genesis {
+fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     let genesis_file = std::fs::File::open(genesis_file_path).expect("Failed to open genesis file");
     let genesis_reader = BufReader::new(genesis_file);
     serde_json::from_reader(genesis_reader).expect("Failed to read genesis file")
