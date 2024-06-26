@@ -69,26 +69,66 @@ impl RLPDecode for u16 {
 impl<const N: usize> RLPDecode for [u8; N] {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut rlp_iter = rlp.iter();
-        let mut len = 0;
         let first_byte = match rlp_iter.next() {
             Some(&first_byte) => first_byte,
             None => return Err(RLPDecodeError::InvalidLength),
         };
 
+        // calculate the length of the data based on the prefix
         match first_byte {
-            0..=0x7F => len = 1,
-            RLP_NULL..=0xB7 => len = (first_byte - RLP_NULL) as usize,
+            // the data is a string if the range of the first byte (i.e. prefix) is [0x00, 0x7f],
+            // and the string is the first byte itself exactly;
+            0..=0x7F => Ok([first_byte; N]),
+            // the data is a string if the range of the first byte is [0x80, 0xb7], and the string
+            // whose length is equal to the first byte minus 0x80 follows the first byte;
+            RLP_NULL..=0xB7 => {
+                let data_length = (first_byte - RLP_NULL) as usize;
+                rlp[1..data_length + 1]
+                    .try_into()
+                    .map_err(|_| RLPDecodeError::InvalidLength)
+            }
+            // the data is a string if the range of the first byte is [0xb8, 0xbf], and the length
+            // of the string whose length in bytes is equal to the first byte minus 0xb7 follows
+            // the first byte, and the string follows the length of the string;
             b @ 0xB8..=0xBF => {
                 let content_type = match b >= 0xF8 {
-                    //
+                    // is a list
                     true => 0xF7,
+                    // is a string
                     false => 0xB7,
                 };
+                let length_size = (b - content_type) as usize;
+                let data_length_bytes = &rlp[1..length_size];
+                let data_length = usize::from_be_bytes(static_left_pad(data_length_bytes)?);
+                rlp[length_size + 1..data_length + 1]
+                    .try_into()
+                    .map_err(|_| RLPDecodeError::InvalidLength)
             }
-            _ => todo!(),
+            _ => Err(RLPDecodeError::MalformedData),
         }
-        Ok([0; N])
     }
+}
+
+/// Pads a slice of bytes with zeros on the left to make it a fixed size slice.
+/// The size of the data must be less than or equal to the size of the output array.
+#[inline]
+pub(crate) fn static_left_pad<const N: usize>(data: &[u8]) -> Result<[u8; N], RLPDecodeError> {
+    let mut result = [0; N];
+
+    if data.is_empty() {
+        return Ok(result);
+    }
+
+    if data[0] == 0 {
+        return Err(RLPDecodeError::MalformedData);
+    }
+
+    let data_start_index = N.saturating_sub(data.len());
+    result
+        .get_mut(data_start_index..)
+        .ok_or(RLPDecodeError::InvalidLength)?
+        .copy_from_slice(data);
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -157,6 +197,10 @@ mod tests {
 
     #[test]
     fn can_decode_fixed_length_array() {
+        let rlp = vec![0x0f];
+        let decoded = <[u8; 1]>::decode(&rlp).unwrap();
+        assert_eq!(decoded, [0x0f]);
+
         let rlp = vec![RLP_NULL + 3, 0x02, 0x03, 0x04];
         let decoded = <[u8; 3]>::decode(&rlp).unwrap();
         assert_eq!(decoded, [0x02, 0x03, 0x04]);
