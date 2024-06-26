@@ -17,7 +17,7 @@ table!(
 );
 
 table!(
-    /// Block headers table.
+    /// Account infos table.
     ( AccountInfos ) AddressRLP => AccountInfoRLP
 );
 
