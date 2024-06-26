@@ -15,12 +15,10 @@ table!(
     /// Block headers table.
     ( Headers ) BlockNumber => BlockHeaderRLP
 );
-
 table!(
     /// Block bodies table.
     ( Bodies ) BlockNumber => BlockBodyRLP
 );
-
 table!(
     /// Account infos table.
     ( AccountInfos ) AddressRLP => AccountInfoRLP
