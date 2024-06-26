@@ -1,6 +1,7 @@
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
 use super::{constants::RLP_NULL, error::RLPDecodeError};
 use bytes::{Bytes, BytesMut};
-use ethereum_types::{H128, H256, H32, H64};
 
 pub trait RLPDecode: Sized {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError>;
@@ -89,7 +90,7 @@ impl RLPDecode for BytesMut {
 }
 
 #[inline]
-fn decode_bytes<'a>(data: &'a [u8]) -> Result<&'a [u8], RLPDecodeError> {
+fn decode_bytes(data: &[u8]) -> Result<&[u8], RLPDecodeError> {
     let mut rlp_iter = data.iter();
     let first_byte = match rlp_iter.next() {
         Some(&first_byte) => first_byte,
@@ -122,49 +123,49 @@ fn decode_bytes<'a>(data: &'a [u8]) -> Result<&'a [u8], RLPDecodeError> {
 
 impl RLPDecode for ethereum_types::H32 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H32(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H32)
     }
 }
 
 impl RLPDecode for ethereum_types::H64 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H64(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H64)
     }
 }
 
 impl RLPDecode for ethereum_types::H128 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H128(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H128)
     }
 }
 
 impl RLPDecode for ethereum_types::H256 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H256(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H256)
     }
 }
 
 impl RLPDecode for ethereum_types::H264 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H264(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H264)
     }
 }
 
 impl RLPDecode for ethereum_types::Address {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H160(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H160)
     }
 }
 
 impl RLPDecode for ethereum_types::H512 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H512(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H512)
     }
 }
 
 impl RLPDecode for ethereum_types::Signature {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        RLPDecode::decode(rlp).map(|data| ethereum_types::H520(data))
+        RLPDecode::decode(rlp).map(ethereum_types::H520)
     }
 }
 
@@ -172,6 +173,48 @@ impl RLPDecode for String {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
         let str_bytes = decode_bytes(rlp)?.to_vec();
         String::from_utf8(str_bytes).map_err(|_| RLPDecodeError::MalformedData)
+    }
+}
+
+impl RLPDecode for Ipv4Addr {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let ip_bytes = decode_bytes(rlp)?;
+        let octets: [u8; 4] = ip_bytes
+            .try_into()
+            .map_err(|_| RLPDecodeError::InvalidLength)?;
+        Ok(Ipv4Addr::from(octets))
+    }
+}
+
+impl RLPDecode for Ipv6Addr {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let ip_bytes = decode_bytes(rlp)?;
+        let octets: [u8; 16] = ip_bytes
+            .try_into()
+            .map_err(|_| RLPDecodeError::InvalidLength)?;
+        Ok(Ipv6Addr::from(octets))
+    }
+}
+
+impl RLPDecode for IpAddr {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let ip_bytes = decode_bytes(rlp)?;
+
+        match ip_bytes.len() {
+            4 => {
+                let octets: [u8; 4] = ip_bytes
+                    .try_into()
+                    .map_err(|_| RLPDecodeError::InvalidLength)?;
+                Ok(IpAddr::V4(Ipv4Addr::from(octets)))
+            }
+            16 => {
+                let octets: [u8; 16] = ip_bytes
+                    .try_into()
+                    .map_err(|_| RLPDecodeError::InvalidLength)?;
+                Ok(IpAddr::V6(Ipv6Addr::from(octets)))
+            }
+            _ => Err(RLPDecodeError::InvalidLength),
+        }
     }
 }
 
