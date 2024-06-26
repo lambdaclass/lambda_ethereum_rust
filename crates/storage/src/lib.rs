@@ -1,5 +1,7 @@
+mod account;
 mod block;
 
+use account::{AccountInfoRLP, AddressRLP};
 use block::BlockHeaderRLP;
 use core::types::BlockNumber;
 use libmdbx::{
@@ -12,6 +14,11 @@ use std::path::Path;
 table!(
     /// Block headers table.
     ( Headers ) BlockNumber => BlockHeaderRLP
+);
+
+table!(
+    /// Block headers table.
+    ( AccountInfos ) AddressRLP => AccountInfoRLP
 );
 
 /// Initializes a new database with the provided path. If the path is `None`, the database

@@ -38,12 +38,7 @@ impl RLPEncode for BlockHeader {
         self.transactions_root.encode(buf);
         self.receipt_root.encode(buf);
         self.logs_bloom.encode(buf);
-
-        // TODO: move to rlp::encode
-        let mut tmp_buf = vec![];
-        self.difficulty.to_big_endian(&mut tmp_buf);
-        tmp_buf.encode(buf);
-
+        self.difficulty.encode(buf);
         self.number.encode(buf);
         self.gas_limit.encode(buf);
         self.gas_used.encode(buf);

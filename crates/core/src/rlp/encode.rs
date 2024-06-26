@@ -279,6 +279,14 @@ impl RLPEncode for ethereum_types::H512 {
     }
 }
 
+impl RLPEncode for ethereum_types::U256 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut tmp_buf = vec![];
+        self.to_big_endian(&mut tmp_buf);
+        tmp_buf.encode(buf)
+    }
+}
+
 impl RLPEncode for ethereum_types::Signature {
     fn encode(&self, buf: &mut dyn BufMut) {
         self.as_bytes().encode(buf)

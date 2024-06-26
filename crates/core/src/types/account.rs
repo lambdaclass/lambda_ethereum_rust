@@ -4,6 +4,8 @@ use bytes::Bytes;
 use ethereum_types::{H256, U256};
 use serde::Deserialize;
 
+use crate::rlp::encode::RLPEncode;
+
 #[allow(unused)]
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Account {
@@ -26,3 +28,11 @@ pub struct AccountInfo {
 
 #[derive(Debug, Deserialize, PartialEq, Default)]
 pub struct AccountStorage(pub HashMap<H256, H256>);
+
+impl RLPEncode for AccountInfo {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        self.code.encode(buf);
+        self.balance.encode(buf);
+        self.nonce.encode(buf);
+    }
+}
