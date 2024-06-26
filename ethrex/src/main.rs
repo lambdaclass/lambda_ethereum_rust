@@ -1,5 +1,8 @@
 use core::types::Genesis;
-use std::{io::BufReader, net::SocketAddr};
+use std::{
+    io::BufReader,
+    net::{AddrParseError, SocketAddr},
+};
 use tokio::join;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -42,12 +45,19 @@ async fn main() {
         .get_one::<String>("network")
         .expect("network is required");
 
-    let udp_socket_addr = parse_socket_addr(udp_addr, udp_port);
-    let tcp_socket_addr = parse_socket_addr(tcp_addr, tcp_port);
+    let http_socket_addr =
+        parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");
+    let authrpc_socket_addr = parse_socket_addr(authrpc_addr, authrpc_port)
+        .expect("Failed to parse authrpc address and port");
+
+    let udp_socket_addr =
+        parse_socket_addr(udp_addr, udp_port).expect("Failed to parse discovery address and port");
+    let tcp_socket_addr =
+        parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
     let _genesis = read_genesis_file(genesis_file_path);
 
-    let rpc_api = rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port);
+    let rpc_api = rpc::start_api(http_socket_addr, authrpc_socket_addr);
     let networking = net::start_network(udp_socket_addr, tcp_socket_addr);
 
     join!(rpc_api, networking);
@@ -59,8 +69,6 @@ fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     serde_json::from_reader(genesis_reader).expect("Failed to read genesis file")
 }
 
-fn parse_socket_addr(addr: &str, port: &str) -> SocketAddr {
-    format!("{addr}:{port}")
-        .parse()
-        .expect("Failed to parse socket address '{addr}:{port}'")
+fn parse_socket_addr(addr: &str, port: &str) -> Result<SocketAddr, AddrParseError> {
+    format!("{addr}:{port}").parse()
 }
