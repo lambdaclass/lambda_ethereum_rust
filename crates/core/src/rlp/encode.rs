@@ -1,6 +1,6 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-
+use crate::U256;
 use bytes::BufMut;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use tinyvec::ArrayVec;
 
 pub trait RLPEncode {
@@ -188,6 +188,14 @@ impl RLPEncode for String {
     }
 }
 
+impl RLPEncode for U256 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut bytes: [u8; 32] = [0; 32];
+        self.to_big_endian(&mut bytes);
+        bytes.encode(buf)
+    }
+}
+
 impl<T: RLPEncode> RLPEncode for Vec<T> {
     fn encode(&self, buf: &mut dyn BufMut) {
         if self.is_empty() {
@@ -289,7 +297,7 @@ impl RLPEncode for ethereum_types::Signature {
 mod tests {
     use std::net::IpAddr;
 
-    use ethereum_types::Address;
+    use ethereum_types::{Address, U256};
     use hex_literal::hex;
 
     use super::RLPEncode;
@@ -533,6 +541,16 @@ mod tests {
             buf
         };
         let expected = hex!("94ef2d6d194084c2de36e0dabfce45d046b37d1106");
+        assert_eq!(encoded, expected);
+    }
+
+    #[test]
+    fn can_encode_u256() {
+        let mut encoded = Vec::new();
+        U256::max_value().encode(&mut encoded);
+        let bytes = [0xff; 32];
+        let mut expected: Vec<u8> = bytes.into();
+        expected.insert(0, 0x80 + 32);
         assert_eq!(encoded, expected);
     }
 }
