@@ -1,7 +1,7 @@
-# ethereum_rust
-Ethereum Execution client
+# Ethrex
+ETHereum Rust EXecution client
 
-# Milestones
+# Roadmap
 
 ## Milestone Zero (Setup)
 
@@ -71,3 +71,23 @@ Ethereum Execution client
 
 ## Fifth Milestone
 TBD
+
+# Usage
+
+## Build
+
+To build the main executable and its crates, run:
+```
+just build
+```
+
+## Test
+To run the tests from a crate, run:
+```
+just test <crate>
+```
+
+Or just run all the tests:
+```
+just test-all
+```
