@@ -1,5 +1,5 @@
 pub use ethereum_types::*;
 mod account;
-mod genesis;
+pub mod genesis;
 mod rlp;
 mod serde_utils;
