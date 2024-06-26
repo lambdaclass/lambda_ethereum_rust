@@ -1,3 +1,5 @@
+use core::genesis::Genesis;
+use std::io::BufReader;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -23,6 +25,17 @@ fn main() {
     let authrpc_port = matches
         .get_one::<String>("authrpc.port")
         .expect("authrpc.port is required");
+    let genesis_file_path = matches
+        .get_one::<String>("network")
+        .expect("network is required");
+
+    let _genesis = read_genesis_file(genesis_file_path);
 
     rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port);
+}
+
+fn read_genesis_file(genesis_file_path: &String) -> Genesis {
+    let genesis_file = std::fs::File::open(genesis_file_path).expect("Failed to open genesis file");
+    let genesis_reader = BufReader::new(genesis_file);
+    serde_json::from_reader(genesis_reader).expect("Failed to read genesis file")
 }

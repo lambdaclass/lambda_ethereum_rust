@@ -32,4 +32,11 @@ pub fn cli() -> Command {
                 .value_name("PORT")
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("network")
+                .long("network")
+                .default_value("")
+                .value_name("GENESIS_FILE_PATH")
+                .action(ArgAction::Set),
+        )
 }
