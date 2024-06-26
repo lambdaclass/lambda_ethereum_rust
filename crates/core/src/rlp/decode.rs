@@ -1,5 +1,6 @@
 use super::{constants::RLP_NULL, error::RLPDecodeError};
 use bytes::{Bytes, BytesMut};
+use ethereum_types::{H128, H256, H32, H64};
 
 pub trait RLPDecode: Sized {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError>;
@@ -116,6 +117,54 @@ fn decode_bytes<'a>(data: &'a [u8]) -> Result<&'a [u8], RLPDecodeError> {
             Ok(&data[length_size + 1..data_length + 1])
         }
         _ => Err(RLPDecodeError::MalformedData),
+    }
+}
+
+impl RLPDecode for ethereum_types::H32 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H32(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::H64 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H64(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::H128 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H128(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::H256 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H256(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::H264 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H264(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::Address {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H160(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::H512 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H512(data))
+    }
+}
+
+impl RLPDecode for ethereum_types::Signature {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        RLPDecode::decode(rlp).map(|data| ethereum_types::H520(data))
     }
 }
 
