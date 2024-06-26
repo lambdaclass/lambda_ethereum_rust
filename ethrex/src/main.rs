@@ -1,4 +1,5 @@
 use core::types::Genesis;
+use net::types::BootNode;
 use std::{
     io::BufReader,
     net::{AddrParseError, SocketAddr},
@@ -45,6 +46,13 @@ async fn main() {
         .get_one::<String>("network")
         .expect("network is required");
 
+    let bootnode_string = matches
+        .get_one::<String>("bootnodes")
+        .expect("bootnode is required");
+    dbg!(bootnode_string);
+    let bootnode = parse_bootnode(&bootnode_string);
+    dbg!(bootnode);
+
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");
     let authrpc_socket_addr = parse_socket_addr(authrpc_addr, authrpc_port)
@@ -71,4 +79,17 @@ fn read_genesis_file(genesis_file_path: &str) -> Genesis {
 
 fn parse_socket_addr(addr: &str, port: &str) -> Result<SocketAddr, AddrParseError> {
     format!("{addr}:{port}").parse()
+}
+
+fn parse_bootnode(input: &str) -> BootNode {
+    // TODO: error handling
+    let mut node_id: [u8; 128] = [0x00; 128];
+    node_id.copy_from_slice(&input.as_bytes()[8..136]);
+    let socket_address: SocketAddr = input[137..]
+        .parse()
+        .expect("Failed to parse bootnode address and port");
+    BootNode {
+        node_id: node_id,
+        socket_address,
+    }
 }

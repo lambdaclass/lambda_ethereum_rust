@@ -67,4 +67,11 @@ pub fn cli() -> Command {
                 .value_name("GENESIS_FILE_PATH")
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("bootnodes")
+                .long("bootnodes")
+                .default_value("")
+                .value_name("BOOTNODE_LIST")
+                .action(ArgAction::Set),
+        )
 }

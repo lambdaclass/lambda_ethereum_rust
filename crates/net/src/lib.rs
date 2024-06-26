@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use tokio::net::{TcpSocket, UdpSocket};
 use tracing::info;
 
+pub mod types;
+
 pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
