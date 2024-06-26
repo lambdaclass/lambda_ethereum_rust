@@ -81,6 +81,8 @@ mod tests {
     use std::str::FromStr;
     use std::{fs::File, io::BufReader};
 
+    use crate::types::AccountInfo;
+
     use super::*;
 
     #[test]
@@ -126,10 +128,12 @@ mod tests {
         let addr_a = Address::from_str("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap();
         assert!(genesis.alloc.contains_key(&addr_a));
         let expected_account_a = Account {
+        info: AccountInfo {
         code: Bytes::from(String::from("0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500")),
-        storage: Default::default(),
         balance: 0.into(),
         nonce: 1,
+        },
+        storage: Default::default(),
     };
         assert_eq!(genesis.alloc[&addr_a], expected_account_a);
         // Check some storage values from another account
@@ -137,7 +141,7 @@ mod tests {
         assert!(genesis.alloc.contains_key(&addr_b));
         let addr_b_storage = &genesis.alloc[&addr_b].storage;
         assert_eq!(
-            addr_b_storage.get(
+            addr_b_storage.0.get(
                 &H256::from_str(
                     "0x0000000000000000000000000000000000000000000000000000000000000022"
                 )
@@ -151,7 +155,7 @@ mod tests {
             )
         );
         assert_eq!(
-            addr_b_storage.get(
+            addr_b_storage.0.get(
                 &H256::from_str(
                     "0x0000000000000000000000000000000000000000000000000000000000000038"
                 )

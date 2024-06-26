@@ -7,12 +7,22 @@ use serde::Deserialize;
 #[allow(unused)]
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Account {
+    #[serde(flatten)]
+    pub info: AccountInfo,
+    #[serde(default)]
+    pub storage: AccountStorage,
+}
+
+// We use two separate structs for easier DB management
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct AccountInfo {
     #[serde(default)]
     pub code: Bytes,
-    #[serde(default)]
-    pub storage: HashMap<H256, H256>,
     #[serde(deserialize_with = "crate::serde_utils::u256::deser_dec_str")]
     pub balance: U256,
     #[serde(default, deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
     pub nonce: u64,
 }
+
+#[derive(Debug, Deserialize, PartialEq, Default)]
+pub struct AccountStorage(pub HashMap<H256, H256>);
