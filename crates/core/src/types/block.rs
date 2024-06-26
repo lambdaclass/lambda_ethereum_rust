@@ -60,9 +60,10 @@ impl RLPEncode for BlockHeader {
 }
 
 // The body of a block on the chain
+// TODO: rename it to `Body`
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockBody {
-    transactions: Vec<LegacyTransaction>,
+    transactions: Vec<Transaction>,
     ommers: Vec<BlockHeader>,
     withdrawals: Vec<Withdrawal>,
 }
@@ -93,10 +94,25 @@ impl RLPEncode for Withdrawal {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Transaction {
+    LegacyTransaction(LegacyTransaction),
+    EIP1559Transaction(EIP1559Transaction),
+}
+
+impl RLPEncode for Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Transaction::LegacyTransaction(t) => t.encode(buf),
+            Transaction::EIP1559Transaction(t) => t.encode(buf),
+        };
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
     nonce: U256,
-    gas_price: u32,
-    gas: u32,
+    gas_price: u64,
+    gas: u64,
     to: Address,
     value: U256,
     data: Bytes,
@@ -116,5 +132,38 @@ impl RLPEncode for LegacyTransaction {
         self.v.encode(buf);
         self.r.encode(buf);
         self.s.encode(buf);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EIP1559Transaction {
+    chain_id: u64,
+    signer_nonce: U256,
+    max_priority_fee_per_gas: u64,
+    max_fee_per_gas: u64,
+    gas_limit: u64,
+    destination: Address,
+    amount: u64,
+    payload: Bytes,
+    access_list: Vec<(Address, Vec<H256>)>,
+    signature_y_parity: bool,
+    signature_r: U256,
+    signature_s: U256,
+}
+
+impl RLPEncode for EIP1559Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        self.chain_id.encode(buf);
+        self.signer_nonce.encode(buf);
+        self.max_priority_fee_per_gas.encode(buf);
+        self.max_fee_per_gas.encode(buf);
+        self.gas_limit.encode(buf);
+        self.destination.encode(buf);
+        self.amount.encode(buf);
+        self.payload.encode(buf);
+        self.access_list.encode(buf);
+        self.signature_y_parity.encode(buf);
+        self.signature_r.encode(buf);
+        self.signature_s.encode(buf);
     }
 }

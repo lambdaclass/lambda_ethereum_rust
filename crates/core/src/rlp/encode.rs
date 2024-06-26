@@ -222,6 +222,13 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
         }
     }
 }
+// Vec<(Address, Vec<H256>)>
+impl<T: RLPEncode, S: RLPEncode> RLPEncode for (T, S) {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.0.encode(buf);
+        self.1.encode(buf);
+    }
+}
 
 impl RLPEncode for Ipv4Addr {
     fn encode(&self, buf: &mut dyn BufMut) {
