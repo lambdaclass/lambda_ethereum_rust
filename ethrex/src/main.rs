@@ -1,7 +1,7 @@
 use core::types::Genesis;
 use std::{
-    io::BufReader,
-    net::{AddrParseError, SocketAddr},
+    io::{self, BufReader},
+    net::{SocketAddr, ToSocketAddrs},
 };
 use tokio::join;
 use tracing::Level;
@@ -69,6 +69,13 @@ fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     serde_json::from_reader(genesis_reader).expect("Failed to read genesis file")
 }
 
-fn parse_socket_addr(addr: &str, port: &str) -> Result<SocketAddr, AddrParseError> {
-    format!("{addr}:{port}").parse()
+fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
+    // NOTE: this blocks until hostname can be resolved
+    format!("{addr}:{port}")
+        .to_socket_addrs()?
+        .next()
+        .ok_or(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Failed to parse socket address",
+        ))
 }
