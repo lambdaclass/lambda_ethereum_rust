@@ -1,5 +1,5 @@
 use crate::U256;
-use bytes::BufMut;
+use bytes::{BufMut, Bytes};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use tinyvec::ArrayVec;
 
@@ -259,6 +259,12 @@ impl RLPEncode for IpAddr {
             IpAddr::V4(ip) => ip.encode(buf),
             IpAddr::V6(ip) => ip.encode(buf),
         }
+    }
+}
+
+impl RLPEncode for Bytes {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.as_ref().encode(buf)
     }
 }
 
