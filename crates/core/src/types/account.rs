@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
-use tiny_keccak::{Hasher, Sha3};
 
 use crate::rlp::encode::RLPEncode;
 
@@ -38,11 +37,7 @@ impl From<GenesisAccount> for Account {
 }
 
 fn code_hash(code: &Bytes) -> H256 {
-    let mut sha3 = Sha3::v256();
-    let mut output = [0; 32];
-    sha3.update(code.as_ref());
-    sha3.finalize(&mut output);
-    H256(output)
+    keccak_hash::keccak(code.as_ref())
 }
 
 impl RLPEncode for AccountInfo {
@@ -50,5 +45,23 @@ impl RLPEncode for AccountInfo {
         self.code_hash.encode(buf);
         self.balance.encode(buf);
         self.nonce.encode(buf);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn test_code_hash() {
+        let empty_code = Bytes::new();
+        let hash = code_hash(&empty_code);
+        assert_eq!(
+            hash,
+            H256::from_str("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+                .unwrap()
+        )
     }
 }
