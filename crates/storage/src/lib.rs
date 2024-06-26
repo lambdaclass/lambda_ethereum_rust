@@ -18,7 +18,7 @@ table!(
 );
 
 table!(
-    /// Block headers table.
+    /// Account infos table.
     ( AccountInfos ) AddressRLP => AccountInfoRLP
 );
 
@@ -29,7 +29,9 @@ dupsort!(
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
-    let tables = [table_info!(Headers)].into_iter().collect();
+    let tables = [table_info!(Headers), table_info!(AccountInfos)]
+        .into_iter()
+        .collect();
     let path = path.map(|p| p.as_ref().to_path_buf());
     Database::create(path, &tables).unwrap()
 }
