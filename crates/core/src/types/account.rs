@@ -26,7 +26,11 @@ pub struct AccountInfo {
 impl From<GenesisAccount> for Account {
     fn from(genesis: GenesisAccount) -> Self {
         Self {
-            info: AccountInfo { code_hash: code_hash(&genesis.code), balance: genesis.balance, nonce: genesis.nonce },
+            info: AccountInfo {
+                code_hash: code_hash(&genesis.code),
+                balance: genesis.balance,
+                nonce: genesis.nonce,
+            },
             code: genesis.code,
             storage: genesis.storage,
         }
