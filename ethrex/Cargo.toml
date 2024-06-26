@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 rpc.workspace = true
 core.workspace = true
+net.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true

@@ -1,5 +1,6 @@
 use core::types::Genesis;
 use std::io::BufReader;
+use tokio::join;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
@@ -33,7 +34,10 @@ async fn main() {
 
     let _genesis = read_genesis_file(genesis_file_path);
 
-    rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port).await;
+    let rpc_api = rpc::start_api(http_addr, http_port, authrpc_addr, authrpc_port);
+    let networking = net::start_network();
+
+    join!(rpc_api, networking);
 }
 
 fn read_genesis_file(genesis_file_path: &str) -> Genesis {

@@ -32,11 +32,8 @@ pub async fn start_api(http_addr: &str, http_port: &str, authrpc_addr: &str, aut
     info!("Starting HTTP server at {}", http_url);
     info!("Starting Auth-RPC server at {}", authrpc_url);
 
-    let res = tokio::try_join!(authrpc_server, http_server);
-    match res {
-        Ok(_) => {}
-        Err(e) => info!("Error shutting down servers: {:?}", e),
-    }
+    let _ = tokio::try_join!(authrpc_server, http_server)
+        .inspect_err(|e| info!("Error shutting down servers: {:?}", e));
 }
 
 async fn shutdown_signal() {
