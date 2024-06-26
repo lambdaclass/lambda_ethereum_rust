@@ -36,20 +36,6 @@ impl Decodable for AccountInfoRLP {
     }
 }
 
-impl Encodable for AccountStorageValueRLP {
-    type Encoded = Vec<u8>;
-
-    fn encode(self) -> Self::Encoded {
-        self.0
-    }
-}
-
-impl Decodable for AccountStorageValueRLP {
-    fn decode(b: &[u8]) -> anyhow::Result<Self> {
-        Ok(AccountStorageValueRLP(b.to_vec()))
-    }
-}
-
 impl Encodable for AccountStorageKeyRLP {
     type Encoded = Vec<u8>;
 
@@ -61,5 +47,19 @@ impl Encodable for AccountStorageKeyRLP {
 impl Decodable for AccountStorageKeyRLP {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(AccountStorageKeyRLP(b.to_vec()))
+    }
+}
+
+impl Encodable for AccountStorageValueRLP {
+    type Encoded = Vec<u8>;
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountStorageValueRLP {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountStorageValueRLP(b.to_vec()))
     }
 }
