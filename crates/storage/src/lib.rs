@@ -5,7 +5,7 @@ use account::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
     AccountStorageValueRLP, AddressRLP,
 };
-use block::BlockHeaderRLP;
+use block::{BlockBodyRLP, BlockHeaderRLP};
 use core::types::BlockNumber;
 use libmdbx::{
     dupsort,
@@ -19,17 +19,18 @@ table!(
     /// Block headers table.
     ( Headers ) BlockNumber => BlockHeaderRLP
 );
-
+table!(
+    /// Block bodies table.
+    ( Bodies ) BlockNumber => BlockBodyRLP
+);
 table!(
     /// Account infos table.
     ( AccountInfos ) AddressRLP => AccountInfoRLP
 );
-
 dupsort!(
     /// Account storages table.
     ( AccountStorages ) AddressRLP[AccountStorageKeyRLP] => AccountStorageValueRLP
 );
-
 table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
@@ -40,6 +41,7 @@ table!(
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     let tables = [
         table_info!(Headers),
+        table_info!(Bodies),
         table_info!(AccountInfos),
         table_info!(AccountStorages),
         table_info!(AccountCodes),
