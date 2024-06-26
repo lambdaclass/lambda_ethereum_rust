@@ -201,6 +201,12 @@ impl RLPDecode for IpAddr {
     }
 }
 
+impl<T: RLPDecode> RLPDecode for Vec<T> {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        todo!()
+    }
+}
+
 #[inline]
 fn decode_bytes(data: &[u8]) -> Result<&[u8], RLPDecodeError> {
     let mut rlp_iter = data.iter();
@@ -257,6 +263,10 @@ pub(crate) fn static_left_pad<const N: usize>(data: &[u8]) -> Result<[u8; N], RL
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
+    use crate::rlp::decode;
+
     use super::*;
 
     #[test]
@@ -320,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn can_decode_fixed_length_array() {
+    fn test_decode_fixed_length_array() {
         let rlp = vec![0x0f];
         let decoded = <[u8; 1]>::decode(&rlp).unwrap();
         assert_eq!(decoded, [0x0f]);
@@ -328,5 +338,36 @@ mod tests {
         let rlp = vec![RLP_NULL + 3, 0x02, 0x03, 0x04];
         let decoded = <[u8; 3]>::decode(&rlp).unwrap();
         assert_eq!(decoded, [0x02, 0x03, 0x04]);
+    }
+
+    #[test]
+    fn test_decode_ip_addresses() {
+        // IPv4
+        let rlp = vec![RLP_NULL + 4, 192, 168, 0, 1];
+        let decoded = Ipv4Addr::decode(&rlp).unwrap();
+        let expected = Ipv4Addr::from_str("192.168.0.1").unwrap();
+        assert_eq!(decoded, expected);
+
+        // IPv6
+        let rlp = vec![
+            0x90, 0x20, 0x01, 0x00, 0x00, 0x13, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x09, 0xc0, 0x87,
+            0x6a, 0x13, 0x0b,
+        ];
+        let decoded = Ipv6Addr::decode(&rlp).unwrap();
+        let expected = Ipv6Addr::from_str("2001:0000:130F:0000:0000:09C0:876A:130B").unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_string() {
+        let rlp = vec![RLP_NULL + 3, b'd', b'o', b'g'];
+        let decoded = String::decode(&rlp).unwrap();
+        let expected = String::from("dog");
+        assert_eq!(decoded, expected);
+
+        let rlp = vec![RLP_NULL];
+        let decoded = String::decode(&rlp).unwrap();
+        let expected = String::from("");
+        assert_eq!(decoded, expected);
     }
 }
