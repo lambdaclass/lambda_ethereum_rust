@@ -8,6 +8,10 @@ pub struct AccountStorageKeyRLP(Vec<u8>);
 
 pub struct AccountStorageValueRLP(Vec<u8>);
 
+pub struct AccountCodeHashRLP(Vec<u8>);
+
+pub struct AccountCodeRLP(Vec<u8>);
+
 impl Encodable for AddressRLP {
     type Encoded = Vec<u8>;
 
@@ -61,5 +65,33 @@ impl Encodable for AccountStorageValueRLP {
 impl Decodable for AccountStorageValueRLP {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(AccountStorageValueRLP(b.to_vec()))
+    }
+}
+
+impl Encodable for AccountCodeHashRLP {
+    type Encoded = Vec<u8>;
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountCodeHashRLP {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountCodeHashRLP(b.to_vec()))
+    }
+}
+
+impl Encodable for AccountCodeRLP {
+    type Encoded = Vec<u8>;
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountCodeRLP {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountCodeRLP(b.to_vec()))
     }
 }
