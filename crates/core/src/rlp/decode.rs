@@ -1,5 +1,5 @@
 use super::{constants::RLP_NULL, error::RLPDecodeError};
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 
 pub trait RLPDecode: Sized {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError>;
@@ -68,44 +68,61 @@ impl RLPDecode for u16 {
 
 impl<const N: usize> RLPDecode for [u8; N] {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let mut rlp_iter = rlp.iter();
-        let first_byte = match rlp_iter.next() {
-            Some(&first_byte) => first_byte,
-            None => return Err(RLPDecodeError::InvalidLength),
-        };
+        let decoded_bytes = decode_bytes(rlp)?;
+        decoded_bytes
+            .try_into()
+            .map_err(|_| RLPDecodeError::InvalidLength)
+    }
+}
 
-        // calculate the length of the data based on the prefix
-        match first_byte {
-            // the data is a string if the range of the first byte (i.e. prefix) is [0x00, 0x7f],
-            // and the string is the first byte itself exactly;
-            0..=0x7F => Ok([first_byte; N]),
-            // the data is a string if the range of the first byte is [0x80, 0xb7], and the string
-            // whose length is equal to the first byte minus 0x80 follows the first byte;
-            RLP_NULL..=0xB7 => {
-                let data_length = (first_byte - RLP_NULL) as usize;
-                rlp[1..data_length + 1]
-                    .try_into()
-                    .map_err(|_| RLPDecodeError::InvalidLength)
-            }
-            // the data is a string if the range of the first byte is [0xb8, 0xbf], and the length
-            // of the string whose length in bytes is equal to the first byte minus 0xb7 follows
-            // the first byte, and the string follows the length of the string;
-            b @ 0xB8..=0xBF => {
-                let content_type = match b >= 0xF8 {
-                    // is a list
-                    true => 0xF7,
-                    // is a string
-                    false => 0xB7,
-                };
-                let length_size = (b - content_type) as usize;
-                let data_length_bytes = &rlp[1..length_size];
-                let data_length = usize::from_be_bytes(static_left_pad(data_length_bytes)?);
-                rlp[length_size + 1..data_length + 1]
-                    .try_into()
-                    .map_err(|_| RLPDecodeError::InvalidLength)
-            }
-            _ => Err(RLPDecodeError::MalformedData),
+impl RLPDecode for Bytes {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        decode_bytes(rlp).map(|decoded| Bytes::from(decoded.to_vec()))
+    }
+}
+
+impl RLPDecode for BytesMut {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        decode_bytes(rlp).map(BytesMut::from)
+    }
+}
+
+#[inline]
+fn decode_bytes<'a>(data: &'a [u8]) -> Result<&'a [u8], RLPDecodeError> {
+    let mut rlp_iter = data.iter();
+    let first_byte = match rlp_iter.next() {
+        Some(&first_byte) => first_byte,
+        None => return Err(RLPDecodeError::InvalidLength),
+    };
+
+    // calculate the length of the data based on the prefix
+    match first_byte {
+        // the data is a string if the range of the first byte (i.e. prefix) is [0x00, 0x7f],
+        // and the string is the first byte itself exactly;
+        0..=0x7F => Ok(&data[..1]),
+        // the data is a string if the range of the first byte is [0x80, 0xb7], and the string
+        // whose length is equal to the first byte minus 0x80 follows the first byte;
+        RLP_NULL..=0xB7 => {
+            let data_length = (first_byte - RLP_NULL) as usize;
+            Ok(&data[1..data_length + 1])
         }
+        // the data is a string if the range of the first byte is [0xb8, 0xbf], and the length
+        // of the string whose length in bytes is equal to the first byte minus 0xb7 follows
+        // the first byte, and the string follows the length of the string;
+        b @ 0xB8..=0xBF if b < 0xF8 => {
+            let length_size = (b - 0xB7) as usize;
+            let data_length_bytes = &data[1..length_size];
+            let data_length = usize::from_be_bytes(static_left_pad(data_length_bytes)?);
+            Ok(&data[length_size + 1..data_length + 1])
+        }
+        _ => Err(RLPDecodeError::MalformedData),
+    }
+}
+
+impl RLPDecode for String {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let str_bytes = decode_bytes(rlp)?.to_vec();
+        String::from_utf8(str_bytes).map_err(|_| RLPDecodeError::MalformedData)
     }
 }
 
