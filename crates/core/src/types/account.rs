@@ -15,7 +15,7 @@ pub struct Account {
     pub storage: AccountStorage,
 }
 
-// We use two separate structs for easier DB management
+// We use two separate structs for better compatibility with DB structure
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct AccountInfo {
     #[serde(default)]
