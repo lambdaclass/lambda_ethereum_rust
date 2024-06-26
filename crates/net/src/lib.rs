@@ -1,14 +1,14 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+use std::net::SocketAddr;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use tokio::net::{TcpSocket, UdpSocket};
+use tracing::info;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr) {
+    info!("Starting discovery service at {udp_addr}");
+    info!("Listening for requests at {tcp_addr}");
+
+    let _udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
+
+    let tcp_socket = TcpSocket::new_v4().unwrap();
+    tcp_socket.bind(tcp_addr).unwrap();
 }
