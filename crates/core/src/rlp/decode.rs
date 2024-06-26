@@ -75,6 +75,14 @@ impl RLPDecode for u64 {
     }
 }
 
+impl RLPDecode for u128 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let bytes = decode_bytes(rlp)?;
+        let padded_bytes = static_left_pad(bytes)?;
+        Ok(u128::from_be_bytes(padded_bytes))
+    }
+}
+
 impl<const N: usize> RLPDecode for [u8; N] {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
         let decoded_bytes = decode_bytes(rlp)?;
