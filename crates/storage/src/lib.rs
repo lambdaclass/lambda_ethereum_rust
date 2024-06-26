@@ -1,10 +1,11 @@
 mod account;
 mod block;
 
-use account::{AccountInfoRLP, AddressRLP};
+use account::{AccountInfoRLP, AccountStorageKeyRLP, AccountStorageValueRLP, AddressRLP};
 use block::{BlockBodyRLP, BlockHeaderRLP};
 use core::types::BlockNumber;
 use libmdbx::{
+    dupsort,
     orm::{table, Database},
     table_info,
 };
@@ -23,6 +24,10 @@ table!(
     /// Account infos table.
     ( AccountInfos ) AddressRLP => AccountInfoRLP
 );
+dupsort!(
+    /// Account storages table.
+    ( AccountStorages ) AddressRLP[AccountStorageKeyRLP] => AccountStorageValueRLP
+);
 
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
@@ -31,6 +36,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Headers),
         table_info!(Bodies),
         table_info!(AccountInfos),
+        table_info!(AccountStorages),
     ]
     .into_iter()
     .collect();
