@@ -1,4 +1,4 @@
-use core::genesis::Genesis;
+use core::types::Genesis;
 use std::io::BufReader;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;

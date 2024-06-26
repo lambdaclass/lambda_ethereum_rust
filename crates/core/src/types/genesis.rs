@@ -1,4 +1,4 @@
-use crate::account::Account;
+use crate::types::Account;
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;

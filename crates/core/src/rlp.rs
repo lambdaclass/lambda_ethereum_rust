@@ -1,1 +1,1 @@
-mod encode;
+pub mod encode;
