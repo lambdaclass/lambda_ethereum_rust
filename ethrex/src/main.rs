@@ -1,5 +1,6 @@
 use core::types::Genesis;
 use net::types::BootNode;
+use std::num::ParseIntError;
 use std::{
     io::BufReader,
     net::{AddrParseError, SocketAddr},
@@ -7,7 +8,6 @@ use std::{
 use tokio::join;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-
 mod cli;
 
 #[tokio::main]
@@ -49,9 +49,7 @@ async fn main() {
     let bootnode_string = matches
         .get_one::<String>("bootnodes")
         .expect("bootnode is required");
-    dbg!(bootnode_string);
     let bootnode = parse_bootnode(&bootnode_string);
-    dbg!(bootnode);
 
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");
@@ -83,13 +81,19 @@ fn parse_socket_addr(addr: &str, port: &str) -> Result<SocketAddr, AddrParseErro
 
 fn parse_bootnode(input: &str) -> BootNode {
     // TODO: error handling
-    let mut node_id: [u8; 128] = [0x00; 128];
-    node_id.copy_from_slice(&input.as_bytes()[8..136]);
+    let node_id = decode_hex(&input[8..136]).unwrap();
     let socket_address: SocketAddr = input[137..]
         .parse()
         .expect("Failed to parse bootnode address and port");
     BootNode {
-        node_id: node_id,
+        node_id,
         socket_address,
     }
+}
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
 }

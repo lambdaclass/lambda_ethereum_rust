@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BootNode {
-    pub node_id: [u8; 128],
+    pub node_id: Vec<u8>,
     pub socket_address: SocketAddr,
 }
