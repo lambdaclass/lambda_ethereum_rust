@@ -16,9 +16,9 @@ impl Decodable for BlockHeaderRLP {
     }
 }
 
-pub struct BodyRLP(Vec<u8>);
+pub struct BlockBodyRLP(Vec<u8>);
 
-impl Encodable for BodyRLP {
+impl Encodable for BlockBodyRLP {
     type Encoded = Vec<u8>;
 
     fn encode(self) -> Self::Encoded {
@@ -26,8 +26,8 @@ impl Encodable for BodyRLP {
     }
 }
 
-impl Decodable for BodyRLP {
+impl Decodable for BlockBodyRLP {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
-        Ok(BodyRLP(b.to_vec()))
+        Ok(BlockBodyRLP(b.to_vec()))
     }
 }

@@ -1,6 +1,6 @@
 mod block;
 
-use block::{BlockHeaderRLP, BodyRLP};
+use block::{BlockBodyRLP, BlockHeaderRLP};
 use core::types::BlockNumber;
 use libmdbx::{
     orm::{table, Database},
@@ -15,7 +15,7 @@ table!(
 );
 table!(
     /// Block bodies table.
-    ( Bodies ) BlockNumber => BodyRLP
+    ( Bodies ) BlockNumber => BlockBodyRLP
 );
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
