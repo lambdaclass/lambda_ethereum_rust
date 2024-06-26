@@ -1,4 +1,4 @@
-use std::future::IntoFuture;
+use std::{future::IntoFuture, net::SocketAddr};
 
 use axum::{routing::post, Json, Router};
 use engine::ExchangeCapabilitiesRequest;
@@ -13,15 +13,12 @@ mod engine;
 mod eth;
 mod utils;
 
-#[tokio::main]
-pub async fn start_api(http_addr: &str, http_port: &str, authrpc_addr: &str, authrpc_port: &str) {
+pub async fn start_api(http_addr: SocketAddr, authrpc_addr: SocketAddr) {
     let http_router = Router::new().route("/", post(handle_http_request));
-    let http_url = create_url(http_addr, http_port);
-    let http_listener = TcpListener::bind(&http_url).await.unwrap();
+    let http_listener = TcpListener::bind(http_addr).await.unwrap();
 
     let authrpc_router = Router::new().route("/", post(handle_authrpc_request));
-    let authrpc_url = create_url(authrpc_addr, authrpc_port);
-    let authrpc_listener = TcpListener::bind(&authrpc_url).await.unwrap();
+    let authrpc_listener = TcpListener::bind(authrpc_addr).await.unwrap();
 
     let authrpc_server = axum::serve(authrpc_listener, authrpc_router)
         .with_graceful_shutdown(shutdown_signal())
@@ -30,24 +27,17 @@ pub async fn start_api(http_addr: &str, http_port: &str, authrpc_addr: &str, aut
         .with_graceful_shutdown(shutdown_signal())
         .into_future();
 
-    info!("Starting HTTP server at {}", http_url);
-    info!("Starting Auth-RPC server at {}", authrpc_url);
+    info!("Starting HTTP server at {http_addr}");
+    info!("Starting Auth-RPC server at {}", authrpc_addr);
 
-    let res = tokio::try_join!(authrpc_server, http_server);
-    match res {
-        Ok(_) => {}
-        Err(e) => info!("Error shutting down servers: {:?}", e),
-    }
+    let _ = tokio::try_join!(authrpc_server, http_server)
+        .inspect_err(|e| info!("Error shutting down servers: {:?}", e));
 }
 
 async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install Ctrl+C handler");
-}
-
-fn create_url(addr: &str, port: &str) -> String {
-    format!("{}:{}", addr, port)
 }
 
 pub async fn handle_authrpc_request(body: String) -> Json<Value> {
