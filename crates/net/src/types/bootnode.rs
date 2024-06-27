@@ -34,11 +34,14 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
 #[test]
 fn parse_bootnode_from_string() {
     let input = "enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666@18.138.108.67:30303";
-    let bootnode = BootNode::from_str(&input).unwrap();
+    let bootnode = BootNode::from_str(input).unwrap();
     let node_id = H512::from_str(
         "d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666")
         .unwrap();
     let socket_address = SocketAddr::from_str("18.138.108.67:30303").unwrap();
-    let expected_bootnode = BootNode{node_id, socket_address};
+    let expected_bootnode = BootNode {
+        node_id,
+        socket_address,
+    };
     assert_eq!(bootnode, expected_bootnode);
 }
