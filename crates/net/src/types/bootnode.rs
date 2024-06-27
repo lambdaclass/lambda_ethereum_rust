@@ -1,9 +1,9 @@
-use crate::U512;
+use ethrex_core::H512;
 use std::{net::SocketAddr, num::ParseIntError, str::FromStr};
 
 #[derive(Debug, Clone)]
 pub struct BootNode {
-    pub node_id: U512,
+    pub node_id: H512,
     pub socket_address: SocketAddr,
 }
 
@@ -14,7 +14,7 @@ impl FromStr for BootNode {
     fn from_str(input: &str) -> Result<BootNode, ParseIntError> {
         // TODO: error handling
         let node_id_as_bytes = decode_hex(&input[8..136])?;
-        let node_id = U512::from_big_endian(&node_id_as_bytes);
+        let node_id = H512::from_slice(&node_id_as_bytes);
         let socket_address: SocketAddr = input[137..]
             .parse()
             .expect("Failed to parse bootnode address and port");
