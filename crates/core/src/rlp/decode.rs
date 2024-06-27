@@ -22,11 +22,7 @@ impl RLPDecode for bool {
             return Err(RLPDecodeError::InvalidLength);
         }
 
-        if len == 1 {
-            return Ok(buf[0] != RLP_NULL);
-        }
-
-        Ok(false)
+        Ok(buf[0] != RLP_NULL)
     }
 }
 
@@ -204,23 +200,24 @@ impl RLPDecode for IpAddr {
 
 impl<T: RLPDecode> RLPDecode for Vec<T> {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        // empty RLP encoded list must have at least the RLP_EMPTY_LIST byte
         if rlp.is_empty() {
             return Err(RLPDecodeError::InvalidLength);
         }
 
-        // empty list case, [ 0xc0 ]
         if rlp[0] == RLP_EMPTY_LIST {
             return Ok(Vec::new());
         }
 
-        // extract the list length and return the payload
-        let payload = decode_list(rlp)?;
+        let (is_list, payload, _) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+
         let mut result = Vec::new();
         let mut current_slice = payload;
 
         while !current_slice.is_empty() {
-            let (_, rest) = decode_bytes(current_slice)?;
+            let (_, _, rest) = decode_rlp_item(current_slice)?;
             let item = T::decode(current_slice)?;
             result.push(item);
             current_slice = rest;
@@ -230,20 +227,94 @@ impl<T: RLPDecode> RLPDecode for Vec<T> {
     }
 }
 
-fn decode_list(data: &[u8]) -> Result<&[u8], RLPDecodeError> {
+impl<T1: RLPDecode, T2: RLPDecode> RLPDecode for (T1, T2) {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, _) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+
+        let (_, first, rest) = decode_rlp_item(payload)?;
+        let first = if first.is_empty() {
+            T1::decode(&[RLP_EMPTY_LIST])?
+        } else {
+            T1::decode(payload)?
+        };
+        let second = T2::decode(rest)?;
+        Ok((first, second))
+    }
+}
+
+impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, _) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+
+        let (_, first, first_rest) = decode_rlp_item(payload)?;
+        let first_decoded = if first.is_empty() {
+            T1::decode(&[RLP_EMPTY_LIST])?
+        } else {
+            T1::decode(payload)?
+        };
+
+        let (_, second, second_rest) = decode_rlp_item(first_rest)?;
+        let second_decoded = if second.is_empty() {
+            T2::decode(&[RLP_EMPTY_LIST])?
+        } else {
+            T2::decode(first_rest)?
+        };
+        let third_decoded = T3::decode(second_rest)?;
+
+        Ok((first_decoded, second_decoded, third_decoded))
+    }
+}
+
+fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
     }
 
-    // check the list length and return the payload of the list
     let first_byte = data[0];
+
     match first_byte {
+        0..=0x7F => Ok((false, &data[..1], &data[1..])),
+        0x80..=0xB7 => {
+            let length = (first_byte - 0x80) as usize;
+            if data.len() < length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((false, &data[1..length + 1], &data[length + 1..]))
+        }
+        0xB8..=0xBF => {
+            let length_of_length = (first_byte - 0xB7) as usize;
+            if data.len() < length_of_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            let length_bytes = &data[1..length_of_length + 1];
+            let length = usize::from_be_bytes(static_left_pad(length_bytes)?);
+            if data.len() < length_of_length + length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((
+                false,
+                &data[length_of_length + 1..length_of_length + length + 1],
+                &data[length_of_length + length + 1..],
+            ))
+        }
         RLP_EMPTY_LIST..=0xF7 => {
             let length = (first_byte - RLP_EMPTY_LIST) as usize;
             if data.len() < length + 1 {
                 return Err(RLPDecodeError::InvalidLength);
             }
-            Ok(&data[1..length + 1])
+            Ok((true, &data[1..length + 1], &data[length + 1..]))
         }
         0xF8..=0xFF => {
             let list_length = (first_byte - 0xF7) as usize;
@@ -255,9 +326,12 @@ fn decode_list(data: &[u8]) -> Result<&[u8], RLPDecodeError> {
             if data.len() < list_length + payload_length + 1 {
                 return Err(RLPDecodeError::InvalidLength);
             }
-            Ok(&data[list_length + 1..list_length + payload_length + 1])
+            Ok((
+                true,
+                &data[list_length + 1..list_length + payload_length + 1],
+                &data[list_length + payload_length + 1..],
+            ))
         }
-        _ => Err(RLPDecodeError::MalformedData),
     }
 }
 
@@ -449,6 +523,105 @@ mod tests {
         let rlp = vec![0xc8, 0x83, b'c', b'a', b't', 0x83, b'd', b'o', b'g'];
         let decoded: Vec<String> = Vec::decode(&rlp).unwrap();
         let expected = vec!["cat".to_string(), "dog".to_string()];
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_list_of_lists() {
+        let rlp = vec![
+            0xd2, 0xc8, 0x83, b'c', b'a', b't', 0x83, b'd', b'o', b'g', 0xc8, 0x83, b'f', b'o',
+            b'o', 0x83, b'b', b'a', b'r',
+        ];
+        let decoded: Vec<Vec<String>> = Vec::decode(&rlp).unwrap();
+        let expected = vec![
+            vec!["cat".to_string(), "dog".to_string()],
+            vec!["foo".to_string(), "bar".to_string()],
+        ];
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_tuples() {
+        // tuple with numbers
+        let rlp = vec![RLP_EMPTY_LIST + 2, 0x01, 0x02];
+        let decoded: (u8, u8) = <(u8, u8)>::decode(&rlp).unwrap();
+        let expected = (1, 2);
+        assert_eq!(decoded, expected);
+
+        // tuple with string and number
+        let rlp = vec![RLP_EMPTY_LIST + 5, 0x01, 0x83, b'c', b'a', b't'];
+        let decoded: (u8, String) = <(u8, String)>::decode(&rlp).unwrap();
+        let expected = (1, "cat".to_string());
+        assert_eq!(decoded, expected);
+
+        // tuple with bool and string
+        let rlp = vec![RLP_EMPTY_LIST + 6, 0x01, 0x84, b't', b'r', b'u', b'e'];
+        let decoded: (bool, String) = <(bool, String)>::decode(&rlp).unwrap();
+        let expected = (true, "true".to_string());
+        assert_eq!(decoded, expected);
+
+        // tuple with list and number
+        let rlp = vec![RLP_EMPTY_LIST + 2, RLP_EMPTY_LIST, 0x03];
+        let decoded = <(Vec<u8>, u8)>::decode(&rlp).unwrap();
+        let expected = (vec![], 3);
+        assert_eq!(decoded, expected);
+
+        // tuple with number and list
+        let rlp = vec![RLP_EMPTY_LIST + 2, 0x03, RLP_EMPTY_LIST];
+        let decoded = <(u8, Vec<u8>)>::decode(&rlp).unwrap();
+        let expected = (3, vec![]);
+        assert_eq!(decoded, expected);
+
+        // tuple with tuples
+        let rlp = vec![
+            RLP_EMPTY_LIST + 6,
+            RLP_EMPTY_LIST + 2,
+            0x01,
+            0x02,
+            RLP_EMPTY_LIST + 2,
+            0x03,
+            0x04,
+        ];
+        let decoded = <((u8, u8), (u8, u8))>::decode(&rlp).unwrap();
+        let expected = ((1, 2), (3, 4));
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_tuples_3_elements() {
+        // tuple with numbers
+        let rlp = vec![RLP_EMPTY_LIST + 3, 0x01, 0x02, 0x03];
+        let decoded: (u8, u8, u8) = <(u8, u8, u8)>::decode(&rlp).unwrap();
+        let expected = (1, 2, 3);
+        assert_eq!(decoded, expected);
+
+        // tuple with string and number
+        let rlp = vec![RLP_EMPTY_LIST + 6, 0x01, 0x02, 0x83, b'c', b'a', b't'];
+        let decoded: (u8, u8, String) = <(u8, u8, String)>::decode(&rlp).unwrap();
+        let expected = (1, 2, "cat".to_string());
+        assert_eq!(decoded, expected);
+
+        // tuple with bool and string
+        let rlp = vec![RLP_EMPTY_LIST + 7, 0x01, 0x02, 0x84, b't', b'r', b'u', b'e'];
+        let decoded: (u8, u8, String) = <(u8, u8, String)>::decode(&rlp).unwrap();
+        let expected = (1, 2, "true".to_string());
+        assert_eq!(decoded, expected);
+
+        // tuple with tuples
+        let rlp = vec![
+            RLP_EMPTY_LIST + 9,
+            RLP_EMPTY_LIST + 2,
+            0x01,
+            0x02,
+            RLP_EMPTY_LIST + 2,
+            0x03,
+            0x04,
+            RLP_EMPTY_LIST + 2,
+            0x05,
+            0x06,
+        ];
+        let decoded = <((u8, u8), (u8, u8), (u8, u8))>::decode(&rlp).unwrap();
+        let expected = ((1, 2), (3, 4), (5, 6));
         assert_eq!(decoded, expected);
     }
 }
