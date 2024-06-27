@@ -30,7 +30,7 @@ pub struct EIP1559Transaction {
     max_fee_per_gas: u64,
     gas_limit: u64,
     destination: Address,
-    amount: u64,
+    amount: U256,
     payload: Bytes,
     access_list: Vec<(Address, Vec<H256>)>,
     signature_y_parity: bool,
@@ -88,7 +88,7 @@ impl Transaction {
 
     pub fn gas_limit(&self) -> u64 {
         match self {
-            Transaction::LegacyTransaction(_tx) => todo!(),
+            Transaction::LegacyTransaction(tx) => tx.gas_price,
             Transaction::EIP1559Transaction(tx) => tx.gas_limit,
         }
     }
@@ -96,7 +96,7 @@ impl Transaction {
     pub fn gas_price(&self) -> u64 {
         match self {
             Transaction::LegacyTransaction(tx) => tx.gas_price,
-            Transaction::EIP1559Transaction(_tx) => todo!(),
+            Transaction::EIP1559Transaction(tx) => tx.max_fee_per_gas,
         }
     }
 
@@ -110,7 +110,7 @@ impl Transaction {
     pub fn value(&self) -> U256 {
         match self {
             Transaction::LegacyTransaction(tx) => tx.value,
-            Transaction::EIP1559Transaction(_tx) => todo!(),
+            Transaction::EIP1559Transaction(tx) => tx.amount,
         }
     }
 
@@ -139,6 +139,13 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(tx) => tx.nonce,
             Transaction::EIP1559Transaction(tx) => tx.signer_nonce,
+        }
+    }
+
+    pub fn data(&self) -> &Bytes {
+        match self {
+            Transaction::LegacyTransaction(tx) => &tx.data,
+            Transaction::EIP1559Transaction(tx) => &tx.payload,
         }
     }
 }

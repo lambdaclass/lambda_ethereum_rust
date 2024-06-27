@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
 
-fn execute_tx(
+pub fn execute_tx(
     tx: &Transaction,
     header: &BlockHeader,
     pre: HashMap<Address, Account>,
@@ -78,7 +78,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         gas_price: U256::from(tx.gas_price()),
         transact_to: TxKind::Call(RevmAddress(tx.to().0.into())), // Todo: handle case where this is Create
         value: U256::from_limbs(tx.value().0),
-        data: todo!(),
+        data: tx.data().clone().into(),
         nonce: Some(tx.nonce()),
         chain_id: tx.chain_id(),
         access_list: tx
@@ -94,9 +94,4 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         gas_priority_fee: tx.max_priority_fee().map(U256::from),
         ..Default::default()
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 }
