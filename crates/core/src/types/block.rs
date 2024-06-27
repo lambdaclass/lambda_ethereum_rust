@@ -163,16 +163,38 @@ impl RLPEncode for EIP1559Transaction {
 }
 
 impl Transaction {
-    // pub fn nonce(&self) -> u64 {
-    //     match self {
-    //         Transaction::LegacyTransaction(tx) => tx.nonce,
-    //         Transaction::EIP1559Transaction(tx) => tx.signer_nonce,
-    //     }
-    // }
+    pub fn sender(&self) -> Address {
+        match self {
+            Transaction::LegacyTransaction(_tx) => todo!(),
+            Transaction::EIP1559Transaction(_tx) => todo!(),
+        }
+    }
+
+    pub fn gas_limit(&self) -> u64 {
+        match self {
+            Transaction::LegacyTransaction(_tx) => todo!(),
+            Transaction::EIP1559Transaction(tx) => tx.gas_limit,
+        }
+    }
+
+    pub fn gas_price(&self) -> u64 {
+        match self {
+            Transaction::LegacyTransaction(tx) => tx.gas_price,
+            Transaction::EIP1559Transaction(_tx) => todo!(),
+        }
+    }
+
     pub fn to(&self) -> Address {
         match self {
             Transaction::LegacyTransaction(tx) => tx.to,
             Transaction::EIP1559Transaction(tx) => tx.destination,
+        }
+    }
+
+    pub fn value(&self) -> U256 {
+        match self {
+            Transaction::LegacyTransaction(tx) => tx.value,
+            Transaction::EIP1559Transaction(_tx) => todo!(),
         }
     }
 }
