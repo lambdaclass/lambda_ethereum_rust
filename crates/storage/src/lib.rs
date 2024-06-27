@@ -1,5 +1,6 @@
 mod account;
 mod block;
+mod receipt;
 
 use account::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
@@ -12,6 +13,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
+use receipt::ReceiptRLP;
 use std::path::Path;
 
 // Define tables
@@ -35,6 +37,10 @@ table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
 );
+table!(
+    /// Receipts table.
+    ( Receipts ) BlockNumber => ReceiptRLP
+);
 
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
@@ -45,6 +51,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(AccountInfos),
         table_info!(AccountStorages),
         table_info!(AccountCodes),
+        table_info!(Receipts),
     ]
     .into_iter()
     .collect();
