@@ -1,3 +1,4 @@
+use ethrex_core::types::{EIP1559Transaction, Transaction as EthrexTransacion};
 use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 
 use revm::primitives::Bytes;
@@ -139,5 +140,27 @@ impl Into<BlockHeader> for Header {
             excess_blob_gas: self.excess_blob_gas.unwrap().as_u64(),
             parent_beacon_block_root: self.parent_beacon_block_root.unwrap(),
         }
+    }
+}
+
+impl Into<EthrexTransacion> for Transaction {
+    fn into(self) -> EthrexTransacion {
+        EthrexTransacion::EIP1559Transaction(EIP1559Transaction {
+            // Note: gas_price is not used in this conversion as it is not part of EIP1559Transaction, this could be a problem
+            chain_id: self.chain_id.unwrap().as_u64(),
+            signer_nonce: self.nonce.as_u64(),
+            max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap().as_u64(),
+            max_fee_per_gas: self.max_fee_per_gas.unwrap().as_u64(),
+            gas_limit: self.gas_limit.as_u64(),
+            destination: self.to,
+            amount: self.value,
+            payload: self.data.0,
+            access_list: self.access_list.unwrap().into_iter().map(|item| {
+                (item.address, item.storage_keys)
+            }).collect(),
+            signature_y_parity: self.v.as_u64() != 0, // TODO: check this
+            signature_r: self.r,
+            signature_s: self.s,
+        })
     }
 }

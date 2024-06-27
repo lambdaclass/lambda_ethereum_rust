@@ -11,31 +11,31 @@ pub enum Transaction {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
-    nonce: u64,
-    gas_price: u64,
-    gas: u64,
-    to: Address,
-    value: U256,
-    data: Bytes,
-    v: U256,
-    r: U256,
-    s: U256,
+    pub nonce: u64,
+    pub gas_price: u64,
+    pub gas: u64,
+    pub to: Address,
+    pub value: U256,
+    pub data: Bytes,
+    pub v: U256,
+    pub r: U256,
+    pub s: U256,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EIP1559Transaction {
-    chain_id: u64,
-    signer_nonce: u64,
-    max_priority_fee_per_gas: u64,
-    max_fee_per_gas: u64,
-    gas_limit: u64,
-    destination: Address,
-    amount: U256,
-    payload: Bytes,
-    access_list: Vec<(Address, Vec<H256>)>,
-    signature_y_parity: bool,
-    signature_r: U256,
-    signature_s: U256,
+    pub chain_id: u64,
+    pub signer_nonce: u64,
+    pub max_priority_fee_per_gas: u64,
+    pub max_fee_per_gas: u64,
+    pub gas_limit: u64,
+    pub destination: Address,
+    pub amount: U256,
+    pub payload: Bytes,
+    pub access_list: Vec<(Address, Vec<H256>)>,
+    pub signature_y_parity: bool,
+    pub signature_r: U256,
+    pub signature_s: U256,
 }
 
 impl RLPEncode for Transaction {
