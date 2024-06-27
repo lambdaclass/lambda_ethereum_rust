@@ -1,10 +1,11 @@
 use core::types::Genesis;
 use net::types::BootNode;
 use std::{
-    io::BufReader,
-    net::{AddrParseError, SocketAddr},
+    io::{self, BufReader},
+    net::{SocketAddr, ToSocketAddrs},
     str::FromStr,
 };
+
 use tokio::join;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
@@ -51,11 +52,10 @@ async fn main() {
         .expect("bootnodes is required")
         .collect();
 
-    let bootnodes: Vec<BootNode> = bootnode_list
+    let _bootnodes: Vec<BootNode> = bootnode_list
         .iter()
         .map(|s| BootNode::from_str(s).expect("Failed to parse bootnodes"))
         .collect();
-    dbg!(bootnodes);
 
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");
@@ -81,6 +81,13 @@ fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     serde_json::from_reader(genesis_reader).expect("Failed to read genesis file")
 }
 
-fn parse_socket_addr(addr: &str, port: &str) -> Result<SocketAddr, AddrParseError> {
-    format!("{addr}:{port}").parse()
+fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
+    // NOTE: this blocks until hostname can be resolved
+    format!("{addr}:{port}")
+        .to_socket_addrs()?
+        .next()
+        .ok_or(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Failed to parse socket address",
+        ))
 }
