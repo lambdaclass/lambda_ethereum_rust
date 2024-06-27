@@ -1,6 +1,7 @@
 pub(crate) mod discv4;
 
 use std::{
+    fmt::Write,
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -39,7 +40,10 @@ async fn discover_peers(udp_addr: SocketAddr) {
 
 // TODO: maybe remove this
 fn to_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+    bytes.iter().fold(String::new(), |mut buf, b| {
+        let _ = write!(&mut buf, "{b:02x}");
+        buf
+    })
 }
 
 async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {

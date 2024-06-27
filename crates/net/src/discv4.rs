@@ -115,13 +115,16 @@ impl RLPEncode for PingMessage {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{fmt::Write, str::FromStr};
 
     use super::*;
     use keccak_hash::H256;
 
     fn to_hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{:02x}", b)).collect()
+        bytes.iter().fold(String::new(), |mut buf, b| {
+            let _ = write!(&mut buf, "{b:02x}");
+            buf
+        })
     }
 
     #[test]
