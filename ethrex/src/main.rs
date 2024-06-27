@@ -34,8 +34,12 @@ async fn main() {
         .get_one::<String>("authrpc.port")
         .expect("authrpc.port is required");
 
-    let tcp_addr = matches.get_one::<String>("addr").expect("addr is required");
-    let tcp_port = matches.get_one::<String>("port").expect("port is required");
+    let tcp_addr = matches
+        .get_one::<String>("p2p.addr")
+        .expect("addr is required");
+    let tcp_port = matches
+        .get_one::<String>("p2p.port")
+        .expect("port is required");
     let udp_addr = matches
         .get_one::<String>("discovery.addr")
         .expect("discovery.addr is required");
