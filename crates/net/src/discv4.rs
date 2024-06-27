@@ -53,13 +53,13 @@ impl Message {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct NodeRecord {
+pub(crate) struct Endpoint {
     pub ip: IpAddr,
     pub udp_port: u16,
     pub tcp_port: u16,
 }
 
-impl RLPEncode for &NodeRecord {
+impl RLPEncode for &Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
         (self.ip, self.udp_port, self.tcp_port).encode(buf);
     }
@@ -69,14 +69,14 @@ impl RLPEncode for &NodeRecord {
 pub(crate) struct PingMessage {
     // Should be always 4
     version: u8,
-    from: NodeRecord,
-    to: NodeRecord,
+    from: Endpoint,
+    to: Endpoint,
     expiration: u64,
     enr_seq: Option<u64>,
 }
 
 impl PingMessage {
-    pub fn new(from: NodeRecord, to: NodeRecord, expiration: u64) -> Self {
+    pub fn new(from: Endpoint, to: Endpoint, expiration: u64) -> Self {
         Self {
             version: 4,
             from,
@@ -120,12 +120,12 @@ mod tests {
     fn test_encode_ping_message() {
         let expiration: u64 = 17195043770;
 
-        let from = NodeRecord {
+        let from = Endpoint {
             ip: IpAddr::from_str("1.2.3.4").unwrap(),
             udp_port: 1613,
             tcp_port: 6363,
         };
-        let to = NodeRecord {
+        let to = Endpoint {
             ip: IpAddr::from_str("255.255.2.5").unwrap(),
             udp_port: 3063,
             tcp_port: 0,

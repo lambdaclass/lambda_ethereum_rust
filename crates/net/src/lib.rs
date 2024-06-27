@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use discv4::{NodeRecord, PingMessage};
+use discv4::{Endpoint, PingMessage};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use tokio::{
     net::{TcpSocket, UdpSocket},
@@ -53,12 +53,12 @@ async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
         .unwrap();
 
     // TODO: this should send our advertised TCP port
-    let from = NodeRecord {
+    let from = Endpoint {
         ip: local_addr.ip(),
         udp_port: local_addr.port(),
         tcp_port: 0,
     };
-    let to = NodeRecord {
+    let to = Endpoint {
         ip: to_addr.ip(),
         udp_port: to_addr.port(),
         tcp_port: 0,
