@@ -10,7 +10,7 @@ pub type Bloom = [u8; 256];
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockHeader {
     pub parent_hash: H256,
-    pub ommers_hash: H256,
+    pub ommers_hash: H256, // ommer = uncle
     pub coinbase: Address,
     pub state_root: H256,
     pub transactions_root: H256,

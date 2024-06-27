@@ -1,4 +1,4 @@
-use ethrex_core::{Address, Bloom, H256, U256, U64};
+use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 
 use revm::primitives::Bytes;
 use serde::{Deserialize, Serialize};
@@ -111,4 +111,33 @@ pub struct Transaction {
     pub hash: Option<H256>,
     pub sender: Address,
     pub to: Address,
+}
+
+// Conversions between EFtests & Ethrex types
+
+impl Into<BlockHeader> for Header {
+    fn into(self) -> BlockHeader {
+        BlockHeader {
+            parent_hash: self.parent_hash,
+            ommers_hash: self.uncle_hash,
+            coinbase: self.coinbase,
+            state_root: self.state_root,
+            transactions_root: self.transactions_trie,
+            receipt_root: self.receipt_trie,
+            logs_bloom: self.bloom.into(),
+            difficulty: self.difficulty,
+            number: self.number.as_u64(),
+            gas_limit: self.gas_limit.as_u64(),
+            gas_used: self.gas_used.as_u64(),
+            timestamp: self.timestamp.as_u64(),
+            extra_data: self.extra_data.0,
+            prev_randao: self.mix_hash,
+            nonce: self.nonce.as_u64(),
+            base_fee_per_gas: self.base_fee_per_gas.unwrap().as_u64(),
+            withdrawals_root: self.withdrawals_root.unwrap(),
+            blob_gas_used: self.blob_gas_used.unwrap().as_u64(),
+            excess_blob_gas: self.excess_blob_gas.unwrap().as_u64(),
+            parent_beacon_block_root: self.parent_beacon_block_root.unwrap(),
+        }
+    }
 }
