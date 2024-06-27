@@ -6,19 +6,8 @@ use super::{
 };
 use bytes::{Bytes, BytesMut};
 
-/// According to the rules and process of RLP encoding, the input of RLP decode is regarded as an array of binary data.
-///
-/// The RLP decoding process is as follows:
-/// according to the *first byte* (i.e. prefix) of input data and *decoding the data type*, *the length of the actual data* and *offset*;
-/// according to the type and offset of data, decode the data correspondingly, respecting the minimal encoding rule for positive integers;
-/// continue to decode the rest of the input;
-///
-/// Among them, the rules of decoding data types and offset is as follows:
-/// - the data is a string if the range of the first byte (i.e. prefix) is [0x00, 0x7f], and the string is the first byte itself exactly;
-/// - the data is a string if the range of the first byte is [0x80, 0xb7], and the string whose length is equal to the first byte minus 0x80 follows the first byte;
-/// - the data is a string if the range of the first byte is [0xb8, 0xbf], and the length of the string whose length in bytes is equal to the first byte minus 0xb7 follows the first byte, and the string follows the length of the string;
-/// - the data is a list if the range of the first byte is [0xc0, 0xf7], and the concatenation of the RLP encodings of all items of the list which the total payload is equal to the first byte minus 0xc0 follows the first byte;
-/// - the data is a list if the range of the first byte is [0xf8, 0xff], and the total payload of the list whose length is equal to the first byte minus 0xf7 follows the first byte, and the concatenation of the RLP encodings of all items of the list follows the total payload of the list;
+/// Trait for decoding RLP encoded slices of data.
+/// See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding for more information.
 pub trait RLPDecode: Sized {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError>;
 }
@@ -41,7 +30,6 @@ impl RLPDecode for bool {
     }
 }
 
-// integer decoding impls
 impl RLPDecode for u8 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
         if rlp.is_empty() {
