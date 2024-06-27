@@ -198,6 +198,14 @@ impl RLPDecode for IpAddr {
     }
 }
 
+impl RLPDecode for ethereum_types::U256 {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let (bytes, _) = decode_bytes(rlp)?;
+        let padded_bytes: [u8; 32] = static_left_pad(bytes)?;
+        Ok(ethereum_types::U256::from_big_endian(&padded_bytes))
+    }
+}
+
 impl<T: RLPDecode> RLPDecode for Vec<T> {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
         if rlp.is_empty() {
@@ -483,6 +491,21 @@ mod tests {
         ];
         let decoded = Ipv6Addr::decode(&rlp).unwrap();
         let expected = Ipv6Addr::from_str("2001:0000:130F:0000:0000:09C0:876A:130B").unwrap();
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_u256() {
+        let rlp = vec![RLP_NULL + 1, 0x01];
+        let decoded = ethereum_types::U256::decode(&rlp).unwrap();
+        let expected = ethereum_types::U256::from(1);
+        assert_eq!(decoded, expected);
+
+        let mut rlp = vec![RLP_NULL + 32];
+        let number_bytes = [0x01; 32];
+        rlp.extend(number_bytes);
+        let decoded = ethereum_types::U256::decode(&rlp).unwrap();
+        let expected = ethereum_types::U256::from_big_endian(&number_bytes);
         assert_eq!(decoded, expected);
     }
 
