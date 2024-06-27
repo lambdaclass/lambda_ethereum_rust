@@ -6,7 +6,7 @@ use account::{
     AccountStorageValueRLP, AddressRLP,
 };
 use block::{BlockBodyRLP, BlockHeaderRLP};
-use core::types::BlockNumber;
+use ethrex_core::types::BlockNumber;
 use libmdbx::{
     dupsort,
     orm::{table, Database},

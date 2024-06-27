@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rpc.workspace = true
-core.workspace = true
-net.workspace = true
+ethrex-rpc.workspace = true
+ethrex-core.workspace = true
+ethrex-net.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true

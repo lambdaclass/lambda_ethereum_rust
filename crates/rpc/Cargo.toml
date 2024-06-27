@@ -1,5 +1,5 @@
 [package]
-name = "rpc"
+name = "ethrex-rpc"
 version = "0.1.0"
 edition = "2021"
 

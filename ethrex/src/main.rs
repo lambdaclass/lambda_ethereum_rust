@@ -1,4 +1,4 @@
-use core::types::Genesis;
+use ethrex_core::types::Genesis;
 use std::{
     io::{self, BufReader},
     net::{SocketAddr, ToSocketAddrs},
@@ -57,8 +57,8 @@ async fn main() {
 
     let _genesis = read_genesis_file(genesis_file_path);
 
-    let rpc_api = rpc::start_api(http_socket_addr, authrpc_socket_addr);
-    let networking = net::start_network(udp_socket_addr, tcp_socket_addr);
+    let rpc_api = ethrex_rpc::start_api(http_socket_addr, authrpc_socket_addr);
+    let networking = ethrex_net::start_network(udp_socket_addr, tcp_socket_addr);
 
     join!(rpc_api, networking);
 }
