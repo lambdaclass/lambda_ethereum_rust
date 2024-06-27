@@ -197,4 +197,18 @@ impl Transaction {
             Transaction::EIP1559Transaction(_tx) => todo!(),
         }
     }
+
+    pub fn max_priority_fee(&self) -> Option<u64> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::EIP1559Transaction(tx) => Some(tx.max_priority_fee_per_gas),
+        }
+    }
+
+    pub fn chain_id(&self) -> Option<u64> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::EIP1559Transaction(tx) => Some(tx.chain_id),
+        }
+    }
 }

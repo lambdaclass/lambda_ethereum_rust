@@ -69,9 +69,9 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         value: U256::from_limbs(tx.value().0),
         data: todo!(),
         nonce: todo!(),
-        chain_id: todo!(),
+        chain_id: tx.chain_id(),
         access_list: todo!(),
-        gas_priority_fee: todo!(),
+        gas_priority_fee: tx.max_priority_fee(),
         blob_hashes: todo!(),
         max_fee_per_blob_gas: todo!(),
     }
