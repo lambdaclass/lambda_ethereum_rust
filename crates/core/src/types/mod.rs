@@ -6,4 +6,4 @@ mod receipt;
 pub use account::*;
 pub use block::*;
 pub use genesis::*;
-pub use receipt::*;
+pub use receipt::Receipt;
