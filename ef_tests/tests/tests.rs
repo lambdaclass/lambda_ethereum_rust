@@ -1,6 +1,7 @@
 use ::ef_tests::{evm::execute_transaction, types::TestUnit};
 
 fn execute_test(test: TestUnit) {
+    // TODO: Add support for multiple blocks and multiple transactions per block.
     let transaction = test
         .blocks
         .first()

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::stderr};
 
-use ethereum_types::{Address, U256};
+use ethrex_core::{Address, U256};
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,

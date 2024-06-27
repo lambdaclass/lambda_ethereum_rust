@@ -1,4 +1,4 @@
-use ethereum_types::{Address, Bloom, H256, U256, U64};
+use ethrex_core::{Address, Bloom, H256, U256, U64};
 
 use revm::primitives::Bytes;
 use serde::{Deserialize, Serialize};
