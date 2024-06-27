@@ -7,6 +7,7 @@ members = [
     "crates/net",
     "crates/rpc",
     "crates/storage",
+    "ef_tests",
 ]
 resolver = "2"
 
@@ -24,6 +25,7 @@ ethrex-storage = { path = "./crates/storage" }
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
+
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 libmdbx = { version = "0.5.0", features = ["orm"] }
