@@ -1,10 +1,12 @@
 use std::{collections::HashMap, io::stderr};
 
+use ethereum_types::{Address, U256};
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
-        keccak256, AccountInfo, Address, Bytecode, Env, ExecutionResult, SpecId, TransactTo, U256,
+        keccak256, AccountInfo, Bytecode, Env, ExecutionResult, FixedBytes, SpecId, TransactTo,
+        U256 as AlloyU256,
     },
     Evm,
 };
@@ -18,40 +20,50 @@ pub fn execute_transaction(
 ) -> ExecutionResult {
     let mut env = Box::<Env>::default();
 
-    env.block.number = block.number;
-    env.block.coinbase = block.coinbase;
-    env.block.timestamp = block.timestamp;
-    env.block.gas_limit = block.gas_limit;
-    env.block.basefee = U256::ZERO;
-    env.block.difficulty = U256::ZERO;
-    env.block.prevrandao = Some(block.mix_hash);
+    env.block.number = to_alloy_bytes(block.number);
+    env.block.coinbase = block.coinbase.to_fixed_bytes().into();
+    env.block.timestamp = to_alloy_bytes(block.timestamp);
+    env.block.gas_limit = to_alloy_bytes(block.gas_limit);
+    env.block.basefee = AlloyU256::ZERO;
+    env.block.difficulty = AlloyU256::ZERO;
+    env.block.prevrandao = Some(block.mix_hash.as_fixed_bytes().into());
 
-    env.tx.caller = transaction.sender;
+    env.tx.caller = transaction.sender.to_fixed_bytes().into();
 
-    env.tx.gas_price = transaction
-        .gas_price
-        .or(transaction.max_fee_per_gas)
-        .unwrap_or_default();
-    env.tx.gas_priority_fee = transaction.max_priority_fee_per_gas;
+    env.tx.gas_price = to_alloy_bytes(
+        transaction
+            .gas_price
+            .or(transaction.max_fee_per_gas)
+            .unwrap_or_default(),
+    );
+    env.tx.gas_priority_fee = transaction
+        .max_priority_fee_per_gas
+        .and_then(|x| Some(to_alloy_bytes(x)));
 
     let spec_id = SpecId::CANCUN;
 
-    env.tx.gas_limit = transaction.gas_limit.saturating_to();
+    env.tx.gas_limit = transaction.gas_limit.as_u64();
 
     env.tx.data = transaction.data.clone();
-    env.tx.value = transaction.value;
+    env.tx.value = to_alloy_bytes(transaction.value);
 
-    env.tx.transact_to = TransactTo::Call(transaction.to);
+    env.tx.transact_to = TransactTo::Call(transaction.to.to_fixed_bytes().into());
 
     let mut cache_state = revm::CacheState::new(false);
     for (address, info) in pre {
         let acc_info = AccountInfo {
-            balance: info.balance,
+            balance: to_alloy_bytes(info.balance),
             code_hash: keccak256(&info.code),
             code: Some(Bytecode::new_raw(info.code)),
-            nonce: info.nonce.saturating_to(), // TODO ver
+            nonce: info.nonce.as_u64(),
         };
-        cache_state.insert_account_with_storage(address, acc_info, info.storage);
+
+        let mut storage = HashMap::new();
+        for (k, v) in info.storage {
+            storage.insert(to_alloy_bytes(k), to_alloy_bytes(v));
+        }
+
+        cache_state.insert_account_with_storage(address.to_fixed_bytes().into(), acc_info, storage);
     }
 
     let cache = cache_state.clone();
@@ -74,4 +86,11 @@ pub fn execute_transaction(
         .build();
 
     evm.transact_commit().unwrap()
+}
+
+fn to_alloy_bytes(eth_byte: U256) -> AlloyU256 {
+    let mut bytes = [0u8; 32];
+    eth_byte.to_big_endian(&mut bytes);
+    let fixed_bytes: FixedBytes<32> = bytes.into();
+    fixed_bytes.into()
 }

@@ -1,7 +1,6 @@
-use revm::primitives::{
-    alloy_primitives::{Bloom, B64},
-    Address, Bytes, B256, U256,
-};
+use ethereum_types::{Address, Bloom, H256, U256, U64};
+
+use revm::primitives::Bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -29,26 +28,6 @@ pub struct Account {
     pub storage: HashMap<U256, U256>,
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TransactionParts {
-    pub data: Vec<Bytes>,
-    pub gas_limit: Vec<U256>,
-    pub gas_price: Option<U256>,
-    pub nonce: U256,
-    pub secret_key: B256,
-    pub sender: Address,
-    pub to: Address,
-    pub value: Vec<U256>,
-    pub max_fee_per_gas: Option<U256>,
-    pub max_priority_fee_per_gas: Option<U256>,
-    #[serde(default)]
-    pub access_lists: Vec<Option<AccessList>>,
-    #[serde(default)]
-    pub blob_versioned_hashes: Vec<B256>,
-    pub max_fee_per_blob_gas: Option<U256>,
-}
-
 #[derive(Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Env {
@@ -58,28 +37,20 @@ pub struct Env {
     pub current_number: U256,
     pub current_timestamp: U256,
     pub current_base_fee: Option<U256>,
-    pub previous_hash: Option<B256>,
-    pub current_random: Option<B256>,
-    pub current_beacon_root: Option<B256>,
-    pub current_withdrawals_root: Option<B256>,
+    pub previous_hash: Option<H256>,
+    pub current_random: Option<H256>,
+    pub current_beacon_root: Option<H256>,
+    pub current_withdrawals_root: Option<H256>,
     pub parent_blob_gas_used: Option<U256>,
     pub parent_excess_blob_gas: Option<U256>,
     pub current_excess_blob_gas: Option<U256>,
-}
-
-#[derive(Debug, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct TxPartIndices {
-    pub data: usize,
-    pub gas: usize,
-    pub value: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccessListItem {
     pub address: Address,
-    pub storage_keys: Vec<B256>,
+    pub storage_keys: Vec<H256>,
 }
 
 pub type AccessList = Vec<AccessListItem>;
@@ -93,22 +64,22 @@ pub struct Header {
     pub extra_data: Bytes,
     pub gas_limit: U256,
     pub gas_used: U256,
-    pub hash: B256,
-    pub mix_hash: B256,
-    pub nonce: B64,
+    pub hash: H256,
+    pub mix_hash: H256,
+    pub nonce: U64,
     pub number: U256,
-    pub parent_hash: B256,
-    pub receipt_trie: B256,
-    pub state_root: B256,
+    pub parent_hash: H256,
+    pub receipt_trie: H256,
+    pub state_root: H256,
     pub timestamp: U256,
-    pub transactions_trie: B256,
-    pub uncle_hash: B256,
+    pub transactions_trie: H256,
+    pub uncle_hash: H256,
     pub base_fee_per_gas: Option<U256>,
-    pub withdrawals_root: Option<B256>,
+    pub withdrawals_root: Option<H256>,
     pub blob_gas_used: Option<U256>,
     pub excess_blob_gas: Option<U256>,
-    pub parent_beacon_block_root: Option<B256>,
-    pub requests_root: Option<B256>,
+    pub parent_beacon_block_root: Option<H256>,
+    pub requests_root: Option<H256>,
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
@@ -137,7 +108,7 @@ pub struct Transaction {
     pub access_list: Option<AccessList>,
     pub max_fee_per_gas: Option<U256>,
     pub max_priority_fee_per_gas: Option<U256>,
-    pub hash: Option<B256>,
+    pub hash: Option<H256>,
     pub sender: Address,
     pub to: Address,
 }
