@@ -1,7 +1,9 @@
-use ethrex_core::types::{code_hash, Account as EthrexAccount, AccountInfo, EIP1559Transaction, Transaction as EthrexTransacion};
+use bytes::Bytes;
+use ethrex_core::types::{
+    code_hash, Account as EthrexAccount, AccountInfo, EIP1559Transaction,
+    Transaction as EthrexTransacion,
+};
 use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
-
-use revm::primitives::Bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -131,7 +133,7 @@ impl Into<BlockHeader> for Header {
             gas_limit: self.gas_limit.as_u64(),
             gas_used: self.gas_used.as_u64(),
             timestamp: self.timestamp.as_u64(),
-            extra_data: self.extra_data.0,
+            extra_data: self.extra_data,
             prev_randao: self.mix_hash,
             nonce: self.nonce.as_u64(),
             base_fee_per_gas: self.base_fee_per_gas.unwrap().as_u64(),
@@ -147,17 +149,20 @@ impl Into<EthrexTransacion> for Transaction {
     fn into(self) -> EthrexTransacion {
         EthrexTransacion::EIP1559Transaction(EIP1559Transaction {
             // Note: gas_price is not used in this conversion as it is not part of EIP1559Transaction, this could be a problem
-            chain_id: self.chain_id.unwrap().as_u64(),
+            chain_id: self.chain_id.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             signer_nonce: self.nonce.as_u64(),
-            max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap().as_u64(),
-            max_fee_per_gas: self.max_fee_per_gas.unwrap().as_u64(),
+            max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas_limit: self.gas_limit.as_u64(),
             destination: self.to,
             amount: self.value,
-            payload: self.data.0,
-            access_list: self.access_list.unwrap().into_iter().map(|item| {
-                (item.address, item.storage_keys)
-            }).collect(),
+            payload: self.data,
+            access_list: self
+                .access_list
+                .unwrap_or_default()
+                .into_iter()
+                .map(|item| (item.address, item.storage_keys))
+                .collect(),
             signature_y_parity: self.v.as_u64() != 0, // TODO: check this
             signature_r: self.r,
             signature_s: self.s,
@@ -173,14 +178,18 @@ impl Into<EthrexAccount> for Account {
                 balance: self.balance,
                 nonce: self.nonce.as_u64(),
             },
-            code: self.code.0,
-            storage: self.storage.into_iter().map(|(k, v)| {
-                let mut k_bytes = [0;32];
-                let mut v_bytes = [0;32];
-                k.to_big_endian(&mut k_bytes);
-                v.to_big_endian(&mut v_bytes);
-                (H256(k_bytes), H256(v_bytes))
-            }).collect(),
+            code: self.code,
+            storage: self
+                .storage
+                .into_iter()
+                .map(|(k, v)| {
+                    let mut k_bytes = [0; 32];
+                    let mut v_bytes = [0; 32];
+                    k.to_big_endian(&mut k_bytes);
+                    v.to_big_endian(&mut v_bytes);
+                    (H256(k_bytes), H256(v_bytes))
+                })
+                .collect(),
         }
     }
 }

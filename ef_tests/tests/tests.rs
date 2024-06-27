@@ -1,4 +1,5 @@
-use ::ef_tests::{evm::execute_transaction, types::TestUnit};
+use ::ef_tests::types::TestUnit;
+use ethrex_evm::{execute_tx, SpecId};
 
 fn execute_test(test: TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
@@ -11,7 +12,13 @@ fn execute_test(test: TestUnit) {
         .unwrap()
         .first()
         .unwrap();
-    execute_transaction(&test.genesis_block_header, transaction, test.pre);
+    let pre = test.pre.into_iter().map(|(k, v)| (k, v.into())).collect();
+    execute_tx(
+        &transaction.clone().into(),
+        &test.genesis_block_header.into(),
+        &pre,
+        SpecId::CANCUN,
+    );
 }
 
 #[cfg(test)]

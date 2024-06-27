@@ -5,18 +5,20 @@ use ethrex_core::{
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
-    primitives::{BlockEnv, Bytecode, SpecId, TxEnv, TxKind, U256},
+    primitives::{BlockEnv, Bytecode, TxEnv, TxKind, U256},
     CacheState, Evm,
 };
 use std::collections::HashMap;
 // Rename imported types for clarity
 use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
+// Export needed types
+pub use revm::primitives::SpecId;
 
 pub fn execute_tx(
     tx: &Transaction,
     header: &BlockHeader,
-    pre: HashMap<Address, Account>,
+    pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
 ) {
     let block_env = block_env(header);
@@ -38,18 +40,18 @@ pub fn execute_tx(
     let _tx_result = evm.transact().unwrap();
 }
 
-fn cache_state(pre: HashMap<Address, Account>) -> CacheState {
+fn cache_state(pre: &HashMap<Address, Account>) -> CacheState {
     let mut cache_state = revm::CacheState::new(false);
     for (address, account) in pre {
         let acc_info = RevmAccountInfo {
             balance: U256::from_limbs(account.info.balance.0),
             code_hash: account.info.code_hash.0.into(),
-            code: Some(Bytecode::new_raw(account.code.into())),
+            code: Some(Bytecode::new_raw(account.code.clone().into())),
             nonce: account.info.nonce,
         };
 
         let mut storage = HashMap::new();
-        for (k, v) in account.storage {
+        for (k, v) in &account.storage {
             storage.insert(U256::from_be_bytes(k.0), U256::from_be_bytes(v.0.into()));
         }
 
