@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 tracing.workspace = true
 tokio.workspace = true
+ethereum-types = "0.14.1"
