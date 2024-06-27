@@ -6,8 +6,11 @@ use k256::ecdsa::{signature::Signer, SigningKey};
 
 #[derive(Debug)]
 // TODO: remove when all variants are used
+// NOTE: All messages could have more fields than specified by the spec.
+// Those additional fields should be ignored, and the message must be accepted.
 #[allow(dead_code)]
 pub(crate) enum Message {
+    /// A ping message. Should be responded to with a Pong message.
     Ping(PingMessage),
     Pong(()),
     FindNode(()),
@@ -67,11 +70,16 @@ impl RLPEncode for &Endpoint {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PingMessage {
-    // Should be always 4
+    /// The Ping message version. Should be set to 4, but mustn't be enforced.
     version: u8,
+    /// The endpoint of the sender.
     from: Endpoint,
+    /// The endpoint of the receiver.
     to: Endpoint,
+    /// The expiration time of the message. If the message is older than this time,
+    /// it shouldn't be responded to.
     expiration: u64,
+    /// The ENR sequence number of the sender. This field is optional.
     enr_seq: Option<u64>,
 }
 
