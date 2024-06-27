@@ -1,6 +1,9 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-use super::{constants::RLP_NULL, error::RLPDecodeError};
+use super::{
+    constants::{RLP_EMPTY_LIST, RLP_NULL},
+    error::RLPDecodeError,
+};
 use bytes::{Bytes, BytesMut};
 
 /// According to the rules and process of RLP encoding, the input of RLP decode is regarded as an array of binary data.
@@ -40,20 +43,30 @@ impl RLPDecode for bool {
 
 // integer decoding impls
 impl RLPDecode for u8 {
-    fn decode(buf: &[u8]) -> Result<Self, RLPDecodeError> {
-        match buf.len() {
-            0 => Err(RLPDecodeError::InvalidLength),
-            1 if (0x00..=0x7f).contains(&buf[0]) => Ok(buf[0]),
-            1 if buf[0] == RLP_NULL => Ok(0),
-            2 if buf[0] == RLP_NULL + 1 => Ok(buf[1]),
-            _ => Err(RLPDecodeError::InvalidLength),
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+
+        match rlp[0] {
+            // Single byte in the range [0x00, 0x7f]
+            0..=0x7f => Ok(rlp[0]),
+
+            // RLP_NULL represents zero
+            RLP_NULL => Ok(0),
+
+            // Two bytes, where the first byte is RLP_NULL + 1
+            x if rlp.len() == 2 && x == RLP_NULL + 1 => Ok(rlp[1]),
+
+            // Any other case is invalid for u8
+            _ => Err(RLPDecodeError::MalformedData),
         }
     }
 }
 
 impl RLPDecode for u16 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let bytes = decode_bytes(rlp)?;
+        let (bytes, _) = decode_bytes(rlp)?;
         let padded_bytes = static_left_pad(bytes)?;
         Ok(u16::from_be_bytes(padded_bytes))
     }
@@ -61,7 +74,7 @@ impl RLPDecode for u16 {
 
 impl RLPDecode for u32 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let bytes = decode_bytes(rlp)?;
+        let (bytes, _) = decode_bytes(rlp)?;
         let padded_bytes = static_left_pad(bytes)?;
         Ok(u32::from_be_bytes(padded_bytes))
     }
@@ -69,7 +82,7 @@ impl RLPDecode for u32 {
 
 impl RLPDecode for u64 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let bytes = decode_bytes(rlp)?;
+        let (bytes, _) = decode_bytes(rlp)?;
         let padded_bytes = static_left_pad(bytes)?;
         Ok(u64::from_be_bytes(padded_bytes))
     }
@@ -77,7 +90,7 @@ impl RLPDecode for u64 {
 
 impl RLPDecode for u128 {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let bytes = decode_bytes(rlp)?;
+        let (bytes, _) = decode_bytes(rlp)?;
         let padded_bytes = static_left_pad(bytes)?;
         Ok(u128::from_be_bytes(padded_bytes))
     }
@@ -85,7 +98,7 @@ impl RLPDecode for u128 {
 
 impl<const N: usize> RLPDecode for [u8; N] {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let decoded_bytes = decode_bytes(rlp)?;
+        let (decoded_bytes, _) = decode_bytes(rlp)?;
         decoded_bytes
             .try_into()
             .map_err(|_| RLPDecodeError::InvalidLength)
@@ -94,13 +107,13 @@ impl<const N: usize> RLPDecode for [u8; N] {
 
 impl RLPDecode for Bytes {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        decode_bytes(rlp).map(|decoded| Bytes::from(decoded.to_vec()))
+        decode_bytes(rlp).map(|decoded| Bytes::from(decoded.0.to_vec()))
     }
 }
 
 impl RLPDecode for BytesMut {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        decode_bytes(rlp).map(BytesMut::from)
+        decode_bytes(rlp).map(|decoded| BytesMut::from(decoded.0))
     }
 }
 
@@ -154,14 +167,14 @@ impl RLPDecode for ethereum_types::Signature {
 
 impl RLPDecode for String {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let str_bytes = decode_bytes(rlp)?.to_vec();
+        let str_bytes = decode_bytes(rlp)?.0.to_vec();
         String::from_utf8(str_bytes).map_err(|_| RLPDecodeError::MalformedData)
     }
 }
 
 impl RLPDecode for Ipv4Addr {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let ip_bytes = decode_bytes(rlp)?;
+        let (ip_bytes, _) = decode_bytes(rlp)?;
         let octets: [u8; 4] = ip_bytes
             .try_into()
             .map_err(|_| RLPDecodeError::InvalidLength)?;
@@ -171,7 +184,7 @@ impl RLPDecode for Ipv4Addr {
 
 impl RLPDecode for Ipv6Addr {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let ip_bytes = decode_bytes(rlp)?;
+        let (ip_bytes, _) = decode_bytes(rlp)?;
         let octets: [u8; 16] = ip_bytes
             .try_into()
             .map_err(|_| RLPDecodeError::InvalidLength)?;
@@ -181,7 +194,7 @@ impl RLPDecode for Ipv6Addr {
 
 impl RLPDecode for IpAddr {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let ip_bytes = decode_bytes(rlp)?;
+        let (ip_bytes, _) = decode_bytes(rlp)?;
 
         match ip_bytes.len() {
             4 => {
@@ -203,37 +216,93 @@ impl RLPDecode for IpAddr {
 
 impl<T: RLPDecode> RLPDecode for Vec<T> {
     fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        todo!()
+        // empty RLP encoded list must have at least the RLP_EMPTY_LIST byte
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+
+        // empty list case, [ 0xc0 ]
+        if rlp[0] == RLP_EMPTY_LIST {
+            return Ok(Vec::new());
+        }
+
+        // extract the list length and return the payload
+        let payload = decode_list(rlp)?;
+        let mut result = Vec::new();
+        let mut current_slice = payload;
+
+        while !current_slice.is_empty() {
+            let (_, rest) = decode_bytes(current_slice)?;
+            let item = T::decode(current_slice)?;
+            result.push(item);
+            current_slice = rest;
+        }
+
+        Ok(result)
     }
 }
 
-#[inline]
-fn decode_bytes(data: &[u8]) -> Result<&[u8], RLPDecodeError> {
-    let mut rlp_iter = data.iter();
-    let first_byte = match rlp_iter.next() {
-        Some(&first_byte) => first_byte,
-        None => return Err(RLPDecodeError::InvalidLength),
-    };
+fn decode_list(data: &[u8]) -> Result<&[u8], RLPDecodeError> {
+    if data.is_empty() {
+        return Err(RLPDecodeError::InvalidLength);
+    }
 
-    // calculate the length of the data based on the prefix
+    // check the list length and return the payload of the list
+    let first_byte = data[0];
     match first_byte {
-        // the data is a string if the range of the first byte (i.e. prefix) is [0x00, 0x7f],
-        // and the string is the first byte itself exactly;
-        0..=0x7F => Ok(&data[..1]),
-        // the data is a string if the range of the first byte is [0x80, 0xb7], and the string
-        // whose length is equal to the first byte minus 0x80 follows the first byte;
-        RLP_NULL..=0xB7 => {
-            let data_length = (first_byte - RLP_NULL) as usize;
-            Ok(&data[1..data_length + 1])
+        RLP_EMPTY_LIST..=0xF7 => {
+            let length = (first_byte - RLP_EMPTY_LIST) as usize;
+            if data.len() < length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok(&data[1..length + 1])
         }
-        // the data is a string if the range of the first byte is [0xb8, 0xbf], and the length
-        // of the string whose length in bytes is equal to the first byte minus 0xb7 follows
-        // the first byte, and the string follows the length of the string;
-        b @ 0xB8..=0xBF if b < 0xF8 => {
-            let length_size = (b - 0xB7) as usize;
-            let data_length_bytes = &data[1..length_size];
-            let data_length = usize::from_be_bytes(static_left_pad(data_length_bytes)?);
-            Ok(&data[length_size + 1..data_length + 1])
+        0xF8..=0xFF => {
+            let list_length = (first_byte - 0xF7) as usize;
+            if data.len() < list_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            let length_bytes = &data[1..list_length + 1];
+            let payload_length = usize::from_be_bytes(static_left_pad(length_bytes)?);
+            if data.len() < list_length + payload_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok(&data[list_length + 1..list_length + payload_length + 1])
+        }
+        _ => Err(RLPDecodeError::MalformedData),
+    }
+}
+
+fn decode_bytes(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeError> {
+    if data.is_empty() {
+        return Err(RLPDecodeError::InvalidLength);
+    }
+
+    let first_byte = data[0];
+
+    match first_byte {
+        0..=0x7F => Ok((&data[..1], &data[1..])),
+        0x80..=0xB7 => {
+            let length = (first_byte - 0x80) as usize;
+            if data.len() < length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((&data[1..length + 1], &data[length + 1..]))
+        }
+        0xB8..=0xBF => {
+            let length_of_length = (first_byte - 0xB7) as usize;
+            if data.len() < length_of_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            let length_bytes = &data[1..length_of_length + 1];
+            let length = usize::from_be_bytes(static_left_pad(length_bytes)?);
+            if data.len() < length_of_length + length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((
+                &data[length_of_length + 1..length_of_length + length + 1],
+                &data[length_of_length + length + 1..],
+            ))
         }
         _ => Err(RLPDecodeError::MalformedData),
     }
@@ -263,11 +332,8 @@ pub(crate) fn static_left_pad<const N: usize>(data: &[u8]) -> Result<[u8; N], RL
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use crate::rlp::decode;
-
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_decode_bool() {
@@ -368,6 +434,33 @@ mod tests {
         let rlp = vec![RLP_NULL];
         let decoded = String::decode(&rlp).unwrap();
         let expected = String::from("");
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_lists() {
+        // empty list
+        let rlp = vec![RLP_EMPTY_LIST];
+        let decoded: Vec<String> = Vec::decode(&rlp).unwrap();
+        let expected: Vec<String> = vec![];
+        assert_eq!(decoded, expected);
+
+        //  list with a single number
+        let rlp = vec![RLP_EMPTY_LIST + 1, 0x01];
+        let decoded: Vec<u8> = Vec::decode(&rlp).unwrap();
+        let expected = vec![1];
+        assert_eq!(decoded, expected);
+
+        // list with 3 numbers
+        let rlp = vec![RLP_EMPTY_LIST + 3, 0x01, 0x02, 0x03];
+        let decoded: Vec<u8> = Vec::decode(&rlp).unwrap();
+        let expected = vec![1, 2, 3];
+        assert_eq!(decoded, expected);
+
+        // list of strings
+        let rlp = vec![0xc8, 0x83, b'c', b'a', b't', 0x83, b'd', b'o', b'g'];
+        let decoded: Vec<String> = Vec::decode(&rlp).unwrap();
+        let expected = vec!["cat".to_string(), "dog".to_string()];
         assert_eq!(decoded, expected);
     }
 }
