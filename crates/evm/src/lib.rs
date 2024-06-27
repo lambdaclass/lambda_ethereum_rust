@@ -3,7 +3,9 @@ use ethrex_core::{
     Address,
 };
 use revm::{
-    primitives::{BlockEnv, Bytecode, TxEnv, TxKind, U256},
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    primitives::{BlockEnv, Bytecode, SpecId, TxEnv, TxKind, U256},
     CacheState, Evm,
 };
 use std::collections::HashMap;
@@ -11,7 +13,12 @@ use std::collections::HashMap;
 use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
 
-fn execute_tx(tx: &Transaction, header: &BlockHeader, pre: HashMap<Address, Account>) {
+fn execute_tx(
+    tx: &Transaction,
+    header: &BlockHeader,
+    pre: HashMap<Address, Account>,
+    spec_id: SpecId,
+) {
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
     let cache_state = cache_state(pre);
@@ -23,6 +30,10 @@ fn execute_tx(tx: &Transaction, header: &BlockHeader, pre: HashMap<Address, Acco
         .with_db(&mut state)
         .with_block_env(block_env)
         .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .reset_handler()
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
+        .append_handler_register(inspector_handle_register)
         .build();
     let _tx_result = evm.transact().unwrap();
 }
@@ -68,7 +79,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         transact_to: TxKind::Call(RevmAddress(tx.to().0.into())), // Todo: handle case where this is Create
         value: U256::from_limbs(tx.value().0),
         data: todo!(),
-        nonce: todo!(),
+        nonce: Some(tx.nonce()),
         chain_id: tx.chain_id(),
         access_list: tx
             .access_list()
@@ -81,8 +92,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             })
             .collect(),
         gas_priority_fee: tx.max_priority_fee().map(U256::from),
-        blob_hashes: todo!(),
-        max_fee_per_blob_gas: todo!(),
+        ..Default::default()
     }
 }
 

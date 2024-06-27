@@ -11,7 +11,7 @@ pub enum Transaction {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
-    nonce: U256,
+    nonce: u64,
     gas_price: u64,
     gas: u64,
     to: Address,
@@ -25,7 +25,7 @@ pub struct LegacyTransaction {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EIP1559Transaction {
     chain_id: u64,
-    signer_nonce: U256,
+    signer_nonce: u64,
     max_priority_fee_per_gas: u64,
     max_fee_per_gas: u64,
     gas_limit: u64,
@@ -132,6 +132,13 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(_tx) => Vec::new(),
             Transaction::EIP1559Transaction(tx) => tx.access_list.clone(),
+        }
+    }
+
+    pub fn nonce(&self) -> u64 {
+        match self {
+            Transaction::LegacyTransaction(tx) => tx.nonce,
+            Transaction::EIP1559Transaction(tx) => tx.signer_nonce,
         }
     }
 }
