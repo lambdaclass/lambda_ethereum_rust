@@ -12,6 +12,8 @@ ethereum-types = "0.14.1"
 serde.workspace = true
 serde_json.workspace = true
 keccak-hash = "0.10.0"
+k256 = { workspace = true, features = ["ecdsa"]}
+sha3 = "0.10.8"
 
 [dev-dependencies]
 hex-literal = "0.4.1"

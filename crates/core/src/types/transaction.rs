@@ -1,5 +1,7 @@
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
+use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
+use sha3::{Digest, Keccak256};
 
 use crate::rlp::encode::RLPEncode;
 
@@ -81,8 +83,14 @@ impl RLPEncode for EIP1559Transaction {
 impl Transaction {
     pub fn sender(&self) -> Address {
         match self {
-            Transaction::LegacyTransaction(_tx) => todo!(),
-            Transaction::EIP1559Transaction(_tx) => todo!(),
+            Transaction::LegacyTransaction(tx) => recover_address(&tx.r, &tx.s, &tx.data),
+            Transaction::EIP1559Transaction(tx) => {
+                dbg!(recover_address(
+                    &tx.signature_r,
+                    &tx.signature_s,
+                    &tx.payload
+                ))
+            }
         }
     }
 
@@ -148,4 +156,23 @@ impl Transaction {
             Transaction::EIP1559Transaction(tx) => &tx.payload,
         }
     }
+}
+
+// TODO: Fix
+fn recover_address(signature_r: &U256, signature_s: &U256, message: &Bytes) -> Address {
+    let mut r_bytes = [0; 32];
+    let mut s_bytes = [0; 32];
+    signature_r.to_big_endian(&mut r_bytes);
+    signature_s.to_big_endian(&mut s_bytes);
+    let signature = Signature::from_scalars(r_bytes, s_bytes).unwrap();
+    let recid = RecoveryId::try_from(1u8).unwrap();
+    let recovered_key = VerifyingKey::recover_from_digest(
+        Keccak256::new_with_prefix(message.as_ref()),
+        &signature,
+        recid,
+    )
+    .unwrap();
+    let state = &mut recovered_key.to_sec1_bytes()[1..];
+    keccak_hash::keccak256(state);
+    Address::from_slice(&state[12..])
 }
