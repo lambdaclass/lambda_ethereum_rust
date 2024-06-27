@@ -36,9 +36,7 @@ pub fn execute_transaction(
             .or(transaction.max_fee_per_gas)
             .unwrap_or_default(),
     );
-    env.tx.gas_priority_fee = transaction
-        .max_priority_fee_per_gas
-        .and_then(|x| Some(to_alloy_bytes(x)));
+    env.tx.gas_priority_fee = transaction.max_priority_fee_per_gas.map(to_alloy_bytes);
 
     let spec_id = SpecId::CANCUN;
 
