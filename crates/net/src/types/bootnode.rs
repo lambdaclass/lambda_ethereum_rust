@@ -9,6 +9,8 @@ pub struct BootNode {
 
 impl FromStr for BootNode {
     type Err = ParseIntError;
+    /// Takes a str with the format "enode://<node ID>@<IP address>:<port>" and
+    /// parses it to a BootNode
     fn from_str(input: &str) -> Result<BootNode, ParseIntError> {
         // TODO: error handling
         let node_id_as_bytes = decode_hex(&input[8..136])?;
