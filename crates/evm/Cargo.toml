@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 revm = "10.0.0"
 bytes.workspace = true
-core.workspace = true
+ethrex-core.workspace = true

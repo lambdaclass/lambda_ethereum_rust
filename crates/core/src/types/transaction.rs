@@ -1,3 +1,8 @@
+use bytes::Bytes;
+use ethereum_types::{Address, H256, U256};
+
+use crate::rlp::encode::RLPEncode;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Transaction {
     LegacyTransaction(LegacyTransaction),
@@ -120,6 +125,13 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(_tx) => None,
             Transaction::EIP1559Transaction(tx) => Some(tx.chain_id),
+        }
+    }
+
+    pub fn access_list(&self) -> Vec<(Address, Vec<H256>)> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => Vec::new(),
+            Transaction::EIP1559Transaction(tx) => tx.access_list.clone(),
         }
     }
 }

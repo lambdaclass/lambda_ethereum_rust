@@ -1,4 +1,4 @@
-use core::{
+use ethrex_core::{
     types::{Account, BlockHeader, Transaction},
     Address,
 };
@@ -70,8 +70,17 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         data: todo!(),
         nonce: todo!(),
         chain_id: tx.chain_id(),
-        access_list: todo!(),
-        gas_priority_fee: tx.max_priority_fee(),
+        access_list: tx
+            .access_list()
+            .into_iter()
+            .map(|(addr, list)| {
+                (
+                    RevmAddress(addr.0.into()),
+                    list.into_iter().map(|a| U256::from_be_bytes(a.0)).collect(),
+                )
+            })
+            .collect(),
+        gas_priority_fee: tx.max_priority_fee().map(U256::from),
         blob_hashes: todo!(),
         max_fee_per_blob_gas: todo!(),
     }

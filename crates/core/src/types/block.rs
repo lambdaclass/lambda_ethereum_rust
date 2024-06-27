@@ -1,6 +1,8 @@
 use crate::{rlp::encode::RLPEncode, Address, H256, U256};
 use bytes::Bytes;
 
+use super::Transaction;
+
 pub type BlockNumber = u64;
 pub type Bloom = [u8; 256];
 
