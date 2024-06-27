@@ -339,11 +339,11 @@ mod tests {
     fn test_decode_bool() {
         let rlp = vec![0x01];
         let decoded = bool::decode(&rlp).unwrap();
-        assert_eq!(decoded, true);
+        assert!(decoded);
 
         let rlp = vec![RLP_NULL];
         let decoded = bool::decode(&rlp).unwrap();
-        assert_eq!(decoded, false);
+        assert!(!decoded);
     }
 
     #[test]
