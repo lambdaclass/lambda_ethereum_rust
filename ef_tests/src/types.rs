@@ -1,4 +1,4 @@
-use ethrex_core::types::{EIP1559Transaction, Transaction as EthrexTransacion};
+use ethrex_core::types::{code_hash, Account as EthrexAccount, AccountInfo, EIP1559Transaction, Transaction as EthrexTransacion};
 use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 
 use revm::primitives::Bytes;
@@ -162,5 +162,25 @@ impl Into<EthrexTransacion> for Transaction {
             signature_r: self.r,
             signature_s: self.s,
         })
+    }
+}
+
+impl Into<EthrexAccount> for Account {
+    fn into(self) -> EthrexAccount {
+        EthrexAccount {
+            info: AccountInfo {
+                code_hash: code_hash(&self.code),
+                balance: self.balance,
+                nonce: self.nonce.as_u64(),
+            },
+            code: self.code.0,
+            storage: self.storage.into_iter().map(|(k, v)| {
+                let mut k_bytes = [0;32];
+                let mut v_bytes = [0;32];
+                k.to_big_endian(&mut k_bytes);
+                v.to_big_endian(&mut v_bytes);
+                (H256(k_bytes), H256(v_bytes))
+            }).collect(),
+        }
     }
 }
