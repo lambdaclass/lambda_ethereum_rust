@@ -46,11 +46,16 @@ async fn main() {
         .get_one::<String>("network")
         .expect("network is required");
 
-    let bootnode_string = matches
-        .get_one::<String>("bootnodes")
-        .expect("bootnode is required");
+    let bootnode_list: Vec<_> = matches
+        .get_many::<String>("bootnodes")
+        .expect("bootnodes is required")
+        .collect();
 
-    let bootnode = BootNode::from_str(bootnode_string).expect("Failed to parse bootnode");
+    let bootnodes: Vec<BootNode> = bootnode_list
+        .iter()
+        .map(|s| BootNode::from_str(s).expect("Failed to parse bootnodes"))
+        .collect();
+    dbg!(bootnodes);
 
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");
