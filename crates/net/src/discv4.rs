@@ -1,10 +1,8 @@
 use bytes::BufMut;
-use ethrex_core::rlp::{decode, encode};
 use ethrex_core::rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
-use std::net::{IpAddr, Ipv4Addr};
-use std::num::ParseIntError;
+use std::net::IpAddr;
 
 #[derive(Debug, Eq, PartialEq)]
 // TODO: remove when all variants are used
@@ -59,11 +57,17 @@ impl Message {
     pub fn decode_with_header(encoded_msg: &[u8]) -> Message {
         let signature_len = 65;
         let hash_len = 32;
-        let _packet_type = encoded_msg[signature_len + hash_len];
-        let msg = &encoded_msg[signature_len + hash_len + 1..];
-        let (to, ping_hash, expiration, enr_seq) =
-            <(Endpoint, H256, u64, u64)>::decode(&msg).unwrap();
-        Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq))
+        let packet_index = signature_len + hash_len;
+        let packet_type = encoded_msg[packet_index];
+        let msg = &encoded_msg[packet_index + 1..];
+        match packet_type {
+            0x02 => {
+                let (to, ping_hash, expiration, enr_seq) =
+                    <(Endpoint, H256, u64, u64)>::decode(&msg).unwrap();
+                Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq))
+            }
+            _ => todo!(),
+        }
     }
 }
 
