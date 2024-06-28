@@ -53,7 +53,7 @@ impl Message {
             Message::ENRResponse(_) => 0x06,
         }
     }
-
+    #[allow(unused)]
     pub fn decode_with_header(encoded_msg: &[u8]) -> Message {
         let signature_len = 65;
         let hash_len = 32;
@@ -63,7 +63,7 @@ impl Message {
         match packet_type {
             0x02 => {
                 let (to, ping_hash, expiration, enr_seq) =
-                    <(Endpoint, H256, u64, u64)>::decode(&msg).unwrap();
+                    <(Endpoint, H256, u64, u64)>::decode(msg).unwrap();
                 Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq))
             }
             _ => todo!(),
@@ -176,10 +176,10 @@ impl PongMessage {
 
 #[cfg(test)]
 mod tests {
-    use std::{fmt::Write, str::FromStr};
-
     use super::*;
     use keccak_hash::H256;
+    use std::num::ParseIntError;
+    use std::{fmt::Write, str::FromStr};
 
     fn to_hex(bytes: &[u8]) -> String {
         bytes.iter().fold(String::new(), |mut buf, b| {
