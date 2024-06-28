@@ -83,11 +83,12 @@ impl RLPEncode for EIP1559Transaction {
 impl Transaction {
     pub fn sender(&self) -> Address {
         match self {
-            Transaction::LegacyTransaction(tx) => recover_address(&tx.r, &tx.s, &tx.data),
+            Transaction::LegacyTransaction(tx) => recover_address(&tx.r, &tx.s, false, &tx.data),
             Transaction::EIP1559Transaction(tx) => {
                 dbg!(recover_address(
                     &tx.signature_r,
                     &tx.signature_s,
+                    tx.signature_y_parity,
                     &tx.payload
                 ))
             }
@@ -158,14 +159,19 @@ impl Transaction {
     }
 }
 
-fn recover_address(signature_r: &U256, signature_s: &U256, message: &Bytes) -> Address {
+fn recover_address(
+    signature_r: &U256,
+    signature_s: &U256,
+    signature_y_parity: bool,
+    message: &Bytes,
+) -> Address {
     // Create signature
     let mut signature_bytes = [0; 64];
     signature_r.to_big_endian(&mut signature_bytes[0..32]);
     signature_s.to_big_endian(&mut signature_bytes[32..]);
     let signature = secp256k1::ecdsa::RecoverableSignature::from_compact(
         &signature_bytes,
-        RecoveryId::from_i32(0).unwrap(), // TODO: use y_parrity for this
+        RecoveryId::from_i32(signature_y_parity as i32).unwrap(), // cannot fail
     )
     .unwrap();
     // Hash message
