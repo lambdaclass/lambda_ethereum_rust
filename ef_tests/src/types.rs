@@ -168,7 +168,7 @@ impl Into<EthrexTransacion> for Transaction {
                 .into_iter()
                 .map(|item| (item.address, item.storage_keys))
                 .collect(),
-            signature_y_parity: self.v.as_u64() != 0, // TODO: check this
+            signature_y_parity: self.v.as_u64().saturating_sub(27) != 0,
             signature_r: self.r,
             signature_s: self.s,
         })
