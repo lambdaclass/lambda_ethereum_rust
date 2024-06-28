@@ -36,10 +36,6 @@ impl RLPDecode for bool {
         }
         let value = buf[0] != RLP_NULL;
 
-        if len == 1 {
-            return Ok((value, &[]));
-        }
-
         Ok((value, &buf[1..]))
     }
 }
