@@ -208,16 +208,7 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
             for item in self {
                 total_len += item.length();
             }
-            if total_len < 56 {
-                buf.put_u8(0xc0 + total_len as u8);
-            } else {
-                let mut bytes = ArrayVec::<[u8; 8]>::new();
-                bytes.extend_from_slice(&total_len.to_be_bytes());
-                let start = bytes.iter().position(|&x| x != 0).unwrap();
-                let len = bytes.len() - start;
-                buf.put_u8(0xf7 + len as u8);
-                buf.put_slice(&bytes[start..]);
-            }
+            encode_length(total_len, buf);
             for item in self {
                 item.encode(buf);
             }
@@ -225,21 +216,61 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
     }
 }
 
-impl<T: RLPEncode, S: RLPEncode> RLPEncode for (T, S) {
+fn encode_length(total_len: usize, buf: &mut dyn BufMut) {
+    if total_len < 56 {
+        buf.put_u8(0xc0 + total_len as u8);
+    } else {
+        let mut bytes = ArrayVec::<[u8; 8]>::new();
+        bytes.extend_from_slice(&total_len.to_be_bytes());
+        let start = bytes.iter().position(|&x| x != 0).unwrap();
+        let len = bytes.len() - start;
+        buf.put_u8(0xf7 + len as u8);
+        buf.put_slice(&bytes[start..]);
+    }
+}
+
+impl<S: RLPEncode, T: RLPEncode> RLPEncode for (S, T) {
     fn encode(&self, buf: &mut dyn BufMut) {
         let total_len = self.0.length() + self.1.length();
-        if total_len < 56 {
-            buf.put_u8(0xc0 + total_len as u8);
-        } else {
-            let mut bytes = ArrayVec::<[u8; 8]>::new();
-            bytes.extend_from_slice(&total_len.to_be_bytes());
-            let start = bytes.iter().position(|&x| x != 0).unwrap();
-            let len = bytes.len() - start;
-            buf.put_u8(0xf7 + len as u8);
-            buf.put_slice(&bytes[start..]);
-        }
+        encode_length(total_len, buf);
         self.0.encode(buf);
         self.1.encode(buf);
+    }
+}
+
+impl<S: RLPEncode, T: RLPEncode, U: RLPEncode> RLPEncode for (S, T, U) {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let total_len = self.0.length() + self.1.length() + self.2.length();
+        encode_length(total_len, buf);
+        self.0.encode(buf);
+        self.1.encode(buf);
+        self.2.encode(buf);
+    }
+}
+
+impl<S: RLPEncode, T: RLPEncode, U: RLPEncode, V: RLPEncode> RLPEncode for (S, T, U, V) {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let total_len = self.0.length() + self.1.length() + self.2.length() + self.3.length();
+        encode_length(total_len, buf);
+        self.0.encode(buf);
+        self.1.encode(buf);
+        self.2.encode(buf);
+        self.3.encode(buf);
+    }
+}
+
+impl<S: RLPEncode, T: RLPEncode, U: RLPEncode, V: RLPEncode, W: RLPEncode> RLPEncode
+    for (S, T, U, V, W)
+{
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let total_len =
+            self.0.length() + self.1.length() + self.2.length() + self.3.length() + self.4.length();
+        encode_length(total_len, buf);
+        self.0.encode(buf);
+        self.1.encode(buf);
+        self.2.encode(buf);
+        self.3.encode(buf);
+        self.4.encode(buf);
     }
 }
 
