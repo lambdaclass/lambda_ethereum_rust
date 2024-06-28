@@ -1,10 +1,12 @@
 use bytes::BufMut;
-use ethrex_core::rlp::encode::RLPEncode;
+use ethrex_core::rlp::{decode, encode};
+use ethrex_core::rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
+use std::num::ParseIntError;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 // TODO: remove when all variants are used
 // NOTE: All messages could have more fields than specified by the spec.
 // Those additional fields should be ignored, and the message must be accepted.
@@ -53,9 +55,19 @@ impl Message {
             Message::ENRResponse(_) => 0x06,
         }
     }
+
+    pub fn decode_with_header(encoded_msg: &[u8]) -> Message {
+        let signature_len = 65;
+        let hash_len = 32;
+        let _packet_type = encoded_msg[signature_len + hash_len];
+        let msg = &encoded_msg[signature_len + hash_len + 1..];
+        let (to, ping_hash, expiration, enr_seq) =
+            <(Endpoint, H256, u64, u64)>::decode(&msg).unwrap();
+        Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq))
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Endpoint {
     pub ip: IpAddr,
     pub udp_port: u16,
@@ -68,7 +80,19 @@ impl RLPEncode for &Endpoint {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl RLPDecode for Endpoint {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        let (ip, udp_port, tcp_port) =
+            <(IpAddr, u16, u16)>::decode(rlp).expect("Failed parsing Endpoint");
+        Ok(Endpoint {
+            ip,
+            udp_port,
+            tcp_port,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PingMessage {
     /// The Ping message version. Should be set to 4, but mustn't be enforced.
     version: u8,
@@ -113,7 +137,7 @@ impl RLPEncode for PingMessage {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
     to: Endpoint,
@@ -201,7 +225,47 @@ mod tests {
         let signature = "34f486e4e92f2fdf592912aa77ad51db532dd7f9b426092384c9c2e9919414fd480d57f4f3b2b1964ed6eb1c94b1e4b9f6bfe9b44b1d1ac3d94c38c4cce915bc01";
         let pkt_type = "02";
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
-        let _encoded_packet = [hash, signature, pkt_type, msg].concat();
-        // TODO
+        let encoded_packet = [hash, signature, pkt_type, msg].concat();
+
+        let decoded = Message::decode_with_header(
+            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
+        );
+        let to = Endpoint {
+            ip: IpAddr::from_str("190.191.188.57").unwrap(),
+            udp_port: 30303,
+            tcp_port: 0,
+        };
+        let expiration: u64 = 1719507696;
+        let ping_hash: H256 =
+            H256::from_str("3e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be23")
+                .unwrap();
+        let enr_seq = 1704896740573;
+        let expected =
+            Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
+        assert_eq!(decoded, expected);
+    }
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[test]
+    fn test_decode_endpoint() {
+        let endpoint = Endpoint {
+            ip: IpAddr::from_str("255.255.2.5").unwrap(),
+            udp_port: 3063,
+            tcp_port: 0,
+        };
+
+        let encoded = {
+            let mut buf = vec![];
+            (&endpoint).encode(&mut buf);
+            buf
+        };
+        let decoded = Endpoint::decode(&encoded).expect("Failed decoding Endpoint");
+        assert_eq!(endpoint, decoded);
     }
 }

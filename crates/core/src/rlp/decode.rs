@@ -285,6 +285,43 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
     }
 }
 
+impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (T1, T2, T3, T4) {
+    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, _) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+
+        let (_, first, first_rest) = decode_rlp_item(payload)?;
+        let first_decoded = if first.is_empty() {
+            T1::decode(&[RLP_EMPTY_LIST])?
+        } else {
+            T1::decode(payload)?
+        };
+
+        let (_, second, second_rest) = decode_rlp_item(first_rest)?;
+        let second_decoded = if second.is_empty() {
+            T2::decode(&[RLP_EMPTY_LIST])?
+        } else {
+            T2::decode(first_rest)?
+        };
+
+        let (_, third, third_rest) = decode_rlp_item(first_rest)?;
+        let third_decoded = if third.is_empty() {
+            T3::decode(&[RLP_EMPTY_LIST])?
+        } else {
+            T3::decode(second_rest)?
+        };
+
+        let fourth_decoded = T4::decode(third_rest)?;
+
+        Ok((first_decoded, second_decoded, third_decoded, fourth_decoded))
+    }
+}
+
 fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
