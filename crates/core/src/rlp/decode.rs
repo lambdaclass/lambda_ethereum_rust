@@ -225,7 +225,7 @@ impl<T: RLPDecode> RLPDecode for Vec<T> {
         let mut current_slice = payload;
 
         while !current_slice.is_empty() {
-            let (_, _, rest) = decode_rlp_item(current_slice)?;
+            let (_, rest) = decode_bytes(current_slice)?;
             let item = T::decode(current_slice)?;
             result.push(item);
             current_slice = rest;
@@ -245,8 +245,8 @@ impl<T1: RLPDecode, T2: RLPDecode> RLPDecode for (T1, T2) {
             return Err(RLPDecodeError::MalformedData);
         }
 
-        let (_, first, rest) = decode_rlp_item(payload)?;
-        let first = if first.is_empty() {
+        let (is_list, first, rest) = decode_rlp_item(payload)?;
+        let first = if first.is_empty() && is_list {
             T1::decode(&[RLP_EMPTY_LIST])?
         } else {
             T1::decode(payload)?
@@ -266,15 +266,15 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
             return Err(RLPDecodeError::MalformedData);
         }
 
-        let (_, first, first_rest) = decode_rlp_item(payload)?;
-        let first_decoded = if first.is_empty() {
+        let (is_list, first, first_rest) = decode_rlp_item(payload)?;
+        let first_decoded = if first.is_empty() && is_list {
             T1::decode(&[RLP_EMPTY_LIST])?
         } else {
             T1::decode(payload)?
         };
 
-        let (_, second, second_rest) = decode_rlp_item(first_rest)?;
-        let second_decoded = if second.is_empty() {
+        let (is_list, second, second_rest) = decode_rlp_item(first_rest)?;
+        let second_decoded = if second.is_empty() && is_list {
             T2::decode(&[RLP_EMPTY_LIST])?
         } else {
             T2::decode(first_rest)?
@@ -322,6 +322,11 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (
     }
 }
 
+/// Decodes an RLP item from a slice of bytes.
+/// It returns a 3-element tuple with the following elements:
+/// - A boolean indicating if the item is a list or not.
+/// - The payload of the item, without its prefix.
+/// - The remaining bytes after the item.
 fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
@@ -380,39 +385,13 @@ fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> 
     }
 }
 
+/// Decodes the payload of an RLP item from a slice of bytes.
+/// It returns a 2-element tuple with the following elements:
+/// - The payload of the item.
+/// - The remaining bytes after the item.
 fn decode_bytes(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeError> {
-    if data.is_empty() {
-        return Err(RLPDecodeError::InvalidLength);
-    }
-
-    let first_byte = data[0];
-
-    match first_byte {
-        0..=0x7F => Ok((&data[..1], &data[1..])),
-        0x80..=0xB7 => {
-            let length = (first_byte - 0x80) as usize;
-            if data.len() < length + 1 {
-                return Err(RLPDecodeError::InvalidLength);
-            }
-            Ok((&data[1..length + 1], &data[length + 1..]))
-        }
-        0xB8..=0xBF => {
-            let length_of_length = (first_byte - 0xB7) as usize;
-            if data.len() < length_of_length + 1 {
-                return Err(RLPDecodeError::InvalidLength);
-            }
-            let length_bytes = &data[1..length_of_length + 1];
-            let length = usize::from_be_bytes(static_left_pad(length_bytes)?);
-            if data.len() < length_of_length + length + 1 {
-                return Err(RLPDecodeError::InvalidLength);
-            }
-            Ok((
-                &data[length_of_length + 1..length_of_length + length + 1],
-                &data[length_of_length + length + 1..],
-            ))
-        }
-        _ => Err(RLPDecodeError::MalformedData),
-    }
+    let (_, payload, rest) = decode_rlp_item(data)?;
+    Ok((payload, rest))
 }
 
 /// Pads a slice of bytes with zeros on the left to make it a fixed size slice.
