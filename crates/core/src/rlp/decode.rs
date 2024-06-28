@@ -278,7 +278,12 @@ impl<T1: RLPDecode, T2: RLPDecode> RLPDecode for (T1, T2) {
         }
 
         let (first, first_rest) = T1::decode_unfinished(payload)?;
-        let (second, _second_rest) = T2::decode_unfinished(first_rest)?;
+        let (second, second_rest) = T2::decode_unfinished(first_rest)?;
+
+        // check that there is no more data to parse after the second element.
+        if !second_rest.is_empty() {
+            return Err(RLPDecodeError::MalformedData);
+        }
 
         Ok(((first, second), input_rest))
     }
@@ -295,7 +300,11 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
         }
         let (first, first_rest) = T1::decode_unfinished(payload)?;
         let (second, second_rest) = T2::decode_unfinished(first_rest)?;
-        let (third, _third_rest) = T3::decode_unfinished(second_rest)?;
+        let (third, third_rest) = T3::decode_unfinished(second_rest)?;
+        // check that there is no more data to decode after the third element.
+        if !third_rest.is_empty() {
+            return Err(RLPDecodeError::MalformedData);
+        }
 
         Ok(((first, second, third), input_rest))
     }
