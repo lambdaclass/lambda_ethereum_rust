@@ -83,7 +83,12 @@ impl RLPEncode for EIP1559Transaction {
 impl Transaction {
     pub fn sender(&self) -> Address {
         match self {
-            Transaction::LegacyTransaction(tx) => recover_address(&tx.r, &tx.s, false, &tx.data),
+            Transaction::LegacyTransaction(tx) => recover_address(
+                &tx.r,
+                &tx.s,
+                tx.v.as_u64().saturating_sub(27) != 0,
+                &tx.data,
+            ),
             Transaction::EIP1559Transaction(tx) => {
                 dbg!(recover_address(
                     &tx.signature_r,
