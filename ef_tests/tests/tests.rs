@@ -15,7 +15,7 @@ fn execute_test(test: TestUnit) {
     let pre = test.pre.into_iter().map(|(k, v)| (k, v.into())).collect();
     execute_tx(
         &transaction.clone().into(),
-        &test.genesis_block_header.into(),
+        &test.blocks.first().as_ref().clone().unwrap().block_header.clone().unwrap().into(),
         &pre,
         SpecId::CANCUN,
     );

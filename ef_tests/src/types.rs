@@ -147,12 +147,14 @@ impl Into<BlockHeader> for Header {
 
 impl Into<EthrexTransacion> for Transaction {
     fn into(self) -> EthrexTransacion {
+        dbg!(self.sender);
+        dbg!(&self);
         EthrexTransacion::EIP1559Transaction(EIP1559Transaction {
             // Note: gas_price is not used in this conversion as it is not part of EIP1559Transaction, this could be a problem
-            chain_id: self.chain_id.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            chain_id: self.chain_id.map(|id| id.as_u64()).unwrap_or(1 /*mainnet*/), // TODO: Consider converting this into Option
             signer_nonce: self.nonce.as_u64(),
             max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
-            max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            max_fee_per_gas: self.max_fee_per_gas.unwrap_or(self.gas_price.unwrap_or_default()).as_u64(), // TODO: Consider converting this into Option
             gas_limit: self.gas_limit.as_u64(),
             destination: self.to,
             amount: self.value,
