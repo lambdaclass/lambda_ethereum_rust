@@ -1,8 +1,8 @@
-use std::net::IpAddr;
-
 use bytes::BufMut;
 use ethrex_core::rlp::encode::RLPEncode;
+use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
+use std::net::IpAddr;
 
 #[derive(Debug)]
 // TODO: remove when all variants are used
@@ -12,7 +12,7 @@ use k256::ecdsa::{signature::Signer, SigningKey};
 pub(crate) enum Message {
     /// A ping message. Should be responded to with a Pong message.
     Ping(PingMessage),
-    Pong(()),
+    Pong(PongMessage),
     FindNode(()),
     Neighbors(()),
     ENRRequest(()),
@@ -109,6 +109,39 @@ impl RLPEncode for PingMessage {
         match self.enr_seq {
             Some(seq) => (self.version, &self.from, &self.to, self.expiration, seq).encode(buf),
             None => (self.version, &self.from, &self.to, self.expiration).encode(buf),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PongMessage {
+    /// The endpoint of the receiver.
+    to: Endpoint,
+    /// The hash of the corresponding ping packet.
+    ping_hash: H256,
+    /// The expiration time of the message. If the message is older than this time,
+    /// it shouldn't be responded to.
+    expiration: u64,
+    /// The ENR sequence number of the sender. This field is optional.
+    enr_seq: Option<u64>,
+}
+
+impl PongMessage {
+    pub fn new(to: Endpoint, ping_hash: H256, expiration: u64) -> Self {
+        Self {
+            to,
+            ping_hash,
+            expiration,
+            enr_seq: None,
+        }
+    }
+
+    // TODO: remove when used
+    #[allow(unused)]
+    pub fn with_enr_seq(self, enr_seq: u64) -> Self {
+        Self {
+            enr_seq: Some(enr_seq),
+            ..self
         }
     }
 }
