@@ -1,5 +1,7 @@
 use crate::{rlp::encode::RLPEncode, Address, H256, U256};
 use bytes::Bytes;
+use patricia_merkle_tree::PatriciaMerkleTree;
+use sha3::Keccak256;
 
 pub type BlockNumber = u64;
 pub type Bloom = [u8; 256];
@@ -56,13 +58,59 @@ impl RLPEncode for BlockHeader {
 
 // The body of a block on the chain
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Body {
+pub struct BlockBody {
     transactions: Vec<Transaction>,
+    // TODO: ommers list is always empty, so we can remove it
     ommers: Vec<BlockHeader>,
     withdrawals: Vec<Withdrawal>,
 }
 
-impl RLPEncode for Body {
+impl BlockBody {
+    pub const fn empty() -> Self {
+        Self {
+            transactions: Vec::new(),
+            ommers: Vec::new(),
+            withdrawals: Vec::new(),
+        }
+    }
+
+    pub fn compute_transactions_root(&self) -> H256 {
+        let transactions_iter: Vec<_> = self
+            .transactions
+            .iter()
+            .enumerate()
+            .map(|(i, tx)| {
+                // TODO: check if tree is RLP encoding the value
+
+                // I think the tree is RLP encoding the key, so this is not needed?
+                // let mut k = Vec::new();
+                // i.encode(&mut k);
+
+                let mut v = Vec::new();
+                let tx_type = tx.tx_type();
+
+                // Legacy transactions don't have a prefix
+                if tx_type != 0 {
+                    v.push(tx_type);
+                }
+                tx.encode(&mut v);
+                dbg!(&v);
+                dbg!(v.len());
+
+                // Key:   RLP(tx_index)
+                // Value: tx_type || RLP(tx)  if tx_type != 0
+                //                   RLP(tx)  else
+                (i.to_be_bytes(), v)
+            })
+            .collect();
+        let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
+            &transactions_iter,
+        );
+        H256(root.into())
+    }
+}
+
+impl RLPEncode for BlockBody {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         self.transactions.encode(buf);
         self.ommers.encode(buf);
@@ -93,6 +141,15 @@ pub enum Transaction {
     EIP1559Transaction(EIP1559Transaction),
 }
 
+impl Transaction {
+    pub fn tx_type(&self) -> u8 {
+        match self {
+            Transaction::LegacyTransaction(_) => 0,
+            Transaction::EIP1559Transaction(_) => 2,
+        }
+    }
+}
+
 impl RLPEncode for Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
@@ -104,10 +161,10 @@ impl RLPEncode for Transaction {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
-    nonce: U256,
-    gas_price: u64,
+    nonce: u64,
+    gas_price: U256,
     gas: u64,
-    to: Address,
+    to: Option<Address>,
     value: U256,
     data: Bytes,
     v: U256,
@@ -117,10 +174,16 @@ pub struct LegacyTransaction {
 
 impl RLPEncode for LegacyTransaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        // TODO: prepend size header
         self.nonce.encode(buf);
         self.gas_price.encode(buf);
         self.gas.encode(buf);
-        self.to.encode(buf);
+        // TODO: implement encode for Option?
+        match &self.to {
+            Some(to) => to.encode(buf),
+            // TODO: move to a constant?
+            None => buf.put_u8(0x80),
+        }
         self.value.encode(buf);
         self.data.encode(buf);
         self.v.encode(buf);
@@ -147,6 +210,7 @@ pub struct EIP1559Transaction {
 
 impl RLPEncode for EIP1559Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        // TODO: prepend size header
         self.chain_id.encode(buf);
         self.signer_nonce.encode(buf);
         self.max_priority_fee_per_gas.encode(buf);
@@ -159,5 +223,39 @@ impl RLPEncode for EIP1559Transaction {
         self.signature_y_parity.encode(buf);
         self.signature_r.encode(buf);
         self.signature_s.encode(buf);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    use super::{BlockBody, LegacyTransaction};
+    use crate::{types::Transaction, U256};
+
+    #[test]
+    fn test_compute_transactions_root() {
+        let mut body = BlockBody::empty();
+        let tx = LegacyTransaction {
+            nonce: 0,
+            gas_price: 0x0a.into(),
+            gas: 0x05f5e100,
+            to: Some(hex!("1000000000000000000000000000000000000000").into()),
+            value: 0.into(),
+            data: Default::default(),
+            v: U256::from(0x1b),
+            r: U256::from(hex!(
+                "7e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37"
+            )),
+            s: U256::from(hex!(
+                "5f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b"
+            )),
+        };
+        body.transactions.push(Transaction::LegacyTransaction(tx));
+        let expected_root =
+            hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
+        let result = body.compute_transactions_root();
+
+        assert_eq!(result, expected_root.into());
     }
 }
