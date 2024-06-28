@@ -95,6 +95,9 @@ impl RLPDecode for u128 {
     }
 }
 
+// Decodes a slice of bytes of a fixed size. If you want to decode a list of elements,
+// you should use the Vec<T> implementation (for elements of the same type),
+// or use the decode implementation for tuples (for elements of different types)
 impl<const N: usize> RLPDecode for [u8; N] {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (decoded_bytes, rest) = decode_bytes(rlp)?;
@@ -235,6 +238,9 @@ impl RLPDecode for IpAddr {
     }
 }
 
+// Here we interpret a Vec<T> as a list of elements of the same type.
+// If you need to decode a slice of bytes, you should decode it via the
+// [u8; N] implementation or similar (Bytes, BytesMut, etc).
 impl<T: RLPDecode> RLPDecode for Vec<T> {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if rlp.is_empty() {
