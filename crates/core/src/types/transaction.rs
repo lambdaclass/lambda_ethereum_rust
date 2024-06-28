@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
-use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
+use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use sha3::{Digest, Keccak256};
 
 use crate::rlp::encode::RLPEncode;
@@ -158,21 +158,26 @@ impl Transaction {
     }
 }
 
-// TODO: Fix
 fn recover_address(signature_r: &U256, signature_s: &U256, message: &Bytes) -> Address {
-    let mut r_bytes = [0; 32];
-    let mut s_bytes = [0; 32];
-    signature_r.to_big_endian(&mut r_bytes);
-    signature_s.to_big_endian(&mut s_bytes);
-    let signature = Signature::from_scalars(r_bytes, s_bytes).unwrap();
-    let recid = RecoveryId::try_from(1u8).unwrap();
-    let recovered_key = VerifyingKey::recover_from_digest(
-        Keccak256::new_with_prefix(message.as_ref()),
-        &signature,
-        recid,
+    // Create signature
+    let mut signature_bytes = [0; 64];
+    signature_r.to_big_endian(&mut signature_bytes[0..32]);
+    signature_s.to_big_endian(&mut signature_bytes[32..]);
+    let signature = secp256k1::ecdsa::RecoverableSignature::from_compact(
+        &signature_bytes,
+        RecoveryId::from_i32(0).unwrap(), // TODO: use y_parrity for this
     )
     .unwrap();
-    let state = &mut recovered_key.to_sec1_bytes()[1..];
-    keccak_hash::keccak256(state);
-    Address::from_slice(&state[12..])
+    // Hash message
+    let message = Bytes::new(); // TODO: Fix parsing so "0x" is empty bytes
+    let msg_digest: [u8; 32] = Keccak256::new_with_prefix(message.as_ref())
+        .finalize()
+        .into();
+    // Recover public key
+    let public = SECP256K1
+        .recover_ecdsa(&Message::from_digest(msg_digest), &signature)
+        .unwrap();
+    // Hash public key to obtain address
+    let hash = Keccak256::new_with_prefix(&public.serialize_uncompressed()[1..]).finalize();
+    Address::from_slice(&hash[12..])
 }
