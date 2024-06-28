@@ -2,7 +2,7 @@ use crate::rlp::encode::RLPEncode;
 use crate::types::Bloom;
 use bytes::Bytes;
 use ethereum_types::{Address, H256};
-pub type ReceiptIndex = u64;
+pub type Index = u64;
 
 /// Result of a transaction
 #[derive(Clone, Debug, PartialEq, Eq)]

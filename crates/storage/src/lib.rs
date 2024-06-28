@@ -7,7 +7,7 @@ use account::{
     AccountStorageValueRLP, AddressRLP,
 };
 use block::{BlockBodyRLP, BlockHeaderRLP};
-use ethrex_core::types::{BlockNumber, ReceiptIndex};
+use ethrex_core::types::{BlockNumber, Index};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -37,9 +37,9 @@ table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
 );
-table!(
+dupsort!(
     /// Receipts table.
-    ( Receipts ) BlockNumber[ReceiptIndex] => ReceiptRLP
+    ( Receipts ) BlockNumber[Index] => ReceiptRLP
 );
 
 /// Initializes a new database with the provided path. If the path is `None`, the database
