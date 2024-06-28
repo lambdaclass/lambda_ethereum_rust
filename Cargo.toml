@@ -7,6 +7,7 @@ members = [
     "crates/net",
     "crates/rpc",
     "crates/storage",
+    "ef_tests",
 ]
 resolver = "2"
 
@@ -15,7 +16,17 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-rpc = { path = "./crates/rpc" }
+ethrex-consensus = { path = "./crates/consensus" }
+ethrex-core = { path = "./crates/core" }
+ethrex-evm = { path = "./crates/evm" }
+ethrex-net = { path = "./crates/net" }
+ethrex-rpc = { path = "./crates/rpc" }
+ethrex-storage = { path = "./crates/storage" }
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"
+
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
+libmdbx = { version = "0.5.0", features = ["orm"] }
+tokio = { version = "1.38.0", features = ["full"] }
