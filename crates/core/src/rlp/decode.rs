@@ -309,7 +309,7 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (
             T2::decode(first_rest)?
         };
 
-        let (_, third, third_rest) = decode_rlp_item(first_rest)?;
+        let (_, third, third_rest) = decode_rlp_item(second_rest)?;
         let third_decoded = if third.is_empty() {
             T3::decode(&[RLP_EMPTY_LIST])?
         } else {
