@@ -245,8 +245,8 @@ impl<T1: RLPDecode, T2: RLPDecode> RLPDecode for (T1, T2) {
             return Err(RLPDecodeError::MalformedData);
         }
 
-        let (first, rest) = decode_bytes(payload)?;
-        let first = if first.is_empty() {
+        let (is_list, first, rest) = decode_rlp_item(payload)?;
+        let first = if first.is_empty() && is_list {
             T1::decode(&[RLP_EMPTY_LIST])?
         } else {
             T1::decode(payload)?
@@ -266,15 +266,15 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
             return Err(RLPDecodeError::MalformedData);
         }
 
-        let (first, first_rest) = decode_bytes(payload)?;
-        let first_decoded = if first.is_empty() {
+        let (is_list, first, first_rest) = decode_rlp_item(payload)?;
+        let first_decoded = if first.is_empty() && is_list {
             T1::decode(&[RLP_EMPTY_LIST])?
         } else {
             T1::decode(payload)?
         };
 
-        let (second, second_rest) = decode_bytes(first_rest)?;
-        let second_decoded = if second.is_empty() {
+        let (is_list, second, second_rest) = decode_rlp_item(first_rest)?;
+        let second_decoded = if second.is_empty() && is_list {
             T2::decode(&[RLP_EMPTY_LIST])?
         } else {
             T2::decode(first_rest)?
@@ -287,8 +287,8 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
 
 /// Decodes an RLP item from a slice of bytes.
 /// It returns a 3-element tuple with the following elements:
-/// - A boolean indicating if the item is a list.
-/// - The payload of the item.
+/// - A boolean indicating if the item is a list or not.
+/// - The payload of the item, without its prefix.
 /// - The remaining bytes after the item.
 fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
