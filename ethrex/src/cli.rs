@@ -33,15 +33,15 @@ pub fn cli() -> Command {
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("addr")
-                .long("addr")
+            Arg::new("p2p.addr")
+                .long("p2p.addr")
                 .default_value("0.0.0.0")
                 .value_name("ADDRESS")
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("port")
-                .long("port")
+            Arg::new("p2p.port")
+                .long("p2p.port")
                 .default_value("30303")
                 .value_name("PORT")
                 .action(ArgAction::Set),
