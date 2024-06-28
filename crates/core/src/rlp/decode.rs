@@ -31,7 +31,11 @@ impl RLPDecode for bool {
         if buf.is_empty() {
             return Err(RLPDecodeError::InvalidLength);
         }
-        let value = buf[0] != RLP_NULL;
+        let value = match buf[0] {
+            RLP_NULL => false,
+            0x01 => true,
+            _ => return Err(RLPDecodeError::MalformedBoolean),
+        };
 
         Ok((value, &buf[1..]))
     }
