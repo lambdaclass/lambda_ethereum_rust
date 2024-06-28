@@ -28,10 +28,7 @@ pub trait RLPDecode: Sized {
 impl RLPDecode for bool {
     #[inline(always)]
     fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let bytes = Bytes::copy_from_slice(buf);
-        let len = bytes.len();
-
-        if len == 0 {
+        if buf.is_empty() {
             return Err(RLPDecodeError::InvalidLength);
         }
         let value = buf[0] != RLP_NULL;
