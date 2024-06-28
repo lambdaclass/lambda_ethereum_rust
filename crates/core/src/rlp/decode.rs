@@ -123,67 +123,67 @@ impl RLPDecode for BytesMut {
     }
 }
 
-impl RLPDecode for ethereum_types::H32 {
+impl RLPDecode for crate::H32 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H32(value), rest))
+        Ok((crate::H32(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::H64 {
+impl RLPDecode for crate::H64 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H64(value), rest))
+        Ok((crate::H64(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::H128 {
+impl RLPDecode for crate::H128 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H128(value), rest))
+        Ok((crate::H128(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::H256 {
+impl RLPDecode for crate::H256 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H256(value), rest))
+        Ok((crate::H256(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::H264 {
+impl RLPDecode for crate::H264 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H264(value), rest))
+        Ok((crate::H264(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::Address {
+impl RLPDecode for crate::Address {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H160(value), rest))
+        Ok((crate::H160(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::H512 {
+impl RLPDecode for crate::H512 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H512(value), rest))
+        Ok((crate::H512(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::Signature {
+impl RLPDecode for crate::Signature {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((ethereum_types::H520(value), rest))
+        Ok((crate::H520(value), rest))
     }
 }
 
-impl RLPDecode for ethereum_types::U256 {
+impl RLPDecode for crate::U256 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (bytes, rest) = decode_bytes(rlp)?;
         let padded_bytes: [u8; 32] = static_left_pad(bytes)?;
-        Ok((ethereum_types::U256::from_big_endian(&padded_bytes), rest))
+        Ok((crate::U256::from_big_endian(&padded_bytes), rest))
     }
 }
 
@@ -492,15 +492,15 @@ mod tests {
     #[test]
     fn test_decode_u256() {
         let rlp = vec![RLP_NULL + 1, 0x01];
-        let decoded = ethereum_types::U256::decode(&rlp).unwrap();
-        let expected = ethereum_types::U256::from(1);
+        let decoded = crate::U256::decode(&rlp).unwrap();
+        let expected = crate::U256::from(1);
         assert_eq!(decoded, expected);
 
         let mut rlp = vec![RLP_NULL + 32];
         let number_bytes = [0x01; 32];
         rlp.extend(number_bytes);
-        let decoded = ethereum_types::U256::decode(&rlp).unwrap();
-        let expected = ethereum_types::U256::from_big_endian(&number_bytes);
+        let decoded = crate::U256::decode(&rlp).unwrap();
+        let expected = crate::U256::from_big_endian(&number_bytes);
         assert_eq!(decoded, expected);
     }
 
