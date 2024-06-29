@@ -111,7 +111,7 @@ impl<'a> Encoder<'a> {
         }
     }
 
-    pub fn encode_field<T: RLPEncode>(&mut self, value: &T) -> &mut Self {
+    pub fn encode_field<T: RLPEncode>(mut self, value: &T) -> Self {
         <T as RLPEncode>::encode(value, &mut self.temp_buf);
         self
     }
@@ -124,20 +124,25 @@ impl<'a> Encoder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::rlp::{encode::RLPEncode, structs::Decoder};
+    use crate::rlp::{
+        decode::RLPDecode,
+        encode::RLPEncode,
+        structs::{Decoder, Encoder},
+    };
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct Simple {
+        pub a: u8,
+        pub b: u16,
+    }
 
     #[test]
     fn test_decoder_simple_struct() {
-        #[derive(Debug, PartialEq, Eq)]
-        struct Simple {
-            pub a: u8,
-            pub b: u16,
-        }
         let expected = Simple { a: 61, b: 75 };
         let mut buf = Vec::new();
         (expected.a, expected.b).encode(&mut buf);
-        let decoder = Decoder::new(&buf).unwrap();
 
+        let decoder = Decoder::new(&buf).unwrap();
         let (a, decoder) = decoder.decode_field("a").unwrap();
         let (b, decoder) = decoder.decode_field("b").unwrap();
         let rest = decoder.finish().unwrap();
@@ -145,5 +150,27 @@ mod tests {
         assert!(rest.is_empty());
         let got = Simple { a, b };
         assert_eq!(got, expected);
+
+        // Decoding the struct as a tuple should give the same result
+        let tuple_decode = <(u8, u16) as RLPDecode>::decode(&buf).unwrap();
+        assert_eq!(tuple_decode, (a, b));
+    }
+
+    #[test]
+    fn test_encoder_simple_struct() {
+        let input = Simple { a: 61, b: 75 };
+        let mut buf = Vec::new();
+
+        Encoder::new(&mut buf)
+            .encode_field(&input.a)
+            .encode_field(&input.b)
+            .finish();
+
+        assert_eq!(buf, vec![0xc2, 61, 75]);
+
+        // Encoding the struct from a tuple should give the same result
+        let mut tuple_encoded = Vec::new();
+        (input.a, input.b).encode(&mut tuple_encoded);
+        assert_eq!(buf, tuple_encoded);
     }
 }
