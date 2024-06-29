@@ -5,27 +5,31 @@ use super::{
 
 #[derive(Debug)]
 pub struct Decoder<'a> {
-    list: &'a [u8],
-    rest: &'a [u8],
+    payload: &'a [u8],
+    remaining: &'a [u8],
 }
 
 impl<'a> Decoder<'a> {
     pub fn new(buf: &'a [u8]) -> Result<Self, RLPDecodeError> {
         match decode_rlp_item(buf)? {
-            (true, list, rest) => Ok(Self { list, rest }),
+            (true, payload, remaining) => Ok(Self { payload, remaining }),
             (false, _, _) => Err(RLPDecodeError::UnexpectedList),
         }
     }
 
     pub fn decode_field<T: RLPDecode>(self, name: &str) -> Result<(T, Self), RLPDecodeError> {
-        let (field, rest) = <T as RLPDecode>::decode_unfinished(self.rest)
+        let (field, rest) = <T as RLPDecode>::decode_unfinished(self.payload)
             .map_err(|err| field_decode_error::<T>(name, err))?;
-        Ok((field, Self { list: rest, ..self }))
+        let updated_self = Self {
+            payload: rest,
+            ..self
+        };
+        Ok((field, updated_self))
     }
 
     pub fn finish(self) -> Result<&'a [u8], RLPDecodeError> {
-        if self.list.is_empty() {
-            Ok(self.rest)
+        if self.payload.is_empty() {
+            Ok(self.remaining)
         } else {
             Err(RLPDecodeError::MalformedData)
         }
