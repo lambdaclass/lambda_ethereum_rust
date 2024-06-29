@@ -1,5 +1,8 @@
+use bytes::BufMut;
+
 use super::{
     decode::{decode_rlp_item, RLPDecode},
+    encode::{encode_length, RLPEncode},
     error::RLPDecodeError,
 };
 
@@ -75,6 +78,41 @@ fn field_decode_error<T>(field_name: &str, err: RLPDecodeError) -> RLPDecodeErro
     let typ = std::any::type_name::<T>();
     let err_msg = format!("Error decoding field '{field_name}' of type {typ}: {err}");
     RLPDecodeError::Custom(err_msg)
+}
+
+pub struct Encoder<'a> {
+    buf: &'a mut dyn BufMut,
+    temp_buf: Vec<u8>,
+}
+
+impl core::fmt::Debug for Encoder<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Encoder")
+            .field("buf", &"...")
+            .field("temp_buf", &self.temp_buf)
+            .finish()
+    }
+}
+
+impl<'a> Encoder<'a> {
+    pub fn new(buf: &'a mut dyn BufMut) -> Self {
+        // PERF: we could pre-allocate the buffer or switch to `ArrayVec`` if we could
+        // bound the size of the encoded data.
+        Self {
+            buf,
+            temp_buf: Default::default(),
+        }
+    }
+
+    pub fn encode_field<T: RLPEncode>(&mut self, value: &T) -> &mut Self {
+        <T as RLPEncode>::encode(value, &mut self.temp_buf);
+        self
+    }
+
+    pub fn finish(self) {
+        encode_length(self.temp_buf.len(), self.buf);
+        self.buf.put_slice(&self.temp_buf);
+    }
 }
 
 #[cfg(test)]
