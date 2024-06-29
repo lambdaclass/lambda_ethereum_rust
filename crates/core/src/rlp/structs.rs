@@ -3,6 +3,12 @@ use super::{
     error::RLPDecodeError,
 };
 
+/// # Struct decoding helper.
+///
+/// Used to decode a struct from RLP format.
+/// The struct's fields must implement [`RLPDecode`].
+/// The struct is expected as a list, with its values being the fields
+/// in the order they are passed to [`Decoder::decode_field`].
 #[derive(Debug)]
 pub struct Decoder<'a> {
     payload: &'a [u8],
