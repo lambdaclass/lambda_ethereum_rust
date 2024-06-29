@@ -80,11 +80,18 @@ fn field_decode_error<T>(field_name: &str, err: RLPDecodeError) -> RLPDecodeErro
     RLPDecodeError::Custom(err_msg)
 }
 
+/// # Struct encoding helper.
+///
+/// Used to encode a struct into RLP format.
+/// The struct's fields must implement [`RLPEncode`].
+/// The struct is encoded as a list, with its values being the fields
+/// in the order they are passed to [`Encoder::encode_field`].
 pub struct Encoder<'a> {
     buf: &'a mut dyn BufMut,
     temp_buf: Vec<u8>,
 }
 
+// NOTE: BufMut doesn't implement Debug, so we can't derive Debug for Encoder.
 impl core::fmt::Debug for Encoder<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Encoder")
