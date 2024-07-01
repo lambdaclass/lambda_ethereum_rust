@@ -7,11 +7,11 @@ use super::{
 use bytes::{Bytes, BytesMut};
 
 /// Trait for decoding RLP encoded slices of data.
-/// See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding for more information.
-/// The `decode_unfinished` method is used to decode an RLP encoded slice of data and return the decoded value along with the remaining bytes.
-/// The `decode` method is used to decode an RLP encoded slice of data and return the decoded value.
-/// Implementors need to implement the `decode_unfinished` method.
-/// While consumers can use the `decode` method to decode the RLP encoded data.
+/// See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding> for more information.
+/// The [`decode_unfinished`](RLPDecode::decode_unfinished) method is used to decode an RLP encoded slice of data and return the decoded value along with the remaining bytes.
+/// The [`decode`](RLPDecode::decode) method is used to decode an RLP encoded slice of data and return the decoded value.
+/// Implementors need to implement the [`decode_unfinished`](RLPDecode::decode_unfinished) method.
+/// While consumers can use the [`decode`](RLPDecode::decode) method to decode the RLP encoded data.
 pub trait RLPDecode: Sized {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError>;
 
@@ -318,7 +318,7 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
 /// - A boolean indicating if the item is a list or not.
 /// - The payload of the item, without its prefix.
 /// - The remaining bytes after the item.
-fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
+pub(crate) fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
     }
