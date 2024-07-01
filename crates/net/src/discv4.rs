@@ -186,9 +186,17 @@ impl RLPDecode for PongMessage {
         let (to, decoder) = decoder.decode_field("to")?;
         let (ping_hash, decoder) = decoder.decode_field("ping_hash")?;
         let (expiration, decoder) = decoder.decode_field("expiration")?;
-        let (enr_seq, decoder) = decoder.decode_field("enr_seq")?;
+        let (enr_seq, decoder) = decoder.decode_optional_field();
+
+        let pong = PongMessage::new(to, ping_hash, expiration);
+
+        let pong = if let Some(seq) = enr_seq {
+            pong.with_enr_seq(seq)
+        } else {
+            pong
+        };
+
         let remaining = decoder.finish()?;
-        let pong = PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq);
 
         Ok((pong, remaining))
     }
@@ -244,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_pong_message() {
+    fn test_decode_pong_message_with_enr_seq() {
         let hash = "2e1fc2a02ad95a1742f6dd41fb7cbff1e08548ba87f63a72221e44026ab1c347";
         let signature = "34f486e4e92f2fdf592912aa77ad51db532dd7f9b426092384c9c2e9919414fd480d57f4f3b2b1964ed6eb1c94b1e4b9f6bfe9b44b1d1ac3d94c38c4cce915bc01";
         let pkt_type = "02";
@@ -267,6 +275,32 @@ mod tests {
         let enr_seq = 1704896740573;
         let expected =
             Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_pong_message() {
+        // in this case the pong message does not contain the `enr_seq` field
+        let hash = "2e1fc2a02ad95a1742f6dd41fb7cbff1e08548ba87f63a72221e44026ab1c347";
+        let signature = "34f486e4e92f2fdf592912aa77ad51db532dd7f9b426092384c9c2e9919414fd480d57f4f3b2b1964ed6eb1c94b1e4b9f6bfe9b44b1d1ac3d94c38c4cce915bc01";
+        let pkt_type = "02";
+        let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
+        let encoded_packet = [hash, signature, pkt_type, msg].concat();
+
+        let decoded = Message::decode_with_header(
+            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
+        )
+        .unwrap();
+        let to = Endpoint {
+            ip: IpAddr::from_str("190.191.188.57").unwrap(),
+            udp_port: 30303,
+            tcp_port: 0,
+        };
+        let expiration: u64 = 1719507696;
+        let ping_hash: H256 =
+            H256::from_str("3e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be23")
+                .unwrap();
+        let expected = Message::Pong(PongMessage::new(to, ping_hash, expiration));
         assert_eq!(decoded, expected);
     }
 
