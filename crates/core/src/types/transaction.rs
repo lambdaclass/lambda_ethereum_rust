@@ -95,8 +95,7 @@ impl Transaction {
                     tx.gas,
                     tx.to,
                     tx.value,
-                    Bytes::new(), // TODO: Fix parsing so "0x" is empty bytes (Uncomment this when running add11 ef test)
-                                  //tx.data.clone(),
+                    tx.data.clone(),
                 );
                 let mut buf = vec![];
                 data.encode(&mut buf);

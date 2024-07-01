@@ -4,7 +4,7 @@ use ethrex_core::types::{
     Transaction as EthrexTransacion,
 };
 use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
@@ -99,6 +99,7 @@ pub struct Block {
 pub struct Transaction {
     #[serde(rename = "type")]
     pub transaction_type: Option<U256>,
+    #[serde(deserialize_with = "deser_prefixed_bytes")]
     pub data: Bytes,
     pub gas_limit: U256,
     pub gas_price: Option<U256>,
@@ -225,3 +226,13 @@ impl Into<EthrexAccount> for Account {
         }
     }
 }
+
+// Serde utils
+
+pub fn deser_prefixed_bytes<'de, D>(d: D) -> Result<Bytes, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        Ok(Bytes::from(value.trim_start_matches("0x").to_string()))
+    }
