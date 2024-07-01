@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 ethrex-core.workspace = true
-ethrex-evm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 bytes.workspace = true

@@ -3,7 +3,6 @@ members = [
     "ethrex",
     "crates/consensus",
     "crates/core",
-    "crates/evm",
     "crates/net",
     "crates/rpc",
     "crates/storage",
@@ -18,7 +17,6 @@ edition = "2021"
 [workspace.dependencies]
 ethrex-consensus = { path = "./crates/consensus" }
 ethrex-core = { path = "./crates/core" }
-ethrex-evm = { path = "./crates/evm" }
 ethrex-net = { path = "./crates/net" }
 ethrex-rpc = { path = "./crates/rpc" }
 ethrex-storage = { path = "./crates/storage" }

@@ -1,4 +1,4 @@
-use ethrex_core::{
+use super::{
     types::{Account, BlockHeader, Transaction},
     Address,
 };
