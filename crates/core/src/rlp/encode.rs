@@ -208,16 +208,7 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
             for item in self {
                 total_len += item.length();
             }
-            if total_len < 56 {
-                buf.put_u8(0xc0 + total_len as u8);
-            } else {
-                let mut bytes = ArrayVec::<[u8; 8]>::new();
-                bytes.extend_from_slice(&total_len.to_be_bytes());
-                let start = bytes.iter().position(|&x| x != 0).unwrap();
-                let len = bytes.len() - start;
-                buf.put_u8(0xf7 + len as u8);
-                buf.put_slice(&bytes[start..]);
-            }
+            encode_length(total_len, buf);
             for item in self {
                 item.encode(buf);
             }
@@ -225,19 +216,23 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
     }
 }
 
+pub(crate) fn encode_length(total_len: usize, buf: &mut dyn BufMut) {
+    if total_len < 56 {
+        buf.put_u8(0xc0 + total_len as u8);
+    } else {
+        let mut bytes = ArrayVec::<[u8; 8]>::new();
+        bytes.extend_from_slice(&total_len.to_be_bytes());
+        let start = bytes.iter().position(|&x| x != 0).unwrap();
+        let len = bytes.len() - start;
+        buf.put_u8(0xf7 + len as u8);
+        buf.put_slice(&bytes[start..]);
+    }
+}
+
 impl<T: RLPEncode, S: RLPEncode> RLPEncode for (T, S) {
     fn encode(&self, buf: &mut dyn BufMut) {
         let total_len = self.0.length() + self.1.length();
-        if total_len < 56 {
-            buf.put_u8(0xc0 + total_len as u8);
-        } else {
-            let mut bytes = ArrayVec::<[u8; 8]>::new();
-            bytes.extend_from_slice(&total_len.to_be_bytes());
-            let start = bytes.iter().position(|&x| x != 0).unwrap();
-            let len = bytes.len() - start;
-            buf.put_u8(0xf7 + len as u8);
-            buf.put_slice(&bytes[start..]);
-        }
+        encode_length(total_len, buf);
         self.0.encode(buf);
         self.1.encode(buf);
     }
