@@ -9,7 +9,7 @@ pub struct BootNode {
 
 impl FromStr for BootNode {
     type Err = ParseIntError;
-    /// Takes a str with the format "enode://<node ID>@<IP address>:<port>" and
+    /// Takes a str with the format "enode://nodeID@IPaddress:port" and
     /// parses it to a BootNode
     fn from_str(input: &str) -> Result<BootNode, ParseIntError> {
         // TODO: error handling
