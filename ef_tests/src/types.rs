@@ -26,7 +26,7 @@ pub struct TestUnit {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
     pub balance: U256,
-    #[serde(deserialize_with = "deser_prefixed_bytes")]
+    #[serde(deserialize_with = "deser_hex_str")]
     pub code: Bytes,
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
@@ -100,7 +100,7 @@ pub struct Block {
 pub struct Transaction {
     #[serde(rename = "type")]
     pub transaction_type: Option<U256>,
-    #[serde(deserialize_with = "deser_prefixed_bytes")]
+    #[serde(deserialize_with = "deser_hex_str")]
     pub data: Bytes,
     pub gas_limit: U256,
     pub gas_price: Option<U256>,
@@ -230,10 +230,11 @@ impl From<Account> for EthrexAccount {
 
 // Serde utils
 
-pub fn deser_prefixed_bytes<'de, D>(d: D) -> Result<Bytes, D::Error>
+pub fn deser_hex_str<'de, D>(d: D) -> Result<Bytes, D::Error>
 where
     D: Deserializer<'de>,
 {
     let value = String::deserialize(d)?;
-    Ok(Bytes::from(value.trim_start_matches("0x").to_string()))
+    let bytes = hex::decode(value.trim_start_matches("0x")).unwrap();
+    Ok(Bytes::from(bytes))
 }
