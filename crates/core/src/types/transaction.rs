@@ -85,7 +85,6 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(tx) => {
                 let signature_y_parity = match self.chain_id() {
-                    // If there is a chain_id it means the tx is protected (TODO: check if this is true)
                     Some(chain_id) => tx.v.as_u64().saturating_sub(35 + chain_id * 2) != 0,
                     None => tx.v.as_u64().saturating_sub(27) != 0,
                 };
