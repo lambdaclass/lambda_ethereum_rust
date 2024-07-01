@@ -11,6 +11,8 @@ pub enum RLPDecodeError {
     MalformedBoolean,
     #[error("UnexpectedList")]
     UnexpectedList,
+    #[error("UnexpectedString")]
+    UnexpectedString,
     #[error("{0}")]
     Custom(String),
 }

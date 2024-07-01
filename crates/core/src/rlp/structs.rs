@@ -48,7 +48,7 @@ impl<'a> Decoder<'a> {
     pub fn new(buf: &'a [u8]) -> Result<Self, RLPDecodeError> {
         match decode_rlp_item(buf)? {
             (true, payload, remaining) => Ok(Self { payload, remaining }),
-            (false, _, _) => Err(RLPDecodeError::UnexpectedList),
+            (false, _, _) => Err(RLPDecodeError::UnexpectedString),
         }
     }
 
