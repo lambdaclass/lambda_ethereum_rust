@@ -42,6 +42,7 @@ use super::{
 /// assert_eq!(decoded, Simple { a: 61, b: 75 });
 /// ```
 #[derive(Debug)]
+#[must_use = "`Decoder` must be consumed with `finish` to perform decoding checks"]
 pub struct Decoder<'a> {
     payload: &'a [u8],
     remaining: &'a [u8],
@@ -114,6 +115,7 @@ fn field_decode_error<T>(field_name: &str, err: RLPDecodeError) -> RLPDecodeErro
 ///
 /// assert_eq!(&buf, &[0xc2, 61, 75]);
 /// ```
+#[must_use = "`Encoder` must be consumed with `finish` to perform the encoding"]
 pub struct Encoder<'a> {
     buf: &'a mut dyn BufMut,
     temp_buf: Vec<u8>,
