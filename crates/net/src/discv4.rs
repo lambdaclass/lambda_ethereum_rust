@@ -1,5 +1,9 @@
 use bytes::BufMut;
-use ethrex_core::rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
+use ethrex_core::rlp::{
+    decode::{decode_rlp_item, RLPDecode},
+    encode::RLPEncode,
+    error::RLPDecodeError,
+};
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
 use std::net::IpAddr;
@@ -62,9 +66,9 @@ impl Message {
         let msg = &encoded_msg[packet_index + 1..];
         match packet_type {
             0x02 => {
-                let (to, ping_hash, expiration, enr_seq) =
-                    <(Endpoint, H256, u64, u64)>::decode(msg).unwrap();
-                Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq))
+                let (pong, msg_rest) =
+                    PongMessage::decode_unfinished(msg).expect("Error while decoding PongMessage");
+                Message::Pong(pong)
             }
             _ => todo!(),
         }
@@ -85,14 +89,26 @@ impl RLPEncode for &Endpoint {
 }
 
 impl RLPDecode for Endpoint {
-    fn decode(rlp: &[u8]) -> Result<Self, RLPDecodeError> {
-        let (ip, udp_port, tcp_port) =
-            <(IpAddr, u16, u16)>::decode(rlp).expect("Failed parsing Endpoint");
-        Ok(Endpoint {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+        let (ip, ip_rest) = IpAddr::decode_unfinished(payload)?;
+        let (udp_port, udp_port_rest) = u16::decode_unfinished(ip_rest)?;
+        let (tcp_port, tcp_port_rest) = u16::decode_unfinished(udp_port_rest)?;
+        if !tcp_port_rest.is_empty() {
+            return Err(RLPDecodeError::MalformedData);
+        }
+        let endpoint = Endpoint {
             ip,
             udp_port,
             tcp_port,
-        })
+        };
+        Ok((endpoint, input_rest))
     }
 }
 
@@ -138,6 +154,31 @@ impl RLPEncode for PingMessage {
             Some(seq) => (self.version, &self.from, &self.to, self.expiration, seq).encode(buf),
             None => (self.version, &self.from, &self.to, self.expiration).encode(buf),
         }
+    }
+}
+
+impl RLPDecode for PongMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+        let (to, to_rest) =
+            Endpoint::decode_unfinished(payload).expect("Error while decoding Endpoint");
+        let (ping_hash, ping_hash_rest) =
+            H256::decode_unfinished(to_rest).expect("Error while decoding ping_hash");
+        let (expiration, expiration_rest) =
+            u64::decode_unfinished(ping_hash_rest).expect("Error while decoding expiration");
+        let (enr_seq, enr_seq_rest) =
+            u64::decode_unfinished(expiration_rest).expect("Error while decoding enr_seq");
+        if !enr_seq_rest.is_empty() {
+            return Err(RLPDecodeError::MalformedData);
+        }
+        let message = PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq);
+        Ok((message, input_rest))
     }
 }
 

@@ -1,10 +1,9 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-
 use super::{
     constants::{RLP_EMPTY_LIST, RLP_NULL},
     error::RLPDecodeError,
 };
 use bytes::{Bytes, BytesMut};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.
 /// See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding> for more information.
@@ -327,7 +326,7 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (
         let (third, third_rest) = T3::decode_unfinished(second_rest)?;
         let (fourth, fourth_rest) = T4::decode_unfinished(third_rest)?;
         // check that there is no more data to decode after the third element.
-        if !third_rest.is_empty() {
+        if !fourth_rest.is_empty() {
             return Err(RLPDecodeError::MalformedData);
         }
 
@@ -340,7 +339,7 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (
 /// - A boolean indicating if the item is a list or not.
 /// - The payload of the item, without its prefix.
 /// - The remaining bytes after the item.
-pub(crate) fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
+pub fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
     }

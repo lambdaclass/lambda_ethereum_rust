@@ -4,7 +4,6 @@ use crate::discv4::Message;
 use discv4::{Endpoint, PingMessage};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::{
-    fmt::Write,
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
