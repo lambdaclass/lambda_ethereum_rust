@@ -85,25 +85,22 @@ impl BlockBody {
             .map(|(i, tx)| {
                 // TODO: check if tree is RLP encoding the value
 
-                // I think the tree is RLP encoding the key, so this is not needed?
-                // let mut k = Vec::new();
-                // i.encode(&mut k);
+                // Key: RLP(tx_index)
+                let mut k = Vec::new();
+                i.encode(&mut k);
 
-                let mut v = Vec::new();
-                let tx_type = tx.tx_type();
-
-                // Legacy transactions don't have a prefix
-                if tx_type != 0 {
-                    v.push(tx_type);
-                }
-                tx.encode(&mut v);
-                dbg!(&v);
-                dbg!(v.len());
-
-                // Key:   RLP(tx_index)
                 // Value: tx_type || RLP(tx)  if tx_type != 0
                 //                   RLP(tx)  else
-                (i.to_be_bytes(), v)
+                let mut v = Vec::new();
+                match tx {
+                    // Legacy transactions don't have a prefix
+                    Transaction::LegacyTransaction(_) => {}
+                    _ => v.push(tx.tx_type()),
+                }
+
+                tx.encode(&mut v);
+
+                (k, v)
             })
             .collect();
         let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
