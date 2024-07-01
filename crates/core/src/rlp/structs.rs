@@ -132,6 +132,7 @@ impl core::fmt::Debug for Encoder<'_> {
 }
 
 impl<'a> Encoder<'a> {
+    /// Creates a new encoder that writes to the given buffer.
     pub fn new(buf: &'a mut dyn BufMut) -> Self {
         // PERF: we could pre-allocate the buffer or switch to `ArrayVec`` if we could
         // bound the size of the encoded data.
@@ -141,11 +142,13 @@ impl<'a> Encoder<'a> {
         }
     }
 
+    /// Stores a field to be encoded.
     pub fn encode_field<T: RLPEncode>(mut self, value: &T) -> Self {
         <T as RLPEncode>::encode(value, &mut self.temp_buf);
         self
     }
 
+    /// If `Some`, stores a field to be encoded, else does nothing.
     pub fn encode_optional_field<T: RLPEncode>(mut self, opt_value: &Option<T>) -> Self {
         if let Some(value) = opt_value {
             <T as RLPEncode>::encode(value, &mut self.temp_buf);
@@ -153,6 +156,7 @@ impl<'a> Encoder<'a> {
         self
     }
 
+    /// Finishes encoding the struct and writes the result to the buffer.
     pub fn finish(self) {
         encode_length(self.temp_buf.len(), self.buf);
         self.buf.put_slice(&self.temp_buf);
