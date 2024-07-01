@@ -1,13 +1,13 @@
 pub(crate) mod discv4;
 
+use crate::discv4::Message;
+use discv4::{Endpoint, PingMessage};
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::{
     fmt::Write,
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-
-use discv4::{Endpoint, PingMessage};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use tokio::{
     net::{TcpSocket, UdpSocket},
     try_join,
@@ -36,15 +36,8 @@ async fn discover_peers(udp_addr: SocketAddr) {
 
     let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
     info!("Received {read} bytes from {from}");
-    info!("Message: {}", to_hex(&buf[..read]));
-}
-
-// TODO: maybe remove this
-fn to_hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut buf, b| {
-        let _ = write!(&mut buf, "{b:02x}");
-        buf
-    })
+    let msg = Message::decode_with_header(&buf[..read]);
+    info!("Message: {:?}", msg);
 }
 
 async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
