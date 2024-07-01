@@ -5,8 +5,8 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
     str::FromStr,
 };
-
 use tokio::try_join;
+
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 mod cli;
