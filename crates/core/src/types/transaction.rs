@@ -89,7 +89,22 @@ impl Transaction {
                     Some(chain_id) => tx.v.as_u64().saturating_sub(35 + chain_id * 2) != 0,
                     None => tx.v.as_u64().saturating_sub(27) != 0,
                 };
-                recover_address(&tx.r, &tx.s, signature_y_parity, &tx.data)
+                let data = (
+                    tx.nonce,
+                    tx.gas_price,
+                    tx.gas,
+                    tx.to,
+                    tx.value,
+                    tx.data.clone(),
+                );
+                let mut buf = vec![];
+                data.encode(&mut buf);
+                dbg!(recover_address(
+                    &tx.r,
+                    &tx.s,
+                    signature_y_parity,
+                    &Bytes::from(buf)
+                ))
             }
             Transaction::EIP1559Transaction(tx) => {
                 dbg!(recover_address(

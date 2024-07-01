@@ -147,6 +147,7 @@ impl Into<BlockHeader> for Header {
 
 impl Into<EthrexTransacion> for Transaction {
     fn into(self) -> EthrexTransacion {
+        dbg!(&self);
         match self.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
                 2 => EthrexTransacion::EIP1559Transaction(self.into()),

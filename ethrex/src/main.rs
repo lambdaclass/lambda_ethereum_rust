@@ -1,12 +1,14 @@
 use ethrex_core::types::Genesis;
+use ethrex_net::types::BootNode;
 use std::{
     io::{self, BufReader},
     net::{SocketAddr, ToSocketAddrs},
+    str::FromStr,
 };
+
 use tokio::join;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-
 mod cli;
 
 #[tokio::main]
@@ -32,8 +34,12 @@ async fn main() {
         .get_one::<String>("authrpc.port")
         .expect("authrpc.port is required");
 
-    let tcp_addr = matches.get_one::<String>("addr").expect("addr is required");
-    let tcp_port = matches.get_one::<String>("port").expect("port is required");
+    let tcp_addr = matches
+        .get_one::<String>("p2p.addr")
+        .expect("addr is required");
+    let tcp_port = matches
+        .get_one::<String>("p2p.port")
+        .expect("port is required");
     let udp_addr = matches
         .get_one::<String>("discovery.addr")
         .expect("discovery.addr is required");
@@ -44,6 +50,16 @@ async fn main() {
     let genesis_file_path = matches
         .get_one::<String>("network")
         .expect("network is required");
+
+    let bootnode_list: Vec<_> = matches
+        .get_many::<String>("bootnodes")
+        .expect("bootnodes is required")
+        .collect();
+
+    let _bootnodes: Vec<BootNode> = bootnode_list
+        .iter()
+        .map(|s| BootNode::from_str(s).expect("Failed to parse bootnodes"))
+        .collect();
 
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");

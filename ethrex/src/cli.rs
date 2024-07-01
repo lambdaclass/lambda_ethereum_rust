@@ -33,15 +33,15 @@ pub fn cli() -> Command {
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("addr")
-                .long("addr")
+            Arg::new("p2p.addr")
+                .long("p2p.addr")
                 .default_value("0.0.0.0")
                 .value_name("ADDRESS")
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("port")
-                .long("port")
+            Arg::new("p2p.port")
+                .long("p2p.port")
                 .default_value("30303")
                 .value_name("PORT")
                 .action(ArgAction::Set),
@@ -65,6 +65,15 @@ pub fn cli() -> Command {
                 .long("network")
                 .default_value("")
                 .value_name("GENESIS_FILE_PATH")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("bootnodes")
+                .long("bootnodes")
+                .default_value("")
+                .value_name("BOOTNODE_LIST")
+                .value_delimiter(',')
+                .num_args(1..)
                 .action(ArgAction::Set),
         )
 }
