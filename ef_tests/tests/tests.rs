@@ -49,4 +49,16 @@ mod ef_tests {
             execute_test(test)
         }
     }
+
+    #[test]
+    fn solidity_example_test() {
+        let s: String =
+            std::fs::read_to_string("./vectors/solidityExample.json").expect("Unable to read file");
+        let tests: HashMap<String, TestUnit> =
+            serde_json::from_str(&s).expect("Unable to parse JSON");
+
+        for (_k, test) in tests {
+            execute_test(test)
+        }
+    }
 }
