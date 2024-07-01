@@ -10,6 +10,7 @@ tinyvec = "1.6.0"
 ethereum-types = "0.14.1"
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 keccak-hash = "0.10.0"
 bytes.workspace = true
 
