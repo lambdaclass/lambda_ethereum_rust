@@ -180,7 +180,7 @@ fn recover_address(
     )
     .unwrap();
     // Hash message
-    let message = Bytes::new(); // TODO: Fix parsing so "0x" is empty bytes
+    // let message = Bytes::new(); // TODO: Fix parsing so "0x" is empty bytes (Uncomment this when running add11 ef test)
     let msg_digest: [u8; 32] = Keccak256::new_with_prefix(message.as_ref())
         .finalize()
         .into();
