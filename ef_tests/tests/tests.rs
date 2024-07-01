@@ -13,7 +13,7 @@ fn execute_test(test: TestUnit) {
         .first()
         .unwrap();
     let pre = test.pre.into_iter().map(|(k, v)| (k, v.into())).collect();
-    execute_tx(
+    assert!(execute_tx(
         &transaction.clone().into(),
         &test
             .blocks
@@ -27,7 +27,8 @@ fn execute_test(test: TestUnit) {
             .into(),
         &pre,
         SpecId::CANCUN,
-    );
+    )
+    .is_success());
 }
 
 #[cfg(test)]

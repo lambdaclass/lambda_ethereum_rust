@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
 // Export needed types
+pub use revm::primitives::ExecutionResult;
 pub use revm::primitives::SpecId;
 
 pub fn execute_tx(
@@ -20,7 +21,7 @@ pub fn execute_tx(
     header: &BlockHeader,
     pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
-) {
+) -> ExecutionResult {
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
     let cache_state = cache_state(pre);
@@ -37,7 +38,8 @@ pub fn execute_tx(
         .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .append_handler_register(inspector_handle_register)
         .build();
-    let _tx_result = evm.transact().unwrap();
+    let tx_result = evm.transact().unwrap();
+    tx_result.result
 }
 
 fn cache_state(pre: &HashMap<Address, Account>) -> CacheState {
