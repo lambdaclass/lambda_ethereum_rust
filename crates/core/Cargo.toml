@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytes = { workspace = true, features = ["serde"] }
+bytes.workspace = true
 tinyvec = "1.6.0"
 ethereum-types = "0.14.1"
 serde.workspace = true
