@@ -231,9 +231,9 @@ impl Into<EthrexAccount> for Account {
 // Serde utils
 
 pub fn deser_prefixed_bytes<'de, D>(d: D) -> Result<Bytes, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(d)?;
-        Ok(Bytes::from(value.trim_start_matches("0x").to_string()))
-    }
+where
+    D: Deserializer<'de>,
+{
+    let value = String::deserialize(d)?;
+    Ok(Bytes::from(value.trim_start_matches("0x").to_string()))
+}
