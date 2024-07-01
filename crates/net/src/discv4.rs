@@ -1,8 +1,9 @@
 use bytes::BufMut;
 use ethrex_core::rlp::{
-    decode::{decode_rlp_item, RLPDecode},
+    decode::{self, decode_rlp_item, RLPDecode},
     encode::RLPEncode,
     error::RLPDecodeError,
+    structs::Decoder,
 };
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
@@ -66,8 +67,17 @@ impl Message {
         let msg = &encoded_msg[packet_index + 1..];
         match packet_type {
             0x02 => {
-                let (pong, msg_rest) =
-                    PongMessage::decode_unfinished(msg).expect("Error while decoding PongMessage");
+                let decoder = Decoder::new(&msg).unwrap();
+                let (to, decoder) = decoder.decode_field("to").unwrap();
+                let (ping_hash, decoder) = decoder.decode_field("ping_hash").unwrap();
+                let (expiration, decoder) = decoder.decode_field("expiration").unwrap();
+                let (enr_seq, decoder): (u64, Decoder) = decoder.decode_field("enr_seq").unwrap();
+                let pong = PongMessage {
+                    to,
+                    ping_hash,
+                    expiration,
+                    enr_seq: Some(enr_seq),
+                };
                 Message::Pong(pong)
             }
             _ => todo!(),
