@@ -98,12 +98,7 @@ impl Transaction {
                 );
                 let mut buf = vec![];
                 data.encode(&mut buf);
-                dbg!(recover_address(
-                    &tx.r,
-                    &tx.s,
-                    signature_y_parity,
-                    &Bytes::from(buf)
-                ))
+                recover_address(&tx.r, &tx.s, signature_y_parity, &Bytes::from(buf))
             }
             Transaction::EIP1559Transaction(tx) => {
                 let data = (
