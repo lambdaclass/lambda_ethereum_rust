@@ -291,12 +291,6 @@ impl<
         self.7.encode(buf);
         self.8.encode(buf);
     }
-
-    fn length(&self) -> usize {
-        let mut buf = Vec::new();
-        self.encode(&mut buf);
-        buf.len()
-    }
 }
 
 impl RLPEncode for Ipv4Addr {

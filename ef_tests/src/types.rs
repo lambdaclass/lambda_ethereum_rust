@@ -120,100 +120,100 @@ pub struct Transaction {
 
 // Conversions between EFtests & Ethrex types
 
-impl Into<BlockHeader> for Header {
-    fn into(self) -> BlockHeader {
+impl From<Header> for BlockHeader {
+    fn from(val: Header) -> Self {
         BlockHeader {
-            parent_hash: self.parent_hash,
-            ommers_hash: self.uncle_hash,
-            coinbase: self.coinbase,
-            state_root: self.state_root,
-            transactions_root: self.transactions_trie,
-            receipt_root: self.receipt_trie,
-            logs_bloom: self.bloom.into(),
-            difficulty: self.difficulty,
-            number: self.number.as_u64(),
-            gas_limit: self.gas_limit.as_u64(),
-            gas_used: self.gas_used.as_u64(),
-            timestamp: self.timestamp.as_u64(),
-            extra_data: self.extra_data,
-            prev_randao: self.mix_hash,
-            nonce: self.nonce.as_u64(),
-            base_fee_per_gas: self.base_fee_per_gas.unwrap().as_u64(),
-            withdrawals_root: self.withdrawals_root.unwrap(),
-            blob_gas_used: self.blob_gas_used.unwrap().as_u64(),
-            excess_blob_gas: self.excess_blob_gas.unwrap().as_u64(),
-            parent_beacon_block_root: self.parent_beacon_block_root.unwrap(),
+            parent_hash: val.parent_hash,
+            ommers_hash: val.uncle_hash,
+            coinbase: val.coinbase,
+            state_root: val.state_root,
+            transactions_root: val.transactions_trie,
+            receipt_root: val.receipt_trie,
+            logs_bloom: val.bloom.into(),
+            difficulty: val.difficulty,
+            number: val.number.as_u64(),
+            gas_limit: val.gas_limit.as_u64(),
+            gas_used: val.gas_used.as_u64(),
+            timestamp: val.timestamp.as_u64(),
+            extra_data: val.extra_data,
+            prev_randao: val.mix_hash,
+            nonce: val.nonce.as_u64(),
+            base_fee_per_gas: val.base_fee_per_gas.unwrap().as_u64(),
+            withdrawals_root: val.withdrawals_root.unwrap(),
+            blob_gas_used: val.blob_gas_used.unwrap().as_u64(),
+            excess_blob_gas: val.excess_blob_gas.unwrap().as_u64(),
+            parent_beacon_block_root: val.parent_beacon_block_root.unwrap(),
         }
     }
 }
 
-impl Into<EthrexTransacion> for Transaction {
-    fn into(self) -> EthrexTransacion {
-        dbg!(&self);
-        match self.transaction_type {
+impl From<Transaction> for EthrexTransacion {
+    fn from(val: Transaction) -> Self {
+        dbg!(&val);
+        match val.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
-                2 => EthrexTransacion::EIP1559Transaction(self.into()),
+                2 => EthrexTransacion::EIP1559Transaction(val.into()),
                 _ => unimplemented!(),
             },
-            None => EthrexTransacion::LegacyTransaction(self.into()),
+            None => EthrexTransacion::LegacyTransaction(val.into()),
         }
     }
 }
 
-impl Into<EIP1559Transaction> for Transaction {
-    fn into(self) -> EIP1559Transaction {
+impl From<Transaction> for EIP1559Transaction {
+    fn from(val: Transaction) -> Self {
         EIP1559Transaction {
             // Note: gas_price is not used in this conversion as it is not part of EIP1559Transaction, this could be a problem
-            chain_id: self.chain_id.map(|id| id.as_u64()).unwrap_or(1 /*mainnet*/), // TODO: Consider converting this into Option
-            signer_nonce: self.nonce.as_u64(),
-            max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
-            max_fee_per_gas: self
+            chain_id: val.chain_id.map(|id| id.as_u64()).unwrap_or(1 /*mainnet*/), // TODO: Consider converting this into Option
+            signer_nonce: val.nonce.as_u64(),
+            max_priority_fee_per_gas: val.max_priority_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            max_fee_per_gas: val
                 .max_fee_per_gas
-                .unwrap_or(self.gas_price.unwrap_or_default())
+                .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(), // TODO: Consider converting this into Option
-            gas_limit: self.gas_limit.as_u64(),
-            destination: self.to,
-            amount: self.value,
-            payload: self.data,
-            access_list: self
+            gas_limit: val.gas_limit.as_u64(),
+            destination: val.to,
+            amount: val.value,
+            payload: val.data,
+            access_list: val
                 .access_list
                 .unwrap_or_default()
                 .into_iter()
                 .map(|item| (item.address, item.storage_keys))
                 .collect(),
-            signature_y_parity: self.v.as_u64().saturating_sub(27) != 0,
-            signature_r: self.r,
-            signature_s: self.s,
+            signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
+            signature_r: val.r,
+            signature_s: val.s,
         }
     }
 }
 
-impl Into<LegacyTransaction> for Transaction {
-    fn into(self) -> LegacyTransaction {
+impl From<Transaction> for LegacyTransaction {
+    fn from(val: Transaction) -> Self {
         LegacyTransaction {
-            nonce: self.nonce.as_u64(),
-            gas_price: self.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
-            gas: self.gas_limit.as_u64(),
-            to: self.to,
-            value: self.value,
-            data: self.data,
-            v: self.v,
-            r: self.r,
-            s: self.s,
+            nonce: val.nonce.as_u64(),
+            gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            gas: val.gas_limit.as_u64(),
+            to: val.to,
+            value: val.value,
+            data: val.data,
+            v: val.v,
+            r: val.r,
+            s: val.s,
         }
     }
 }
 
-impl Into<EthrexAccount> for Account {
-    fn into(self) -> EthrexAccount {
+impl From<Account> for EthrexAccount {
+    fn from(val: Account) -> Self {
         EthrexAccount {
             info: AccountInfo {
-                code_hash: code_hash(&self.code),
-                balance: self.balance,
-                nonce: self.nonce.as_u64(),
+                code_hash: code_hash(&val.code),
+                balance: val.balance,
+                nonce: val.nonce.as_u64(),
             },
-            code: self.code,
-            storage: self
+            code: val.code,
+            storage: val
                 .storage
                 .into_iter()
                 .map(|(k, v)| {

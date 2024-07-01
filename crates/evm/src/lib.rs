@@ -54,7 +54,7 @@ fn cache_state(pre: &HashMap<Address, Account>) -> CacheState {
 
         let mut storage = HashMap::new();
         for (k, v) in &account.storage {
-            storage.insert(U256::from_be_bytes(k.0), U256::from_be_bytes(v.0.into()));
+            storage.insert(U256::from_be_bytes(k.0), U256::from_be_bytes(v.0));
         }
 
         cache_state.insert_account_with_storage(address.to_fixed_bytes().into(), acc_info, storage);

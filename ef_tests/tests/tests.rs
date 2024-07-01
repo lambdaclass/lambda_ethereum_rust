@@ -19,7 +19,6 @@ fn execute_test(test: TestUnit) {
             .blocks
             .first()
             .as_ref()
-            .clone()
             .unwrap()
             .block_header
             .clone()
