@@ -181,8 +181,6 @@ impl PongMessage {
 }
 
 impl RLPDecode for PongMessage {
-    //fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> { todo!() }
-
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (to, decoder) = decoder.decode_field("to")?;
