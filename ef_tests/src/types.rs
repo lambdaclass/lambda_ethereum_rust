@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use ethrex_core::types::{
-    code_hash, Account as EthrexAccount, AccountInfo, EIP1559Transaction,
+    code_hash, Account as EthrexAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
     Transaction as EthrexTransacion,
 };
 use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
@@ -147,9 +147,16 @@ impl Into<BlockHeader> for Header {
 
 impl Into<EthrexTransacion> for Transaction {
     fn into(self) -> EthrexTransacion {
-        dbg!(self.sender);
-        dbg!(&self);
-        EthrexTransacion::EIP1559Transaction(EIP1559Transaction {
+        match self.transaction_type {
+            Some(_) => EthrexTransacion::EIP1559Transaction(self.into()),
+            None => EthrexTransacion::LegacyTransaction(self.into()),
+        }
+    }
+}
+
+impl Into<EIP1559Transaction> for Transaction {
+    fn into(self) -> EIP1559Transaction {
+        EIP1559Transaction {
             // Note: gas_price is not used in this conversion as it is not part of EIP1559Transaction, this could be a problem
             chain_id: self.chain_id.map(|id| id.as_u64()).unwrap_or(1 /*mainnet*/), // TODO: Consider converting this into Option
             signer_nonce: self.nonce.as_u64(),
@@ -171,7 +178,23 @@ impl Into<EthrexTransacion> for Transaction {
             signature_y_parity: self.v.as_u64().saturating_sub(27) != 0,
             signature_r: self.r,
             signature_s: self.s,
-        })
+        }
+    }
+}
+
+impl Into<LegacyTransaction> for Transaction {
+    fn into(self) -> LegacyTransaction {
+        LegacyTransaction {
+            nonce: self.nonce.as_u64(),
+            gas_price: self.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            gas: self.gas_limit.as_u64(),
+            to: self.to,
+            value: self.value,
+            data: self.data,
+            v: self.v,
+            r: self.r,
+            s: self.s,
+        }
     }
 }
 

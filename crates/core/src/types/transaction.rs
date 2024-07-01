@@ -102,7 +102,7 @@ impl Transaction {
 
     pub fn gas_limit(&self) -> u64 {
         match self {
-            Transaction::LegacyTransaction(tx) => tx.gas_price,
+            Transaction::LegacyTransaction(tx) => tx.gas,
             Transaction::EIP1559Transaction(tx) => tx.gas_limit,
         }
     }
