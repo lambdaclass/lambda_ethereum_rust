@@ -1,4 +1,7 @@
-use crate::{rlp::encode::RLPEncode, Address, H256, U256};
+use crate::{
+    rlp::{encode::RLPEncode, structs},
+    Address, H256, U256,
+};
 use bytes::Bytes;
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::Keccak256;
@@ -174,21 +177,24 @@ pub struct LegacyTransaction {
 
 impl RLPEncode for LegacyTransaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        // TODO: prepend size header
-        self.nonce.encode(buf);
-        self.gas_price.encode(buf);
-        self.gas.encode(buf);
+        let encoder = structs::Encoder::new(buf)
+            .encode_field(&self.nonce)
+            .encode_field(&self.gas_price)
+            .encode_field(&self.gas);
+
         // TODO: implement encode for Option?
-        match &self.to {
-            Some(to) => to.encode(buf),
+        let encoder = match &self.to {
+            Some(to) => encoder.encode_field(to),
             // TODO: move to a constant?
-            None => buf.put_u8(0x80),
-        }
-        self.value.encode(buf);
-        self.data.encode(buf);
-        self.v.encode(buf);
-        self.r.encode(buf);
-        self.s.encode(buf);
+            None => encoder.encode_field(&0_u64),
+        };
+        encoder
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.v)
+            .encode_field(&self.r)
+            .encode_field(&self.s)
+            .finish();
     }
 }
 
