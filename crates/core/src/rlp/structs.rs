@@ -3,12 +3,41 @@ use super::{
     error::RLPDecodeError,
 };
 
-/// # Struct decoding helper.
+/// # Struct decoding helper
 ///
 /// Used to decode a struct from RLP format.
 /// The struct's fields must implement [`RLPDecode`].
 /// The struct is expected as a list, with its values being the fields
 /// in the order they are passed to [`Decoder::decode_field`].
+///
+/// # Examples
+///
+/// ```
+/// # use ethrex_core::rlp::structs::Decoder;
+/// # use ethrex_core::rlp::error::RLPDecodeError;
+/// # use ethrex_core::rlp::decode::RLPDecode;
+/// #[derive(Debug, PartialEq, Eq)]
+/// struct Simple {
+///     pub a: u8,
+///     pub b: u16,
+/// }
+///
+/// impl RLPDecode for Simple {
+///     fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+///         let decoder = Decoder::new(&buf).unwrap();
+///         // The fields are expected in the same order as given here
+///         let (a, decoder) = decoder.decode_field("a").unwrap();
+///         let (b, decoder) = decoder.decode_field("b").unwrap();
+///         let rest = decoder.finish().unwrap();
+///         Ok((Simple { a, b }, rest))
+///     }
+/// }
+///
+/// let bytes = [0xc2, 61, 75];
+/// let decoded = Simple::decode(&bytes).unwrap();
+///
+/// assert_eq!(decoded, Simple { a: 61, b: 75 });
+/// ```
 #[derive(Debug)]
 pub struct Decoder<'a> {
     payload: &'a [u8],

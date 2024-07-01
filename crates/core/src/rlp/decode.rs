@@ -7,7 +7,7 @@ use super::{
 use bytes::{Bytes, BytesMut};
 
 /// Trait for decoding RLP encoded slices of data.
-/// See https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding for more information.
+/// See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding> for more information.
 /// The `decode_unfinished` method is used to decode an RLP encoded slice of data and return the decoded value along with the remaining bytes.
 /// The `decode` method is used to decode an RLP encoded slice of data and return the decoded value.
 /// Implementors need to implement the `decode_unfinished` method.
