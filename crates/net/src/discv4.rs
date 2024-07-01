@@ -1,9 +1,6 @@
 use bytes::BufMut;
 use ethrex_core::rlp::{
-    decode::{decode_rlp_item, RLPDecode},
-    encode::RLPEncode,
-    error::RLPDecodeError,
-    structs::Decoder,
+    decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError, structs::Decoder,
 };
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
@@ -100,25 +97,17 @@ impl RLPEncode for &Endpoint {
 
 impl RLPDecode for Endpoint {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if rlp.is_empty() {
-            return Err(RLPDecodeError::InvalidLength);
-        }
-        let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
-        if !is_list {
-            return Err(RLPDecodeError::MalformedData);
-        }
-        let (ip, ip_rest) = IpAddr::decode_unfinished(payload)?;
-        let (udp_port, udp_port_rest) = u16::decode_unfinished(ip_rest)?;
-        let (tcp_port, tcp_port_rest) = u16::decode_unfinished(udp_port_rest)?;
-        if !tcp_port_rest.is_empty() {
-            return Err(RLPDecodeError::MalformedData);
-        }
+        let decoder = Decoder::new(rlp)?;
+        let (ip, decoder) = decoder.decode_field("ip")?;
+        let (udp_port, decoder) = decoder.decode_field("udp_port")?;
+        let (tcp_port, decoder) = decoder.decode_field("tcp_port")?;
+        let remaining = decoder.finish()?;
         let endpoint = Endpoint {
             ip,
             udp_port,
             tcp_port,
         };
-        Ok((endpoint, input_rest))
+        Ok((endpoint, remaining))
     }
 }
 
