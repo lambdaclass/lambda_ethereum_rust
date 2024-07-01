@@ -229,12 +229,14 @@ impl From<Account> for EthrexAccount {
 }
 
 // Serde utils
+use serde::de::Error;
 
 pub fn deser_hex_str<'de, D>(d: D) -> Result<Bytes, D::Error>
 where
     D: Deserializer<'de>,
 {
     let value = String::deserialize(d)?;
-    let bytes = hex::decode(value.trim_start_matches("0x")).unwrap();
+    let bytes =
+        hex::decode(value.trim_start_matches("0x")).map_err(|e| D::Error::custom(e.to_string()))?;
     Ok(Bytes::from(bytes))
 }
