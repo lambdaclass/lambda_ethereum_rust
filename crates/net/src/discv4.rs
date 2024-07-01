@@ -1,12 +1,15 @@
 use bytes::BufMut;
 use ethrex_core::rlp::{
-    decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError, structs::Decoder,
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{self, Decoder},
 };
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
 use std::net::IpAddr;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 // TODO: remove when all variants are used
 // NOTE: All messages could have more fields than specified by the spec.
 // Those additional fields should be ignored, and the message must be accepted.
@@ -83,9 +86,13 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
-impl RLPEncode for &Endpoint {
+impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
-        (self.ip, self.udp_port, self.tcp_port).encode(buf);
+        structs::Encoder::new(buf)
+            .encode_field(&self.ip)
+            .encode_field(&self.udp_port)
+            .encode_field(&self.tcp_port)
+            .finish();
     }
 }
 
@@ -143,10 +150,13 @@ impl PingMessage {
 
 impl RLPEncode for PingMessage {
     fn encode(&self, buf: &mut dyn BufMut) {
-        match self.enr_seq {
-            Some(seq) => (self.version, &self.from, &self.to, self.expiration, seq).encode(buf),
-            None => (self.version, &self.from, &self.to, self.expiration).encode(buf),
-        }
+        structs::Encoder::new(buf)
+            .encode_field(&self.version)
+            .encode_field(&self.from)
+            .encode_field(&self.to)
+            .encode_field(&self.expiration)
+            .encode_optional_field(&self.enr_seq)
+            .finish();
     }
 }
 
