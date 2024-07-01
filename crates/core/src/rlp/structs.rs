@@ -146,6 +146,13 @@ impl<'a> Encoder<'a> {
         self
     }
 
+    pub fn encode_optional_field<T: RLPEncode>(mut self, opt_value: &Option<T>) -> Self {
+        if let Some(value) = opt_value {
+            <T as RLPEncode>::encode(value, &mut self.temp_buf);
+        }
+        self
+    }
+
     pub fn finish(self) {
         encode_length(self.temp_buf.len(), self.buf);
         self.buf.put_slice(&self.temp_buf);

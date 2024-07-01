@@ -1,7 +1,7 @@
 use std::net::IpAddr;
 
 use bytes::BufMut;
-use ethrex_core::rlp::encode::RLPEncode;
+use ethrex_core::rlp::{encode::RLPEncode, structs};
 use k256::ecdsa::{signature::Signer, SigningKey};
 
 #[derive(Debug)]
@@ -62,7 +62,7 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
-impl RLPEncode for &Endpoint {
+impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
         (self.ip, self.udp_port, self.tcp_port).encode(buf);
     }
@@ -106,10 +106,13 @@ impl PingMessage {
 
 impl RLPEncode for PingMessage {
     fn encode(&self, buf: &mut dyn BufMut) {
-        match self.enr_seq {
-            Some(seq) => (self.version, &self.from, &self.to, self.expiration, seq).encode(buf),
-            None => (self.version, &self.from, &self.to, self.expiration).encode(buf),
-        }
+        structs::Encoder::new(buf)
+            .encode_field(&self.version)
+            .encode_field(&self.from)
+            .encode_field(&self.to)
+            .encode_field(&self.expiration)
+            .encode_optional_field(&self.enr_seq)
+            .finish();
     }
 }
 
