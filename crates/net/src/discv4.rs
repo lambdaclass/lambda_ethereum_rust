@@ -64,7 +64,11 @@ pub(crate) struct Endpoint {
 
 impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
-        (self.ip, self.udp_port, self.tcp_port).encode(buf);
+        structs::Encoder::new(buf)
+            .encode_field(&self.ip)
+            .encode_field(&self.udp_port)
+            .encode_field(&self.tcp_port)
+            .finish();
     }
 }
 
