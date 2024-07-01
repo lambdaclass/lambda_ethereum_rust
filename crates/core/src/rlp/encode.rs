@@ -216,7 +216,7 @@ impl<T: RLPEncode> RLPEncode for Vec<T> {
     }
 }
 
-fn encode_length(total_len: usize, buf: &mut dyn BufMut) {
+pub(crate) fn encode_length(total_len: usize, buf: &mut dyn BufMut) {
     if total_len < 56 {
         buf.put_u8(0xc0 + total_len as u8);
     } else {
@@ -229,7 +229,7 @@ fn encode_length(total_len: usize, buf: &mut dyn BufMut) {
     }
 }
 
-impl<S: RLPEncode, T: RLPEncode> RLPEncode for (S, T) {
+impl<T: RLPEncode, S: RLPEncode> RLPEncode for (T, S) {
     fn encode(&self, buf: &mut dyn BufMut) {
         let total_len = self.0.length() + self.1.length();
         encode_length(total_len, buf);

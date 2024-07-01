@@ -7,10 +7,10 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.
 /// See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding> for more information.
-/// The `decode_unfinished` method is used to decode an RLP encoded slice of data and return the decoded value along with the remaining bytes.
-/// The `decode` method is used to decode an RLP encoded slice of data and return the decoded value.
-/// Implementors need to implement the `decode_unfinished` method.
-/// While consumers can use the `decode` method to decode the RLP encoded data.
+/// The [`decode_unfinished`](RLPDecode::decode_unfinished) method is used to decode an RLP encoded slice of data and return the decoded value along with the remaining bytes.
+/// The [`decode`](RLPDecode::decode) method is used to decode an RLP encoded slice of data and return the decoded value.
+/// Implementors need to implement the [`decode_unfinished`](RLPDecode::decode_unfinished) method.
+/// While consumers can use the [`decode`](RLPDecode::decode) method to decode the RLP encoded data.
 pub trait RLPDecode: Sized {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError>;
 
