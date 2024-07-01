@@ -80,12 +80,40 @@ fn field_decode_error<T>(field_name: &str, err: RLPDecodeError) -> RLPDecodeErro
     RLPDecodeError::Custom(err_msg)
 }
 
-/// # Struct encoding helper.
+/// # Struct encoding helper
 ///
 /// Used to encode a struct into RLP format.
 /// The struct's fields must implement [`RLPEncode`].
 /// The struct is encoded as a list, with its values being the fields
 /// in the order they are passed to [`Encoder::encode_field`].
+///
+/// # Examples
+///
+/// ```
+/// # use ethrex_core::rlp::structs::Encoder;
+/// # use ethrex_core::rlp::encode::RLPEncode;
+/// # use bytes::BufMut;
+/// #[derive(Debug, PartialEq, Eq)]
+/// struct Simple {
+///     pub a: u8,
+///     pub b: u16,
+/// }
+///
+/// impl RLPEncode for Simple {
+///     fn encode(&self, buf: &mut dyn BufMut) {
+///         // The fields are encoded in the order given here
+///         Encoder::new(buf)
+///             .encode_field(&self.a)
+///             .encode_field(&self.b)
+///             .finish();
+///     }
+/// }
+///
+/// let mut buf = vec![];
+/// Simple { a: 61, b: 75 }.encode(&mut buf);
+///
+/// assert_eq!(&buf, &[0xc2, 61, 75]);
+/// ```
 pub struct Encoder<'a> {
     buf: &'a mut dyn BufMut,
     temp_buf: Vec<u8>,
