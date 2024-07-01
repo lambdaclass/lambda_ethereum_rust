@@ -64,17 +64,7 @@ impl Message {
         let msg = &encoded_msg[packet_index + 1..];
         match packet_type {
             0x02 => {
-                let decoder = Decoder::new(msg)?;
-                let (to, decoder) = decoder.decode_field("to")?;
-                let (ping_hash, decoder) = decoder.decode_field("ping_hash")?;
-                let (expiration, decoder) = decoder.decode_field("expiration")?;
-                let (enr_seq, decoder): (u64, Decoder) = decoder.decode_field("enr_seq")?;
-                let pong = PongMessage {
-                    to,
-                    ping_hash,
-                    expiration,
-                    enr_seq: Some(enr_seq),
-                };
+                let pong = PongMessage::decode(msg)?;
                 Ok(Message::Pong(pong))
             }
             _ => todo!(),
@@ -187,6 +177,22 @@ impl PongMessage {
             enr_seq: Some(enr_seq),
             ..self
         }
+    }
+}
+
+impl RLPDecode for PongMessage {
+    //fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> { todo!() }
+
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (to, decoder) = decoder.decode_field("to")?;
+        let (ping_hash, decoder) = decoder.decode_field("ping_hash")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let (enr_seq, decoder) = decoder.decode_field("enr_seq")?;
+        let remaining = decoder.finish()?;
+        let pong = PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq);
+
+        Ok((pong, remaining))
     }
 }
 
