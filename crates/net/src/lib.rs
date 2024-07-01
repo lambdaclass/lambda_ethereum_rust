@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use tokio::net::{TcpSocket, UdpSocket};
 use tracing::info;
+pub mod rlpx;
 pub mod types;
 
 pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr) {
