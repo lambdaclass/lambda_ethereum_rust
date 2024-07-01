@@ -96,7 +96,7 @@ impl Transaction {
                     tx.to,
                     tx.value,
                     Bytes::new(), // TODO: Fix parsing so "0x" is empty bytes (Uncomment this when running add11 ef test)
-                    //tx.data.clone(),
+                                  //tx.data.clone(),
                 );
                 let mut buf = vec![];
                 data.encode(&mut buf);
@@ -107,14 +107,25 @@ impl Transaction {
                     &Bytes::from(buf)
                 ))
             }
-            Transaction::EIP1559Transaction(tx) => {
-                dbg!(recover_address(
-                    &tx.signature_r,
-                    &tx.signature_s,
-                    tx.signature_y_parity,
-                    &tx.payload
-                ))
-            }
+            Transaction::EIP1559Transaction(tx) =>
+            /*TODO: message = rlp.encode(
+                tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                chain_id,
+                Uint(0),
+                Uint(0),
+            )
+            */
+            recover_address(
+                &tx.signature_r,
+                &tx.signature_s,
+                tx.signature_y_parity,
+                &tx.payload,
+            ),
         }
     }
 
