@@ -167,11 +167,18 @@ impl RLPDecode for PingMessage {
         let (from, decoder) = decoder.decode_field("from")?;
         let (to, decoder) = decoder.decode_field("to")?;
         let (expiration, decoder) = decoder.decode_field("expiration")?;
-        //let (enr_seq, decoder) = decoder.decode_field("enr_seq")?;
-        let remaining = decoder.finish()?;
-        let msg = PingMessage::new(from, to, expiration); //.with_enr_seq(enr_seq);
+        let (enr_seq, decoder) = decoder.decode_optional_field();
 
-        Ok((msg, remaining))
+        let ping = PingMessage::new(from, to, expiration);
+
+        let ping = if let Some(seq) = enr_seq {
+            ping.with_enr_seq(seq)
+        } else {
+            ping
+        };
+
+        let remaining = decoder.finish()?;
+        Ok((ping, remaining))
     }
 }
 
@@ -330,7 +337,37 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, signer.clone());
+        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
+        assert_eq!(result, msg);
+    }
+
+    #[test]
+    fn test_decode_ping_message_with_enr_seq() {
+        let expiration: u64 = 17195043770;
+
+        let from = Endpoint {
+            ip: IpAddr::from_str("1.2.3.4").unwrap(),
+            udp_port: 1613,
+            tcp_port: 6363,
+        };
+        let to = Endpoint {
+            ip: IpAddr::from_str("255.255.2.5").unwrap(),
+            udp_port: 3063,
+            tcp_port: 0,
+        };
+
+        let enr_seq = 1704896740573;
+        let msg = Message::Ping(PingMessage::new(from, to, expiration).with_enr_seq(enr_seq));
+
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+
+        msg.encode_with_header(&mut buf, signer.clone());
         let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
         assert_eq!(result, msg);
     }
