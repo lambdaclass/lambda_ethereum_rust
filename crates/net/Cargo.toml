@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ethrex-core.workspace = true
+
 tracing.workspace = true
 tokio.workspace = true
 bytes.workspace = true
