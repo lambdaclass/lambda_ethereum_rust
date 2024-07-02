@@ -1,10 +1,9 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-
 use super::{
     constants::{RLP_EMPTY_LIST, RLP_NULL},
     error::RLPDecodeError,
 };
 use bytes::{Bytes, BytesMut};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.
 /// See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#rlp-decoding> for more information.
