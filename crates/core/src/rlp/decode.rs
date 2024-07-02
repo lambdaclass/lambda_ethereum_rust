@@ -312,28 +312,6 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
     }
 }
 
-impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (T1, T2, T3, T4) {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if rlp.is_empty() {
-            return Err(RLPDecodeError::InvalidLength);
-        }
-        let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
-        if !is_list {
-            return Err(RLPDecodeError::MalformedData);
-        }
-        let (first, first_rest) = T1::decode_unfinished(payload)?;
-        let (second, second_rest) = T2::decode_unfinished(first_rest)?;
-        let (third, third_rest) = T3::decode_unfinished(second_rest)?;
-        let (fourth, fourth_rest) = T4::decode_unfinished(third_rest)?;
-        // check that there is no more data to decode after the third element.
-        if !fourth_rest.is_empty() {
-            return Err(RLPDecodeError::MalformedData);
-        }
-
-        Ok(((first, second, third, fourth), input_rest))
-    }
-}
-
 /// Decodes an RLP item from a slice of bytes.
 /// It returns a 3-element tuple with the following elements:
 /// - A boolean indicating if the item is a list or not.
