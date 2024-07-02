@@ -56,13 +56,13 @@ impl Message {
     }
 
     pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let signature_len = 65;
         let hash_len = 32;
-        let packet_index = signature_len + hash_len;
+        let signature_len = 65;
+        let packet_index = hash_len + signature_len;
 
-        // TODO: verify signature and hash
-        let _signature = &encoded_msg[..signature_len];
-        let _hash = &encoded_msg[signature_len..packet_index];
+        // TODO: verify hash and signature
+        let _hash = &encoded_msg[..hash_len];
+        let _signature = &encoded_msg[hash_len..packet_index];
 
         let packet_type = encoded_msg[packet_index];
 
