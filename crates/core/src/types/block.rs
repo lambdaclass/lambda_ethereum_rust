@@ -85,8 +85,6 @@ impl BlockBody {
             .iter()
             .enumerate()
             .map(|(i, tx)| {
-                // TODO: check if tree is RLP encoding the value
-
                 // Key: RLP(tx_index)
                 let mut k = Vec::new();
                 i.encode(&mut k);
@@ -94,13 +92,7 @@ impl BlockBody {
                 // Value: tx_type || RLP(tx)  if tx_type != 0
                 //                   RLP(tx)  else
                 let mut v = Vec::new();
-                match tx {
-                    // Legacy transactions don't have a prefix
-                    Transaction::LegacyTransaction(_) => {}
-                    _ => v.push(tx.tx_type()),
-                }
-
-                tx.encode(&mut v);
+                tx.encode_with_type(&mut v);
 
                 (k, v)
             })
@@ -148,6 +140,18 @@ pub enum Transaction {
 }
 
 impl Transaction {
+    pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
+        // tx_type || RLP(tx)  if tx_type != 0
+        //            RLP(tx)  else
+        match self {
+            // Legacy transactions don't have a prefix
+            Transaction::LegacyTransaction(_) => {}
+            _ => buf.put_u8(self.tx_type()),
+        }
+
+        self.encode(buf);
+    }
+
     pub fn tx_type(&self) -> u8 {
         match self {
             Transaction::LegacyTransaction(_) => 0,
