@@ -26,12 +26,28 @@ pub struct ExecutionPayloadV3 {
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     base_fee_per_gas: u64,
     block_hash: H256,
-    transactions: (),
-    withdrawals: (),
+    #[serde(flatten)]
+    transactions: Vec<EncodedTransaction>,
+    #[serde(flatten)]
+    withdrawals: Vec<EncodedWithdrawals>,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     blob_gas_used: u64,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     excess_blob_gas: u64,
+}
+
+#[allow(unused)]
+#[derive(Debug, Deserialize)]
+pub struct EncodedTransaction {
+    #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
+    bytes: Bytes
+}
+
+#[allow(unused)]
+#[derive(Debug, Deserialize)]
+pub struct EncodedWithdrawals {
+    #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
+    bytes: Bytes
 }
 
 #[allow(unused)]
