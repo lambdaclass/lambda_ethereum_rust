@@ -67,6 +67,10 @@ impl Message {
         let packet_type = encoded_msg[packet_index];
         let msg = &encoded_msg[packet_index + 1..];
         match packet_type {
+            0x01 => {
+                let ping = PingMessage::decode(msg)?;
+                Ok(Message::Ping(ping))
+            }
             0x02 => {
                 let pong = PongMessage::decode(msg)?;
                 Ok(Message::Pong(pong))
@@ -157,6 +161,28 @@ impl RLPEncode for PingMessage {
     }
 }
 
+impl RLPDecode for PingMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (version, decoder): (u8, Decoder) = decoder.decode_field("version")?;
+        let (from, decoder) = decoder.decode_field("from")?;
+        let (to, decoder) = decoder.decode_field("to")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let (enr_seq, decoder) = decoder.decode_optional_field();
+
+        let ping = PingMessage {
+            version,
+            from,
+            to,
+            expiration,
+            enr_seq,
+        };
+
+        let remaining = decoder.finish()?;
+        Ok((ping, remaining))
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
@@ -210,14 +236,12 @@ impl RLPDecode for PongMessage {
         let (expiration, decoder) = decoder.decode_field("expiration")?;
         let (enr_seq, decoder) = decoder.decode_optional_field();
 
-        let pong = PongMessage::new(to, ping_hash, expiration);
-
-        let pong = if let Some(seq) = enr_seq {
-            pong.with_enr_seq(seq)
-        } else {
-            pong
+        let pong = PongMessage {
+            to,
+            ping_hash,
+            expiration,
+            enr_seq,
         };
-
         let remaining = decoder.finish()?;
 
         Ok((pong, remaining))
@@ -392,6 +416,65 @@ mod tests {
             .step_by(2)
             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
             .collect()
+    }
+
+    #[test]
+    fn test_decode_ping_message() {
+        let expiration: u64 = 17195043770;
+
+        let from = Endpoint {
+            ip: IpAddr::from_str("1.2.3.4").unwrap(),
+            udp_port: 1613,
+            tcp_port: 6363,
+        };
+        let to = Endpoint {
+            ip: IpAddr::from_str("255.255.2.5").unwrap(),
+            udp_port: 3063,
+            tcp_port: 0,
+        };
+
+        let msg = Message::Ping(PingMessage::new(from, to, expiration));
+
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+
+        msg.encode_with_header(&mut buf, signer.clone());
+        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
+        assert_eq!(result, msg);
+    }
+
+    #[test]
+    fn test_decode_ping_message_with_enr_seq() {
+        let expiration: u64 = 17195043770;
+
+        let from = Endpoint {
+            ip: IpAddr::from_str("1.2.3.4").unwrap(),
+            udp_port: 1613,
+            tcp_port: 6363,
+        };
+        let to = Endpoint {
+            ip: IpAddr::from_str("255.255.2.5").unwrap(),
+            udp_port: 3063,
+            tcp_port: 0,
+        };
+
+        let enr_seq = 1704896740573;
+        let msg = Message::Ping(PingMessage::new(from, to, expiration).with_enr_seq(enr_seq));
+
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+
+        msg.encode_with_header(&mut buf, signer.clone());
+        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
+        assert_eq!(result, msg);
     }
 
     #[test]
