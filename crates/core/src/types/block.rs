@@ -3,6 +3,7 @@ use crate::{
         constants::RLP_NULL, decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError,
         structs::Encoder,
     },
+    types::Receipt,
     Address, H256, U256,
 };
 use bytes::Bytes;
@@ -103,6 +104,28 @@ impl BlockBody {
         let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
             &transactions_iter,
         );
+        H256(root.into())
+    }
+
+    pub fn compute_receipts_root(&self, receipts: Vec<Receipt>) -> H256 {
+        let receipts_iter: Vec<_> = receipts
+            .iter()
+            .enumerate()
+            .map(|(i, receipt)| {
+                // Key: RLP(index)
+                let mut k = Vec::new();
+                i.encode(&mut k);
+
+                // Value: tx_type || RLP(tx)  if tx_type != 0
+                //                   RLP(tx)  else
+                let mut v = Vec::new();
+                receipt.encode_with_type(&mut v);
+
+                (k, v)
+            })
+            .collect();
+        let root =
+            PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(&receipts_iter);
         H256(root.into())
     }
 }
@@ -274,11 +297,13 @@ impl RLPEncode for EIP1559Transaction {
 
 #[cfg(test)]
 mod tests {
+    use ethereum_types::H160;
     use hex_literal::hex;
+    use keccak_hash::H256;
 
-    use super::{BlockBody, LegacyTransaction};
+    use super::{BlockBody, Bytes, LegacyTransaction, TxType};
     use crate::{
-        types::{Transaction, TxKind},
+        types::{Log, Receipt, Transaction, TxKind},
         U256,
     };
 
@@ -305,6 +330,28 @@ mod tests {
             hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
         let result = body.compute_transactions_root();
 
+        assert_eq!(result, expected_root.into());
+    }
+
+    #[test]
+    fn test_compute_receipts_root() {
+        let body = BlockBody::empty();
+        let tx_type = TxType::EIP1559;
+        let succeeded = true;
+        let topic1 = H256::from_slice(&[0x01; 32]);
+        let topic2 = H256::from_slice(&[0x02; 32]);
+        let log = Log::new(
+            H160::from_slice(&[0x01; 20]),
+            vec![topic1, topic2],
+            Bytes::from("beef"),
+        );
+        let logs = vec![log];
+        let bloom = [0x03; 256];
+        let cumulative_gas_used = 1024;
+        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom, logs);
+        let result = body.compute_receipts_root(vec![receipt]);
+        let expected_root =
+            hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
         assert_eq!(result, expected_root.into());
     }
 }
