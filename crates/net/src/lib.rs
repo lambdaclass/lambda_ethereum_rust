@@ -1,12 +1,12 @@
 pub(crate) mod discv4;
 
-use crate::discv4::Message;
-use discv4::{Endpoint, PingMessage};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::{
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+
+use discv4::{Endpoint, Message, PingMessage};
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use tokio::{
     net::{TcpSocket, UdpSocket},
     try_join,

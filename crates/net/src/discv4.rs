@@ -1,6 +1,9 @@
 use bytes::BufMut;
 use ethrex_core::rlp::{
-    decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError, structs::Decoder,
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{self, Decoder},
 };
 use ethrex_core::H256;
 use k256::ecdsa::{signature::Signer, SigningKey};
@@ -79,12 +82,6 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
-impl RLPEncode for &Endpoint {
-    fn encode(&self, buf: &mut dyn BufMut) {
-        (self.ip, self.udp_port, self.tcp_port).encode(buf);
-    }
-}
-
 impl RLPDecode for Endpoint {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
@@ -98,6 +95,16 @@ impl RLPDecode for Endpoint {
             tcp_port,
         };
         Ok((endpoint, remaining))
+    }
+}
+
+impl RLPEncode for Endpoint {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.ip)
+            .encode_field(&self.udp_port)
+            .encode_field(&self.tcp_port)
+            .finish();
     }
 }
 
@@ -139,10 +146,13 @@ impl PingMessage {
 
 impl RLPEncode for PingMessage {
     fn encode(&self, buf: &mut dyn BufMut) {
-        match self.enr_seq {
-            Some(seq) => (self.version, &self.from, &self.to, self.expiration, seq).encode(buf),
-            None => (self.version, &self.from, &self.to, self.expiration).encode(buf),
-        }
+        structs::Encoder::new(buf)
+            .encode_field(&self.version)
+            .encode_field(&self.from)
+            .encode_field(&self.to)
+            .encode_field(&self.expiration)
+            .encode_optional_field(&self.enr_seq)
+            .finish();
     }
 }
 

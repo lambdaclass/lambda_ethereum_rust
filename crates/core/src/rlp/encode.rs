@@ -229,7 +229,7 @@ pub(crate) fn encode_length(total_len: usize, buf: &mut dyn BufMut) {
     }
 }
 
-impl<T: RLPEncode, S: RLPEncode> RLPEncode for (T, S) {
+impl<S: RLPEncode, T: RLPEncode> RLPEncode for (S, T) {
     fn encode(&self, buf: &mut dyn BufMut) {
         let total_len = self.0.length() + self.1.length();
         encode_length(total_len, buf);
