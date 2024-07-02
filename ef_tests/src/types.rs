@@ -149,7 +149,6 @@ impl From<Header> for BlockHeader {
 
 impl From<Transaction> for EthrexTransacion {
     fn from(val: Transaction) -> Self {
-        dbg!(&val);
         match val.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
                 2 => EthrexTransacion::EIP1559Transaction(val.into()),
