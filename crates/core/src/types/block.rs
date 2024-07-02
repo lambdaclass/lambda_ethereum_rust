@@ -3,6 +3,7 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
+use serde::Deserialize;
 
 pub type BlockNumber = u64;
 pub type Bloom = [u8; 256];
@@ -77,9 +78,12 @@ impl RLPEncode for Body {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     index: u64,
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     validator_index: u64,
     address: Address,
     amount: U256,

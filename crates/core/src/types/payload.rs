@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::serde_utils;
 
+use super::Withdrawal;
+
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,8 +31,7 @@ pub struct ExecutionPayloadV3 {
     base_fee_per_gas: u64,
     block_hash: H256,
     transactions: Vec<EncodedTransaction>,
-    #[serde(skip)]
-    withdrawals: (),
+    withdrawals: Vec<Withdrawal>,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     blob_gas_used: u64,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
