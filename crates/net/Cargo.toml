@@ -12,7 +12,7 @@ tracing.workspace = true
 tokio.workspace = true
 bytes.workspace = true
 
-k256 = "0.13.3"
+k256 = { version = "0.13.3", features = ["ecdh"] }
 keccak-hash = "0.10.0"
 
 # RLPx

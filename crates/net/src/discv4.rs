@@ -7,7 +7,7 @@ use ethrex_core::rlp::{
 };
 use ethrex_core::{H256, H512};
 use k256::ecdsa::{signature::Signer, SigningKey};
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 #[derive(Debug, Eq, PartialEq)]
 // TODO: remove when all variants are used
@@ -25,7 +25,7 @@ pub(crate) enum Message {
 }
 
 impl Message {
-    pub fn encode_with_header(&self, buf: &mut dyn BufMut, node_signer: SigningKey) {
+    pub fn encode_with_header(&self, buf: &mut dyn BufMut, node_signer: &SigningKey) {
         let signature_size = 65_usize;
         let mut data: Vec<u8> = Vec::with_capacity(signature_size.next_power_of_two());
         data.resize(signature_size, 0);
@@ -88,6 +88,12 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
+impl Endpoint {
+    pub fn to_tcp_address(&self) -> Option<SocketAddr> {
+        (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
+    }
+}
+
 impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
@@ -119,14 +125,14 @@ pub(crate) struct PingMessage {
     /// The Ping message version. Should be set to 4, but mustn't be enforced.
     version: u8,
     /// The endpoint of the sender.
-    from: Endpoint,
+    pub from: Endpoint,
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PingMessage {
@@ -165,10 +171,10 @@ impl RLPEncode for PingMessage {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FindNodeMessage {
     /// The target is a 64-byte secp256k1 public key.
-    target: H512,
+    pub target: H512,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
 }
 
 impl FindNodeMessage {
@@ -212,14 +218,14 @@ impl RLPDecode for PingMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The hash of the corresponding ping packet.
-    ping_hash: H256,
+    pub ping_hash: H256,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PongMessage {
@@ -312,7 +318,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
         let hash = "d9b83d9701c6481a99db908b19551c6b082bcb28d5bef44cfa55256bc7977500";
         let signature = "f0bff907b5c432e623ba5d3803d6a405bdbaffdfc0373499ac2a243ef3ab52de3a5312c0a9a96593979b746a4cd37ebdf21cf6971cf8c10c94f4d45c1a0f90dd00";
@@ -343,7 +349,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
         let hash = "852ef38c2087413400cb33215709a8cfa6f274929e91704ec27a1ae4d226f85d";
         let signature = "a7ab61ec963f779d10918c9bc3c3243c05f45eabbd078e90bf78313904e1c91201a03e78a133c2676e1c2686601e70ab1ec7aa602ad7f65bb468e52367d7123c00";
@@ -373,7 +379,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
         let hash = "cccfa9bf8e49603f8cc5381579d435bd322d386091732e3da7f6b7df13172b92";
         let signature = "b1caebcd4d754552be21df4a100bd4ccd85e9d95b2e29b29db2df681c17c370068e410ea31e7106081c2ed39489c1762125cbd34477b41d940d230d1d3888a4101";
@@ -398,7 +404,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
         let hash = "dabe1b1a4dc26324120594091bb94dbdd4aa98326cbfecb60a4a67778ebb0e67";
         let signature = "28cf71e9a929fa29f4e528f5fdc96e25a3086a777c8967710ddc1ef5f456bae40808baf0840d0449ea5a17ba11bbb012719e679cf3cf8d137106884c393ef15b00";
@@ -492,7 +498,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer.clone());
+        msg.encode_with_header(&mut buf, &signer);
         let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
         assert_eq!(result, msg);
     }
@@ -522,7 +528,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer.clone());
+        msg.encode_with_header(&mut buf, &signer);
         let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
         assert_eq!(result, msg);
     }

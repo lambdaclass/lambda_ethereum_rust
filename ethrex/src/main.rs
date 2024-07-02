@@ -51,15 +51,15 @@ async fn main() {
         .get_one::<String>("network")
         .expect("network is required");
 
-    let bootnode_list: Vec<_> = matches
-        .get_many::<String>("bootnodes")
-        .expect("bootnodes is required")
-        .collect();
+    // let bootnode_list: Vec<_> = matches
+    //     .get_many::<String>("bootnodes")
+    //     .expect("bootnodes is required")
+    //     .collect();
 
-    let _bootnodes: Vec<BootNode> = bootnode_list
-        .iter()
-        .map(|s| BootNode::from_str(s).expect("Failed to parse bootnodes"))
-        .collect();
+    // let _bootnodes: Vec<BootNode> = bootnode_list
+    //     .iter()
+    //     .map(|s| BootNode::from_str(s).expect("Failed to parse bootnodes"))
+    //     .collect();
 
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");

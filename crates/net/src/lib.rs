@@ -6,12 +6,17 @@ use std::{
 };
 
 use discv4::{Endpoint, Message, PingMessage};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use k256::{
+    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
+    elliptic_curve::rand_core::OsRng,
+    PublicKey,
+};
 use tokio::{
+    io::AsyncWriteExt,
     net::{TcpSocket, UdpSocket},
     try_join,
 };
-use tracing::info;
+use tracing::{info, warn};
 pub mod rlpx;
 pub mod types;
 
@@ -20,27 +25,95 @@ const MAX_DISC_PACKET_SIZE: usize = 1280;
 pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
+    let signer = SigningKey::random(&mut OsRng);
 
-    let discovery_handle = tokio::spawn(discover_peers(udp_addr));
-    let server_handle = tokio::spawn(serve_requests(tcp_addr));
+    let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone()));
+    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer));
     try_join!(discovery_handle, server_handle).unwrap();
 }
 
-async fn discover_peers(udp_addr: SocketAddr) {
-    let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
+async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
+    let udp_socket = UdpSocket::bind(socket_addr).await.unwrap();
     // This is just a placeholder example. The address is a known bootnode.
     let receiver_addr: SocketAddr = ("138.197.51.181:30303").parse().unwrap();
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
-    ping(&udp_socket, udp_addr, receiver_addr).await;
+    ping(&udp_socket, &signer, socket_addr, receiver_addr).await;
 
     let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
     info!("Received {read} bytes from {from}");
-    let msg = Message::decode_with_header(&buf[..read]);
+    let msg = Message::decode_with_header(&buf[..read]).unwrap();
     info!("Message: {:?}", msg);
+
+    // Try contacting a known peer
+    // TODO: do this dynamically
+    let str_udp_addr = "127.0.0.1:57207";
+
+    let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
+
+    let endpoint = loop {
+        ping(&udp_socket, &signer, socket_addr, udp_addr).await;
+
+        let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
+        info!("Received {read} bytes from {from}");
+        let msg = Message::decode_with_header(&buf[..read]).unwrap();
+        info!("Message: {:?}", msg);
+
+        match msg {
+            Message::Pong(pong) => {
+                break pong.to;
+            }
+            // TODO: geth seems to respond with Ping instead of Pong
+            Message::Ping(ping) => {
+                break ping.from;
+            }
+            _ => {
+                warn!("Unexpected message type");
+            }
+        };
+    };
+
+    let digest = keccak_hash::keccak_buffer(&mut &buf[..read]).unwrap();
+    let sig_bytes = &buf[32..32 + 65];
+    let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
+    let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
+
+    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
+
+    let static_shared_secret =
+        &k256::ecdh::diffie_hellman(signer.as_nonzero_scalar(), peer_pk.as_affine())
+            .raw_secret_bytes()[..32];
+
+    // TODO: derive other secrets and compose auth message
+
+    let auth_size = 16_u16.to_be_bytes();
+
+    let auth_message = &[
+        // enc-auth-body
+        0x00, // sig
+    ];
+
+    let auth_message = [auth_size.as_ref(), auth_message.as_ref()].concat();
+
+    let tcp_addr = endpoint
+        .to_tcp_address()
+        .expect("The peer doesn't support TCP");
+
+    let mut stream = TcpSocket::new_v4()
+        .unwrap()
+        .connect(tcp_addr)
+        .await
+        .unwrap();
+    stream.write_all(&auth_message).await.unwrap();
+    info!("Sent auth message correctly!");
 }
 
-async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
+async fn ping(
+    socket: &UdpSocket,
+    signer: &SigningKey,
+    local_addr: SocketAddr,
+    to_addr: SocketAddr,
+) {
     let mut buf = Vec::new();
 
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
@@ -62,14 +135,13 @@ async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
         tcp_port: 0,
     };
 
-    let msg: discv4::Message = discv4::Message::Ping(PingMessage::new(from, to, expiration));
-    let signer = SigningKey::random(&mut OsRng);
+    let msg = discv4::Message::Ping(PingMessage::new(from, to, expiration));
 
     msg.encode_with_header(&mut buf, signer);
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
-async fn serve_requests(tcp_addr: SocketAddr) {
+async fn serve_requests(tcp_addr: SocketAddr, _signer: SigningKey) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
 }
