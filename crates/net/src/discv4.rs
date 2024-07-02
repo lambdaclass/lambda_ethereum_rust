@@ -10,9 +10,9 @@ use k256::ecdsa::{signature::Signer, SigningKey};
 use std::net::IpAddr;
 
 #[derive(Debug, Eq, PartialEq)]
-// TODO: remove when all variants are used
 // NOTE: All messages could have more fields than specified by the spec.
 // Those additional fields should be ignored, and the message must be accepted.
+// TODO: remove when all variants are used
 #[allow(dead_code)]
 pub(crate) enum Message {
     /// A ping message. Should be responded to with a Pong message.
@@ -55,7 +55,6 @@ impl Message {
         }
     }
 
-    #[allow(unused)]
     pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
         let signature_len = 65;
         let hash_len = 32;
