@@ -188,14 +188,12 @@ impl RLPDecode for PongMessage {
         let (expiration, decoder) = decoder.decode_field("expiration")?;
         let (enr_seq, decoder) = decoder.decode_optional_field();
 
-        let pong = PongMessage::new(to, ping_hash, expiration);
-
-        let pong = if let Some(seq) = enr_seq {
-            pong.with_enr_seq(seq)
-        } else {
-            pong
+        let pong = PongMessage {
+            to,
+            ping_hash,
+            expiration,
+            enr_seq,
         };
-
         let remaining = decoder.finish()?;
 
         Ok((pong, remaining))
