@@ -1,8 +1,13 @@
 use crate::{
-    rlp::{encode::RLPEncode, structs::Encoder},
+    rlp::{
+        constants::RLP_NULL, decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError,
+        structs::Encoder,
+    },
     Address, H256, U256,
 };
 use bytes::Bytes;
+use patricia_merkle_tree::PatriciaMerkleTree;
+use sha3::Keccak256;
 
 pub type BlockNumber = u64;
 pub type Bloom = [u8; 256];
@@ -61,13 +66,48 @@ impl RLPEncode for BlockHeader {
 
 // The body of a block on the chain
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Body {
+pub struct BlockBody {
     transactions: Vec<Transaction>,
+    // TODO: ommers list is always empty, so we can remove it
     ommers: Vec<BlockHeader>,
     withdrawals: Vec<Withdrawal>,
 }
 
-impl RLPEncode for Body {
+impl BlockBody {
+    pub const fn empty() -> Self {
+        Self {
+            transactions: Vec::new(),
+            ommers: Vec::new(),
+            withdrawals: Vec::new(),
+        }
+    }
+
+    pub fn compute_transactions_root(&self) -> H256 {
+        let transactions_iter: Vec<_> = self
+            .transactions
+            .iter()
+            .enumerate()
+            .map(|(i, tx)| {
+                // Key: RLP(tx_index)
+                let mut k = Vec::new();
+                i.encode(&mut k);
+
+                // Value: tx_type || RLP(tx)  if tx_type != 0
+                //                   RLP(tx)  else
+                let mut v = Vec::new();
+                tx.encode_with_type(&mut v);
+
+                (k, v)
+            })
+            .collect();
+        let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
+            &transactions_iter,
+        );
+        H256(root.into())
+    }
+}
+
+impl RLPEncode for BlockBody {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.transactions)
@@ -102,6 +142,35 @@ pub enum Transaction {
     EIP1559Transaction(EIP1559Transaction),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TxType {
+    Legacy = 0x00,
+    EIP2930 = 0x01,
+    EIP1559 = 0x02,
+    EIP4844 = 0x03,
+}
+
+impl Transaction {
+    pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
+        // tx_type || RLP(tx)  if tx_type != 0
+        //            RLP(tx)  else
+        match self {
+            // Legacy transactions don't have a prefix
+            Transaction::LegacyTransaction(_) => {}
+            _ => buf.put_u8(self.tx_type() as u8),
+        }
+
+        self.encode(buf);
+    }
+
+    pub fn tx_type(&self) -> TxType {
+        match self {
+            Transaction::LegacyTransaction(_) => TxType::Legacy,
+            Transaction::EIP1559Transaction(_) => TxType::EIP1559,
+        }
+    }
+}
+
 impl RLPEncode for Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
@@ -111,12 +180,40 @@ impl RLPEncode for Transaction {
     }
 }
 
+/// The transaction's kind: call or create.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TxKind {
+    Call(Address),
+    Create,
+}
+
+impl RLPEncode for TxKind {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Self::Call(address) => address.encode(buf),
+            Self::Create => buf.put_u8(RLP_NULL),
+        }
+    }
+}
+
+impl RLPDecode for TxKind {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let first_byte = rlp.first().ok_or(RLPDecodeError::InvalidLength)?;
+        if *first_byte == RLP_NULL {
+            return Ok((Self::Create, &rlp[1..]));
+        }
+        Address::decode_unfinished(rlp).map(|(t, rest)| (Self::Call(t), rest))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
-    nonce: U256,
-    gas_price: u64,
+    nonce: u64,
+    gas_price: U256,
     gas: u64,
-    to: Address,
+    /// The recipient of the transaction.
+    /// Create transactions contain a [`null`](RLP_NULL) value in this field.
+    to: TxKind,
     value: U256,
     data: Bytes,
     v: U256,
@@ -172,5 +269,42 @@ impl RLPEncode for EIP1559Transaction {
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
             .finish();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    use super::{BlockBody, LegacyTransaction};
+    use crate::{
+        types::{Transaction, TxKind},
+        U256,
+    };
+
+    #[test]
+    fn test_compute_transactions_root() {
+        let mut body = BlockBody::empty();
+        let tx = LegacyTransaction {
+            nonce: 0,
+            gas_price: 0x0a.into(),
+            gas: 0x05f5e100,
+            to: TxKind::Call(hex!("1000000000000000000000000000000000000000").into()),
+            value: 0.into(),
+            data: Default::default(),
+            v: U256::from(0x1b),
+            r: U256::from(hex!(
+                "7e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37"
+            )),
+            s: U256::from(hex!(
+                "5f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b"
+            )),
+        };
+        body.transactions.push(Transaction::LegacyTransaction(tx));
+        let expected_root =
+            hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
+        let result = body.compute_transactions_root();
+
+        assert_eq!(result, expected_root.into());
     }
 }
