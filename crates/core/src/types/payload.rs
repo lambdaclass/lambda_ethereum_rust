@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
-use super::{LegacyTransaction, Transaction, Withdrawal};
+use super::{BlockBody, BlockHeader, LegacyTransaction, Transaction, Withdrawal};
 
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
@@ -77,6 +77,45 @@ impl EncodedTransaction {
             }
             None => Err(RLPDecodeError::MalformedData),
         }
+    }
+}
+
+impl Into<(BlockHeader, BlockBody)> for ExecutionPayloadV3 {
+    fn into(self) -> (BlockHeader, BlockBody) {
+        (
+            BlockHeader {
+                parent_hash: self.parent_hash,
+                ommers_hash: todo!(),
+                coinbase: self.fee_recipient,
+                state_root: self.state_root,
+                transactions_root: todo!(),
+                receipt_root: self.receipts_root,
+                logs_bloom: self.logs_bloom.into(),
+                difficulty: todo!(),
+                number: self.block_number,
+                gas_limit: self.gas_limit,
+                gas_used: self.gas_used,
+                timestamp: self.timestamp,
+                extra_data: self.extra_data,
+                prev_randao: self.prev_randao,
+                nonce: todo!(),
+                base_fee_per_gas: self.base_fee_per_gas,
+                withdrawals_root: todo!(),
+                blob_gas_used: self.blob_gas_used,
+                excess_blob_gas: self.excess_blob_gas,
+                parent_beacon_block_root: todo!(),
+            },
+            BlockBody {
+                transactions: self
+                    .transactions
+                    .iter()
+                    .map(|encoded_tx| encoded_tx.decode())
+                    .collect::<Result<Vec<_>, RLPDecodeError>>()
+                    .unwrap(),
+                ommers: vec![],
+                withdrawals: self.withdrawals,
+            },
+        )
     }
 }
 

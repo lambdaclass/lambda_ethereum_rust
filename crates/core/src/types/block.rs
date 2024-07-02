@@ -69,8 +69,8 @@ impl RLPEncode for BlockHeader {
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
-    ommers: Vec<BlockHeader>,
-    withdrawals: Vec<Withdrawal>,
+    pub ommers: Vec<BlockHeader>,
+    pub withdrawals: Vec<Withdrawal>,
 }
 
 impl BlockBody {
