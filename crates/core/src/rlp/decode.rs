@@ -339,7 +339,7 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode, T4: RLPDecode> RLPDecode for (
 /// - A boolean indicating if the item is a list or not.
 /// - The payload of the item, without its prefix.
 /// - The remaining bytes after the item.
-pub fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
+pub(crate) fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
     }
