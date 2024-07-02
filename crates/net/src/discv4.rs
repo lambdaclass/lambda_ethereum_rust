@@ -66,7 +66,7 @@ impl Message {
 
         let packet_type = encoded_msg[packet_index];
 
-        Self::decode_with_type(packet_type, &encoded_msg[packet_index..])
+        Self::decode_with_type(packet_type, &encoded_msg[packet_index + 1..])
     }
 
     fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
