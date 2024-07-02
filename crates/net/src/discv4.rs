@@ -29,12 +29,8 @@ impl Message {
         let signature_size = 65_usize;
         let mut data: Vec<u8> = Vec::with_capacity(signature_size.next_power_of_two());
         data.resize(signature_size, 0);
-        data.push(self.packet_type());
-        match self {
-            Message::Ping(msg) => msg.encode(&mut data),
-            Message::Pong(msg) => msg.encode(&mut data),
-            _ => todo!(),
-        }
+
+        self.encode_with_type(&mut data);
 
         let digest = keccak_hash::keccak_buffer(&mut &data[signature_size..]).unwrap();
 
@@ -49,6 +45,46 @@ impl Message {
         buf.put_slice(&data[..]);
     }
 
+    fn encode_with_type(&self, buf: &mut dyn BufMut) {
+        buf.put_u8(self.packet_type());
+        match self {
+            Message::Ping(msg) => msg.encode(buf),
+            Message::Pong(msg) => msg.encode(buf),
+            _ => todo!(),
+        }
+    }
+
+    #[allow(unused)]
+    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
+        let signature_len = 65;
+        let hash_len = 32;
+        let packet_index = signature_len + hash_len;
+
+        // TODO: verify signature and hash
+        let _signature = &encoded_msg[..signature_len];
+        let _hash = &encoded_msg[signature_len..packet_index];
+
+        let packet_type = encoded_msg[packet_index];
+
+        Self::decode_with_type(packet_type, &encoded_msg[packet_index..])
+    }
+
+    fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
+        // NOTE: extra elements inside the message should be ignored, along with extra data
+        // after the message.
+        match packet_type {
+            0x01 => {
+                let (ping, _rest) = PingMessage::decode_unfinished(msg)?;
+                Ok(Message::Ping(ping))
+            }
+            0x02 => {
+                let (pong, _rest) = PongMessage::decode_unfinished(msg)?;
+                Ok(Message::Pong(pong))
+            }
+            _ => todo!(),
+        }
+    }
+
     fn packet_type(&self) -> u8 {
         match self {
             Message::Ping(_) => 0x01,
@@ -57,25 +93,6 @@ impl Message {
             Message::Neighbors(_) => 0x04,
             Message::ENRRequest(_) => 0x05,
             Message::ENRResponse(_) => 0x06,
-        }
-    }
-    #[allow(unused)]
-    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let signature_len = 65;
-        let hash_len = 32;
-        let packet_index = signature_len + hash_len;
-        let packet_type = encoded_msg[packet_index];
-        let msg = &encoded_msg[packet_index + 1..];
-        match packet_type {
-            0x01 => {
-                let ping = PingMessage::decode(msg)?;
-                Ok(Message::Ping(ping))
-            }
-            0x02 => {
-                let pong = PongMessage::decode(msg)?;
-                Ok(Message::Pong(pong))
-            }
-            _ => todo!(),
         }
     }
 }
@@ -177,8 +194,8 @@ impl RLPDecode for PingMessage {
             expiration,
             enr_seq,
         };
-
-        let remaining = decoder.finish()?;
+        // NOTE: as per the spec, any additional elements should be ignored.
+        let remaining = decoder.finish_unchecked();
         Ok((ping, remaining))
     }
 }
@@ -242,8 +259,8 @@ impl RLPDecode for PongMessage {
             expiration,
             enr_seq,
         };
-        let remaining = decoder.finish()?;
-
+        // NOTE: as per the spec, any additional elements should be ignored.
+        let remaining = decoder.finish_unchecked();
         Ok((pong, remaining))
     }
 }

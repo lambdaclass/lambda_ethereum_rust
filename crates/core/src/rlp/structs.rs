@@ -80,12 +80,20 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Finishes encoding the struct and returns the remaining bytes after the item.
+    /// If the item's payload is not empty, returns an error.
     pub fn finish(self) -> Result<&'a [u8], RLPDecodeError> {
         if self.payload.is_empty() {
             Ok(self.remaining)
         } else {
             Err(RLPDecodeError::MalformedData)
         }
+    }
+
+    /// Same as [`finish`](Self::finish), but discards the item's remaining payload
+    /// instead of failing.
+    pub fn finish_unchecked(self) -> &'a [u8] {
+        self.remaining
     }
 }
 
