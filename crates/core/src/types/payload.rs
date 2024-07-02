@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::serde_utils;
 
-use super::Withdrawal;
+use super::{TxType, Withdrawal};
 
 #[allow(unused)]
 #[derive(Debug, Deserialize)]

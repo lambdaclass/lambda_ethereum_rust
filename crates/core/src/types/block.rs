@@ -3,8 +3,8 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
-use serde::Deserialize;
 use patricia_merkle_tree::PatriciaMerkleTree;
+use serde::Deserialize;
 use sha3::Keccak256;
 
 use super::Transaction;
