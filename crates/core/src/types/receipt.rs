@@ -63,16 +63,6 @@ pub struct Log {
     data: Bytes,
 }
 
-impl Log {
-    pub fn new(address: Address, topics: Vec<H256>, data: Bytes) -> Self {
-        Self {
-            address,
-            topics,
-            data,
-        }
-    }
-}
-
 impl RLPEncode for Log {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
