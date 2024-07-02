@@ -116,10 +116,9 @@ impl BlockBody {
                 let mut k = Vec::new();
                 i.encode(&mut k);
 
-                // Value: tx_type || RLP(tx)  if tx_type != 0
-                //                   RLP(tx)  else
+                // Value: RLP(receipt)
                 let mut v = Vec::new();
-                receipt.encode_with_type(&mut v);
+                receipt.encode(&mut v);
 
                 (k, v)
             })
@@ -297,15 +296,12 @@ impl RLPEncode for EIP1559Transaction {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_types::H160;
-    use hex_literal::hex;
-    use keccak_hash::H256;
-
-    use super::{BlockBody, Bytes, LegacyTransaction, TxType};
+    use super::{BlockBody, LegacyTransaction};
     use crate::{
-        types::{Log, Receipt, Transaction, TxKind},
+        types::{Receipt, Transaction, TxKind},
         U256,
     };
+    use hex_literal::hex;
 
     #[test]
     fn test_compute_transactions_root() {
@@ -335,23 +331,18 @@ mod tests {
 
     #[test]
     fn test_compute_receipts_root() {
+        // example taken from
+        // https://github.com/ethereum/go-ethereum/blob/f8aa62353666a6368fb3f1a378bd0a82d1542052/cmd/evm/testdata/1/exp.json#L18
         let body = BlockBody::empty();
-        let tx_type = TxType::EIP1559;
         let succeeded = true;
-        let topic1 = H256::from_slice(&[0x01; 32]);
-        let topic2 = H256::from_slice(&[0x02; 32]);
-        let log = Log::new(
-            H160::from_slice(&[0x01; 20]),
-            vec![topic1, topic2],
-            Bytes::from("beef"),
-        );
-        let logs = vec![log];
-        let bloom = [0x03; 256];
-        let cumulative_gas_used = 1024;
-        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom, logs);
+        let cumulative_gas_used = 0x5208;
+        let bloom = [0x00; 256];
+        let logs = vec![];
+        let receipt = Receipt::new(succeeded, cumulative_gas_used, bloom, logs);
+
         let result = body.compute_receipts_root(vec![receipt]);
         let expected_root =
-            hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
+            hex!("056b23fbba480696b65fe5a59b8f2148a1299103c4f57df839233af2cf4ca2d2");
         assert_eq!(result, expected_root.into());
     }
 }

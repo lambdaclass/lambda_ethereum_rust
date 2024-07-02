@@ -2,14 +2,11 @@ use crate::rlp::{encode::RLPEncode, structs::Encoder};
 use crate::types::Bloom;
 use bytes::Bytes;
 use ethereum_types::{Address, H256};
-
-use super::TxType;
 pub type Index = u64;
 
 /// Result of a transaction
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Receipt {
-    tx_type: TxType,
     succeeded: bool,
     cumulative_gas_used: u64,
     bloom: Bloom,
@@ -17,32 +14,13 @@ pub struct Receipt {
 }
 
 impl Receipt {
-    pub fn new(
-        tx_type: TxType,
-        succeeded: bool,
-        cumulative_gas_used: u64,
-        bloom: Bloom,
-        logs: Vec<Log>,
-    ) -> Self {
+    pub fn new(succeeded: bool, cumulative_gas_used: u64, bloom: Bloom, logs: Vec<Log>) -> Self {
         Self {
-            tx_type,
             succeeded,
             cumulative_gas_used,
             bloom,
             logs,
         }
-    }
-
-    pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
-        // tx_type || RLP(tx)  if tx_type != 0
-        //            RLP(tx)  else
-        match self.tx_type {
-            // Legacy transactions don't have a prefix
-            TxType::Legacy => {}
-            _ => buf.put_u8(self.tx_type as u8),
-        }
-
-        self.encode(buf);
     }
 }
 
