@@ -193,7 +193,7 @@ impl From<Transaction> for LegacyTransaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas: val.gas_limit.as_u64(),
-            to: val.to,
+            to: ethrex_core::types::TxKind::Call(val.to),
             value: val.value,
             data: val.data,
             v: val.v,

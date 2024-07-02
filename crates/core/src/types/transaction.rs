@@ -3,7 +3,10 @@ use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use sha3::{Digest, Keccak256};
 
-use crate::rlp::{encode::RLPEncode, structs::Encoder};
+use crate::rlp::{
+    constants::RLP_NULL, decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError,
+    structs::Encoder,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Transaction {
@@ -11,21 +14,14 @@ pub enum Transaction {
     EIP1559Transaction(EIP1559Transaction),
 }
 
-impl RLPEncode for Transaction {
-    fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        match self {
-            Transaction::LegacyTransaction(t) => t.encode(buf),
-            Transaction::EIP1559Transaction(t) => t.encode(buf),
-        };
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
     pub nonce: u64,
     pub gas_price: u64,
     pub gas: u64,
-    pub to: Address,
+    /// The recipient of the transaction.
+    /// Create transactions contain a [`null`](RLP_NULL) value in this field.
+    pub to: TxKind,
     pub value: U256,
     pub data: Bytes,
     pub v: U256,
@@ -47,6 +43,70 @@ pub struct EIP1559Transaction {
     pub signature_y_parity: bool,
     pub signature_r: U256,
     pub signature_s: U256,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TxType {
+    Legacy = 0x00,
+    EIP2930 = 0x01,
+    EIP1559 = 0x02,
+    EIP4844 = 0x03,
+}
+
+impl Transaction {
+    pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
+        // tx_type || RLP(tx)  if tx_type != 0
+        //            RLP(tx)  else
+        match self {
+            // Legacy transactions don't have a prefix
+            Transaction::LegacyTransaction(_) => {}
+            _ => buf.put_u8(self.tx_type() as u8),
+        }
+
+        self.encode(buf);
+    }
+
+    pub fn tx_type(&self) -> TxType {
+        match self {
+            Transaction::LegacyTransaction(_) => TxType::Legacy,
+            Transaction::EIP1559Transaction(_) => TxType::EIP1559,
+        }
+    }
+}
+
+impl RLPEncode for Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Transaction::LegacyTransaction(t) => t.encode(buf),
+            Transaction::EIP1559Transaction(t) => t.encode(buf),
+        };
+    }
+}
+
+/// The transaction's kind: call or create.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TxKind {
+    Call(Address),
+    Create,
+}
+
+impl RLPEncode for TxKind {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Self::Call(address) => address.encode(buf),
+            Self::Create => buf.put_u8(RLP_NULL),
+        }
+    }
+}
+
+impl RLPDecode for TxKind {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let first_byte = rlp.first().ok_or(RLPDecodeError::InvalidLength)?;
+        if *first_byte == RLP_NULL {
+            return Ok((Self::Create, &rlp[1..]));
+        }
+        Address::decode_unfinished(rlp).map(|(t, rest)| (Self::Call(t), rest))
+    }
 }
 
 impl RLPEncode for LegacyTransaction {
@@ -142,10 +202,10 @@ impl Transaction {
         }
     }
 
-    pub fn to(&self) -> Address {
+    pub fn to(&self) -> TxKind {
         match self {
-            Transaction::LegacyTransaction(tx) => tx.to,
-            Transaction::EIP1559Transaction(tx) => tx.destination,
+            Transaction::LegacyTransaction(tx) => tx.to.clone(),
+            Transaction::EIP1559Transaction(tx) => TxKind::Call(tx.destination),
         }
     }
 
@@ -218,4 +278,41 @@ fn recover_address(
     // Hash public key to obtain address
     let hash = Keccak256::new_with_prefix(&public.serialize_uncompressed()[1..]).finalize();
     Address::from_slice(&hash[12..])
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    use super::LegacyTransaction;
+    use crate::{
+        types::{BlockBody, Transaction, TxKind},
+        U256,
+    };
+
+    #[test]
+    fn test_compute_transactions_root() {
+        let mut body = BlockBody::empty();
+        let tx = LegacyTransaction {
+            nonce: 0,
+            gas_price: 0x0a,
+            gas: 0x05f5e100,
+            to: TxKind::Call(hex!("1000000000000000000000000000000000000000").into()),
+            value: 0.into(),
+            data: Default::default(),
+            v: U256::from(0x1b),
+            r: U256::from(hex!(
+                "7e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37"
+            )),
+            s: U256::from(hex!(
+                "5f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b"
+            )),
+        };
+        body.transactions.push(Transaction::LegacyTransaction(tx));
+        let expected_root =
+            hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
+        let result = body.compute_transactions_root();
+
+        assert_eq!(result, expected_root.into());
+    }
 }

@@ -3,6 +3,8 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
+use patricia_merkle_tree::PatriciaMerkleTree;
+use sha3::Keccak256;
 
 use super::Transaction;
 
@@ -63,13 +65,48 @@ impl RLPEncode for BlockHeader {
 
 // The body of a block on the chain
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Body {
-    transactions: Vec<Transaction>,
+pub struct BlockBody {
+    pub transactions: Vec<Transaction>,
+    // TODO: ommers list is always empty, so we can remove it
     ommers: Vec<BlockHeader>,
     withdrawals: Vec<Withdrawal>,
 }
 
-impl RLPEncode for Body {
+impl BlockBody {
+    pub const fn empty() -> Self {
+        Self {
+            transactions: Vec::new(),
+            ommers: Vec::new(),
+            withdrawals: Vec::new(),
+        }
+    }
+
+    pub fn compute_transactions_root(&self) -> H256 {
+        let transactions_iter: Vec<_> = self
+            .transactions
+            .iter()
+            .enumerate()
+            .map(|(i, tx)| {
+                // Key: RLP(tx_index)
+                let mut k = Vec::new();
+                i.encode(&mut k);
+
+                // Value: tx_type || RLP(tx)  if tx_type != 0
+                //                   RLP(tx)  else
+                let mut v = Vec::new();
+                tx.encode_with_type(&mut v);
+
+                (k, v)
+            })
+            .collect();
+        let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
+            &transactions_iter,
+        );
+        H256(root.into())
+    }
+}
+
+impl RLPEncode for BlockBody {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.transactions)

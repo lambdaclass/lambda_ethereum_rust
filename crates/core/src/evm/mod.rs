@@ -1,5 +1,7 @@
 mod execution_result;
 
+use crate::types::TxKind;
+
 use super::{
     types::{Account, BlockHeader, Transaction},
     Address,
@@ -7,13 +9,14 @@ use super::{
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
-    primitives::{BlockEnv, Bytecode, TxEnv, TxKind, U256},
+    primitives::{BlockEnv, Bytecode, TxEnv, U256},
     CacheState, Evm,
 };
 use std::collections::HashMap;
 // Rename imported types for clarity
 use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
+use revm::primitives::TxKind as RevmTxKind;
 // Export needed types
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
@@ -82,7 +85,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         caller: RevmAddress(tx.sender().0.into()),
         gas_limit: tx.gas_limit(),
         gas_price: U256::from(tx.gas_price()),
-        transact_to: TxKind::Call(RevmAddress(tx.to().0.into())), // Todo: handle case where this is Create
+        transact_to: tx.to().into(),
         value: U256::from_limbs(tx.value().0),
         data: tx.data().clone().into(),
         nonce: Some(tx.nonce()),
@@ -99,5 +102,14 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .collect(),
         gas_priority_fee: tx.max_priority_fee().map(U256::from),
         ..Default::default()
+    }
+}
+
+impl From<TxKind> for RevmTxKind {
+    fn from(val: TxKind) -> Self {
+        match val {
+            TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
+            TxKind::Create => RevmTxKind::Create,
+        }
     }
 }
