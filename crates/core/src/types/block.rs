@@ -139,6 +139,14 @@ pub enum Transaction {
     EIP1559Transaction(EIP1559Transaction),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TxType {
+    Legacy = 0x00,
+    EIP2930 = 0x01,
+    EIP1559 = 0x02,
+    EIP4844 = 0x03,
+}
+
 impl Transaction {
     pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
         // tx_type || RLP(tx)  if tx_type != 0
@@ -146,16 +154,16 @@ impl Transaction {
         match self {
             // Legacy transactions don't have a prefix
             Transaction::LegacyTransaction(_) => {}
-            _ => buf.put_u8(self.tx_type()),
+            _ => buf.put_u8(self.tx_type() as u8),
         }
 
         self.encode(buf);
     }
 
-    pub fn tx_type(&self) -> u8 {
+    pub fn tx_type(&self) -> TxType {
         match self {
-            Transaction::LegacyTransaction(_) => 0,
-            Transaction::EIP1559Transaction(_) => 2,
+            Transaction::LegacyTransaction(_) => TxType::Legacy,
+            Transaction::EIP1559Transaction(_) => TxType::EIP1559,
         }
     }
 }
