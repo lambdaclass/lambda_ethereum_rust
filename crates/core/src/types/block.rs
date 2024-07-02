@@ -1,5 +1,8 @@
 use crate::{
-    rlp::{encode::RLPEncode, structs::Encoder},
+    rlp::{
+        constants::RLP_NULL, decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError,
+        structs::Encoder,
+    },
     Address, H256, U256,
 };
 use bytes::Bytes;
@@ -177,12 +180,40 @@ impl RLPEncode for Transaction {
     }
 }
 
+/// The transaction's kind: call or create.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TxKind {
+    Call(Address),
+    Create,
+}
+
+impl RLPEncode for TxKind {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            Self::Call(address) => address.encode(buf),
+            Self::Create => buf.put_u8(RLP_NULL),
+        }
+    }
+}
+
+impl RLPDecode for TxKind {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let first_byte = rlp.first().ok_or(RLPDecodeError::InvalidLength)?;
+        if *first_byte == RLP_NULL {
+            return Ok((Self::Create, &rlp[1..]));
+        }
+        Address::decode_unfinished(rlp).map(|(t, rest)| (Self::Call(t), rest))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LegacyTransaction {
     nonce: u64,
     gas_price: U256,
     gas: u64,
-    to: Option<Address>,
+    /// The recipient of the transaction.
+    /// Create transactions contain a [`null`](RLP_NULL) value in this field.
+    to: TxKind,
     value: U256,
     data: Bytes,
     v: U256,
@@ -192,18 +223,11 @@ pub struct LegacyTransaction {
 
 impl RLPEncode for LegacyTransaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let encoder = Encoder::new(buf)
+        Encoder::new(buf)
             .encode_field(&self.nonce)
             .encode_field(&self.gas_price)
-            .encode_field(&self.gas);
-
-        // TODO: implement encode for Option?
-        let encoder = match &self.to {
-            Some(to) => encoder.encode_field(to),
-            // TODO: move to a constant?
-            None => encoder.encode_field(&0_u64),
-        };
-        encoder
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
             .encode_field(&self.value)
             .encode_field(&self.data)
             .encode_field(&self.v)
@@ -253,7 +277,10 @@ mod tests {
     use hex_literal::hex;
 
     use super::{BlockBody, LegacyTransaction};
-    use crate::{types::Transaction, U256};
+    use crate::{
+        types::{Transaction, TxKind},
+        U256,
+    };
 
     #[test]
     fn test_compute_transactions_root() {
@@ -262,7 +289,7 @@ mod tests {
             nonce: 0,
             gas_price: 0x0a.into(),
             gas: 0x05f5e100,
-            to: Some(hex!("1000000000000000000000000000000000000000").into()),
+            to: TxKind::Call(hex!("1000000000000000000000000000000000000000").into()),
             value: 0.into(),
             data: Default::default(),
             v: U256::from(0x1b),
