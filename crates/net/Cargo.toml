@@ -11,6 +11,11 @@ ethrex-core.workspace = true
 tracing.workspace = true
 tokio.workspace = true
 bytes.workspace = true
+
 k256 = "0.13.3"
 keccak-hash = "0.10.0"
 
+# RLPx
+concat-kdf = "0.1.0"
+hmac = "0.12.1"
+aes = "0.8.4"
