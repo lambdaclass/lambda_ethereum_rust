@@ -3,7 +3,6 @@ use ethrex_net::types::BootNode;
 use std::{
     io::{self, BufReader},
     net::{SocketAddr, ToSocketAddrs},
-    str::FromStr,
 };
 use tokio::try_join;
 
