@@ -329,7 +329,7 @@ mod tests {
 
         let encoded = {
             let mut buf = vec![];
-            (&endpoint).encode(&mut buf);
+            endpoint.encode(&mut buf);
             buf
         };
         let decoded = Endpoint::decode(&encoded).expect("Failed decoding Endpoint");
