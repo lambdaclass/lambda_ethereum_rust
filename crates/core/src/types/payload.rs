@@ -1,6 +1,7 @@
 use keccak_hash::H256;
 use serde::Deserialize;
 
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PayloadStatus {
