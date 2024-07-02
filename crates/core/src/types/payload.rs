@@ -1,8 +1,8 @@
 use keccak_hash::H256;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[allow(unused)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PayloadStatus {
     status: PayloadValidationStatus,
@@ -10,7 +10,7 @@ pub struct PayloadStatus {
     validation_error: Option<String>
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum PayloadValidationStatus {
     Valid,
