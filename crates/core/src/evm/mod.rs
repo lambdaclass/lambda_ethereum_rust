@@ -48,9 +48,9 @@ pub enum Output {
     Create(Bytes, Option<Address>),
 }
 
-impl Into<ExecutionResult> for RevmExecutionResult {
-    fn into(self) -> ExecutionResult {
-        match self {
+impl From<RevmExecutionResult> for ExecutionResult {
+    fn from(val: RevmExecutionResult) -> Self {
+        match val {
             RevmExecutionResult::Success {
                 reason,
                 gas_used,
@@ -83,6 +83,20 @@ impl Into<ExecutionResult> for RevmExecutionResult {
                 gas_used,
             },
         }
+    }
+}
+
+impl ExecutionResult {
+    pub fn is_success(&self) -> bool {
+        matches!(
+            self,
+            ExecutionResult::Success {
+                reason: _,
+                gas_used: _,
+                gas_refunded: _,
+                output: _
+            }
+        )
     }
 }
 
