@@ -3,9 +3,9 @@ use ethereum_types::{Address, Bloom};
 use keccak_hash::H256;
 use serde::{Deserialize, Serialize};
 
-use crate::serde_utils;
+use crate::{rlp::error::RLPDecodeError, serde_utils};
 
-use super::{TxType, Withdrawal};
+use super::{LegacyTransaction, Transaction, Withdrawal};
 
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
@@ -54,7 +54,7 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
 }
 
 impl EncodedTransaction {
-    fn decode(&self) {
+    fn decode(&self) -> Result<Transaction, RLPDecodeError> {
         // First byte indicates TransactionType unless it is a LegacyTransaction
         // TransactionType must be between 0 and 0x7f
         match self.0.first() {
@@ -62,11 +62,20 @@ impl EncodedTransaction {
             Some(tx_type) if *tx_type < 0x7f => {
                 // Decode tx based on type
                 // uses plain bytes, without rlp encoding
-                dbg!(tx_type);
+                let _tx_bytes = &self.0.as_ref()[1..];
+                match *tx_type {
+                    // Legacy
+                    0x0 => unimplemented!("Legacy tx with type"), // TODO: check if this is a real case scenario
+                    // EIP1559
+                    0x2 => unimplemented!("Eip1559 tx"),
+                    _ => unimplemented!("We don't know this tx type yet"),
+                }
             }
             // Legacy Tx
-            Some(_) => todo!(), // rlp([nonce, gasPrice, gasLimit, to, value, data, v, r, s])
-            None => panic!("Empty tx"),
+            Some(_) => {
+                LegacyTransaction::decode_rlp(self.0.as_ref()).map(Transaction::LegacyTransaction)
+            }
+            None => Err(RLPDecodeError::MalformedData),
         }
     }
 }
