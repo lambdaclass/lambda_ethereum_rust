@@ -1,4 +1,7 @@
-use crate::{rlp::encode::RLPEncode, Address, H256, U256};
+use crate::{
+    rlp::{encode::RLPEncode, structs::Encoder},
+    Address, H256, U256,
+};
 use bytes::Bytes;
 
 use super::Transaction;
@@ -33,26 +36,28 @@ pub struct BlockHeader {
 
 impl RLPEncode for BlockHeader {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        self.parent_hash.encode(buf);
-        self.ommers_hash.encode(buf);
-        self.coinbase.encode(buf);
-        self.state_root.encode(buf);
-        self.transactions_root.encode(buf);
-        self.receipt_root.encode(buf);
-        self.logs_bloom.encode(buf);
-        self.difficulty.encode(buf);
-        self.number.encode(buf);
-        self.gas_limit.encode(buf);
-        self.gas_used.encode(buf);
-        self.timestamp.encode(buf);
-        self.extra_data.encode(buf);
-        self.prev_randao.encode(buf);
-        self.nonce.encode(buf);
-        self.base_fee_per_gas.encode(buf);
-        self.withdrawals_root.encode(buf);
-        self.blob_gas_used.encode(buf);
-        self.excess_blob_gas.encode(buf);
-        self.parent_beacon_block_root.encode(buf);
+        Encoder::new(buf)
+            .encode_field(&self.parent_hash)
+            .encode_field(&self.ommers_hash)
+            .encode_field(&self.coinbase)
+            .encode_field(&self.state_root)
+            .encode_field(&self.transactions_root)
+            .encode_field(&self.receipt_root)
+            .encode_field(&self.logs_bloom)
+            .encode_field(&self.difficulty)
+            .encode_field(&self.number)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.gas_used)
+            .encode_field(&self.timestamp)
+            .encode_field(&self.extra_data)
+            .encode_field(&self.prev_randao)
+            .encode_field(&self.nonce)
+            .encode_field(&self.base_fee_per_gas)
+            .encode_field(&self.withdrawals_root)
+            .encode_field(&self.blob_gas_used)
+            .encode_field(&self.excess_blob_gas)
+            .encode_field(&self.parent_beacon_block_root)
+            .finish();
     }
 }
 
@@ -66,9 +71,11 @@ pub struct Body {
 
 impl RLPEncode for Body {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        self.transactions.encode(buf);
-        self.ommers.encode(buf);
-        self.withdrawals.encode(buf);
+        Encoder::new(buf)
+            .encode_field(&self.transactions)
+            .encode_field(&self.ommers)
+            .encode_field(&self.withdrawals)
+            .finish();
     }
 }
 
@@ -82,9 +89,11 @@ pub struct Withdrawal {
 
 impl RLPEncode for Withdrawal {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        self.index.encode(buf);
-        self.validator_index.encode(buf);
-        self.address.encode(buf);
-        self.amount.encode(buf);
+        Encoder::new(buf)
+            .encode_field(&self.index)
+            .encode_field(&self.validator_index)
+            .encode_field(&self.address)
+            .encode_field(&self.amount)
+            .finish();
     }
 }
