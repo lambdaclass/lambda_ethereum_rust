@@ -3,6 +3,8 @@ use ethereum_types::{Address, Bloom};
 use keccak_hash::H256;
 use serde::{Deserialize, Serialize};
 
+use crate::serde_utils;
+
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,7 +14,7 @@ pub struct ExecutionPayloadV3 {
     state_root: H256,
     receipts_root: H256,
     logs_bloom: Bloom,
-    pev_randao: H256,
+    prev_randao: H256,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     block_number: u64,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
@@ -26,10 +28,9 @@ pub struct ExecutionPayloadV3 {
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     base_fee_per_gas: u64,
     block_hash: H256,
-    #[serde(flatten)]
     transactions: Vec<EncodedTransaction>,
-    #[serde(flatten)]
-    withdrawals: Vec<EncodedWithdrawals>,
+    #[serde(skip)]
+    withdrawals: (),
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     blob_gas_used: u64,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
@@ -37,17 +38,18 @@ pub struct ExecutionPayloadV3 {
 }
 
 #[allow(unused)]
-#[derive(Debug, Deserialize)]
-pub struct EncodedTransaction {
-    #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
-    bytes: Bytes
-}
+#[derive(Debug)]
+pub struct EncodedTransaction(pub Bytes);
 
-#[allow(unused)]
-#[derive(Debug, Deserialize)]
-pub struct EncodedWithdrawals {
-    #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
-    bytes: Bytes
+impl<'de> Deserialize<'de> for EncodedTransaction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(EncodedTransaction(serde_utils::bytes::deser_hex_str(
+            deserializer,
+        )?))
+    }
 }
 
 #[allow(unused)]
