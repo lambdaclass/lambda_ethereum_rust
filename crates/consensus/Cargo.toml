@@ -1,5 +1,5 @@
 [package]
-name = "ethrex-consensus"
+name = "ethereum_rust-consensus"
 version = "0.1.0"
 edition = "2021"
 

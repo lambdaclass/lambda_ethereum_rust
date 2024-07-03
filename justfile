@@ -14,7 +14,7 @@ clean:
     cargo clean
 
 run_image: build_image
-    docker run --rm -p 127.0.0.1:8545:8545 ethrex --http.addr 0.0.0.0
+    docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
 
 build_image:
-    docker build -t ethrex .
+    docker build -t ethereum_rust .

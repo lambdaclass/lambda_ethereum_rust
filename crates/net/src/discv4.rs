@@ -1,11 +1,11 @@
 use bytes::BufMut;
-use ethrex_core::rlp::{
+use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethrex_core::{H256, H512};
+use ethereum_rust_core::{H256, H512};
 use k256::ecdsa::{signature::Signer, SigningKey};
 use std::net::IpAddr;
 

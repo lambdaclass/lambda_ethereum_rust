@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
   ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/ethrex
+WORKDIR /usr/src/ethereum_rust
 
 COPY . .
 
@@ -18,8 +18,8 @@ FROM ubuntu:24.04
 
 WORKDIR /usr/local/bin
 
-COPY --from=builder /usr/src/ethrex/target/release/ethrex .
+COPY --from=builder /usr/src/ethereum_rust/target/release/ethereum_rust .
 
 EXPOSE 8545
 
-ENTRYPOINT [ "./ethrex" ]
+ENTRYPOINT [ "./ethereum_rust" ]
