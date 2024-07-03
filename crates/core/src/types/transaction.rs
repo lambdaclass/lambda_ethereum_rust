@@ -147,6 +147,41 @@ impl RLPEncode for EIP1559Transaction {
     }
 }
 
+impl<'a> EIP1559Transaction {
+    pub fn decode_rlp(buf: &'a [u8]) -> Result<EIP1559Transaction, RLPDecodeError> {
+        let decoder = Decoder::new(buf)?;
+        let (chain_id, decoder) = decoder.decode_field("chain_id")?;
+        let (signer_nonce, decoder) = decoder.decode_field("signer_nonce")?;
+        let (max_priority_fee_per_gas, decoder) =
+            decoder.decode_field("max_priority_fee_per_gas")?;
+        let (max_fee_per_gas, decoder) = decoder.decode_field("max_fee_per_gas")?;
+        let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
+        let (destination, decoder) = decoder.decode_field("destination")?;
+        let (amount, decoder) = decoder.decode_field("amount")?;
+        let (payload, decoder) = decoder.decode_field("payload")?;
+        let (access_list, decoder) = decoder.decode_field("access_list")?;
+        let (signature_y_parity, decoder) = decoder.decode_field("signature_y_parity")?;
+        let (signature_r, decoder) = decoder.decode_field("signature_r")?;
+        let (signature_s, decoder) = decoder.decode_field("signature_s")?;
+        decoder.finish()?;
+
+        Ok(EIP1559Transaction {
+            chain_id,
+            signer_nonce,
+            max_priority_fee_per_gas,
+            max_fee_per_gas,
+            gas_limit,
+            destination,
+            amount,
+            payload,
+            access_list,
+            signature_y_parity,
+            signature_r,
+            signature_s,
+        })
+    }
+}
+
 impl<'a> LegacyTransaction {
     pub fn decode_rlp(buf: &'a [u8]) -> Result<LegacyTransaction, RLPDecodeError> {
         let decoder = Decoder::new(buf)?;
@@ -386,6 +421,38 @@ mod tests {
             )
             .unwrap(),
             v: 6303851.into(),
+        };
+        assert_eq!(tx, expected_tx);
+    }
+
+    #[test]
+    fn eip1449_tx_rlp_decode() {
+        let encoded_tx = "f86c8330182480114e82f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee53800080c080a0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4";
+        let encoded_tx_bytes = hex::decode(encoded_tx).unwrap();
+        let tx = EIP1559Transaction::decode_rlp(&encoded_tx_bytes).unwrap();
+        let expected_tx = EIP1559Transaction {
+            signer_nonce: 0,
+            max_fee_per_gas: 78,
+            max_priority_fee_per_gas: 17,
+            destination: Address::from_slice(
+                &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+            ),
+            amount: 3000000000000000_u64.into(),
+            payload: Bytes::new(),
+            signature_r: U256::from_str_radix(
+                "151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65d",
+                16,
+            )
+            .unwrap(),
+            signature_s: U256::from_str_radix(
+                "64c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4",
+                16,
+            )
+            .unwrap(),
+            signature_y_parity: false,
+            chain_id: 3151908,
+            gas_limit: 63000,
+            access_list: vec![],
         };
         assert_eq!(tx, expected_tx);
     }
