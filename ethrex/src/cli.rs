@@ -70,7 +70,6 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("bootnodes")
                 .long("bootnodes")
-                .default_value("")
                 .value_name("BOOTNODE_LIST")
                 .value_delimiter(',')
                 .num_args(1..)
