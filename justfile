@@ -21,13 +21,14 @@ build_image:
 
 spectest_version := "v2.1.1"
 spectest_artifact := "tests_" + spectest_version + ".tar.gz"
+spectest_vectors_dir := "ef_tests/vectors"
 
 download-vectors: clean-vectors
     curl -L -o {{spectest_artifact}} "https://github.com/ethereum/execution-spec-tests/releases/download/{{spectest_version}}/fixtures_develop.tar.gz"
-    mkdir -p tmp
+    mkdir -p {{spectest_vectors_dir}} tmp
     tar -xzf {{spectest_artifact}} -C tmp fixtures/blockchain_tests
-    mv tmp/fixtures/blockchain_tests/* ef_tests/vectors/
+    mv tmp/fixtures/blockchain_tests/* {{spectest_vectors_dir}}
     rm -rf tmp {{spectest_artifact}}
 
 clean-vectors:
-    rm -rf ef_tests/vectors/*
+    rm -rf {{spectest_vectors_dir}}
