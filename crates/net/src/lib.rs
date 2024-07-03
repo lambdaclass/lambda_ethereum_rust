@@ -1,13 +1,14 @@
 pub(crate) mod discv4;
 
+use discv4::{Endpoint, FindNodeMessage, Message, PingMessage, PongMessage};
+use ethereum_rust_core::H512;
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use keccak_hash::H256;
+use std::str::FromStr;
 use std::{
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-
-use discv4::{Endpoint, Message, PingMessage, PongMessage};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
-use keccak_hash::H256;
 use tokio::{
     net::{TcpSocket, UdpSocket},
     try_join,
@@ -52,6 +53,15 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
             }
         }
     }
+
+    for bootnode in &bootnodes {
+        find_node(&udp_socket, bootnode.socket_address).await;
+        info!("Sending FindNode");
+        let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
+        let msg = Message::decode_with_header(&buf[..read]).unwrap();
+        info!("Received {read} bytes from {from}");
+        info!("Message: {:?}", msg);
+    }
 }
 
 async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
@@ -79,6 +89,24 @@ async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
     let msg: discv4::Message = discv4::Message::Ping(PingMessage::new(from, to, expiration));
     let signer = SigningKey::random(&mut OsRng);
 
+    msg.encode_with_header(&mut buf, signer);
+    socket.send_to(&buf, to_addr).await.unwrap();
+}
+
+async fn find_node(socket: &UdpSocket, to_addr: SocketAddr) {
+    let target = H512::from_str("764dd14179894fde2996d44fc9e91e3dc271a1733a1d79a22658e9154c9a949a2df86142be669295d36bb16ca7f1ef4c5b0e9dc30a08d0e1f9598d7e080ec3af").unwrap();
+
+    let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .try_into()
+        .unwrap();
+
+    let msg: discv4::Message = discv4::Message::FindNode(FindNodeMessage::new(target, expiration));
+    let signer = SigningKey::random(&mut OsRng);
+    
+    let mut buf = Vec::new();
     msg.encode_with_header(&mut buf, signer);
     socket.send_to(&buf, to_addr).await.unwrap();
 }
