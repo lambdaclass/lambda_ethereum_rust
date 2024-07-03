@@ -46,7 +46,7 @@ jobs:
       
       - name: Download test vectors
         run: |
-          just download-test-vectors 
+          just download-vectors
 
       - name: Run cargo test
         run: |
