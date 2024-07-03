@@ -1,13 +1,12 @@
-use ethrex_core::types::Genesis;
-use ethrex_net::types::BootNode;
+use ethereum_rust_core::types::Genesis;
+use ethereum_rust_net::types::BootNode;
 use std::{
     io::{self, BufReader},
     net::{SocketAddr, ToSocketAddrs},
-    str::FromStr,
 };
 use tokio::try_join;
 
-use tracing::Level;
+use tracing::{warn, Level};
 use tracing_subscriber::FmtSubscriber;
 mod cli;
 
@@ -51,15 +50,14 @@ async fn main() {
         .get_one::<String>("network")
         .expect("network is required");
 
-    // let bootnode_list: Vec<_> = matches
-    //     .get_many::<String>("bootnodes")
-    //     .expect("bootnodes is required")
-    //     .collect();
+    let bootnodes: Vec<&BootNode> = matches
+        .get_many("bootnodes")
+        .map(Iterator::collect)
+        .unwrap_or_default();
 
-    // let _bootnodes: Vec<BootNode> = bootnode_list
-    //     .iter()
-    //     .map(|s| BootNode::from_str(s).expect("Failed to parse bootnodes"))
-    //     .collect();
+    if bootnodes.is_empty() {
+        warn!("No bootnodes specified. This node will not be able to connect to the network.");
+    }
 
     let http_socket_addr =
         parse_socket_addr(http_addr, http_port).expect("Failed to parse http address and port");
@@ -73,8 +71,8 @@ async fn main() {
 
     let _genesis = read_genesis_file(genesis_file_path);
 
-    let rpc_api = ethrex_rpc::start_api(http_socket_addr, authrpc_socket_addr);
-    let networking = ethrex_net::start_network(udp_socket_addr, tcp_socket_addr);
+    let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr);
+    let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr);
 
     try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }
