@@ -1,18 +1,18 @@
 use bytes::BufMut;
-use ethrex_core::rlp::{
+use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethrex_core::{H256, H512};
+use ethereum_rust_core::{H256, H512};
 use k256::ecdsa::{signature::Signer, SigningKey};
 use std::net::IpAddr;
 
 #[derive(Debug, Eq, PartialEq)]
-// TODO: remove when all variants are used
 // NOTE: All messages could have more fields than specified by the spec.
 // Those additional fields should be ignored, and the message must be accepted.
+// TODO: remove when all variants are used
 #[allow(dead_code)]
 pub(crate) enum Message {
     /// A ping message. Should be responded to with a Pong message.
@@ -29,13 +29,8 @@ impl Message {
         let signature_size = 65_usize;
         let mut data: Vec<u8> = Vec::with_capacity(signature_size.next_power_of_two());
         data.resize(signature_size, 0);
-        data.push(self.packet_type());
-        match self {
-            Message::Ping(msg) => msg.encode(&mut data),
-            Message::Pong(msg) => msg.encode(&mut data),
-            Message::FindNode(msg) => msg.encode(&mut data),
-            _ => todo!(),
-        }
+
+        self.encode_with_type(&mut data);
 
         let digest = keccak_hash::keccak_buffer(&mut &data[signature_size..]).unwrap();
 
@@ -50,6 +45,53 @@ impl Message {
         buf.put_slice(&data[..]);
     }
 
+    fn encode_with_type(&self, buf: &mut dyn BufMut) {
+        buf.put_u8(self.packet_type());
+        match self {
+            Message::Ping(msg) => msg.encode(buf),
+            Message::Pong(msg) => msg.encode(buf),
+            Message::FindNode(msg) => msg.encode(buf),
+            _ => todo!(),
+        }
+    }
+
+    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
+        let hash_len = 32;
+        let signature_len = 65;
+        let packet_index = hash_len + signature_len;
+
+        // TODO: verify hash and signature
+        let _hash = &encoded_msg[..hash_len];
+        let _signature = &encoded_msg[hash_len..packet_index];
+
+        let packet_type = encoded_msg[packet_index];
+
+        Self::decode_with_type(packet_type, &encoded_msg[packet_index + 1..])
+    }
+
+    fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
+        // NOTE: extra elements inside the message should be ignored, along with extra data
+        // after the message.
+        match packet_type {
+            0x01 => {
+                let (ping, _rest) = PingMessage::decode_unfinished(msg)?;
+                Ok(Message::Ping(ping))
+            }
+            0x02 => {
+                let (pong, _rest) = PongMessage::decode_unfinished(msg)?;
+                Ok(Message::Pong(pong))
+            }
+            0x03 => {
+                let (find_node_msg, _rest) = FindNodeMessage::decode_unfinished(msg)?;
+                Ok(Message::FindNode(find_node_msg))
+            }
+            0x04 => todo!(),
+            0x05 => todo!(),
+            0x06 => todo!(),
+            _ => Err(RLPDecodeError::MalformedData),
+        }
+    }
+
     fn packet_type(&self) -> u8 {
         match self {
             Message::Ping(_) => 0x01,
@@ -58,25 +100,6 @@ impl Message {
             Message::Neighbors(_) => 0x04,
             Message::ENRRequest(_) => 0x05,
             Message::ENRResponse(_) => 0x06,
-        }
-    }
-    #[allow(unused)]
-    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let signature_len = 65;
-        let hash_len = 32;
-        let packet_index = signature_len + hash_len;
-        let packet_type = encoded_msg[packet_index];
-        let msg = &encoded_msg[packet_index + 1..];
-        match packet_type {
-            0x01 => {
-                let ping = PingMessage::decode(msg)?;
-                Ok(Message::Ping(ping))
-            }
-            0x02 => {
-                let pong = PongMessage::decode(msg)?;
-                Ok(Message::Pong(pong))
-            }
-            _ => todo!(),
         }
     }
 }
@@ -187,6 +210,17 @@ impl RLPEncode for FindNodeMessage {
     }
 }
 
+impl RLPDecode for FindNodeMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (target, decoder) = decoder.decode_field("target")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+        let msg = FindNodeMessage { target, expiration };
+        Ok((msg, remaining))
+    }
+}
+
 impl RLPDecode for PingMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
@@ -203,8 +237,8 @@ impl RLPDecode for PingMessage {
             expiration,
             enr_seq,
         };
-
-        let remaining = decoder.finish()?;
+        // NOTE: as per the spec, any additional elements should be ignored.
+        let remaining = decoder.finish_unchecked();
         Ok((ping, remaining))
     }
 }
@@ -268,8 +302,8 @@ impl RLPDecode for PongMessage {
             expiration,
             enr_seq,
         };
-        let remaining = decoder.finish()?;
-
+        // NOTE: as per the spec, any additional elements should be ignored.
+        let remaining = decoder.finish_unchecked();
         Ok((pong, remaining))
     }
 }
@@ -524,6 +558,24 @@ mod tests {
 
         msg.encode_with_header(&mut buf, signer.clone());
         let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
+        assert_eq!(result, msg);
+    }
+
+    #[test]
+    fn test_decode_find_node_message() {
+        let target: H512 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let expiration: u64 = 17195043770;
+        let msg = Message::FindNode(FindNodeMessage::new(target, expiration));
+
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+
+        msg.encode_with_header(&mut buf, signer);
+        let result = Message::decode_with_header(&buf).unwrap();
         assert_eq!(result, msg);
     }
 
