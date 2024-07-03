@@ -7,8 +7,8 @@ lint:
 test-all:
     cargo test --workspace
 
-test crate:
-    cargo test -p {{crate}}
+test crate='*':
+    cargo test -p '{{crate}}'
 
 clean:
     cargo clean
