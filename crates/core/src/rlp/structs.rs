@@ -16,9 +16,9 @@ use super::{
 /// # Examples
 ///
 /// ```
-/// # use ethrex_core::rlp::structs::Decoder;
-/// # use ethrex_core::rlp::error::RLPDecodeError;
-/// # use ethrex_core::rlp::decode::RLPDecode;
+/// # use ethereum_rust_core::rlp::structs::Decoder;
+/// # use ethereum_rust_core::rlp::error::RLPDecodeError;
+/// # use ethereum_rust_core::rlp::decode::RLPDecode;
 /// #[derive(Debug, PartialEq, Eq)]
 /// struct Simple {
 ///     pub a: u8,
@@ -113,8 +113,8 @@ fn field_decode_error<T>(field_name: &str, err: RLPDecodeError) -> RLPDecodeErro
 /// # Examples
 ///
 /// ```
-/// # use ethrex_core::rlp::structs::Encoder;
-/// # use ethrex_core::rlp::encode::RLPEncode;
+/// # use ethereum_rust_core::rlp::structs::Encoder;
+/// # use ethereum_rust_core::rlp::encode::RLPEncode;
 /// # use bytes::BufMut;
 /// #[derive(Debug, PartialEq, Eq)]
 /// struct Simple {

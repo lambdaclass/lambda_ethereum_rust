@@ -1,12 +1,12 @@
 [package]
-name = "ethrex-storage"
+name = "ethereum_rust-storage"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ethrex-core.workspace = true
+ethereum_rust-core.workspace = true
 
 libmdbx.workspace = true
 anyhow = "1.0.86"

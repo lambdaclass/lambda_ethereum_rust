@@ -1,9 +1,9 @@
 use bytes::Bytes;
-use ethrex_core::types::{
-    code_hash, Account as EthrexAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
-    Transaction as EthrexTransacion,
+use ethereum_rust_core::types::{
+    code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
+    Transaction as ethereum_rustTransacion,
 };
-use ethrex_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
+use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 
@@ -118,7 +118,7 @@ pub struct Transaction {
     pub to: Address,
 }
 
-// Conversions between EFtests & Ethrex types
+// Conversions between EFtests & ethereum_rust types
 
 impl From<Header> for BlockHeader {
     fn from(val: Header) -> Self {
@@ -147,14 +147,14 @@ impl From<Header> for BlockHeader {
     }
 }
 
-impl From<Transaction> for EthrexTransacion {
+impl From<Transaction> for ethereum_rustTransacion {
     fn from(val: Transaction) -> Self {
         match val.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
-                2 => EthrexTransacion::EIP1559Transaction(val.into()),
+                2 => ethereum_rustTransacion::EIP1559Transaction(val.into()),
                 _ => unimplemented!(),
             },
-            None => EthrexTransacion::LegacyTransaction(val.into()),
+            None => ethereum_rustTransacion::LegacyTransaction(val.into()),
         }
     }
 }
@@ -193,7 +193,7 @@ impl From<Transaction> for LegacyTransaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas: val.gas_limit.as_u64(),
-            to: ethrex_core::types::TxKind::Call(val.to),
+            to: ethereum_rust_core::types::TxKind::Call(val.to),
             value: val.value,
             data: val.data,
             v: val.v,
@@ -203,9 +203,9 @@ impl From<Transaction> for LegacyTransaction {
     }
 }
 
-impl From<Account> for EthrexAccount {
+impl From<Account> for ethereum_rustAccount {
     fn from(val: Account) -> Self {
-        EthrexAccount {
+        ethereum_rustAccount {
             info: AccountInfo {
                 code_hash: code_hash(&val.code),
                 balance: val.balance,
