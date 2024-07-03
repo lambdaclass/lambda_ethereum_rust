@@ -147,6 +147,34 @@ impl RLPEncode for EIP1559Transaction {
     }
 }
 
+impl<'a> LegacyTransaction {
+    pub fn decode_rlp(buf: &'a [u8]) -> Result<LegacyTransaction, RLPDecodeError> {
+        let decoder = Decoder::new(buf)?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+        let (gas_price, decoder) = decoder.decode_field("gas_price")?;
+        let (gas, decoder) = decoder.decode_field("gas")?;
+        let (to, decoder) = decoder.decode_field("to")?;
+        let (value, decoder) = decoder.decode_field("value")?;
+        let (data, decoder) = decoder.decode_field("data")?;
+        let (v, decoder) = decoder.decode_field("v")?;
+        let (r, decoder) = decoder.decode_field("r")?;
+        let (s, decoder) = decoder.decode_field("s")?;
+        decoder.finish()?;
+
+        Ok(LegacyTransaction {
+            nonce,
+            gas_price,
+            gas,
+            to,
+            value,
+            data,
+            v,
+            r,
+            s,
+        })
+    }
+}
+
 impl<'a> EIP1559Transaction {
     pub fn decode_rlp(buf: &'a [u8]) -> Result<EIP1559Transaction, RLPDecodeError> {
         let decoder = Decoder::new(buf)?;
@@ -178,34 +206,6 @@ impl<'a> EIP1559Transaction {
             signature_y_parity,
             signature_r,
             signature_s,
-        })
-    }
-}
-
-impl<'a> LegacyTransaction {
-    pub fn decode_rlp(buf: &'a [u8]) -> Result<LegacyTransaction, RLPDecodeError> {
-        let decoder = Decoder::new(buf)?;
-        let (nonce, decoder) = decoder.decode_field("nonce")?;
-        let (gas_price, decoder) = decoder.decode_field("gas_price")?;
-        let (gas, decoder) = decoder.decode_field("gas")?;
-        let (to, decoder) = decoder.decode_field("to")?;
-        let (value, decoder) = decoder.decode_field("value")?;
-        let (data, decoder) = decoder.decode_field("data")?;
-        let (v, decoder) = decoder.decode_field("v")?;
-        let (r, decoder) = decoder.decode_field("r")?;
-        let (s, decoder) = decoder.decode_field("s")?;
-        decoder.finish()?;
-
-        Ok(LegacyTransaction {
-            nonce,
-            gas_price,
-            gas,
-            to,
-            value,
-            data,
-            v,
-            r,
-            s,
         })
     }
 }
