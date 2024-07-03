@@ -1,5 +1,5 @@
 use ::ef_tests::types::TestUnit;
-use ethrex_core::evm::{execute_tx, SpecId};
+use ethereum_rust_core::evm::{execute_tx, SpecId};
 
 fn execute_test(test: TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
