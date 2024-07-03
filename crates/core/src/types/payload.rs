@@ -73,10 +73,7 @@ impl EncodedTransaction {
                 }
             }
             // Legacy Tx
-            Some(_) => {
-                LegacyTransaction::decode_rlp(self.0.as_ref()).map(Transaction::LegacyTransaction)
-            }
-            None => Err(RLPDecodeError::MalformedData),
+            _ => LegacyTransaction::decode_rlp(self.0.as_ref()).map(Transaction::LegacyTransaction),
         }
     }
 }
