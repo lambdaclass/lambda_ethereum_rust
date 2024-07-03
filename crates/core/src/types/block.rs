@@ -105,28 +105,27 @@ impl BlockBody {
         );
         H256(root.into())
     }
+}
 
-    pub fn compute_receipts_root(&self, receipts: Vec<Receipt>) -> H256 {
-        let receipts_iter: Vec<_> = receipts
-            .iter()
-            .enumerate()
-            .map(|(i, receipt)| {
-                // Key: RLP(index)
-                let mut k = Vec::new();
-                i.encode(&mut k);
+pub fn compute_receipts_root(receipts: Vec<Receipt>) -> H256 {
+    let receipts_iter: Vec<_> = receipts
+        .iter()
+        .enumerate()
+        .map(|(i, receipt)| {
+            // Key: RLP(index)
+            let mut k = Vec::new();
+            i.encode(&mut k);
 
-                // Value: tx_type || RLP(receipt)  if tx_type != 0
-                //                   RLP(receipt)  else
-                let mut v = Vec::new();
-                receipt.encode_with_type(&mut v);
+            // Value: tx_type || RLP(receipt)  if tx_type != 0
+            //                   RLP(receipt)  else
+            let mut v = Vec::new();
+            receipt.encode_with_type(&mut v);
 
-                (k, v)
-            })
-            .collect();
-        let root =
-            PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(&receipts_iter);
-        H256(root.into())
-    }
+            (k, v)
+        })
+        .collect();
+    let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(&receipts_iter);
+    H256(root.into())
 }
 
 impl RLPEncode for BlockBody {

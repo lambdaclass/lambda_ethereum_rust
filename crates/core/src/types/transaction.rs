@@ -285,7 +285,10 @@ mod tests {
     use hex_literal::hex;
 
     use crate::{
-        types::{BlockBody, LegacyTransaction, Receipt, Transaction, TxKind, TxType},
+        types::{
+            compute_receipts_root, BlockBody, LegacyTransaction, Receipt, Transaction, TxKind,
+            TxType,
+        },
         U256,
     };
 
@@ -319,7 +322,6 @@ mod tests {
     fn test_compute_receipts_root() {
         // example taken from
         // https://github.com/ethereum/go-ethereum/blob/f8aa62353666a6368fb3f1a378bd0a82d1542052/cmd/evm/testdata/1/exp.json#L18
-        let body = BlockBody::empty();
         let tx_type = TxType::Legacy;
         let succeeded = true;
         let cumulative_gas_used = 0x5208;
@@ -327,7 +329,7 @@ mod tests {
         let logs = vec![];
         let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom, logs);
 
-        let result = body.compute_receipts_root(vec![receipt]);
+        let result = compute_receipts_root(vec![receipt]);
         let expected_root =
             hex!("056b23fbba480696b65fe5a59b8f2148a1299103c4f57df839233af2cf4ca2d2");
         assert_eq!(result, expected_root.into());
