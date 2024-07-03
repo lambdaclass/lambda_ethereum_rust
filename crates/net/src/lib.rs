@@ -9,7 +9,6 @@ use discv4::{Endpoint, Message, PingMessage};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::rand_core::OsRng,
-    PublicKey,
 };
 use tokio::{
     io::AsyncWriteExt,
@@ -35,23 +34,24 @@ pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr) {
 async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
     let udp_socket = UdpSocket::bind(socket_addr).await.unwrap();
     // This is just a placeholder example. The address is a known bootnode.
-    let receiver_addr: SocketAddr = ("138.197.51.181:30303").parse().unwrap();
+    // let receiver_addr: SocketAddr = ("138.197.51.181:30303").parse().unwrap();
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
-    ping(&udp_socket, &signer, socket_addr, receiver_addr).await;
+    // ping(&udp_socket, &signer, socket_addr, receiver_addr).await;
 
-    let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-    info!("Received {read} bytes from {from}");
-    let msg = Message::decode_with_header(&buf[..read]).unwrap();
-    info!("Message: {:?}", msg);
+    // let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
+    // info!("Received {read} bytes from {from}");
+    // let msg = Message::decode_with_header(&buf[..read]).unwrap();
+    // info!("Message: {:?}", msg);
 
+    // BEGIN EXAMPLE
     // Try contacting a known peer
     // TODO: do this dynamically
-    let str_udp_addr = "127.0.0.1:57207";
+    let str_udp_addr = "127.0.0.1:57978";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
-    let endpoint = loop {
+    let (read, endpoint) = loop {
         ping(&udp_socket, &signer, socket_addr, udp_addr).await;
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
@@ -61,11 +61,11 @@ async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
 
         match msg {
             Message::Pong(pong) => {
-                break pong.to;
+                break (read, pong.to);
             }
             // TODO: geth seems to respond with Ping instead of Pong
             Message::Ping(ping) => {
-                break ping.from;
+                break (read, ping.from);
             }
             _ => {
                 warn!("Unexpected message type");
@@ -106,6 +106,7 @@ async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
         .unwrap();
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
+    // END EXAMPLE
 }
 
 async fn ping(
