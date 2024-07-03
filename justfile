@@ -26,7 +26,7 @@ spectest_vectors_dir := "ef_tests/vectors"
 download-vectors: clean-vectors
     curl -L -o {{spectest_artifact}} "https://github.com/ethereum/execution-spec-tests/releases/download/{{spectest_version}}/fixtures_develop.tar.gz"
     mkdir -p {{spectest_vectors_dir}} tmp
-    tar -xzf {{spectest_artifact}} -C tmp fixtures/blockchain_tests
+    tar -xzf {{spectest_artifact}} -C tmp
     mv tmp/fixtures/blockchain_tests/* {{spectest_vectors_dir}}
     rm -rf tmp {{spectest_artifact}}
 
