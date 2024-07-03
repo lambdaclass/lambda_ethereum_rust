@@ -81,6 +81,10 @@ impl Message {
                 let (pong, _rest) = PongMessage::decode_unfinished(msg)?;
                 Ok(Message::Pong(pong))
             }
+            0x03 => {
+                let (find_node_msg, _rest) = FindNodeMessage::decode_unfinished(msg)?;
+                Ok(Message::FindNode(find_node_msg))
+            }
             _ => todo!(),
         }
     }
@@ -200,6 +204,17 @@ impl RLPEncode for FindNodeMessage {
             .encode_field(&self.target)
             .encode_field(&self.expiration)
             .finish();
+    }
+}
+
+impl RLPDecode for FindNodeMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (target, decoder) = decoder.decode_field("target")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+        let msg = FindNodeMessage { target, expiration };
+        Ok((msg, remaining))
     }
 }
 
@@ -540,6 +555,24 @@ mod tests {
 
         msg.encode_with_header(&mut buf, signer.clone());
         let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
+        assert_eq!(result, msg);
+    }
+
+    #[test]
+    fn test_decode_find_node_message() {
+        let target: H512 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let expiration: u64 = 17195043770;
+        let msg = Message::FindNode(FindNodeMessage::new(target, expiration));
+
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+
+        msg.encode_with_header(&mut buf, signer);
+        let result = Message::decode_with_header(&buf).unwrap();
         assert_eq!(result, msg);
     }
 
