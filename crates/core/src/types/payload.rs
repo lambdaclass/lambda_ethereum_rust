@@ -55,6 +55,7 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
 
 #[allow(unused)]
 impl EncodedTransaction {
+    // Based on [EIP-2718]
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
         // First byte indicates TransactionType unless it is a LegacyTransaction
         // TransactionType must be between 0 and 0x7f
