@@ -92,6 +92,11 @@ impl Message {
         }
     }
 
+    pub fn get_hash(encoded_msg: &[u8]) -> &[u8] {
+        let hash_len = 32;
+        &encoded_msg[..hash_len]
+    }
+
     fn packet_type(&self) -> u8 {
         match self {
             Message::Ping(_) => 0x01,
