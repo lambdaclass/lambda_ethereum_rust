@@ -426,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn eip1449_tx_rlp_decode() {
+    fn eip1559_tx_rlp_decode() {
         let encoded_tx = "f86c8330182480114e82f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee53800080c080a0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4";
         let encoded_tx_bytes = hex::decode(encoded_tx).unwrap();
         let tx = EIP1559Transaction::decode_rlp(&encoded_tx_bytes).unwrap();

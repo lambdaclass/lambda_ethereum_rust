@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
-use super::{BlockBody, BlockHeader, LegacyTransaction, Transaction, Withdrawal};
+use super::{
+    BlockBody, BlockHeader, EIP1559Transaction, LegacyTransaction, Transaction, Withdrawal,
+};
 
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
@@ -63,13 +65,15 @@ impl EncodedTransaction {
             // Non Legacy Tx
             Some(tx_type) if *tx_type < 0x7f => {
                 // Decode tx based on type
-                // uses plain bytes, without rlp encoding
-                let _tx_bytes = &self.0.as_ref()[1..];
+                let tx_bytes = &self.0.as_ref()[1..];
                 match *tx_type {
                     // Legacy
-                    0x0 => unimplemented!("Legacy tx with type"), // TODO: check if this is a real case scenario
+                    0x0 => {
+                        LegacyTransaction::decode_rlp(tx_bytes).map(Transaction::LegacyTransaction)
+                    } // TODO: check if this is a real case scenario
                     // EIP1559
-                    0x2 => unimplemented!("Eip1559 tx"),
+                    0x2 => EIP1559Transaction::decode_rlp(tx_bytes)
+                        .map(Transaction::EIP1559Transaction),
                     _ => unimplemented!("We don't know this tx type yet"),
                 }
             }
