@@ -57,12 +57,14 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
 
 #[allow(unused)]
 impl EncodedTransaction {
-    // Based on [EIP-2718]
+    /// Based on [EIP-2718]
+    /// Transactions can be encoded in the following formats:
+    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
-        // First byte indicates TransactionType unless it is a LegacyTransaction
-        // TransactionType must be between 0 and 0x7f
+        // Look at the first byte to check if it corresponds to a TransactionType
         match self.0.first() {
-            // Non Legacy Tx
+            // First byte is a valid TransactionType
             Some(tx_type) if *tx_type < 0x7f => {
                 // Decode tx based on type
                 let tx_bytes = &self.0.as_ref()[1..];
@@ -77,7 +79,7 @@ impl EncodedTransaction {
                     _ => unimplemented!("We don't know this tx type yet"),
                 }
             }
-            // Legacy Tx
+            // LegacyTransaction
             _ => LegacyTransaction::decode_rlp(self.0.as_ref()).map(Transaction::LegacyTransaction),
         }
     }
