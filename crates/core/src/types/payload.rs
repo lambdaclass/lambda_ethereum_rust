@@ -81,7 +81,7 @@ impl EncodedTransaction {
     }
 }
 
-// TODO: Consider adding a struct Block { block_header, block_body }
+// TODO: Consider adding a struct Block { block_header, block_body } and implementing TryInto
 #[allow(unused)]
 impl ExecutionPayloadV3 {
     fn into_block(self) -> Result<(BlockHeader, BlockBody), RLPDecodeError> {
