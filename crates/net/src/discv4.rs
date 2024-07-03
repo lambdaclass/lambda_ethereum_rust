@@ -85,7 +85,10 @@ impl Message {
                 let (find_node_msg, _rest) = FindNodeMessage::decode_unfinished(msg)?;
                 Ok(Message::FindNode(find_node_msg))
             }
-            _ => todo!(),
+            0x04 => todo!(),
+            0x05 => todo!(),
+            0x06 => todo!(),
+            _ => Err(RLPDecodeError::MalformedData),
         }
     }
 
