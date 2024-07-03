@@ -116,7 +116,7 @@ impl Into<(BlockHeader, BlockBody)> for ExecutionPayloadV3 {
                 excess_blob_gas: self.excess_blob_gas,
                 parent_beacon_block_root: H256::zero(), // TODO: Use appropiate value
             },
-            block_body
+            block_body,
         )
     }
 }

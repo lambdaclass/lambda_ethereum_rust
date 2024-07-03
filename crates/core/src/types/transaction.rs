@@ -313,10 +313,10 @@ fn recover_address(
 
 #[cfg(test)]
 mod tests {
+    use crate::types::{compute_receipts_root, BlockBody, Receipt};
+
     use super::*;
     use hex_literal::hex;
-
-    use crate::types::{BlockBody, Transaction, TxKind};
 
     #[test]
     fn test_compute_transactions_root() {
@@ -341,6 +341,23 @@ mod tests {
             hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
         let result = body.compute_transactions_root();
 
+        assert_eq!(result, expected_root.into());
+    }
+
+    #[test]
+    fn test_compute_receipts_root() {
+        // example taken from
+        // https://github.com/ethereum/go-ethereum/blob/f8aa62353666a6368fb3f1a378bd0a82d1542052/cmd/evm/testdata/1/exp.json#L18
+        let tx_type = TxType::Legacy;
+        let succeeded = true;
+        let cumulative_gas_used = 0x5208;
+        let bloom = [0x00; 256];
+        let logs = vec![];
+        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom, logs);
+
+        let result = compute_receipts_root(vec![receipt]);
+        let expected_root =
+            hex!("056b23fbba480696b65fe5a59b8f2148a1299103c4f57df839233af2cf4ca2d2");
         assert_eq!(result, expected_root.into());
     }
 

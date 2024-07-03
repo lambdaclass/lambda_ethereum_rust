@@ -16,9 +16,9 @@ use super::{
 /// # Examples
 ///
 /// ```
-/// # use ethrex_core::rlp::structs::Decoder;
-/// # use ethrex_core::rlp::error::RLPDecodeError;
-/// # use ethrex_core::rlp::decode::RLPDecode;
+/// # use ethereum_rust_core::rlp::structs::Decoder;
+/// # use ethereum_rust_core::rlp::error::RLPDecodeError;
+/// # use ethereum_rust_core::rlp::decode::RLPDecode;
 /// #[derive(Debug, PartialEq, Eq)]
 /// struct Simple {
 ///     pub a: u8,
@@ -80,12 +80,20 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Finishes encoding the struct and returns the remaining bytes after the item.
+    /// If the item's payload is not empty, returns an error.
     pub fn finish(self) -> Result<&'a [u8], RLPDecodeError> {
         if self.payload.is_empty() {
             Ok(self.remaining)
         } else {
             Err(RLPDecodeError::MalformedData)
         }
+    }
+
+    /// Same as [`finish`](Self::finish), but discards the item's remaining payload
+    /// instead of failing.
+    pub fn finish_unchecked(self) -> &'a [u8] {
+        self.remaining
     }
 }
 
@@ -105,8 +113,8 @@ fn field_decode_error<T>(field_name: &str, err: RLPDecodeError) -> RLPDecodeErro
 /// # Examples
 ///
 /// ```
-/// # use ethrex_core::rlp::structs::Encoder;
-/// # use ethrex_core::rlp::encode::RLPEncode;
+/// # use ethereum_rust_core::rlp::structs::Encoder;
+/// # use ethereum_rust_core::rlp::encode::RLPEncode;
 /// # use bytes::BufMut;
 /// #[derive(Debug, PartialEq, Eq)]
 /// struct Simple {

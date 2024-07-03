@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "ethrex",
+    "ethereum_rust",
     "crates/consensus",
     "crates/core",
     "crates/net",
@@ -15,11 +15,11 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-ethrex-consensus = { path = "./crates/consensus" }
-ethrex-core = { path = "./crates/core" }
-ethrex-net = { path = "./crates/net" }
-ethrex-rpc = { path = "./crates/rpc" }
-ethrex-storage = { path = "./crates/storage" }
+ethereum_rust-consensus = { path = "./crates/consensus" }
+ethereum_rust-core = { path = "./crates/core" }
+ethereum_rust-net = { path = "./crates/net" }
+ethereum_rust-rpc = { path = "./crates/rpc" }
+ethereum_rust-storage = { path = "./crates/storage" }
 
 tracing = "0.1"
 tracing-subscriber = "0.3.0"

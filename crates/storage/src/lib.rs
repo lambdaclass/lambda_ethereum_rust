@@ -7,7 +7,7 @@ use account::{
     AccountStorageValueRLP, AddressRLP,
 };
 use block::{BlockBodyRLP, BlockHeaderRLP};
-use ethrex_core::types::{BlockNumber, Index};
+use ethereum_rust_core::types::{BlockNumber, Index};
 use libmdbx::{
     dupsort,
     orm::{table, Database},

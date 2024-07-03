@@ -1,7 +1,7 @@
 use clap::{Arg, ArgAction, Command};
 
 pub fn cli() -> Command {
-    Command::new("Ethrex")
+    Command::new("ethereum_rust")
         .about("Ethereum Rust Execution client")
         .author("Lambdaclass")
         .arg(
@@ -70,7 +70,6 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("bootnodes")
                 .long("bootnodes")
-                .default_value("")
                 .value_name("BOOTNODE_LIST")
                 .value_delimiter(',')
                 .num_args(1..)
