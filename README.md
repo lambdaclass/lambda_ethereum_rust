@@ -1,5 +1,4 @@
-# Ethrex
-ETHereum Rust EXecution client
+# Lambda Ethereum Rust Execution Client
 
 # Roadmap
 
