@@ -12,31 +12,35 @@ use tokio::{
     try_join,
 };
 use tracing::info;
+use types::BootNode;
 pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
 
-pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr) {
+pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
 
-    let discovery_handle = tokio::spawn(discover_peers(udp_addr));
+    let discovery_handle = tokio::spawn(discover_peers(udp_addr, bootnodes));
     let server_handle = tokio::spawn(serve_requests(tcp_addr));
     try_join!(discovery_handle, server_handle).unwrap();
 }
 
-async fn discover_peers(udp_addr: SocketAddr) {
+async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
-    // This is just a placeholder example. The address is a known bootnode.
-    let receiver_addr: SocketAddr = ("138.197.51.181:30303").parse().unwrap();
+
+    for bootnode in &bootnodes {
+        let bootnode_address = bootnode.socket_address;
+        ping(&udp_socket, udp_addr, bootnode_address).await;
+    }
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-
-    ping(&udp_socket, udp_addr, receiver_addr).await;
-
-    let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-    info!("Received {read} bytes from {from}");
-    let msg = Message::decode_with_header(&buf[..read]);
-    info!("Message: {:?}", msg);
+    // for each `Ping` we send we are receiving a `Pong` and a `Ping`
+    for _ in 0..bootnodes.len() * 2 {
+        let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
+        let msg = Message::decode_with_header(&buf[..read]).unwrap();
+        info!("Received {read} bytes from {from}");
+        info!("Message: {:?}", msg);
+    }
 }
 
 async fn ping(socket: &UdpSocket, local_addr: SocketAddr, to_addr: SocketAddr) {
