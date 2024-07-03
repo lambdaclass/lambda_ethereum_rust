@@ -18,3 +18,16 @@ run_image: build_image
 
 build_image:
     docker build -t ethrex .
+
+spectest_version := "v2.1.1"
+spectest_artifact := "tests_" + spectest_version + ".tar.gz"
+
+download-vectors: clean-vectors
+    curl -L -o {{spectest_artifact}} "https://github.com/ethereum/execution-spec-tests/releases/download/{{spectest_version}}/fixtures_develop.tar.gz"
+    mkdir -p tmp
+    tar -xzf {{spectest_artifact}} -C tmp fixtures/blockchain_tests
+    mv tmp/fixtures/blockchain_tests/* ef_tests/vectors/
+    rm -rf tmp {{spectest_artifact}}
+
+clean-vectors:
+    rm -rf ef_tests/vectors/*
