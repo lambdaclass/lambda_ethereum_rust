@@ -313,13 +313,10 @@ fn recover_address(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use hex_literal::hex;
 
-    use super::LegacyTransaction;
-    use crate::{
-        types::{BlockBody, Transaction, TxKind},
-        U256,
-    };
+    use crate::types::{BlockBody, Transaction, TxKind};
 
     #[test]
     fn test_compute_transactions_root() {
@@ -345,5 +342,34 @@ mod tests {
         let result = body.compute_transactions_root();
 
         assert_eq!(result, expected_root.into());
+    }
+
+    #[test]
+    fn legacy_tx_rlp_decode() {
+        let encoded_tx = "f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4";
+        let encoded_tx_bytes = hex::decode(encoded_tx).unwrap();
+        let tx = LegacyTransaction::decode_rlp(&encoded_tx_bytes).unwrap();
+        let expected_tx = LegacyTransaction {
+            nonce: 0,
+            gas_price: 1001000000,
+            gas: 63000,
+            to: TxKind::Call(Address::from_slice(
+                &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+            )),
+            value: 3000000000000000_u64.into(),
+            data: Bytes::new(),
+            r: U256::from_str_radix(
+                "151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65d",
+                16,
+            )
+            .unwrap(),
+            s: U256::from_str_radix(
+                "64c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4",
+                16,
+            )
+            .unwrap(),
+            v: 6303851.into(),
+        };
+        assert_eq!(tx, expected_tx);
     }
 }
