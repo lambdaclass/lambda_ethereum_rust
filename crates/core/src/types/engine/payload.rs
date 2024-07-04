@@ -86,7 +86,6 @@ impl EncodedTransaction {
     }
 }
 
-
 #[allow(unused)]
 impl ExecutionPayloadV3 {
     /// Converts an `ExecutionPayloadV3` into a block (aka a BlockHeader and BlockBody)
