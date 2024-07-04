@@ -7,6 +7,7 @@ use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
     BlockBody, BlockHeader, EIP1559Transaction, LegacyTransaction, Transaction, Withdrawal,
+    DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -106,7 +107,7 @@ impl ExecutionPayloadV3 {
         Ok((
             BlockHeader {
                 parent_hash: self.parent_hash,
-                ommers_hash: H256::zero(), // TODO: Use appropiate value
+                ommers_hash: *DEFAULT_OMMERS_HASH,
                 coinbase: self.fee_recipient,
                 state_root: self.state_root,
                 transactions_root: block_body.compute_transactions_root(),
@@ -119,7 +120,7 @@ impl ExecutionPayloadV3 {
                 timestamp: self.timestamp,
                 extra_data: self.extra_data,
                 prev_randao: self.prev_randao,
-                nonce: 0, // TODO: Use appropiate value
+                nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
                 withdrawals_root: H256::zero(), // TODO: Use result of root calculation once implemented
                 blob_gas_used: self.blob_gas_used,

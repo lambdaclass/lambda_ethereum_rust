@@ -31,3 +31,4 @@ bytes = "1.6.0"
 tokio = { version = "1.38.0", features = ["full"] }
 thiserror = "1.0.61"
 hex = "0.4.3"
+lazy_static = "1.5.0"

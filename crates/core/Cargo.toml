@@ -21,6 +21,7 @@ revm = { version = "10.0.0", features = ["serde", "std", "serde-json"] }
 patricia-merkle-tree = { git = "https://github.com/lambdaclass/merkle_patricia_tree.git" }
 bytes.workspace = true
 hex.workspace = true
+lazy_static.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"

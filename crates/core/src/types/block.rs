@@ -13,6 +13,12 @@ use super::Transaction;
 pub type BlockNumber = u64;
 pub type Bloom = [u8; 256];
 
+use lazy_static::lazy_static;
+
+lazy_static! {
+    pub static ref DEFAULT_OMMERS_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
+}
+
 /// Header part of a block on the chain.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockHeader {
