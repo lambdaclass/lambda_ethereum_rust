@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use ::ef_tests::types::TestUnit;
 use ethereum_rust_core::evm::{execute_tx, SpecId};
@@ -38,25 +38,16 @@ fn execute_test(test: &TestUnit) {
     .is_success());
 }
 
-fn parse_test_file(file: &str) -> HashMap<String, TestUnit> {
-    let s: String = std::fs::read_to_string(file).expect("Unable to read file");
+fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
+    let s: String = std::fs::read_to_string(path).expect("Unable to read file");
     let tests: HashMap<String, TestUnit> = serde_json::from_str(&s).expect("Unable to parse JSON");
     tests
 }
 
-fn parse_and_execute_test_file(file: &str) {
-    let tests = parse_test_file(file);
+pub fn parse_and_execute_test_file(path: &Path) {
+    let tests = parse_test_file(path);
+
     for (_k, test) in tests {
         execute_test(&test)
-    }
-}
-
-#[cfg(test)]
-mod ef_tests {
-    use crate::parse_and_execute_test_file;
-
-    #[test]
-    fn beacon_root_contract_calls_test() {
-        parse_and_execute_test_file("./vectors/cancun/eip4788_beacon_root/beacon_root_contract/beacon_root_contract_calls.json");
     }
 }
