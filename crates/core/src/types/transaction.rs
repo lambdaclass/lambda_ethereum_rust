@@ -230,19 +230,17 @@ impl Transaction {
                 recover_address(&tx.r, &tx.s, signature_y_parity, &Bytes::from(buf))
             }
             Transaction::EIP1559Transaction(tx) => {
-                let mut buf = vec![];
+                let mut buf = vec![self.tx_type() as u8];
                 Encoder::new(&mut buf)
+                    .encode_field(&tx.chain_id)
                     .encode_field(&tx.signer_nonce)
-                    // TODO: The following two fields are not part of EIP1559Transaction, other fields were used instead
-                    // consider adding them
-                    .encode_field(&tx.max_fee_per_gas) // gas_price
-                    .encode_field(&tx.gas_limit) // gas
+                    .encode_field(&tx.max_priority_fee_per_gas)
+                    .encode_field(&tx.max_fee_per_gas)
+                    .encode_field(&tx.gas_limit)
                     .encode_field(&tx.destination)
                     .encode_field(&tx.amount)
                     .encode_field(&tx.payload)
-                    .encode_field(&tx.chain_id)
-                    .encode_field(&0_u64)
-                    .encode_field(&0_u64)
+                    .encode_field(&tx.access_list)
                     .finish();
                 recover_address(
                     &tx.signature_r,
