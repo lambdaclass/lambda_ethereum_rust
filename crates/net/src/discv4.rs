@@ -147,7 +147,7 @@ pub(crate) struct PingMessage {
     /// The Ping message version. Should be set to 4, but mustn't be enforced.
     version: u8,
     /// The endpoint of the sender.
-    from: Endpoint,
+    pub from: Endpoint,
     /// The endpoint of the receiver.
     to: Endpoint,
     /// The expiration time of the message. If the message is older than this time,
