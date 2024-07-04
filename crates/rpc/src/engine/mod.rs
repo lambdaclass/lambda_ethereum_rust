@@ -54,6 +54,15 @@ pub fn new_payload_v3(request: NewPayloadV3Request) -> Result<PayloadStatus, Rpc
     if block_header.timestamp <= cancun_time {
         return Err(RpcErr::UnsuportedFork);
     }
+    // Check that block_hash is valid
+    let actual_block_hash = block_header.compute_block_hash();
+    if block_hash != actual_block_hash {
+        return Ok(PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: None,
+            validation_error: Some("Invalid block hash".to_string()),
+        });
+    }
     // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
     // and check that the resulting array matches expected_blob_versioned_hashes
     // As we don't curretly handle blob txs, we just check that it is empty
@@ -61,7 +70,7 @@ pub fn new_payload_v3(request: NewPayloadV3Request) -> Result<PayloadStatus, Rpc
         return Ok(PayloadStatus {
             status: PayloadValidationStatus::Invalid,
             latest_valid_hash: None,
-            validation_error: None,
+            validation_error: Some("Invalid blob_versioned_hashes".to_string()),
         });
     }
 
