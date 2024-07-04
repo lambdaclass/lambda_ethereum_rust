@@ -128,6 +128,27 @@ pub fn compute_receipts_root(receipts: Vec<Receipt>) -> H256 {
     H256(root.into())
 }
 
+    // See [EIP-4895](https://eips.ethereum.org/EIPS/eip-2718)
+    pub fn compute_withdrawals_root(withdrawals: &Vec<Withdrawal>) -> H256 {
+        let withdrawals_iter: Vec<_> =
+            withdrawals
+            .iter()
+            .enumerate()
+            .map(|(idx, withdrawal)| {
+                let mut key = Vec::new();
+                idx.encode(&mut key);
+                let mut val = Vec::new();
+                withdrawal.encode(&mut val);
+
+                (key, val)
+            })
+            .collect();
+        let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
+            &withdrawals_iter,
+        );
+        H256(root.into())
+    }
+
 impl RLPEncode for BlockBody {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
