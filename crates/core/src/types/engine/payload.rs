@@ -136,7 +136,7 @@ impl ExecutionPayloadV3 {
 #[serde(rename_all = "camelCase")]
 pub struct PayloadStatus {
     pub status: PayloadValidationStatus,
-    pub latest_valid_hash: H256,
+    pub latest_valid_hash: Option<H256>,
     pub validation_error: Option<String>,
 }
 
