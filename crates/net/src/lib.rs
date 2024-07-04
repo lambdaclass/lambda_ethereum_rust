@@ -78,11 +78,23 @@ async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
     let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
 
-    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
+    let tcp_addr = "127.0.0.1:59903";
+    let tcp_addr = endpoint
+        .to_tcp_address()
+        .unwrap_or(tcp_addr.parse().unwrap());
 
+    let mut stream = TcpSocket::new_v4()
+        .unwrap()
+        .connect(tcp_addr)
+        .await
+        .unwrap();
+
+    let nonce: u64 = rand::random();
+    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
     let static_shared_secret =
         &k256::ecdh::diffie_hellman(signer.as_nonzero_scalar(), peer_pk.as_affine())
             .raw_secret_bytes()[..32];
+    let ephemeral_secret = 0;
 
     // TODO: derive other secrets and compose auth message
 
@@ -95,15 +107,6 @@ async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
 
     let auth_message = [auth_size.as_ref(), auth_message.as_ref()].concat();
 
-    let tcp_addr = endpoint
-        .to_tcp_address()
-        .expect("The peer doesn't support TCP");
-
-    let mut stream = TcpSocket::new_v4()
-        .unwrap()
-        .connect(tcp_addr)
-        .await
-        .unwrap();
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
     // END EXAMPLE

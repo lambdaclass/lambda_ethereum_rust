@@ -580,7 +580,7 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = Message::decode_with_header(&buf).unwrap();
         assert_eq!(result, msg);
     }
