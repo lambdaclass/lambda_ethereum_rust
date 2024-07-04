@@ -128,26 +128,24 @@ pub fn compute_receipts_root(receipts: Vec<Receipt>) -> H256 {
     H256(root.into())
 }
 
-    // See [EIP-4895](https://eips.ethereum.org/EIPS/eip-2718)
-    pub fn compute_withdrawals_root(withdrawals: &Vec<Withdrawal>) -> H256 {
-        let withdrawals_iter: Vec<_> =
-            withdrawals
-            .iter()
-            .enumerate()
-            .map(|(idx, withdrawal)| {
-                let mut key = Vec::new();
-                idx.encode(&mut key);
-                let mut val = Vec::new();
-                withdrawal.encode(&mut val);
+// See [EIP-4895](https://eips.ethereum.org/EIPS/eip-2718)
+pub fn compute_withdrawals_root(withdrawals: &Vec<Withdrawal>) -> H256 {
+    let withdrawals_iter: Vec<_> = withdrawals
+        .iter()
+        .enumerate()
+        .map(|(idx, withdrawal)| {
+            let mut key = Vec::new();
+            idx.encode(&mut key);
+            let mut val = Vec::new();
+            withdrawal.encode(&mut val);
 
-                (key, val)
-            })
-            .collect();
-        let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(
-            &withdrawals_iter,
-        );
-        H256(root.into())
-    }
+            (key, val)
+        })
+        .collect();
+    let root =
+        PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(&withdrawals_iter);
+    H256(root.into())
+}
 
 impl RLPEncode for BlockBody {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
@@ -175,5 +173,41 @@ impl RLPEncode for Withdrawal {
             .encode_field(&self.address)
             .encode_field(&self.amount)
             .finish();
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use ethereum_types::H160;
+    use hex_literal::hex;
+
+    use super::*;
+
+    #[test]
+    fn test_compute_withdrawals_root() {
+        // example taken from
+        // https://github.com/ethereum/go-ethereum/blob/2d9d42376436cd275c28056cffd0eb97cb8daed8/internal/ethapi/testdata/eth_getBlockByNumber-tag-pending.json#L33
+        // "withdrawals": [
+        //     {
+        //       "index": "0x0",
+        //       "validatorIndex": "0x1",
+        //       "address": "0x1234000000000000000000000000000000000000",
+        //       "amount": "0xa"
+        //     }
+        // ],
+        // "withdrawalsRoot": "0x73d756269cdfc22e7e17a3548e36f42f750ca06d7e3cd98d1b6d0eb5add9dc84"
+        let withdrawals = vec![Withdrawal {
+            index: 0,
+            validator_index: 1,
+            address: H160::from_slice(&hex!("1234000000000000000000000000000000000000")),
+            amount: 0xa.into(),
+        }];
+        let expected_root = H256::from_slice(&hex!(
+            "73d756269cdfc22e7e17a3548e36f42f750ca06d7e3cd98d1b6d0eb5add9dc84"
+        ));
+        let root = compute_withdrawals_root(&withdrawals);
+
+        assert_eq!(root, expected_root);
     }
 }
