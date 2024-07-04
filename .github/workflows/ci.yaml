@@ -40,6 +40,13 @@ jobs:
       - name: Run cargo fmt
         run: |
           cargo fmt --all -- --check
+      
+      - name: Setup just
+        uses: extractions/setup-just@v2
+      
+      - name: Download test vectors
+        run: |
+          just download-vectors
 
       - name: Run cargo test
         run: |
