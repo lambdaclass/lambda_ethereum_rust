@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
-use super::{
+use crate::types::{
     BlockBody, BlockHeader, EIP1559Transaction, LegacyTransaction, Transaction, Withdrawal,
 };
 
