@@ -107,7 +107,7 @@ impl BlockBody {
     }
 }
 
-pub fn compute_receipts_root(receipts: Vec<Receipt>) -> H256 {
+pub fn compute_receipts_root(receipts: &[Receipt]) -> H256 {
     let receipts_iter: Vec<_> = receipts
         .iter()
         .enumerate()
@@ -129,7 +129,7 @@ pub fn compute_receipts_root(receipts: Vec<Receipt>) -> H256 {
 }
 
 // See [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895)
-pub fn compute_withdrawals_root(withdrawals: &Vec<Withdrawal>) -> H256 {
+pub fn compute_withdrawals_root(withdrawals: &[Withdrawal]) -> H256 {
     let withdrawals_iter: Vec<_> = withdrawals
         .iter()
         .enumerate()
