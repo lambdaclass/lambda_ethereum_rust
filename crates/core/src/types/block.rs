@@ -128,7 +128,7 @@ pub fn compute_receipts_root(receipts: Vec<Receipt>) -> H256 {
     H256(root.into())
 }
 
-// See [EIP-4895](https://eips.ethereum.org/EIPS/eip-2718)
+// See [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895)
 pub fn compute_withdrawals_root(withdrawals: &Vec<Withdrawal>) -> H256 {
     let withdrawals_iter: Vec<_> = withdrawals
         .iter()
@@ -186,28 +186,26 @@ mod test {
 
     #[test]
     fn test_compute_withdrawals_root() {
-        // example taken from
-        // https://github.com/ethereum/go-ethereum/blob/2d9d42376436cd275c28056cffd0eb97cb8daed8/internal/ethapi/testdata/eth_getBlockByNumber-tag-pending.json#L33
-        // "withdrawals": [
-        //     {
-        //       "index": "0x0",
-        //       "validatorIndex": "0x1",
-        //       "address": "0x1234000000000000000000000000000000000000",
-        //       "amount": "0xa"
-        //     }
-        // ],
-        // "withdrawalsRoot": "0x73d756269cdfc22e7e17a3548e36f42f750ca06d7e3cd98d1b6d0eb5add9dc84"
+        // Source: https://github.com/ethereum/tests/blob/9760400e667eba241265016b02644ef62ab55de2/BlockchainTests/EIPTests/bc4895-withdrawals/amountIs0.json
+        // "withdrawals" : [
+        //             {
+        //                 "address" : "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+        //                 "amount" : "0x00",
+        //                 "index" : "0x00",
+        //                 "validatorIndex" : "0x00"
+        //             }
+        //         ]
+        // "withdrawalsRoot" : "0x48a703da164234812273ea083e4ec3d09d028300cd325b46a6a75402e5a7ab95"
         let withdrawals = vec![Withdrawal {
-            index: 0,
-            validator_index: 1,
-            address: H160::from_slice(&hex!("1234000000000000000000000000000000000000")),
-            amount: 0xa.into(),
+            index: 0x00,
+            validator_index: 0x00,
+            address: H160::from_slice(&hex!("c94f5374fce5edbc8e2a8697c15331677e6ebf0b")),
+            amount: 0x00.into(),
         }];
         let expected_root = H256::from_slice(&hex!(
-            "73d756269cdfc22e7e17a3548e36f42f750ca06d7e3cd98d1b6d0eb5add9dc84"
+            "48a703da164234812273ea083e4ec3d09d028300cd325b46a6a75402e5a7ab95"
         ));
         let root = compute_withdrawals_root(&withdrawals);
-
         assert_eq!(root, expected_root);
     }
 }
