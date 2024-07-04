@@ -109,7 +109,7 @@ where
     }
 }
 
-fn parse_new_payload_v3_request(params: &Vec<Value>) -> Result<NewPayloadV3Request, RpcErr> {
+fn parse_new_payload_v3_request(params: &[Value]) -> Result<NewPayloadV3Request, RpcErr> {
     if params.len() != 3 {
         return Err(RpcErr::BadParams);
     }
