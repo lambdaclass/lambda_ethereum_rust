@@ -32,7 +32,7 @@ pub struct ExecutionPayloadV3 {
     extra_data: Bytes,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     base_fee_per_gas: u64,
-    block_hash: H256,
+    pub block_hash: H256,
     transactions: Vec<EncodedTransaction>,
     withdrawals: Vec<Withdrawal>,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
@@ -90,7 +90,7 @@ impl EncodedTransaction {
 impl ExecutionPayloadV3 {
     /// Converts an `ExecutionPayloadV3` into a block (aka a BlockHeader and BlockBody)
     /// using the parentBeaconBlockRoot received along with the payload in the rpc call `engine_newPayloadV3`
-    fn into_block(
+    pub fn into_block(
         self,
         parent_beacon_block_root: H256,
     ) -> Result<(BlockHeader, BlockBody), RLPDecodeError> {
@@ -135,9 +135,9 @@ impl ExecutionPayloadV3 {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PayloadStatus {
-    status: PayloadValidationStatus,
-    latest_valid_hash: H256,
-    validation_error: Option<String>,
+    pub status: PayloadValidationStatus,
+    pub latest_valid_hash: H256,
+    pub validation_error: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
