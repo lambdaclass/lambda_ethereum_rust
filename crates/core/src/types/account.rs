@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
+use patricia_merkle_tree::PatriciaMerkleTree;
+use sha3::Keccak256;
 
 use crate::rlp::{encode::RLPEncode, structs::Encoder};
 
@@ -20,6 +22,13 @@ pub struct AccountInfo {
     pub code_hash: H256,
     pub balance: U256,
     pub nonce: u64,
+}
+
+pub struct AccountState {
+    nonce: u64,
+    balance: U256,
+    storage_root: H256,
+    code_hash: H256,
 }
 
 impl From<GenesisAccount> for Account {
@@ -48,6 +57,29 @@ impl RLPEncode for AccountInfo {
             .encode_field(&self.nonce)
             .finish();
     }
+}
+
+impl RLPEncode for AccountState {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.nonce)
+            .encode_field(&self.balance)
+            .encode_field(&self.storage_root)
+            .encode_field(&self.code_hash)
+            .finish();
+    }
+}
+
+pub fn compute_storage_root(storage: &HashMap<H256, H256>) -> H256 {
+    let rlp_storage = storage.iter().map(|(k, v)| {
+        let mut k_buf = vec![];
+        let mut v_buf = vec![];
+        k.encode(&mut k_buf);
+        v.encode(&mut v_buf);
+        (k_buf, v_buf)
+    }).collect::<Vec<_>>();
+    let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
+    H256(root.into())
 }
 
 #[cfg(test)]
