@@ -5,12 +5,19 @@ use crate::{
 };
 use bytes::Bytes;
 use patricia_merkle_tree::PatriciaMerkleTree;
+use serde::Deserialize;
 use sha3::Keccak256;
 
 use super::Transaction;
 
 pub type BlockNumber = u64;
 pub type Bloom = [u8; 256];
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    pub static ref DEFAULT_OMMERS_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
+}
 
 /// Header part of a block on the chain.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -69,8 +76,8 @@ impl RLPEncode for BlockHeader {
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
-    ommers: Vec<BlockHeader>,
-    withdrawals: Vec<Withdrawal>,
+    pub ommers: Vec<BlockHeader>,
+    pub withdrawals: Vec<Withdrawal>,
 }
 
 impl BlockBody {
@@ -138,9 +145,12 @@ impl RLPEncode for BlockBody {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     index: u64,
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
     validator_index: u64,
     address: Address,
     amount: U256,
