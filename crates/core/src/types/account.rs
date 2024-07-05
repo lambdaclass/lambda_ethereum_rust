@@ -30,10 +30,10 @@ pub struct AccountInfo {
 }
 
 pub struct AccountState {
-    nonce: u64,
-    balance: U256,
-    storage_root: H256,
-    code_hash: H256,
+    pub nonce: u64,
+    pub balance: U256,
+    pub storage_root: H256,
+    pub code_hash: H256,
 }
 
 impl From<GenesisAccount> for Account {
@@ -88,6 +88,18 @@ impl RLPEncode for AccountState {
             .encode_field(&self.storage_root)
             .encode_field(&self.code_hash)
             .finish();
+    }
+}
+
+impl RLPDecode for AccountState {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(AccountState, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+        let (balance, decoder) = decoder.decode_field("balance")?;
+        let (storage_root, decoder) = decoder.decode_field("storage_root")?;
+        let (code_hash, decoder) = decoder.decode_field("code_hash")?;
+        let state = AccountState { nonce, balance, storage_root, code_hash };
+        Ok((state, decoder.finish()?))
     }
 }
 
