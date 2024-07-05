@@ -4,9 +4,9 @@ pub struct AddressRLP(pub Vec<u8>);
 
 pub struct AccountInfoRLP(pub Vec<u8>);
 
-pub struct AccountStorageKeyRLP(pub Vec<u8>);
+pub struct AccountStorageKeyRLP(pub [u8; 32]);
 
-pub struct AccountStorageValueRLP(pub Vec<u8>);
+pub struct AccountStorageValueRLP(pub [u8; 32]);
 
 pub struct AccountCodeHashRLP(Vec<u8>);
 
@@ -41,7 +41,7 @@ impl Decodable for AccountInfoRLP {
 }
 
 impl Encodable for AccountStorageKeyRLP {
-    type Encoded = Vec<u8>;
+    type Encoded = [u8; 32];
 
     fn encode(self) -> Self::Encoded {
         self.0
@@ -50,12 +50,12 @@ impl Encodable for AccountStorageKeyRLP {
 
 impl Decodable for AccountStorageKeyRLP {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
-        Ok(AccountStorageKeyRLP(b.to_vec()))
+        Ok(AccountStorageKeyRLP(b.try_into()?))
     }
 }
 
 impl Encodable for AccountStorageValueRLP {
-    type Encoded = Vec<u8>;
+    type Encoded = [u8; 32];
 
     fn encode(self) -> Self::Encoded {
         self.0
@@ -64,7 +64,7 @@ impl Encodable for AccountStorageValueRLP {
 
 impl Decodable for AccountStorageValueRLP {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
-        Ok(AccountStorageValueRLP(b.to_vec()))
+        Ok(AccountStorageValueRLP(b.try_into()?))
     }
 }
 
