@@ -5,7 +5,12 @@ use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::Keccak256;
 
-use crate::rlp::{encode::RLPEncode, structs::Encoder};
+use crate::rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
 
 use super::GenesisAccount;
 
@@ -58,6 +63,22 @@ impl RLPEncode for AccountInfo {
             .encode_field(&self.balance)
             .encode_field(&self.nonce)
             .finish();
+    }
+}
+
+impl RLPDecode for AccountInfo {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(AccountInfo, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (code_hash, decoder) = decoder.decode_field("code_hash")?;
+        let (balance, decoder) = decoder.decode_field("balance")?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+
+        let account_info = AccountInfo {
+            code_hash,
+            balance,
+            nonce,
+        };
+        Ok((account_info, decoder.finish()?))
     }
 }
 
