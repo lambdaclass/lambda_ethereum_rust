@@ -1,6 +1,7 @@
 mod account;
 mod block;
 mod receipt;
+mod world_state;
 
 use account::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,

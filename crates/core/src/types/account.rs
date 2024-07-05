@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::Keccak256;
 
@@ -13,8 +13,6 @@ use crate::rlp::{
 };
 
 use super::GenesisAccount;
-
-pub type WorldState = HashMap<Address, AccountState>;
 
 #[allow(unused)]
 #[derive(Debug, PartialEq)]

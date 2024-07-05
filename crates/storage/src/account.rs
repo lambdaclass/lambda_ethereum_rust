@@ -1,12 +1,12 @@
 use libmdbx::orm::{Decodable, Encodable};
 
-pub struct AddressRLP(Vec<u8>);
+pub struct AddressRLP(pub Vec<u8>);
 
-pub struct AccountInfoRLP(Vec<u8>);
+pub struct AccountInfoRLP(pub Vec<u8>);
 
-pub struct AccountStorageKeyRLP(Vec<u8>);
+pub struct AccountStorageKeyRLP(pub Vec<u8>);
 
-pub struct AccountStorageValueRLP(Vec<u8>);
+pub struct AccountStorageValueRLP(pub Vec<u8>);
 
 pub struct AccountCodeHashRLP(Vec<u8>);
 
