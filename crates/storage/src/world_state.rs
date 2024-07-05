@@ -99,6 +99,8 @@ mod tests {
         };
         let address =
             Address::from_slice(&hex::decode("a94f5374fce5edbc8e2a8697c15331677e6ebf0b").unwrap());
+
+        // TODO: Fix bug with H256 encoding that makes these values [u8;33]
         let storage = vec![
             (
                 H256::from_str(
