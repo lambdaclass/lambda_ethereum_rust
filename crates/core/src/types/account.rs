@@ -98,7 +98,12 @@ impl RLPDecode for AccountState {
         let (balance, decoder) = decoder.decode_field("balance")?;
         let (storage_root, decoder) = decoder.decode_field("storage_root")?;
         let (code_hash, decoder) = decoder.decode_field("code_hash")?;
-        let state = AccountState { nonce, balance, storage_root, code_hash };
+        let state = AccountState {
+            nonce,
+            balance,
+            storage_root,
+            code_hash,
+        };
         Ok((state, decoder.finish()?))
     }
 }
