@@ -8,7 +8,7 @@ ethereum_rust-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 bytes.workspace = true
-hex = "0.4.3"
+hex.workspace = true
 
 [dev-dependencies]
 datatest-stable = "0.2.9"
