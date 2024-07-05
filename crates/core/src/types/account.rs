@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
-use ethereum_types::{H256, U256};
+use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::Keccak256;
 
 use crate::rlp::{encode::RLPEncode, structs::Encoder};
 
 use super::GenesisAccount;
+
+pub type WorldState = HashMap<Address, AccountState>;
 
 #[allow(unused)]
 #[derive(Debug, PartialEq)]
@@ -71,15 +73,33 @@ impl RLPEncode for AccountState {
 }
 
 pub fn compute_storage_root(storage: &HashMap<H256, H256>) -> H256 {
-    let rlp_storage = storage.iter().map(|(k, v)| {
-        let mut k_buf = vec![];
-        let mut v_buf = vec![];
-        k.encode(&mut k_buf);
-        v.encode(&mut v_buf);
-        (k_buf, v_buf)
-    }).collect::<Vec<_>>();
-    let root = PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
+    let rlp_storage = storage
+        .iter()
+        .map(|(k, v)| {
+            let mut k_buf = vec![];
+            let mut v_buf = vec![];
+            k.encode(&mut k_buf);
+            v.encode(&mut v_buf);
+            (k_buf, v_buf)
+        })
+        .collect::<Vec<_>>();
+    let root =
+        PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
     H256(root.into())
+}
+
+impl AccountState {
+    pub fn from_info_and_storage(
+        info: &AccountInfo,
+        storage: &HashMap<H256, H256>,
+    ) -> AccountState {
+        AccountState {
+            nonce: info.nonce,
+            balance: info.balance,
+            storage_root: compute_storage_root(storage),
+            code_hash: info.code_hash,
+        }
+    }
 }
 
 #[cfg(test)]
