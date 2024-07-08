@@ -43,22 +43,14 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        let packet_type = buf[32 + 65];
-        match packet_type {
-            0x04 => {
-                info!("Received NEIGHBORS message from {from}");
-            }
-            _ => {
-                let packet = Packet::decode(&buf[..read]).unwrap();
-                let msg = packet.get_message();
-                info!("Received {read} bytes from {from}");
-                info!("Message: {:?}", msg);
-                if let Message::Ping(_) = msg {
-                    let ping_hash = packet.get_hash();
-                    pong(&udp_socket, from, ping_hash, &signer).await;
-                    find_node(&udp_socket, from, &signer).await;
-                }
-            }
+        let packet = Packet::decode(&buf[..read]).unwrap();
+        let msg = packet.get_message();
+        info!("Received {read} bytes from {from}");
+        info!("Message: {:?}", msg);
+        if let Message::Ping(_) = msg {
+            let ping_hash = packet.get_hash();
+            pong(&udp_socket, from, ping_hash, &signer).await;
+            find_node(&udp_socket, from, &signer).await;
         }
     }
 }
