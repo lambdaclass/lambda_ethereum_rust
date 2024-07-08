@@ -388,7 +388,7 @@ mod tests {
         let logs = vec![];
         let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom, logs);
 
-        let result = compute_receipts_root(vec![receipt]);
+        let result = compute_receipts_root(&[receipt]);
         let expected_root =
             hex!("056b23fbba480696b65fe5a59b8f2148a1299103c4f57df839233af2cf4ca2d2");
         assert_eq!(result, expected_root.into());
