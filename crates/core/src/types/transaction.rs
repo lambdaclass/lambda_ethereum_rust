@@ -147,9 +147,9 @@ impl RLPEncode for EIP1559Transaction {
     }
 }
 
-impl<'a> LegacyTransaction {
-    pub fn decode_rlp(buf: &'a [u8]) -> Result<LegacyTransaction, RLPDecodeError> {
-        let decoder = Decoder::new(buf)?;
+impl RLPDecode for LegacyTransaction {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(LegacyTransaction, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
         let (nonce, decoder) = decoder.decode_field("nonce")?;
         let (gas_price, decoder) = decoder.decode_field("gas_price")?;
         let (gas, decoder) = decoder.decode_field("gas")?;
@@ -159,9 +159,8 @@ impl<'a> LegacyTransaction {
         let (v, decoder) = decoder.decode_field("v")?;
         let (r, decoder) = decoder.decode_field("r")?;
         let (s, decoder) = decoder.decode_field("s")?;
-        decoder.finish()?;
 
-        Ok(LegacyTransaction {
+        let tx = LegacyTransaction {
             nonce,
             gas_price,
             gas,
@@ -171,13 +170,14 @@ impl<'a> LegacyTransaction {
             v,
             r,
             s,
-        })
+        };
+        Ok((tx, decoder.finish()?))
     }
 }
 
-impl<'a> EIP1559Transaction {
-    pub fn decode_rlp(buf: &'a [u8]) -> Result<EIP1559Transaction, RLPDecodeError> {
-        let decoder = Decoder::new(buf)?;
+impl RLPDecode for EIP1559Transaction {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(EIP1559Transaction, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
         let (chain_id, decoder) = decoder.decode_field("chain_id")?;
         let (signer_nonce, decoder) = decoder.decode_field("signer_nonce")?;
         let (max_priority_fee_per_gas, decoder) =
@@ -191,9 +191,8 @@ impl<'a> EIP1559Transaction {
         let (signature_y_parity, decoder) = decoder.decode_field("signature_y_parity")?;
         let (signature_r, decoder) = decoder.decode_field("signature_r")?;
         let (signature_s, decoder) = decoder.decode_field("signature_s")?;
-        decoder.finish()?;
 
-        Ok(EIP1559Transaction {
+        let tx = EIP1559Transaction {
             chain_id,
             signer_nonce,
             max_priority_fee_per_gas,
@@ -206,7 +205,8 @@ impl<'a> EIP1559Transaction {
             signature_y_parity,
             signature_r,
             signature_s,
-        })
+        };
+        Ok((tx, decoder.finish()?))
     }
 }
 
@@ -388,7 +388,7 @@ mod tests {
         let logs = vec![];
         let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom, logs);
 
-        let result = compute_receipts_root(vec![receipt]);
+        let result = compute_receipts_root(&[receipt]);
         let expected_root =
             hex!("056b23fbba480696b65fe5a59b8f2148a1299103c4f57df839233af2cf4ca2d2");
         assert_eq!(result, expected_root.into());
@@ -398,7 +398,7 @@ mod tests {
     fn legacy_tx_rlp_decode() {
         let encoded_tx = "f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4";
         let encoded_tx_bytes = hex::decode(encoded_tx).unwrap();
-        let tx = LegacyTransaction::decode_rlp(&encoded_tx_bytes).unwrap();
+        let tx = LegacyTransaction::decode(&encoded_tx_bytes).unwrap();
         let expected_tx = LegacyTransaction {
             nonce: 0,
             gas_price: 1001000000,
@@ -427,7 +427,7 @@ mod tests {
     fn eip1559_tx_rlp_decode() {
         let encoded_tx = "f86c8330182480114e82f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee53800080c080a0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4";
         let encoded_tx_bytes = hex::decode(encoded_tx).unwrap();
-        let tx = EIP1559Transaction::decode_rlp(&encoded_tx_bytes).unwrap();
+        let tx = EIP1559Transaction::decode(&encoded_tx_bytes).unwrap();
         let expected_tx = EIP1559Transaction {
             signer_nonce: 0,
             max_fee_per_gas: 78,
