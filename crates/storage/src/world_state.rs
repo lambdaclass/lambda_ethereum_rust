@@ -41,15 +41,15 @@ pub fn build_world_state(db: &Database) -> Result<WorldState, anyhow::Error> {
     // Fetch & Decode Account Storages
     let mut account_storages = HashMap::<Address, HashMap<H256, H256>>::new();
     let mut account_storages_db = db.cursor::<AccountStorages>()?;
-    while let Some((rlp_address, (rlp_storage_key, rlp_storage_value))) =
+    while let Some((rlp_address, (storage_key_bytes, storage_value_bytes))) =
         account_storages_db.next()?
     {
         let entry = account_storages
             .entry(Address::decode(&rlp_address.0)?)
             .or_insert(Default::default());
         entry.insert(
-            H256::decode(&rlp_storage_key.0)?,
-            H256::decode(&rlp_storage_value.0)?,
+            H256::from(&storage_key_bytes.0),
+            H256::from(&storage_value_bytes.0),
         );
     }
     // Fill World State merkle tree
