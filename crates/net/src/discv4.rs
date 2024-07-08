@@ -6,7 +6,7 @@ use ethereum_rust_core::rlp::{
     structs::{self, Decoder, Encoder},
 };
 use ethereum_rust_core::{H256, H512};
-use k256::ecdsa::{signature::Signer, SigningKey};
+use k256::ecdsa::SigningKey;
 use std::net::{IpAddr, SocketAddr};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -34,7 +34,9 @@ impl Message {
 
         let digest = keccak_hash::keccak_buffer(&mut &data[signature_size..]).unwrap();
 
-        let (signature, recovery_id) = node_signer.try_sign(&digest.0).expect("failed to sign");
+        let (signature, recovery_id) = node_signer
+            .sign_prehash_recoverable(&digest.0)
+            .expect("failed to sign");
         let b = signature.to_bytes();
 
         data[..signature_size - 1].copy_from_slice(&b);
@@ -90,6 +92,11 @@ impl Message {
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
         }
+    }
+    // TODO: we can put the hash, signature and the message (as payload) inside a new struct
+    pub fn get_hash(encoded_msg: &[u8]) -> &[u8] {
+        let hash_len = 32;
+        &encoded_msg[..hash_len]
     }
 
     fn packet_type(&self) -> u8 {
@@ -354,12 +361,11 @@ mod tests {
 
         msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "d9b83d9701c6481a99db908b19551c6b082bcb28d5bef44cfa55256bc7977500";
-        let signature = "f0bff907b5c432e623ba5d3803d6a405bdbaffdfc0373499ac2a243ef3ab52de3a5312c0a9a96593979b746a4cd37ebdf21cf6971cf8c10c94f4d45c1a0f90dd00";
+        let hash = "d2821841963050aa505c00d8e4fd2d016f95eff739b784e0e26587a58226738e";
+        let signature = "8a73f13d613c0ba5148787bb52fd04eb984c3dae486bac19433adf658d29bbb352f3acf2d55f2bdae3afff5298723114581e3f34c37815b32b9195a3326dd68700";
         let pkt_type = "01";
         let encoded_message = "dd04cb840102030482064d8218dbc984ffff0205820bf780850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
-
         assert_eq!(result, expected);
     }
 
@@ -376,6 +382,7 @@ mod tests {
                 .unwrap();
         let enr_seq = 1704896740573;
         let msg = Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
+
         let key_bytes =
             H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
                 .unwrap();
@@ -385,8 +392,8 @@ mod tests {
 
         msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "852ef38c2087413400cb33215709a8cfa6f274929e91704ec27a1ae4d226f85d";
-        let signature = "a7ab61ec963f779d10918c9bc3c3243c05f45eabbd078e90bf78313904e1c91201a03e78a133c2676e1c2686601e70ab1ec7aa602ad7f65bb468e52367d7123c00";
+        let hash = "9657e4e2db33b51cbbeb503bd195efcf081d6a83befbb42b4be95d0f7bf27ffe";
+        let signature = "b1a91caa6105b941d3ecce052dcfea5e4f4290c9e6a89ff72707a8b5116ee87a1ea3fa0086990cd862a8a2347f346f1b118122a28bf2ed2ca371d2c493a86bde01";
         let pkt_type = "02";
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
         let expected = [hash, signature, pkt_type, msg].concat();
@@ -415,12 +422,11 @@ mod tests {
 
         msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "cccfa9bf8e49603f8cc5381579d435bd322d386091732e3da7f6b7df13172b92";
-        let signature = "b1caebcd4d754552be21df4a100bd4ccd85e9d95b2e29b29db2df681c17c370068e410ea31e7106081c2ed39489c1762125cbd34477b41d940d230d1d3888a4101";
+        let hash = "58a1d0ea66afd9617c198b60a7417637ae27b847b004dbebc1e29d4067327e35";
+        let signature = "e1988832d7d7b73925ec584ff818ff3a7bffe1a84fe3835923c3ab17af40071f7c9263176203c80c6ed77f0586479b78884e9e47fdb3287d2aafa92348e5c16700";
         let pkt_type = "02";
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
         let expected = [hash, signature, pkt_type, msg].concat();
-
         assert_eq!(result, expected);
     }
 
@@ -440,11 +446,12 @@ mod tests {
 
         msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "dabe1b1a4dc26324120594091bb94dbdd4aa98326cbfecb60a4a67778ebb0e67";
-        let signature = "28cf71e9a929fa29f4e528f5fdc96e25a3086a777c8967710ddc1ef5f456bae40808baf0840d0449ea5a17ba11bbb012719e679cf3cf8d137106884c393ef15b00";
+        let hash = "23770430fc208bdc78bc77052bf7ec2e928b38c13c085b87491c15ebebb2050f";
+        let signature = "7c98bb4759569117031a9fbbeb00314d018eba55135c65ee98dbf6871aaebe61225f36b36e4f60da5b5d6c917e3589dd235acfacc6de4dade116c4bb851b884b01";
         let pkt_type = "03";
         let encoded_message = "f848b840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
+
         assert_eq!(result, expected);
     }
 

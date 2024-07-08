@@ -54,3 +54,19 @@ pub mod u64 {
             .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
     }
 }
+
+pub mod bytes {
+    use ::bytes::Bytes;
+
+    use super::*;
+
+    pub fn deser_hex_str<'de, D>(d: D) -> Result<Bytes, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        let bytes = hex::decode(value.trim_start_matches("0x"))
+            .map_err(|e| D::Error::custom(e.to_string()))?;
+        Ok(Bytes::from(bytes))
+    }
+}
