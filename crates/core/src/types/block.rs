@@ -246,6 +246,20 @@ fn calculate_base_fee_per_gas(
     })
 }
 
+pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
+    if header.gas_used > header.gas_limit {
+        return false;
+    }
+    let block_parent_hash = block
+    let expected_base_fee_per_gas = if let Some(base_fee) = calculate_base_fee_per_gas(
+        header.gas_limit,
+        parent_header.gas_limit,
+        parent_header.gas_used,
+        parent_header.base_fee_per_gas,
+    ) { base_fee} else {return false};
+    true
+}
+
 #[cfg(test)]
 mod test {
 
