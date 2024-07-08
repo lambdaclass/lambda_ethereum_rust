@@ -57,7 +57,7 @@ pub(crate) enum Message {
     Ping(PingMessage),
     Pong(PongMessage),
     FindNode(FindNodeMessage),
-    Neighbors(()),
+    Neighbors(NeighborsMessage),
     ENRRequest(()),
     ENRResponse(()),
 }
@@ -111,7 +111,10 @@ impl Message {
                 let (find_node_msg, _rest) = FindNodeMessage::decode_unfinished(msg)?;
                 Ok(Message::FindNode(find_node_msg))
             }
-            0x04 => todo!(),
+            0x04 => {
+                let (neighbors_msg, _rest) = NeighborsMessage::decode_unfinished(msg)?;
+                Ok(Message::Neighbors(neighbors_msg))
+            }
             0x05 => todo!(),
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
@@ -331,6 +334,58 @@ impl RLPDecode for PongMessage {
         // NOTE: as per the spec, any additional elements should be ignored.
         let remaining = decoder.finish_unchecked();
         Ok((pong, remaining))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NeighborsMessage {
+    // nodes is the list of neighbors
+    nodes: Vec<Node>,
+    expiration: u64,
+}
+
+impl NeighborsMessage {
+    pub fn new(nodes: Vec<Node>, expiration: u64) -> Self {
+        Self { nodes, expiration }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Node {
+    ip: IpAddr,
+    udp_port: u16,
+    tcp_port: u16,
+    node_id: H512,
+}
+
+impl RLPDecode for NeighborsMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (nodes, decoder) = decoder.decode_field("nodes")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+
+        let neighbors = NeighborsMessage::new(nodes, expiration);
+        Ok((neighbors, remaining))
+    }
+}
+
+impl RLPDecode for Node {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (ip, decoder) = decoder.decode_field("ip")?;
+        let (udp_port, decoder) = decoder.decode_field("upd_port")?;
+        let (tcp_port, decoder) = decoder.decode_field("tcp_port")?;
+        let (node_id, decoder) = decoder.decode_field("node_id")?;
+        let remaining = decoder.finish_unchecked();
+
+        let node = Node {
+            ip,
+            udp_port,
+            tcp_port,
+            node_id,
+        };
+        Ok((node, remaining))
     }
 }
 
@@ -603,6 +658,23 @@ mod tests {
         let decoded_packet = Packet::decode(&buf).unwrap();
         let decoded_msg = decoded_packet.get_message();
         assert_eq!(decoded_msg, &msg);
+    }
+
+    #[test]
+    fn test_decode_neighbors_message() {
+        let encoded = "f857f84ff84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666850400e78bba";
+        let decoded = Message::decode_with_type(0x04, &decode_hex(encoded).unwrap()).unwrap();
+        let expiration: u64 = 17195043770;
+        let node_id = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let node = Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id,
+        };
+
+        let expected = Message::Neighbors(NeighborsMessage::new(vec![node], expiration));
+        assert_eq!(decoded, expected);
     }
 
     #[test]
