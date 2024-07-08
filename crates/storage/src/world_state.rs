@@ -46,7 +46,7 @@ pub fn build_world_state(db: &Database) -> Result<WorldState, anyhow::Error> {
     {
         let entry = account_storages
             .entry(Address::decode(&rlp_address.0)?)
-            .or_insert(Default::default());
+            .or_default();
         entry.insert(
             H256::from(&storage_key_bytes.0),
             H256::from(&storage_value_bytes.0),
