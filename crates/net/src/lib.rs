@@ -156,10 +156,10 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
         info!("Received {read} bytes from {from}");
-        let msg = Message::decode_with_header(&buf[..read]).unwrap();
-        info!("Message: {:?}", msg);
+        let packet = Packet::decode(&buf[..read]).unwrap();
+        info!("Message: {:?}", packet);
 
-        match msg {
+        match packet.get_message() {
             Message::Pong(pong) => {
                 break (&buf[32 + 65..read], &buf[32..32 + 65], pong.to);
             }

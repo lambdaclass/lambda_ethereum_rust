@@ -10,6 +10,7 @@ use k256::ecdsa::SigningKey;
 use std::net::{IpAddr, SocketAddr};
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Packet {
     hash: H256,
     signature: H520,
