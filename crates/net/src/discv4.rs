@@ -5,9 +5,46 @@ use ethereum_rust_core::rlp::{
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H512};
+use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
 use std::net::IpAddr;
+
+pub struct Packet {
+    hash: H256,
+    signature: H520,
+    message: Message,
+}
+
+impl Packet {
+    pub fn decode(encoded_packet: &[u8]) -> Result<Packet, RLPDecodeError> {
+        // the packet structure is
+        // hash || signature || packet-type || packet-data
+        let hash_len = 32;
+        let signature_len = 65;
+        let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
+        let packet_type = encoded_packet[hash_len + signature_len];
+        let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
+
+        // TODO: verify hash and signature
+        let hash = H256::from_slice(&encoded_packet[..hash_len]);
+        let signature = H520::from_slice(signature_bytes);
+        let message = Message::decode_with_type(packet_type, encoded_msg)?;
+
+        Ok(Self {
+            hash,
+            signature,
+            message,
+        })
+    }
+
+    pub fn get_hash(&self) -> H256 {
+        self.hash
+    }
+
+    pub fn get_message(&self) -> &Message {
+        &self.message
+    }
+}
 
 #[derive(Debug, Eq, PartialEq)]
 // NOTE: All messages could have more fields than specified by the spec.
@@ -57,21 +94,7 @@ impl Message {
         }
     }
 
-    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let hash_len = 32;
-        let signature_len = 65;
-        let packet_index = hash_len + signature_len;
-
-        // TODO: verify hash and signature
-        let _hash = &encoded_msg[..hash_len];
-        let _signature = &encoded_msg[hash_len..packet_index];
-
-        let packet_type = encoded_msg[packet_index];
-
-        Self::decode_with_type(packet_type, &encoded_msg[packet_index + 1..])
-    }
-
-    fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
+    pub fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
         // NOTE: extra elements inside the message should be ignored, along with extra data
         // after the message.
         match packet_type {
@@ -92,11 +115,6 @@ impl Message {
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
         }
-    }
-    // TODO: we can put the hash, signature and the message (as payload) inside a new struct
-    pub fn get_hash(encoded_msg: &[u8]) -> &[u8] {
-        let hash_len = 32;
-        &encoded_msg[..hash_len]
     }
 
     fn packet_type(&self) -> u8 {
