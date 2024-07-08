@@ -259,14 +259,25 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
     if header.gas_used > header.gas_limit {
         return false;
     }
-    let block_parent_hash = block
     let expected_base_fee_per_gas = if let Some(base_fee) = calculate_base_fee_per_gas(
         header.gas_limit,
         parent_header.gas_limit,
         parent_header.gas_used,
         parent_header.base_fee_per_gas,
-    ) { base_fee} else {return false};
-    true
+    ) {
+        base_fee
+    } else {
+        return false;
+    };
+
+    expected_base_fee_per_gas == header.base_fee_per_gas
+        && header.timestamp > parent_header.timestamp
+        && header.number == parent_header.number + 1
+        && header.extra_data.len() <= 32
+        && header.difficulty.is_zero()
+        && header.nonce == 0
+        && header.ommers_hash == *DEFAULT_OMMERS_HASH
+        && header.parent_hash == parent_header.compute_block_hash()
 }
 
 #[cfg(test)]
