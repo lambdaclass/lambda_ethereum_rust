@@ -1,5 +1,12 @@
 use crate::{
-    rlp::{encode::RLPEncode, structs::Encoder},
+    rlp::{
+        constants::{
+            BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
+            GAS_LIMIT_MINIMUM,
+        },
+        encode::RLPEncode,
+        structs::Encoder,
+    },
     types::Receipt,
     Address, H256, U256,
 };
@@ -7,6 +14,8 @@ use bytes::Bytes;
 use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::Deserialize;
 use sha3::Keccak256;
+
+use std::cmp::{max, Ordering};
 
 use super::Transaction;
 
@@ -184,6 +193,57 @@ impl RLPEncode for Withdrawal {
             .encode_field(&self.amount)
             .finish();
     }
+}
+
+// Checks that the gas_limit fits the gas bounds set by its parent block
+fn check_gas_limit(gas_limit: u64, parent_gas_limit: u64) -> bool {
+    let max_adjustment_delta = parent_gas_limit / GAS_LIMIT_ADJUSTMENT_FACTOR;
+
+    gas_limit < parent_gas_limit + max_adjustment_delta
+        && gas_limit > parent_gas_limit - max_adjustment_delta
+        && gas_limit >= GAS_LIMIT_MINIMUM
+}
+
+// Calculates the base fee for the current block based on its gas_limit and parent's gas and fee
+// Returns None if the block gas limit is not valid in relation to its parent's gas limit
+fn calculate_base_fee_per_gas(
+    block_gas_limit: u64,
+    parent_gas_limit: u64,
+    parent_gas_used: u64,
+    parent_base_fee_per_gas: u64,
+) -> Option<u64> {
+    // Check gas limit, if the check passes we can also rest assured that none of the
+    // following divisions will have zero as a divider
+    if !check_gas_limit(block_gas_limit, parent_gas_limit) {
+        return None;
+    }
+
+    let parent_gas_target = parent_gas_limit / ELASTICITY_MULTIPLIER;
+
+    Some(match parent_gas_used.cmp(&parent_gas_target) {
+        Ordering::Equal => parent_base_fee_per_gas,
+        Ordering::Greater => {
+            let gas_used_delta = parent_gas_used - parent_gas_target;
+
+            let parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta;
+            let target_fee_gas_delta = parent_fee_gas_delta / parent_gas_target;
+
+            let base_fee_per_gas_delta =
+                max(target_fee_gas_delta / BASE_FEE_MAX_CHANGE_DENOMINATOR, 1);
+
+            parent_base_fee_per_gas + base_fee_per_gas_delta
+        }
+        Ordering::Less => {
+            let gas_used_delta = parent_gas_target - parent_gas_used;
+
+            let parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta;
+            let target_fee_gas_delta = parent_fee_gas_delta / parent_gas_target;
+
+            let base_fee_per_gas_delta = target_fee_gas_delta / BASE_FEE_MAX_CHANGE_DENOMINATOR;
+
+            parent_base_fee_per_gas - base_fee_per_gas_delta
+        }
+    })
 }
 
 #[cfg(test)]
