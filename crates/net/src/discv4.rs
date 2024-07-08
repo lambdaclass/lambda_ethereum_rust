@@ -9,6 +9,7 @@ use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
 use std::net::IpAddr;
 
+#[allow(unused)]
 pub struct Packet {
     hash: H256,
     signature: H520,
@@ -475,10 +476,8 @@ mod tests {
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -491,7 +490,7 @@ mod tests {
         let enr_seq = 1704896740573;
         let expected =
             Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     #[test]
@@ -503,10 +502,9 @@ mod tests {
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -517,7 +515,7 @@ mod tests {
             H256::from_str("3e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be23")
                 .unwrap();
         let expected = Message::Pong(PongMessage::new(to, ping_hash, expiration));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -552,8 +550,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -582,8 +581,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -600,8 +600,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).unwrap();
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
