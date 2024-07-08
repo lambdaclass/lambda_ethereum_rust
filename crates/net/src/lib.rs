@@ -11,6 +11,7 @@ use std::{
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use tokio::io::AsyncReadExt;
 use tokio::{
     io::AsyncWriteExt,
     net::{TcpSocket, UdpSocket},
@@ -35,6 +36,7 @@ pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr, bootnodes
 }
 
 async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
+    return;
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
     let bootnode = match bootnodes.first() {
         Some(b) => b,
@@ -147,13 +149,13 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // BEGIN EXAMPLE
     // Try contacting a known peer
     // TODO: do this dynamically
-    let str_udp_addr = "127.0.0.1:57978";
+    let str_udp_addr = "127.0.0.1:53980";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
-    let (read, endpoint) = loop {
+    let (mut msg, sig_bytes, endpoint) = loop {
         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
@@ -163,11 +165,11 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
         match msg {
             Message::Pong(pong) => {
-                break (read, pong.to);
+                break (&buf[32 + 65..read], &buf[32..32 + 65], pong.to);
             }
             // TODO: geth seems to respond with Ping instead of Pong
             Message::Ping(ping) => {
-                break (read, ping.from);
+                break (&buf[32 + 65..read], &buf[32..32 + 65], ping.from);
             }
             _ => {
                 warn!("Unexpected message type");
@@ -175,8 +177,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         };
     };
 
-    let digest = keccak_hash::keccak_buffer(&mut &buf[..read]).unwrap();
-    let sig_bytes = &buf[32..32 + 65];
+    let digest = keccak_hash::keccak_buffer(&mut msg).unwrap();
     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
     let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
 
@@ -186,7 +187,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let mut auth_message = vec![];
     conn.encode_auth_message(&signer.into(), &peer_pk.into(), &mut auth_message);
 
-    let tcp_addr = "127.0.0.1:59903";
+    let tcp_addr = "127.0.0.1:51994";
+    // NOTE: for some reason kurtosis peers don't publish their active TCP port
     let tcp_addr = endpoint
         .to_tcp_address()
         .unwrap_or(tcp_addr.parse().unwrap());
@@ -199,5 +201,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
-    // END EXAMPLE
+    let read = stream.read(&mut buf).await.unwrap();
+    let msg = &buf[..read];
+    info!("Received: {msg:?}");
 }

@@ -55,12 +55,15 @@ impl RLPxConnection {
         remote_static_pubkey: &PublicKey,
         buf: &mut dyn BufMut,
     ) {
-        let shared_secret = ecdh_xchng(static_key, &remote_static_pubkey);
+        let mut rng = rand::thread_rng();
         let node_id = pubkey2id(&static_key.public_key());
-        let signature = self.sign_shared_secret(shared_secret.into());
+
+        let message_secret_key = SecretKey::random(&mut rng);
+        let message_secret = ecdh_xchng(&message_secret_key, &remote_static_pubkey);
+
+        let signature = self.sign_shared_secret(message_secret.into());
 
         let auth = AuthMessage::new(signature, node_id, self.nonce);
-        let mut rng = rand::thread_rng();
         let padding_length = rng.gen_range(100..=300);
 
         let mut encoded_auth_msg = vec![];
@@ -72,9 +75,6 @@ impl RLPxConnection {
             .try_into()
             .unwrap();
         let auth_size_bytes = auth_size.to_be_bytes();
-
-        let message_secret_key = SecretKey::random(&mut rng);
-        let message_secret = ecdh_xchng(&message_secret_key, &remote_static_pubkey);
 
         let mut secret_keys = [0; 32];
         kdf(&message_secret, &mut secret_keys);
@@ -92,7 +92,7 @@ impl RLPxConnection {
         let d = sha256_hmac(&mac_key, &[&iv.0, &encrypted_auth_msg], &auth_size_bytes);
 
         buf.put_slice(&auth_size_bytes);
-        buf.put_slice(&r_public_key.as_bytes());
+        buf.put_slice(r_public_key.as_bytes());
         buf.put_slice(&iv.0);
         buf.put_slice(&encrypted_auth_msg);
         buf.put_slice(&d);
