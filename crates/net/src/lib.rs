@@ -37,7 +37,6 @@ pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr, bootnodes
 }
 
 async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
-    return;
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
     let bootnode = match bootnodes.first() {
         Some(b) => b,
@@ -146,7 +145,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
 
-    let udp_socket = UdpSocket::bind(tcp_addr).await.unwrap();
+    let mut udp_addr = tcp_addr.clone();
+    udp_addr.set_port(tcp_addr.port() + 1);
+    let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
 
     // BEGIN EXAMPLE
     // Try contacting a known peer
@@ -185,7 +186,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
 
-    let conn = RLPxConnection::random();
+    let mut conn = RLPxConnection::random();
     let mut auth_message = vec![];
     conn.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
 
