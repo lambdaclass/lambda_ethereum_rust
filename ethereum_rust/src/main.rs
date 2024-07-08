@@ -55,7 +55,6 @@ async fn main() {
         .map(Iterator::collect)
         .unwrap_or_default();
 
-    dbg!(bootnodes.clone());
     if bootnodes.is_empty() {
         warn!("No bootnodes specified. This node will not be able to connect to the network.");
     }

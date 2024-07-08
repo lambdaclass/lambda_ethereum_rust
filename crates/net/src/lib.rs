@@ -1,8 +1,6 @@
 pub(crate) mod discv4;
 use discv4::{Endpoint, FindNodeMessage, Message, PingMessage, PongMessage};
 use ethereum_rust_core::H512;
-use std::num::ParseIntError;
-
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use k256::elliptic_curve::PublicKey;
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
@@ -35,11 +33,13 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     let signer = SigningKey::random(&mut OsRng);
     let bootnode = match bootnodes.first() {
         Some(b) => b,
-        None => {return;}
+        None => {
+            return;
+        }
     };
-    
+
     ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
-     
+
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
@@ -61,7 +61,6 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
         }
     }
 }
-
 
 async fn ping(
     socket: &UdpSocket,
@@ -94,13 +93,6 @@ async fn ping(
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-        .collect()
-}
-
 async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey) {
     let public_key = PublicKey::from(signer.verifying_key());
     let encoded = public_key.to_encoded_point(false);
@@ -118,7 +110,7 @@ async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey)
 
     let mut buf = Vec::new();
     msg.encode_with_header(&mut buf, signer);
-    
+
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
