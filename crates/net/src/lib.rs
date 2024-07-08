@@ -1,11 +1,12 @@
 pub(crate) mod discv4;
-
 use discv4::{Endpoint, FindNodeMessage, Message, PingMessage, PongMessage};
 use ethereum_rust_core::H512;
-use k256::Secp256k1;
+use std::num::ParseIntError;
+
+use k256::elliptic_curve::sec1::ToEncodedPoint;
+use k256::elliptic_curve::PublicKey;
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use keccak_hash::H256;
-use std::str::FromStr;
 use std::{
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -32,36 +33,35 @@ pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr, bootnodes
 async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
     let signer = SigningKey::random(&mut OsRng);
-    let bootnode = bootnodes[0];
-
+    let bootnode = match bootnodes.first() {
+        Some(b) => b,
+        None => {return;}
+    };
+    
     ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
-
+     
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-    // for each `Ping` we send we are receiving a `Pong` and a `Ping`
-    for _ in 0..2 {
+    loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        let msg = Message::decode_with_header(&buf[..read]).unwrap();
-        info!("Received {read} bytes from {from}");
-        info!("Message: {:?}", msg);
-        match msg {
-            Message::Ping(_) => {
-                let ping_hash = H256::from_slice(Message::get_hash(&buf[..read]));
-                pong(&udp_socket, bootnode.socket_address, ping_hash, &signer).await;
-                info!("Sending Pong");
+        let packet_type = buf[32 + 65];
+        match packet_type {
+            0x04 => {
+                info!("Received NEIGHBORS message from {from}");
             }
             _ => {
-                dbg!(msg);
+                let msg = Message::decode_with_header(&buf[..read]).unwrap();
+                info!("Received {read} bytes from {from}");
+                info!("Message: {:?}", msg);
+                if let Message::Ping(_) = msg {
+                    let ping_hash = H256::from_slice(Message::get_hash(&buf[..read]));
+                    pong(&udp_socket, from, ping_hash, &signer).await;
+                    find_node(&udp_socket, from, &signer).await;
+                }
             }
         }
     }
-
-    find_node(&udp_socket, bootnode.socket_address, &signer).await;
-    info!("Sending FindNode");
-    let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-    let msg = Message::decode_with_header(&buf[..read]).unwrap();
-    info!("Received {read} bytes from {from}");
-    info!("Message: {:?}", msg);
 }
+
 
 async fn ping(
     socket: &UdpSocket,
@@ -74,9 +74,7 @@ async fn ping(
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_secs()
-        .try_into()
-        .unwrap();
+        .as_secs();
 
     // TODO: this should send our advertised TCP port
     let from = Endpoint {
@@ -92,24 +90,35 @@ async fn ping(
 
     let ping: discv4::Message = discv4::Message::Ping(PingMessage::new(from, to, expiration));
 
-    ping.encode_with_header(&mut buf, signer.clone());
+    ping.encode_with_header(&mut buf, signer);
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
+}
+
 async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey) {
-    let target = H512::from_str("764dd14179894fde2996d44fc9e91e3dc271a1733a1d79a22658e9154c9a949a2df86142be669295d36bb16ca7f1ef4c5b0e9dc30a08d0e1f9598d7e080ec3af").unwrap();
+    let public_key = PublicKey::from(signer.verifying_key());
+    let encoded = public_key.to_encoded_point(false);
+    let bytes = encoded.as_bytes();
+    debug_assert_eq!(bytes[0], 4);
+
+    let target = H512::from_slice(&bytes[1..]);
 
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_secs()
-        .try_into()
-        .unwrap();
+        .as_secs();
 
     let msg: discv4::Message = discv4::Message::FindNode(FindNodeMessage::new(target, expiration));
 
     let mut buf = Vec::new();
-    msg.encode_with_header(&mut buf, signer.clone());
+    msg.encode_with_header(&mut buf, signer);
+    
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
@@ -119,19 +128,16 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
         .duration_since(UNIX_EPOCH)
         .unwrap()
-        .as_secs()
-        .try_into()
-        .unwrap();
+        .as_secs();
+
     let to = Endpoint {
         ip: to_addr.ip(),
         udp_port: to_addr.port(),
         tcp_port: 0,
     };
-    let pong: discv4::Message = discv4::Message::Pong(
-        PongMessage::new(to, ping_hash, expiration).with_enr_seq(0x01907e144b64),
-    );
+    let pong: discv4::Message = discv4::Message::Pong(PongMessage::new(to, ping_hash, expiration));
 
-    pong.encode_with_header(&mut buf, signer.clone());
+    pong.encode_with_header(&mut buf, signer);
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
