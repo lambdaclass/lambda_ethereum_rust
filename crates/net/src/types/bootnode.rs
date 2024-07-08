@@ -1,7 +1,7 @@
 use ethereum_rust_core::H512;
 use std::{net::SocketAddr, num::ParseIntError, str::FromStr};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct BootNode {
     pub node_id: H512,
     pub socket_address: SocketAddr,

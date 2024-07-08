@@ -4,6 +4,7 @@ use serde_json::Value;
 pub enum RpcErr {
     MethodNotFound,
     BadParams,
+    UnsuportedFork,
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -14,8 +15,12 @@ impl From<RpcErr> for RpcErrorMetadata {
                 message: "Method not found".to_string(),
             },
             RpcErr::BadParams => RpcErrorMetadata {
-                code: -1,
+                code: -32602,
                 message: "Invalid params".to_string(),
+            },
+            RpcErr::UnsuportedFork => RpcErrorMetadata {
+                code: -38005,
+                message: "Unsupported fork".to_string(),
             },
         }
     }
