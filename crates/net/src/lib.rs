@@ -4,6 +4,7 @@ use ethereum_rust_core::H512;
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use k256::elliptic_curve::PublicKey;
+use k256::SecretKey;
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use keccak_hash::H256;
 use rlpx::ecies::RLPxConnection;
@@ -141,6 +142,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
 }
 
 async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
+    let secret_key: SecretKey = signer.clone().into();
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
 
@@ -149,7 +151,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // BEGIN EXAMPLE
     // Try contacting a known peer
     // TODO: do this dynamically
-    let str_udp_addr = "127.0.0.1:53980";
+    let str_udp_addr = "127.0.0.1:51311";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
@@ -185,9 +187,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     let conn = RLPxConnection::random();
     let mut auth_message = vec![];
-    conn.encode_auth_message(&signer.into(), &peer_pk.into(), &mut auth_message);
+    conn.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
 
-    let tcp_addr = "127.0.0.1:51994";
+    let tcp_addr = "127.0.0.1:58617";
     // NOTE: for some reason kurtosis peers don't publish their active TCP port
     let tcp_addr = endpoint
         .to_tcp_address()
@@ -202,6 +204,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
     let read = stream.read(&mut buf).await.unwrap();
-    let msg = &buf[..read];
-    info!("Received: {msg:?}");
+    let msg = &mut buf[..read];
+    let ack = conn.decode_ack_message(&secret_key, msg);
+    info!("Received: {ack:?}");
 }
