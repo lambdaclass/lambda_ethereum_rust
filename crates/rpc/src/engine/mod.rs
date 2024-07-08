@@ -63,6 +63,7 @@ pub fn new_payload_v3(request: NewPayloadV3Request) -> Result<PayloadStatus, Rpc
             validation_error: Some("Invalid block hash".to_string()),
         });
     }
+    info!("Block hash {} is valid", block_hash);
     // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
     // and check that the resulting array matches expected_blob_versioned_hashes
     // As we don't curretly handle blob txs, we just check that it is empty

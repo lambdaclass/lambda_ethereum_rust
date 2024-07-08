@@ -7,8 +7,7 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    BlockBody, BlockHeader, EIP1559Transaction, LegacyTransaction, Transaction, Withdrawal,
-    DEFAULT_OMMERS_HASH,
+    compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH
 };
 
 #[allow(unused)]
@@ -121,7 +120,7 @@ impl ExecutionPayloadV3 {
                 prev_randao: self.prev_randao,
                 nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
-                withdrawals_root: compute_withdrawals_root(withdrawals),
+                withdrawals_root: compute_withdrawals_root(&block_body.withdrawals),
                 blob_gas_used: self.blob_gas_used,
                 excess_blob_gas: self.excess_blob_gas,
                 parent_beacon_block_root,
