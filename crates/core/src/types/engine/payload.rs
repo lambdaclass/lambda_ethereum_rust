@@ -3,6 +3,7 @@ use ethereum_types::{Address, Bloom};
 use keccak_hash::H256;
 use serde::{Deserialize, Serialize};
 
+use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
@@ -71,17 +72,16 @@ impl EncodedTransaction {
                 let tx_bytes = &self.0.as_ref()[1..];
                 match *tx_type {
                     // Legacy
-                    0x0 => {
-                        LegacyTransaction::decode_rlp(tx_bytes).map(Transaction::LegacyTransaction)
-                    } // TODO: check if this is a real case scenario
+                    0x0 => LegacyTransaction::decode(tx_bytes).map(Transaction::LegacyTransaction), // TODO: check if this is a real case scenario
                     // EIP1559
-                    0x2 => EIP1559Transaction::decode_rlp(tx_bytes)
-                        .map(Transaction::EIP1559Transaction),
+                    0x2 => {
+                        EIP1559Transaction::decode(tx_bytes).map(Transaction::EIP1559Transaction)
+                    }
                     _ => unimplemented!("We don't know this tx type yet"),
                 }
             }
             // LegacyTransaction
-            _ => LegacyTransaction::decode_rlp(self.0.as_ref()).map(Transaction::LegacyTransaction),
+            _ => LegacyTransaction::decode(self.0.as_ref()).map(Transaction::LegacyTransaction),
         }
     }
 }
@@ -121,7 +121,7 @@ impl ExecutionPayloadV3 {
                 prev_randao: self.prev_randao,
                 nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
-                withdrawals_root: H256::zero(), // TODO: Use result of root calculation once implemented
+                withdrawals_root: compute_withdrawals_root(withdrawals),
                 blob_gas_used: self.blob_gas_used,
                 excess_blob_gas: self.excess_blob_gas,
                 parent_beacon_block_root,
