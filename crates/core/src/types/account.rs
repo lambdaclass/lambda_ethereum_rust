@@ -29,6 +29,7 @@ pub struct AccountInfo {
     pub nonce: u64,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct AccountState {
     pub nonce: u64,
     pub balance: U256,

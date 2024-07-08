@@ -100,7 +100,7 @@ mod tests {
         let address =
             Address::from_slice(&hex::decode("a94f5374fce5edbc8e2a8697c15331677e6ebf0b").unwrap());
 
-        let storage = vec![
+        let storage = [
             (
                 H256::from_str(
                     "0x1000000000000000000000000000000000000000000000000000000000000022",
@@ -132,8 +132,8 @@ mod tests {
             .upsert::<AccountStorages>(
                 AddressRLP(address.encode_to_vec()),
                 (
-                    AccountStorageKeyRLP(storage[0].0.0),
-                    AccountStorageValueRLP(storage[0].1.0),
+                    AccountStorageKeyRLP(storage[0].0 .0),
+                    AccountStorageValueRLP(storage[0].1 .0),
                 ),
             )
             .unwrap();
@@ -141,13 +141,21 @@ mod tests {
             .upsert::<AccountStorages>(
                 AddressRLP(address.encode_to_vec()),
                 (
-                    AccountStorageKeyRLP(storage[1].0.0),
-                    AccountStorageValueRLP(storage[1].1.0),
+                    AccountStorageKeyRLP(storage[1].0 .0),
+                    AccountStorageValueRLP(storage[1].1 .0),
                 ),
             )
             .unwrap();
         write.commit().unwrap();
 
         let world_state = build_world_state(&db).unwrap();
+        let account_state = world_state.get_account_state(&address).unwrap();
+        let expected_account_state = AccountState {
+            nonce: account_info.nonce,
+            balance: account_info.balance,
+            storage_root: compute_storage_root(&HashMap::from(storage)),
+            code_hash: account_state.code_hash,
+        };
+        assert_eq!(account_state, expected_account_state);
     }
 }
