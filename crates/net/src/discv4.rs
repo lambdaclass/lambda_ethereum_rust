@@ -5,9 +5,47 @@ use ethereum_rust_core::rlp::{
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H512};
+use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
 use std::net::IpAddr;
+
+#[allow(unused)]
+pub struct Packet {
+    hash: H256,
+    signature: H520,
+    message: Message,
+}
+
+impl Packet {
+    pub fn decode(encoded_packet: &[u8]) -> Result<Packet, RLPDecodeError> {
+        // the packet structure is
+        // hash || signature || packet-type || packet-data
+        let hash_len = 32;
+        let signature_len = 65;
+        let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
+        let packet_type = encoded_packet[hash_len + signature_len];
+        let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
+
+        // TODO: verify hash and signature
+        let hash = H256::from_slice(&encoded_packet[..hash_len]);
+        let signature = H520::from_slice(signature_bytes);
+        let message = Message::decode_with_type(packet_type, encoded_msg)?;
+
+        Ok(Self {
+            hash,
+            signature,
+            message,
+        })
+    }
+
+    pub fn get_hash(&self) -> H256 {
+        self.hash
+    }
+
+    pub fn get_message(&self) -> &Message {
+        &self.message
+    }
+}
 
 #[derive(Debug, Eq, PartialEq)]
 // NOTE: All messages could have more fields than specified by the spec.
@@ -57,21 +95,7 @@ impl Message {
         }
     }
 
-    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let hash_len = 32;
-        let signature_len = 65;
-        let packet_index = hash_len + signature_len;
-
-        // TODO: verify hash and signature
-        let _hash = &encoded_msg[..hash_len];
-        let _signature = &encoded_msg[hash_len..packet_index];
-
-        let packet_type = encoded_msg[packet_index];
-
-        Self::decode_with_type(packet_type, &encoded_msg[packet_index + 1..])
-    }
-
-    fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
+    pub fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
         // NOTE: extra elements inside the message should be ignored, along with extra data
         // after the message.
         match packet_type {
@@ -92,11 +116,6 @@ impl Message {
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
         }
-    }
-    // TODO: we can put the hash, signature and the message (as payload) inside a new struct
-    pub fn get_hash(encoded_msg: &[u8]) -> &[u8] {
-        let hash_len = 32;
-        &encoded_msg[..hash_len]
     }
 
     fn packet_type(&self) -> u8 {
@@ -457,10 +476,8 @@ mod tests {
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -473,7 +490,7 @@ mod tests {
         let enr_seq = 1704896740573;
         let expected =
             Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     #[test]
@@ -485,10 +502,9 @@ mod tests {
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -499,7 +515,7 @@ mod tests {
             H256::from_str("3e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be23")
                 .unwrap();
         let expected = Message::Pong(PongMessage::new(to, ping_hash, expiration));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -534,8 +550,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -564,8 +581,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -582,8 +600,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).unwrap();
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
