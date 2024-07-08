@@ -5,9 +5,47 @@ use ethereum_rust_core::rlp::{
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H512};
+use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
 use std::net::{IpAddr, SocketAddr};
+
+#[allow(unused)]
+pub struct Packet {
+    hash: H256,
+    signature: H520,
+    message: Message,
+}
+
+impl Packet {
+    pub fn decode(encoded_packet: &[u8]) -> Result<Packet, RLPDecodeError> {
+        // the packet structure is
+        // hash || signature || packet-type || packet-data
+        let hash_len = 32;
+        let signature_len = 65;
+        let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
+        let packet_type = encoded_packet[hash_len + signature_len];
+        let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
+
+        // TODO: verify hash and signature
+        let hash = H256::from_slice(&encoded_packet[..hash_len]);
+        let signature = H520::from_slice(signature_bytes);
+        let message = Message::decode_with_type(packet_type, encoded_msg)?;
+
+        Ok(Self {
+            hash,
+            signature,
+            message,
+        })
+    }
+
+    pub fn get_hash(&self) -> H256 {
+        self.hash
+    }
+
+    pub fn get_message(&self) -> &Message {
+        &self.message
+    }
+}
 
 #[derive(Debug, Eq, PartialEq)]
 // NOTE: All messages could have more fields than specified by the spec.
@@ -19,7 +57,7 @@ pub(crate) enum Message {
     Ping(PingMessage),
     Pong(PongMessage),
     FindNode(FindNodeMessage),
-    Neighbors(()),
+    Neighbors(NeighborsMessage),
     ENRRequest(()),
     ENRResponse(()),
 }
@@ -57,21 +95,7 @@ impl Message {
         }
     }
 
-    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let hash_len = 32;
-        let signature_len = 65;
-        let packet_index = hash_len + signature_len;
-
-        // TODO: verify hash and signature
-        let _hash = &encoded_msg[..hash_len];
-        let _signature = &encoded_msg[hash_len..packet_index];
-
-        let packet_type = encoded_msg[packet_index];
-
-        Self::decode_with_type(packet_type, &encoded_msg[packet_index + 1..])
-    }
-
-    fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
+    pub fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
         // NOTE: extra elements inside the message should be ignored, along with extra data
         // after the message.
         match packet_type {
@@ -87,16 +111,14 @@ impl Message {
                 let (find_node_msg, _rest) = FindNodeMessage::decode_unfinished(msg)?;
                 Ok(Message::FindNode(find_node_msg))
             }
-            0x04 => todo!(),
+            0x04 => {
+                let (neighbors_msg, _rest) = NeighborsMessage::decode_unfinished(msg)?;
+                Ok(Message::Neighbors(neighbors_msg))
+            }
             0x05 => todo!(),
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
         }
-    }
-    // TODO: we can put the hash, signature and the message (as payload) inside a new struct
-    pub fn get_hash(encoded_msg: &[u8]) -> &[u8] {
-        let hash_len = 32;
-        &encoded_msg[..hash_len]
     }
 
     fn packet_type(&self) -> u8 {
@@ -321,6 +343,58 @@ impl RLPDecode for PongMessage {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NeighborsMessage {
+    // nodes is the list of neighbors
+    nodes: Vec<Node>,
+    expiration: u64,
+}
+
+impl NeighborsMessage {
+    pub fn new(nodes: Vec<Node>, expiration: u64) -> Self {
+        Self { nodes, expiration }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Node {
+    ip: IpAddr,
+    udp_port: u16,
+    tcp_port: u16,
+    node_id: H512,
+}
+
+impl RLPDecode for NeighborsMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (nodes, decoder) = decoder.decode_field("nodes")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+
+        let neighbors = NeighborsMessage::new(nodes, expiration);
+        Ok((neighbors, remaining))
+    }
+}
+
+impl RLPDecode for Node {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (ip, decoder) = decoder.decode_field("ip")?;
+        let (udp_port, decoder) = decoder.decode_field("upd_port")?;
+        let (tcp_port, decoder) = decoder.decode_field("tcp_port")?;
+        let (node_id, decoder) = decoder.decode_field("node_id")?;
+        let remaining = decoder.finish_unchecked();
+
+        let node = Node {
+            ip,
+            udp_port,
+            tcp_port,
+            node_id,
+        };
+        Ok((node, remaining))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,10 +537,8 @@ mod tests {
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -479,7 +551,7 @@ mod tests {
         let enr_seq = 1704896740573;
         let expected =
             Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     #[test]
@@ -491,10 +563,9 @@ mod tests {
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -505,7 +576,7 @@ mod tests {
             H256::from_str("3e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be23")
                 .unwrap();
         let expected = Message::Pong(PongMessage::new(to, ping_hash, expiration));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -540,8 +611,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -570,8 +642,9 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -588,8 +661,26 @@ mod tests {
         let mut buf = Vec::new();
 
         msg.encode_with_header(&mut buf, &signer);
-        let result = Message::decode_with_header(&buf).unwrap();
-        assert_eq!(result, msg);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
+    }
+
+    #[test]
+    fn test_decode_neighbors_message() {
+        let encoded = "f857f84ff84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666850400e78bba";
+        let decoded = Message::decode_with_type(0x04, &decode_hex(encoded).unwrap()).unwrap();
+        let expiration: u64 = 17195043770;
+        let node_id = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let node = Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id,
+        };
+
+        let expected = Message::Neighbors(NeighborsMessage::new(vec![node], expiration));
+        assert_eq!(decoded, expected);
     }
 
     #[test]
