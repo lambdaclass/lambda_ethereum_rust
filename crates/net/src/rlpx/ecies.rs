@@ -1,3 +1,5 @@
+use aes::cipher::{KeyIvInit, StreamCipher};
+use bytes::BufMut;
 use ethereum_rust_core::{
     rlp::{
         decode::RLPDecode,
@@ -5,14 +7,108 @@ use ethereum_rust_core::{
         error::RLPDecodeError,
         structs::{Decoder, Encoder},
     },
-    Signature, H512,
+    Signature, H128, H512, H520,
 };
 use k256::{
+    ecdsa::SigningKey,
     elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
     EncodedPoint, PublicKey, SecretKey,
 };
 use keccak_hash::H256;
-use rand::thread_rng;
+use rand::{thread_rng, Rng};
+
+type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
+
+#[derive(Debug)]
+pub(crate) struct RLPxConnection {
+    pub nonce: H256,
+    pub ephemeral_key: SecretKey,
+    pub secrets: Option<ConnSecrets>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ConnSecrets {
+    pub remote_nonce: H256,
+    pub remote_ephemeral_key: PublicKey,
+    pub ephemeral_shared_secret: H256,
+    pub aes_key: H256,
+    pub mac_key: H256,
+}
+
+impl RLPxConnection {
+    pub fn random() -> Self {
+        let mut rng = thread_rng();
+        Self {
+            nonce: H256::random_using(&mut rng),
+            ephemeral_key: SecretKey::random(&mut rng),
+            secrets: None,
+        }
+    }
+
+    pub fn is_connected(&self) -> bool {
+        self.secrets.is_some()
+    }
+
+    pub fn encode_auth_message(
+        &self,
+        static_key: &SecretKey,
+        remote_static_pubkey: &PublicKey,
+        buf: &mut dyn BufMut,
+    ) {
+        let shared_secret = ecdh_xchng(static_key, &remote_static_pubkey);
+        let node_id = pubkey2id(&static_key.public_key());
+        let signature = self.sign_shared_secret(shared_secret.into());
+
+        let auth = AuthMessage::new(signature, node_id, self.nonce);
+        let mut rng = rand::thread_rng();
+        let padding_length = rng.gen_range(100..=300);
+
+        let mut encoded_auth_msg = vec![];
+        auth.encode(&mut encoded_auth_msg);
+        encoded_auth_msg.resize(encoded_auth_msg.len() + padding_length, 0);
+
+        let ecies_data_size = 65 + 16 + 32;
+        let auth_size: u16 = (encoded_auth_msg.len() + ecies_data_size)
+            .try_into()
+            .unwrap();
+        let auth_size_bytes = auth_size.to_be_bytes();
+
+        let message_secret_key = SecretKey::random(&mut rng);
+        let message_secret = ecdh_xchng(&message_secret_key, &remote_static_pubkey);
+
+        let mut secret_keys = [0; 32];
+        kdf(&message_secret, &mut secret_keys);
+        let aes_key = &secret_keys[..16];
+        let mac_key = sha256(&secret_keys[16..]);
+
+        let iv = H128::random_using(&mut rng);
+        let mut aes_cipher = Aes128Ctr64BE::new_from_slices(aes_key, &iv.0).unwrap();
+        aes_cipher
+            .try_apply_keystream(&mut encoded_auth_msg)
+            .unwrap();
+        let encrypted_auth_msg = encoded_auth_msg;
+
+        let r_public_key = message_secret_key.public_key().to_encoded_point(false);
+        let d = sha256_hmac(&mac_key, &[&iv.0, &encrypted_auth_msg], &auth_size_bytes);
+
+        buf.put_slice(&auth_size_bytes);
+        buf.put_slice(&r_public_key.as_bytes());
+        buf.put_slice(&iv.0);
+        buf.put_slice(&encrypted_auth_msg);
+        buf.put_slice(&d);
+    }
+
+    fn sign_shared_secret(&self, shared_secret: H256) -> H520 {
+        let signature_prehash = shared_secret ^ self.nonce;
+        let (signature, rid) = SigningKey::from(&self.ephemeral_key)
+            .sign_prehash_recoverable(&signature_prehash.0)
+            .unwrap();
+        let mut signature_bytes = [0; 65];
+        signature_bytes[..64].copy_from_slice(signature.to_bytes().as_slice());
+        signature_bytes[64] = rid.to_byte();
+        H520(signature_bytes)
+    }
+}
 
 pub(crate) struct AuthMessage {
     /// The signature of the message.
@@ -50,6 +146,7 @@ impl RLPEncode for AuthMessage {
 }
 
 impl RLPDecode for AuthMessage {
+    // NOTE: discards any extra data in the list after the known fields.
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp).unwrap();
         let (signature, decoder) = decoder.decode_field("sig").unwrap();
@@ -68,19 +165,6 @@ impl RLPDecode for AuthMessage {
         Ok((this, rest))
     }
 }
-
-pub fn encode_auth_message(static_key: &SecretKey, remote_static_pubkey: &PublicKey) -> Vec<u8> {
-    // TODO: check if enough randomness
-    let mut rng = thread_rng();
-    let initiator_nonce = H256::random_using(&mut rng);
-    let a_ephemeral_key = SecretKey::random(&mut rng);
-
-    let shared_secret = ecdh_xchng(static_key, &remote_static_pubkey);
-
-    vec![]
-}
-
-type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 
 fn sha256(data: &[u8]) -> [u8; 32] {
     use k256::sha2::Digest;
@@ -272,13 +356,10 @@ mod tests {
         encrypted_auth_message[(2 + 65 + 16)..(2 + 65 + 16 + encrypted_auth_msg.len())]
             .copy_from_slice(&encrypted_auth_msg);
         encrypted_auth_message[(2 + 65 + 16 + encrypted_auth_msg.len())..].copy_from_slice(&d);
+        // The message uses randomized data, so it won't be the same as the test vectors
 
         // This is Auth₁ (A -> B)
-        let expected_auth_msg = hex!("01b304ab7578555167be8154d5cc456f567d5ba302662433674222360f08d5f1534499d3678b513b0fca474f3a514b18e75683032eb63fccb16c156dc6eb2c0b1593f0d84ac74f6e475f1b8d56116b849634a8c458705bf83a626ea0384d4d7341aae591fae42ce6bd5c850bfe0b999a694a49bbbaf3ef6cda61110601d3b4c02ab6c30437257a6e0117792631a4b47c1d52fc0f8f89caadeb7d02770bf999cc147d2df3b62e1ffb2c9d8c125a3984865356266bca11ce7d3a688663a51d82defaa8aad69da39ab6d5470e81ec5f2a7a47fb865ff7cca21516f9299a07b1bc63ba56c7a1a892112841ca44b6e0034dee70c9adabc15d76a54f443593fafdc3b27af8059703f88928e199cb122362a4b35f62386da7caad09c001edaeb5f8a06d2b26fb6cb93c52a9fca51853b68193916982358fe1e5369e249875bb8d0d0ec36f917bc5e1eafd5896d46bd61ff23f1a863a8a8dcd54c7b109b771c8e61ec9c8908c733c0263440e2aa067241aaa433f0bb053c7b31a838504b148f570c0ad62837129e547678c5190341e4f1693956c3bf7678318e2d5b5340c9e488eefea198576344afbdf66db5f51204a6961a63ce072c8926c");
-
-        assert_eq!(encrypted_auth_message, expected_auth_msg);
-
-        let mut msg = expected_auth_msg;
+        let mut msg = hex!("01b304ab7578555167be8154d5cc456f567d5ba302662433674222360f08d5f1534499d3678b513b0fca474f3a514b18e75683032eb63fccb16c156dc6eb2c0b1593f0d84ac74f6e475f1b8d56116b849634a8c458705bf83a626ea0384d4d7341aae591fae42ce6bd5c850bfe0b999a694a49bbbaf3ef6cda61110601d3b4c02ab6c30437257a6e0117792631a4b47c1d52fc0f8f89caadeb7d02770bf999cc147d2df3b62e1ffb2c9d8c125a3984865356266bca11ce7d3a688663a51d82defaa8aad69da39ab6d5470e81ec5f2a7a47fb865ff7cca21516f9299a07b1bc63ba56c7a1a892112841ca44b6e0034dee70c9adabc15d76a54f443593fafdc3b27af8059703f88928e199cb122362a4b35f62386da7caad09c001edaeb5f8a06d2b26fb6cb93c52a9fca51853b68193916982358fe1e5369e249875bb8d0d0ec36f917bc5e1eafd5896d46bd61ff23f1a863a8a8dcd54c7b109b771c8e61ec9c8908c733c0263440e2aa067241aaa433f0bb053c7b31a838504b148f570c0ad62837129e547678c5190341e4f1693956c3bf7678318e2d5b5340c9e488eefea198576344afbdf66db5f51204a6961a63ce072c8926c");
 
         // AUTH MESSAGE DECODING
         // The layout is:

@@ -10,6 +10,7 @@ use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::rand_core::OsRng,
 };
+use rlpx::ecies::RLPxConnection;
 use tokio::{
     io::AsyncWriteExt,
     net::{TcpSocket, UdpSocket},
@@ -78,6 +79,12 @@ async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
     let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
 
+    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
+
+    let conn = RLPxConnection::random();
+    let mut auth_message = vec![];
+    conn.encode_auth_message(&signer.into(), &peer_pk.into(), &mut auth_message);
+
     let tcp_addr = "127.0.0.1:59903";
     let tcp_addr = endpoint
         .to_tcp_address()
@@ -88,24 +95,6 @@ async fn discover_peers(socket_addr: SocketAddr, signer: SigningKey) {
         .connect(tcp_addr)
         .await
         .unwrap();
-
-    let nonce: u64 = rand::random();
-    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
-    let static_shared_secret =
-        &k256::ecdh::diffie_hellman(signer.as_nonzero_scalar(), peer_pk.as_affine())
-            .raw_secret_bytes()[..32];
-    let ephemeral_secret = 0;
-
-    // TODO: derive other secrets and compose auth message
-
-    let auth_size = 16_u16.to_be_bytes();
-
-    let auth_message = &[
-        // enc-auth-body
-        0x00, // sig
-    ];
-
-    let auth_message = [auth_size.as_ref(), auth_message.as_ref()].concat();
 
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
