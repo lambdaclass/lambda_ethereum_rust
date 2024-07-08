@@ -100,7 +100,6 @@ mod tests {
         let address =
             Address::from_slice(&hex::decode("a94f5374fce5edbc8e2a8697c15331677e6ebf0b").unwrap());
 
-        // TODO: Fix bug with H256 encoding that makes these values [u8;33]
         let storage = vec![
             (
                 H256::from_str(
@@ -133,8 +132,8 @@ mod tests {
             .upsert::<AccountStorages>(
                 AddressRLP(address.encode_to_vec()),
                 (
-                    AccountStorageKeyRLP(storage[0].0.encode_to_vec().try_into().unwrap()),
-                    AccountStorageValueRLP(storage[0].1.encode_to_vec().try_into().unwrap()),
+                    AccountStorageKeyRLP(storage[0].0.0),
+                    AccountStorageValueRLP(storage[0].1.0),
                 ),
             )
             .unwrap();
@@ -142,8 +141,8 @@ mod tests {
             .upsert::<AccountStorages>(
                 AddressRLP(address.encode_to_vec()),
                 (
-                    AccountStorageKeyRLP(storage[1].0.encode_to_vec().try_into().unwrap()),
-                    AccountStorageValueRLP(storage[1].1.encode_to_vec().try_into().unwrap()),
+                    AccountStorageKeyRLP(storage[1].0.0),
+                    AccountStorageValueRLP(storage[1].1.0),
                 ),
             )
             .unwrap();
