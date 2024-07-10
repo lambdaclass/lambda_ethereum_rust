@@ -1,3 +1,4 @@
+pub mod bootnode;
 pub(crate) mod discv4;
 pub(crate) mod kademlia;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
@@ -7,6 +8,7 @@ use k256::elliptic_curve::PublicKey;
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use keccak_hash::H256;
 
+use bootnode::BootNode;
 use kademlia::{KademliaTable, PeerData};
 use std::vec;
 use std::{
@@ -18,8 +20,6 @@ use tokio::{
     try_join,
 };
 use tracing::info;
-use types::BootNode;
-pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
 
