@@ -142,9 +142,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     udp_addr.set_port(tcp_addr.port() + 1);
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
 
-    // BEGIN EXAMPLE
     // Try contacting a known peer
-    // TODO: do this dynamically
+    // TODO: this is just an example, and we should do this dynamically
     let str_udp_addr = "127.0.0.1:51311";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
@@ -163,7 +162,6 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
             Message::Pong(pong) => {
                 break (&buf[32 + 65..read], &buf[32..32 + 65], pong.to);
             }
-            // TODO: geth seems to respond with Ping instead of Pong
             Message::Ping(ping) => {
                 break (&buf[32 + 65..read], &buf[32..32 + 65], ping.from);
             }
