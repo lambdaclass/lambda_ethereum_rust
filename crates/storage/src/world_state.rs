@@ -24,53 +24,52 @@ impl WorldState {
             .get(&addr.encode_to_vec())
             .and_then(|encoded| AccountState::decode(encoded).ok())
     }
-}
 
-#[allow(unused)]
-pub fn build_world_state(db: &Database) -> Result<WorldState, anyhow::Error> {
-    let db = db.begin_read()?;
-    // Fetch & Decode AccountInfos
-    let mut account_infos = HashMap::<_, _>::new();
-    let mut account_infos_db = db.cursor::<AccountInfos>()?;
-    while let Some((rlp_address, rlp_info)) = account_infos_db.next()? {
-        account_infos.insert(
-            Address::decode(&rlp_address.0)?,
-            AccountInfo::decode(&rlp_info.0)?,
-        );
-    }
-    // Fetch & Decode Account Storages
-    let mut account_storages = HashMap::<Address, HashMap<H256, H256>>::new();
-    let mut account_storages_db = db.cursor::<AccountStorages>()?;
-    while let Some((rlp_address, (storage_key_bytes, storage_value_bytes))) =
-        account_storages_db.next()?
-    {
-        let entry = account_storages
-            .entry(Address::decode(&rlp_address.0)?)
-            .or_default();
-        entry.insert(
-            H256::from(&storage_key_bytes.0),
-            H256::from(&storage_value_bytes.0),
-        );
-    }
-    // Fill World State merkle tree
-    let mut world_state = WorldState::default();
-    for (addr, account_info) in account_infos {
-        let storage = account_storages
-            .get(&addr)
-            .ok_or(anyhow!("No storage found in db for account address {addr}"))?;
-        let account_state = AccountState {
-            nonce: account_info.nonce,
-            balance: account_info.balance,
-            storage_root: compute_storage_root(storage),
-            code_hash: account_info.code_hash,
-        };
+    pub fn build_from_db(db: &Database) -> Result<WorldState, anyhow::Error> {
+        let db = db.begin_read()?;
+        // Fetch & Decode AccountInfos
+        let mut account_infos = HashMap::<_, _>::new();
+        let mut account_infos_db = db.cursor::<AccountInfos>()?;
+        while let Some((rlp_address, rlp_info)) = account_infos_db.next()? {
+            account_infos.insert(
+                Address::decode(&rlp_address.0)?,
+                AccountInfo::decode(&rlp_info.0)?,
+            );
+        }
+        // Fetch & Decode Account Storages
+        let mut account_storages = HashMap::<Address, HashMap<H256, H256>>::new();
+        let mut account_storages_db = db.cursor::<AccountStorages>()?;
+        while let Some((rlp_address, (storage_key_bytes, storage_value_bytes))) =
+            account_storages_db.next()?
+        {
+            let entry = account_storages
+                .entry(Address::decode(&rlp_address.0)?)
+                .or_default();
+            entry.insert(
+                H256::from(&storage_key_bytes.0),
+                H256::from(&storage_value_bytes.0),
+            );
+        }
+        // Fill World State merkle tree
+        let mut world_state = WorldState::default();
+        for (addr, account_info) in account_infos {
+            let storage = account_storages
+                .get(&addr)
+                .ok_or(anyhow!("No storage found in db for account address {addr}"))?;
+            let account_state = AccountState {
+                nonce: account_info.nonce,
+                balance: account_info.balance,
+                storage_root: compute_storage_root(storage),
+                code_hash: account_info.code_hash,
+            };
 
-        world_state
-            .0
-            .insert(addr.encode_to_vec(), account_state.encode_to_vec());
-    }
+            world_state
+                .0
+                .insert(addr.encode_to_vec(), account_state.encode_to_vec());
+        }
 
-    Ok(world_state)
+        Ok(world_state)
+    }
 }
 
 #[cfg(test)]
@@ -148,7 +147,7 @@ mod tests {
             .unwrap();
         write.commit().unwrap();
 
-        let world_state = build_world_state(&db).unwrap();
+        let world_state = WorldState::build_from_db(&db).unwrap();
         let account_state = world_state.get_account_state(&address).unwrap();
         let expected_account_state = AccountState {
             nonce: account_info.nonce,
