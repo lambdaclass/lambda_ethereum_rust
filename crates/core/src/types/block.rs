@@ -71,7 +71,7 @@ impl RLPEncode for BlockHeader {
             .encode_field(&self.timestamp)
             .encode_field(&self.extra_data)
             .encode_field(&self.prev_randao)
-            .encode_field(&self.nonce)
+            .encode_field(&self.nonce.to_be_bytes())
             .encode_field(&self.base_fee_per_gas)
             .encode_field(&self.withdrawals_root)
             .encode_field(&self.blob_gas_used)
