@@ -195,6 +195,6 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     info!("Sent auth message correctly!");
     let read = stream.read(&mut buf).await.unwrap();
     let msg = &mut buf[..read];
-    let ack = conn.decode_ack_message(&secret_key, msg);
-    info!("Received: {ack:?}");
+    conn.decode_ack_message(&secret_key, msg);
+    info!("Completed handshake!");
 }
