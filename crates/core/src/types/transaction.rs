@@ -349,12 +349,14 @@ fn recover_address(
     Address::from_slice(&hash[12..])
 }
 
+/// Verifies a transaction.
 // reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/shanghai/fork.py#L678
 pub fn validate_transaction(tx: &Transaction) -> bool {
     calculate_intrinsic_cost(tx) <= tx.gas_limit()
         && !(matches!(tx.to(), TxKind::Create) && tx.data().len() > 2 * MAX_CODE_SIZE)
 }
 
+///  Calculates the gas that is charged before execution is started.
 fn calculate_intrinsic_cost(tx: &Transaction) -> u64 {
     let data_cost = tx.data().iter().fold(0, |acc, byte| {
         acc + if *byte == 0 {
