@@ -7,8 +7,7 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, EIP2930Transaction,
-    LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+    compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH
 };
 
 #[allow(unused)]
@@ -80,6 +79,10 @@ impl EncodedTransaction {
                     // EIP1559
                     0x2 => {
                         EIP1559Transaction::decode(tx_bytes).map(Transaction::EIP1559Transaction)
+                    }
+                    // EIP4844
+                    0x2 => {
+                        EIP4844Transaction::decode(tx_bytes).map(Transaction::EIP4844Transaction)
                     }
                     _ => unimplemented!("We don't know this tx type yet"),
                 }

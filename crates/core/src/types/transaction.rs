@@ -524,6 +524,15 @@ impl Transaction {
             Transaction::EIP4844Transaction(tx) => &tx.data,
         }
     }
+
+    pub fn blob_versioned_hashes(&self) -> Vec<H256> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => Vec::new(),
+            Transaction::EIP2930Transaction(_tx) => Vec::new(),
+            Transaction::EIP1559Transaction(_tx) => Vec::new(),
+            Transaction::EIP4844Transaction(tx) => tx.blob_versioned_hashes.clone(),
+        }
+    }
 }
 
 fn recover_address(
