@@ -352,10 +352,10 @@ impl NeighborsMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Node {
-    pub ip: IpAddr,
-    pub udp_port: u16,
-    pub tcp_port: u16,
-    pub node_id: H512,
+    ip: IpAddr,
+    udp_port: u16,
+    tcp_port: u16,
+    node_id: H512,
 }
 
 impl Node {
