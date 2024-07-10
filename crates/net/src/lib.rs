@@ -138,7 +138,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
 
-    let mut udp_addr = tcp_addr.clone();
+    let mut udp_addr = tcp_addr;
     udp_addr.set_port(tcp_addr.port() + 1);
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
 
@@ -185,9 +185,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     let tcp_addr = "127.0.0.1:58617";
     // NOTE: for some reason kurtosis peers don't publish their active TCP port
-    let tcp_addr = endpoint
-        .to_tcp_address()
-        .unwrap_or(tcp_addr.parse().unwrap());
+    let tcp_addr = endpoint.tcp_address().unwrap_or(tcp_addr.parse().unwrap());
 
     let mut stream = TcpSocket::new_v4()
         .unwrap()

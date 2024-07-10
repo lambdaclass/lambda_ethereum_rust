@@ -142,7 +142,7 @@ pub(crate) struct Endpoint {
 }
 
 impl Endpoint {
-    pub fn to_tcp_address(&self) -> Option<SocketAddr> {
+    pub fn tcp_address(&self) -> Option<SocketAddr> {
         (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
     }
 }

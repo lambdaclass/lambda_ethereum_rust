@@ -65,7 +65,7 @@ impl RLPxConnection {
         let node_id = pubkey2id(&static_key.public_key());
 
         let message_secret_key = SecretKey::random(&mut rng);
-        let message_secret = ecdh_xchng(&message_secret_key, &remote_static_pubkey);
+        let message_secret = ecdh_xchng(&message_secret_key, remote_static_pubkey);
 
         let signature = self.sign_shared_secret(message_secret.into());
 
@@ -128,14 +128,14 @@ impl RLPxConnection {
         let (iv, rest) = rest.split_at_mut(16);
         let (c, d) = rest.split_at_mut(rest.len() - 32);
 
-        let shared_secret = ecdh_xchng(&static_key, &PublicKey::from_sec1_bytes(pk).unwrap());
+        let shared_secret = ecdh_xchng(static_key, &PublicKey::from_sec1_bytes(pk).unwrap());
 
         let mut buf = [0; 32];
         kdf(&shared_secret, &mut buf);
         let aes_key = &buf[..16];
         let mac_key = sha256(&buf[16..]);
 
-        let expected_d = sha256_hmac(&mac_key, &[iv, c], &ack_size_bytes);
+        let expected_d = sha256_hmac(&mac_key, &[iv, c], ack_size_bytes);
 
         assert_eq!(d, expected_d);
 
@@ -253,7 +253,7 @@ impl RLPDecode for AckMessage {
 
 fn sha256(data: &[u8]) -> [u8; 32] {
     use k256::sha2::Digest;
-    k256::sha2::Sha256::digest(data).try_into().unwrap()
+    k256::sha2::Sha256::digest(data).into()
 }
 
 fn sha256_hmac(key: &[u8], inputs: &[&[u8]], auth_data: &[u8]) -> [u8; 32] {
@@ -265,7 +265,7 @@ fn sha256_hmac(key: &[u8], inputs: &[&[u8]], auth_data: &[u8]) -> [u8; 32] {
         hasher.update(input);
     }
     hasher.update(auth_data);
-    hasher.finalize().into_bytes().try_into().unwrap()
+    hasher.finalize().into_bytes().into()
 }
 
 fn ecdh_xchng(secret_key: &SecretKey, public_key: &PublicKey) -> [u8; 32] {
@@ -277,7 +277,7 @@ fn ecdh_xchng(secret_key: &SecretKey, public_key: &PublicKey) -> [u8; 32] {
 
 fn kdf(secret: &[u8], output: &mut [u8]) {
     // We don't use the `other_info` field
-    concat_kdf::derive_key_into::<k256::sha2::Sha256>(&secret, &[], output).unwrap();
+    concat_kdf::derive_key_into::<k256::sha2::Sha256>(secret, &[], output).unwrap();
 }
 
 /// Computes recipient id from public key.
