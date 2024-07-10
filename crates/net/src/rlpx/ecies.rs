@@ -28,6 +28,7 @@ pub(crate) struct HandshakeData {
 }
 
 #[derive(Debug)]
+// TODO: refactor into two parts, one for the handshake and another one after that.
 pub(crate) struct RLPxConnection {
     pub nonce: H256,
     pub ephemeral_key: SecretKey,
