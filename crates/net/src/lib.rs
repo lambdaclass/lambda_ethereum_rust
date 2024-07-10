@@ -65,7 +65,7 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
                 find_node(&udp_socket, from, &signer).await;
             }
             Message::Neighbors(neighbors_msg) => {
-                let nodes = neighbors_msg.nodes.clone();
+                let nodes = neighbors_msg.get_nodes();
                 for node in nodes {
                     let node_addr = SocketAddr::new(node.get_ip(), node.get_udp_port());
                     let bucket_number = bucket_number(node_id, node.get_node_id());
@@ -75,7 +75,7 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
                         // <https://github.com/ethereum/devp2p/blob/master/discv4.md#kademlia-table>
                         bucket.pop();
                     }
-                    bucket.push(node);
+                    bucket.push(*node);
                     ping(&udp_socket, udp_addr, node_addr, &signer).await;
                 }
             }

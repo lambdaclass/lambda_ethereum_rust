@@ -340,13 +340,17 @@ impl RLPDecode for PongMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NeighborsMessage {
     // nodes is the list of neighbors
-    pub nodes: Vec<Node>,
+    nodes: Vec<Node>,
     expiration: u64,
 }
 
 impl NeighborsMessage {
     pub fn new(nodes: Vec<Node>, expiration: u64) -> Self {
         Self { nodes, expiration }
+    }
+
+    pub fn get_nodes(&self) -> &Vec<Node> {
+        &self.nodes
     }
 }
 
