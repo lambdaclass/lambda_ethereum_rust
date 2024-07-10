@@ -358,6 +358,20 @@ pub(crate) struct Node {
     pub node_id: H512,
 }
 
+impl Node {
+    pub fn get_ip(&self) -> IpAddr {
+        self.ip
+    }
+
+    pub fn get_udp_port(&self) -> u16 {
+        self.udp_port
+    }
+
+    pub fn get_node_id(&self) -> H512 {
+        self.node_id
+    }
+}
+
 impl RLPDecode for NeighborsMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
