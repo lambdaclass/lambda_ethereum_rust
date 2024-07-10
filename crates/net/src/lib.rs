@@ -1,10 +1,9 @@
 pub(crate) mod discv4;
-use discv4::{Endpoint, FindNodeMessage, Message, Node, Packet, PingMessage, PongMessage};
-use ethereum_rust_core::{H512, U256};
+use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
+use ethereum_rust_core::H512;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
 use k256::elliptic_curve::PublicKey;
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
-use keccak_hash::keccak;
 use keccak_hash::H256;
 
 use std::vec;
@@ -17,12 +16,10 @@ use tokio::{
     try_join,
 };
 use tracing::info;
-use types::BootNode;
+use types::{BootNode, KademliaTable};
 pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
-const MAX_NODES_PER_BUCKET: usize = 16;
-const NUMBER_OF_BUCKETS: usize = 256;
 
 pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     info!("Starting discovery service at {udp_addr}");
@@ -50,7 +47,7 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-    let mut buckets: Vec<Vec<Node>> = vec![vec![]; NUMBER_OF_BUCKETS];
+    let mut table = KademliaTable::new(node_id);
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
         let packet = Packet::decode(&buf[..read]).unwrap();
@@ -67,32 +64,14 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
             Message::Neighbors(neighbors_msg) => {
                 let nodes = &neighbors_msg.nodes;
                 for node in nodes {
+                    table.insert_node(*node);
                     let node_addr = SocketAddr::new(node.ip, node.udp_port);
-                    let bucket_number = bucket_number(node_id, node.node_id);
-                    let bucket = &mut buckets[bucket_number];
-                    if bucket.len() == MAX_NODES_PER_BUCKET {
-                        // TODO: revalidate least recently seen node as described in
-                        // <https://github.com/ethereum/devp2p/blob/master/discv4.md#kademlia-table>
-                        bucket.pop();
-                    }
-                    bucket.push(*node);
                     ping(&udp_socket, udp_addr, node_addr, &signer).await;
                 }
             }
             _ => {}
         }
     }
-}
-
-/// Computes the distance between two nodes according to the discv4 protocol
-/// and returns the corresponding bucket number
-/// <https://github.com/ethereum/devp2p/blob/master/discv4.md#node-identities>
-fn bucket_number(node_id_1: H512, node_id_2: H512) -> usize {
-    let hash_1 = keccak(node_id_1);
-    let hash_2 = keccak(node_id_2);
-    let xor = hash_1 ^ hash_2;
-    let distance = U256::from_big_endian(xor.as_bytes());
-    distance.bits() - 1
 }
 
 async fn ping(
@@ -175,6 +154,7 @@ async fn serve_requests(tcp_addr: SocketAddr) {
 mod tests {
     use super::*;
     use std::str::FromStr;
+    use types::table::bucket_number;
     #[test]
     fn bucket_number_works_as_expected() {
         let node_id_1 = H512::from_str("4dc429669029ceb17d6438a35c80c29e09ca2c25cc810d690f5ee690aa322274043a504b8d42740079c4f4cef50777c991010208b333b80bee7b9ae8e5f6b6f0").unwrap();
