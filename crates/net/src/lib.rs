@@ -1,4 +1,5 @@
 pub(crate) mod discv4;
+pub(crate) mod kademlia;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
 use ethereum_rust_core::H512;
 use k256::elliptic_curve::sec1::ToEncodedPoint;
@@ -6,6 +7,7 @@ use k256::elliptic_curve::PublicKey;
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use keccak_hash::H256;
 
+use kademlia::{KademliaTable, PeerData};
 use std::vec;
 use std::{
     net::SocketAddr,
@@ -16,7 +18,7 @@ use tokio::{
     try_join,
 };
 use tracing::info;
-use types::{BootNode, KademliaTable};
+use types::BootNode;
 pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
@@ -35,7 +37,7 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     let signer = SigningKey::random(&mut OsRng);
     let public_key = PublicKey::from(signer.verifying_key());
     let encoded = public_key.to_encoded_point(false);
-    let node_id = H512::from_slice(&encoded.as_bytes()[1..]);
+    let local_node_id = H512::from_slice(&encoded.as_bytes()[1..]);
 
     let bootnode = match bootnodes.first() {
         Some(b) => b,
@@ -47,7 +49,7 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
     ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-    let mut table = KademliaTable::new(node_id);
+    let mut table = KademliaTable::new(local_node_id);
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
         let packet = Packet::decode(&buf[..read]).unwrap();
@@ -64,7 +66,13 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
             Message::Neighbors(neighbors_msg) => {
                 let nodes = &neighbors_msg.nodes;
                 for node in nodes {
-                    table.insert_node(*node);
+                    let peer_data = PeerData {
+                        ip: node.ip,
+                        udp_port: node.udp_port,
+                        tcp_port: node.tcp_port,
+                        node_id: node.node_id,
+                    };
+                    table.insert(peer_data);
                     let node_addr = SocketAddr::new(node.ip, node.udp_port);
                     ping(&udp_socket, udp_addr, node_addr, &signer).await;
                 }
@@ -100,7 +108,6 @@ async fn ping(
     };
 
     let ping: discv4::Message = discv4::Message::Ping(PingMessage::new(from, to, expiration));
-
     ping.encode_with_header(&mut buf, signer);
     socket.send_to(&buf, to_addr).await.unwrap();
 }
@@ -153,8 +160,8 @@ async fn serve_requests(tcp_addr: SocketAddr) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kademlia::bucket_number;
     use std::str::FromStr;
-    use types::table::bucket_number;
     #[test]
     fn bucket_number_works_as_expected() {
         let node_id_1 = H512::from_str("4dc429669029ceb17d6438a35c80c29e09ca2c25cc810d690f5ee690aa322274043a504b8d42740079c4f4cef50777c991010208b333b80bee7b9ae8e5f6b6f0").unwrap();

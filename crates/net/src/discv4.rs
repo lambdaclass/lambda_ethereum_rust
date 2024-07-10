@@ -351,7 +351,7 @@ impl NeighborsMessage {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Node {
+pub(crate) struct Node {
     pub ip: IpAddr,
     pub udp_port: u16,
     pub tcp_port: u16,
