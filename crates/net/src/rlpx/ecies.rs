@@ -29,9 +29,6 @@ pub(crate) struct RLPxConnection {
 #[derive(Debug)]
 #[allow(unused)]
 pub(crate) struct ConnSecrets {
-    pub remote_nonce: H256,
-    pub remote_ephemeral_key: PublicKey,
-    pub ephemeral_shared_secret: H256,
     pub aes_key: H256,
     pub mac_key: H256,
 }
@@ -50,7 +47,6 @@ impl RLPxConnection {
         Self::new(H256::random_using(&mut rng), SecretKey::random(&mut rng))
     }
 
-    #[allow(unused)]
     pub fn is_connected(&self) -> bool {
         self.secrets.is_some()
     }
@@ -115,8 +111,9 @@ impl RLPxConnection {
         H520(signature_bytes)
     }
 
-    pub fn decode_ack_message(&mut self, static_key: &SecretKey, msg: &mut [u8]) -> AckMessage {
+    pub fn decode_ack_message(&mut self, static_key: &SecretKey, msg: &mut [u8]) {
         // TODO: return errors instead of panicking
+        assert!(!self.is_connected(), "connection already established");
         assert!(msg.len() > 2 + 65 + 16 + 32, "message is invalid");
         let (ack_size_bytes, enc_auth_body_with_padding) = msg.split_at_mut(2);
         let ack_size = u16::from_be_bytes(ack_size_bytes.try_into().unwrap());
@@ -144,8 +141,28 @@ impl RLPxConnection {
         stream_cipher.try_apply_keystream(c).unwrap();
 
         let (ack, _padding) = AckMessage::decode_unfinished(c).unwrap();
-        // TODO: compute secrets from ack
-        ack
+
+        let secrets = self.derive_secrets(ack);
+        self.secrets.replace(secrets);
+    }
+
+    fn derive_secrets(&self, ack: AckMessage) -> ConnSecrets {
+        // TODO: don't panic
+        let ephemeral_key_secret =
+            ecdh_xchng(&self.ephemeral_key, &ack.get_ephemeral_pubkey().unwrap());
+
+        // keccak256(nonce || initiator-nonce)
+        let hashed_nonces = keccak_hash::keccak([ack.nonce.0, self.nonce.0].concat());
+        // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
+        let shared_secret = keccak_hash::keccak([ephemeral_key_secret, hashed_nonces.0].concat());
+
+        // aes-secret = keccak256(ephemeral-key || shared-secret)
+        let aes_key = keccak_hash::keccak([ephemeral_key_secret, shared_secret.0].concat());
+        // mac-secret = keccak256(ephemeral-key || aes-secret)
+        let mac_key = keccak_hash::keccak([ephemeral_key_secret, aes_key.0].concat());
+
+        // TODO: do we need other secrets?
+        ConnSecrets { aes_key, mac_key }
     }
 }
 
