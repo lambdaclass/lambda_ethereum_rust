@@ -23,12 +23,13 @@ type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 pub(crate) struct RLPxConnection {
     pub nonce: H256,
     pub ephemeral_key: SecretKey,
-    pub secrets: Option<ConnSecrets>,
+    pub handshake_data: Option<HandshakeData>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[allow(unused)]
-pub(crate) struct ConnSecrets {
+pub(crate) struct HandshakeData {
+    pub remote_nonce: H256,
     pub aes_key: H256,
     pub mac_key: H256,
 }
@@ -38,7 +39,7 @@ impl RLPxConnection {
         Self {
             nonce,
             ephemeral_key,
-            secrets: None,
+            handshake_data: None,
         }
     }
 
@@ -48,7 +49,7 @@ impl RLPxConnection {
     }
 
     pub fn is_connected(&self) -> bool {
-        self.secrets.is_some()
+        self.handshake_data.is_some()
     }
 
     pub fn encode_auth_message(
@@ -142,11 +143,11 @@ impl RLPxConnection {
 
         let (ack, _padding) = AckMessage::decode_unfinished(c).unwrap();
 
-        let secrets = self.derive_secrets(ack);
-        self.secrets.replace(secrets);
+        let handshake_data = self.derive_secrets(ack);
+        self.handshake_data.replace(handshake_data);
     }
 
-    fn derive_secrets(&self, ack: AckMessage) -> ConnSecrets {
+    fn derive_secrets(&self, ack: AckMessage) -> HandshakeData {
         // TODO: don't panic
         let ephemeral_key_secret =
             ecdh_xchng(&self.ephemeral_key, &ack.get_ephemeral_pubkey().unwrap());
@@ -161,8 +162,11 @@ impl RLPxConnection {
         // mac-secret = keccak256(ephemeral-key || aes-secret)
         let mac_key = keccak_hash::keccak([ephemeral_key_secret, aes_key.0].concat());
 
-        // TODO: do we need other secrets?
-        ConnSecrets { aes_key, mac_key }
+        HandshakeData {
+            remote_nonce: ack.nonce,
+            aes_key,
+            mac_key,
+        }
     }
 }
 
@@ -222,7 +226,7 @@ impl RLPDecode for AuthMessage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct AckMessage {
     /// The recipient's ephemeral public key.
     pub ephemeral_pubkey: H512,
@@ -355,23 +359,25 @@ mod tests {
 
         let mut conn =
             RLPxConnection::new(nonce.into(), SecretKey::from_slice(&ephemeral_key).unwrap());
-        let ack = conn.decode_ack_message(&SecretKey::from_slice(&static_key).unwrap(), &mut msg);
 
-        let expected_nonce =
+        assert_eq!(&conn.ephemeral_key.to_bytes()[..], &ephemeral_key[..]);
+        assert_eq!(conn.nonce.0, nonce);
+
+        conn.decode_ack_message(&SecretKey::from_slice(&static_key).unwrap(), &mut msg);
+
+        let handshake_data = conn.handshake_data.unwrap();
+
+        let expected_remote_nonce =
             hex!("559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd");
-        let expected_ephemeral_key = SecretKey::from_slice(&hex!(
-            "e238eb8e04fee6511ab04c6dd3c89ce097b11f25d584863ac2b6d5b35b1847e4"
-        ))
-        .unwrap()
-        .public_key()
-        .to_encoded_point(false);
 
-        assert_eq!(ack.nonce.0, expected_nonce);
-        assert_eq!(
-            &ack.ephemeral_pubkey.0,
-            &expected_ephemeral_key.as_bytes()[1..]
-        );
-        // The test was for version 4.
-        assert_eq!(ack.version, 4);
+        assert_eq!(handshake_data.remote_nonce.0, expected_remote_nonce);
+
+        let expected_aes_secret =
+            hex!("80e8632c05fed6fc2a13b0f8d31a3cf645366239170ea067065aba8e28bac487");
+        let expected_mac_secret =
+            hex!("2ea74ec5dae199227dff1af715362700e989d889d7a493cb0639691efb8e5f98");
+
+        assert_eq!(handshake_data.aes_key.0, expected_aes_secret);
+        assert_eq!(handshake_data.mac_key.0, expected_mac_secret);
     }
 }
