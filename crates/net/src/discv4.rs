@@ -58,7 +58,7 @@ pub(crate) enum Message {
     Pong(PongMessage),
     FindNode(FindNodeMessage),
     Neighbors(NeighborsMessage),
-    ENRRequest(()),
+    ENRRequest(ENRRequestMessage),
     ENRResponse(()),
 }
 
@@ -115,7 +115,10 @@ impl Message {
                 let (neighbors_msg, _rest) = NeighborsMessage::decode_unfinished(msg)?;
                 Ok(Message::Neighbors(neighbors_msg))
             }
-            0x05 => todo!(),
+            0x05 => {
+                let (enr_request_msg, _rest) = ENRRequestMessage::decode_unfinished(msg)?;
+                Ok(Message::ENRRequest(enr_request_msg))
+            }
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
         }
@@ -386,6 +389,21 @@ impl RLPDecode for Node {
             node_id,
         };
         Ok((node, remaining))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ENRRequestMessage {
+    expiration: u64,
+}
+
+impl RLPDecode for ENRRequestMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+        let enr_request = ENRRequestMessage { expiration };
+        Ok((enr_request, remaining))
     }
 }
 
@@ -674,6 +692,15 @@ mod tests {
         };
 
         let expected = Message::Neighbors(NeighborsMessage::new(vec![node], expiration));
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_enr_request_message() {
+        let encoded = "c6850400e78bba";
+        let decoded = Message::decode_with_type(0x05, &decode_hex(encoded).unwrap()).unwrap();
+        let expiration = 0x400E78BBA;
+        let expected = Message::ENRRequest(ENRRequestMessage { expiration });
         assert_eq!(decoded, expected);
     }
 
