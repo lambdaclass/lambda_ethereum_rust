@@ -11,6 +11,10 @@ use crate::rlp::{
     structs::{Decoder, Encoder},
 };
 
+use super::{
+    MAX_CODE_SIZE, TX_ACCESS_LIST_ADDRESS_COST, TX_BASE_COST, TX_CREATE_COST, TX_DATA_COST_PER_NON_ZERO, TX_DATA_COST_PER_ZERO
+};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Transaction {
     LegacyTransaction(LegacyTransaction),
@@ -342,6 +346,30 @@ fn recover_address(
     // Hash public key to obtain address
     let hash = Keccak256::new_with_prefix(&public.serialize_uncompressed()[1..]).finalize();
     Address::from_slice(&hash[12..])
+}
+
+// reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/shanghai/fork.py#L678
+pub fn validate_transaction(tx: &Transaction) -> bool {
+    calculate_intrinsic_cost(tx) <= tx.gas_limit()
+    && !(matches!(tx.to(), TxKind::Create) && tx.data().len() > 2 * MAX_CODE_SIZE)
+}
+
+fn calculate_intrinsic_cost(tx: &Transaction) -> u64 {
+    let data_cost = tx.data().iter().fold(0, |acc, byte| {
+        acc + if *byte == 0 {
+            TX_DATA_COST_PER_ZERO
+        } else {
+            TX_DATA_COST_PER_NON_ZERO
+        }
+    });
+    let create_cost = match tx.to() {
+        TxKind::Call(_) => 0,
+        TxKind::Create => TX_CREATE_COST,
+    };
+    let access_list_cost = tx.access_list().iter().fold(0, |acc, (_, keys)| {
+        acc + TX_ACCESS_LIST_ADDRESS_COST + keys.len() as u64 * TX_ACCESS_LIST_ADDRESS_COST
+    });
+    TX_BASE_COST + data_cost + create_cost + access_list_cost
 }
 
 #[cfg(test)]
