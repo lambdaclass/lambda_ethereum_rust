@@ -317,15 +317,29 @@ mod test {
 
     #[test]
     fn test_validate_block_header() {
-
         let parent_block = BlockHeader {
-            parent_hash: H256::from_str("0x0000000000000000000000000000000000000000000000000000000000000000").unwrap(),
-            ommers_hash: H256::from_str("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap(),
+            parent_hash: H256::from_str(
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            ommers_hash: H256::from_str(
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            )
+            .unwrap(),
             coinbase: Address::zero(),
-            state_root: H256::from_str("0x590245a249decc317041b8dc7141cec0559c533efb82221e4e0a30a6456acf8b").unwrap(),
-            transactions_root: H256::from_str("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").unwrap(),
-            receipt_root: H256::from_str("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").unwrap(),
-            logs_bloom: Bloom::from([0;256]),
+            state_root: H256::from_str(
+                "0x590245a249decc317041b8dc7141cec0559c533efb82221e4e0a30a6456acf8b",
+            )
+            .unwrap(),
+            transactions_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            receipt_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            logs_bloom: Bloom::from([0; 256]),
             difficulty: U256::zero(),
             number: 0,
             gas_limit: 0x016345785d8a0000,
@@ -333,64 +347,56 @@ mod test {
             timestamp: 0,
             extra_data: Bytes::new(),
             prev_randao: H256::zero(),
-            nonce: 0,
-            base_fee_per_gas: 0x7,
-            withdrawals_root: H256::from_str("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").unwrap(),
-            blob_gas_used: 0,
-            excess_blob_gas: 0,
+            nonce: 0x0000000000000000,
+            base_fee_per_gas: 0x07,
+            withdrawals_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            blob_gas_used: 0x00,
+            excess_blob_gas: 0x00,
             parent_beacon_block_root: H256::zero(),
         };
-        dbg!(&parent_block);
-        dbg!(parent_block.compute_block_hash());
-        // "genesisBlockHeader": {
-        //     "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        //     "uncleHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-        //     "coinbase": "0x0000000000000000000000000000000000000000",
-        //     "stateRoot": "0x590245a249decc317041b8dc7141cec0559c533efb82221e4e0a30a6456acf8b",
-        //     "transactionsTrie": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        //     "receiptTrie": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        //     "bloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        //     "difficulty": "0x00",
-        //     "number": "0x00",
-        //     "gasLimit": "0x016345785d8a0000",
-        //     "gasUsed": "0x00",
-        //     "timestamp": "0x00",
-        //     "extraData": "0x00",
-        //     "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        //     "nonce": "0x0000000000000000",
-        //     "baseFeePerGas": "0x07",
-        //     "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        //     "blobGasUsed": "0x00",
-        //     "excessBlobGas": "0x00",
-        //     "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        //     "hash": "0xe14679099cfdca3e8f9e7fde842c54b6d391ba69fad4633d68d4068dfa5ead40"
-        // },
-        // "blocks": [
-        //     {
-        //         "rlp": "0xf902a7f9023ea0e14679099cfdca3e8f9e7fde842c54b6d391ba69fad4633d68d4068dfa5ead40a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347942adc25665018aa1fe0e6bc666dac8fc2697ff9baa09de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9a0578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79da0035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fab9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800188016345785d8a000082a8de8203e800a0000000000000000000000000000000000000000000000000000000000000000088000000000000000007a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218080a00000000000000000000000000000000000000000000000000000000000000000f862f860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164cec0c0",
-        //         "blockHeader": {
-        //             "parentHash": "0xe14679099cfdca3e8f9e7fde842c54b6d391ba69fad4633d68d4068dfa5ead40",
-        //             "uncleHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-        //             "coinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        //             "stateRoot": "0x9de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9",
-        //             "transactionsTrie": "0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d",
-        //             "receiptTrie": "0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa",
-        //             "bloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        //             "difficulty": "0x00",
-        //             "number": "0x01",
-        //             "gasLimit": "0x016345785d8a0000",
-        //             "gasUsed": "0xa8de",
-        //             "timestamp": "0x03e8",
-        //             "extraData": "0x00",
-        //             "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        //             "nonce": "0x0000000000000000",
-        //             "baseFeePerGas": "0x07",
-        //             "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        //             "blobGasUsed": "0x00",
-        //             "excessBlobGas": "0x00",
-        //             "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        //             "hash": "0x3d9cad55bf2ff8e3e4712c080301b0f074e9e139b953e2d1db1e93d085d65090"
-        //         },
-        //         "blocknumber": "1",
+        let block = BlockHeader {
+            parent_hash: H256::from_str(
+                "0x1ac1bf1eef97dc6b03daba5af3b89881b7ae4bc1600dc434f450a9ec34d44999",
+            )
+            .unwrap(),
+            ommers_hash: H256::from_str(
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            )
+            .unwrap(),
+            coinbase: Address::from_str("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba").unwrap(),
+            state_root: H256::from_str(
+                "0x9de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9",
+            )
+            .unwrap(),
+            transactions_root: H256::from_str(
+                "0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d",
+            )
+            .unwrap(),
+            receipt_root: H256::from_str(
+                "0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa",
+            )
+            .unwrap(),
+            logs_bloom: Bloom::from([0; 256]),
+            difficulty: U256::zero(),
+            number: 1,
+            gas_limit: 0x016345785d8a0000,
+            gas_used: 0xa8de,
+            timestamp: 0x03e8,
+            extra_data: Bytes::new(),
+            prev_randao: H256::zero(),
+            nonce: 0x0000000000000000,
+            base_fee_per_gas: 0x07,
+            withdrawals_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            blob_gas_used: 0x00,
+            excess_blob_gas: 0x00,
+            parent_beacon_block_root: H256::zero(),
+        };
+        assert!(validate_block_header(&block, &parent_block))
     }
 }
