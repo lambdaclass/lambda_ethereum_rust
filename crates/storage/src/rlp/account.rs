@@ -1,8 +1,13 @@
+use ethereum_rust_core::{types::AccountInfo, Address};
 use libmdbx::orm::{Decodable, Encodable};
 
-pub struct AddressRLP(Vec<u8>);
+// TODO: only Address and AccountInfo are wrapped by Rlp
+//       should do the same for all structs here and in block and receipt
+use crate::rlp::Rlp;
 
-pub struct AccountInfoRLP(Vec<u8>);
+pub type AddressRLP = Rlp<Address>;
+
+pub type AccountInfoRLP = Rlp<AccountInfo>;
 
 pub struct AccountStorageKeyRLP(Vec<u8>);
 
@@ -11,34 +16,6 @@ pub struct AccountStorageValueRLP(Vec<u8>);
 pub struct AccountCodeHashRLP(Vec<u8>);
 
 pub struct AccountCodeRLP(Vec<u8>);
-
-impl Encodable for AddressRLP {
-    type Encoded = Vec<u8>;
-
-    fn encode(self) -> Self::Encoded {
-        self.0
-    }
-}
-
-impl Decodable for AddressRLP {
-    fn decode(b: &[u8]) -> anyhow::Result<Self> {
-        Ok(AddressRLP(b.to_vec()))
-    }
-}
-
-impl Encodable for AccountInfoRLP {
-    type Encoded = Vec<u8>;
-
-    fn encode(self) -> Self::Encoded {
-        self.0
-    }
-}
-
-impl Decodable for AccountInfoRLP {
-    fn decode(b: &[u8]) -> anyhow::Result<Self> {
-        Ok(AccountInfoRLP(b.to_vec()))
-    }
-}
 
 impl Encodable for AccountStorageKeyRLP {
     type Encoded = Vec<u8>;

@@ -1,163 +1,189 @@
-mod account;
-mod block;
-mod receipt;
+//! Abstraction for persistent data storage.
+//!    Supporting InMemory and Libmdbx storage.
+//!    There is also a template for Sled and RocksDb implementation in case we
+//!    want to test or benchmark against those engines (Currently disabled behind feature flags
+//!    to avoid requiring the implementation of the full API).
 
-use account::{
-    AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
-    AccountStorageValueRLP, AddressRLP,
-};
-use block::{BlockBodyRLP, BlockHeaderRLP};
-use ethereum_rust_core::types::{BlockNumber, Index};
-use libmdbx::{
-    dupsort,
-    orm::{table, Database},
-    table_info,
-};
-use receipt::ReceiptRLP;
-use std::path::Path;
+#[cfg(feature = "in_memory")]
+use self::in_memory::Store as InMemoryStore;
+#[cfg(feature = "libmdbx")]
+use self::libmdbx::Store as LibmdbxStore;
+#[cfg(feature = "rocksdb")]
+use self::rocksdb::Store as RocksDbStore;
+#[cfg(feature = "sled")]
+use self::sled::Store as SledStore;
+use anyhow::Result;
+use ethereum_rust_core::types::AccountInfo;
+use ethereum_types::Address;
+use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
 
-// Define tables
-table!(
-    /// Block headers table.
-    ( Headers ) BlockNumber => BlockHeaderRLP
-);
-table!(
-    /// Block bodies table.
-    ( Bodies ) BlockNumber => BlockBodyRLP
-);
-table!(
-    /// Account infos table.
-    ( AccountInfos ) AddressRLP => AccountInfoRLP
-);
-dupsort!(
-    /// Account storages table.
-    ( AccountStorages ) AddressRLP[AccountStorageKeyRLP] => AccountStorageValueRLP
-);
-table!(
-    /// Account codes table.
-    ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
-);
-dupsort!(
-    /// Receipts table.
-    ( Receipts ) BlockNumber[Index] => ReceiptRLP
-);
+mod rlp;
 
-/// Initializes a new database with the provided path. If the path is `None`, the database
-/// will be temporary.
-pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
-    let tables = [
-        table_info!(Headers),
-        table_info!(Bodies),
-        table_info!(AccountInfos),
-        table_info!(AccountStorages),
-        table_info!(AccountCodes),
-        table_info!(Receipts),
-    ]
-    .into_iter()
-    .collect();
-    let path = path.map(|p| p.as_ref().to_path_buf());
-    Database::create(path, &tables).unwrap()
+#[cfg(feature = "in_memory")]
+mod in_memory;
+#[cfg(feature = "libmdbx")]
+mod libmdbx;
+#[cfg(feature = "rocksdb")]
+mod rocksdb;
+#[cfg(feature = "sled")]
+mod sled;
+
+pub(crate) type Key = Vec<u8>;
+pub(crate) type Value = Vec<u8>;
+
+pub trait StoreEngine: Debug + Send {
+    fn add_account_info(&mut self, address: Address, account_info: AccountInfo) -> Result<()>;
+    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>>;
+    fn set_value(&mut self, key: Key, value: Value) -> Result<()>;
+    fn get_value(&self, key: Key) -> Result<Option<Value>>;
+}
+
+#[derive(Debug, Clone)]
+pub struct Store {
+    engine: Arc<Mutex<dyn StoreEngine>>,
+}
+
+#[allow(dead_code)]
+pub enum EngineType {
+    #[cfg(feature = "in_memory")]
+    InMemory,
+    #[cfg(feature = "libmdbx")]
+    Libmdbx,
+    #[cfg(feature = "sled")]
+    Sled,
+    #[cfg(feature = "rocksdb")]
+    RocksDb,
+}
+
+impl Store {
+    pub fn new(path: &str, engine_type: EngineType) -> Result<Self> {
+        let store = match engine_type {
+            #[cfg(feature = "libmdbx")]
+            EngineType::Libmdbx => Self {
+                engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
+            },
+            #[cfg(feature = "in_memory")]
+            EngineType::InMemory => Self {
+                engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
+            },
+            #[cfg(feature = "sled")]
+            EngineType::Sled => Self {
+                engine: Arc::new(Mutex::new(SledStore::new(path)?)),
+            },
+            #[cfg(feature = "rocksdb")]
+            EngineType::RocksDb => Self {
+                engine: Arc::new(Mutex::new(RocksDbStore::new(path)?)),
+            },
+        };
+        Ok(store)
+    }
+
+    pub fn add_account_info(&mut self, address: Address, account_info: AccountInfo) -> Result<()> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_account_info(address, account_info)
+    }
+
+    pub fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_account_info(address)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use libmdbx::{
-        orm::{table, Database, Decodable, Encodable},
-        table_info,
-    };
+    use std::{env, fs};
 
+    use bytes::Bytes;
+    use ethereum_rust_core::types;
+    use ethereum_types::U256;
+
+    use super::*;
+
+    #[cfg(feature = "in_memory")]
     #[test]
-    fn mdbx_smoke_test() {
-        // Declare tables used for the smoke test
-        table!(
-            /// Example table.
-            ( Example ) String => String
-        );
-
-        // Assemble database chart
-        let tables = [table_info!(Example)].into_iter().collect();
-
-        let key = "Hello".to_string();
-        let value = "World!".to_string();
-
-        let db = Database::create(None, &tables).unwrap();
-
-        // Write values
-        {
-            let txn = db.begin_readwrite().unwrap();
-            txn.upsert::<Example>(key.clone(), value.clone()).unwrap();
-            txn.commit().unwrap();
-        }
-        // Read written values
-        let read_value = {
-            let txn = db.begin_read().unwrap();
-            txn.get::<Example>(key).unwrap()
-        };
-        assert_eq!(read_value, Some(value));
+    fn test_in_memory_store() {
+        let store = Store::new("test", EngineType::InMemory).unwrap();
+        test_store_account(store.clone());
     }
 
+    #[cfg(feature = "libmdbx")]
     #[test]
-    fn mdbx_structs_smoke_test() {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub struct ExampleKey([u8; 32]);
+    fn test_libmdbx_store() {
+        // Removing preexistent DBs in case of a failed previous test
+        remove_test_dbs("test.mdbx");
+        let store = Store::new("test.mdbx", EngineType::Libmdbx).unwrap();
+        test_store_account(store.clone());
 
-        impl Encodable for ExampleKey {
-            type Encoded = [u8; 32];
+        remove_test_dbs("test.mdbx");
+    }
 
-            fn encode(self) -> Self::Encoded {
-                Encodable::encode(self.0)
+    #[cfg(feature = "sled")]
+    #[test]
+    fn test_sled_store() {
+        // Removing preexistent DBs in case of a failed previous test
+        remove_test_dbs("test.sled");
+        let store = Store::new("test.sled", EngineType::Sled).unwrap();
+        test_store_account(store.clone());
+
+        remove_test_dbs("test.sled");
+    }
+
+    #[cfg(feature = "rocksdb")]
+    #[test]
+    fn test_rocksdb_store() {
+        // Removing preexistent DBs in case of a failed previous test
+        remove_test_dbs("test.rocksdb");
+        let store = Store::new("test.rocksdb", EngineType::Sled).unwrap();
+        test_store_account(store.clone());
+
+        remove_test_dbs("test.rocksdb");
+    }
+
+    fn test_store_account(mut store: Store) {
+        let address = Address::random();
+        let code = Bytes::new();
+        let balance = U256::from_dec_str("50").unwrap();
+        let nonce = 5;
+        let code_hash = types::code_hash(&code);
+
+        let account_info = new_account_info(code.clone(), balance, nonce);
+        let _ = store.add_account_info(address, account_info);
+
+        let stored_account_info = store.get_account_info(address).unwrap().unwrap();
+
+        assert_eq!(code_hash, stored_account_info.code_hash);
+        assert_eq!(balance, stored_account_info.balance);
+        assert_eq!(nonce, stored_account_info.nonce);
+    }
+
+    fn new_account_info(code: Bytes, balance: U256, nonce: u64) -> AccountInfo {
+        AccountInfo {
+            code_hash: types::code_hash(&code),
+            balance,
+            nonce,
+        }
+    }
+
+    fn remove_test_dbs(prefix: &str) {
+        // Removes all test databases from filesystem
+        for entry in fs::read_dir(env::current_dir().unwrap()).unwrap() {
+            if entry
+                .as_ref()
+                .unwrap()
+                .file_name()
+                .to_str()
+                .unwrap()
+                .starts_with(prefix)
+            {
+                fs::remove_dir_all(entry.unwrap().path()).unwrap();
             }
         }
-
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-        pub struct ExampleValue {
-            x: u64,
-            y: [u8; 32],
-        }
-
-        impl Encodable for ExampleValue {
-            type Encoded = [u8; 40];
-
-            fn encode(self) -> Self::Encoded {
-                let mut encoded = [0u8; 40];
-                encoded[..8].copy_from_slice(&self.x.to_ne_bytes());
-                encoded[8..].copy_from_slice(&self.y);
-                encoded
-            }
-        }
-
-        impl Decodable for ExampleValue {
-            fn decode(b: &[u8]) -> anyhow::Result<Self> {
-                let x = u64::from_ne_bytes(b[..8].try_into()?);
-                let y = b[8..].try_into()?;
-                Ok(Self { x, y })
-            }
-        }
-
-        // Declare tables used for the smoke test
-        table!(
-            /// Example table.
-            ( StructsExample ) ExampleKey => ExampleValue
-        );
-
-        // Assemble database chart
-        let tables = [table_info!(StructsExample)].into_iter().collect();
-        let key = ExampleKey([151; 32]);
-        let value = ExampleValue { x: 42, y: [42; 32] };
-
-        let db = Database::create(None, &tables).unwrap();
-
-        // Write values
-        {
-            let txn = db.begin_readwrite().unwrap();
-            txn.upsert::<StructsExample>(key, value).unwrap();
-            txn.commit().unwrap();
-        }
-        // Read written values
-        let read_value = {
-            let txn = db.begin_read().unwrap();
-            txn.get::<StructsExample>(key).unwrap()
-        };
-        assert_eq!(read_value, Some(value));
     }
 }
