@@ -1,12 +1,9 @@
+use super::{
+    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
+    GAS_LIMIT_MINIMUM,
+};
 use crate::{
-    rlp::{
-        constants::{
-            BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
-            GAS_LIMIT_MINIMUM,
-        },
-        encode::RLPEncode,
-        structs::Encoder,
-    },
+    rlp::{encode::RLPEncode, structs::Encoder},
     types::Receipt,
     Address, H256, U256,
 };
