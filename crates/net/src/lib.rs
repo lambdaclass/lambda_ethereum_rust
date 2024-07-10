@@ -65,10 +65,10 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
                 find_node(&udp_socket, from, &signer).await;
             }
             Message::Neighbors(neighbors_msg) => {
-                let nodes = neighbors_msg.get_nodes();
+                let nodes = &neighbors_msg.nodes;
                 for node in nodes {
-                    let node_addr = SocketAddr::new(node.get_ip(), node.get_udp_port());
-                    let bucket_number = bucket_number(node_id, node.get_node_id());
+                    let node_addr = SocketAddr::new(node.ip, node.udp_port);
+                    let bucket_number = bucket_number(node_id, node.node_id);
                     let bucket = &mut buckets[bucket_number];
                     if bucket.len() == MAX_NODES_PER_BUCKET {
                         // TODO: revalidate least recently seen node as described in
