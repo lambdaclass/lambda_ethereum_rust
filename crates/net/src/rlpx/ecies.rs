@@ -19,19 +19,19 @@ use rand::{thread_rng, Rng};
 
 type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 
-#[derive(Debug)]
-pub(crate) struct RLPxConnection {
-    pub nonce: H256,
-    pub ephemeral_key: SecretKey,
-    pub handshake_data: Option<HandshakeData>,
-}
-
 #[derive(Debug, Clone, Copy)]
 #[allow(unused)]
 pub(crate) struct HandshakeData {
     pub remote_nonce: H256,
     pub aes_key: H256,
     pub mac_key: H256,
+}
+
+#[derive(Debug)]
+pub(crate) struct RLPxConnection {
+    pub nonce: H256,
+    pub ephemeral_key: SecretKey,
+    pub handshake_data: Option<HandshakeData>,
 }
 
 impl RLPxConnection {
@@ -153,7 +153,9 @@ impl RLPxConnection {
             ecdh_xchng(&self.ephemeral_key, &ack.get_ephemeral_pubkey().unwrap());
 
         // keccak256(nonce || initiator-nonce)
-        let hashed_nonces = keccak_hash::keccak([ack.nonce.0, self.nonce.0].concat());
+        let nonce = ack.nonce.0;
+        let initiator_nonce = self.nonce.0;
+        let hashed_nonces = keccak_hash::keccak([nonce, initiator_nonce].concat());
         // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
         let shared_secret = keccak_hash::keccak([ephemeral_key_secret, hashed_nonces.0].concat());
 
