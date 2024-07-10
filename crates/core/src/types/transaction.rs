@@ -12,7 +12,8 @@ use crate::rlp::{
 };
 
 use super::{
-    MAX_CODE_SIZE, TX_ACCESS_LIST_ADDRESS_COST, TX_BASE_COST, TX_CREATE_COST, TX_DATA_COST_PER_NON_ZERO, TX_DATA_COST_PER_ZERO
+    ceil32, GAS_INIT_CODE_WORD_COST, MAX_CODE_SIZE, TX_ACCESS_LIST_ADDRESS_COST, TX_BASE_COST,
+    TX_CREATE_COST, TX_DATA_COST_PER_NON_ZERO, TX_DATA_COST_PER_ZERO,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -351,7 +352,7 @@ fn recover_address(
 // reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/shanghai/fork.py#L678
 pub fn validate_transaction(tx: &Transaction) -> bool {
     calculate_intrinsic_cost(tx) <= tx.gas_limit()
-    && !(matches!(tx.to(), TxKind::Create) && tx.data().len() > 2 * MAX_CODE_SIZE)
+        && !(matches!(tx.to(), TxKind::Create) && tx.data().len() > 2 * MAX_CODE_SIZE)
 }
 
 fn calculate_intrinsic_cost(tx: &Transaction) -> u64 {
@@ -364,12 +365,17 @@ fn calculate_intrinsic_cost(tx: &Transaction) -> u64 {
     });
     let create_cost = match tx.to() {
         TxKind::Call(_) => 0,
-        TxKind::Create => TX_CREATE_COST,
+        TxKind::Create => TX_CREATE_COST + init_code_cost(tx.data().len() as u64),
     };
     let access_list_cost = tx.access_list().iter().fold(0, |acc, (_, keys)| {
         acc + TX_ACCESS_LIST_ADDRESS_COST + keys.len() as u64 * TX_ACCESS_LIST_ADDRESS_COST
     });
     TX_BASE_COST + data_cost + create_cost + access_list_cost
+}
+
+/// Calculates the gas to be charged for the init code in a create transaction.
+fn init_code_cost(init_code_length: u64) -> u64 {
+    GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) / 32
 }
 
 #[cfg(test)]
