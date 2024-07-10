@@ -9,7 +9,7 @@ use super::{
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
-    primitives::{BlockEnv, Bytecode, TxEnv, U256},
+    primitives::{BlockEnv, Bytecode, TxEnv, B256, U256},
     CacheState, Evm,
 };
 use std::collections::HashMap;
@@ -101,7 +101,12 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             })
             .collect(),
         gas_priority_fee: tx.max_priority_fee().map(U256::from),
-        ..Default::default()
+        blob_hashes: tx
+            .blob_versioned_hashes()
+            .into_iter()
+            .map(|hash| B256::from(hash.0))
+            .collect(),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(|x| U256::from(x)),
     }
 }
 

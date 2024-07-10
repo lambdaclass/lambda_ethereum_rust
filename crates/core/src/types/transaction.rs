@@ -533,6 +533,15 @@ impl Transaction {
             Transaction::EIP4844Transaction(tx) => tx.blob_versioned_hashes.clone(),
         }
     }
+
+    pub fn max_fee_per_blob_gas(&self) -> Option<u64> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::EIP2930Transaction(_tx) => None,
+            Transaction::EIP1559Transaction(_tx) => None,
+            Transaction::EIP4844Transaction(tx) => Some(tx.max_fee_per_blob_gas),
+        }
+    }
 }
 
 fn recover_address(

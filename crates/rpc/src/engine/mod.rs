@@ -66,7 +66,11 @@ pub fn new_payload_v3(request: NewPayloadV3Request) -> Result<PayloadStatus, Rpc
     info!("Block hash {} is valid", block_hash);
     // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
     // and check that the resulting array matches expected_blob_versioned_hashes
-    let blob_versioned_hashes: Vec<H256> = block_body.transactions.iter().flat_map(|tx| tx.blob_versioned_hashes()).collect();
+    let blob_versioned_hashes: Vec<H256> = block_body
+        .transactions
+        .iter()
+        .flat_map(|tx| tx.blob_versioned_hashes())
+        .collect();
     if request.expected_blob_versioned_hashes != blob_versioned_hashes {
         return Ok(PayloadStatus {
             status: PayloadValidationStatus::Invalid,

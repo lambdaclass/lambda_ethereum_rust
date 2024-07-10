@@ -7,7 +7,8 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH
+    compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, EIP2930Transaction,
+    EIP4844Transaction, LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
