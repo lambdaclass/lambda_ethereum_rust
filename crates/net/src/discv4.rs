@@ -447,30 +447,36 @@ impl RLPDecode for NodeRecord {
             tcp6: None,
             udp6: None,
         };
-        let (node_record, decoder) = decode_node_record(node_record, decoder);
+        let (node_record, decoder) = decode_node_record_optional_fields(node_record, decoder);
         let remaining = decoder.finish_unchecked();
         Ok((node_record, remaining))
     }
 }
 
-fn decode_node_record(mut node_record: NodeRecord, decoder: Decoder) -> (NodeRecord, Decoder) {
+/// The NodeRecord optional fields are encoded as key/value pairs, according to the documentation
+/// <https://github.com/ethereum/devp2p/blob/master/enr.md#record-structure>
+/// This function decodes each pair and set the values to the corresponding fields of the NodeRecord struct.
+fn decode_node_record_optional_fields(
+    mut node_record: NodeRecord,
+    decoder: Decoder,
+) -> (NodeRecord, Decoder) {
     let (key, decoder): (Option<String>, Decoder) = decoder.decode_optional_field();
     if let Some(k) = key {
         match k.as_str() {
             "id" => {
                 let (id, decoder) = decoder.decode_optional_field();
                 node_record.id = id;
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "secp256k1" => {
                 let (secp256k1, decoder) = decoder.decode_optional_field();
                 node_record.secp256k1 = secp256k1;
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "ip" => {
                 let (ip, decoder) = decoder.decode_optional_field();
                 node_record.ip = ip;
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "tcp" => {
                 let (tcp, decoder) = decoder.decode_optional_field();
@@ -478,7 +484,7 @@ fn decode_node_record(mut node_record: NodeRecord, decoder: Decoder) -> (NodeRec
                 if node_record.tcp6.is_none() {
                     node_record.tcp6 = tcp;
                 }
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "udp" => {
                 let (udp, decoder) = decoder.decode_optional_field();
@@ -486,27 +492,27 @@ fn decode_node_record(mut node_record: NodeRecord, decoder: Decoder) -> (NodeRec
                 if node_record.udp6.is_none() {
                     node_record.udp6 = udp;
                 }
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "ip6" => {
                 let (ip6, decoder) = decoder.decode_optional_field();
                 node_record.ip6 = ip6;
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "tcp6" => {
                 let (tcp6, decoder) = decoder.decode_optional_field();
                 node_record.tcp6 = tcp6;
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             "udp6" => {
                 let (udp6, decoder) = decoder.decode_optional_field();
                 node_record.udp6 = udp6;
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
             _ => {
                 // ignore the field
                 let (_field, decoder): (Option<Vec<u8>>, Decoder) = decoder.decode_optional_field();
-                decode_node_record(node_record, decoder)
+                decode_node_record_optional_fields(node_record, decoder)
             }
         }
     } else {
