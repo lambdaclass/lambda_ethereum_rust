@@ -1,5 +1,5 @@
 use ethereum_rust_core::types::Genesis;
-use ethereum_rust_net::types::BootNode;
+use ethereum_rust_net::bootnode::BootNode;
 use std::{
     io::{self, BufReader},
     net::{SocketAddr, ToSocketAddrs},
