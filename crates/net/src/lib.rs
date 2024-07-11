@@ -3,9 +3,13 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use aes::{
+    cipher::{BlockEncrypt, KeyInit},
+    Aes256Enc,
+};
 use bootnode::BootNode;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
-use ethereum_rust_core::H512;
+use ethereum_rust_core::{H128, H256, H512};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint, PublicKey},
@@ -13,7 +17,8 @@ use k256::{
 };
 use kademlia::{KademliaTable, PeerData};
 use keccak_hash::H256;
-use rlpx::ecies::RLPxConnection;
+use rlpx::ecies::{pubkey2id, RLPxConnection};
+use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpSocket, UdpSocket},
@@ -164,13 +169,14 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_udp_addr = "127.0.0.1:51311";
+    let str_udp_addr = "127.0.0.1:54141";
+    let str_tcp_addr = "127.0.0.1:62998";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
-    let (mut msg, sig_bytes, endpoint) = loop {
+    let (msg, sig_bytes, endpoint) = loop {
         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
@@ -191,19 +197,20 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         };
     };
 
-    let digest = keccak_hash::keccak_buffer(&mut msg).unwrap();
+    let digest = Keccak256::digest(msg);
     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
     let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
 
-    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
+    let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
 
     let mut conn = RLPxConnection::random();
     let mut auth_message = vec![];
     conn.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
 
-    let tcp_addr = "127.0.0.1:58617";
     // NOTE: for some reason kurtosis peers don't publish their active TCP port
-    let tcp_addr = endpoint.tcp_address().unwrap_or(tcp_addr.parse().unwrap());
+    let tcp_addr = endpoint
+        .tcp_address()
+        .unwrap_or(str_tcp_addr.parse().unwrap());
 
     let mut stream = TcpSocket::new_v4()
         .unwrap()
@@ -220,6 +227,70 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     stream.read_exact(msg).await.unwrap();
     conn.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
+
+    // Example of sending a message through the stream
+    // TODO: move to a module
+    // TODO: messages after the Hello must be snappy compressed
+    // let msg_id = 1_u8;
+    // // Hello message
+    // let protocol_version = 5_u8;
+    // let client_id = "Ethereum(++)/1.0.0";
+    // let capabilities: Vec<(&str, u8)> = Default::default();
+    // let listen_port = 0_u8; // This one is ignored
+    // let node_id = pubkey2id(&PublicKey::from(signer.verifying_key()));
+    // let mut frame_data = vec![];
+    // msg_id.encode(&mut frame_data);
+    // Encoder::new(&mut frame_data)
+    //     .encode_field(&protocol_version)
+    //     .encode_field(&client_id)
+    //     .encode_field(&capabilities)
+    //     .encode_field(&listen_port)
+    //     .encode_field(&node_id)
+    //     .finish();
+    // // TODO: check
+    // let frame_size: [u8; 3] = frame_data.len().to_be_bytes()[5..8].try_into().unwrap();
+    // // Pad to next multiple of 16
+    // frame_data.resize(frame_data.len().next_multiple_of(16), 0);
+
+    // Receive the hello message
+    let mut frame_header = [0; 32];
+    stream.read_exact(&mut frame_header).await.unwrap();
+    let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
+    info!("Received header!");
+
+    let handshake_data = conn.handshake_data.unwrap();
+
+    pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
+
+    // Validate MAC header
+    // ingress-mac = keccak256.init((mac-secret ^ initiator-nonce) || ack)
+    let mut mac_hasher = Keccak256::new();
+    mac_hasher.update(handshake_data.mac_key ^ conn.nonce);
+    mac_hasher.update(ack_message);
+
+    // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
+    let mut header_mac_seed: [u8; 16] = mac_hasher.clone().finalize()[..16].try_into().unwrap();
+
+    let mac_aes_cipher = Aes256Enc::new_from_slice(&handshake_data.mac_key.0).unwrap();
+    mac_aes_cipher.encrypt_block(&mut header_mac_seed.into());
+    header_mac_seed = (H128(header_mac_seed) ^ H128(header_ciphertext.try_into().unwrap())).0;
+
+    // egress-mac = keccak256.update(egress-mac, header-mac-seed)
+    mac_hasher.update(header_mac_seed);
+
+    // header-mac = keccak256.digest(egress-mac)[:16]
+    let expected_header_mac = H128(mac_hasher.finalize()[..16].try_into().unwrap());
+
+    assert_eq!(header_mac, expected_header_mac.0);
+
+    info!("Header MAC is correct!");
+
+    // let aes_key = handshake_data.aes_key.0.into();
+
+    // let mut stream_cipher = Aes256Ctr64BE::new(&aes_key, &[0; 16].into());
+    // let header_text = header_ciphertext;
+    // stream_cipher.apply_keystream(header_text);
+    // info!("header_text: {:?}", header_text);
 }
 
 #[cfg(test)]

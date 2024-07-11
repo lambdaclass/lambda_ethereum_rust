@@ -7,22 +7,23 @@ use ethereum_rust_core::{
         error::RLPDecodeError,
         structs::{Decoder, Encoder},
     },
-    Signature, H128, H512, H520,
+    Signature, H128, H256, H512, H520,
 };
 use k256::{
     ecdsa::SigningKey,
     elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
     EncodedPoint, PublicKey, SecretKey,
 };
-use keccak_hash::H256;
 use rand::{thread_rng, Rng};
+use sha3::{Digest, Keccak256};
 
 type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 #[allow(unused)]
 pub(crate) struct HandshakeData {
     pub remote_nonce: H256,
+    pub remote_msg: Vec<u8>,
     pub aes_key: H256,
     pub mac_key: H256,
 }
@@ -165,13 +166,19 @@ impl RLPxConnection {
 
         // RLP-decode the message.
         let (ack, _padding) = AckMessage::decode_unfinished(c).unwrap();
+        let remote_nonce = ack.nonce;
 
-        // Finish deriving and store handshake data to be used during further communication.
-        let handshake_data = self.derive_secrets(ack);
+        let (aes_key, mac_key) = self.derive_secrets(ack);
+        let handshake_data = HandshakeData {
+            remote_nonce,
+            remote_msg: msg.to_vec(),
+            aes_key,
+            mac_key,
+        };
         self.handshake_data.replace(handshake_data);
     }
 
-    fn derive_secrets(&self, ack: AckMessage) -> HandshakeData {
+    fn derive_secrets(&self, ack: AckMessage) -> (H256, H256) {
         // TODO: don't panic
         let ephemeral_key_secret =
             ecdh_xchng(&self.ephemeral_key, &ack.get_ephemeral_pubkey().unwrap());
@@ -179,20 +186,17 @@ impl RLPxConnection {
         // keccak256(nonce || initiator-nonce)
         let nonce = ack.nonce.0;
         let initiator_nonce = self.nonce.0;
-        let hashed_nonces = keccak_hash::keccak([nonce, initiator_nonce].concat());
+        let hashed_nonces = Keccak256::digest([nonce, initiator_nonce].concat()).into();
         // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
-        let shared_secret = keccak_hash::keccak([ephemeral_key_secret, hashed_nonces.0].concat());
+        let shared_secret =
+            Keccak256::digest([ephemeral_key_secret, hashed_nonces].concat()).into();
 
         // aes-secret = keccak256(ephemeral-key || shared-secret)
-        let aes_key = keccak_hash::keccak([ephemeral_key_secret, shared_secret.0].concat());
+        let aes_key = Keccak256::digest([ephemeral_key_secret, shared_secret].concat()).into();
         // mac-secret = keccak256(ephemeral-key || aes-secret)
-        let mac_key = keccak_hash::keccak([ephemeral_key_secret, aes_key.0].concat());
+        let mac_key = Keccak256::digest([ephemeral_key_secret, aes_key].concat());
 
-        HandshakeData {
-            remote_nonce: ack.nonce,
-            aes_key,
-            mac_key,
-        }
+        (H256(aes_key), H256(mac_key.into()))
     }
 }
 
