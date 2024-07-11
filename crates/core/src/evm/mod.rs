@@ -45,8 +45,8 @@ pub fn execute_tx(
         .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .append_handler_register(inspector_handle_register)
         .build();
-    evm.preverify_transaction().map_err(|e| EvmError::from(e))?;
-    let tx_result = evm.transact().map_err(|e| EvmError::from(e))?;
+    evm.preverify_transaction().map_err(EvmError::from)?;
+    let tx_result = evm.transact().map_err(EvmError::from)?;
     Ok(tx_result.result.into())
 }
 
