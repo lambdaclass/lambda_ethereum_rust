@@ -10,3 +10,8 @@ ethereum_rust-core.workspace = true
 
 libmdbx.workspace = true
 anyhow = "1.0.86"
+patricia-merkle-tree.workspace = true
+sha3.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
