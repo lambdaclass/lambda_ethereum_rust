@@ -9,6 +9,7 @@ edition = "2021"
 ethereum_rust-rpc.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-net.workspace = true
+ethereum_rust-storage.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true
