@@ -344,8 +344,8 @@ impl RLPDecode for PongMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NeighborsMessage {
     // nodes is the list of neighbors
-    nodes: Vec<Node>,
-    expiration: u64,
+    pub nodes: Vec<Node>,
+    pub expiration: u64,
 }
 
 impl NeighborsMessage {
@@ -356,10 +356,10 @@ impl NeighborsMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Node {
-    ip: IpAddr,
-    udp_port: u16,
-    tcp_port: u16,
-    node_id: H512,
+    pub ip: IpAddr,
+    pub udp_port: u16,
+    pub tcp_port: u16,
+    pub node_id: H512,
 }
 
 impl RLPDecode for NeighborsMessage {

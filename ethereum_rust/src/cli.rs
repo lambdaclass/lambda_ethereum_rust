@@ -1,5 +1,5 @@
 use clap::{Arg, ArgAction, Command};
-use ethereum_rust_net::types::BootNode;
+use ethereum_rust_net::bootnode::BootNode;
 
 pub fn cli() -> Command {
     Command::new("ethereum_rust")
