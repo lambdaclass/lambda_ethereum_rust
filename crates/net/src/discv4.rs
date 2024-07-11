@@ -5,9 +5,9 @@ use ethereum_rust_core::rlp::{
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H512, H520};
+use ethereum_rust_core::{H256, H264, H512, H520};
 use k256::ecdsa::SigningKey;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[allow(unused)]
 pub struct Packet {
@@ -59,7 +59,7 @@ pub(crate) enum Message {
     FindNode(FindNodeMessage),
     Neighbors(NeighborsMessage),
     ENRRequest(()),
-    ENRResponse(()),
+    ENRResponse(ENRResponseMessage),
 }
 
 impl Message {
@@ -116,7 +116,10 @@ impl Message {
                 Ok(Message::Neighbors(neighbors_msg))
             }
             0x05 => todo!(),
-            0x06 => todo!(),
+            0x06 => {
+                let (enr_response_msg, _rest) = ENRResponseMessage::decode_unfinished(msg)?;
+                Ok(Message::ENRResponse(enr_response_msg))
+            }
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
@@ -389,6 +392,82 @@ impl RLPDecode for Node {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ENRResponseMessage {
+    request_hash: H256,
+    content: ENRResponseContent,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ENRResponseContent {
+    signature: H512,
+    seq: u64,
+    id: Option<String>,
+    secp256k1: Option<H264>,
+    ip: Option<Ipv4Addr>,
+    tcp: Option<u16>,
+    udp: Option<u16>,
+    ip6: Option<Ipv6Addr>,
+    tcp6: Option<u16>,
+    udp6: Option<u16>,
+}
+
+impl ENRResponseMessage {
+    fn new(request_hash: H256, signature: H512, seq: u64) -> Self {
+        let content = ENRResponseContent {
+            signature,
+            seq,
+            id: None,
+            secp256k1: None,
+            ip: None,
+            tcp: None,
+            udp: None,
+            ip6: None,
+            tcp6: None,
+            udp6: None,
+        };
+        Self {
+            request_hash,
+            content,
+        }
+    }
+}
+
+impl RLPDecode for ENRResponseMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (request_hash, decoder) = decoder.decode_field("request_hash")?;
+        let (content, decoder): (ENRResponseContent, Decoder) = decoder.decode_field("content")?;
+        let remaining = decoder.finish_unchecked();
+        Ok((
+            ENRResponseMessage::new(request_hash, content.signature, content.seq),
+            remaining,
+        ))
+    }
+}
+
+impl RLPDecode for ENRResponseContent {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (signature, decoder) = decoder.decode_field("signature")?;
+        let (seq, decoder) = decoder.decode_field("seq")?;
+        let remaining = decoder.finish_unchecked();
+        let content = ENRResponseContent {
+            signature,
+            seq,
+            id: None,
+            secp256k1: None,
+            ip: None,
+            tcp: None,
+            udp: None,
+            ip6: None,
+            tcp6: None,
+            udp6: None,
+        };
+        Ok((content, remaining))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -571,6 +650,19 @@ mod tests {
                 .unwrap();
         let expected = Message::Pong(PongMessage::new(to, ping_hash, expiration));
         assert_eq!(decoded_msg, &expected);
+    }
+
+    #[test]
+    fn test_decode_enr_response() {
+        let encoded = "f8ada054e4aa2c131aa991ee21c6e72296205ddadc847cbd09e533c70de6b29b1a72ebf88ab840b77741277742abd4d7460c336a48df717130ef9f77e85d039948ca497831a5ea7e05b5a8a5c5979eaa49b3db0e5f98dbbf26343cef2905dd876279f8f7ce2a3e860190360f571a8269648276348269708436c2f50589736563703235366b31a1038729e0c825f3d9cad382555f3e46dcff21af323e89025a0e6312df541f4a9e738375647082765f";
+        let decoded = Message::decode_with_type(0x06, &decode_hex(encoded).unwrap()).unwrap();
+        let request_hash =
+            H256::from_str("54e4aa2c131aa991ee21c6e72296205ddadc847cbd09e533c70de6b29b1a72eb")
+                .unwrap();
+        let signature = H512::from_str("b77741277742abd4d7460c336a48df717130ef9f77e85d039948ca497831a5ea7e05b5a8a5c5979eaa49b3db0e5f98dbbf26343cef2905dd876279f8f7ce2a3e").unwrap();
+        let seq = 0x0190360f571a;
+        let expected = Message::ENRResponse(ENRResponseMessage::new(request_hash, signature, seq));
+        assert_eq!(decoded, expected);
     }
 
     pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
