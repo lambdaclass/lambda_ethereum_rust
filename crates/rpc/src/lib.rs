@@ -2,7 +2,10 @@ use std::{future::IntoFuture, net::SocketAddr};
 
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
-use eth::{block, client};
+use eth::{
+    block::{self, GetBlockByNumberRequest},
+    client,
+};
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
@@ -60,7 +63,10 @@ pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
         }
         "eth_chainId" => client::chain_id(),
         "eth_syncing" => client::syncing(),
-        "eth_getBlockByNumber" => block::get_block_by_number(),
+        "eth_getBlockByNumber" => {
+            let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_block_by_number(&request)
+        }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
             let request =
@@ -77,7 +83,10 @@ pub async fn handle_http_request(body: String) -> Json<Value> {
     let res: Result<Value, RpcErr> = match req.method.as_str() {
         "eth_chainId" => client::chain_id(),
         "eth_syncing" => client::syncing(),
-        "eth_getBlockByNumber" => block::get_block_by_number(),
+        "eth_getBlockByNumber" => {
+            let request = GetBlockByNumberRequest::parse(&req.params).unwrap();
+            block::get_block_by_number(&request)
+        }
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),
     };
