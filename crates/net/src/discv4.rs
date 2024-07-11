@@ -416,37 +416,17 @@ pub struct ENRResponseContent {
     udp6: Option<u16>,
 }
 
-impl ENRResponseMessage {
-    fn new(request_hash: H256, signature: H512, seq: u64) -> Self {
-        let content = ENRResponseContent {
-            signature,
-            seq,
-            id: None,
-            secp256k1: None,
-            ip: None,
-            tcp: None,
-            udp: None,
-            ip6: None,
-            tcp6: None,
-            udp6: None,
-        };
-        Self {
-            request_hash,
-            content,
-        }
-    }
-}
-
 impl RLPDecode for ENRResponseMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (request_hash, decoder) = decoder.decode_field("request_hash")?;
         let (content, decoder): (ENRResponseContent, Decoder) = decoder.decode_field("content")?;
         let remaining = decoder.finish_unchecked();
-        Ok((
-            ENRResponseMessage::new(request_hash, content.signature, content.seq),
-            remaining,
-        ))
+        let response = ENRResponseMessage {
+            request_hash,
+            content,
+        };
+        Ok((response, remaining))
     }
 }
 
@@ -455,7 +435,6 @@ impl RLPDecode for ENRResponseContent {
         let decoder = Decoder::new(rlp)?;
         let (signature, decoder) = decoder.decode_field("signature")?;
         let (seq, decoder) = decoder.decode_field("seq")?;
-        let remaining = decoder.finish_unchecked();
         let content = ENRResponseContent {
             signature,
             seq,
@@ -468,9 +447,76 @@ impl RLPDecode for ENRResponseContent {
             tcp6: None,
             udp6: None,
         };
+        let (content, decoder) = decode_enr_content(content, decoder);
+        let remaining = decoder.finish_unchecked();
         Ok((content, remaining))
     }
 }
+
+fn decode_enr_content(
+    mut content: ENRResponseContent,
+    decoder: Decoder,
+) -> (ENRResponseContent, Decoder) {
+    let (key, decoder): (Option<String>, Decoder) = decoder.decode_optional_field();
+    if let Some(k) = key {
+        match k.as_str() {
+            "id" => {
+                let (id, decoder) = decoder.decode_optional_field();
+                content.id = id;
+                decode_enr_content(content, decoder)
+            }
+            "secp256k1" => {
+                let (secp256k1, decoder) = decoder.decode_optional_field();
+                content.secp256k1 = secp256k1;
+                decode_enr_content(content, decoder)
+            }
+            "ip" => {
+                let (ip, decoder) = decoder.decode_optional_field();
+                content.ip = ip;
+                decode_enr_content(content, decoder)
+            }
+            "tcp" => {
+                let (tcp, decoder) = decoder.decode_optional_field();
+                content.tcp = tcp;
+                if content.tcp6.is_none() {
+                    content.tcp6 = tcp;
+                }
+                decode_enr_content(content, decoder)
+            }
+            "udp" => {
+                let (udp, decoder) = decoder.decode_optional_field();
+                content.udp = udp;
+                if content.udp6.is_none() {
+                    content.udp6 = udp;
+                }
+                decode_enr_content(content, decoder)
+            }
+            "ip6" => {
+                let (ip6, decoder) = decoder.decode_optional_field();
+                content.ip6 = ip6;
+                decode_enr_content(content, decoder)
+            }
+            "tcp6" => {
+                let (tcp6, decoder) = decoder.decode_optional_field();
+                content.tcp6 = tcp6;
+                decode_enr_content(content, decoder)
+            }
+            "udp6" => {
+                let (udp6, decoder) = decoder.decode_optional_field();
+                content.udp6 = udp6;
+                decode_enr_content(content, decoder)
+            }
+            _ => {
+                // ignore the field
+                let (_field, decoder): (Option<Vec<u8>>, Decoder) = decoder.decode_optional_field();
+                decode_enr_content(content, decoder)
+            }
+        }
+    } else {
+        (content, decoder)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ENRRequestMessage {
     expiration: u64,
@@ -707,7 +753,29 @@ mod tests {
                 .unwrap();
         let signature = H512::from_str("b77741277742abd4d7460c336a48df717130ef9f77e85d039948ca497831a5ea7e05b5a8a5c5979eaa49b3db0e5f98dbbf26343cef2905dd876279f8f7ce2a3e").unwrap();
         let seq = 0x0190360f571a;
-        let expected = Message::ENRResponse(ENRResponseMessage::new(request_hash, signature, seq));
+        let id = Some(String::from("v4"));
+        let secp256k1 = Some(
+            H264::from_str("038729e0c825f3d9cad382555f3e46dcff21af323e89025a0e6312df541f4a9e73")
+                .unwrap(),
+        );
+        let ip = Some(Ipv4Addr::from_str("54.194.245.5").unwrap());
+        let udp = Some(30303_u16);
+        let content = ENRResponseContent {
+            signature,
+            seq,
+            id,
+            secp256k1,
+            ip,
+            tcp: None,
+            udp,
+            ip6: None,
+            tcp6: None,
+            udp6: udp,
+        };
+        let expected = Message::ENRResponse(ENRResponseMessage {
+            request_hash,
+            content,
+        });
         assert_eq!(decoded, expected);
     }
 
