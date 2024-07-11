@@ -82,10 +82,10 @@ impl EncodedTransaction {
                         EIP1559Transaction::decode(tx_bytes).map(Transaction::EIP1559Transaction)
                     }
                     // EIP4844
-                    0x2 => {
+                    0x3 => {
                         EIP4844Transaction::decode(tx_bytes).map(Transaction::EIP4844Transaction)
                     }
-                    _ => unimplemented!("We don't know this tx type yet"),
+                    _ => return Err(RLPDecodeError::InvalidTransactionType),
                 }
             }
             // LegacyTransaction
