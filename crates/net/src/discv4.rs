@@ -420,7 +420,7 @@ impl RLPDecode for ENRResponseMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (request_hash, decoder) = decoder.decode_field("request_hash")?;
-        let (node_record, decoder): (NodeRecord, Decoder) = decoder.decode_field("node_record")?;
+        let (node_record, decoder) = decoder.decode_field("node_record")?;
         let remaining = decoder.finish_unchecked();
         let response = ENRResponseMessage {
             request_hash,
