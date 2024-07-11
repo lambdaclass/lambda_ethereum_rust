@@ -1,11 +1,26 @@
 use std::marker::PhantomData;
 
-use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
+use ethereum_rust_core::{
+    rlp::{decode::RLPDecode, encode::RLPEncode},
+    types::{AccountInfo, BlockBody, BlockHeader, Receipt},
+};
+use ethereum_types::Address;
 use libmdbx::orm::{Decodable, Encodable};
 
-pub mod account;
-pub mod block;
-pub mod receipt;
+// Account types
+pub type AddressRLP = Rlp<Address>;
+pub type AccountInfoRLP = Rlp<AccountInfo>;
+pub type AccountStorageKeyRLP = Rlp<Vec<u8>>;
+pub type AccountStorageValueRLP = Rlp<Vec<u8>>;
+pub type AccountCodeHashRLP = Rlp<Vec<u8>>;
+pub type AccountCodeRLP = Rlp<Vec<u8>>;
+
+// Block types
+pub type BlockHeaderRLP = Rlp<BlockHeader>;
+pub type BlockBodyRLP = Rlp<BlockBody>;
+
+// Receipt types
+pub type ReceiptRLP = Rlp<Receipt>;
 
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
 

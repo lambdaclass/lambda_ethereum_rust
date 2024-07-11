@@ -4,6 +4,7 @@
 //!    want to test or benchmark against those engines (Currently disabled behind feature flags
 //!    to avoid requiring the implementation of the full API).
 
+use self::error::StoreError;
 #[cfg(feature = "in_memory")]
 use self::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
@@ -12,12 +13,12 @@ use self::libmdbx::Store as LibmdbxStore;
 use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
-use anyhow::Result;
 use ethereum_rust_core::types::AccountInfo;
 use ethereum_types::Address;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
+mod error;
 mod rlp;
 
 #[cfg(feature = "in_memory")]
@@ -33,10 +34,21 @@ pub(crate) type Key = Vec<u8>;
 pub(crate) type Value = Vec<u8>;
 
 pub trait StoreEngine: Debug + Send {
-    fn add_account_info(&mut self, address: Address, account_info: AccountInfo) -> Result<()>;
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>>;
-    fn set_value(&mut self, key: Key, value: Value) -> Result<()>;
-    fn get_value(&self, key: Key) -> Result<Option<Value>>;
+    /// Add account info
+    fn add_account_info(
+        &mut self,
+        address: Address,
+        account_info: AccountInfo,
+    ) -> Result<(), StoreError>;
+
+    /// Obtain account info
+    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError>;
+
+    /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
+    fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;
+
+    /// Retrieve a stored value under Key
+    fn get_value(&self, key: Key) -> Result<Option<Value>, StoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -57,7 +69,7 @@ pub enum EngineType {
 }
 
 impl Store {
-    pub fn new(path: &str, engine_type: EngineType) -> Result<Self> {
+    pub fn new(path: &str, engine_type: EngineType) -> Result<Self, StoreError> {
         let store = match engine_type {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
@@ -79,7 +91,11 @@ impl Store {
         Ok(store)
     }
 
-    pub fn add_account_info(&mut self, address: Address, account_info: AccountInfo) -> Result<()> {
+    pub fn add_account_info(
+        &mut self,
+        address: Address,
+        account_info: AccountInfo,
+    ) -> Result<(), StoreError> {
         self.engine
             .clone()
             .lock()
@@ -87,7 +103,7 @@ impl Store {
             .add_account_info(address, account_info)
     }
 
-    pub fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>> {
+    pub fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
         self.engine
             .clone()
             .lock()

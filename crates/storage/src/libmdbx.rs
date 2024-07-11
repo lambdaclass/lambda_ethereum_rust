@@ -1,11 +1,8 @@
 use super::{Key, StoreEngine, Value};
+use crate::error::StoreError;
 use crate::rlp::{
-    account::{
-        AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
-        AccountStorageValueRLP, AddressRLP,
-    },
-    block::{BlockBodyRLP, BlockHeaderRLP},
-    receipt::ReceiptRLP,
+    AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
+    AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
 use ethereum_rust_core::types::AccountInfo;
@@ -24,7 +21,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(path: &str) -> Result<Self> {
+    pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
             db: init_db(Some(path)),
         })
@@ -32,30 +29,39 @@ impl Store {
 }
 
 impl StoreEngine for Store {
-    fn add_account_info(&mut self, address: Address, account_info: AccountInfo) -> Result<()> {
+    fn add_account_info(
+        &mut self,
+        address: Address,
+        account_info: AccountInfo,
+    ) -> Result<(), StoreError> {
         // Write account to mdbx
         {
             let txn = self.db.begin_readwrite().unwrap();
-            txn.upsert::<AccountInfos>(address.into(), account_info.into())?;
-            txn.commit().unwrap();
+            match txn.upsert::<AccountInfos>(address.into(), account_info.into()) {
+                Ok(_) => txn.commit().unwrap(),
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
         }
         Ok(())
     }
 
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>> {
+    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
         // Read account from mdbx
         let read_value = {
             let txn = self.db.begin_read().unwrap();
             txn.get::<AccountInfos>(address.into())
         };
-        Ok(read_value?.map(|a| a.to()))
+        match read_value {
+            Ok(value) => Ok(value.map(|a| a.to())),
+            Err(err) => Err(StoreError::LibmdbxError(err)),
+        }
     }
 
-    fn set_value(&mut self, _key: Key, _value: Value) -> Result<()> {
+    fn set_value(&mut self, _key: Key, _value: Value) -> Result<(), StoreError> {
         todo!()
     }
 
-    fn get_value(&self, _key: Key) -> Result<Option<Value>> {
+    fn get_value(&self, _key: Key) -> Result<Option<Value>, StoreError> {
         todo!()
     }
 }

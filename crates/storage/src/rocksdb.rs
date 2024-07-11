@@ -1,6 +1,6 @@
 use super::{Key, StoreEngine, Value};
-use crate::rlp::account::{AccountInfoRLP, AddressRLP};
-use anyhow::Result;
+use crate::error::StoreError;
+use crate::rlp::{AccountInfoRLP, AddressRLP};
 use ethereum_rust_core::types::AccountInfo;
 use ethereum_types::Address;
 use libmdbx::orm::{Decodable, Encodable};
@@ -11,8 +11,12 @@ use tracing::log::error;
 
 #[derive(Debug)]
 enum StoreCommand {
-    Put(DbSelector, Key, Value, SyncSender<Result<()>>),
-    Get(DbSelector, Key, SyncSender<Result<Option<Value>>>),
+    Put(DbSelector, Key, Value, SyncSender<Result<(), StoreError>>),
+    Get(
+        DbSelector,
+        Key,
+        SyncSender<Result<Option<Value>, StoreError>>,
+    ),
 }
 
 #[derive(Debug)]
@@ -27,7 +31,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(path: &str) -> Result<Self> {
+    pub fn new(path: &str) -> Result<Self, StoreError> {
         let account_infos = rocksdb::DB::open_default(format!("{path}.account_infos.db"))?;
         let values = rocksdb::DB::open_default(format!("{path}.values.db"))?;
         let (command_sender, command_receiver): (Sender<StoreCommand>, Receiver<StoreCommand>) =
@@ -65,7 +69,11 @@ impl Store {
 }
 
 impl StoreEngine for Store {
-    fn add_account_info(&mut self, address: Address, account_info: AccountInfo) -> Result<()> {
+    fn add_account_info(
+        &mut self,
+        address: Address,
+        account_info: AccountInfo,
+    ) -> Result<(), StoreError> {
         let (reply_sender, reply_receiver) = sync_channel(0);
         let address_rlp: AddressRLP = address.into();
         let account_info_rlp: AccountInfoRLP = account_info.into();
@@ -78,7 +86,7 @@ impl StoreEngine for Store {
         reply_receiver.recv()?
     }
 
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>> {
+    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
         let (reply_sender, reply_receiver) = sync_channel(0);
         let address_rlp: AddressRLP = address.into();
         self.command_sender
@@ -90,12 +98,15 @@ impl StoreEngine for Store {
             .unwrap();
 
         // TODO: properly handle errors
-        reply_receiver.recv()??.map_or(Ok(None), |value| {
-            Ok(Some(AccountInfoRLP::decode(&value)?.to()))
-        })
+        reply_receiver
+            .recv()??
+            .map_or(Ok(None), |value| match AccountInfoRLP::decode(&value) {
+                Ok(value) => Ok(Some(value.to())),
+                Err(_) => Err(StoreError::DecodeError),
+            })
     }
 
-    fn set_value(&mut self, key: Key, value: Value) -> Result<()> {
+    fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError> {
         let (reply_sender, reply_receiver) = sync_channel(0);
         self.command_sender.send(StoreCommand::Put(
             DbSelector::Values,
@@ -106,7 +117,7 @@ impl StoreEngine for Store {
         reply_receiver.recv()?
     }
 
-    fn get_value(&self, key: Key) -> Result<Option<Vec<u8>>> {
+    fn get_value(&self, key: Key) -> Result<Option<Vec<u8>>, StoreError> {
         let (reply_sender, reply_receiver) = sync_channel(0);
 
         self.command_sender
