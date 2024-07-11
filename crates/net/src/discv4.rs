@@ -91,6 +91,7 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::FindNode(msg) => msg.encode(buf),
+            Message::ENRRequest(msg) => msg.encode(buf),
             Message::Neighbors(msg) => msg.encode(buf),
             _ => todo!(),
         }
@@ -417,6 +418,14 @@ impl RLPDecode for ENRRequestMessage {
     }
 }
 
+impl RLPEncode for ENRRequestMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.expiration)
+            .finish();
+    }
+}
+
 impl RLPEncode for Node {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
@@ -595,6 +604,26 @@ mod tests {
         let packet_type = "04";
         let encoded_msg = "f8a6f89ef84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666f84d84bebfbc3982765f82765fb84011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50850400e78bba";
         let expected = [hash, signature, packet_type, encoded_msg].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_enr_request_message() {
+        let expiration: u64 = 17195043770;
+        let msg = Message::ENRRequest(ENRRequestMessage { expiration });
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+        let mut buf = Vec::new();
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+        let hash = "ddb4faf81ed7bee047e42088a0efd01650c2191988c08c71dd10635573bee31f";
+        let signature = "ec86b35edf60470d81e9796bc4fad68c1d187266492662d91f56b7e42ed46b9317444a72172f13aa91af41ca7a4fec49d5619de9abc0be6c79da0d92bc1c9f3201";
+        let pkt_type = "05";
+        let encoded_message = "c6850400e78bba";
+        let expected = [hash, signature, pkt_type, encoded_message].concat();
 
         assert_eq!(result, expected);
     }
