@@ -1,7 +1,6 @@
-use thiserror::Error;
-
 #[cfg(feature = "rocksdb")]
 use std::sync::mpsc::{RecvError, SendError};
+use thiserror::Error;
 
 // TODO improve errors
 #[derive(Debug, Error)]

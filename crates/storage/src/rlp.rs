@@ -10,10 +10,13 @@ use libmdbx::orm::{Decodable, Encodable};
 // Account types
 pub type AddressRLP = Rlp<Address>;
 pub type AccountInfoRLP = Rlp<AccountInfo>;
-pub type AccountStorageKeyRLP = Rlp<Vec<u8>>;
-pub type AccountStorageValueRLP = Rlp<Vec<u8>>;
 pub type AccountCodeHashRLP = Rlp<Vec<u8>>;
 pub type AccountCodeRLP = Rlp<Vec<u8>>;
+
+// TODO: these structs were changed after a merge.
+// See if we can reuse Rlp struct
+pub struct AccountStorageKeyRLP(pub [u8; 32]);
+pub struct AccountStorageValueRLP(pub [u8; 32]);
 
 // Block types
 pub type BlockHeaderRLP = Rlp<BlockHeader>;
@@ -49,5 +52,33 @@ impl<T: Send + Sync> Encodable for Rlp<T> {
 
     fn encode(self) -> Self::Encoded {
         self.0
+    }
+}
+
+impl Encodable for AccountStorageKeyRLP {
+    type Encoded = [u8; 32];
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountStorageKeyRLP {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountStorageKeyRLP(b.try_into()?))
+    }
+}
+
+impl Encodable for AccountStorageValueRLP {
+    type Encoded = [u8; 32];
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountStorageValueRLP {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountStorageValueRLP(b.try_into()?))
     }
 }

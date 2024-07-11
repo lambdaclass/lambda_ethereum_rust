@@ -87,7 +87,7 @@ table!(
 );
 dupsort!(
     /// Account storages table.
-    ( AccountStorages ) AddressRLP[AccountStorageKeyRLP] => AccountStorageValueRLP
+    ( AccountStorages ) AddressRLP => (AccountStorageKeyRLP, AccountStorageValueRLP) [AccountStorageKeyRLP]
 );
 table!(
     /// Account codes table.

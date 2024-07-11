@@ -1,8 +1,15 @@
 # Lambda Ethereum Rust Execution Client
 
-# Roadmap
+[![Telegram Chat][tg-badge]][tg-url]
+[![rust](https://github.com/lambdaclass/ethereum_rust/actions/workflows/ci.yaml/badge.svg)](https://github.com/lambdaclass/ethereum_rust/actions/workflows/ci.yaml)
+[![license](https://img.shields.io/github/license/lambdaclass/ethereum_rust)](/LICENSE)
 
-## Milestone Zero (Setup)
+[tg-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Frust_ethereum%2F&logo=telegram&label=chat&color=neon
+[tg-url]: https://t.me/rust_ethereum
+
+## Roadmap
+
+### Milestone Zero (Setup)
 
 - Repository boilerplate
 - Http Server setup
@@ -10,7 +17,7 @@
     - `eth_chainId`
     - `engine_exchangeCapabilities`
 
-## First Milestone (Blocks)
+### First Milestone (Blocks)
 
 *Needs: RLP*
 
@@ -29,7 +36,7 @@
     - `eth_getTransactionByBlockHashAndIndex`
     - `eth_getTransactionByBlockNumberAndIndex`
 
-## Second Milestone (EVM)
+### Second Milestone (EVM)
 
 *Needs: rEVM integration, Patricia Merkle Tree*
 
@@ -42,7 +49,7 @@
     - `eth_getStorageAt`
     - `eth_getProof`
 
-## Third Milestone (Consensus)
+### Third Milestone (Consensus)
 
 *Needs: Block downloader, Blockchain tree*
 
@@ -53,7 +60,7 @@
     - `engine_forkchoiceUpdatedV3`
     - `engine_newPayloadV3` (full)
 
-## Fourth Milestone (Transactions)
+### Fourth Milestone (Transactions)
 
 *Needs: DevP2P*
 
@@ -68,19 +75,19 @@
     - `eth_createAccessList`
     - `eth_getTransactionReceipt`
 
-## Fifth Milestone
+### Fifth Milestone
 TBD
 
-# Usage
+## Usage
 
-## Build
+### Build
 
 To build the main executable and its crates, run:
 ```
 just build
 ```
 
-## Test
+### Test
 To run the tests from a crate, run:
 ```
 just test <crate>
