@@ -15,14 +15,14 @@ use crate::rlp::{
 use super::GenesisAccount;
 
 #[allow(unused)]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Account {
     pub info: AccountInfo,
     pub code: Bytes,
     pub storage: HashMap<H256, H256>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AccountInfo {
     pub code_hash: H256,
     pub balance: U256,
@@ -71,7 +71,6 @@ impl RLPDecode for AccountInfo {
         let (code_hash, decoder) = decoder.decode_field("code_hash")?;
         let (balance, decoder) = decoder.decode_field("balance")?;
         let (nonce, decoder) = decoder.decode_field("nonce")?;
-
         let account_info = AccountInfo {
             code_hash,
             balance,

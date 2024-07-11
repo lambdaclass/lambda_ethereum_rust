@@ -1,3 +1,7 @@
+use super::{
+    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
+    GAS_LIMIT_MINIMUM,
+};
 use crate::{
     rlp::{encode::RLPEncode, structs::Encoder},
     types::Receipt,
@@ -8,6 +12,8 @@ use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::Deserialize;
 use sha3::Keccak256;
+
+use std::cmp::{max, Ordering};
 
 use super::Transaction;
 
@@ -62,7 +68,7 @@ impl RLPEncode for BlockHeader {
             .encode_field(&self.timestamp)
             .encode_field(&self.extra_data)
             .encode_field(&self.prev_randao)
-            .encode_field(&self.nonce)
+            .encode_field(&self.nonce.to_be_bytes())
             .encode_field(&self.base_fee_per_gas)
             .encode_field(&self.withdrawals_root)
             .encode_field(&self.blob_gas_used)
@@ -195,8 +201,86 @@ impl RLPEncode for Withdrawal {
     }
 }
 
+// Checks that the gas_limit fits the gas bounds set by its parent block
+fn check_gas_limit(gas_limit: u64, parent_gas_limit: u64) -> bool {
+    let max_adjustment_delta = parent_gas_limit / GAS_LIMIT_ADJUSTMENT_FACTOR;
+
+    gas_limit < parent_gas_limit + max_adjustment_delta
+        && gas_limit > parent_gas_limit - max_adjustment_delta
+        && gas_limit >= GAS_LIMIT_MINIMUM
+}
+
+// Calculates the base fee for the current block based on its gas_limit and parent's gas and fee
+// Returns None if the block gas limit is not valid in relation to its parent's gas limit
+fn calculate_base_fee_per_gas(
+    block_gas_limit: u64,
+    parent_gas_limit: u64,
+    parent_gas_used: u64,
+    parent_base_fee_per_gas: u64,
+) -> Option<u64> {
+    // Check gas limit, if the check passes we can also rest assured that none of the
+    // following divisions will have zero as a divider
+    if !check_gas_limit(block_gas_limit, parent_gas_limit) {
+        return None;
+    }
+
+    let parent_gas_target = parent_gas_limit / ELASTICITY_MULTIPLIER;
+
+    Some(match parent_gas_used.cmp(&parent_gas_target) {
+        Ordering::Equal => parent_base_fee_per_gas,
+        Ordering::Greater => {
+            let gas_used_delta = parent_gas_used - parent_gas_target;
+
+            let parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta;
+            let target_fee_gas_delta = parent_fee_gas_delta / parent_gas_target;
+
+            let base_fee_per_gas_delta =
+                max(target_fee_gas_delta / BASE_FEE_MAX_CHANGE_DENOMINATOR, 1);
+
+            parent_base_fee_per_gas + base_fee_per_gas_delta
+        }
+        Ordering::Less => {
+            let gas_used_delta = parent_gas_target - parent_gas_used;
+
+            let parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta;
+            let target_fee_gas_delta = parent_fee_gas_delta / parent_gas_target;
+
+            let base_fee_per_gas_delta = target_fee_gas_delta / BASE_FEE_MAX_CHANGE_DENOMINATOR;
+
+            parent_base_fee_per_gas - base_fee_per_gas_delta
+        }
+    })
+}
+
+pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
+    if header.gas_used > header.gas_limit {
+        return false;
+    }
+    let expected_base_fee_per_gas = if let Some(base_fee) = calculate_base_fee_per_gas(
+        header.gas_limit,
+        parent_header.gas_limit,
+        parent_header.gas_used,
+        parent_header.base_fee_per_gas,
+    ) {
+        base_fee
+    } else {
+        return false;
+    };
+
+    expected_base_fee_per_gas == header.base_fee_per_gas
+        && header.timestamp > parent_header.timestamp
+        && header.number == parent_header.number + 1
+        && header.extra_data.len() <= 32
+        && header.difficulty.is_zero()
+        && header.nonce == 0
+        && header.ommers_hash == *DEFAULT_OMMERS_HASH
+        && header.parent_hash == parent_header.compute_block_hash()
+}
+
 #[cfg(test)]
 mod test {
+
+    use std::str::FromStr;
 
     use ethereum_types::H160;
     use hex_literal::hex;
@@ -226,5 +310,90 @@ mod test {
         ));
         let root = compute_withdrawals_root(&withdrawals);
         assert_eq!(root, expected_root);
+    }
+
+    #[test]
+    fn test_validate_block_header() {
+        let parent_block = BlockHeader {
+            parent_hash: H256::from_str(
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            ommers_hash: H256::from_str(
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            )
+            .unwrap(),
+            coinbase: Address::zero(),
+            state_root: H256::from_str(
+                "0x590245a249decc317041b8dc7141cec0559c533efb82221e4e0a30a6456acf8b",
+            )
+            .unwrap(),
+            transactions_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            receipt_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            logs_bloom: Bloom::from([0; 256]),
+            difficulty: U256::zero(),
+            number: 0,
+            gas_limit: 0x016345785d8a0000,
+            gas_used: 0,
+            timestamp: 0,
+            extra_data: Bytes::new(),
+            prev_randao: H256::zero(),
+            nonce: 0x0000000000000000,
+            base_fee_per_gas: 0x07,
+            withdrawals_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            blob_gas_used: 0x00,
+            excess_blob_gas: 0x00,
+            parent_beacon_block_root: H256::zero(),
+        };
+        let block = BlockHeader {
+            parent_hash: H256::from_str(
+                "0x1ac1bf1eef97dc6b03daba5af3b89881b7ae4bc1600dc434f450a9ec34d44999",
+            )
+            .unwrap(),
+            ommers_hash: H256::from_str(
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            )
+            .unwrap(),
+            coinbase: Address::from_str("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba").unwrap(),
+            state_root: H256::from_str(
+                "0x9de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9",
+            )
+            .unwrap(),
+            transactions_root: H256::from_str(
+                "0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d",
+            )
+            .unwrap(),
+            receipt_root: H256::from_str(
+                "0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa",
+            )
+            .unwrap(),
+            logs_bloom: Bloom::from([0; 256]),
+            difficulty: U256::zero(),
+            number: 1,
+            gas_limit: 0x016345785d8a0000,
+            gas_used: 0xa8de,
+            timestamp: 0x03e8,
+            extra_data: Bytes::new(),
+            prev_randao: H256::zero(),
+            nonce: 0x0000000000000000,
+            base_fee_per_gas: 0x07,
+            withdrawals_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            blob_gas_used: 0x00,
+            excess_blob_gas: 0x00,
+            parent_beacon_block_root: H256::zero(),
+        };
+        assert!(validate_block_header(&block, &parent_block))
     }
 }
