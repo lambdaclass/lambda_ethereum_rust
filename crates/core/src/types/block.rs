@@ -4,6 +4,7 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
+use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::Deserialize;
 use sha3::Keccak256;
@@ -161,6 +162,14 @@ impl RLPEncode for BlockBody {
             .encode_field(&self.ommers)
             .encode_field(&self.withdrawals)
             .finish();
+    }
+}
+
+impl BlockHeader {
+    pub fn compute_block_hash(&self) -> H256 {
+        let mut buf = vec![];
+        self.encode(&mut buf);
+        keccak(buf)
     }
 }
 
