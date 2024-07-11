@@ -66,12 +66,7 @@ async fn discover_peers(udp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
             Message::Neighbors(neighbors_msg) => {
                 let nodes = &neighbors_msg.nodes;
                 for node in nodes {
-                    let peer_data = PeerData {
-                        ip: node.ip,
-                        udp_port: node.udp_port,
-                        tcp_port: node.tcp_port,
-                        node_id: node.node_id,
-                    };
+                    let peer_data = PeerData::from(*node);
                     table.insert(peer_data);
                     let node_addr = SocketAddr::new(node.ip, node.udp_port);
                     ping(&udp_socket, udp_addr, node_addr, &signer).await;
