@@ -399,11 +399,11 @@ impl RLPDecode for Node {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ENRResponseMessage {
     request_hash: H256,
-    content: ENRResponseContent,
+    node_record: NodeRecord,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ENRResponseContent {
+pub struct NodeRecord {
     signature: H512,
     seq: u64,
     id: Option<String>,
@@ -420,22 +420,22 @@ impl RLPDecode for ENRResponseMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (request_hash, decoder) = decoder.decode_field("request_hash")?;
-        let (content, decoder): (ENRResponseContent, Decoder) = decoder.decode_field("content")?;
+        let (node_record, decoder): (NodeRecord, Decoder) = decoder.decode_field("node_record")?;
         let remaining = decoder.finish_unchecked();
         let response = ENRResponseMessage {
             request_hash,
-            content,
+            node_record,
         };
         Ok((response, remaining))
     }
 }
 
-impl RLPDecode for ENRResponseContent {
+impl RLPDecode for NodeRecord {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (signature, decoder) = decoder.decode_field("signature")?;
         let (seq, decoder) = decoder.decode_field("seq")?;
-        let content = ENRResponseContent {
+        let node_record = NodeRecord {
             signature,
             seq,
             id: None,
@@ -447,73 +447,70 @@ impl RLPDecode for ENRResponseContent {
             tcp6: None,
             udp6: None,
         };
-        let (content, decoder) = decode_enr_content(content, decoder);
+        let (node_record, decoder) = decode_node_record(node_record, decoder);
         let remaining = decoder.finish_unchecked();
-        Ok((content, remaining))
+        Ok((node_record, remaining))
     }
 }
 
-fn decode_enr_content(
-    mut content: ENRResponseContent,
-    decoder: Decoder,
-) -> (ENRResponseContent, Decoder) {
+fn decode_node_record(mut node_record: NodeRecord, decoder: Decoder) -> (NodeRecord, Decoder) {
     let (key, decoder): (Option<String>, Decoder) = decoder.decode_optional_field();
     if let Some(k) = key {
         match k.as_str() {
             "id" => {
                 let (id, decoder) = decoder.decode_optional_field();
-                content.id = id;
-                decode_enr_content(content, decoder)
+                node_record.id = id;
+                decode_node_record(node_record, decoder)
             }
             "secp256k1" => {
                 let (secp256k1, decoder) = decoder.decode_optional_field();
-                content.secp256k1 = secp256k1;
-                decode_enr_content(content, decoder)
+                node_record.secp256k1 = secp256k1;
+                decode_node_record(node_record, decoder)
             }
             "ip" => {
                 let (ip, decoder) = decoder.decode_optional_field();
-                content.ip = ip;
-                decode_enr_content(content, decoder)
+                node_record.ip = ip;
+                decode_node_record(node_record, decoder)
             }
             "tcp" => {
                 let (tcp, decoder) = decoder.decode_optional_field();
-                content.tcp = tcp;
-                if content.tcp6.is_none() {
-                    content.tcp6 = tcp;
+                node_record.tcp = tcp;
+                if node_record.tcp6.is_none() {
+                    node_record.tcp6 = tcp;
                 }
-                decode_enr_content(content, decoder)
+                decode_node_record(node_record, decoder)
             }
             "udp" => {
                 let (udp, decoder) = decoder.decode_optional_field();
-                content.udp = udp;
-                if content.udp6.is_none() {
-                    content.udp6 = udp;
+                node_record.udp = udp;
+                if node_record.udp6.is_none() {
+                    node_record.udp6 = udp;
                 }
-                decode_enr_content(content, decoder)
+                decode_node_record(node_record, decoder)
             }
             "ip6" => {
                 let (ip6, decoder) = decoder.decode_optional_field();
-                content.ip6 = ip6;
-                decode_enr_content(content, decoder)
+                node_record.ip6 = ip6;
+                decode_node_record(node_record, decoder)
             }
             "tcp6" => {
                 let (tcp6, decoder) = decoder.decode_optional_field();
-                content.tcp6 = tcp6;
-                decode_enr_content(content, decoder)
+                node_record.tcp6 = tcp6;
+                decode_node_record(node_record, decoder)
             }
             "udp6" => {
                 let (udp6, decoder) = decoder.decode_optional_field();
-                content.udp6 = udp6;
-                decode_enr_content(content, decoder)
+                node_record.udp6 = udp6;
+                decode_node_record(node_record, decoder)
             }
             _ => {
                 // ignore the field
                 let (_field, decoder): (Option<Vec<u8>>, Decoder) = decoder.decode_optional_field();
-                decode_enr_content(content, decoder)
+                decode_node_record(node_record, decoder)
             }
         }
     } else {
-        (content, decoder)
+        (node_record, decoder)
     }
 }
 
@@ -760,7 +757,7 @@ mod tests {
         );
         let ip = Some(Ipv4Addr::from_str("54.194.245.5").unwrap());
         let udp = Some(30303_u16);
-        let content = ENRResponseContent {
+        let node_record = NodeRecord {
             signature,
             seq,
             id,
@@ -774,7 +771,7 @@ mod tests {
         };
         let expected = Message::ENRResponse(ENRResponseMessage {
             request_hash,
-            content,
+            node_record,
         });
         assert_eq!(decoded, expected);
     }
