@@ -13,8 +13,6 @@ pub enum RLPDecodeError {
     UnexpectedList,
     #[error("UnexpectedString")]
     UnexpectedString,
-    #[error("Invalid transaction type")]
-    InvalidTransactionType,
     #[error("{0}")]
     Custom(String),
 }
