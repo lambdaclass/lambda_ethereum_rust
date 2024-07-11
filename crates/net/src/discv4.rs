@@ -92,6 +92,7 @@ impl Message {
             Message::Pong(msg) => msg.encode(buf),
             Message::FindNode(msg) => msg.encode(buf),
             Message::ENRRequest(msg) => msg.encode(buf),
+            Message::ENRResponse(msg) => msg.encode(buf),
             _ => todo!(),
         }
     }
@@ -543,6 +544,71 @@ impl RLPEncode for ENRRequestMessage {
     }
 }
 
+impl RLPEncode for ENRResponseMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.request_hash)
+            .encode_field(&self.node_record)
+            .finish();
+    }
+}
+
+impl RLPEncode for NodeRecord {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let encoder = structs::Encoder::new(buf)
+            .encode_field(&self.signature)
+            .encode_field(&self.seq);
+
+        let encoder = if let Some(id) = &self.id {
+            encoder.encode_field(&String::from("id")).encode_field(id)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(secp256k1) = &self.secp256k1 {
+            encoder
+                .encode_field(&String::from("secp256k1"))
+                .encode_field(secp256k1)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(ip) = &self.ip {
+            encoder.encode_field(&String::from("ip")).encode_field(ip)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(tcp) = &self.tcp {
+            encoder.encode_field(&String::from("tcp")).encode_field(tcp)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(udp) = &self.udp {
+            encoder.encode_field(&String::from("udp")).encode_field(udp)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(ip6) = &self.ip6 {
+            encoder.encode_field(&String::from("ip6")).encode_field(ip6)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(tcp6) = &self.tcp6 {
+            encoder
+                .encode_field(&String::from("tcp6"))
+                .encode_field(tcp6)
+        } else {
+            encoder
+        };
+        let encoder = if let Some(udp6) = &self.udp6 {
+            encoder
+                .encode_field(&String::from("udp6"))
+                .encode_field(udp6)
+        } else {
+            encoder
+        };
+        encoder.finish();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -694,6 +760,52 @@ mod tests {
         let encoded_message = "c6850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
 
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_enr_response() {
+        let request_hash =
+            H256::from_str("95988e38a078fa4ab57ee3aa9375dd29c9199285bdb4ac8b12704d602424aa74")
+                .unwrap();
+        let signature = H512::from_str("db791aa5185d27af8df4b5097e727094ea13144f9e3db9f7af67941039d822562e151a4207cdbf57b30909bcdcc4965ab62495c29600281ef1dcfe6c55d3287c").unwrap();
+        let seq = 0x018ec29b771d;
+        let id = Some(String::from("v4"));
+        let secp256k1 = Some(
+            H264::from_str("0293f28150c05d41963a2433eae7d16032e61575221cc1af5703107c29fa5dde9c")
+                .unwrap(),
+        );
+        let ip = Some(Ipv4Addr::from_str("34.238.17.241").unwrap());
+        let tcp = Some(0x766e_u16);
+        let udp = Some(0x766e_u16);
+        let node_record = NodeRecord {
+            signature,
+            seq,
+            id,
+            secp256k1,
+            ip,
+            tcp,
+            udp,
+            ip6: None,
+            tcp6: None,
+            udp6: None,
+        };
+        let msg = Message::ENRResponse(ENRResponseMessage {
+            request_hash,
+            node_record,
+        });
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+        let mut buf = Vec::new();
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+        let hash = "7fad7a9ccd5e34e274adffa14e00597f4a9ea192c6621fa76e7925cb878f2ea9";
+        let signature = "23c0c3de8607e44820d62c2653c81fb71786e639161cf0271fd7e345db2b534f4c1c5c5470714aed410787311f1917c35e43658aead7049342c47557498b461700";
+        let packet_type = "06";
+        let encoded_msg = "f8b4a095988e38a078fa4ab57ee3aa9375dd29c9199285bdb4ac8b12704d602424aa74f891b840db791aa5185d27af8df4b5097e727094ea13144f9e3db9f7af67941039d822562e151a4207cdbf57b30909bcdcc4965ab62495c29600281ef1dcfe6c55d3287c86018ec29b771d8269648276348269708422ee11f189736563703235366b31a10293f28150c05d41963a2433eae7d16032e61575221cc1af5703107c29fa5dde9c8374637082766e8375647082766e";
+        let expected = [hash, signature, packet_type, encoded_msg].concat();
         assert_eq!(result, expected);
     }
 
