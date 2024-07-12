@@ -375,6 +375,71 @@ pub fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeErr
     }
 }
 
+/// Splits an RLP item in two:
+/// - The first item including its prefix
+/// - The remaining bytes after the item
+/// It returns a 3-element tuple with the following elements:
+/// - A boolean indicating if the item is a list or not.
+/// - The payload of the item, including its prefix.
+/// - The remaining bytes after the item.
+pub fn get_item_with_prefix(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
+    if data.is_empty() {
+        return Err(RLPDecodeError::InvalidLength);
+    }
+
+    let first_byte = data[0];
+
+    match first_byte {
+        0..=0x7F => Ok((false, &data[..1], &data[1..])),
+        0x80..=0xB7 => {
+            let length = (first_byte - 0x80) as usize;
+            if data.len() < length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((false, &data[0..length + 1], &data[length + 1..]))
+        }
+        0xB8..=0xBF => {
+            let length_of_length = (first_byte - 0xB7) as usize;
+            if data.len() < length_of_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            let length_bytes = &data[1..length_of_length + 1];
+            let length = usize::from_be_bytes(static_left_pad(length_bytes)?);
+            if data.len() < length_of_length + length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((
+                false,
+                &data[0..length_of_length + length + 1],
+                &data[length_of_length + length + 1..],
+            ))
+        }
+        RLP_EMPTY_LIST..=0xF7 => {
+            let length = (first_byte - RLP_EMPTY_LIST) as usize;
+            if data.len() < length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((true, &data[0..length + 1], &data[length + 1..]))
+        }
+        0xF8..=0xFF => {
+            let list_length = (first_byte - 0xF7) as usize;
+            if data.len() < list_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            let length_bytes = &data[1..list_length + 1];
+            let payload_length = usize::from_be_bytes(static_left_pad(length_bytes)?);
+            if data.len() < list_length + payload_length + 1 {
+                return Err(RLPDecodeError::InvalidLength);
+            }
+            Ok((
+                true,
+                &data[0..list_length + payload_length + 1],
+                &data[list_length + payload_length + 1..],
+            ))
+        }
+    }
+}
+
 /// Decodes the payload of an RLP item from a slice of bytes.
 /// It returns a 2-element tuple with the following elements:
 /// - The payload of the item.
