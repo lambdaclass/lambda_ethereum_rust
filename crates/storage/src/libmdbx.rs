@@ -5,7 +5,7 @@ use crate::rlp::{
     AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
-use ethereum_rust_core::types::AccountInfo;
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
 use ethereum_types::Address;
 use libmdbx::{
@@ -57,10 +57,25 @@ impl StoreEngine for Store {
         }
     }
 
+    fn get_block_header(
+        &self,
+        block_number: u64,
+    ) -> std::result::Result<Option<BlockHeader>, StoreError> {
+        // Read block body from mdbx
+        let read_value = {
+            let txn = self.db.begin_read().unwrap();
+            txn.get::<Headers>(block_number.into())
+        };
+        match read_value {
+            Ok(value) => Ok(value.map(|a| a.to())),
+            Err(err) => Err(StoreError::LibmdbxError(err)),
+        }
+    }
+
     fn get_block_body(
         &self,
         block_number: u64,
-    ) -> std::result::Result<Option<ethereum_rust_core::types::BlockBody>, StoreError> {
+    ) -> std::result::Result<Option<BlockBody>, StoreError> {
         // Read block body from mdbx
         let read_value = {
             let txn = self.db.begin_read().unwrap();
