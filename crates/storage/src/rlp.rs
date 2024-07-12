@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{AccountInfo, BlockBody, BlockHeader, Receipt},
+    Address,
 };
-use ethereum_types::Address;
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
