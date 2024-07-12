@@ -57,6 +57,21 @@ impl StoreEngine for Store {
         }
     }
 
+    fn get_block_body(
+        &self,
+        block_number: u64,
+    ) -> std::result::Result<Option<ethereum_rust_core::types::BlockBody>, StoreError> {
+        // Read block body from mdbx
+        let read_value = {
+            let txn = self.db.begin_read().unwrap();
+            txn.get::<Bodies>(block_number.into())
+        };
+        match read_value {
+            Ok(value) => Ok(value.map(|a| a.to())),
+            Err(err) => Err(StoreError::LibmdbxError(err)),
+        }
+    }
+
     fn set_value(&mut self, _key: Key, _value: Value) -> Result<(), StoreError> {
         todo!()
     }

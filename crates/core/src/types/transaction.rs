@@ -116,12 +116,7 @@ impl Transaction {
 
 impl RLPEncode for Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        match self {
-            Transaction::LegacyTransaction(t) => t.encode(buf),
-            Transaction::EIP2930Transaction(t) => t.encode(buf),
-            Transaction::EIP1559Transaction(t) => t.encode(buf),
-            Transaction::EIP4844Transaction(t) => t.encode(buf),
-        };
+        self.encode_with_type(buf)
     }
 }
 

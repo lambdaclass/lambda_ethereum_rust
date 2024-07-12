@@ -86,7 +86,7 @@ impl RLPDecode for BlockHeader {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (parent_hash, decoder) = decoder.decode_field("parent_hash")?;
-        let (ommers_hash, decoder) = decoder.decode_field("parent_hash")?;
+        let (ommers_hash, decoder) = decoder.decode_field("ommers_hash")?;
         let (coinbase, decoder) = decoder.decode_field("coinbase")?;
         let (state_root, decoder) = decoder.decode_field("state_root")?;
         let (transactions_root, decoder) = decoder.decode_field("transactions_root")?;
@@ -226,6 +226,17 @@ impl RLPEncode for BlockBody {
             .encode_field(&self.withdrawals)
             .finish();
     }
+}
+
+impl RLPDecode for BlockBody {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (transactions, decoder) = decoder.decode_field("transactions")?;
+        let (ommers, decoder) = decoder.decode_field("ommers")?;
+        let (withdrawals, decoder) = decoder.decode_field("withdrawals")?;
+        Ok((BlockBody { transactions, ommers, withdrawals }, decoder.finish()?))
+    }
+
 }
 
 impl BlockHeader {
