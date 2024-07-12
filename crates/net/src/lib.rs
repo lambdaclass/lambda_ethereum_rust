@@ -1,21 +1,21 @@
-use bootnode::BootNode;
-use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
-use ethereum_rust_core::H512;
-use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
-use k256::elliptic_curve::sec1::ToEncodedPoint;
-use k256::elliptic_curve::PublicKey;
-use k256::SecretKey;
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
-use kademlia::{KademliaTable, PeerData};
-use keccak_hash::H256;
-use rlpx::ecies::RLPxConnection;
 use std::{
     net::SocketAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tokio::io::AsyncReadExt;
+
+use bootnode::BootNode;
+use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
+use ethereum_rust_core::H512;
+use k256::{
+    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
+    elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint, PublicKey},
+    SecretKey,
+};
+use kademlia::{KademliaTable, PeerData};
+use keccak_hash::H256;
+use rlpx::ecies::RLPxConnection;
 use tokio::{
-    io::AsyncWriteExt,
+    io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpSocket, UdpSocket},
     try_join,
 };
