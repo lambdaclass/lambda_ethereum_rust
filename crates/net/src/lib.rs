@@ -4,7 +4,7 @@ use std::{
 };
 
 use aes::{
-    cipher::{BlockEncrypt, KeyInit},
+    cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
     Aes256Enc,
 };
 use bootnode::BootNode;
@@ -16,8 +16,7 @@ use k256::{
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData};
-use keccak_hash::H256;
-use rlpx::ecies::{pubkey2id, RLPxConnection};
+use rlpx::ecies::RLPxConnection;
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -169,8 +168,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_tcp_addr = "127.0.0.1:51848";
-    let str_udp_addr = "127.0.0.1:60501";
+    let str_tcp_addr = "127.0.0.1:30304";
+    let str_udp_addr = "127.0.0.1:30304";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
@@ -220,11 +219,17 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
+    // Read the ack message's size
     stream.read_exact(&mut buf[..2]).await.unwrap();
     let auth_data = buf[..2].try_into().unwrap();
     let msg_size = u16::from_be_bytes(auth_data) as usize;
-    let msg = &mut buf[..msg_size];
-    stream.read_exact(msg).await.unwrap();
+
+    // Read the rest of the ack message
+    stream.read_exact(&mut buf[2..msg_size + 2]).await.unwrap();
+
+    let ack_message = buf[..msg_size + 2].to_vec();
+
+    let msg = &mut buf[2..msg_size + 2];
     conn.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
@@ -251,6 +256,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // let frame_size: [u8; 3] = frame_data.len().to_be_bytes()[5..8].try_into().unwrap();
     // // Pad to next multiple of 16
     // frame_data.resize(frame_data.len().next_multiple_of(16), 0);
+    // let header_data = (0_u8, 0_u8).encode_to_vec();
 
     // Receive the hello message
     let mut frame_header = [0; 32];
@@ -264,33 +270,36 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Validate MAC header
     // ingress-mac = keccak256.init((mac-secret ^ initiator-nonce) || ack)
-    let mut mac_hasher = Keccak256::new();
-    mac_hasher.update(handshake_data.mac_key ^ conn.nonce);
-    mac_hasher.update(ack_message);
+    let mut ingress_mac = Keccak256::new();
+    ingress_mac.update(handshake_data.mac_key ^ conn.nonce);
+    ingress_mac.update(&ack_message);
 
     // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
-    let mut header_mac_seed: [u8; 16] = mac_hasher.clone().finalize()[..16].try_into().unwrap();
+    let header_mac_seed = {
+        let mac_aes_cipher = Aes256Enc::new_from_slice(&handshake_data.mac_key.0).unwrap();
 
-    let mac_aes_cipher = Aes256Enc::new_from_slice(&handshake_data.mac_key.0).unwrap();
-    mac_aes_cipher.encrypt_block(&mut header_mac_seed.into());
-    header_mac_seed = (H128(header_mac_seed) ^ H128(header_ciphertext.try_into().unwrap())).0;
+        let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
+        let mut seed = mac_digest.into();
+        mac_aes_cipher.encrypt_block(&mut seed);
+        (H128(seed.into()) ^ H128(header_ciphertext.try_into().unwrap())).0
+    };
 
-    // egress-mac = keccak256.update(egress-mac, header-mac-seed)
-    mac_hasher.update(header_mac_seed);
+    // ingress-mac = keccak256.update(ingress-mac, header-mac-seed)
+    ingress_mac.update(header_mac_seed);
 
     // header-mac = keccak256.digest(egress-mac)[:16]
-    let expected_header_mac = H128(mac_hasher.finalize()[..16].try_into().unwrap());
+    let expected_header_mac = H128(ingress_mac.finalize()[..16].try_into().unwrap());
 
     assert_eq!(header_mac, expected_header_mac.0);
 
     info!("Header MAC is correct!");
 
-    // let aes_key = handshake_data.aes_key.0.into();
+    let aes_key = handshake_data.aes_key.0.into();
 
-    // let mut stream_cipher = Aes256Ctr64BE::new(&aes_key, &[0; 16].into());
-    // let header_text = header_ciphertext;
-    // stream_cipher.apply_keystream(header_text);
-    // info!("header_text: {:?}", header_text);
+    let mut stream_cipher = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key, &[0; 16].into());
+    let header_text = header_ciphertext;
+    stream_cipher.apply_keystream(header_text);
+    info!("header_text: {:?}", header_text);
 }
 
 #[cfg(test)]

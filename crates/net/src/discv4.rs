@@ -72,7 +72,7 @@ impl Message {
 
         self.encode_with_type(&mut data);
 
-        let digest = Keccak256::digest(&mut &data[signature_size..]);
+        let digest = Keccak256::digest(&data[signature_size..]);
 
         let (signature, recovery_id) = node_signer
             .sign_prehash_recoverable(&digest)
@@ -82,7 +82,7 @@ impl Message {
         data[..signature_size - 1].copy_from_slice(&b);
         data[signature_size - 1] = recovery_id.to_byte();
 
-        let hash = Keccak256::digest(&mut &data[..]);
+        let hash = Keccak256::digest(&data[..]);
         buf.put_slice(&hash);
         buf.put_slice(&data[..]);
     }

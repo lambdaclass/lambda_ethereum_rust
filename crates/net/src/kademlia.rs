@@ -1,6 +1,6 @@
 use crate::discv4::Node;
-use ethereum_rust_core::{H512, U256};
-use keccak_hash::keccak;
+use ethereum_rust_core::{H256, H512, U256};
+use sha3::{Digest, Keccak256};
 use std::net::IpAddr;
 
 const MAX_NODES_PER_BUCKET: usize = 16;
@@ -37,9 +37,9 @@ impl KademliaTable {
 /// and returns the corresponding bucket number
 /// <https://github.com/ethereum/devp2p/blob/master/discv4.md#node-identities>
 pub fn bucket_number(node_id_1: H512, node_id_2: H512) -> usize {
-    let hash_1 = keccak(node_id_1);
-    let hash_2 = keccak(node_id_2);
-    let xor = hash_1 ^ hash_2;
+    let hash_1 = Keccak256::digest(node_id_1);
+    let hash_2 = Keccak256::digest(node_id_2);
+    let xor = H256(hash_1.into()) ^ H256(hash_2.into());
     let distance = U256::from_big_endian(xor.as_bytes());
     distance.bits() - 1
 }

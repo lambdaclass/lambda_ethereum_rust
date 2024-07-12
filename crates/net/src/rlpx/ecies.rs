@@ -67,14 +67,11 @@ impl RLPxConnection {
         let mut rng = rand::thread_rng();
         let node_id = pubkey2id(&static_key.public_key());
 
-        // Generate a keypair just for this message.
-        let message_secret_key = SecretKey::random(&mut rng);
-
-        // Derive a shared secret for this message.
-        let message_secret = ecdh_xchng(&message_secret_key, remote_static_pubkey);
+        // Derive a shared secret from the static keys.
+        let static_shared_secret = ecdh_xchng(static_key, remote_static_pubkey);
 
         // Create the signature included in the message.
-        let signature = self.sign_shared_secret(message_secret.into());
+        let signature = self.sign_shared_secret(static_shared_secret.into());
 
         // Compose the auth message.
         let auth = AuthMessage::new(signature, node_id, self.nonce);
@@ -93,6 +90,12 @@ impl RLPxConnection {
             .try_into()
             .unwrap();
         let auth_size_bytes = auth_size.to_be_bytes();
+
+        // Generate a keypair just for this message.
+        let message_secret_key = SecretKey::random(&mut rng);
+
+        // Derive a shared secret for this message.
+        let message_secret = ecdh_xchng(&message_secret_key, remote_static_pubkey);
 
         // Derive the AES and MAC keys from the message secret.
         let mut secret_keys = [0; 32];
@@ -183,6 +186,14 @@ impl RLPxConnection {
         let ephemeral_key_secret =
             ecdh_xchng(&self.ephemeral_key, &ack.get_ephemeral_pubkey().unwrap());
 
+        println!(
+            "local_ephemeral_public_key: {:x}",
+            pubkey2id(&self.ephemeral_key.public_key())
+        );
+        // ad57a6adc787e0db24d734e4fc0f9de9add333e17dc09677719ff8ae86b5741725a7f8467a56b4a190808c42f83a833e0543a842a2b6684df847609b009e97e9
+        // ba202bf05245e569da208c195957cd0354e33ac429dcd1f596b59ce84977a40e 16718c27ef912689639dc28bc77dcf978803e0017093dc67c79852cdcb79352a
+        println!("ephemeral_key_secret: {:x}", H256(ephemeral_key_secret));
+
         // keccak256(nonce || initiator-nonce)
         let nonce = ack.nonce.0;
         let initiator_nonce = self.nonce.0;
@@ -268,7 +279,6 @@ pub(crate) struct AckMessage {
 }
 
 impl AckMessage {
-    #[allow(unused)]
     pub fn get_ephemeral_pubkey(&self) -> Option<PublicKey> {
         id2pubkey(self.ephemeral_pubkey)
     }
