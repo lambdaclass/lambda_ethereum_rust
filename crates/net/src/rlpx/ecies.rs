@@ -389,7 +389,13 @@ mod tests {
         assert_eq!(&conn.ephemeral_key.to_bytes()[..], &ephemeral_key[..]);
         assert_eq!(conn.nonce.0, nonce);
 
-        conn.decode_ack_message(&SecretKey::from_slice(&static_key).unwrap(), &mut msg);
+        let auth_data = msg[..2].try_into().unwrap();
+
+        conn.decode_ack_message(
+            &SecretKey::from_slice(&static_key).unwrap(),
+            &mut msg[2..],
+            auth_data,
+        );
 
         let handshake_data = conn.handshake_data.unwrap();
 
