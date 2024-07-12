@@ -59,6 +59,10 @@ impl RLPxConnection {
         remote_static_pubkey: &PublicKey,
         buf: &mut dyn BufMut,
     ) {
+        const SIGNATURE_SIZE: usize = 65;
+        const IV_SIZE: usize = 16;
+        const MAC_FOOTER_SIZE: usize = 32;
+
         let mut rng = rand::thread_rng();
         let node_id = pubkey2id(&static_key.public_key());
 
@@ -67,6 +71,8 @@ impl RLPxConnection {
 
         let signature = self.sign_shared_secret(message_secret.into());
 
+        // Pad with random amount of data. the amount needs to be at least 100 bytes to make
+        // the message distinguishable from pre-EIP-8 handshakes.
         let auth = AuthMessage::new(signature, node_id, self.nonce);
         let padding_length = rng.gen_range(100..=300);
 
@@ -74,8 +80,8 @@ impl RLPxConnection {
         auth.encode(&mut encoded_auth_msg);
         encoded_auth_msg.resize(encoded_auth_msg.len() + padding_length, 0);
 
-        let ecies_data_size = 65 + 16 + 32;
-        let auth_size: u16 = (encoded_auth_msg.len() + ecies_data_size)
+        let ecies_overhead = SIGNATURE_SIZE + IV_SIZE + MAC_FOOTER_SIZE;
+        let auth_size: u16 = (encoded_auth_msg.len() + ecies_overhead)
             .try_into()
             .unwrap();
         let auth_size_bytes = auth_size.to_be_bytes();
