@@ -213,9 +213,12 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
-    let read = stream.read(&mut buf).await.unwrap();
-    let msg = &mut buf[..read];
-    conn.decode_ack_message(&secret_key, msg);
+    stream.read_exact(&mut buf[..2]).await.unwrap();
+    let auth_data = buf[..2].try_into().unwrap();
+    let msg_size = u16::from_be_bytes(auth_data) as usize;
+    let msg = &mut buf[..msg_size];
+    stream.read_exact(msg).await.unwrap();
+    conn.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 }
 

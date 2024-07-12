@@ -66,31 +66,40 @@ impl RLPxConnection {
         let mut rng = rand::thread_rng();
         let node_id = pubkey2id(&static_key.public_key());
 
+        // Generate a keypair just for this message.
         let message_secret_key = SecretKey::random(&mut rng);
+
+        // Derive a shared secret for this message.
         let message_secret = ecdh_xchng(&message_secret_key, remote_static_pubkey);
 
+        // Create the signature included in the message.
         let signature = self.sign_shared_secret(message_secret.into());
+
+        // Compose the auth message.
+        let auth = AuthMessage::new(signature, node_id, self.nonce);
+
+        // RLP-encode the message.
+        let mut encoded_auth_msg = auth.encode_to_vec();
 
         // Pad with random amount of data. the amount needs to be at least 100 bytes to make
         // the message distinguishable from pre-EIP-8 handshakes.
-        let auth = AuthMessage::new(signature, node_id, self.nonce);
         let padding_length = rng.gen_range(100..=300);
-
-        let mut encoded_auth_msg = vec![];
-        auth.encode(&mut encoded_auth_msg);
         encoded_auth_msg.resize(encoded_auth_msg.len() + padding_length, 0);
 
+        // Precompute the size of the message. This is needed for computing the MAC.
         let ecies_overhead = SIGNATURE_SIZE + IV_SIZE + MAC_FOOTER_SIZE;
         let auth_size: u16 = (encoded_auth_msg.len() + ecies_overhead)
             .try_into()
             .unwrap();
         let auth_size_bytes = auth_size.to_be_bytes();
 
+        // Derive the AES and MAC keys from the message secret.
         let mut secret_keys = [0; 32];
         kdf(&message_secret, &mut secret_keys);
         let aes_key = &secret_keys[..16];
         let mac_key = sha256(&secret_keys[16..]);
 
+        // Use the AES secret to encrypt the auth message.
         let iv = H128::random_using(&mut rng);
         let mut aes_cipher = Aes128Ctr64BE::new_from_slices(aes_key, &iv.0).unwrap();
         aes_cipher
@@ -98,14 +107,16 @@ impl RLPxConnection {
             .unwrap();
         let encrypted_auth_msg = encoded_auth_msg;
 
+        // Use the MAC secret to compute the MAC.
         let r_public_key = message_secret_key.public_key().to_encoded_point(false);
-        let d = sha256_hmac(&mac_key, &[&iv.0, &encrypted_auth_msg], &auth_size_bytes);
+        let mac_footer = sha256_hmac(&mac_key, &[&iv.0, &encrypted_auth_msg], &auth_size_bytes);
 
+        // Write everything into the buffer.
         buf.put_slice(&auth_size_bytes);
         buf.put_slice(r_public_key.as_bytes());
         buf.put_slice(&iv.0);
         buf.put_slice(&encrypted_auth_msg);
-        buf.put_slice(&d);
+        buf.put_slice(&mac_footer);
     }
 
     fn sign_shared_secret(&self, shared_secret: H256) -> H520 {
@@ -119,37 +130,43 @@ impl RLPxConnection {
         H520(signature_bytes)
     }
 
-    pub fn decode_ack_message(&mut self, static_key: &SecretKey, msg: &mut [u8]) {
+    pub fn decode_ack_message(
+        &mut self,
+        static_key: &SecretKey,
+        msg: &mut [u8],
+        auth_data: [u8; 2],
+    ) {
         // TODO: return errors instead of panicking
         assert!(!self.is_connected(), "connection already established");
-        assert!(msg.len() > 2 + 65 + 16 + 32, "message is invalid");
-        let (ack_size_bytes, enc_auth_body_with_padding) = msg.split_at_mut(2);
-        let ack_size = u16::from_be_bytes(ack_size_bytes.try_into().unwrap());
+        assert!(msg.len() > 65 + 16 + 32, "message is too short");
 
-        // Discard any remaining bytes.
-        let (enc_auth_body, _rest) = enc_auth_body_with_padding.split_at_mut(ack_size as _);
-
-        let (pk, rest) = enc_auth_body.split_at_mut(65);
+        // Split the message into its components. General layout is:
+        // public-key (65) || iv (16) || ciphertext || mac (32)
+        let (pk, rest) = msg.split_at_mut(65);
         let (iv, rest) = rest.split_at_mut(16);
         let (c, d) = rest.split_at_mut(rest.len() - 32);
 
+        // Derive the message shared secret.
         let shared_secret = ecdh_xchng(static_key, &PublicKey::from_sec1_bytes(pk).unwrap());
 
+        // Derive the AES and MAC keys from the message shared secret.
         let mut buf = [0; 32];
         kdf(&shared_secret, &mut buf);
         let aes_key = &buf[..16];
         let mac_key = sha256(&buf[16..]);
 
-        let expected_d = sha256_hmac(&mac_key, &[iv, c], ack_size_bytes);
-
+        // Verify the MAC.
+        let expected_d = sha256_hmac(&mac_key, &[iv, c], &auth_data);
         assert_eq!(d, expected_d);
 
+        // Decrypt the message with the AES key.
         let mut stream_cipher = Aes128Ctr64BE::new_from_slices(aes_key, iv).unwrap();
-
         stream_cipher.try_apply_keystream(c).unwrap();
 
+        // RLP-decode the message.
         let (ack, _padding) = AckMessage::decode_unfinished(c).unwrap();
 
+        // Finish deriving and store handshake data to be used during further communication.
         let handshake_data = self.derive_secrets(ack);
         self.handshake_data.replace(handshake_data);
     }
