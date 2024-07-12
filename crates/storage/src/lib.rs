@@ -13,7 +13,7 @@ use self::libmdbx::Store as LibmdbxStore;
 use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader};
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader, BlockNumber};
 use ethereum_types::Address;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -44,11 +44,28 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain account info
     fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError>;
 
-    // Obtain block header
-    fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError>;
+    /// Add block header
+    fn add_block_header(
+        &self,
+        block_number: BlockNumber,
+        block_header: BlockHeader,
+    ) -> Result<(), StoreError>;
 
-    // Obtain block body
-    fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError>;
+    /// Obtain block header
+    fn get_block_header(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHeader>, StoreError>;
+
+    /// Add block body
+    fn add_block_body(
+        &self,
+        block_number: BlockNumber,
+        block_body: BlockBody,
+    ) -> Result<(), StoreError>;
+
+    /// Obtain block body
+    fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError>;
 
     /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
     fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;
@@ -117,7 +134,10 @@ impl Store {
             .get_account_info(address)
     }
 
-    pub fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
+    pub fn add_block_header(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHeader>, StoreError> {
         self.engine
             .clone()
             .lock()
@@ -125,7 +145,32 @@ impl Store {
             .get_block_header(block_number)
     }
 
-    pub fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError> {
+    pub fn get_block_header(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_block_header(block_number)
+    }
+
+    pub fn add_block_body(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockBody>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_block_body(block_number)
+    }
+
+    pub fn get_block_body(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockBody>, StoreError> {
         self.engine
             .clone()
             .lock()

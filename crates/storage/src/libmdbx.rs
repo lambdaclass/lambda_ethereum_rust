@@ -57,11 +57,27 @@ impl StoreEngine for Store {
         }
     }
 
+    fn add_block_header(
+        &self,
+        block_number: BlockNumber,
+        block_header: BlockHeader,
+    ) -> std::result::Result<(), StoreError> {
+        // Write block header to mdbx
+        {
+            let txn = self.db.begin_readwrite().unwrap();
+            match txn.upsert::<Headers>(block_number.into(), block_header.into()) {
+                Ok(_) => txn.commit().unwrap(),
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
+        }
+        Ok(())
+    }
+
     fn get_block_header(
         &self,
-        block_number: u64,
+        block_number: BlockNumber,
     ) -> std::result::Result<Option<BlockHeader>, StoreError> {
-        // Read block body from mdbx
+        // Read block header from mdbx
         let read_value = {
             let txn = self.db.begin_read().unwrap();
             txn.get::<Headers>(block_number.into())
@@ -72,9 +88,25 @@ impl StoreEngine for Store {
         }
     }
 
+    fn add_block_body(
+        &self,
+        block_number: BlockNumber,
+        block_body: BlockBody,
+    ) -> std::result::Result<(), StoreError> {
+        // Write block body to mdbx
+        {
+            let txn = self.db.begin_readwrite().unwrap();
+            match txn.upsert::<Bodies>(block_number.into(), block_body.into()) {
+                Ok(_) => txn.commit().unwrap(),
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
+        }
+        Ok(())
+    }
+
     fn get_block_body(
         &self,
-        block_number: u64,
+        block_number: BlockNumber,
     ) -> std::result::Result<Option<BlockBody>, StoreError> {
         // Read block body from mdbx
         let read_value = {
