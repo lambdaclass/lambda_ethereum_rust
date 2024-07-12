@@ -133,7 +133,7 @@ impl RLPDecode for Transaction {
             // First byte is a valid TransactionType
             Some(tx_type) if *tx_type < 0x7f => {
                 // Decode tx based on type
-                let tx_bytes = &rlp.as_ref()[1..];
+                let tx_bytes = &rlp[1..];
                 match *tx_type {
                     // Legacy
                     0x0 => LegacyTransaction::decode_unfinished(tx_bytes)
