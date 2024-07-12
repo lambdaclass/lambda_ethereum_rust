@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
+use serde::{ser::SerializeStruct, Serialize};
 use sha3::{Digest, Keccak256};
 
 use crate::rlp::{
@@ -570,6 +571,47 @@ fn recover_address(
     // Hash public key to obtain address
     let hash = Keccak256::new_with_prefix(&public.serialize_uncompressed()[1..]).finalize();
     Address::from_slice(&hash[12..])
+}
+
+// Serialization
+
+impl Serialize for TxKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+            match self {
+                TxKind::Call(address) =>  serializer.serialize_str(&format!("{:#x}", address)),
+                TxKind::Create => serializer.serialize_str(&""),
+            }
+    }
+}
+
+impl Serialize for TxType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        serializer.serialize_str(&format!("{:#x}", *self as u8))
+    }
+}
+
+impl Serialize for LegacyTransaction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        let mut struct_serializer = serializer.serialize_struct("LegacyTransaction", 11)?;
+        struct_serializer.serialize_field("type", &self.to)?;
+        struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
+        struct_serializer.serialize_field("to", &self.to)?;
+        struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas))?;
+        struct_serializer.serialize_field("value", &format!("{:#x}", self.value))?;
+        struct_serializer.serialize_field("input", &format!("{:#x}", self.data))?;
+        struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
+        struct_serializer.serialize_field("chainId", &format!("{:#x}", 1))?; // Mainnet as defaut. TODO: check this
+        struct_serializer.serialize_field("v", &format!("{:#x}", self.v))?;
+        struct_serializer.serialize_field("r", &format!("{:#x}", self.r))?;
+        struct_serializer.serialize_field("s", &format!("{:#x}", self.s))?;
+        struct_serializer.end()
+    }
 }
 
 #[cfg(test)]
