@@ -53,13 +53,13 @@ pub struct EIP2930Transaction {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
-    pub signer_nonce: u64,
+    pub nonce: u64,
     pub max_priority_fee_per_gas: u64,
     pub max_fee_per_gas: u64,
     pub gas_limit: u64,
-    pub destination: Address,
-    pub amount: U256,
-    pub payload: Bytes,
+    pub to: TxKind,
+    pub value: U256,
+    pub data: Bytes,
     pub access_list: Vec<(Address, Vec<H256>)>,
     pub signature_y_parity: bool,
     pub signature_r: U256,
@@ -190,13 +190,13 @@ impl RLPEncode for EIP1559Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.chain_id)
-            .encode_field(&self.signer_nonce)
+            .encode_field(&self.nonce)
             .encode_field(&self.max_priority_fee_per_gas)
             .encode_field(&self.max_fee_per_gas)
             .encode_field(&self.gas_limit)
-            .encode_field(&self.destination)
-            .encode_field(&self.amount)
-            .encode_field(&self.payload)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
             .encode_field(&self.access_list)
             .encode_field(&self.signature_y_parity)
             .encode_field(&self.signature_r)
@@ -290,14 +290,14 @@ impl RLPDecode for EIP1559Transaction {
     fn decode_unfinished(rlp: &[u8]) -> Result<(EIP1559Transaction, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (chain_id, decoder) = decoder.decode_field("chain_id")?;
-        let (signer_nonce, decoder) = decoder.decode_field("signer_nonce")?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
         let (max_priority_fee_per_gas, decoder) =
             decoder.decode_field("max_priority_fee_per_gas")?;
         let (max_fee_per_gas, decoder) = decoder.decode_field("max_fee_per_gas")?;
         let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
-        let (destination, decoder) = decoder.decode_field("destination")?;
-        let (amount, decoder) = decoder.decode_field("amount")?;
-        let (payload, decoder) = decoder.decode_field("payload")?;
+        let (to, decoder) = decoder.decode_field("to")?;
+        let (value, decoder) = decoder.decode_field("value")?;
+        let (data, decoder) = decoder.decode_field("data")?;
         let (access_list, decoder) = decoder.decode_field("access_list")?;
         let (signature_y_parity, decoder) = decoder.decode_field("signature_y_parity")?;
         let (signature_r, decoder) = decoder.decode_field("signature_r")?;
@@ -305,13 +305,13 @@ impl RLPDecode for EIP1559Transaction {
 
         let tx = EIP1559Transaction {
             chain_id,
-            signer_nonce,
+            nonce,
             max_priority_fee_per_gas,
             max_fee_per_gas,
             gas_limit,
-            destination,
-            amount,
-            payload,
+            to,
+            value,
+            data,
             access_list,
             signature_y_parity,
             signature_r,
@@ -404,13 +404,13 @@ impl Transaction {
                 let mut buf = vec![self.tx_type() as u8];
                 Encoder::new(&mut buf)
                     .encode_field(&tx.chain_id)
-                    .encode_field(&tx.signer_nonce)
+                    .encode_field(&tx.nonce)
                     .encode_field(&tx.max_priority_fee_per_gas)
                     .encode_field(&tx.max_fee_per_gas)
                     .encode_field(&tx.gas_limit)
-                    .encode_field(&tx.destination)
-                    .encode_field(&tx.amount)
-                    .encode_field(&tx.payload)
+                    .encode_field(&tx.to)
+                    .encode_field(&tx.value)
+                    .encode_field(&tx.data)
                     .encode_field(&tx.access_list)
                     .finish();
                 recover_address(
@@ -467,7 +467,7 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(tx) => tx.to.clone(),
             Transaction::EIP2930Transaction(tx) => tx.to.clone(),
-            Transaction::EIP1559Transaction(tx) => TxKind::Call(tx.destination),
+            Transaction::EIP1559Transaction(tx) => tx.to.clone(),
             Transaction::EIP4844Transaction(tx) => TxKind::Call(tx.to),
         }
     }
@@ -476,7 +476,7 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(tx) => tx.value,
             Transaction::EIP2930Transaction(tx) => tx.value,
-            Transaction::EIP1559Transaction(tx) => tx.amount,
+            Transaction::EIP1559Transaction(tx) => tx.value,
             Transaction::EIP4844Transaction(tx) => tx.value,
         }
     }
@@ -512,7 +512,7 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(tx) => tx.nonce,
             Transaction::EIP2930Transaction(tx) => tx.nonce,
-            Transaction::EIP1559Transaction(tx) => tx.signer_nonce,
+            Transaction::EIP1559Transaction(tx) => tx.nonce,
             Transaction::EIP4844Transaction(tx) => tx.nonce,
         }
     }
@@ -521,7 +521,7 @@ impl Transaction {
         match self {
             Transaction::LegacyTransaction(tx) => &tx.data,
             Transaction::EIP2930Transaction(tx) => &tx.data,
-            Transaction::EIP1559Transaction(tx) => &tx.payload,
+            Transaction::EIP1559Transaction(tx) => &tx.data,
             Transaction::EIP4844Transaction(tx) => &tx.data,
         }
     }
@@ -649,7 +649,6 @@ mod serde_impl {
             struct_serializer.serialize_field("value", &self.value)?;
             struct_serializer.serialize_field("input", &self.data)?;
             struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
-            struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
             struct_serializer.serialize_field(
                 "accessList",
                 &self
@@ -658,6 +657,44 @@ mod serde_impl {
                     .map(|tuple| AccessListEntry::from(tuple))
                     .collect::<Vec<_>>(),
             )?;
+            struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
+            struct_serializer
+                .serialize_field("yParity", &format!("{:#x}", self.signature_y_parity as u8))?;
+            struct_serializer.serialize_field("r", &self.signature_r)?;
+            struct_serializer.serialize_field("s", &self.signature_s)?;
+            struct_serializer.end()
+        }
+    }
+
+    impl Serialize for EIP1559Transaction {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut struct_serializer = serializer.serialize_struct("Eip1559Transaction", 14)?;
+            struct_serializer.serialize_field("type", &TxType::EIP1559)?;
+            struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
+            struct_serializer.serialize_field("to", &self.to)?;
+            struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas_limit))?;
+            struct_serializer.serialize_field("value", &self.value)?;
+            struct_serializer.serialize_field("input", &self.data)?;
+            struct_serializer.serialize_field(
+                "maxPriorityFeePerGas",
+                &format!("{:#x}", self.max_priority_fee_per_gas),
+            )?;
+            struct_serializer
+                .serialize_field("maxFeePerGas", &format!("{:#x}", self.max_fee_per_gas))?;
+            struct_serializer
+                .serialize_field("gasPrice", &format!("{:#x}", self.max_fee_per_gas))?;
+            struct_serializer.serialize_field(
+                "accessList",
+                &self
+                    .access_list
+                    .iter()
+                    .map(|tuple| AccessListEntry::from(tuple))
+                    .collect::<Vec<_>>(),
+            )?;
+            struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
             struct_serializer
                 .serialize_field("yParity", &format!("{:#x}", self.signature_y_parity as u8))?;
             struct_serializer.serialize_field("r", &self.signature_r)?;
@@ -752,14 +789,14 @@ mod tests {
         let encoded_tx_bytes = hex::decode(encoded_tx).unwrap();
         let tx = EIP1559Transaction::decode(&encoded_tx_bytes).unwrap();
         let expected_tx = EIP1559Transaction {
-            signer_nonce: 0,
+            nonce: 0,
             max_fee_per_gas: 78,
             max_priority_fee_per_gas: 17,
-            destination: Address::from_slice(
+            to: TxKind::Call(Address::from_slice(
                 &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
-            ),
-            amount: 3000000000000000_u64.into(),
-            payload: Bytes::new(),
+            )),
+            value: 3000000000000000_u64.into(),
+            data: Bytes::new(),
             signature_r: U256::from_str_radix(
                 "151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65d",
                 16,
