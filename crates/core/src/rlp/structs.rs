@@ -178,6 +178,19 @@ impl<'a> Encoder<'a> {
         self
     }
 
+    /// If `Some`, stores the key and the value, else does nothing
+    pub fn encode_optional_key_value_pair<T: RLPEncode>(
+        mut self,
+        key: String,
+        opt_value: &Option<T>,
+    ) -> Self {
+        if let Some(value) = opt_value {
+            <String>::encode(&key, &mut self.temp_buf);
+            <T as RLPEncode>::encode(value, &mut self.temp_buf);
+        }
+        self
+    }
+
     /// Finishes encoding the struct and writes the result to the buffer.
     pub fn finish(self) {
         encode_length(self.temp_buf.len(), self.buf);
