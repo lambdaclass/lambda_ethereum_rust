@@ -12,7 +12,8 @@ use crate::rlp::{
     structs::{Decoder, Encoder},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(untagged)]
 pub enum Transaction {
     LegacyTransaction(LegacyTransaction),
     EIP2930Transaction(EIP2930Transaction),
