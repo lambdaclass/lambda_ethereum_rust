@@ -1,3 +1,4 @@
+mod errors;
 mod execution_result;
 
 use crate::types::TxKind;
@@ -18,6 +19,7 @@ use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
 use revm::primitives::TxKind as RevmTxKind;
 // Export needed types
+pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
 
@@ -26,7 +28,7 @@ pub fn execute_tx(
     header: &BlockHeader,
     pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
-) -> ExecutionResult {
+) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
     let cache_state = cache_state(pre);
@@ -43,8 +45,8 @@ pub fn execute_tx(
         .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .append_handler_register(inspector_handle_register)
         .build();
-    let tx_result = evm.transact().unwrap();
-    tx_result.result.into()
+    let tx_result = evm.transact().map_err(EvmError::from)?;
+    Ok(tx_result.result.into())
 }
 
 fn cache_state(pre: &HashMap<Address, Account>) -> CacheState {
