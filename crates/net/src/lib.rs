@@ -8,8 +8,12 @@ use aes::{
     Aes256Enc,
 };
 use bootnode::BootNode;
+use bytes::Bytes;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
-use ethereum_rust_core::{H128, H256, H512};
+use ethereum_rust_core::{
+    rlp::{encode::RLPEncode, structs::Decoder},
+    H128, H256, H512,
+};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint, PublicKey},
@@ -258,9 +262,10 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // frame_data.resize(frame_data.len().next_multiple_of(16), 0);
     // let header_data = (0_u8, 0_u8).encode_to_vec();
 
-    // Receive the hello message
+    // Receive the hello message's frame
     let mut frame_header = [0; 32];
     stream.read_exact(&mut frame_header).await.unwrap();
+    // Both are padded to the block's size (16 bytes)
     let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
     info!("Received header!");
 
@@ -288,7 +293,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     ingress_mac.update(header_mac_seed);
 
     // header-mac = keccak256.digest(egress-mac)[:16]
-    let expected_header_mac = H128(ingress_mac.finalize()[..16].try_into().unwrap());
+    let expected_header_mac = H128(ingress_mac.clone().finalize()[..16].try_into().unwrap());
 
     assert_eq!(header_mac, expected_header_mac.0);
 
@@ -299,7 +304,59 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let mut stream_cipher = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key, &[0; 16].into());
     let header_text = header_ciphertext;
     stream_cipher.apply_keystream(header_text);
-    info!("header_text: {:?}", header_text);
+
+    // header-data = [capability-id, context-id]
+    // Both are unused, and always zero
+    assert_eq!(&header_text[3..6], &(0_u8, 0_u8).encode_to_vec());
+
+    let frame_size = u32::from_be_bytes([0, header_text[0], header_text[1], header_text[2]])
+        .try_into()
+        .unwrap();
+    // Receive the hello message
+    let mut frame_data = vec![0; frame_size + 32];
+    stream.read_exact(&mut frame_data).await.unwrap();
+    let (frame_ciphertext, frame_mac) = frame_data.split_at_mut(frame_size);
+
+    //   check MAC
+    ingress_mac.update(&frame_ciphertext);
+    let frame_mac_seed = {
+        let mac_aes_cipher = Aes256Enc::new_from_slice(&handshake_data.mac_key.0).unwrap();
+
+        let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
+        let mut seed = mac_digest.into();
+        mac_aes_cipher.encrypt_block(&mut seed);
+        (H128(seed.into()) ^ H128(mac_digest)).0
+    };
+    ingress_mac.update(frame_mac_seed);
+    let expected_frame_mac: [u8; 16] = ingress_mac.finalize()[..16].try_into().unwrap();
+
+    assert_eq!(frame_mac, expected_frame_mac);
+
+    // decrypt frame
+    stream_cipher.apply_keystream(frame_ciphertext);
+
+    let frame_data = &*frame_ciphertext;
+
+    // decode hello message: [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeId: B_64, ...]
+    let decoder = Decoder::new(frame_data).unwrap();
+    let (protocol_version, decoder): (u64, _) = decoder.decode_field("protocolVersion").unwrap();
+    let (client_id, decoder): (String, _) = decoder.decode_field("clientId").unwrap();
+
+    // [[cap1, capVersion1], [cap2, capVersion2], ...]
+    let (capabilities, decoder): (Vec<(Bytes, u64)>, _) =
+        decoder.decode_field("capabilities").unwrap();
+
+    // This field should be ignored
+    let (_listen_port, decoder): (u16, _) = decoder.decode_field("listenPort").unwrap();
+    let (node_id, decoder): (H512, _) = decoder.decode_field("nodeId").unwrap();
+
+    // Implementations must ignore any additional list elements
+    let _padding = decoder.finish_unchecked();
+
+    info!(
+        "Received hello message v{protocol_version}, from client: '{client_id}', 
+        with id: {node_id}, with supported capabilities: {capabilities:?}"
+    );
 }
 
 #[cfg(test)]
