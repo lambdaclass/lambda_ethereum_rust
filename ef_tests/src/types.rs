@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransacion,
+    Transaction as ethereum_rustTransacion, TxKind,
 };
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 use serde::{Deserialize, Serialize};
@@ -164,16 +164,16 @@ impl From<Transaction> for EIP1559Transaction {
         EIP1559Transaction {
             // Note: gas_price is not used in this conversion as it is not part of EIP1559Transaction, this could be a problem
             chain_id: val.chain_id.map(|id| id.as_u64()).unwrap_or(1 /*mainnet*/), // TODO: Consider converting this into Option
-            signer_nonce: val.nonce.as_u64(),
+            nonce: val.nonce.as_u64(),
             max_priority_fee_per_gas: val.max_priority_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             max_fee_per_gas: val
                 .max_fee_per_gas
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(), // TODO: Consider converting this into Option
             gas_limit: val.gas_limit.as_u64(),
-            destination: val.to,
-            amount: val.value,
-            payload: val.data,
+            to: TxKind::Call(val.to),
+            value: val.value,
+            data: val.data,
             access_list: val
                 .access_list
                 .unwrap_or_default()
@@ -193,7 +193,7 @@ impl From<Transaction> for LegacyTransaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas: val.gas_limit.as_u64(),
-            to: ethereum_rust_core::types::TxKind::Call(val.to),
+            to: TxKind::Call(val.to),
             value: val.value,
             data: val.data,
             v: val.v,
