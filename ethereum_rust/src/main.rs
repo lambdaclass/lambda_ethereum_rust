@@ -1,10 +1,10 @@
 use ethereum_rust_core::types::Genesis;
 use ethereum_rust_net::bootnode::BootNode;
+use ethereum_rust_storage::{EngineType, Store};
 use std::{
     io::{self, BufReader},
     net::{SocketAddr, ToSocketAddrs},
 };
-use ethereum_rust_storage::{EngineType, Store};
 use tokio::try_join;
 use tracing::{warn, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -72,7 +72,7 @@ async fn main() {
 
     let _genesis = read_genesis_file(genesis_file_path);
 
-    let storage =  Store::new("temp.json", EngineType::InMemory).unwrap();
+    let storage = Store::new("temp.json", EngineType::InMemory).unwrap();
     let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, storage);
     let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
