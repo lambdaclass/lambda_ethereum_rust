@@ -8,7 +8,7 @@ use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
     compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, EIP2930Transaction,
-    LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+    EIP4844Transaction, LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -81,7 +81,13 @@ impl EncodedTransaction {
                     0x2 => {
                         EIP1559Transaction::decode(tx_bytes).map(Transaction::EIP1559Transaction)
                     }
-                    _ => unimplemented!("We don't know this tx type yet"),
+                    // EIP4844
+                    0x3 => {
+                        EIP4844Transaction::decode(tx_bytes).map(Transaction::EIP4844Transaction)
+                    }
+                    ty => Err(RLPDecodeError::Custom(format!(
+                        "Invalid transaction type: {ty}"
+                    ))),
                 }
             }
             // LegacyTransaction
