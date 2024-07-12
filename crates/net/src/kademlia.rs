@@ -1,3 +1,4 @@
+use crate::discv4::Node;
 use ethereum_rust_core::{H512, U256};
 use keccak_hash::keccak;
 use std::net::IpAddr;
@@ -50,4 +51,15 @@ pub struct PeerData {
     pub udp_port: u16,
     pub tcp_port: u16,
     pub node_id: H512,
+}
+
+impl From<Node> for PeerData {
+    fn from(node: Node) -> Self {
+        Self {
+            ip: node.ip,
+            udp_port: node.udp_port,
+            tcp_port: node.tcp_port,
+            node_id: node.node_id,
+        }
+    }
 }

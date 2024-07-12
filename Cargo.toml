@@ -21,7 +21,7 @@ ethereum_rust-net = { path = "./crates/net" }
 ethereum_rust-rpc = { path = "./crates/rpc" }
 ethereum_rust-storage = { path = "./crates/storage" }
 
-tracing = "0.1"
+tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
 
 serde = { version = "1.0.203", features = ["derive"] }
@@ -32,3 +32,5 @@ tokio = { version = "1.38.0", features = ["full"] }
 thiserror = "1.0.61"
 hex = "0.4.3"
 lazy_static = "1.5.0"
+patricia-merkle-tree = { git = "https://github.com/lambdaclass/merkle_patricia_tree.git" }
+sha3 = "0.10.8"

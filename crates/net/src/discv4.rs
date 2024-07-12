@@ -8,11 +8,12 @@ use ethereum_rust_core::rlp::{
 };
 use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Packet {
     hash: H256,
     signature: H520,
@@ -95,6 +96,7 @@ impl Message {
             Message::Pong(msg) => msg.encode(buf),
             Message::FindNode(msg) => msg.encode(buf),
             Message::ENRRequest(msg) => msg.encode(buf),
+            Message::Neighbors(msg) => msg.encode(buf),
             _ => todo!(),
         }
     }
@@ -150,6 +152,12 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
+impl Endpoint {
+    pub fn tcp_address(&self) -> Option<SocketAddr> {
+        (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
+    }
+}
+
 impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
@@ -183,12 +191,12 @@ pub(crate) struct PingMessage {
     /// The endpoint of the sender.
     pub from: Endpoint,
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PingMessage {
@@ -227,10 +235,10 @@ impl RLPEncode for PingMessage {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FindNodeMessage {
     /// The target is a 64-byte secp256k1 public key.
-    target: H512,
+    pub target: H512,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
 }
 
 impl FindNodeMessage {
@@ -285,14 +293,14 @@ impl RLPDecode for PingMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The hash of the corresponding ping packet.
-    ping_hash: H256,
+    pub ping_hash: H256,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PongMessage {
@@ -377,6 +385,15 @@ impl RLPDecode for NeighborsMessage {
 
         let neighbors = NeighborsMessage::new(nodes, expiration);
         Ok((neighbors, remaining))
+    }
+}
+
+impl RLPEncode for NeighborsMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.nodes)
+            .encode_field(&self.expiration)
+            .finish();
     }
 }
 
@@ -484,6 +501,17 @@ impl RLPEncode for ENRRequestMessage {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
             .encode_field(&self.expiration)
+            .finish();
+    }
+}
+
+impl RLPEncode for Node {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.ip)
+            .encode_field(&self.udp_port)
+            .encode_field(&self.tcp_port)
+            .encode_field(&self.node_id)
             .finish();
     }
 }
@@ -621,6 +649,43 @@ mod tests {
         let pkt_type = "03";
         let encoded_message = "f848b840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_neighbors_message() {
+        let expiration: u64 = 17195043770;
+        let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let node_1 = Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_1,
+        };
+
+        let node_id_2 = H512::from_str("11f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50").unwrap();
+        let node_2 = Node {
+            ip: "190.191.188.57".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_2,
+        };
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+        let msg = Message::Neighbors(NeighborsMessage::new(vec![node_1, node_2], expiration));
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+
+        let hash = "a009d1dae92e9b3f6e48811ba70c1fec1a9d6f818139604b0e3abcaeabb74850";
+        let signature = "f996d31ba3a409ba3c64121d8afa70ef10553d4da327594ac63225b53a34906d1e4d45312771d7bcf6390ef541157e688c7db946295c2d0712c50698a0fb8c9b00";
+        let packet_type = "04";
+        let encoded_msg = "f8a6f89ef84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666f84d84bebfbc3982765f82765fb84011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50850400e78bba";
+        let expected = [hash, signature, packet_type, encoded_msg].concat();
 
         assert_eq!(result, expected);
     }
