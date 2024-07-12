@@ -1,3 +1,4 @@
+use bytes::Buf;
 use bytes::BufMut;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::{
@@ -426,6 +427,7 @@ pub struct ENRResponseMessage {
 pub struct NodeRecord {
     signature: H512,
     seq: u64,
+    id: String,
     pub pairs: Vec<(Bytes, Bytes)>,
 }
 
@@ -452,15 +454,23 @@ impl RLPDecode for NodeRecord {
         let (signature, decoder) = decoder.decode_field("signature")?;
         let (seq, decoder) = decoder.decode_field("seq")?;
         let (pairs, decoder) = decode_node_record_optional_fields(vec![], decoder);
-        let remaining = decoder.finish()?;
 
-        let node_record = NodeRecord {
-            signature,
-            seq,
-            pairs,
-        };
-
-        Ok((node_record, remaining))
+        // all fields in pairs are optional except for id
+        let id_pair = pairs.iter().find(|(k, _v)| k.eq("id".as_bytes()));
+        if let Some((_key, id)) = id_pair {
+            let node_record = NodeRecord {
+                signature,
+                seq,
+                id: String::decode(&id).unwrap(),
+                pairs,
+            };
+            let remaining = decoder.finish()?;
+            Ok((node_record, remaining))
+        } else {
+            Err(RLPDecodeError::Custom(
+                "Invalid node record, 'id' field missing".into(),
+            ))
+        }
     }
 }
 
@@ -812,6 +822,7 @@ mod tests {
         let node_record = NodeRecord {
             signature,
             seq,
+            id: String::from("v4"),
             pairs,
         };
         let expected = Message::ENRResponse(ENRResponseMessage {
