@@ -467,14 +467,14 @@ impl RLPDecode for NodeRecord {
 /// The NodeRecord optional fields are encoded as key/value pairs, according to the documentation
 /// <https://github.com/ethereum/devp2p/blob/master/enr.md#record-structure>
 /// This function returns a vector with (key, value) tuples. Both keys and values are stored as Bytes.
-/// Values are the actual RLP encoding of the field including the prefix so it can be decoded as T::decode(value)
+/// Each value is the actual RLP encoding of the field including its prefix so it can be decoded as T::decode(value)
 fn decode_node_record_optional_fields(
     mut pairs: Vec<(Bytes, Bytes)>,
     decoder: Decoder,
 ) -> (Vec<(Bytes, Bytes)>, Decoder) {
     let (key, decoder): (Option<Bytes>, Decoder) = decoder.decode_optional_field();
     if let Some(k) = key {
-        let (value, decoder): (Vec<u8>, Decoder) = decoder.decode_unknown_field().unwrap();
+        let (value, decoder): (Vec<u8>, Decoder) = decoder.get_encoded_item().unwrap();
         pairs.push((k, Bytes::from(value)));
         decode_node_record_optional_fields(pairs, decoder)
     } else {
