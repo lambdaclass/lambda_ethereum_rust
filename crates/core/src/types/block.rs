@@ -166,7 +166,7 @@ impl BlockBody {
                 // Value: tx_type || RLP(tx)  if tx_type != 0
                 //                   RLP(tx)  else
                 let mut v = Vec::new();
-                tx.encode_with_type(&mut v);
+                tx.encode(&mut v);
 
                 (k, v)
             })
@@ -234,9 +234,15 @@ impl RLPDecode for BlockBody {
         let (transactions, decoder) = decoder.decode_field("transactions")?;
         let (ommers, decoder) = decoder.decode_field("ommers")?;
         let (withdrawals, decoder) = decoder.decode_field("withdrawals")?;
-        Ok((BlockBody { transactions, ommers, withdrawals }, decoder.finish()?))
+        Ok((
+            BlockBody {
+                transactions,
+                ommers,
+                withdrawals,
+            },
+            decoder.finish()?,
+        ))
     }
-
 }
 
 impl BlockHeader {
