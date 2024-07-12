@@ -275,6 +275,25 @@ impl RLPEncode for Withdrawal {
     }
 }
 
+impl RLPDecode for Withdrawal {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (index, decoder) = decoder.decode_field("index")?;
+        let (validator_index, decoder) = decoder.decode_field("validator_index")?;
+        let (address, decoder) = decoder.decode_field("address")?;
+        let (amount, decoder) = decoder.decode_field("amount")?;
+        Ok((
+            Withdrawal {
+                index,
+                validator_index,
+                address,
+                amount,
+            },
+            decoder.finish()?,
+        ))
+    }
+}
+
 // Checks that the gas_limit fits the gas bounds set by its parent block
 fn check_gas_limit(gas_limit: u64, parent_gas_limit: u64) -> bool {
     let max_adjustment_delta = parent_gas_limit / GAS_LIMIT_ADJUSTMENT_FACTOR;
