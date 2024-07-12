@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransacion, TxKind,
+    Transaction as ethereum_rustTransaction, TxKind,
 };
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 use serde::{Deserialize, Serialize};
@@ -147,14 +147,14 @@ impl From<Header> for BlockHeader {
     }
 }
 
-impl From<Transaction> for ethereum_rustTransacion {
+impl From<Transaction> for ethereum_rustTransaction {
     fn from(val: Transaction) -> Self {
         match val.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
-                2 => ethereum_rustTransacion::EIP1559Transaction(val.into()),
+                2 => ethereum_rustTransaction::EIP1559Transaction(val.into()),
                 _ => unimplemented!(),
             },
-            None => ethereum_rustTransacion::LegacyTransaction(val.into()),
+            None => ethereum_rustTransaction::LegacyTransaction(val.into()),
         }
     }
 }
