@@ -9,6 +9,9 @@ use ethereum_rust_core::rlp::{
 use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
 use std::net::IpAddr;
+
+const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;
+
 #[allow(unused)]
 pub struct Packet {
     hash: H256,
@@ -425,15 +428,14 @@ impl RLPDecode for ENRResponseMessage {
 
 impl RLPDecode for NodeRecord {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if rlp.len() > 300 {
-            return Err(RLPDecodeError::Custom(
-                "Invalid NodeRecord RLP encoding. Packet is too big".into(),
-            ));
+        if rlp.len() > MAX_NODE_RECORD_ENCODED_SIZE {
+            return Err(RLPDecodeError::InvalidLength);
         }
         let decoder = Decoder::new(rlp)?;
         let (signature, decoder) = decoder.decode_field("signature")?;
         let (seq, decoder) = decoder.decode_field("seq")?;
-        let pairs = decode_node_record_optional_fields(vec![], decoder);
+        let (pairs, decoder) = decode_node_record_optional_fields(vec![], decoder);
+        let remaining = decoder.finish()?;
 
         let node_record = NodeRecord {
             signature,
@@ -441,7 +443,7 @@ impl RLPDecode for NodeRecord {
             pairs,
         };
 
-        Ok((node_record, &[]))
+        Ok((node_record, remaining))
     }
 }
 
@@ -450,14 +452,14 @@ impl RLPDecode for NodeRecord {
 fn decode_node_record_optional_fields(
     mut pairs: Vec<(Bytes, Bytes)>,
     decoder: Decoder,
-) -> Vec<(Bytes, Bytes)> {
+) -> (Vec<(Bytes, Bytes)>, Decoder) {
     let (key, decoder): (Option<Bytes>, Decoder) = decoder.decode_optional_field();
     if let Some(k) = key {
         let (value, decoder): (Vec<u8>, Decoder) = decoder.decode_unknown_field().unwrap();
         pairs.push((k, Bytes::from(value)));
         decode_node_record_optional_fields(pairs, decoder)
     } else {
-        pairs
+        (pairs, decoder)
     }
 }
 
