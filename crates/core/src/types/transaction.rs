@@ -16,6 +16,7 @@ pub enum Transaction {
     LegacyTransaction(LegacyTransaction),
     EIP2930Transaction(EIP2930Transaction),
     EIP1559Transaction(EIP1559Transaction),
+    EIP4844Transaction(EIP4844Transaction),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,6 +65,24 @@ pub struct EIP1559Transaction {
     pub signature_s: U256,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EIP4844Transaction {
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: u64,
+    pub max_fee_per_gas: u64,
+    pub gas: u64,
+    pub to: Address,
+    pub value: U256,
+    pub data: Bytes,
+    pub access_list: Vec<(Address, Vec<H256>)>,
+    pub max_fee_per_blob_gas: u64,
+    pub blob_versioned_hashes: Vec<H256>,
+    pub signature_y_parity: bool,
+    pub signature_r: U256,
+    pub signature_s: U256,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TxType {
     Legacy = 0x00,
@@ -90,6 +109,7 @@ impl Transaction {
             Transaction::LegacyTransaction(_) => TxType::Legacy,
             Transaction::EIP2930Transaction(_) => TxType::EIP2930,
             Transaction::EIP1559Transaction(_) => TxType::EIP1559,
+            Transaction::EIP4844Transaction(_) => TxType::EIP4844,
         }
     }
 }
@@ -100,6 +120,7 @@ impl RLPEncode for Transaction {
             Transaction::LegacyTransaction(t) => t.encode(buf),
             Transaction::EIP2930Transaction(t) => t.encode(buf),
             Transaction::EIP1559Transaction(t) => t.encode(buf),
+            Transaction::EIP4844Transaction(t) => t.encode(buf),
         };
     }
 }
@@ -176,6 +197,27 @@ impl RLPEncode for EIP1559Transaction {
             .encode_field(&self.amount)
             .encode_field(&self.payload)
             .encode_field(&self.access_list)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish();
+    }
+}
+
+impl RLPEncode for EIP4844Transaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.max_fee_per_blob_gas)
+            .encode_field(&self.blob_versioned_hashes)
             .encode_field(&self.signature_y_parity)
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
@@ -278,6 +320,45 @@ impl RLPDecode for EIP1559Transaction {
     }
 }
 
+impl RLPDecode for EIP4844Transaction {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(EIP4844Transaction, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (chain_id, decoder) = decoder.decode_field("chain_id")?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+        let (max_priority_fee_per_gas, decoder) =
+            decoder.decode_field("max_priority_fee_per_gas")?;
+        let (max_fee_per_gas, decoder) = decoder.decode_field("max_fee_per_gas")?;
+        let (gas, decoder) = decoder.decode_field("gas")?;
+        let (to, decoder) = decoder.decode_field("to")?;
+        let (value, decoder) = decoder.decode_field("value")?;
+        let (data, decoder) = decoder.decode_field("data")?;
+        let (access_list, decoder) = decoder.decode_field("access_list")?;
+        let (max_fee_per_blob_gas, decoder) = decoder.decode_field("max_fee_per_blob_gas")?;
+        let (blob_versioned_hashes, decoder) = decoder.decode_field("blob_versioned_hashes")?;
+        let (signature_y_parity, decoder) = decoder.decode_field("signature_y_parity")?;
+        let (signature_r, decoder) = decoder.decode_field("signature_r")?;
+        let (signature_s, decoder) = decoder.decode_field("signature_s")?;
+
+        let tx = EIP4844Transaction {
+            chain_id,
+            nonce,
+            max_priority_fee_per_gas,
+            max_fee_per_gas,
+            gas,
+            to,
+            value,
+            data,
+            access_list,
+            max_fee_per_blob_gas,
+            blob_versioned_hashes,
+            signature_y_parity,
+            signature_r,
+            signature_s,
+        };
+        Ok((tx, decoder.finish()?))
+    }
+}
+
 impl Transaction {
     pub fn sender(&self) -> Address {
         match self {
@@ -338,6 +419,28 @@ impl Transaction {
                     &Bytes::from(buf),
                 )
             }
+            Transaction::EIP4844Transaction(tx) => {
+                let mut buf = vec![self.tx_type() as u8];
+                Encoder::new(&mut buf)
+                    .encode_field(&tx.chain_id)
+                    .encode_field(&tx.nonce)
+                    .encode_field(&tx.max_priority_fee_per_gas)
+                    .encode_field(&tx.max_fee_per_gas)
+                    .encode_field(&tx.gas)
+                    .encode_field(&tx.to)
+                    .encode_field(&tx.value)
+                    .encode_field(&tx.data)
+                    .encode_field(&tx.access_list)
+                    .encode_field(&tx.max_fee_per_blob_gas)
+                    .encode_field(&tx.blob_versioned_hashes)
+                    .finish();
+                recover_address(
+                    &tx.signature_r,
+                    &tx.signature_s,
+                    tx.signature_y_parity,
+                    &Bytes::from(buf),
+                )
+            }
         }
     }
 
@@ -346,6 +449,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.gas,
             Transaction::EIP2930Transaction(tx) => tx.gas_limit,
             Transaction::EIP1559Transaction(tx) => tx.gas_limit,
+            Transaction::EIP4844Transaction(tx) => tx.gas,
         }
     }
 
@@ -354,6 +458,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.gas_price,
             Transaction::EIP2930Transaction(tx) => tx.gas_price,
             Transaction::EIP1559Transaction(tx) => tx.max_fee_per_gas,
+            Transaction::EIP4844Transaction(tx) => tx.max_fee_per_gas,
         }
     }
 
@@ -362,6 +467,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.to.clone(),
             Transaction::EIP2930Transaction(tx) => tx.to.clone(),
             Transaction::EIP1559Transaction(tx) => TxKind::Call(tx.destination),
+            Transaction::EIP4844Transaction(tx) => TxKind::Call(tx.to),
         }
     }
 
@@ -370,6 +476,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.value,
             Transaction::EIP2930Transaction(tx) => tx.value,
             Transaction::EIP1559Transaction(tx) => tx.amount,
+            Transaction::EIP4844Transaction(tx) => tx.value,
         }
     }
 
@@ -378,6 +485,7 @@ impl Transaction {
             Transaction::LegacyTransaction(_tx) => None,
             Transaction::EIP2930Transaction(_tx) => None,
             Transaction::EIP1559Transaction(tx) => Some(tx.max_priority_fee_per_gas),
+            Transaction::EIP4844Transaction(tx) => Some(tx.max_priority_fee_per_gas),
         }
     }
 
@@ -386,6 +494,7 @@ impl Transaction {
             Transaction::LegacyTransaction(_tx) => None,
             Transaction::EIP2930Transaction(tx) => Some(tx.chain_id),
             Transaction::EIP1559Transaction(tx) => Some(tx.chain_id),
+            Transaction::EIP4844Transaction(tx) => Some(tx.chain_id),
         }
     }
 
@@ -394,6 +503,7 @@ impl Transaction {
             Transaction::LegacyTransaction(_tx) => Vec::new(),
             Transaction::EIP2930Transaction(tx) => tx.access_list.clone(),
             Transaction::EIP1559Transaction(tx) => tx.access_list.clone(),
+            Transaction::EIP4844Transaction(tx) => tx.access_list.clone(),
         }
     }
 
@@ -402,6 +512,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.nonce,
             Transaction::EIP2930Transaction(tx) => tx.nonce,
             Transaction::EIP1559Transaction(tx) => tx.signer_nonce,
+            Transaction::EIP4844Transaction(tx) => tx.nonce,
         }
     }
 
@@ -410,6 +521,25 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => &tx.data,
             Transaction::EIP2930Transaction(tx) => &tx.data,
             Transaction::EIP1559Transaction(tx) => &tx.payload,
+            Transaction::EIP4844Transaction(tx) => &tx.data,
+        }
+    }
+
+    pub fn blob_versioned_hashes(&self) -> Vec<H256> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => Vec::new(),
+            Transaction::EIP2930Transaction(_tx) => Vec::new(),
+            Transaction::EIP1559Transaction(_tx) => Vec::new(),
+            Transaction::EIP4844Transaction(tx) => tx.blob_versioned_hashes.clone(),
+        }
+    }
+
+    pub fn max_fee_per_blob_gas(&self) -> Option<u64> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::EIP2930Transaction(_tx) => None,
+            Transaction::EIP1559Transaction(_tx) => None,
+            Transaction::EIP4844Transaction(tx) => Some(tx.max_fee_per_blob_gas),
         }
     }
 }
