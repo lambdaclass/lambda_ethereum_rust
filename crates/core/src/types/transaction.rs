@@ -626,7 +626,7 @@ mod serde_impl {
             struct_serializer.serialize_field("to", &self.to)?;
             struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas))?;
             struct_serializer.serialize_field("value", &self.value)?;
-            struct_serializer.serialize_field("input", &format!("{:#x}", self.data))?;
+            struct_serializer.serialize_field("input", &format!("0x{:x}", self.data))?;
             struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
             struct_serializer.serialize_field("chainId", &format!("{:#x}", 1))?; // Mainnet as defaut. TODO: check this
             struct_serializer.serialize_field("v", &self.v)?;
@@ -647,7 +647,7 @@ mod serde_impl {
             struct_serializer.serialize_field("to", &self.to)?;
             struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas_limit))?;
             struct_serializer.serialize_field("value", &self.value)?;
-            struct_serializer.serialize_field("input", &format!("{:#x}", self.data))?;
+            struct_serializer.serialize_field("input", &format!("0x{:x}", self.data))?;
             struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
             struct_serializer.serialize_field(
                 "accessList",
@@ -677,7 +677,7 @@ mod serde_impl {
             struct_serializer.serialize_field("to", &self.to)?;
             struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas_limit))?;
             struct_serializer.serialize_field("value", &self.value)?;
-            struct_serializer.serialize_field("input", &format!("{:#x}", self.data))?;
+            struct_serializer.serialize_field("input", &format!("0x{:x}", self.data))?;
             struct_serializer.serialize_field(
                 "maxPriorityFeePerGas",
                 &format!("{:#x}", self.max_priority_fee_per_gas),
