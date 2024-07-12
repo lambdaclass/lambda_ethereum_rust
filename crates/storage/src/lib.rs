@@ -46,7 +46,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Add block header
     fn add_block_header(
-        &self,
+        &mut self,
         block_number: BlockNumber,
         block_header: BlockHeader,
     ) -> Result<(), StoreError>;
@@ -59,7 +59,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Add block body
     fn add_block_body(
-        &self,
+        &mut self,
         block_number: BlockNumber,
         block_body: BlockBody,
     ) -> Result<(), StoreError>;

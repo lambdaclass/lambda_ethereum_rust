@@ -48,6 +48,24 @@ impl StoreEngine for Store {
     fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError> {
         Ok(self.bodies.get(&block_number).cloned())
     }
+
+    fn add_block_header(
+        &mut self,
+        block_number: BlockNumber,
+        block_header: BlockHeader,
+    ) -> Result<(), StoreError> {
+        self.headers.insert(block_number, block_header);
+        Ok(())
+    }
+
+    fn add_block_body(
+        &mut self,
+        block_number: BlockNumber,
+        block_body: BlockBody,
+    ) -> Result<(), StoreError> {
+        self.bodies.insert(block_number, block_body);
+        Ok(())
+    }
 }
 
 impl Debug for Store {
