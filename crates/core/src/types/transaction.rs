@@ -575,42 +575,95 @@ fn recover_address(
 
 // Serialization
 
-impl Serialize for TxKind {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer {
+mod serde_impl {
+    use super::*;
+
+    impl Serialize for TxKind {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: ::serde::Serializer,
+        {
             match self {
-                TxKind::Call(address) =>  serializer.serialize_str(&format!("{:#x}", address)),
+                TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
                 TxKind::Create => serializer.serialize_str(&""),
             }
+        }
     }
-}
 
-impl Serialize for TxType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer {
-        serializer.serialize_str(&format!("{:#x}", *self as u8))
+    impl Serialize for TxType {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            serializer.serialize_str(&format!("{:#x}", dbg!(*self as u8)))
+        }
     }
-}
 
-impl Serialize for LegacyTransaction {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer {
-        let mut struct_serializer = serializer.serialize_struct("LegacyTransaction", 11)?;
-        struct_serializer.serialize_field("type", &self.to)?;
-        struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
-        struct_serializer.serialize_field("to", &self.to)?;
-        struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas))?;
-        struct_serializer.serialize_field("value", &format!("{:#x}", self.value))?;
-        struct_serializer.serialize_field("input", &format!("{:#x}", self.data))?;
-        struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
-        struct_serializer.serialize_field("chainId", &format!("{:#x}", 1))?; // Mainnet as defaut. TODO: check this
-        struct_serializer.serialize_field("v", &format!("{:#x}", self.v))?;
-        struct_serializer.serialize_field("r", &format!("{:#x}", self.r))?;
-        struct_serializer.serialize_field("s", &format!("{:#x}", self.s))?;
-        struct_serializer.end()
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct AccessListEntry {
+        address: Address,
+        storage_keys: Vec<H256>,
+    }
+
+    impl From<&(Address, Vec<H256>)> for AccessListEntry {
+        fn from(value: &(Address, Vec<H256>)) -> AccessListEntry {
+            AccessListEntry {
+                address: value.0,
+                storage_keys: value.1.clone(),
+            }
+        }
+    }
+
+    impl Serialize for LegacyTransaction {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut struct_serializer = serializer.serialize_struct("LegacyTransaction", 11)?;
+            struct_serializer.serialize_field("type", &TxType::Legacy)?;
+            struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
+            struct_serializer.serialize_field("to", &self.to)?;
+            struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas))?;
+            struct_serializer.serialize_field("value", &self.value)?;
+            struct_serializer.serialize_field("input", &self.data)?;
+            struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
+            struct_serializer.serialize_field("chainId", &format!("{:#x}", 1))?; // Mainnet as defaut. TODO: check this
+            struct_serializer.serialize_field("v", &self.v)?;
+            struct_serializer.serialize_field("r", &self.r)?;
+            struct_serializer.serialize_field("s", &self.s)?;
+            struct_serializer.end()
+        }
+    }
+
+    impl Serialize for EIP2930Transaction {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let mut struct_serializer = serializer.serialize_struct("Eip2930Transaction", 12)?;
+            struct_serializer.serialize_field("type", &TxType::EIP2930)?;
+            struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
+            struct_serializer.serialize_field("to", &self.to)?;
+            struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas_limit))?;
+            struct_serializer.serialize_field("value", &self.value)?;
+            struct_serializer.serialize_field("input", &self.data)?;
+            struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
+            struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
+            struct_serializer.serialize_field(
+                "accessList",
+                &self
+                    .access_list
+                    .iter()
+                    .map(|tuple| AccessListEntry::from(tuple))
+                    .collect::<Vec<_>>(),
+            )?;
+            struct_serializer
+                .serialize_field("yParity", &format!("{:#x}", self.signature_y_parity as u8))?;
+            struct_serializer.serialize_field("r", &self.signature_r)?;
+            struct_serializer.serialize_field("s", &self.signature_s)?;
+            struct_serializer.end()
+        }
     }
 }
 
