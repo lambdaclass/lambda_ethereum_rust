@@ -1,3 +1,4 @@
+mod errors;
 mod execution_result;
 
 use crate::types::TxKind;
@@ -9,7 +10,7 @@ use super::{
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
-    primitives::{BlockEnv, Bytecode, TxEnv, U256},
+    primitives::{BlockEnv, Bytecode, TxEnv, B256, U256},
     CacheState, Evm,
 };
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
 use revm::primitives::TxKind as RevmTxKind;
 // Export needed types
+pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
 
@@ -26,7 +28,7 @@ pub fn execute_tx(
     header: &BlockHeader,
     pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
-) -> ExecutionResult {
+) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
     let cache_state = cache_state(pre);
@@ -43,8 +45,8 @@ pub fn execute_tx(
         .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .append_handler_register(inspector_handle_register)
         .build();
-    let tx_result = evm.transact().unwrap();
-    tx_result.result.into()
+    let tx_result = evm.transact().map_err(EvmError::from)?;
+    Ok(tx_result.result.into())
 }
 
 fn cache_state(pre: &HashMap<Address, Account>) -> CacheState {
@@ -101,7 +103,12 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             })
             .collect(),
         gas_priority_fee: tx.max_priority_fee().map(U256::from),
-        ..Default::default()
+        blob_hashes: tx
+            .blob_versioned_hashes()
+            .into_iter()
+            .map(|hash| B256::from(hash.0))
+            .collect(),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(|x| U256::from(x)),
     }
 }
 

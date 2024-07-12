@@ -59,7 +59,7 @@ pub(crate) enum Message {
     Pong(PongMessage),
     FindNode(FindNodeMessage),
     Neighbors(NeighborsMessage),
-    ENRRequest(()),
+    ENRRequest(ENRRequestMessage),
     ENRResponse(()),
 }
 
@@ -92,6 +92,7 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::FindNode(msg) => msg.encode(buf),
+            Message::ENRRequest(msg) => msg.encode(buf),
             Message::Neighbors(msg) => msg.encode(buf),
             _ => todo!(),
         }
@@ -117,7 +118,10 @@ impl Message {
                 let (neighbors_msg, _rest) = NeighborsMessage::decode_unfinished(msg)?;
                 Ok(Message::Neighbors(neighbors_msg))
             }
-            0x05 => todo!(),
+            0x05 => {
+                let (enr_request_msg, _rest) = ENRRequestMessage::decode_unfinished(msg)?;
+                Ok(Message::ENRRequest(enr_request_msg))
+            }
             0x06 => todo!(),
             _ => Err(RLPDecodeError::MalformedData),
         }
@@ -348,8 +352,8 @@ impl RLPDecode for PongMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct NeighborsMessage {
     // nodes is the list of neighbors
-    nodes: Vec<Node>,
-    expiration: u64,
+    pub nodes: Vec<Node>,
+    pub expiration: u64,
 }
 
 impl NeighborsMessage {
@@ -360,10 +364,10 @@ impl NeighborsMessage {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Node {
-    ip: IpAddr,
-    udp_port: u16,
-    tcp_port: u16,
-    node_id: H512,
+    pub ip: IpAddr,
+    pub udp_port: u16,
+    pub tcp_port: u16,
+    pub node_id: H512,
 }
 
 impl RLPDecode for NeighborsMessage {
@@ -403,6 +407,29 @@ impl RLPDecode for Node {
             node_id,
         };
         Ok((node, remaining))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ENRRequestMessage {
+    expiration: u64,
+}
+
+impl RLPDecode for ENRRequestMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+        let enr_request = ENRRequestMessage { expiration };
+        Ok((enr_request, remaining))
+    }
+}
+
+impl RLPEncode for ENRRequestMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.expiration)
+            .finish();
     }
 }
 
@@ -589,6 +616,26 @@ mod tests {
     }
 
     #[test]
+    fn test_encode_enr_request_message() {
+        let expiration: u64 = 17195043770;
+        let msg = Message::ENRRequest(ENRRequestMessage { expiration });
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+        let mut buf = Vec::new();
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+        let hash = "ddb4faf81ed7bee047e42088a0efd01650c2191988c08c71dd10635573bee31f";
+        let signature = "ec86b35edf60470d81e9796bc4fad68c1d187266492662d91f56b7e42ed46b9317444a72172f13aa91af41ca7a4fec49d5619de9abc0be6c79da0d92bc1c9f3201";
+        let pkt_type = "05";
+        let encoded_message = "c6850400e78bba";
+        let expected = [hash, signature, pkt_type, encoded_message].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_decode_pong_message_with_enr_seq() {
         let hash = "2e1fc2a02ad95a1742f6dd41fb7cbff1e08548ba87f63a72221e44026ab1c347";
         let signature = "34f486e4e92f2fdf592912aa77ad51db532dd7f9b426092384c9c2e9919414fd480d57f4f3b2b1964ed6eb1c94b1e4b9f6bfe9b44b1d1ac3d94c38c4cce915bc01";
@@ -739,6 +786,15 @@ mod tests {
         };
 
         let expected = Message::Neighbors(NeighborsMessage::new(vec![node], expiration));
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_enr_request_message() {
+        let encoded = "c6850400e78bba";
+        let decoded = Message::decode_with_type(0x05, &decode_hex(encoded).unwrap()).unwrap();
+        let expiration = 0x400E78BBA;
+        let expected = Message::ENRRequest(ENRRequestMessage { expiration });
         assert_eq!(decoded, expected);
     }
 

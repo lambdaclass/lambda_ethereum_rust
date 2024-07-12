@@ -35,6 +35,7 @@ fn execute_test(test: &TestUnit) {
         &pre,
         SpecId::CANCUN,
     )
+    .unwrap()
     .is_success());
 }
 

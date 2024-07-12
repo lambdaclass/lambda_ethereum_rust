@@ -21,6 +21,12 @@ pub trait RLPEncode {
         self.encode(&mut buf);
         buf.len()
     }
+
+    fn encode_to_vec(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.encode(&mut buf);
+        buf
+    }
 }
 
 impl RLPEncode for bool {
