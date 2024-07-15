@@ -233,6 +233,7 @@ mod tests {
         let store = Store::new("test", EngineType::InMemory).unwrap();
         test_store_account(store.clone());
         test_store_block(store.clone());
+        test_store_block_number(store.clone());
     }
 
     #[cfg(feature = "libmdbx")]
@@ -243,6 +244,7 @@ mod tests {
         let store = Store::new("test.mdbx", EngineType::Libmdbx).unwrap();
         test_store_account(store.clone());
         test_store_block(store.clone());
+        test_store_block_number(store.clone());
 
         remove_test_dbs("test.mdbx");
     }
@@ -255,6 +257,7 @@ mod tests {
         let store = Store::new("test.sled", EngineType::Sled).unwrap();
         test_store_account(store.clone());
         // test_store_block(store.clone()); Unimplemented
+        // test_store_block_number(store.clone()); Unimplemented
 
         remove_test_dbs("test.sled");
     }
@@ -267,6 +270,7 @@ mod tests {
         let store = Store::new("test.rocksdb", EngineType::Sled).unwrap();
         test_store_account(store.clone());
         // test_store_block(store.clone()); Unimplemented
+        // test_store_block_number(store.clone()); Unimplemented
 
         remove_test_dbs("test.rocksdb");
     }
@@ -378,5 +382,18 @@ mod tests {
             withdrawals: Default::default(),
         };
         (block_header, block_body)
+    }
+
+    fn test_store_block_number(store: Store) {
+        let block_hash = H256::random();
+        let block_number = 6;
+
+        store
+            .add_block_number(block_hash, block_number.clone())
+            .unwrap();
+
+        let stored_number = store.get_block_number(block_hash).unwrap().unwrap();
+
+        assert_eq!(stored_number, block_number);
     }
 }
