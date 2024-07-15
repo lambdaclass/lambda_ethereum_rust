@@ -1,4 +1,4 @@
-use serde::{de::Error, Deserialize, Deserializer};
+use serde::{de::Error, Deserialize, Deserializer, Serializer};
 
 pub mod u256 {
     use super::*;
@@ -36,8 +36,6 @@ pub mod u64 {
     use super::*;
 
     pub mod hex_str {
-        use serde::Serializer;
-
         use super::*;
 
         pub fn deserialize<'de, D>(d: D) -> Result<u64, D::Error>

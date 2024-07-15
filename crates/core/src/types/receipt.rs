@@ -1,7 +1,6 @@
 use crate::rlp::{encode::RLPEncode, structs::Encoder};
-use crate::types::Bloom;
 use bytes::Bytes;
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, Bloom, H256};
 
 use super::TxType;
 pub type Index = u64;

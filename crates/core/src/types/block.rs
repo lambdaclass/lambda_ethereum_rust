@@ -8,6 +8,7 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
+use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::{Deserialize, Serialize};
@@ -18,7 +19,6 @@ use std::cmp::{max, Ordering};
 use super::Transaction;
 
 pub type BlockNumber = u64;
-pub type Bloom = [u8; 256];
 
 use lazy_static::lazy_static;
 
@@ -27,7 +27,7 @@ lazy_static! {
 }
 
 /// Header part of a block on the chain.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BlockHeader {
     pub parent_hash: H256,
     pub ommers_hash: H256, // ommer = uncle
@@ -38,15 +38,21 @@ pub struct BlockHeader {
     pub logs_bloom: Bloom,
     pub difficulty: U256,
     pub number: BlockNumber,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub gas_used: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub timestamp: u64,
     pub extra_data: Bytes,
     pub prev_randao: H256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
     pub base_fee_per_gas: u64,
     pub withdrawals_root: H256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub blob_gas_used: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub excess_blob_gas: u64,
     pub parent_beacon_block_root: H256,
 }
