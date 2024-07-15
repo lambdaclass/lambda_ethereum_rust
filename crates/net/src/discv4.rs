@@ -98,7 +98,6 @@ impl Message {
             Message::ENRRequest(msg) => msg.encode(buf),
             Message::ENRResponse(msg) => msg.encode(buf),
             Message::Neighbors(msg) => msg.encode(buf),
-            _ => unreachable!(),
         }
     }
 
@@ -529,14 +528,7 @@ impl RLPEncode for NodeRecord {
         structs::Encoder::new(buf)
             .encode_field(&self.signature)
             .encode_field(&self.seq)
-            .encode_optional_key_value_pair("id".into(), &self.id)
-            .encode_optional_key_value_pair("secp256k1".into(), &self.secp256k1)
-            .encode_optional_key_value_pair("ip".into(), &self.ip)
-            .encode_optional_key_value_pair("tcp".into(), &self.tcp)
-            .encode_optional_key_value_pair("udp".into(), &self.udp)
-            .encode_optional_key_value_pair("ip6".into(), &self.ip6)
-            .encode_optional_key_value_pair("tcp6".into(), &self.tcp6)
-            .encode_optional_key_value_pair("udp6".into(), &self.udp6)
+            .encode_key_value_list::<Bytes>(&self.pairs)
             .finish();
     }
 }
@@ -749,47 +741,75 @@ mod tests {
     #[test]
     fn test_encode_enr_response() {
         let request_hash =
-            H256::from_str("95988e38a078fa4ab57ee3aa9375dd29c9199285bdb4ac8b12704d602424aa74")
+            H256::from_str("ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98")
                 .unwrap();
-        let signature = H512::from_str("db791aa5185d27af8df4b5097e727094ea13144f9e3db9f7af67941039d822562e151a4207cdbf57b30909bcdcc4965ab62495c29600281ef1dcfe6c55d3287c").unwrap();
-        let seq = 0x018ec29b771d;
-        let id = Some(String::from("v4"));
-        let secp256k1 = Some(
-            H264::from_str("0293f28150c05d41963a2433eae7d16032e61575221cc1af5703107c29fa5dde9c")
-                .unwrap(),
-        );
-        let ip = Some(Ipv4Addr::from_str("34.238.17.241").unwrap());
-        let tcp = Some(0x766e_u16);
-        let udp = Some(0x766e_u16);
+        let signature = H512::from_str("131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe3").unwrap();
+        let seq = 0x018cf3c3bd18;
+
+        // define optional fields
+        let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
+        let id = String::from("v4");
+        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let secp256k1 =
+            H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
+                .unwrap();
+        let tcp: u16 = 30303;
+        let udp: u16 = 30303;
+        let snap: Vec<u32> = vec![];
+
+        // declare buffers for optional fields encoding
+        let mut eth_rlp = Vec::new();
+        let mut id_rlp = Vec::new();
+        let mut ip_rlp = Vec::new();
+        let mut secp256k1_rlp = Vec::new();
+        let mut tcp_rlp = Vec::new();
+        let mut udp_rlp = Vec::new();
+        let mut snap_rlp = Vec::new();
+
+        // encode optional fields
+        eth.encode(&mut eth_rlp);
+        id.encode(&mut id_rlp);
+        ip.encode(&mut ip_rlp);
+        secp256k1.encode(&mut secp256k1_rlp);
+        tcp.encode(&mut tcp_rlp);
+        udp.encode(&mut udp_rlp);
+        snap.encode(&mut snap_rlp);
+
+        // initialize vector with (key, value) pairs
+        let pairs: Vec<(Bytes, Bytes)> = vec![
+            (String::from("eth").into(), eth_rlp.into()),
+            (String::from("id").into(), id_rlp.into()),
+            (String::from("ip").into(), ip_rlp.into()),
+            (String::from("secp256k1").into(), secp256k1_rlp.into()),
+            (String::from("snap").into(), snap_rlp.into()),
+            (String::from("tcp").into(), tcp_rlp.clone().into()),
+            (String::from("udp").into(), udp_rlp.clone().into()),
+        ];
         let node_record = NodeRecord {
             signature,
             seq,
-            id,
-            secp256k1,
-            ip,
-            tcp,
-            udp,
-            ip6: None,
-            tcp6: None,
-            udp6: None,
+            id: String::from("v4"),
+            pairs,
         };
         let msg = Message::ENRResponse(ENRResponseMessage {
             request_hash,
             node_record,
         });
+
         let key_bytes =
-            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+            H256::from_str("2e6a09427ba14acc853cbbff291c75c3cb57754ac1e3df8df9cac086b3a83aa4")
                 .unwrap();
         let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
         let mut buf = Vec::new();
         msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
 
-        let hash = "7fad7a9ccd5e34e274adffa14e00597f4a9ea192c6621fa76e7925cb878f2ea9";
-        let signature = "23c0c3de8607e44820d62c2653c81fb71786e639161cf0271fd7e345db2b534f4c1c5c5470714aed410787311f1917c35e43658aead7049342c47557498b461700";
+        let hash = "85e7d3ee8494d23694e2cbcc495be900bb035969366c4b3267ba80eef6cc9b2a";
+        let signature = "7b714d79b4f8ec780b27329a6a8cb8188b882ecf99be0f89feeab33ebbb76ecb3dcb5ab53a1c7f27a4fc9e6e70220e614de9a351c3f39e100f40b5d0e2a7331501";
         let packet_type = "06";
-        let encoded_msg = "f8b4a095988e38a078fa4ab57ee3aa9375dd29c9199285bdb4ac8b12704d602424aa74f891b840db791aa5185d27af8df4b5097e727094ea13144f9e3db9f7af67941039d822562e151a4207cdbf57b30909bcdcc4965ab62495c29600281ef1dcfe6c55d3287c86018ec29b771d82696482763489736563703235366b31a10293f28150c05d41963a2433eae7d16032e61575221cc1af5703107c29fa5dde9c8269708422ee11f18374637082766e8375647082766e";
+        let encoded_msg = "f8c6a0ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98f8a3b840131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe386018cf3c3bd1883657468c7c68488cf81d980826964827634826970848ac533b589736563703235366b31a1034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f3647684736e6170c08374637082765f8375647082765f";
         let expected = [hash, signature, packet_type, encoded_msg].concat();
+
         assert_eq!(result, expected);
     }
 

@@ -4,6 +4,7 @@ use super::{
     error::RLPDecodeError,
 };
 use bytes::BufMut;
+use bytes::Bytes;
 
 /// # Struct decoding helper
 ///
@@ -192,15 +193,13 @@ impl<'a> Encoder<'a> {
         self
     }
 
-    /// If `Some`, stores the key and the value, else does nothing
-    pub fn encode_optional_key_value_pair<T: RLPEncode>(
-        mut self,
-        key: String,
-        opt_value: &Option<T>,
-    ) -> Self {
-        if let Some(value) = opt_value {
-            <String>::encode(&key, &mut self.temp_buf);
-            <T as RLPEncode>::encode(value, &mut self.temp_buf);
+    /// Stores a (key, value) list where the values are already encoded (i.e. value = RLP prefix || payload)
+    /// but the keys are not encoded
+    pub fn encode_key_value_list<T: RLPEncode>(mut self, list: &Vec<(Bytes, Bytes)>) -> Self {
+        for (key, value) in list {
+            <Bytes>::encode(key, &mut self.temp_buf);
+            // v is already encoded
+            self.temp_buf.put_slice(value);
         }
         self
     }
