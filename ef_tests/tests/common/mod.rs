@@ -39,12 +39,13 @@ fn execute_test(test: &TestUnit) {
     .is_success());
 }
 
-fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
+pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     let s: String = std::fs::read_to_string(path).expect("Unable to read file");
     let tests: HashMap<String, TestUnit> = serde_json::from_str(&s).expect("Unable to parse JSON");
     tests
 }
 
+#[allow(unused)]
 pub fn parse_and_execute_test_file(path: &Path) {
     let tests = parse_test_file(path);
 
