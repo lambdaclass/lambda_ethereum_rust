@@ -1,4 +1,3 @@
-use bytes::Buf;
 use bytes::BufMut;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::{
@@ -461,7 +460,7 @@ impl RLPDecode for NodeRecord {
             let node_record = NodeRecord {
                 signature,
                 seq,
-                id: String::decode(&id).unwrap(),
+                id: String::decode(id).unwrap(),
                 pairs,
             };
             let remaining = decoder.finish()?;
