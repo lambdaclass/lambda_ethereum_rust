@@ -544,6 +544,10 @@ impl Transaction {
             Transaction::EIP4844Transaction(tx) => Some(tx.max_fee_per_blob_gas),
         }
     }
+
+    pub fn compute_hash(&self) -> H256 {
+        keccak_hash::keccak(self.encode_to_vec())
+    }
 }
 
 fn recover_address(

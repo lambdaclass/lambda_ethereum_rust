@@ -48,6 +48,7 @@ pub struct BlockHeader {
     pub prev_randao: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub base_fee_per_gas: u64,
     pub withdrawals_root: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
@@ -85,7 +86,7 @@ impl RLPEncode for BlockHeader {
 }
 
 // The body of a block on the chain
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
@@ -283,24 +284,48 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
         && header.parent_hash == parent_header.compute_block_hash()
 }
 
-mod serde_impl {
+#[allow(unused)]
+mod serializable {
     use super::*;
 
+    #[derive(Debug, Serialize)]
     pub struct BlockSerializable {
         header: BlockHeader,
+        #[serde(flatten)]
         body: BlockBodyWrapper,
     }
 
+    #[derive(Debug, Serialize)]
     enum BlockBodyWrapper {
         Full(BlockBody),
         OnlyHashes(OnlyHashesBlockBody),
     }
 
+    #[derive(Debug, Serialize)]
     struct OnlyHashesBlockBody {
         // Only tx hashes
         pub transactions: Vec<H256>,
         pub ommers: Vec<BlockHeader>,
         pub withdrawals: Vec<Withdrawal>,
+    }
+
+    impl BlockSerializable {
+        pub fn from_block(
+            header: BlockHeader,
+            body: BlockBody,
+            full_transactions: bool,
+        ) -> BlockSerializable {
+            let body = if full_transactions {
+                BlockBodyWrapper::Full(body)
+            } else {
+                BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
+                    transactions: body.transactions.iter().map(|t| t.compute_hash()).collect(),
+                    ommers: body.ommers,
+                    withdrawals: body.withdrawals,
+                })
+            };
+            BlockSerializable { header, body }
+        }
     }
 }
 
