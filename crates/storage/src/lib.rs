@@ -189,6 +189,29 @@ impl Store {
             .unwrap()
             .get_block_body(block_number)
     }
+
+    pub fn add_block_number(
+        &self,
+        block_hash: BlockHash,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_block_number(block_hash, block_number)
+    }
+
+    pub fn get_block_number(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_block_number(block_hash)
+    }
 }
 
 #[cfg(test)]
