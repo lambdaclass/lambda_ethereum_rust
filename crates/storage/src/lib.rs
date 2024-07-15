@@ -388,9 +388,7 @@ mod tests {
         let block_hash = H256::random();
         let block_number = 6;
 
-        store
-            .add_block_number(block_hash, block_number.clone())
-            .unwrap();
+        store.add_block_number(block_hash, block_number).unwrap();
 
         let stored_number = store.get_block_number(block_hash).unwrap().unwrap();
 
