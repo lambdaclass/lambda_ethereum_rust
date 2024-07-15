@@ -357,6 +357,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         "Received hello message v{protocol_version}, from client: '{client_id}', 
         with id: {node_id}, with supported capabilities: {capabilities:?}"
     );
+
+    // TODO: send Hello message
 }
 
 #[cfg(test)]
