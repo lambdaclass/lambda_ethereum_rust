@@ -713,8 +713,8 @@ mod serde_impl {
         where
             S: serde::Serializer,
         {
-            let mut struct_serializer = serializer.serialize_struct("Eip1559Transaction", 14)?;
-            struct_serializer.serialize_field("type", &TxType::EIP1559)?;
+            let mut struct_serializer = serializer.serialize_struct("Eip4844Transaction", 15)?;
+            struct_serializer.serialize_field("type", &TxType::EIP4844)?;
             struct_serializer.serialize_field("nonce", &format!("{:#x}", self.nonce))?;
             struct_serializer.serialize_field("to", &self.to)?;
             struct_serializer.serialize_field("gas", &format!("{:#x}", self.gas))?;
