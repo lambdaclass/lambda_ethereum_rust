@@ -600,7 +600,7 @@ mod serde_impl {
         where
             S: serde::Serializer,
         {
-            serializer.serialize_str(&format!("{:#x}", dbg!(*self as u8)))
+            serializer.serialize_str(&format!("{:#x}", *self as u8))
         }
     }
 
