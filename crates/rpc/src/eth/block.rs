@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::utils::RpcErr;
-use ethereum_rust_core::{types::BlockSerializable, H256};
+use ethereum_rust_core::types::{BlockHash, BlockSerializable};
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
@@ -10,7 +10,7 @@ pub struct GetBlockByNumberRequest {
 }
 
 pub struct GetBlockByHashRequest {
-    pub block: H256,
+    pub block: BlockHash,
     pub hydrated: bool,
 }
 
@@ -80,7 +80,11 @@ pub fn get_block_by_number(
 }
 
 pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Result<Value, RpcErr> {
-    let block_number = 0;
+    let block_number = match storage.get_block_number(request.block) {
+        Ok(Some(number)) => number,
+        Ok(_) => return Ok(Value::Null),
+        _ => return  Err(RpcErr::Internal),
+    };
     let header = storage.get_block_header(block_number);
     let body = storage.get_block_body(block_number);
     let (header, body) = match (header, body) {
