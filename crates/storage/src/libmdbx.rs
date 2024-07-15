@@ -157,6 +157,7 @@ dupsort!(
 /// will be temporary.
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     let tables = [
+        table_info!(BlockNumbers),
         table_info!(Headers),
         table_info!(Bodies),
         table_info!(AccountInfos),
