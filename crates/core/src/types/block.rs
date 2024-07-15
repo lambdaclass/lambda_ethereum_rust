@@ -22,6 +22,7 @@ use std::cmp::{max, Ordering};
 use super::Transaction;
 
 pub type BlockNumber = u64;
+pub type BlockHash = H256;
 pub type Bloom = [u8; 256];
 
 use lazy_static::lazy_static;

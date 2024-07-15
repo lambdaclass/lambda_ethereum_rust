@@ -1,12 +1,13 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
 use ethereum_types::Address;
 use std::{collections::HashMap, fmt::Debug};
 
 #[derive(Default)]
 pub struct Store {
     account_infos: HashMap<Address, AccountInfo>,
+    block_numbers: HashMap<BlockHash, BlockNumber>,
     bodies: HashMap<BlockNumber, BlockBody>,
     headers: HashMap<BlockNumber, BlockHeader>,
     values: HashMap<Key, Value>,
@@ -65,6 +66,19 @@ impl StoreEngine for Store {
     ) -> Result<(), StoreError> {
         self.bodies.insert(block_number, block_body);
         Ok(())
+    }
+
+    fn add_block_number(
+        &mut self,
+        block_hash: BlockHash,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.block_numbers.insert(block_hash, block_number);
+        Ok(())
+    }
+
+    fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.block_numbers.get(&block_hash).copied())
     }
 }
 

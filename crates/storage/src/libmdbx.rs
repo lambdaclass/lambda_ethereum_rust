@@ -2,10 +2,10 @@ use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
-    AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHeaderRLP, ReceiptRLP,
+    AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader};
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
 use ethereum_types::Address;
 use libmdbx::{
@@ -119,6 +119,37 @@ impl StoreEngine for Store {
         }
     }
 
+    fn add_block_number(
+        &mut self,
+        block_hash: BlockHash,
+        block_number: BlockNumber,
+    ) -> std::result::Result<(), StoreError> {
+        // Write block number to mdbx
+        {
+            let txn = self.db.begin_readwrite().unwrap();
+            match txn.upsert::<BlockNumbers>(block_hash.into(), block_number.into()) {
+                Ok(_) => txn.commit().unwrap(),
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
+        }
+        Ok(())
+    }
+
+    fn get_block_number(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<BlockNumber>, StoreError> {
+        // Read block number from mdbx
+        let read_value = {
+            let txn = self.db.begin_read().unwrap();
+            txn.get::<BlockNumbers>(block_hash.into())
+        };
+        match read_value {
+            Ok(value) => Ok(value.map(|a| a.into())),
+            Err(err) => Err(StoreError::LibmdbxError(err)),
+        }
+    }
+
     fn set_value(&mut self, _key: Key, _value: Value) -> Result<(), StoreError> {
         todo!()
     }
@@ -135,6 +166,12 @@ impl Debug for Store {
 }
 
 // Define tables
+
+table!(
+    /// Block hash to number table.
+    ( BlockNumbers ) BlockHashRLP => BlockNumber
+);
+
 table!(
     /// Block headers table.
     ( Headers ) BlockNumber => BlockHeaderRLP
