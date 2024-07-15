@@ -590,7 +590,7 @@ mod serde_impl {
         {
             match self {
                 TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
-                TxKind::Create => serializer.serialize_str(&""),
+                TxKind::Create => serializer.serialize_str(""),
             }
         }
     }
@@ -659,7 +659,7 @@ mod serde_impl {
                 &self
                     .access_list
                     .iter()
-                    .map(|tuple| AccessListEntry::from(tuple))
+                    .map(AccessListEntry::from)
                     .collect::<Vec<_>>(),
             )?;
             struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
@@ -696,7 +696,7 @@ mod serde_impl {
                 &self
                     .access_list
                     .iter()
-                    .map(|tuple| AccessListEntry::from(tuple))
+                    .map(AccessListEntry::from)
                     .collect::<Vec<_>>(),
             )?;
             struct_serializer.serialize_field("chainId", &format!("{:#x}", self.chain_id))?;
@@ -735,7 +735,7 @@ mod serde_impl {
                 &self
                     .access_list
                     .iter()
-                    .map(|tuple| AccessListEntry::from(tuple))
+                    .map(AccessListEntry::from)
                     .collect::<Vec<_>>(),
             )?;
             struct_serializer

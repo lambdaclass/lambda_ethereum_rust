@@ -121,7 +121,7 @@ impl ExecutionPayloadV3 {
                 state_root: self.state_root,
                 transactions_root: block_body.compute_transactions_root(),
                 receipt_root: self.receipts_root,
-                logs_bloom: self.logs_bloom.into(),
+                logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
                 number: self.block_number,
                 gas_limit: self.gas_limit,

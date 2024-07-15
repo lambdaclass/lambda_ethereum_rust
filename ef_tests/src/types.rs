@@ -129,7 +129,7 @@ impl From<Header> for BlockHeader {
             state_root: val.state_root,
             transactions_root: val.transactions_trie,
             receipt_root: val.receipt_trie,
-            logs_bloom: val.bloom.into(),
+            logs_bloom: val.bloom,
             difficulty: val.difficulty,
             number: val.number.as_u64(),
             gas_limit: val.gas_limit.as_u64(),
