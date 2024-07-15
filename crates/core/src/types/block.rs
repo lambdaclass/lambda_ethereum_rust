@@ -28,9 +28,12 @@ lazy_static! {
 
 /// Header part of a block on the chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
+    #[serde(rename(serialize = "sha3Uncles"))]
     pub ommers_hash: H256, // ommer = uncle
+    #[serde(rename(serialize = "miner"))]
     pub coinbase: Address,
     pub state_root: H256,
     pub transactions_root: H256,
@@ -45,6 +48,7 @@ pub struct BlockHeader {
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub timestamp: u64,
     pub extra_data: Bytes,
+    #[serde(rename(serialize = "mixHash"))]
     pub prev_randao: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
@@ -290,6 +294,8 @@ mod serializable {
 
     #[derive(Debug, Serialize)]
     pub struct BlockSerializable {
+        hash: H256,
+        #[serde(flatten)]
         header: BlockHeader,
         #[serde(flatten)]
         body: BlockBodyWrapper,
@@ -324,7 +330,8 @@ mod serializable {
                     withdrawals: body.withdrawals,
                 })
             };
-            BlockSerializable { header, body }
+            let hash = header.compute_block_hash();
+            BlockSerializable {hash,  header, body }
         }
     }
 }
