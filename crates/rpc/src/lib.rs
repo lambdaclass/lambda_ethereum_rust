@@ -3,7 +3,7 @@ use std::{future::IntoFuture, net::SocketAddr};
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
-    block::{self, GetBlockByNumberRequest},
+    block::{self, GetBlockByHashRequest, GetBlockByNumberRequest},
     client,
 };
 use serde_json::Value;
@@ -74,6 +74,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             block::get_block_by_number(&request)
         }
+        "eth_getBlockByHash" => {
+            let request = GetBlockByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_block_by_hash(&request, storage)
+        }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
             let request =
@@ -93,6 +97,10 @@ pub async fn handle_http_request(State(storage): State<Store>, body: String) -> 
         "eth_getBlockByNumber" => {
             let request = GetBlockByNumberRequest::parse(&req.params).unwrap();
             block::get_block_by_number(&request)
+        }
+        "eth_getBlockByHash" => {
+            let request = GetBlockByHashRequest::parse(&req.params).unwrap();
+            block::get_block_by_hash(&request, storage)
         }
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),

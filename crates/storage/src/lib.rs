@@ -224,7 +224,7 @@ mod tests {
         types::{self, Transaction},
         Bloom,
     };
-    use ethereum_types::{H256, U256};
+    use ethereum_types::{Bloom, H256, U256};
 
     use super::*;
 
