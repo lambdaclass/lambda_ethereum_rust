@@ -83,7 +83,7 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
     let block_number = match storage.get_block_number(request.block) {
         Ok(Some(number)) => number,
         Ok(_) => return Ok(Value::Null),
-        _ => return  Err(RpcErr::Internal),
+        _ => return Err(RpcErr::Internal),
     };
     let header = storage.get_block_header(block_number);
     let body = storage.get_block_body(block_number);
