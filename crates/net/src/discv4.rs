@@ -1,15 +1,19 @@
 use bytes::BufMut;
+use bytes::Bytes;
 use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H264, H512, H520};
+use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, SocketAddr};
+
+const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Packet {
     hash: H256,
     signature: H520,
@@ -93,7 +97,8 @@ impl Message {
             Message::FindNode(msg) => msg.encode(buf),
             Message::ENRRequest(msg) => msg.encode(buf),
             Message::ENRResponse(msg) => msg.encode(buf),
-            _ => todo!(),
+            Message::Neighbors(msg) => msg.encode(buf),
+            _ => unreachable!(),
         }
     }
 
@@ -148,6 +153,12 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
+impl Endpoint {
+    pub fn tcp_address(&self) -> Option<SocketAddr> {
+        (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
+    }
+}
+
 impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
@@ -181,12 +192,12 @@ pub(crate) struct PingMessage {
     /// The endpoint of the sender.
     pub from: Endpoint,
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PingMessage {
@@ -225,10 +236,10 @@ impl RLPEncode for PingMessage {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FindNodeMessage {
     /// The target is a 64-byte secp256k1 public key.
-    target: H512,
+    pub target: H512,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
 }
 
 impl FindNodeMessage {
@@ -283,14 +294,14 @@ impl RLPDecode for PingMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The hash of the corresponding ping packet.
-    ping_hash: H256,
+    pub ping_hash: H256,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PongMessage {
@@ -378,6 +389,15 @@ impl RLPDecode for NeighborsMessage {
     }
 }
 
+impl RLPEncode for NeighborsMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.nodes)
+            .encode_field(&self.expiration)
+            .finish();
+    }
+}
+
 impl RLPDecode for Node {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
@@ -399,22 +419,16 @@ impl RLPDecode for Node {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ENRResponseMessage {
-    request_hash: H256,
-    node_record: NodeRecord,
+    pub request_hash: H256,
+    pub node_record: NodeRecord,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct NodeRecord {
     signature: H512,
     seq: u64,
-    id: Option<String>,
-    secp256k1: Option<H264>,
-    ip: Option<Ipv4Addr>,
-    tcp: Option<u16>,
-    udp: Option<u16>,
-    ip6: Option<Ipv6Addr>,
-    tcp6: Option<u16>,
-    udp6: Option<u16>,
+    id: String,
+    pub pairs: Vec<(Bytes, Bytes)>,
 }
 
 impl RLPDecode for ENRResponseMessage {
@@ -433,91 +447,48 @@ impl RLPDecode for ENRResponseMessage {
 
 impl RLPDecode for NodeRecord {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        if rlp.len() > MAX_NODE_RECORD_ENCODED_SIZE {
+            return Err(RLPDecodeError::InvalidLength);
+        }
         let decoder = Decoder::new(rlp)?;
         let (signature, decoder) = decoder.decode_field("signature")?;
         let (seq, decoder) = decoder.decode_field("seq")?;
-        let node_record = NodeRecord {
-            signature,
-            seq,
-            id: None,
-            secp256k1: None,
-            ip: None,
-            tcp: None,
-            udp: None,
-            ip6: None,
-            tcp6: None,
-            udp6: None,
-        };
-        let (node_record, decoder) = decode_node_record_optional_fields(node_record, decoder);
-        let remaining = decoder.finish_unchecked();
-        Ok((node_record, remaining))
+        let (pairs, decoder) = decode_node_record_optional_fields(vec![], decoder);
+
+        // all fields in pairs are optional except for id
+        let id_pair = pairs.iter().find(|(k, _v)| k.eq("id".as_bytes()));
+        if let Some((_key, id)) = id_pair {
+            let node_record = NodeRecord {
+                signature,
+                seq,
+                id: String::decode(id).unwrap(),
+                pairs,
+            };
+            let remaining = decoder.finish()?;
+            Ok((node_record, remaining))
+        } else {
+            Err(RLPDecodeError::Custom(
+                "Invalid node record, 'id' field missing".into(),
+            ))
+        }
     }
 }
 
 /// The NodeRecord optional fields are encoded as key/value pairs, according to the documentation
 /// <https://github.com/ethereum/devp2p/blob/master/enr.md#record-structure>
-/// This function decodes each pair and set the values to the corresponding fields of the NodeRecord struct.
+/// This function returns a vector with (key, value) tuples. Both keys and values are stored as Bytes.
+/// Each value is the actual RLP encoding of the field including its prefix so it can be decoded as T::decode(value)
 fn decode_node_record_optional_fields(
-    mut node_record: NodeRecord,
+    mut pairs: Vec<(Bytes, Bytes)>,
     decoder: Decoder,
-) -> (NodeRecord, Decoder) {
-    let (key, decoder): (Option<String>, Decoder) = decoder.decode_optional_field();
+) -> (Vec<(Bytes, Bytes)>, Decoder) {
+    let (key, decoder): (Option<Bytes>, Decoder) = decoder.decode_optional_field();
     if let Some(k) = key {
-        match k.as_str() {
-            "id" => {
-                let (id, decoder) = decoder.decode_optional_field();
-                node_record.id = id;
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "secp256k1" => {
-                let (secp256k1, decoder) = decoder.decode_optional_field();
-                node_record.secp256k1 = secp256k1;
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "ip" => {
-                let (ip, decoder) = decoder.decode_optional_field();
-                node_record.ip = ip;
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "tcp" => {
-                let (tcp, decoder) = decoder.decode_optional_field();
-                node_record.tcp = tcp;
-                if node_record.tcp6.is_none() {
-                    node_record.tcp6 = tcp;
-                }
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "udp" => {
-                let (udp, decoder) = decoder.decode_optional_field();
-                node_record.udp = udp;
-                if node_record.udp6.is_none() {
-                    node_record.udp6 = udp;
-                }
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "ip6" => {
-                let (ip6, decoder) = decoder.decode_optional_field();
-                node_record.ip6 = ip6;
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "tcp6" => {
-                let (tcp6, decoder) = decoder.decode_optional_field();
-                node_record.tcp6 = tcp6;
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            "udp6" => {
-                let (udp6, decoder) = decoder.decode_optional_field();
-                node_record.udp6 = udp6;
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-            _ => {
-                // ignore the field
-                let (_field, decoder): (Option<Vec<u8>>, Decoder) = decoder.decode_optional_field();
-                decode_node_record_optional_fields(node_record, decoder)
-            }
-        }
+        let (value, decoder): (Vec<u8>, Decoder) = decoder.get_encoded_item().unwrap();
+        pairs.push((k, Bytes::from(value)));
+        decode_node_record_optional_fields(pairs, decoder)
     } else {
-        (node_record, decoder)
+        (pairs, decoder)
     }
 }
 
@@ -570,12 +541,26 @@ impl RLPEncode for NodeRecord {
     }
 }
 
+impl RLPEncode for Node {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.ip)
+            .encode_field(&self.udp_port)
+            .encode_field(&self.tcp_port)
+            .encode_field(&self.node_id)
+            .finish();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ethereum_rust_core::H264;
     use keccak_hash::H256;
+    use std::fmt::Write;
+    use std::net::Ipv4Addr;
     use std::num::ParseIntError;
-    use std::{fmt::Write, str::FromStr};
+    use std::str::FromStr;
 
     fn to_hex(bytes: &[u8]) -> String {
         bytes.iter().fold(String::new(), |mut buf, b| {
@@ -705,6 +690,43 @@ mod tests {
     }
 
     #[test]
+    fn test_encode_neighbors_message() {
+        let expiration: u64 = 17195043770;
+        let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let node_1 = Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_1,
+        };
+
+        let node_id_2 = H512::from_str("11f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50").unwrap();
+        let node_2 = Node {
+            ip: "190.191.188.57".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_2,
+        };
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+        let msg = Message::Neighbors(NeighborsMessage::new(vec![node_1, node_2], expiration));
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+
+        let hash = "a009d1dae92e9b3f6e48811ba70c1fec1a9d6f818139604b0e3abcaeabb74850";
+        let signature = "f996d31ba3a409ba3c64121d8afa70ef10553d4da327594ac63225b53a34906d1e4d45312771d7bcf6390ef541157e688c7db946295c2d0712c50698a0fb8c9b00";
+        let packet_type = "04";
+        let encoded_msg = "f8a6f89ef84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666f84d84bebfbc3982765f82765fb84011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50850400e78bba";
+        let expected = [hash, signature, packet_type, encoded_msg].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_encode_enr_request_message() {
         let expiration: u64 = 17195043770;
         let msg = Message::ENRRequest(ENRRequestMessage { expiration });
@@ -823,36 +845,64 @@ mod tests {
 
     #[test]
     fn test_decode_enr_response() {
-        let encoded = "f8ada054e4aa2c131aa991ee21c6e72296205ddadc847cbd09e533c70de6b29b1a72ebf88ab840b77741277742abd4d7460c336a48df717130ef9f77e85d039948ca497831a5ea7e05b5a8a5c5979eaa49b3db0e5f98dbbf26343cef2905dd876279f8f7ce2a3e860190360f571a8269648276348269708436c2f50589736563703235366b31a1038729e0c825f3d9cad382555f3e46dcff21af323e89025a0e6312df541f4a9e738375647082765f";
+        let encoded = "f8c6a0ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98f8a3b840131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe386018cf3c3bd1883657468c7c68488cf81d980826964827634826970848ac533b589736563703235366b31a1034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f3647684736e6170c08374637082765f8375647082765f";
         let decoded = Message::decode_with_type(0x06, &decode_hex(encoded).unwrap()).unwrap();
         let request_hash =
-            H256::from_str("54e4aa2c131aa991ee21c6e72296205ddadc847cbd09e533c70de6b29b1a72eb")
+            H256::from_str("ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98")
                 .unwrap();
-        let signature = H512::from_str("b77741277742abd4d7460c336a48df717130ef9f77e85d039948ca497831a5ea7e05b5a8a5c5979eaa49b3db0e5f98dbbf26343cef2905dd876279f8f7ce2a3e").unwrap();
-        let seq = 0x0190360f571a;
-        let id = Some(String::from("v4"));
-        let secp256k1 = Some(
-            H264::from_str("038729e0c825f3d9cad382555f3e46dcff21af323e89025a0e6312df541f4a9e73")
-                .unwrap(),
-        );
-        let ip = Some(Ipv4Addr::from_str("54.194.245.5").unwrap());
-        let udp = Some(30303_u16);
+        let signature = H512::from_str("131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe3").unwrap();
+        let seq = 0x018cf3c3bd18;
+
+        // define optional fields
+        let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
+        let id = String::from("v4");
+        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let secp256k1 =
+            H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
+                .unwrap();
+        let tcp: u16 = 30303;
+        let udp: u16 = 30303;
+        let snap: Vec<u32> = vec![];
+
+        // declare buffers for optional fields encoding
+        let mut eth_rlp = Vec::new();
+        let mut id_rlp = Vec::new();
+        let mut ip_rlp = Vec::new();
+        let mut secp256k1_rlp = Vec::new();
+        let mut tcp_rlp = Vec::new();
+        let mut udp_rlp = Vec::new();
+        let mut snap_rlp = Vec::new();
+
+        // encode optional fields
+        eth.encode(&mut eth_rlp);
+        id.encode(&mut id_rlp);
+        ip.encode(&mut ip_rlp);
+        secp256k1.encode(&mut secp256k1_rlp);
+        tcp.encode(&mut tcp_rlp);
+        udp.encode(&mut udp_rlp);
+        snap.encode(&mut snap_rlp);
+
+        // initialize vector with (key, value) pairs
+        let pairs: Vec<(Bytes, Bytes)> = vec![
+            (String::from("eth").into(), eth_rlp.into()),
+            (String::from("id").into(), id_rlp.into()),
+            (String::from("ip").into(), ip_rlp.into()),
+            (String::from("secp256k1").into(), secp256k1_rlp.into()),
+            (String::from("snap").into(), snap_rlp.into()),
+            (String::from("tcp").into(), tcp_rlp.clone().into()),
+            (String::from("udp").into(), udp_rlp.clone().into()),
+        ];
         let node_record = NodeRecord {
             signature,
             seq,
-            id,
-            secp256k1,
-            ip,
-            tcp: None,
-            udp,
-            ip6: None,
-            tcp6: None,
-            udp6: udp,
+            id: String::from("v4"),
+            pairs,
         };
         let expected = Message::ENRResponse(ENRResponseMessage {
             request_hash,
             node_record,
         });
+
         assert_eq!(decoded, expected);
     }
 
