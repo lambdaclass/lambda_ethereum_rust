@@ -21,24 +21,24 @@ pub struct ExecutionPayloadV3 {
     receipts_root: H256,
     logs_bloom: Bloom,
     prev_randao: H256,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     block_number: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     gas_limit: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     gas_used: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     timestamp: u64,
     #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
     extra_data: Bytes,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     base_fee_per_gas: u64,
     pub block_hash: H256,
     transactions: Vec<EncodedTransaction>,
     withdrawals: Vec<Withdrawal>,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     blob_gas_used: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     excess_blob_gas: u64,
 }
 

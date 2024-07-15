@@ -15,9 +15,9 @@ pub struct Genesis {
     pub coinbase: Address,
     pub difficulty: U256,
     pub extra_data: Bytes,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
     pub mixhash: H256,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_dec_str")]

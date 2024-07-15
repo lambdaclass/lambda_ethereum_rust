@@ -10,7 +10,7 @@ use crate::{
 use bytes::Bytes;
 use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 
 use std::cmp::{max, Ordering};
@@ -179,12 +179,12 @@ impl BlockHeader {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     index: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     validator_index: u64,
     address: Address,
     amount: U256,
@@ -275,6 +275,27 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
         && header.nonce == 0
         && header.ommers_hash == *DEFAULT_OMMERS_HASH
         && header.parent_hash == parent_header.compute_block_hash()
+}
+
+mod serde_impl {
+    use super::*;
+
+    pub struct BlockSerializable {
+        header: BlockHeader,
+        body: BlockBodyWrapper,
+    }
+
+    enum BlockBodyWrapper {
+        Full(BlockBody),
+        OnlyHashes(OnlyHashesBlockBody),
+    }
+
+    struct OnlyHashesBlockBody {
+        // Only tx hashes
+        pub transactions: Vec<H256>,
+        pub ommers: Vec<BlockHeader>,
+        pub withdrawals: Vec<Withdrawal>,
+    }
 }
 
 #[cfg(test)]
