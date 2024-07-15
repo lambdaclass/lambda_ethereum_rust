@@ -7,9 +7,10 @@ use ethereum_rust_core::rlp::{
 };
 use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Packet {
     hash: H256,
     signature: H520,
@@ -145,6 +146,12 @@ pub(crate) struct Endpoint {
     pub tcp_port: u16,
 }
 
+impl Endpoint {
+    pub fn tcp_address(&self) -> Option<SocketAddr> {
+        (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
+    }
+}
+
 impl RLPEncode for Endpoint {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
@@ -178,12 +185,12 @@ pub(crate) struct PingMessage {
     /// The endpoint of the sender.
     pub from: Endpoint,
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PingMessage {
@@ -222,10 +229,10 @@ impl RLPEncode for PingMessage {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FindNodeMessage {
     /// The target is a 64-byte secp256k1 public key.
-    target: H512,
+    pub target: H512,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
 }
 
 impl FindNodeMessage {
@@ -280,14 +287,14 @@ impl RLPDecode for PingMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The hash of the corresponding ping packet.
-    ping_hash: H256,
+    pub ping_hash: H256,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PongMessage {
