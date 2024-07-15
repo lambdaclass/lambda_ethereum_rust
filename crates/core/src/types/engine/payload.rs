@@ -29,7 +29,7 @@ pub struct ExecutionPayloadV3 {
     gas_used: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     timestamp: u64,
-    #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::bytes")]
     extra_data: Bytes,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     base_fee_per_gas: u64,
@@ -51,7 +51,7 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(EncodedTransaction(serde_utils::bytes::deser_hex_str(
+        Ok(EncodedTransaction(serde_utils::bytes::deserialize(
             deserializer,
         )?))
     }

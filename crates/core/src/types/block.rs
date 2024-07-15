@@ -47,6 +47,7 @@ pub struct BlockHeader {
     pub gas_used: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub timestamp: u64,
+    #[serde(with = "crate::serde_utils::bytes")]
     pub extra_data: Bytes,
     #[serde(rename(serialize = "mixHash"))]
     pub prev_randao: H256,
@@ -94,6 +95,7 @@ impl RLPEncode for BlockHeader {
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
+    #[serde(rename(serialize = "uncles"))]
     pub ommers: Vec<BlockHeader>,
     pub withdrawals: Vec<Withdrawal>,
 }
@@ -302,6 +304,7 @@ mod serializable {
     }
 
     #[derive(Debug, Serialize)]
+    #[serde(untagged)]
     enum BlockBodyWrapper {
         Full(BlockBody),
         OnlyHashes(OnlyHashesBlockBody),
@@ -311,7 +314,7 @@ mod serializable {
     struct OnlyHashesBlockBody {
         // Only tx hashes
         pub transactions: Vec<H256>,
-        pub ommers: Vec<BlockHeader>,
+        pub uncles: Vec<BlockHeader>,
         pub withdrawals: Vec<Withdrawal>,
     }
 
@@ -326,7 +329,7 @@ mod serializable {
             } else {
                 BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
                     transactions: body.transactions.iter().map(|t| t.compute_hash()).collect(),
-                    ommers: body.ommers,
+                    uncles: body.ommers,
                     withdrawals: body.withdrawals,
                 })
             };

@@ -51,7 +51,7 @@ pub mod u64 {
         where
             S: Serializer,
         {
-            serializer.serialize_str(&format!("{:x}", value))
+            serializer.serialize_str(&format!("{:#x}", value))
         }
     }
 
@@ -66,12 +66,13 @@ pub mod u64 {
     }
 }
 
+/// Serializes to and deserializes from 0x prefixed hex string
 pub mod bytes {
     use ::bytes::Bytes;
 
     use super::*;
 
-    pub fn deser_hex_str<'de, D>(d: D) -> Result<Bytes, D::Error>
+    pub fn deserialize<'de, D>(d: D) -> Result<Bytes, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -79,5 +80,12 @@ pub mod bytes {
         let bytes = hex::decode(value.trim_start_matches("0x"))
             .map_err(|e| D::Error::custom(e.to_string()))?;
         Ok(Bytes::from(bytes))
+    }
+
+    pub fn serialize<S>(value: &Bytes, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("0x{:x}", value))
     }
 }

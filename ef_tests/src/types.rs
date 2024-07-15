@@ -26,7 +26,7 @@ pub struct TestUnit {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
     pub balance: U256,
-    #[serde(deserialize_with = "ethereum_rust_core::serde_utils::bytes::deser_hex_str")]
+    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub code: Bytes,
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
@@ -100,7 +100,7 @@ pub struct Block {
 pub struct Transaction {
     #[serde(rename = "type")]
     pub transaction_type: Option<U256>,
-    #[serde(deserialize_with = "ethereum_rust_core::serde_utils::bytes::deser_hex_str")]
+    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub data: Bytes,
     pub gas_limit: U256,
     pub gas_price: Option<U256>,
