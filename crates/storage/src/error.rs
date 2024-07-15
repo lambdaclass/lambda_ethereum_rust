@@ -9,7 +9,7 @@ pub enum StoreError {
     DecodeError,
     #[cfg(feature = "libmdbx")]
     #[error("Libmdbx error: {0}")]
-    LibmdbxError(anyhow::Error),
+    LibmdbxError(#[from] anyhow::Error),
     #[cfg(feature = "rocksdb")]
     #[error("Rocksdb error: {0}")]
     RocksDbError(#[from] rocksdb::Error),
