@@ -1,3 +1,16 @@
+//! # RLPx Handshake
+//!
+//! This state diagram shows the RLPx handshake process.
+//!
+//! ```mermaid
+//! flowchart TD
+//! Start --> |sends auth| AuthSent
+//! Start --> |receives auth| AuthReceived
+//! AuthSent --> |receives ack| CompletedHandshake
+//! AuthReceived --> |sends ack| CompletedHandshake
+//! CompletedHandshake --> |sends and receives Hello| ConnectionCompleted
+//! ```
+
 #![allow(unused)]
 
 use crate::rlpx::utils::{ecdh_xchng, kdf, sha256, sha256_hmac};
