@@ -1,10 +1,9 @@
-use bytes::BufMut;
-
 use super::{
-    decode::{decode_rlp_item, RLPDecode},
+    decode::{decode_rlp_item, get_item_with_prefix, RLPDecode},
     encode::{encode_length, RLPEncode},
     error::RLPDecodeError,
 };
+use bytes::BufMut;
 
 /// # Struct decoding helper
 ///
@@ -64,6 +63,19 @@ impl<'a> Decoder<'a> {
             ..self
         };
         Ok((field, updated_self))
+    }
+    /// Returns the next field without decoding it, i.e. the payload bytes including its prefix.
+    pub fn get_encoded_item(self) -> Result<(Vec<u8>, Self), RLPDecodeError> {
+        match get_item_with_prefix(self.payload) {
+            Ok((field, rest)) => {
+                let updated_self = Self {
+                    payload: rest,
+                    ..self
+                };
+                Ok((field.to_vec(), updated_self))
+            }
+            Err(err) => Err(err),
+        }
     }
 
     /// Returns Some(field) if there's some field to decode, otherwise returns None
