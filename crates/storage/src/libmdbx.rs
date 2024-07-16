@@ -5,7 +5,7 @@ use crate::rlp::{
     AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
-use ethereum_rust_core::types::AccountInfo;
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
 use ethereum_types::Address;
 use libmdbx::{
@@ -50,6 +50,68 @@ impl StoreEngine for Store {
         let read_value = {
             let txn = self.db.begin_read().unwrap();
             txn.get::<AccountInfos>(address.into())
+        };
+        match read_value {
+            Ok(value) => Ok(value.map(|a| a.to())),
+            Err(err) => Err(StoreError::LibmdbxError(err)),
+        }
+    }
+
+    fn add_block_header(
+        &mut self,
+        block_number: BlockNumber,
+        block_header: BlockHeader,
+    ) -> std::result::Result<(), StoreError> {
+        // Write block header to mdbx
+        {
+            let txn = self.db.begin_readwrite().unwrap();
+            match txn.upsert::<Headers>(block_number, block_header.into()) {
+                Ok(_) => txn.commit().unwrap(),
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
+        }
+        Ok(())
+    }
+
+    fn get_block_header(
+        &self,
+        block_number: BlockNumber,
+    ) -> std::result::Result<Option<BlockHeader>, StoreError> {
+        // Read block header from mdbx
+        let read_value = {
+            let txn = self.db.begin_read().unwrap();
+            txn.get::<Headers>(block_number)
+        };
+        match read_value {
+            Ok(value) => Ok(value.map(|a| a.to())),
+            Err(err) => Err(StoreError::LibmdbxError(err)),
+        }
+    }
+
+    fn add_block_body(
+        &mut self,
+        block_number: BlockNumber,
+        block_body: BlockBody,
+    ) -> std::result::Result<(), StoreError> {
+        // Write block body to mdbx
+        {
+            let txn = self.db.begin_readwrite().unwrap();
+            match txn.upsert::<Bodies>(block_number, block_body.into()) {
+                Ok(_) => txn.commit().unwrap(),
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
+        }
+        Ok(())
+    }
+
+    fn get_block_body(
+        &self,
+        block_number: BlockNumber,
+    ) -> std::result::Result<Option<BlockBody>, StoreError> {
+        // Read block body from mdbx
+        let read_value = {
+            let txn = self.db.begin_read().unwrap();
+            txn.get::<Bodies>(block_number)
         };
         match read_value {
             Ok(value) => Ok(value.map(|a| a.to())),
