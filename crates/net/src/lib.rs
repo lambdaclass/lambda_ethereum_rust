@@ -11,7 +11,10 @@ use bootnode::BootNode;
 use bytes::Bytes;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
 use ethereum_rust_core::{
-    rlp::{encode::RLPEncode, structs::Decoder},
+    rlp::{
+        encode::RLPEncode,
+        structs::{Decoder, Encoder},
+    },
     H128, H256, H512,
 };
 use k256::{
@@ -20,7 +23,10 @@ use k256::{
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData};
-use rlpx::handshake::{RLPxLocalClient, RLPxState};
+use rlpx::{
+    handshake::{RLPxLocalClient, RLPxState},
+    utils::pubkey2id,
+};
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -235,32 +241,85 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let conn = client.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
-    // Example of sending a message through the stream
-    // TODO: move to a module
-    // TODO: messages after the Hello must be snappy compressed
-    // let msg_id = 1_u8;
-    // // Hello message
-    // let protocol_version = 5_u8;
-    // let client_id = "Ethereum(++)/1.0.0";
-    // let capabilities: Vec<(&str, u8)> = Default::default();
-    // let listen_port = 0_u8; // This one is ignored
-    // let node_id = pubkey2id(&PublicKey::from(signer.verifying_key()));
-    // let mut frame_data = vec![];
-    // msg_id.encode(&mut frame_data);
-    // Encoder::new(&mut frame_data)
-    //     .encode_field(&protocol_version)
-    //     .encode_field(&client_id)
-    //     .encode_field(&capabilities)
-    //     .encode_field(&listen_port)
-    //     .encode_field(&node_id)
-    //     .finish();
-    // // TODO: check
-    // let frame_size: [u8; 3] = frame_data.len().to_be_bytes()[5..8].try_into().unwrap();
-    // // Pad to next multiple of 16
-    // frame_data.resize(frame_data.len().next_multiple_of(16), 0);
-    // let header_data = (0_u8, 0_u8).encode_to_vec();
+    let RLPxState {
+        aes_key: _,
+        mac_key: _,
+        mut ingress_mac,
+        mut egress_mac,
+        mut aes_cipher,
+    } = conn.state;
+
+    let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
 
     // TODO: move all this to a module
+    // Example of sending a message through the stream
+    // [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeKey: B_64, ...]
+    let msg_id = 1_u8;
+    // Hello message
+    let protocol_version = 5_u8;
+    let client_id = "Ethereum(++)/1.0.0";
+    // We support only p2p for now.
+    let capabilities = vec![("p2p".to_string(), 5_u8)];
+    let listen_port = 0_u8; // This one is ignored
+    let node_id = pubkey2id(&PublicKey::from(signer.verifying_key()));
+    let mut frame_data = vec![];
+    msg_id.encode(&mut frame_data);
+    Encoder::new(&mut frame_data)
+        .encode_field(&protocol_version)
+        .encode_field(&client_id)
+        .encode_field(&capabilities)
+        .encode_field(&listen_port)
+        .encode_field(&node_id)
+        .finish();
+
+    // TODO: check
+    // header = frame-size || header-data || header-padding
+    let mut header = Vec::with_capacity(32);
+    let frame_size = frame_data.len().to_be_bytes();
+    header.extend_from_slice(&frame_size[5..8]);
+    // header-data = [capability-id, context-id]  (both always zero)
+    let header_data = (0_u8, 0_u8);
+    header_data.encode(&mut header);
+
+    header.resize(16, 0);
+    aes_cipher.apply_keystream(&mut header[..16]);
+
+    let header_mac_seed = {
+        let mac_digest: [u8; 16] = egress_mac.clone().finalize()[..16].try_into().unwrap();
+        let mut seed = mac_digest.into();
+        mac_aes_cipher.encrypt_block(&mut seed);
+        H128(seed.into()) ^ H128(header[..16].try_into().unwrap())
+    };
+    egress_mac.update(header_mac_seed);
+    let header_mac = egress_mac.clone().finalize();
+    header.extend_from_slice(&header_mac[..16]);
+
+    // Send header
+    stream.write_all(&header).await.unwrap();
+
+    // Pad to next multiple of 16
+    frame_data.resize(frame_data.len().next_multiple_of(16), 0);
+    aes_cipher.apply_keystream(&mut frame_data);
+    let frame_ciphertext = frame_data;
+
+    // Send frame
+    stream.write_all(&frame_ciphertext).await.unwrap();
+
+    // Compute frame-mac
+    egress_mac.update(&frame_ciphertext);
+
+    // frame-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ keccak256.digest(egress-mac)[:16]
+    let frame_mac_seed = {
+        let mac_digest: [u8; 16] = egress_mac.clone().finalize()[..16].try_into().unwrap();
+        let mut seed = mac_digest.into();
+        mac_aes_cipher.encrypt_block(&mut seed);
+        (H128(seed.into()) ^ H128(mac_digest)).0
+    };
+    egress_mac.update(frame_mac_seed);
+    let frame_mac = egress_mac.clone().finalize();
+
+    // Send frame-mac
+    stream.write_all(&frame_mac[..16]).await.unwrap();
 
     // Receive the hello message's frame
     let mut frame_header = [0; 32];
@@ -269,19 +328,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
     info!("Received header!");
 
-    let RLPxState {
-        aes_key: _,
-        mac_key: _,
-        mut ingress_mac,
-        egress_mac: _,
-        mut aes_cipher,
-    } = conn.state;
-
     // Validate MAC header
     // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
     let header_mac_seed = {
-        let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
-
         let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
         let mut seed = mac_digest.into();
         mac_aes_cipher.encrypt_block(&mut seed);
@@ -316,8 +365,6 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     //   check MAC
     ingress_mac.update(&frame_ciphertext);
     let frame_mac_seed = {
-        let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
-
         let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
         let mut seed = mac_digest.into();
         mac_aes_cipher.encrypt_block(&mut seed);
@@ -354,7 +401,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         "Received hello message v{protocol_version}, from client: '{client_id}', 
         with id: {node_id}, with supported capabilities: {capabilities:?}"
     );
-    // TODO: send Hello message
+    // TODO: messages after the Hello must be snappy compressed
 }
 
 // TODO: move to kademlia
