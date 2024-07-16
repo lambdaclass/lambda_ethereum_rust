@@ -72,7 +72,7 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => {
             let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_by_number(&request)
+            block::get_block_by_number(&request, storage)
         }
         "eth_getBlockByHash" => {
             let request = GetBlockByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
@@ -96,7 +96,7 @@ pub async fn handle_http_request(State(storage): State<Store>, body: String) -> 
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => {
             let request = GetBlockByNumberRequest::parse(&req.params).unwrap();
-            block::get_block_by_number(&request)
+            block::get_block_by_number(&request, storage)
         }
         "eth_getBlockByHash" => {
             let request = GetBlockByHashRequest::parse(&req.params).unwrap();
