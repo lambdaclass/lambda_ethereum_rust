@@ -12,9 +12,10 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
+use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 
 use std::cmp::{max, Ordering};
@@ -22,7 +23,6 @@ use std::cmp::{max, Ordering};
 use super::Transaction;
 
 pub type BlockNumber = u64;
-pub type Bloom = [u8; 256];
 
 use lazy_static::lazy_static;
 
@@ -31,26 +31,39 @@ lazy_static! {
 }
 
 /// Header part of a block on the chain.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
+    #[serde(rename(serialize = "sha3Uncles"))]
     pub ommers_hash: H256, // ommer = uncle
+    #[serde(rename(serialize = "miner"))]
     pub coinbase: Address,
     pub state_root: H256,
     pub transactions_root: H256,
     pub receipt_root: H256,
     pub logs_bloom: Bloom,
     pub difficulty: U256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub number: BlockNumber,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub gas_used: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub timestamp: u64,
+    #[serde(with = "crate::serde_utils::bytes")]
     pub extra_data: Bytes,
+    #[serde(rename(serialize = "mixHash"))]
     pub prev_randao: H256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub base_fee_per_gas: u64,
     pub withdrawals_root: H256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub blob_gas_used: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub excess_blob_gas: u64,
     pub parent_beacon_block_root: H256,
 }
@@ -136,10 +149,11 @@ impl RLPDecode for BlockHeader {
 }
 
 // The body of a block on the chain
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
+    #[serde(rename(serialize = "uncles"))]
     pub ommers: Vec<BlockHeader>,
     pub withdrawals: Vec<Withdrawal>,
 }
@@ -253,12 +267,12 @@ impl BlockHeader {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     index: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     validator_index: u64,
     address: Address,
     amount: U256,
@@ -370,6 +384,55 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
         && header.parent_hash == parent_header.compute_block_hash()
 }
 
+#[allow(unused)]
+mod serializable {
+    use super::*;
+
+    #[derive(Debug, Serialize)]
+    pub struct BlockSerializable {
+        hash: H256,
+        #[serde(flatten)]
+        header: BlockHeader,
+        #[serde(flatten)]
+        body: BlockBodyWrapper,
+    }
+
+    #[derive(Debug, Serialize)]
+    #[serde(untagged)]
+    enum BlockBodyWrapper {
+        Full(BlockBody),
+        OnlyHashes(OnlyHashesBlockBody),
+    }
+
+    #[derive(Debug, Serialize)]
+    struct OnlyHashesBlockBody {
+        // Only tx hashes
+        pub transactions: Vec<H256>,
+        pub uncles: Vec<BlockHeader>,
+        pub withdrawals: Vec<Withdrawal>,
+    }
+
+    impl BlockSerializable {
+        pub fn from_block(
+            header: BlockHeader,
+            body: BlockBody,
+            full_transactions: bool,
+        ) -> BlockSerializable {
+            let body = if full_transactions {
+                BlockBodyWrapper::Full(body)
+            } else {
+                BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
+                    transactions: body.transactions.iter().map(|t| t.compute_hash()).collect(),
+                    uncles: body.ommers,
+                    withdrawals: body.withdrawals,
+                })
+            };
+            let hash = header.compute_block_hash();
+            BlockSerializable { hash, header, body }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -377,6 +440,9 @@ mod test {
 
     use ethereum_types::H160;
     use hex_literal::hex;
+    use serializable::BlockSerializable;
+
+    use crate::types::{EIP1559Transaction, TxKind};
 
     use super::*;
 
@@ -488,5 +554,89 @@ mod test {
             parent_beacon_block_root: H256::zero(),
         };
         assert!(validate_block_header(&block, &parent_block))
+    }
+
+    #[test]
+    fn serialize_block() {
+        let block_header = BlockHeader {
+            parent_hash: H256::from_str(
+                "0x1ac1bf1eef97dc6b03daba5af3b89881b7ae4bc1600dc434f450a9ec34d44999",
+            )
+            .unwrap(),
+            ommers_hash: H256::from_str(
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            )
+            .unwrap(),
+            coinbase: Address::from_str("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba").unwrap(),
+            state_root: H256::from_str(
+                "0x9de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9",
+            )
+            .unwrap(),
+            transactions_root: H256::from_str(
+                "0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d",
+            )
+            .unwrap(),
+            receipt_root: H256::from_str(
+                "0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa",
+            )
+            .unwrap(),
+            logs_bloom: Bloom::from([0; 256]),
+            difficulty: U256::zero(),
+            number: 1,
+            gas_limit: 0x016345785d8a0000,
+            gas_used: 0xa8de,
+            timestamp: 0x03e8,
+            extra_data: Bytes::new(),
+            prev_randao: H256::zero(),
+            nonce: 0x0000000000000000,
+            base_fee_per_gas: 0x07,
+            withdrawals_root: H256::from_str(
+                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            )
+            .unwrap(),
+            blob_gas_used: 0x00,
+            excess_blob_gas: 0x00,
+            parent_beacon_block_root: H256::zero(),
+        };
+
+        let tx = EIP1559Transaction {
+            nonce: 0,
+            max_fee_per_gas: 78,
+            max_priority_fee_per_gas: 17,
+            to: TxKind::Call(Address::from_slice(
+                &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+            )),
+            value: 3000000000000000_u64.into(),
+            data: Bytes::from_static(b"0x1568"),
+            signature_r: U256::from_str_radix(
+                "151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65d",
+                16,
+            )
+            .unwrap(),
+            signature_s: U256::from_str_radix(
+                "64c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4",
+                16,
+            )
+            .unwrap(),
+            signature_y_parity: false,
+            chain_id: 3151908,
+            gas_limit: 63000,
+            access_list: vec![(
+                Address::from_slice(
+                    &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+                ),
+                vec![],
+            )],
+        };
+
+        let block_body = BlockBody {
+            transactions: vec![Transaction::EIP1559Transaction(tx)],
+            ommers: vec![],
+            withdrawals: vec![],
+        };
+
+        let block = BlockSerializable::from_block(block_header, block_body, true);
+        let expected_block = r#"{"hash":"0x63d6a2504601fc2db0ccf02a28055eb0cdb40c444ecbceec0f613980421a035e","parentHash":"0x1ac1bf1eef97dc6b03daba5af3b89881b7ae4bc1600dc434f450a9ec34d44999","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba","stateRoot":"0x9de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9","transactionsRoot":"0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d","receiptRoot":"0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0x1","gasLimit":"0x16345785d8a0000","gasUsed":"0xa8de","timestamp":"0x3e8","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0","baseFeePerGas":"0x7","withdrawalsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","blobGasUsed":"0x0","excessBlobGas":"0x0","parentBeaconBlockRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions":[{"type":"0x2","nonce":"0x0","to":"0x6177843db3138ae69679a54b95cf345ed759450d","gas":"0xf618","value":"0xaa87bee538000","input":"0x307831353638","maxPriorityFeePerGas":"0x11","maxFeePerGas":"0x4e","gasPrice":"0x4e","accessList":[{"address":"0x6177843db3138ae69679a54b95cf345ed759450d","storageKeys":[]}],"chainId":"0x301824","yParity":"0x0","r":"0x151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65d","s":"0x64c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4"}],"uncles":[],"withdrawals":[]}"#;
+        assert_eq!(serde_json::to_string(&block).unwrap(), expected_block)
     }
 }
