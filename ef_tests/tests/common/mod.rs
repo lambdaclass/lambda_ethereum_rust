@@ -45,7 +45,6 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
-#[allow(unused)]
 pub fn parse_and_execute_test_file(path: &Path) {
     let tests = parse_test_file(path);
 

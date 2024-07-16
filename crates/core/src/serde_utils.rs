@@ -32,25 +32,6 @@ pub mod u256 {
     }
 }
 
-pub mod h160 {
-    use std::str::FromStr;
-
-    use super::*;
-    use ethereum_types::H160;
-    pub fn deser_hex_str<'de, D>(d: D) -> Result<H160, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(d)?;
-        if value.is_empty() {
-            Ok(H160::zero())
-        } else {
-            H160::from_str(value.trim_start_matches("0x"))
-                .map_err(|_| D::Error::custom("Failed to deserialize H160 value"))
-        }
-    }
-}
-
 pub mod u64 {
     use super::*;
 

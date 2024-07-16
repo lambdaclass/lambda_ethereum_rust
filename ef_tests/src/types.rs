@@ -115,7 +115,7 @@ pub struct Transaction {
     pub max_priority_fee_per_gas: Option<U256>,
     pub hash: Option<H256>,
     pub sender: Address,
-    #[serde(deserialize_with = "ethereum_rust_core::serde_utils::h160::deser_hex_str")]
+    #[serde(deserialize_with = "crate::serde_utils::h160::deser_hex_str")]
     pub to: Address,
 }
 
