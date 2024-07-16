@@ -110,6 +110,10 @@ pub async fn handle_http_request(State(storage): State<Store>, body: String) -> 
             let request = GetBlockByHashRequest::parse(&req.params).unwrap();
             block::get_block_by_hash(&request, storage)
         }
+        "eth_getBlockTransactionCountByNumber" => {
+            let request = GetBlockTransactionCountByNumberRequest::parse(&req.params).unwrap();
+            block::get_block_transaction_count_by_number(&request, storage)
+        }
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),
     };
