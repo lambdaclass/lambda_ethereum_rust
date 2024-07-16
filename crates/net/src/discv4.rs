@@ -96,8 +96,8 @@ impl Message {
             Message::Pong(msg) => msg.encode(buf),
             Message::FindNode(msg) => msg.encode(buf),
             Message::ENRRequest(msg) => msg.encode(buf),
+            Message::ENRResponse(msg) => msg.encode(buf),
             Message::Neighbors(msg) => msg.encode(buf),
-            _ => todo!(),
         }
     }
 
@@ -514,6 +514,25 @@ impl RLPEncode for ENRRequestMessage {
     }
 }
 
+impl RLPEncode for ENRResponseMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.request_hash)
+            .encode_field(&self.node_record)
+            .finish();
+    }
+}
+
+impl RLPEncode for NodeRecord {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.signature)
+            .encode_field(&self.seq)
+            .encode_key_value_list::<Bytes>(&self.pairs)
+            .finish();
+    }
+}
+
 impl RLPEncode for Node {
     fn encode(&self, buf: &mut dyn BufMut) {
         structs::Encoder::new(buf)
@@ -715,6 +734,81 @@ mod tests {
         let pkt_type = "05";
         let encoded_message = "c6850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_enr_response() {
+        let request_hash =
+            H256::from_str("ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98")
+                .unwrap();
+        let signature = H512::from_str("131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe3").unwrap();
+        let seq = 0x018cf3c3bd18;
+
+        // define optional fields
+        let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
+        let id = String::from("v4");
+        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let secp256k1 =
+            H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
+                .unwrap();
+        let tcp: u16 = 30303;
+        let udp: u16 = 30303;
+        let snap: Vec<u32> = vec![];
+
+        // declare buffers for optional fields encoding
+        let mut eth_rlp = Vec::new();
+        let mut id_rlp = Vec::new();
+        let mut ip_rlp = Vec::new();
+        let mut secp256k1_rlp = Vec::new();
+        let mut tcp_rlp = Vec::new();
+        let mut udp_rlp = Vec::new();
+        let mut snap_rlp = Vec::new();
+
+        // encode optional fields
+        eth.encode(&mut eth_rlp);
+        id.encode(&mut id_rlp);
+        ip.encode(&mut ip_rlp);
+        secp256k1.encode(&mut secp256k1_rlp);
+        tcp.encode(&mut tcp_rlp);
+        udp.encode(&mut udp_rlp);
+        snap.encode(&mut snap_rlp);
+
+        // initialize vector with (key, value) pairs
+        let pairs: Vec<(Bytes, Bytes)> = vec![
+            (String::from("eth").into(), eth_rlp.into()),
+            (String::from("id").into(), id_rlp.into()),
+            (String::from("ip").into(), ip_rlp.into()),
+            (String::from("secp256k1").into(), secp256k1_rlp.into()),
+            (String::from("snap").into(), snap_rlp.into()),
+            (String::from("tcp").into(), tcp_rlp.clone().into()),
+            (String::from("udp").into(), udp_rlp.clone().into()),
+        ];
+        let node_record = NodeRecord {
+            signature,
+            seq,
+            id: String::from("v4"),
+            pairs,
+        };
+        let msg = Message::ENRResponse(ENRResponseMessage {
+            request_hash,
+            node_record,
+        });
+
+        let key_bytes =
+            H256::from_str("2e6a09427ba14acc853cbbff291c75c3cb57754ac1e3df8df9cac086b3a83aa4")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+        let mut buf = Vec::new();
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+
+        let hash = "85e7d3ee8494d23694e2cbcc495be900bb035969366c4b3267ba80eef6cc9b2a";
+        let signature = "7b714d79b4f8ec780b27329a6a8cb8188b882ecf99be0f89feeab33ebbb76ecb3dcb5ab53a1c7f27a4fc9e6e70220e614de9a351c3f39e100f40b5d0e2a7331501";
+        let packet_type = "06";
+        let encoded_msg = "f8c6a0ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98f8a3b840131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe386018cf3c3bd1883657468c7c68488cf81d980826964827634826970848ac533b589736563703235366b31a1034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f3647684736e6170c08374637082765f8375647082765f";
+        let expected = [hash, signature, packet_type, encoded_msg].concat();
 
         assert_eq!(result, expected);
     }
