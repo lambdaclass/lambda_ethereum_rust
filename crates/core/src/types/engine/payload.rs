@@ -7,8 +7,7 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, BlockBody, BlockHeader, EIP1559Transaction, EIP2930Transaction,
-    EIP4844Transaction, LegacyTransaction, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+    compute_withdrawals_root, BlockBody, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -64,35 +63,7 @@ impl EncodedTransaction {
     /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
     /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
-        // Look at the first byte to check if it corresponds to a TransactionType
-        match self.0.first() {
-            // First byte is a valid TransactionType
-            Some(tx_type) if *tx_type < 0x7f => {
-                // Decode tx based on type
-                let tx_bytes = &self.0.as_ref()[1..];
-                match *tx_type {
-                    // Legacy
-                    0x0 => LegacyTransaction::decode(tx_bytes).map(Transaction::LegacyTransaction), // TODO: check if this is a real case scenario
-                    // EIP2930
-                    0x1 => {
-                        EIP2930Transaction::decode(tx_bytes).map(Transaction::EIP2930Transaction)
-                    }
-                    // EIP1559
-                    0x2 => {
-                        EIP1559Transaction::decode(tx_bytes).map(Transaction::EIP1559Transaction)
-                    }
-                    // EIP4844
-                    0x3 => {
-                        EIP4844Transaction::decode(tx_bytes).map(Transaction::EIP4844Transaction)
-                    }
-                    ty => Err(RLPDecodeError::Custom(format!(
-                        "Invalid transaction type: {ty}"
-                    ))),
-                }
-            }
-            // LegacyTransaction
-            _ => LegacyTransaction::decode(self.0.as_ref()).map(Transaction::LegacyTransaction),
-        }
+        Transaction::decode(self.0.as_ref())
     }
 }
 
