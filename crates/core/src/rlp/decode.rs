@@ -186,6 +186,13 @@ impl RLPDecode for crate::U256 {
     }
 }
 
+impl RLPDecode for crate::Bloom {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
+        Ok((crate::Bloom(value), rest))
+    }
+}
+
 impl RLPDecode for String {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (str_bytes, rest) = decode_bytes(rlp)?;

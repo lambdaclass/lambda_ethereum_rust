@@ -1,4 +1,4 @@
-use serde::{de::Error, Deserialize, Deserializer};
+use serde::{de::Error, Deserialize, Deserializer, Serializer};
 
 pub mod u256 {
     use super::*;
@@ -35,6 +35,26 @@ pub mod u256 {
 pub mod u64 {
     use super::*;
 
+    pub mod hex_str {
+        use super::*;
+
+        pub fn deserialize<'de, D>(d: D) -> Result<u64, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = String::deserialize(d)?;
+            u64::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+        }
+
+        pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(&format!("{:#x}", value))
+        }
+    }
+
     pub fn deser_dec_str<'de, D>(d: D) -> Result<u64, D::Error>
     where
         D: Deserializer<'de>,
@@ -44,23 +64,15 @@ pub mod u64 {
             .parse()
             .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
     }
-
-    pub fn deser_hex_str<'de, D>(d: D) -> Result<u64, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(d)?;
-        u64::from_str_radix(value.trim_start_matches("0x"), 16)
-            .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
-    }
 }
 
+/// Serializes to and deserializes from 0x prefixed hex string
 pub mod bytes {
     use ::bytes::Bytes;
 
     use super::*;
 
-    pub fn deser_hex_str<'de, D>(d: D) -> Result<Bytes, D::Error>
+    pub fn deserialize<'de, D>(d: D) -> Result<Bytes, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -68,5 +80,12 @@ pub mod bytes {
         let bytes = hex::decode(value.trim_start_matches("0x"))
             .map_err(|e| D::Error::custom(e.to_string()))?;
         Ok(Bytes::from(bytes))
+    }
+
+    pub fn serialize<S>(value: &Bytes, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("0x{:x}", value))
     }
 }
