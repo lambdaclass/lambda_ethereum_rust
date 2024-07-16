@@ -92,18 +92,6 @@ pub enum TxType {
 }
 
 impl Transaction {
-    pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
-        // tx_type || RLP(tx)  if tx_type != 0
-        //            RLP(tx)  else
-        match self {
-            // Legacy transactions don't have a prefix
-            Transaction::LegacyTransaction(_) => {}
-            _ => buf.put_u8(self.tx_type() as u8),
-        }
-
-        self.encode(buf);
-    }
-
     pub fn tx_type(&self) -> TxType {
         match self {
             Transaction::LegacyTransaction(_) => TxType::Legacy,
@@ -115,13 +103,59 @@ impl Transaction {
 }
 
 impl RLPEncode for Transaction {
+    /// Based on [EIP-2718]
+    /// Transactions can be encoded in the following formats:
+    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        match self {
+            // Legacy transactions don't have a prefix
+            Transaction::LegacyTransaction(_) => {}
+            _ => buf.put_u8(self.tx_type() as u8),
+        }
         match self {
             Transaction::LegacyTransaction(t) => t.encode(buf),
             Transaction::EIP2930Transaction(t) => t.encode(buf),
             Transaction::EIP1559Transaction(t) => t.encode(buf),
             Transaction::EIP4844Transaction(t) => t.encode(buf),
         };
+    }
+}
+
+impl RLPDecode for Transaction {
+    /// Based on [EIP-2718]
+    /// Transactions can be encoded in the following formats:
+    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        // Look at the first byte to check if it corresponds to a TransactionType
+        match rlp.first() {
+            // First byte is a valid TransactionType
+            Some(tx_type) if *tx_type < 0x7f => {
+                // Decode tx based on type
+                let tx_bytes = &rlp[1..];
+                match *tx_type {
+                    // Legacy
+                    0x0 => LegacyTransaction::decode_unfinished(tx_bytes)
+                        .map(|(tx, rem)| (Transaction::LegacyTransaction(tx), rem)), // TODO: check if this is a real case scenario
+                    // EIP2930
+                    0x1 => EIP2930Transaction::decode_unfinished(tx_bytes)
+                        .map(|(tx, rem)| (Transaction::EIP2930Transaction(tx), rem)),
+                    // EIP1559
+                    0x2 => EIP1559Transaction::decode_unfinished(tx_bytes)
+                        .map(|(tx, rem)| (Transaction::EIP1559Transaction(tx), rem)),
+                    // EIP4844
+                    0x3 => EIP4844Transaction::decode_unfinished(tx_bytes)
+                        .map(|(tx, rem)| (Transaction::EIP4844Transaction(tx), rem)),
+                    ty => Err(RLPDecodeError::Custom(format!(
+                        "Invalid transaction type: {ty}"
+                    ))),
+                }
+            }
+            // LegacyTransaction
+            _ => LegacyTransaction::decode_unfinished(rlp)
+                .map(|(tx, rem)| (Transaction::LegacyTransaction(tx), rem)),
+        }
     }
 }
 

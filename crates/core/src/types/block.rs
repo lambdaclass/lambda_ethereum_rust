@@ -3,7 +3,11 @@ use super::{
     GAS_LIMIT_MINIMUM,
 };
 use crate::{
-    rlp::{encode::RLPEncode, structs::Encoder},
+    rlp::{
+        decode::RLPDecode,
+        encode::RLPEncode,
+        structs::{Decoder, Encoder},
+    },
     types::Receipt,
     Address, H256, U256,
 };
@@ -78,6 +82,59 @@ impl RLPEncode for BlockHeader {
     }
 }
 
+impl RLPDecode for BlockHeader {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (parent_hash, decoder) = decoder.decode_field("parent_hash")?;
+        let (ommers_hash, decoder) = decoder.decode_field("ommers_hash")?;
+        let (coinbase, decoder) = decoder.decode_field("coinbase")?;
+        let (state_root, decoder) = decoder.decode_field("state_root")?;
+        let (transactions_root, decoder) = decoder.decode_field("transactions_root")?;
+        let (receipt_root, decoder) = decoder.decode_field("receipt_root")?;
+        let (logs_bloom, decoder) = decoder.decode_field("logs_bloom")?;
+        let (difficulty, decoder) = decoder.decode_field("difficulty")?;
+        let (number, decoder) = decoder.decode_field("number")?;
+        let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
+        let (gas_used, decoder) = decoder.decode_field("gas_used")?;
+        let (timestamp, decoder) = decoder.decode_field("timestamp")?;
+        let (extra_data, decoder) = decoder.decode_field("extra_data")?;
+        let (prev_randao, decoder) = decoder.decode_field("prev_randao")?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+        let nonce = u64::from_be_bytes(nonce);
+        let (base_fee_per_gas, decoder) = decoder.decode_field("base_fee_per_gas")?;
+        let (withdrawals_root, decoder) = decoder.decode_field("withdrawals_root")?;
+        let (blob_gas_used, decoder) = decoder.decode_field("blob_gas_used")?;
+        let (excess_blob_gas, decoder) = decoder.decode_field("excess_blob_gas")?;
+        let (parent_beacon_block_root, decoder) =
+            decoder.decode_field("parent_beacon_block_root")?;
+        Ok((
+            BlockHeader {
+                parent_hash,
+                ommers_hash,
+                coinbase,
+                state_root,
+                transactions_root,
+                receipt_root,
+                logs_bloom,
+                difficulty,
+                number,
+                gas_limit,
+                gas_used,
+                timestamp,
+                extra_data,
+                prev_randao,
+                nonce,
+                base_fee_per_gas,
+                withdrawals_root,
+                blob_gas_used,
+                excess_blob_gas,
+                parent_beacon_block_root,
+            },
+            decoder.finish()?,
+        ))
+    }
+}
+
 // The body of a block on the chain
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockBody {
@@ -109,7 +166,7 @@ impl BlockBody {
                 // Value: tx_type || RLP(tx)  if tx_type != 0
                 //                   RLP(tx)  else
                 let mut v = Vec::new();
-                tx.encode_with_type(&mut v);
+                tx.encode(&mut v);
 
                 (k, v)
             })
@@ -171,6 +228,23 @@ impl RLPEncode for BlockBody {
     }
 }
 
+impl RLPDecode for BlockBody {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (transactions, decoder) = decoder.decode_field("transactions")?;
+        let (ommers, decoder) = decoder.decode_field("ommers")?;
+        let (withdrawals, decoder) = decoder.decode_field("withdrawals")?;
+        Ok((
+            BlockBody {
+                transactions,
+                ommers,
+                withdrawals,
+            },
+            decoder.finish()?,
+        ))
+    }
+}
+
 impl BlockHeader {
     pub fn compute_block_hash(&self) -> H256 {
         let mut buf = vec![];
@@ -198,6 +272,25 @@ impl RLPEncode for Withdrawal {
             .encode_field(&self.address)
             .encode_field(&self.amount)
             .finish();
+    }
+}
+
+impl RLPDecode for Withdrawal {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (index, decoder) = decoder.decode_field("index")?;
+        let (validator_index, decoder) = decoder.decode_field("validator_index")?;
+        let (address, decoder) = decoder.decode_field("address")?;
+        let (amount, decoder) = decoder.decode_field("amount")?;
+        Ok((
+            Withdrawal {
+                index,
+                validator_index,
+                address,
+                amount,
+            },
+            decoder.finish()?,
+        ))
     }
 }
 
