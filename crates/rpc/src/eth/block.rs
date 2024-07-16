@@ -1,6 +1,9 @@
+use std::fmt::Display;
+
 use ethereum_rust_storage::Store;
 use serde::Deserialize;
 use serde_json::Value;
+use tracing::info;
 
 use crate::utils::RpcErr;
 use ethereum_rust_core::types::{BlockHash, BlockSerializable};
@@ -62,6 +65,7 @@ pub fn get_block_by_number(
     request: &GetBlockByNumberRequest,
     storage: Store,
 ) -> Result<Value, RpcErr> {
+    info!("Requested block with number: {}", request.block);
     let block_number = match request.block {
         BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
         BlockIdentifier::Number(block_number) => block_number,
@@ -81,6 +85,7 @@ pub fn get_block_by_number(
 }
 
 pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Result<Value, RpcErr> {
+    info!("Requested block with hash: {}", request.block);
     let block_number = match storage.get_block_number(request.block) {
         Ok(Some(number)) => number,
         Ok(_) => return Ok(Value::Null),
@@ -98,4 +103,19 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
     let block = BlockSerializable::from_block(header, body, request.hydrated);
 
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+}
+
+impl Display for BlockIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockIdentifier::Number(num) => num.fmt(f),
+            BlockIdentifier::Tag(tag) => match tag {
+                BlockTag::Earliest => "Earliest".fmt(f),
+                BlockTag::Finalized => "Finalized".fmt(f),
+                BlockTag::Safe => "Safe".fmt(f),
+                BlockTag::Latest => "Latest".fmt(f),
+                BlockTag::Pending => "Pending".fmt(f),
+            },
+        }
+    }
 }
