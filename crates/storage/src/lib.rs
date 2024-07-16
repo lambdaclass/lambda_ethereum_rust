@@ -221,7 +221,8 @@ mod tests {
     use bytes::Bytes;
     use ethereum_rust_core::{
         rlp::decode::RLPDecode,
-        types::{self, Bloom, Transaction},
+        types::{self, Transaction},
+        Bloom,
     };
     use ethereum_types::{H256, U256};
 
