@@ -89,3 +89,24 @@ pub mod bytes {
         serializer.serialize_str(&format!("0x{:x}", value))
     }
 }
+
+/// Serializes to and deserializes from 0x prefixed hex string
+pub mod bool {
+    use super::*;
+
+    pub fn deserialize<'de, D>(d: D) -> Result<bool, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        Ok(u8::from_str_radix(value.trim_start_matches("0x"), 16)
+            .map_err(|_| D::Error::custom("Failed to deserialize hex string to boolean value"))? != 0)
+    }
+
+    pub fn serialize<S>(value: &bool, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format!("{:#x}", *value as u8))
+    }
+}
