@@ -215,7 +215,7 @@ impl RLPxLocalClient {
         };
 
         // RLP-decode the message.
-        let (ack, _padding) = AckMessage::decode_unfinished(c).unwrap();
+        let (ack, _padding) = AckMessage::decode_unfinished(&decoded_payload).unwrap();
         let remote_nonce = ack.nonce;
 
         let (aes_key, mac_key) = self.derive_secrets(&ack);
@@ -412,9 +412,11 @@ mod tests {
 
         let auth_data = msg[..2].try_into().unwrap();
 
+        client.auth_message = Some(vec![]);
+
         let conn = client.decode_ack_message(
             &SecretKey::from_slice(&static_key).unwrap(),
-            &mut msg[2..],
+            &msg[2..],
             auth_data,
         );
 
