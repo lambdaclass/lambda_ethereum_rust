@@ -4,7 +4,7 @@ use std::{
 };
 
 use aes::{
-    cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
+    cipher::{BlockEncrypt, KeyInit, StreamCipher},
     Aes256Enc,
 };
 use bootnode::BootNode;
@@ -20,7 +20,7 @@ use k256::{
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData};
-use rlpx::ecies::RLPxConnection;
+use rlpx::handshake::{RLPxLocalClient, RLPxState};
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -206,9 +206,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
 
-    let mut conn = RLPxConnection::random();
+    let mut client = RLPxLocalClient::random();
     let mut auth_message = vec![];
-    conn.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
+    client.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
 
     // NOTE: for some reason kurtosis peers don't publish their active TCP port
     let tcp_addr = endpoint
@@ -231,10 +231,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // Read the rest of the ack message
     stream.read_exact(&mut buf[2..msg_size + 2]).await.unwrap();
 
-    let ack_message = buf[..msg_size + 2].to_vec();
-
     let msg = &mut buf[2..msg_size + 2];
-    conn.decode_ack_message(&secret_key, msg, auth_data);
+    let conn = client.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
     // Example of sending a message through the stream
@@ -262,6 +260,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // frame_data.resize(frame_data.len().next_multiple_of(16), 0);
     // let header_data = (0_u8, 0_u8).encode_to_vec();
 
+    // TODO: move all this to a module
+
     // Receive the hello message's frame
     let mut frame_header = [0; 32];
     stream.read_exact(&mut frame_header).await.unwrap();
@@ -269,19 +269,18 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
     info!("Received header!");
 
-    let handshake_data = conn.handshake_data.unwrap();
-
-    pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
+    let RLPxState {
+        aes_key: _,
+        mac_key: _,
+        mut ingress_mac,
+        egress_mac: _,
+        mut aes_cipher,
+    } = conn.state;
 
     // Validate MAC header
-    // ingress-mac = keccak256.init((mac-secret ^ initiator-nonce) || ack)
-    let mut ingress_mac = Keccak256::new();
-    ingress_mac.update(handshake_data.mac_key ^ conn.nonce);
-    ingress_mac.update(&ack_message);
-
     // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
     let header_mac_seed = {
-        let mac_aes_cipher = Aes256Enc::new_from_slice(&handshake_data.mac_key.0).unwrap();
+        let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
 
         let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
         let mut seed = mac_digest.into();
@@ -299,11 +298,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     info!("Header MAC is correct!");
 
-    let aes_key = handshake_data.aes_key.0.into();
-
-    let mut stream_cipher = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key, &[0; 16].into());
     let header_text = header_ciphertext;
-    stream_cipher.apply_keystream(header_text);
+    aes_cipher.apply_keystream(header_text);
 
     // header-data = [capability-id, context-id]
     // Both are unused, and always zero
@@ -320,7 +316,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     //   check MAC
     ingress_mac.update(&frame_ciphertext);
     let frame_mac_seed = {
-        let mac_aes_cipher = Aes256Enc::new_from_slice(&handshake_data.mac_key.0).unwrap();
+        let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
 
         let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
         let mut seed = mac_digest.into();
@@ -330,10 +326,11 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     ingress_mac.update(frame_mac_seed);
     let expected_frame_mac: [u8; 16] = ingress_mac.finalize()[..16].try_into().unwrap();
 
+    // TODO: check this works
     assert_eq!(frame_mac, expected_frame_mac);
 
     // decrypt frame
-    stream_cipher.apply_keystream(frame_ciphertext);
+    aes_cipher.apply_keystream(frame_ciphertext);
 
     let frame_data = &*frame_ciphertext;
 
@@ -357,10 +354,10 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         "Received hello message v{protocol_version}, from client: '{client_id}', 
         with id: {node_id}, with supported capabilities: {capabilities:?}"
     );
-
     // TODO: send Hello message
 }
 
+// TODO: move to kademlia
 #[cfg(test)]
 mod tests {
     use super::*;
