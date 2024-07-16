@@ -196,7 +196,7 @@ impl<'a> Encoder<'a> {
     pub fn encode_key_value_list<T: RLPEncode>(mut self, list: &Vec<(Bytes, Bytes)>) -> Self {
         for (key, value) in list {
             <Bytes>::encode(key, &mut self.temp_buf);
-            // v is already encoded
+            // value is already encoded
             self.temp_buf.put_slice(value);
         }
         self
