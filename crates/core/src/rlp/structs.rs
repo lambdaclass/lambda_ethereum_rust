@@ -68,16 +68,14 @@ impl<'a> Decoder<'a> {
     /// Returns the next field without decoding it, i.e. the payload bytes including its prefix.
     pub fn get_encoded_item(self) -> Result<(Vec<u8>, Self), RLPDecodeError> {
         match get_item_with_prefix(self.payload) {
-            Ok((_is_list, field, rest)) => {
+            Ok((field, rest)) => {
                 let updated_self = Self {
                     payload: rest,
                     ..self
                 };
                 Ok((field.to_vec(), updated_self))
             }
-            Err(_) => Err(RLPDecodeError::Custom(
-                "Error while decoding unknown field".into(),
-            )),
+            Err(err) => Err(err),
         }
     }
 

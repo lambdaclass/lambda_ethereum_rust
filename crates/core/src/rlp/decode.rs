@@ -186,6 +186,13 @@ impl RLPDecode for crate::U256 {
     }
 }
 
+impl RLPDecode for crate::Bloom {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
+        Ok((crate::Bloom(value), rest))
+    }
+}
+
 impl RLPDecode for String {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (str_bytes, rest) = decode_bytes(rlp)?;
@@ -378,11 +385,10 @@ pub fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeErr
 /// Splits an RLP item in two:
 /// - The first item including its prefix
 /// - The remaining bytes after the item
-/// It returns a 3-element tuple with the following elements:
-/// - A boolean indicating if the item is a list or not.
+/// It returns a 2-element tuple with the following elements:
 /// - The payload of the item, including its prefix.
 /// - The remaining bytes after the item.
-pub fn get_item_with_prefix(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeError> {
+pub fn get_item_with_prefix(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeError> {
     if data.is_empty() {
         return Err(RLPDecodeError::InvalidLength);
     }
@@ -390,13 +396,13 @@ pub fn get_item_with_prefix(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDeco
     let first_byte = data[0];
 
     match first_byte {
-        0..=0x7F => Ok((false, &data[..1], &data[1..])),
+        0..=0x7F => Ok((&data[..1], &data[1..])),
         0x80..=0xB7 => {
             let length = (first_byte - 0x80) as usize;
             if data.len() < length + 1 {
                 return Err(RLPDecodeError::InvalidLength);
             }
-            Ok((false, &data[0..length + 1], &data[length + 1..]))
+            Ok((&data[..length + 1], &data[length + 1..]))
         }
         0xB8..=0xBF => {
             let length_of_length = (first_byte - 0xB7) as usize;
@@ -409,8 +415,7 @@ pub fn get_item_with_prefix(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDeco
                 return Err(RLPDecodeError::InvalidLength);
             }
             Ok((
-                false,
-                &data[0..length_of_length + length + 1],
+                &data[..length_of_length + length + 1],
                 &data[length_of_length + length + 1..],
             ))
         }
@@ -419,7 +424,7 @@ pub fn get_item_with_prefix(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDeco
             if data.len() < length + 1 {
                 return Err(RLPDecodeError::InvalidLength);
             }
-            Ok((true, &data[0..length + 1], &data[length + 1..]))
+            Ok((&data[..length + 1], &data[length + 1..]))
         }
         0xF8..=0xFF => {
             let list_length = (first_byte - 0xF7) as usize;
@@ -432,8 +437,7 @@ pub fn get_item_with_prefix(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDeco
                 return Err(RLPDecodeError::InvalidLength);
             }
             Ok((
-                true,
-                &data[0..list_length + payload_length + 1],
+                &data[..list_length + payload_length + 1],
                 &data[list_length + payload_length + 1..],
             ))
         }
