@@ -232,9 +232,7 @@ mod tests {
     #[test]
     fn test_in_memory_store() {
         let store = Store::new("test", EngineType::InMemory).unwrap();
-        test_store_account(store.clone());
-        test_store_block(store.clone());
-        test_store_block_number(store.clone());
+        test_store_suite(store);
     }
 
     #[cfg(feature = "libmdbx")]
@@ -243,10 +241,7 @@ mod tests {
         // Removing preexistent DBs in case of a failed previous test
         remove_test_dbs("test.mdbx");
         let store = Store::new("test.mdbx", EngineType::Libmdbx).unwrap();
-        test_store_account(store.clone());
-        test_store_block(store.clone());
-        test_store_block_number(store.clone());
-
+        test_store_suite(store);
         remove_test_dbs("test.mdbx");
     }
 
@@ -256,10 +251,7 @@ mod tests {
         // Removing preexistent DBs in case of a failed previous test
         remove_test_dbs("test.sled");
         let store = Store::new("test.sled", EngineType::Sled).unwrap();
-        test_store_account(store.clone());
-        // test_store_block(store.clone()); Unimplemented
-        // test_store_block_number(store.clone()); Unimplemented
-
+        test_store_suite(store);
         remove_test_dbs("test.sled");
     }
 
@@ -269,11 +261,14 @@ mod tests {
         // Removing preexistent DBs in case of a failed previous test
         remove_test_dbs("test.rocksdb");
         let store = Store::new("test.rocksdb", EngineType::Sled).unwrap();
-        test_store_account(store.clone());
-        // test_store_block(store.clone()); Unimplemented
-        // test_store_block_number(store.clone()); Unimplemented
-
+        test_store_suite(store);
         remove_test_dbs("test.rocksdb");
+    }
+
+    fn test_store_suite(store: Store) {
+        test_store_account(store.clone());
+        test_store_block(store.clone());
+        test_store_block_number(store.clone());
     }
 
     fn test_store_account(mut store: Store) {
