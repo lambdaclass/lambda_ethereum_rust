@@ -55,6 +55,19 @@ pub mod u64 {
         }
     }
 
+    pub mod hex_str_opt {
+        use serde::Serialize;
+
+        use super::*;
+
+        pub fn serialize<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            Option::<String>::serialize(&value.map(|v| format!("{:#x}", v)), serializer)
+        }
+    }
+
     pub fn deser_dec_str<'de, D>(d: D) -> Result<u64, D::Error>
     where
         D: Deserializer<'de>,
@@ -100,7 +113,8 @@ pub mod bool {
     {
         let value = String::deserialize(d)?;
         Ok(u8::from_str_radix(value.trim_start_matches("0x"), 16)
-            .map_err(|_| D::Error::custom("Failed to deserialize hex string to boolean value"))? != 0)
+            .map_err(|_| D::Error::custom("Failed to deserialize hex string to boolean value"))?
+            != 0)
     }
 
     pub fn serialize<S>(value: &bool, serializer: S) -> Result<S::Ok, S::Error>

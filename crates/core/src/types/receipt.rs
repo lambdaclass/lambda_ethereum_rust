@@ -3,7 +3,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256};
 use serde::Serialize;
 
-use super::TxType;
+use super::{BlockHash, BlockNumber, TxKind, TxType};
 pub type Index = u64;
 
 /// Result of a transaction
@@ -74,4 +74,40 @@ impl RLPEncode for Log {
             .encode_field(&self.data)
             .finish();
     }
+}
+
+// Struct used by RPC
+#[derive(Debug, Serialize)]
+pub struct ReceiptWithTxAndBlockInfo {
+    #[serde(flatten)]
+    receipt: Receipt,
+    #[serde(flatten)]
+    tx_info: ReceiptTxInfo,
+    #[serde(flatten)]
+    block_info: ReceiptBlockInfo,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReceiptBlockInfo {
+    pub block_hash: BlockHash,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub block_number: BlockNumber,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub gas_used: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub blob_gas_used: u64,
+    pub root: H256, // state root
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReceiptTxInfo {
+    pub transaction_hash: H256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub transaction_index: u64,
+    pub from: Address,
+    pub to: TxKind,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub effective_gas_price: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    pub blob_gas_price: Option<u64>,
 }

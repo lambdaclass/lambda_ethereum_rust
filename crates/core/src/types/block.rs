@@ -1,6 +1,6 @@
 use super::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
-    GAS_LIMIT_MINIMUM,
+    ReceiptBlockInfo, BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER,
+    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM,
 };
 use crate::{
     rlp::{
@@ -267,6 +267,16 @@ impl BlockHeader {
         let mut buf = vec![];
         self.encode(&mut buf);
         keccak(buf)
+    }
+
+    pub fn receipt_info(&self) -> ReceiptBlockInfo {
+        ReceiptBlockInfo {
+            block_hash: self.compute_block_hash(),
+            block_number: self.number,
+            gas_used: self.gas_used,
+            blob_gas_used: self.blob_gas_used,
+            root: self.state_root,
+        }
     }
 }
 
