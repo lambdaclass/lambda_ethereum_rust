@@ -465,11 +465,11 @@ pub(crate) fn static_left_pad<const N: usize>(data: &[u8]) -> Result<[u8; N], RL
     if data.is_empty() {
         return Ok(result);
     }
-
+    /*
     if data[0] == 0 {
         return Err(RLPDecodeError::MalformedData);
     }
-
+    */
     let data_start_index = N.saturating_sub(data.len());
     result
         .get_mut(data_start_index..)

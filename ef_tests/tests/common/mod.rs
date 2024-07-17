@@ -39,8 +39,11 @@ fn execute_test(test: &TestUnit) {
     let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
 
     match Block::decode(&genesis_rlp_bytes) {
-        Ok(block) => {
-            assert_eq!(test.genesis_block_header, block.block_header.unwrap());
+        Ok(decoded_block) => {
+            assert_eq!(
+                test.genesis_block_header,
+                decoded_block.block_header.unwrap()
+            );
         }
         Err(_) => panic!(),
     }

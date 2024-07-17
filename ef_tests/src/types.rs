@@ -154,6 +154,7 @@ impl From<Transaction> for ethereum_rustTransaction {
     fn from(val: Transaction) -> Self {
         match val.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
+                0 => ethereum_rustTransaction::LegacyTransaction(val.into()),
                 2 => ethereum_rustTransaction::EIP1559Transaction(val.into()),
                 _ => unimplemented!(),
             },
@@ -239,6 +240,9 @@ impl RLPDecode for Block {
         let (block_header, decoder) = decoder.decode_optional_field();
         let (transactions, decoder) = decoder.decode_optional_field();
         let (uncle_headers, decoder) = decoder.decode_optional_field();
+        let (_withdrawals, decoder): (Option<Vec<Bytes>>, Decoder) =
+            decoder.decode_optional_field();
+
         let remaining = decoder.finish()?;
         let block = Block {
             rlp: Bytes::default(),
@@ -315,7 +319,6 @@ impl RLPDecode for Header {
         let (blob_gas_used, decoder) = decoder.decode_optional_field();
         let (excess_blob_gas, decoder) = decoder.decode_optional_field();
         let (parent_beacon_block_root, decoder) = decoder.decode_optional_field();
-
         let remaining = decoder.finish()?;
 
         let header = Header {
@@ -339,7 +342,7 @@ impl RLPDecode for Header {
             blob_gas_used,
             excess_blob_gas,
             parent_beacon_block_root,
-            hash: H256::zero(),
+            hash: H256::zero(), // hash is not included in the rlp encoding
             requests_root: None,
         };
 
