@@ -1,6 +1,7 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{AccountInfoRLP, AddressRLP};
+use bytes::Bytes;
 use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
 use ethereum_types::Address;
 use libmdbx::orm::{Decodable, Encodable};
@@ -164,6 +165,14 @@ impl StoreEngine for Store {
             .unwrap();
 
         reply_receiver.recv()?
+    }
+
+    fn add_account_code(&mut self, _code_hash: H256, _code: Bytes) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_account_code(&self, _code_hash: H256) -> Result<Option<Bytes>, StoreError> {
+        todo!()
     }
 }
 

@@ -14,7 +14,7 @@ use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
 use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
-use ethereum_types::Address;
+use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
@@ -82,6 +82,12 @@ pub trait StoreEngine: Debug + Send {
 
     /// Retrieve a stored value under Key
     fn get_value(&self, key: Key) -> Result<Option<Value>, StoreError>;
+
+    /// Add account code
+    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
+
+    /// Obtain account code
+    fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -212,6 +218,22 @@ impl Store {
             .unwrap()
             .get_block_number(block_hash)
     }
+
+    pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_account_code(code_hash, code)
+    }
+
+    pub fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_account_code(code_hash)
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +291,7 @@ mod tests {
         test_store_account(store.clone());
         test_store_block(store.clone());
         test_store_block_number(store.clone());
+        test_get_account_code(store.clone());
     }
 
     fn test_store_account(mut store: Store) {
@@ -389,5 +412,16 @@ mod tests {
         let stored_number = store.get_block_number(block_hash).unwrap().unwrap();
 
         assert_eq!(stored_number, block_number);
+    }
+
+    fn test_store_account_code(store: Store) {
+        let code_hash = H256::random();
+        let code = Bytes::from("kiwi");
+
+        store.add_account_code(code_hash, code).unwrap();
+
+        let stored_code = store.get_account_code(code_hash).unwrap().unwrap();
+
+        assert_eq!(stored_code, code);
     }
 }
