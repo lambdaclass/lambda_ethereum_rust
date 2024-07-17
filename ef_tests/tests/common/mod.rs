@@ -1,7 +1,19 @@
 use std::{collections::HashMap, path::Path};
 
 use ::ef_tests::types::TestUnit;
-use ethereum_rust_core::evm::{execute_tx, SpecId};
+use ef_tests::types::Header;
+use ethereum_rust_core::{
+    evm::{execute_tx, SpecId},
+    rlp::decode::RLPDecode,
+};
+use std::num::ParseIntError;
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
+}
 
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
@@ -14,12 +26,19 @@ fn execute_test(test: &TestUnit) {
         .unwrap()
         .first()
         .unwrap();
+
     let pre = test
         .pre
         .clone()
         .into_iter()
         .map(|(k, v)| (k, v.into()))
         .collect();
+
+    let genesis_rlp_as_string = test.genesis_rlp.clone();
+    let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
+    let decoded_header = Header::decode(&genesis_rlp_bytes).unwrap();
+
+    assert_eq!(test.genesis_block_header.clone(), decoded_header);
 
     assert!(execute_tx(
         &transaction.clone().into(),

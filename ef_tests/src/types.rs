@@ -1,4 +1,6 @@
 use bytes::Bytes;
+use ethereum_rust_core::rlp::decode::RLPDecode;
+use ethereum_rust_core::rlp::structs::Decoder;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
     Transaction as ethereum_rustTransaction, TxKind,
@@ -15,7 +17,7 @@ pub struct TestUnit {
     pub blocks: Vec<Block>,
     pub genesis_block_header: Header,
     #[serde(rename = "genesisRLP")]
-    pub genesis_rlp: serde_json::Value,
+    pub genesis_rlp: String,
     pub lastblockhash: serde_json::Value,
     pub network: serde_json::Value,
     pub post_state: serde_json::Value,
@@ -225,5 +227,64 @@ impl From<Account> for ethereum_rustAccount {
                 })
                 .collect(),
         }
+    }
+}
+
+impl RLPDecode for Header {
+    fn decode_unfinished(
+        rlp: &[u8],
+    ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (parent_hash, decoder) = decoder.decode_field("parent_hash")?;
+        let (uncle_hash, decoder) = decoder.decode_field("uncle_hash")?;
+        let (coinbase, decoder) = decoder.decode_field("coinbase")?;
+        let (state_root, decoder) = decoder.decode_field("state_root")?;
+        let (transactions_trie, decoder) = decoder.decode_field("transactions_trie")?;
+        let (receipt_trie, decoder) = decoder.decode_field("receipt_trie")?;
+        let (bloom, decoder): ([u8; 256], Decoder) = decoder.decode_field("bloom")?;
+        let (difficulty, decoder) = decoder.decode_field("difficulty")?;
+        let (number, decoder) = decoder.decode_field("number")?;
+        let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
+        let (gas_used, decoder) = decoder.decode_field("gas_used")?;
+        let (timestamp, decoder) = decoder.decode_field("timestamp")?;
+        let (extra_data, decoder) = decoder.decode_field("extra_data")?;
+        let (mix_hash, decoder) = decoder.decode_field("mix_hash")?;
+        let (nonce, decoder): (u64, Decoder) = decoder.decode_field("nonce")?;
+        let (base_fee_per_gas, decoder) = decoder.decode_optional_field();
+        let (withdrawals_root, decoder) = decoder.decode_optional_field();
+        let (blob_gas_used, decoder) = decoder.decode_optional_field();
+        let (excess_blob_gas, decoder) = decoder.decode_optional_field();
+        let (parent_beacon_block_root, decoder) = decoder.decode_optional_field();
+        let (hash, decoder) = decoder.decode_field("hash")?;
+        let (requests_root, decoder) = decoder.decode_optional_field();
+
+        let remaining = decoder.finish()?;
+
+        let header = Header {
+            bloom: bloom.into(),
+            coinbase,
+            difficulty,
+            extra_data,
+            gas_limit,
+            gas_used,
+            hash,
+            mix_hash,
+            nonce: nonce.into(),
+            number,
+            parent_hash,
+            receipt_trie,
+            state_root,
+            timestamp,
+            transactions_trie,
+            uncle_hash,
+            base_fee_per_gas,
+            withdrawals_root,
+            blob_gas_used,
+            excess_blob_gas,
+            parent_beacon_block_root,
+            requests_root,
+        };
+
+        Ok((header, remaining))
     }
 }
