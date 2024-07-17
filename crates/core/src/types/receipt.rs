@@ -1,4 +1,9 @@
-use crate::rlp::{encode::RLPEncode, structs::Encoder};
+use crate::rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256};
 use serde::Serialize;
@@ -57,6 +62,41 @@ impl RLPEncode for Receipt {
     }
 }
 
+impl RLPDecode for Receipt {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        // Decode tx type
+        let (tx_type, rlp) = match rlp.first() {
+            Some(tx_type) if *tx_type < 0x7f => match tx_type {
+                0x0 => (TxType::Legacy, &rlp[1..]),
+                0x1 => (TxType::EIP2930, &rlp[1..]),
+                0x2 => (TxType::EIP1559, &rlp[1..]),
+                0x3 => (TxType::EIP4844, &rlp[1..]),
+                ty => {
+                    return Err(RLPDecodeError::Custom(format!(
+                        "Invalid transaction type: {ty}"
+                    )))
+                }
+            },
+            // Legacy Tx
+            _ => (TxType::Legacy, rlp),
+        };
+        // Decode the remaining fields
+        let decoder = Decoder::new(rlp)?;
+        let (succeeded, decoder) = decoder.decode_field("succeeded")?;
+        let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
+        let (bloom, decoder) = decoder.decode_field("bloom")?;
+        let (logs, decoder) = decoder.decode_field("logs")?;
+        let receipt = Receipt {
+            tx_type,
+            succeeded,
+            cumulative_gas_used,
+            bloom,
+            logs,
+        };
+        Ok((receipt, decoder.finish()?))
+    }
+}
+
 /// Data record produced during the execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Log {
@@ -73,6 +113,21 @@ impl RLPEncode for Log {
             .encode_field(&self.topics)
             .encode_field(&self.data)
             .finish();
+    }
+}
+
+impl RLPDecode for Log {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (address, decoder) = decoder.decode_field("address")?;
+        let (topics, decoder) = decoder.decode_field("topics")?;
+        let (data, decoder) = decoder.decode_field("data")?;
+        let log = Log {
+            address,
+            topics,
+            data,
+        };
+        Ok((log, decoder.finish()?))
     }
 }
 
