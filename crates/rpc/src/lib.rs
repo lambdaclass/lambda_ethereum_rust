@@ -93,6 +93,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = GetBalanceRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             account::get_balance(&request, storage)
         }
+        "eth_getCode" => {
+            let request = GetCodeRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            account::get_code(&request, storage)
+        }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
             let request =

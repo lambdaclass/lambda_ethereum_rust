@@ -61,7 +61,7 @@ pub fn get_balance(request: &GetBalanceRequest, storage: Store) -> Result<Value,
 
 pub fn get_code(request: &GetCodeRequest, storage: Store) -> Result<Value, RpcErr> {
     info!(
-        "Requested balance of account {} at block {}",
+        "Requested code of account {} at block {}",
         request.address, request.block
     );
     let code = match storage.get_code_by_account_address(request.address) {
