@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
-    types::{AccountInfo, BlockBody, BlockHeader, Receipt},
+    types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt},
     Address,
 };
 use libmdbx::orm::{Decodable, Encodable};
@@ -19,6 +19,7 @@ pub struct AccountStorageKeyRLP(pub [u8; 32]);
 pub struct AccountStorageValueRLP(pub [u8; 32]);
 
 // Block types
+pub type BlockHashRLP = Rlp<BlockHash>;
 pub type BlockHeaderRLP = Rlp<BlockHeader>;
 pub type BlockBodyRLP = Rlp<BlockBody>;
 

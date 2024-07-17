@@ -1,7 +1,7 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{AccountInfoRLP, AddressRLP};
-use ethereum_rust_core::types::AccountInfo;
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
 use ethereum_types::Address;
 use libmdbx::orm::{Decodable, Encodable};
 use sled::Db;
@@ -44,6 +44,45 @@ impl StoreEngine for Store {
                 Ok(value) => Ok(Some(value.to())),
                 Err(_) => Err(StoreError::DecodeError),
             })
+    }
+
+    fn add_block_header(
+        &mut self,
+        _block_number: BlockNumber,
+        _block_header: BlockHeader,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_block_header(
+        &self,
+        _block_number: BlockNumber,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        todo!()
+    }
+
+    fn add_block_body(
+        &mut self,
+        _block_number: BlockNumber,
+        _block_body: BlockBody,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_block_body(&self, _block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError> {
+        todo!()
+    }
+
+    fn add_block_number(
+        &mut self,
+        _block_hash: BlockHash,
+        _block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_block_number(&self, _block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
+        todo!()
     }
 
     fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError> {

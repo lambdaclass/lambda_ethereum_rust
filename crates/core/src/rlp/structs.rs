@@ -1,10 +1,10 @@
-use bytes::BufMut;
-
 use super::{
-    decode::{decode_rlp_item, RLPDecode},
+    decode::{decode_rlp_item, get_item_with_prefix, RLPDecode},
     encode::{encode_length, RLPEncode},
     error::RLPDecodeError,
 };
+use bytes::BufMut;
+use bytes::Bytes;
 
 /// # Struct decoding helper
 ///
@@ -64,6 +64,19 @@ impl<'a> Decoder<'a> {
             ..self
         };
         Ok((field, updated_self))
+    }
+    /// Returns the next field without decoding it, i.e. the payload bytes including its prefix.
+    pub fn get_encoded_item(self) -> Result<(Vec<u8>, Self), RLPDecodeError> {
+        match get_item_with_prefix(self.payload) {
+            Ok((field, rest)) => {
+                let updated_self = Self {
+                    payload: rest,
+                    ..self
+                };
+                Ok((field.to_vec(), updated_self))
+            }
+            Err(err) => Err(err),
+        }
     }
 
     /// Returns Some(field) if there's some field to decode, otherwise returns None
@@ -174,6 +187,17 @@ impl<'a> Encoder<'a> {
     pub fn encode_optional_field<T: RLPEncode>(mut self, opt_value: &Option<T>) -> Self {
         if let Some(value) = opt_value {
             <T as RLPEncode>::encode(value, &mut self.temp_buf);
+        }
+        self
+    }
+
+    /// Stores a (key, value) list where the values are already encoded (i.e. value = RLP prefix || payload)
+    /// but the keys are not encoded
+    pub fn encode_key_value_list<T: RLPEncode>(mut self, list: &Vec<(Bytes, Bytes)>) -> Self {
+        for (key, value) in list {
+            <Bytes>::encode(key, &mut self.temp_buf);
+            // value is already encoded
+            self.temp_buf.put_slice(value);
         }
         self
     }
