@@ -32,7 +32,7 @@ pub fn get_balance(request: &GetBalanceRequest, storage: Store) -> Result<Value,
     );
     let account = match storage.get_account_info(request.address) {
         Ok(Some(account)) => account,
-        // Block not found
+        // Account not found
         Ok(_) => return Ok(Value::Null),
         // DB error
         _ => return Err(RpcErr::Internal),
