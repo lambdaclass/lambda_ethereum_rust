@@ -277,16 +277,22 @@ impl Store {
         address: Address,
         storage_key: H256,
         storage_value: H256,
-    ) -> Result<(), StoreError>{
-        self.engine.lock().unwrap().add_storage_at(address, storage_key, storage_value)
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .add_storage_at(address, storage_key, storage_value)
     }
 
     pub fn get_storage_at(
         &self,
         address: Address,
         storage_key: H256,
-    ) -> Result<Option<H256>, StoreError>{
-        self.engine.lock().unwrap().get_storage_at(address, storage_key)
+    ) -> Result<Option<H256>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_storage_at(address, storage_key)
     }
 }
 
@@ -487,11 +493,21 @@ mod tests {
         let storage_value_a = H256::random();
         let storage_value_b = H256::random();
 
-        store.add_storage_at(address, storage_key_a, storage_value_a).unwrap();
-        store.add_storage_at(address, storage_key_b, storage_value_b).unwrap();
+        store
+            .add_storage_at(address, storage_key_a, storage_value_a)
+            .unwrap();
+        store
+            .add_storage_at(address, storage_key_b, storage_value_b)
+            .unwrap();
 
-        let stored_value_a = store.get_storage_at(address, storage_key_a).unwrap().unwrap();
-        let stored_value_b = store.get_storage_at(address, storage_key_b).unwrap().unwrap();
+        let stored_value_a = store
+            .get_storage_at(address, storage_key_a)
+            .unwrap()
+            .unwrap();
+        let stored_value_b = store
+            .get_storage_at(address, storage_key_b)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(stored_value_a, storage_value_a);
         assert_eq!(stored_value_b, storage_value_b);

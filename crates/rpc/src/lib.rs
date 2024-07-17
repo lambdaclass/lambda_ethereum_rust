@@ -3,7 +3,7 @@ use std::{future::IntoFuture, net::SocketAddr};
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
-    account::{self, GetBalanceRequest, GetCodeRequest},
+    account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
     block::{self, GetBlockByHashRequest, GetBlockByNumberRequest},
     client,
 };
@@ -96,6 +96,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_getCode" => {
             let request = GetCodeRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             account::get_code(&request, storage)
+        }
+        "eth_getStorageAt" => {
+            let request = GetStorageAtRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            account::get_storage_at(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
