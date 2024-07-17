@@ -143,19 +143,31 @@ impl StoreEngine for Store {
 
     fn add_receipt(
         &mut self,
-        _block_number: BlockNumber,
-        _index: Index,
-        _receipt: Receipt,
+        block_number: BlockNumber,
+        index: Index,
+        receipt: Receipt,
     ) -> Result<(), StoreError> {
-        todo!()
+        // Write block number to mdbx
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<Receipts>((block_number, index), receipt.into())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_receipt(
         &self,
-        _block_number: BlockNumber,
-        _index: Index,
+        block_number: BlockNumber,
+        index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        todo!()
+        // Read block number from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        Ok(txn
+            .get::<Receipts>((block_number, index))
+            .map_err(StoreError::LibmdbxError)?
+            .map(|r| r.to()))
     }
 }
 
@@ -194,7 +206,7 @@ table!(
 );
 dupsort!(
     /// Receipts table.
-    ( Receipts ) BlockNumber[Index] => ReceiptRLP
+    ( Receipts ) (BlockNumber, Index)[Index] => ReceiptRLP
 );
 
 /// Initializes a new database with the provided path. If the path is `None`, the database

@@ -39,20 +39,16 @@ impl Receipt {
             logs,
         }
     }
+}
 
-    pub fn encode_with_type(&self, buf: &mut dyn bytes::BufMut) {
+impl RLPEncode for Receipt {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
         // tx_type || RLP(receipt)  if tx_type != 0
         //            RLP(receipt)  else
         match self.tx_type {
             TxType::Legacy => {}
             _ => buf.put_u8(self.tx_type as u8),
         }
-        self.encode(buf);
-    }
-}
-
-impl RLPEncode for Receipt {
-    fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.succeeded)
             .encode_field(&self.cumulative_gas_used)

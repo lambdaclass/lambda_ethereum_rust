@@ -207,7 +207,7 @@ pub fn compute_receipts_root(receipts: &[Receipt]) -> H256 {
             // Value: tx_type || RLP(receipt)  if tx_type != 0
             //                   RLP(receipt)  else
             let mut v = Vec::new();
-            receipt.encode_with_type(&mut v);
+            receipt.encode(&mut v);
 
             (k, v)
         })
