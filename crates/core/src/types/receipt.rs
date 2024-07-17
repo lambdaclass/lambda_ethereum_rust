@@ -9,13 +9,13 @@ pub type Index = u64;
 /// Result of a transaction
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Receipt {
-    tx_type: TxType,
+    pub tx_type: TxType,
     #[serde(with = "crate::serde_utils::bool")]
-    succeeded: bool,
+    pub succeeded: bool,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
-    cumulative_gas_used: u64,
-    bloom: Bloom,
-    logs: Vec<Log>,
+    pub cumulative_gas_used: u64,
+    pub bloom: Bloom,
+    pub logs: Vec<Log>,
 }
 
 impl Receipt {

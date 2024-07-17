@@ -231,7 +231,7 @@ impl Store {
     }
 
     fn add_receipt(
-        &mut self,
+        &self,
         block_number: BlockNumber,
         index: Index,
         receipt: Receipt,
@@ -263,7 +263,7 @@ mod tests {
     use bytes::Bytes;
     use ethereum_rust_core::{
         rlp::decode::RLPDecode,
-        types::{self, Transaction},
+        types::{self, Transaction, TxType},
         Bloom,
     };
     use ethereum_types::{H256, U256};
@@ -311,6 +311,7 @@ mod tests {
         test_store_account(store.clone());
         test_store_block(store.clone());
         test_store_block_number(store.clone());
+        test_store_block_receipt(store.clone());
     }
 
     fn test_store_account(mut store: Store) {
@@ -431,5 +432,25 @@ mod tests {
         let stored_number = store.get_block_number(block_hash).unwrap().unwrap();
 
         assert_eq!(stored_number, block_number);
+    }
+
+    fn test_store_block_receipt(store: Store) {
+        let receipt = Receipt {
+            tx_type: TxType::EIP2930,
+            succeeded: true,
+            cumulative_gas_used: 1747,
+            bloom: Bloom::random(),
+            logs: vec![],
+        };
+        let block_number = 6;
+        let index = 4;
+
+        store
+            .add_receipt(block_number, index, receipt.clone())
+            .unwrap();
+
+        let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
+
+        assert_eq!(stored_receipt, receipt);
     }
 }
