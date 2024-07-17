@@ -67,6 +67,7 @@ pub struct Header {
     pub bloom: Bloom,
     pub coinbase: Address,
     pub difficulty: U256,
+    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub extra_data: Bytes,
     pub gas_limit: U256,
     pub gas_used: U256,
@@ -321,6 +322,10 @@ impl RLPDecode for Header {
         let (parent_beacon_block_root, decoder) = decoder.decode_optional_field();
         let remaining = decoder.finish()?;
 
+        // hash is not included in the rlp header so we must compute it ourselves
+        let rlp_header = &rlp[..rlp.len() - remaining.len()];
+        let hash = keccak_hash::keccak(rlp_header);
+
         let header = Header {
             bloom: bloom.into(),
             coinbase,
@@ -342,7 +347,7 @@ impl RLPDecode for Header {
             blob_gas_used,
             excess_blob_gas,
             parent_beacon_block_root,
-            hash: H256::zero(), // hash is not included in the rlp encoding
+            hash,
             requests_root: None,
         };
 

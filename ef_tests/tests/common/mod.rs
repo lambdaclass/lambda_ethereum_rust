@@ -2,7 +2,7 @@ use core::panic;
 use std::{collections::HashMap, path::Path};
 
 use ::ef_tests::types::TestUnit;
-use ef_tests::types::{Block, Header};
+use ef_tests::types::Block;
 use ethereum_rust_core::{
     evm::{execute_tx, SpecId},
     rlp::decode::RLPDecode,
@@ -40,10 +40,8 @@ fn execute_test(test: &TestUnit) {
 
     match Block::decode(&genesis_rlp_bytes) {
         Ok(decoded_block) => {
-            assert_eq!(
-                test.genesis_block_header,
-                decoded_block.block_header.unwrap()
-            );
+            let decoded_block_header = decoded_block.block_header.unwrap();
+            assert_eq!(test.genesis_block_header, decoded_block_header);
         }
         Err(_) => panic!(),
     }
