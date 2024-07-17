@@ -80,14 +80,14 @@ impl RLPEncode for Log {
 #[derive(Debug, Serialize)]
 pub struct ReceiptWithTxAndBlockInfo {
     #[serde(flatten)]
-    receipt: Receipt,
+    pub receipt: Receipt,
     #[serde(flatten)]
-    tx_info: ReceiptTxInfo,
+    pub tx_info: ReceiptTxInfo,
     #[serde(flatten)]
-    block_info: ReceiptBlockInfo,
+    pub block_info: ReceiptBlockInfo,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ReceiptBlockInfo {
     pub block_hash: BlockHash,
     #[serde(with = "crate::serde_utils::u64::hex_str")]

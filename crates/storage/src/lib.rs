@@ -230,7 +230,7 @@ impl Store {
             .get_block_number(block_hash)
     }
 
-    fn add_receipt(
+    pub fn add_receipt(
         &self,
         block_number: BlockNumber,
         index: Index,
@@ -243,7 +243,7 @@ impl Store {
             .add_receipt(block_number, index, receipt)
     }
 
-    fn get_receipt(
+    pub fn get_receipt(
         &self,
         block_number: BlockNumber,
         index: Index,

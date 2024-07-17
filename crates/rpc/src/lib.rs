@@ -3,7 +3,7 @@ use std::{future::IntoFuture, net::SocketAddr};
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
-    block::{self, GetBlockByHashRequest, GetBlockByNumberRequest},
+    block::{self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest},
     client,
 };
 use serde_json::Value;
@@ -77,6 +77,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_getBlockByHash" => {
             let request = GetBlockByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             block::get_block_by_hash(&request, storage)
+        }
+        "eth_getBlockReceipts" => {
+            let request = GetBlockReceiptsRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_block_receipts(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
