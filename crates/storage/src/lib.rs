@@ -86,8 +86,18 @@ pub trait StoreEngine: Debug + Send {
     /// Add account code
     fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
 
-    /// Obtain account code
+    /// Obtain account code via code hash
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError>;
+
+
+    /// Obtain account code via account address
+    fn get_code_by_account_address(&self, address: Address) -> Result<Option<Bytes>, StoreError> {
+        let code_hash = match self.get_account_info(address) {
+            Ok(Some(acc_info)) => acc_info.code_hash,
+            ret => return ret,
+        };
+        self.get_account_code(code_hash)
+    }
 }
 
 #[derive(Debug, Clone)]
