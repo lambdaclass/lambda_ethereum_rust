@@ -163,8 +163,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_tcp_addr = "127.0.0.1:55681";
-    let str_udp_addr = "127.0.0.1:61594";
+    let str_tcp_addr = "127.0.0.1:54139";
+    let str_udp_addr = "127.0.0.1:50073";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
