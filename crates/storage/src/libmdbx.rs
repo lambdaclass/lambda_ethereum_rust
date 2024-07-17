@@ -158,7 +158,7 @@ impl StoreEngine for Store {
         Ok(txn
             .get::<AccountCodes>(code_hash.into())
             .map_err(StoreError::LibmdbxError)?
-            .map(|b| b.to().into()))
+            .map(|b| b.to()))
     }
 }
 

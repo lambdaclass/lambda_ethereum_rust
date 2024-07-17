@@ -3,7 +3,7 @@ use std::{future::IntoFuture, net::SocketAddr};
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
-    account::{self, GetBalanceRequest},
+    account::{self, GetBalanceRequest, GetCodeRequest},
     block::{self, GetBlockByHashRequest, GetBlockByNumberRequest},
     client,
 };
