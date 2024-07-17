@@ -5,6 +5,7 @@ use ethereum_rust_core::{
     types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt},
     Address,
 };
+use ethereum_types::H256;
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
@@ -25,6 +26,9 @@ pub type BlockBodyRLP = Rlp<BlockBody>;
 
 // Receipt types
 pub type ReceiptRLP = Rlp<Receipt>;
+
+// Transaction types
+pub type TransactionHashRLP = Rlp<H256>;
 
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
 

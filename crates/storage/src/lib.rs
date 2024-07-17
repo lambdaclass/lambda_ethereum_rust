@@ -13,8 +13,11 @@ use self::libmdbx::Store as LibmdbxStore;
 use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index,
+};
 use ethereum_types::Address;
+use ethereum_types::H256;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
@@ -76,6 +79,20 @@ pub trait StoreEngine: Debug + Send {
 
     /// Obtain block number
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
+
+    /// Store transaction location (block number and index of the transaction within the block)
+    fn add_transaction_location(
+        &mut self,
+        transaction_hash: H256,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<(), StoreError>;
+
+    /// Obtain transaction location (block number and index)
+    fn get_transaction_location(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError>;
 
     /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
     fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;

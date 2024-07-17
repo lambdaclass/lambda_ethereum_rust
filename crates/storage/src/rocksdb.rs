@@ -165,6 +165,22 @@ impl StoreEngine for Store {
 
         reply_receiver.recv()?
     }
+
+    fn add_transaction_location(
+        &mut self,
+        _transaction_hash: H256,
+        _block_number: BlockNumber,
+        _index: Index,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_transaction_location(
+        &self,
+        _transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+        todo!()
+    }
 }
 
 impl Debug for Store {

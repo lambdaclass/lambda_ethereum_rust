@@ -3,11 +3,12 @@ use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
     AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
+    TransactionHashRLP,
 };
 use anyhow::Result;
 use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
-use ethereum_types::Address;
+use ethereum_types::{Address, H256};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -139,6 +140,32 @@ impl StoreEngine for Store {
     fn get_value(&self, _key: Key) -> Result<Option<Value>, StoreError> {
         todo!()
     }
+
+    fn add_transaction_location(
+        &mut self,
+        transaction_hash: H256,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<(), StoreError> {
+        // Write block number to mdbx
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<TransactionLocations>(transaction_hash.into(), (block_number, index))
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_transaction_location(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+        // Read tx location from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        txn.get::<TransactionLocations>(transaction_hash.into())
+            .map_err(StoreError::LibmdbxError)
+    }
 }
 
 impl Debug for Store {
@@ -177,6 +204,11 @@ table!(
 dupsort!(
     /// Receipts table.
     ( Receipts ) BlockNumber[Index] => ReceiptRLP
+);
+
+table!(
+    /// Transaction locations table.
+    ( TransactionLocations ) TransactionHashRLP => (BlockNumber, Index)
 );
 
 /// Initializes a new database with the provided path. If the path is `None`, the database
