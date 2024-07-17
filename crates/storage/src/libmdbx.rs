@@ -222,6 +222,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(AccountStorages),
         table_info!(AccountCodes),
         table_info!(Receipts),
+        table_info!(TransactionLocations),
     ]
     .into_iter()
     .collect();
