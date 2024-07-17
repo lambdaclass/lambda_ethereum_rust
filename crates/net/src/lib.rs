@@ -273,7 +273,6 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         .encode_field(&node_id)
         .finish();
 
-    // TODO: check
     // header = frame-size || header-data || header-padding
     let mut header = Vec::with_capacity(32);
     let frame_size = frame_data.len().to_be_bytes();
@@ -375,7 +374,6 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     ingress_mac.update(frame_mac_seed);
     let expected_frame_mac: [u8; 16] = ingress_mac.finalize()[..16].try_into().unwrap();
 
-    // TODO: check this works
     assert_eq!(frame_mac, expected_frame_mac);
 
     // decrypt frame
@@ -408,20 +406,4 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         with id: {node_id}, with supported capabilities: {capabilities:?}"
     );
     // TODO: messages after the Hello must be snappy compressed
-}
-
-// TODO: move to kademlia
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use kademlia::bucket_number;
-    use std::str::FromStr;
-    #[test]
-    fn bucket_number_works_as_expected() {
-        let node_id_1 = H512::from_str("4dc429669029ceb17d6438a35c80c29e09ca2c25cc810d690f5ee690aa322274043a504b8d42740079c4f4cef50777c991010208b333b80bee7b9ae8e5f6b6f0").unwrap();
-        let node_id_2 = H512::from_str("034ee575a025a661e19f8cda2b6fd8b2fd4fe062f6f2f75f0ec3447e23c1bb59beb1e91b2337b264c7386150b24b621b8224180c9e4aaf3e00584402dc4a8386").unwrap();
-        let expected_bucket = 255;
-        let result = bucket_number(node_id_1, node_id_2);
-        assert_eq!(result, expected_bucket);
-    }
 }
