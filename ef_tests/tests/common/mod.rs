@@ -1,3 +1,4 @@
+use core::panic;
 use std::{collections::HashMap, path::Path};
 
 use ::ef_tests::types::TestUnit;
@@ -41,9 +42,7 @@ fn execute_test(test: &TestUnit) {
         Ok(block) => {
             assert_eq!(test.genesis_block_header, block.block_header.unwrap());
         }
-        Err(_) => {
-            return;
-        }
+        Err(_) => panic!(),
     }
 
     assert!(execute_tx(
