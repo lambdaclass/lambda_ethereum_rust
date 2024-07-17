@@ -38,5 +38,5 @@ pub fn get_balance(request: &GetBalanceRequest, storage: Store) -> Result<Value,
         _ => return Err(RpcErr::Internal),
     };
 
-    serde_json::to_value(&format!("{:#x}", account.balance)).map_err(|_| RpcErr::Internal)
+    serde_json::to_value(format!("{:#x}", account.balance)).map_err(|_| RpcErr::Internal)
 }
