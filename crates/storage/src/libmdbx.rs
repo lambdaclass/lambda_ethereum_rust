@@ -2,10 +2,10 @@ use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
-    AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHeaderRLP, ReceiptRLP,
+    AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHeader};
+use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
 use ethereum_types::Address;
 use libmdbx::{
@@ -35,26 +35,22 @@ impl StoreEngine for Store {
         account_info: AccountInfo,
     ) -> Result<(), StoreError> {
         // Write account to mdbx
-        {
-            let txn = self.db.begin_readwrite().unwrap();
-            match txn.upsert::<AccountInfos>(address.into(), account_info.into()) {
-                Ok(_) => txn.commit().unwrap(),
-                Err(err) => return Err(StoreError::LibmdbxError(err)),
-            }
-        }
-        Ok(())
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<AccountInfos>(address.into(), account_info.into())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
         // Read account from mdbx
-        let read_value = {
-            let txn = self.db.begin_read().unwrap();
-            txn.get::<AccountInfos>(address.into())
-        };
-        match read_value {
-            Ok(value) => Ok(value.map(|a| a.to())),
-            Err(err) => Err(StoreError::LibmdbxError(err)),
-        }
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        Ok(txn
+            .get::<AccountInfos>(address.into())
+            .map_err(StoreError::LibmdbxError)?
+            .map(|a| a.to()))
     }
 
     fn add_block_header(
@@ -63,14 +59,13 @@ impl StoreEngine for Store {
         block_header: BlockHeader,
     ) -> std::result::Result<(), StoreError> {
         // Write block header to mdbx
-        {
-            let txn = self.db.begin_readwrite().unwrap();
-            match txn.upsert::<Headers>(block_number, block_header.into()) {
-                Ok(_) => txn.commit().unwrap(),
-                Err(err) => return Err(StoreError::LibmdbxError(err)),
-            }
-        }
-        Ok(())
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<Headers>(block_number, block_header.into())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_block_header(
@@ -78,14 +73,11 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
     ) -> std::result::Result<Option<BlockHeader>, StoreError> {
         // Read block header from mdbx
-        let read_value = {
-            let txn = self.db.begin_read().unwrap();
-            txn.get::<Headers>(block_number)
-        };
-        match read_value {
-            Ok(value) => Ok(value.map(|a| a.to())),
-            Err(err) => Err(StoreError::LibmdbxError(err)),
-        }
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        Ok(txn
+            .get::<Headers>(block_number)
+            .map_err(StoreError::LibmdbxError)?
+            .map(|h| h.to()))
     }
 
     fn add_block_body(
@@ -94,14 +86,13 @@ impl StoreEngine for Store {
         block_body: BlockBody,
     ) -> std::result::Result<(), StoreError> {
         // Write block body to mdbx
-        {
-            let txn = self.db.begin_readwrite().unwrap();
-            match txn.upsert::<Bodies>(block_number, block_body.into()) {
-                Ok(_) => txn.commit().unwrap(),
-                Err(err) => return Err(StoreError::LibmdbxError(err)),
-            }
-        }
-        Ok(())
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<Bodies>(block_number, block_body.into())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_block_body(
@@ -109,14 +100,36 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
     ) -> std::result::Result<Option<BlockBody>, StoreError> {
         // Read block body from mdbx
-        let read_value = {
-            let txn = self.db.begin_read().unwrap();
-            txn.get::<Bodies>(block_number)
-        };
-        match read_value {
-            Ok(value) => Ok(value.map(|a| a.to())),
-            Err(err) => Err(StoreError::LibmdbxError(err)),
-        }
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        Ok(txn
+            .get::<Bodies>(block_number)
+            .map_err(StoreError::LibmdbxError)?
+            .map(|b| b.to()))
+    }
+
+    fn add_block_number(
+        &mut self,
+        block_hash: BlockHash,
+        block_number: BlockNumber,
+    ) -> std::result::Result<(), StoreError> {
+        // Write block number to mdbx
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<BlockNumbers>(block_hash.into(), block_number)
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_block_number(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<BlockNumber>, StoreError> {
+        // Read block number from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        txn.get::<BlockNumbers>(block_hash.into())
+            .map_err(StoreError::LibmdbxError)
     }
 
     fn set_value(&mut self, _key: Key, _value: Value) -> Result<(), StoreError> {
@@ -135,6 +148,12 @@ impl Debug for Store {
 }
 
 // Define tables
+
+table!(
+    /// Block hash to number table.
+    ( BlockNumbers ) BlockHashRLP => BlockNumber
+);
+
 table!(
     /// Block headers table.
     ( Headers ) BlockNumber => BlockHeaderRLP
@@ -164,6 +183,7 @@ dupsort!(
 /// will be temporary.
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     let tables = [
+        table_info!(BlockNumbers),
         table_info!(Headers),
         table_info!(Bodies),
         table_info!(AccountInfos),
