@@ -108,7 +108,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .into_iter()
             .map(|hash| B256::from(hash.0))
             .collect(),
-        max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(|x| U256::from(x)),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
     }
 }
 
