@@ -162,3 +162,19 @@ pub struct ReceiptTxInfo {
     #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
     pub blob_gas_price: Option<u64>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serialize_receipt() {
+        let receipt = ReceiptWithTxAndBlockInfo {
+            receipt: Receipt { tx_type: TxType::EIP4844, succeeded: true, cumulative_gas_used: 147, bloom: Bloom::zero(), logs: vec![Log{ address: Address::zero(), topics: vec![], data: Bytes::from_static(b"strawberry") }] },
+            tx_info: ReceiptTxInfo { transaction_hash: H256::zero(), transaction_index: 1, from: Address::zero(), to: TxKind::Create, effective_gas_price: 157, blob_gas_price: Some(89) },
+            block_info: ReceiptBlockInfo { block_hash: BlockHash::zero(), block_number: 3, gas_used: 94, blob_gas_used: 12, root: H256::zero() },
+        };
+        let expected = r#"{"tx_type":"0x3","succeeded":"0x1","cumulative_gas_used":"0x93","bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","logs":[{"address":"0x0000000000000000000000000000000000000000","topics":[],"data":"0x73747261776265727279"}],"transaction_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transaction_index":"0x1","from":"0x0000000000000000000000000000000000000000","to":"","effective_gas_price":"0x9d","blob_gas_price":"0x59","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0x3","gas_used":"0x5e","blob_gas_used":"0xc","root":"0x0000000000000000000000000000000000000000000000000000000000000000"}"#;
+        assert_eq!(serde_json::to_string(&receipt).unwrap(), expected);
+    }
+}
