@@ -5,8 +5,9 @@ use crate::rlp::{
     AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
-use ethereum_rust_core::types::{BlockNumber, Index};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+};
 use ethereum_types::Address;
 use libmdbx::{
     dupsort,
@@ -137,6 +138,23 @@ impl StoreEngine for Store {
     }
 
     fn get_value(&self, _key: Key) -> Result<Option<Value>, StoreError> {
+        todo!()
+    }
+
+    fn add_receipt(
+        &mut self,
+        _block_number: BlockNumber,
+        _index: Index,
+        _receipt: Receipt,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_receipt(
+        &self,
+        _block_number: BlockNumber,
+        _index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
         todo!()
     }
 }

@@ -1,7 +1,9 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{AccountInfoRLP, AddressRLP};
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+};
 use ethereum_types::Address;
 use libmdbx::orm::{Decodable, Encodable};
 use std::fmt::Debug;
@@ -164,6 +166,23 @@ impl StoreEngine for Store {
             .unwrap();
 
         reply_receiver.recv()?
+    }
+
+    fn add_receipt(
+        &mut self,
+        _block_number: BlockNumber,
+        _index: Index,
+        _receipt: Receipt,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_receipt(
+        &self,
+        _block_number: BlockNumber,
+        _index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
+        todo!()
     }
 }
 

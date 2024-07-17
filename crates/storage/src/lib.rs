@@ -13,7 +13,9 @@ use self::libmdbx::Store as LibmdbxStore;
 use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+};
 use ethereum_types::Address;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -76,6 +78,21 @@ pub trait StoreEngine: Debug + Send {
 
     /// Obtain block number
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
+
+    /// Add receipt
+    fn add_receipt(
+        &mut self,
+        block_number: BlockNumber,
+        index: Index,
+        receipt: Receipt,
+    ) -> Result<(), StoreError>;
+
+    /// Obtain receipt
+    fn get_receipt(
+        &self,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<Option<Receipt>, StoreError>;
 
     /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
     fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;
@@ -211,6 +228,31 @@ impl Store {
             .lock()
             .unwrap()
             .get_block_number(block_hash)
+    }
+
+    fn add_receipt(
+        &mut self,
+        block_number: BlockNumber,
+        index: Index,
+        receipt: Receipt,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_receipt(block_number, index, receipt)
+    }
+
+    fn get_receipt(
+        &self,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_receipt(block_number, index)
     }
 }
 
