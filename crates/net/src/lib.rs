@@ -3,31 +3,16 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use aes::{
-    cipher::{BlockEncrypt, KeyInit, StreamCipher},
-    Aes256Enc,
-};
 use bootnode::BootNode;
-use bytes::Bytes;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
-use ethereum_rust_core::{
-    rlp::{
-        decode::RLPDecode,
-        encode::RLPEncode,
-        structs::{Decoder, Encoder},
-    },
-    H128, H256, H512,
-};
+use ethereum_rust_core::{H256, H512};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData};
-use rlpx::{
-    handshake::{RLPxLocalClient, RLPxState},
-    utils::pubkey2id,
-};
+use rlpx::handshake::RLPxLocalClient;
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -238,172 +223,17 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     stream.read_exact(&mut buf[2..msg_size + 2]).await.unwrap();
 
     let msg = &mut buf[2..msg_size + 2];
-    let conn = client.decode_ack_message(&secret_key, msg, auth_data);
+    let mut pending_conn = client.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
-    let RLPxState {
-        aes_key: _,
-        mac_key: _,
-        mut ingress_mac,
-        mut egress_mac,
-        mut ingress_aes,
-        mut egress_aes,
-    } = conn.state;
+    // TODO: write directly to the stream
+    let mut buf = vec![];
+    pending_conn.send_hello(&PublicKey::from(signer.verifying_key()), &mut buf);
+    stream.write_all(&buf).await.unwrap();
 
-    let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
+    let _conn = pending_conn.receive_hello(&mut stream).await;
 
-    // TODO: move all this to a module
-    // Example of sending a message through the stream
-    // [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeKey: B_64, ...]
-    let msg_id = 1_u8;
-    // Hello message
-    let protocol_version = 5_u8;
-    let client_id = "Ethereum(++)/1.0.0";
-    // We support only p2p for now.
-    let capabilities = vec![("p2p".to_string(), 5_u8)];
-    let listen_port = 0_u8; // This one is ignored
-    let node_id = pubkey2id(&PublicKey::from(signer.verifying_key()));
-    let mut frame_data = vec![];
-    msg_id.encode(&mut frame_data);
-    Encoder::new(&mut frame_data)
-        .encode_field(&protocol_version)
-        .encode_field(&client_id)
-        .encode_field(&capabilities)
-        .encode_field(&listen_port)
-        .encode_field(&node_id)
-        .finish();
+    info!("Completed Hello roundtrip!");
 
-    // header = frame-size || header-data || header-padding
-    let mut header = Vec::with_capacity(32);
-    let frame_size = frame_data.len().to_be_bytes();
-    header.extend_from_slice(&frame_size[5..8]);
-    // header-data = [capability-id, context-id]  (both always zero)
-    let header_data = (0_u8, 0_u8);
-    header_data.encode(&mut header);
-
-    header.resize(16, 0);
-    egress_aes.apply_keystream(&mut header[..16]);
-
-    let header_mac_seed = {
-        let mac_digest: [u8; 16] = egress_mac.clone().finalize()[..16].try_into().unwrap();
-        let mut seed = mac_digest.into();
-        mac_aes_cipher.encrypt_block(&mut seed);
-        H128(seed.into()) ^ H128(header[..16].try_into().unwrap())
-    };
-    egress_mac.update(header_mac_seed);
-    let header_mac = egress_mac.clone().finalize();
-    header.extend_from_slice(&header_mac[..16]);
-
-    // Send header
-    stream.write_all(&header).await.unwrap();
-
-    // Pad to next multiple of 16
-    frame_data.resize(frame_data.len().next_multiple_of(16), 0);
-    egress_aes.apply_keystream(&mut frame_data);
-    let frame_ciphertext = frame_data;
-
-    // Send frame
-    stream.write_all(&frame_ciphertext).await.unwrap();
-
-    // Compute frame-mac
-    egress_mac.update(&frame_ciphertext);
-
-    // frame-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ keccak256.digest(egress-mac)[:16]
-    let frame_mac_seed = {
-        let mac_digest: [u8; 16] = egress_mac.clone().finalize()[..16].try_into().unwrap();
-        let mut seed = mac_digest.into();
-        mac_aes_cipher.encrypt_block(&mut seed);
-        (H128(seed.into()) ^ H128(mac_digest)).0
-    };
-    egress_mac.update(frame_mac_seed);
-    let frame_mac = egress_mac.clone().finalize();
-
-    // Send frame-mac
-    stream.write_all(&frame_mac[..16]).await.unwrap();
-
-    // Receive the hello message's frame
-    let mut frame_header = [0; 32];
-    stream.read_exact(&mut frame_header).await.unwrap();
-    // Both are padded to the block's size (16 bytes)
-    let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
-    info!("Received header!");
-
-    // Validate MAC header
-    // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
-    let header_mac_seed = {
-        let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
-        let mut seed = mac_digest.into();
-        mac_aes_cipher.encrypt_block(&mut seed);
-        (H128(seed.into()) ^ H128(header_ciphertext.try_into().unwrap())).0
-    };
-
-    // ingress-mac = keccak256.update(ingress-mac, header-mac-seed)
-    ingress_mac.update(header_mac_seed);
-
-    // header-mac = keccak256.digest(egress-mac)[:16]
-    let expected_header_mac = H128(ingress_mac.clone().finalize()[..16].try_into().unwrap());
-
-    assert_eq!(header_mac, expected_header_mac.0);
-
-    info!("Header MAC is correct!");
-
-    let header_text = header_ciphertext;
-    ingress_aes.apply_keystream(header_text);
-
-    // header-data = [capability-id, context-id]
-    // Both are unused, and always zero
-    assert_eq!(&header_text[3..6], &(0_u8, 0_u8).encode_to_vec());
-
-    let frame_size: usize = u32::from_be_bytes([0, header_text[0], header_text[1], header_text[2]])
-        .try_into()
-        .unwrap();
-    // Receive the hello message
-    let padded_size = frame_size.next_multiple_of(16);
-    let mut frame_data = vec![0; padded_size + 16];
-    stream.read_exact(&mut frame_data).await.unwrap();
-    let (frame_ciphertext, frame_mac) = frame_data.split_at_mut(padded_size);
-
-    //   check MAC
-    ingress_mac.update(&frame_ciphertext);
-    let frame_mac_seed = {
-        let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
-        let mut seed = mac_digest.into();
-        mac_aes_cipher.encrypt_block(&mut seed);
-        (H128(seed.into()) ^ H128(mac_digest)).0
-    };
-    ingress_mac.update(frame_mac_seed);
-    let expected_frame_mac: [u8; 16] = ingress_mac.finalize()[..16].try_into().unwrap();
-
-    assert_eq!(frame_mac, expected_frame_mac);
-
-    // decrypt frame
-    ingress_aes.apply_keystream(frame_ciphertext);
-
-    let (frame_data, _padding) = frame_ciphertext.split_at(frame_size);
-
-    let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(frame_data).unwrap();
-
-    assert_eq!(msg_id, 0);
-
-    // decode hello message: [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeId: B_64, ...]
-    let decoder = Decoder::new(msg_data).unwrap();
-    let (protocol_version, decoder): (u64, _) = decoder.decode_field("protocolVersion").unwrap();
-    let (client_id, decoder): (String, _) = decoder.decode_field("clientId").unwrap();
-
-    // [[cap1, capVersion1], [cap2, capVersion2], ...]
-    let (capabilities, decoder): (Vec<(Bytes, u64)>, _) =
-        decoder.decode_field("capabilities").unwrap();
-
-    // This field should be ignored
-    let (_listen_port, decoder): (u16, _) = decoder.decode_field("listenPort").unwrap();
-    let (node_id, decoder): (H512, _) = decoder.decode_field("nodeId").unwrap();
-
-    // Implementations must ignore any additional list elements
-    let _padding = decoder.finish_unchecked();
-
-    info!(
-        "Received hello message v{protocol_version}, from client: '{client_id}', 
-        with id: {node_id}, with supported capabilities: {capabilities:?}"
-    );
     // TODO: messages after the Hello must be snappy compressed
 }
