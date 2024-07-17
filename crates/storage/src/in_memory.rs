@@ -1,5 +1,6 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
+use bytes::Bytes;
 use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
 use ethereum_types::{Address, H256};
 use std::{collections::HashMap, fmt::Debug};
@@ -89,7 +90,7 @@ impl StoreEngine for Store {
     }
 
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
-        Ok(self.account_codes.get(&code_hash))
+        Ok(self.account_codes.get(&code_hash).cloned())
     }
 }
 

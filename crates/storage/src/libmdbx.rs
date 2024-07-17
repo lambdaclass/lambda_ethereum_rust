@@ -5,9 +5,10 @@ use crate::rlp::{
     AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
+use bytes::Bytes;
 use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
-use ethereum_types::Address;
+use ethereum_types::{Address, H256};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -146,7 +147,7 @@ impl StoreEngine for Store {
             .db
             .begin_readwrite()
             .map_err(StoreError::LibmdbxError)?;
-        txn.upsert::<AccountCodes>(code_hash, code.into())
+        txn.upsert::<AccountCodes>(code_hash.into(), code.into())
             .map_err(StoreError::LibmdbxError)?;
         txn.commit().map_err(StoreError::LibmdbxError)
     }
@@ -155,9 +156,9 @@ impl StoreEngine for Store {
         // Read account code from mdbx
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         Ok(txn
-            .get::<AccountCodes>(code_hash)
+            .get::<AccountCodes>(code_hash.into())
             .map_err(StoreError::LibmdbxError)?
-            .map(|b| b.to()))
+            .map(|b| b.to().into()))
     }
 }
 
