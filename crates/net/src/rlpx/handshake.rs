@@ -61,6 +61,7 @@ impl RLPxConnectionPending {
 }
 
 /// The current state of an RLPx connection
+#[derive(Clone)]
 pub(crate) struct RLPxState {
     // TODO: maybe discard aes_key, since we only need the cipher
     // TODO: maybe precompute some values that are used more than once
@@ -69,7 +70,16 @@ pub(crate) struct RLPxState {
     pub mac_key: H256,
     pub ingress_mac: Keccak256,
     pub egress_mac: Keccak256,
-    pub aes_cipher: Aes256Ctr64BE,
+    pub ingress_aes: Aes256Ctr64BE,
+    pub egress_aes: Aes256Ctr64BE,
+}
+
+impl RLPxState {
+    pub fn aes_apply(&self, data: &mut [u8]) {
+        let mut aes_cipher =
+            <Aes256Ctr64BE as KeyIvInit>::new(&self.aes_key.0.into(), &[0; 16].into());
+        aes_cipher.apply_keystream(data);
+    }
 }
 
 /// RLPx local client for initiating or accepting connections.
@@ -253,14 +263,16 @@ impl RLPxLocalClient {
             .chain_update(mac_key ^ ack.nonce)
             .chain_update(self.auth_message.as_ref().unwrap());
 
-        let aes_cipher = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key.0.into(), &[0; 16].into());
+        let ingress_aes = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key.0.into(), &[0; 16].into());
+        let egress_aes = ingress_aes.clone();
 
         let state = RLPxState {
             aes_key,
             mac_key,
             ingress_mac,
             egress_mac,
-            aes_cipher,
+            ingress_aes,
+            egress_aes,
         };
 
         RLPxConnectionPending { state }

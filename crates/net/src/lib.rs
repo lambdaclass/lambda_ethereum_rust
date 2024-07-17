@@ -12,6 +12,7 @@ use bytes::Bytes;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
 use ethereum_rust_core::{
     rlp::{
+        decode::RLPDecode,
         encode::RLPEncode,
         structs::{Decoder, Encoder},
     },
@@ -177,8 +178,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_tcp_addr = "127.0.0.1:30304";
-    let str_udp_addr = "127.0.0.1:30304";
+    let str_tcp_addr = "127.0.0.1:55681";
+    let str_udp_addr = "127.0.0.1:61594";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
@@ -245,7 +246,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         mac_key: _,
         mut ingress_mac,
         mut egress_mac,
-        mut aes_cipher,
+        mut ingress_aes,
+        mut egress_aes,
     } = conn.state;
 
     let mac_aes_cipher = Aes256Enc::new_from_slice(&conn.state.mac_key.0).unwrap();
@@ -281,7 +283,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     header_data.encode(&mut header);
 
     header.resize(16, 0);
-    aes_cipher.apply_keystream(&mut header[..16]);
+    egress_aes.apply_keystream(&mut header[..16]);
 
     let header_mac_seed = {
         let mac_digest: [u8; 16] = egress_mac.clone().finalize()[..16].try_into().unwrap();
@@ -298,7 +300,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Pad to next multiple of 16
     frame_data.resize(frame_data.len().next_multiple_of(16), 0);
-    aes_cipher.apply_keystream(&mut frame_data);
+    egress_aes.apply_keystream(&mut frame_data);
     let frame_ciphertext = frame_data;
 
     // Send frame
@@ -347,19 +349,20 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     info!("Header MAC is correct!");
 
     let header_text = header_ciphertext;
-    aes_cipher.apply_keystream(header_text);
+    ingress_aes.apply_keystream(header_text);
 
     // header-data = [capability-id, context-id]
     // Both are unused, and always zero
     assert_eq!(&header_text[3..6], &(0_u8, 0_u8).encode_to_vec());
 
-    let frame_size = u32::from_be_bytes([0, header_text[0], header_text[1], header_text[2]])
+    let frame_size: usize = u32::from_be_bytes([0, header_text[0], header_text[1], header_text[2]])
         .try_into()
         .unwrap();
     // Receive the hello message
-    let mut frame_data = vec![0; frame_size + 32];
+    let padded_size = frame_size.next_multiple_of(16);
+    let mut frame_data = vec![0; padded_size + 16];
     stream.read_exact(&mut frame_data).await.unwrap();
-    let (frame_ciphertext, frame_mac) = frame_data.split_at_mut(frame_size);
+    let (frame_ciphertext, frame_mac) = frame_data.split_at_mut(padded_size);
 
     //   check MAC
     ingress_mac.update(&frame_ciphertext);
@@ -376,12 +379,16 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     assert_eq!(frame_mac, expected_frame_mac);
 
     // decrypt frame
-    aes_cipher.apply_keystream(frame_ciphertext);
+    ingress_aes.apply_keystream(frame_ciphertext);
 
-    let frame_data = &*frame_ciphertext;
+    let (frame_data, _padding) = frame_ciphertext.split_at(frame_size);
+
+    let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(frame_data).unwrap();
+
+    assert_eq!(msg_id, 0);
 
     // decode hello message: [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeId: B_64, ...]
-    let decoder = Decoder::new(frame_data).unwrap();
+    let decoder = Decoder::new(msg_data).unwrap();
     let (protocol_version, decoder): (u64, _) = decoder.decode_field("protocolVersion").unwrap();
     let (client_id, decoder): (String, _) = decoder.decode_field("clientId").unwrap();
 
