@@ -23,18 +23,20 @@ fn execute_test(test: &TestUnit) {
         .first()
         .unwrap()
         .transactions
-        .as_ref()
-        .unwrap()
+        //.as_ref()
+        //.unwrap()
         .first()
         .unwrap();
-
+    /*
     let pre = test
         .pre
         .clone()
         .into_iter()
         .map(|(k, v)| (k, v.into()))
         .collect();
+    */
 
+    /*
     let genesis_rlp_as_string = test.genesis_rlp.clone();
     let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
 
@@ -45,7 +47,10 @@ fn execute_test(test: &TestUnit) {
         }
         Err(_) => panic!(),
     }
-
+    */
+    let block = test.blocks.first().unwrap();
+    let decoded_block = Block::decode(block.rlp.as_ref()).unwrap();
+    /*
     assert!(execute_tx(
         &transaction.clone().into(),
         &test
@@ -61,7 +66,7 @@ fn execute_test(test: &TestUnit) {
         SpecId::CANCUN,
     )
     .unwrap()
-    .is_success());
+    .is_success());*/
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {

@@ -5,6 +5,7 @@ use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
     Transaction as ethereum_rustTransaction, TxKind,
 };
+use ethereum_rust_core::H160;
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -59,6 +60,22 @@ pub struct AccessListItem {
     pub storage_keys: Vec<H256>,
 }
 
+impl RLPDecode for AccessListItem {
+    fn decode_unfinished(
+        rlp: &[u8],
+    ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (address, decoder) = decoder.decode_field("address")?;
+        let (storage_keys, decoder) = decoder.decode_field("storage_keys")?;
+        let remaining = decoder.finish()?;
+        let item = AccessListItem {
+            address,
+            storage_keys,
+        };
+        Ok((item, remaining))
+    }
+}
+
 pub type AccessList = Vec<AccessListItem>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize)]
@@ -93,8 +110,9 @@ pub struct Header {
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub block_header: Option<Header>,
+    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
-    pub transactions: Option<Vec<Transaction>>,
+    pub transactions: Vec<Transaction>,
     pub uncle_headers: Option<Vec<Header>>,
 }
 
@@ -239,12 +257,13 @@ impl RLPDecode for Block {
         let decoder = Decoder::new(rlp)?;
 
         let (block_header, decoder) = decoder.decode_optional_field();
-        let (transactions, decoder) = decoder.decode_optional_field();
+        let (transactions, decoder): (Vec<Transaction>, Decoder) =
+            decoder.decode_field("transactions")?;
         let (uncle_headers, decoder) = decoder.decode_optional_field();
         let (_withdrawals, decoder): (Option<Vec<Bytes>>, Decoder) =
             decoder.decode_optional_field();
-
         let remaining = decoder.finish()?;
+
         let block = Block {
             rlp: Bytes::default(),
             block_header,
@@ -260,22 +279,21 @@ impl RLPDecode for Transaction {
         rlp: &[u8],
     ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
-        let (tx_type, decoder) = decoder.decode_optional_field();
-        let (chain_id, decoder) = decoder.decode_optional_field();
         let (nonce, decoder) = decoder.decode_field("nonce")?;
         let (gas_price, decoder) = decoder.decode_optional_field();
         let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
         let (to, decoder) = decoder.decode_field("to")?;
         let (value, decoder) = decoder.decode_field("value")?;
         let (data, decoder) = decoder.decode_field("data")?;
+        let (access_list, decoder) = decoder.decode_optional_field();
         let (v, decoder) = decoder.decode_field("v")?;
         let (r, decoder) = decoder.decode_field("r")?;
         let (s, decoder) = decoder.decode_field("s")?;
-        let (sender, decoder) = decoder.decode_field("sender")?;
+        //let (sender, decoder) = decoder.decode_field("sender")?; not included in the RLP encoding
         let remaining = decoder.finish()?;
         let transaction = Transaction {
-            transaction_type: tx_type,
-            chain_id,
+            transaction_type: Some(U256::zero()),
+            chain_id: None,
             nonce,
             gas_price,
             gas_limit,
@@ -285,8 +303,8 @@ impl RLPDecode for Transaction {
             v,
             r,
             s,
-            sender,
-            access_list: None,
+            sender: H160::default(),
+            access_list,
             max_fee_per_gas: None,
             max_priority_fee_per_gas: None,
             hash: None,

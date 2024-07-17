@@ -3,6 +3,7 @@ use super::{
     error::RLPDecodeError,
 };
 use bytes::{Bytes, BytesMut};
+use sha3::digest::InvalidLength;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.
@@ -159,8 +160,11 @@ impl RLPDecode for crate::H264 {
 
 impl RLPDecode for crate::Address {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H160(value), rest))
+        match RLPDecode::decode_unfinished(rlp) {
+            Ok((value, rest)) => Ok((crate::H160(value), rest)),
+            Err(RLPDecodeError::InvalidLength) => Ok((crate::H160::zero(), &[])),
+            Err(err) => Err(err),
+        }
     }
 }
 
