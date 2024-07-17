@@ -230,6 +230,66 @@ impl From<Account> for ethereum_rustAccount {
     }
 }
 
+impl RLPDecode for Block {
+    fn decode_unfinished(
+        rlp: &[u8],
+    ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+
+        let (block_header, decoder) = decoder.decode_optional_field();
+        let (transactions, decoder) = decoder.decode_optional_field();
+        let (uncle_headers, decoder) = decoder.decode_optional_field();
+        let remaining = decoder.finish()?;
+        let block = Block {
+            rlp: Bytes::default(),
+            block_header,
+            transactions,
+            uncle_headers,
+        };
+        Ok((block, remaining))
+    }
+}
+
+impl RLPDecode for Transaction {
+    fn decode_unfinished(
+        rlp: &[u8],
+    ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (tx_type, decoder) = decoder.decode_optional_field();
+        let (chain_id, decoder) = decoder.decode_optional_field();
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+        let (gas_price, decoder) = decoder.decode_optional_field();
+        let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
+        let (to, decoder) = decoder.decode_field("to")?;
+        let (value, decoder) = decoder.decode_field("value")?;
+        let (data, decoder) = decoder.decode_field("data")?;
+        let (v, decoder) = decoder.decode_field("v")?;
+        let (r, decoder) = decoder.decode_field("r")?;
+        let (s, decoder) = decoder.decode_field("s")?;
+        let (sender, decoder) = decoder.decode_field("sender")?;
+        let remaining = decoder.finish()?;
+        let transaction = Transaction {
+            transaction_type: tx_type,
+            chain_id,
+            nonce,
+            gas_price,
+            gas_limit,
+            to,
+            value,
+            data,
+            v,
+            r,
+            s,
+            sender,
+            access_list: None,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+            hash: None,
+        };
+        Ok((transaction, remaining))
+    }
+}
+
 impl RLPDecode for Header {
     fn decode_unfinished(
         rlp: &[u8],
@@ -255,8 +315,6 @@ impl RLPDecode for Header {
         let (blob_gas_used, decoder) = decoder.decode_optional_field();
         let (excess_blob_gas, decoder) = decoder.decode_optional_field();
         let (parent_beacon_block_root, decoder) = decoder.decode_optional_field();
-        let (hash, decoder) = decoder.decode_field("hash")?;
-        let (requests_root, decoder) = decoder.decode_optional_field();
 
         let remaining = decoder.finish()?;
 
@@ -267,7 +325,6 @@ impl RLPDecode for Header {
             extra_data,
             gas_limit,
             gas_used,
-            hash,
             mix_hash,
             nonce: nonce.into(),
             number,
@@ -282,7 +339,8 @@ impl RLPDecode for Header {
             blob_gas_used,
             excess_blob_gas,
             parent_beacon_block_root,
-            requests_root,
+            hash: H256::zero(),
+            requests_root: None,
         };
 
         Ok((header, remaining))
