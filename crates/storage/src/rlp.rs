@@ -27,6 +27,7 @@ pub type BlockBodyRLP = Rlp<BlockBody>;
 // Receipt types
 pub type ReceiptRLP = Rlp<Receipt>;
 
+#[derive(Clone)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
 
 impl<T: RLPEncode> From<T> for Rlp<T> {
@@ -82,5 +83,23 @@ impl Encodable for AccountStorageValueRLP {
 impl Decodable for AccountStorageValueRLP {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(AccountStorageValueRLP(b.try_into()?))
+    }
+}
+
+impl From<H256> for AccountStorageKeyRLP {
+    fn from(value: H256) -> Self {
+        AccountStorageKeyRLP(value.0)
+    }
+}
+
+impl From<H256> for AccountStorageValueRLP {
+    fn from(value: H256) -> Self {
+        AccountStorageValueRLP(value.0)
+    }
+}
+
+impl From<AccountStorageValueRLP> for H256 {
+    fn from(value: AccountStorageValueRLP) -> Self {
+        H256(value.0)
     }
 }

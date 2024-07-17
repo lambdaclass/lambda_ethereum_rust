@@ -160,6 +160,38 @@ impl StoreEngine for Store {
             .map_err(StoreError::LibmdbxError)?
             .map(|b| b.to()))
     }
+
+    fn add_storage_at(
+        &mut self,
+        address: Address,
+        storage_key: H256,
+        storage_value: H256,
+    ) -> std::result::Result<(), StoreError> {
+        // Write storage to mdbx
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<AccountStorages>(address.into(), (storage_key.into(), storage_value.into()))
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_storage_at(
+        &self,
+        address: Address,
+        storage_key: H256,
+    ) -> std::result::Result<Option<H256>, StoreError> {
+        // Read storage from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let mut cursor = txn
+            .cursor::<AccountStorages>()
+            .map_err(StoreError::LibmdbxError)?;
+        Ok(cursor
+            .seek_value(address.into(), storage_key.into())
+            .map_err(StoreError::LibmdbxError)?
+            .map(|s| s.1.into()))
+    }
 }
 
 impl Debug for Store {

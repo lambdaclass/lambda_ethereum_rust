@@ -99,6 +99,21 @@ pub trait StoreEngine: Debug + Send {
         };
         self.get_account_code(code_hash)
     }
+
+    // Add storage value
+    fn add_storage_at(
+        &mut self,
+        address: Address,
+        storage_key: H256,
+        storage_value: H256,
+    ) -> Result<(), StoreError>;
+
+    // Obtain storage value
+    fn get_storage_at(
+        &self,
+        address: Address,
+        storage_key: H256,
+    ) -> Result<Option<H256>, StoreError>;
 }
 
 #[derive(Debug, Clone)]
