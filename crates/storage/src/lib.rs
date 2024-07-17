@@ -229,6 +229,28 @@ impl Store {
             .unwrap()
             .get_block_number(block_hash)
     }
+
+    pub fn add_transaction_location(
+        &self,
+        transaction_hash: H256,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .add_transaction_location(transaction_hash, block_number, index)
+    }
+
+    pub fn get_transaction_location(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_transaction_location(transaction_hash)
+    }
 }
 
 #[cfg(test)]
@@ -286,6 +308,7 @@ mod tests {
         test_store_account(store.clone());
         test_store_block(store.clone());
         test_store_block_number(store.clone());
+        test_store_transaction_location(store.clone());
     }
 
     fn test_store_account(mut store: Store) {
@@ -406,5 +429,22 @@ mod tests {
         let stored_number = store.get_block_number(block_hash).unwrap().unwrap();
 
         assert_eq!(stored_number, block_number);
+    }
+
+    fn test_store_transaction_location(store: Store) {
+        let transaction_hash = H256::random();
+        let block_number = 6;
+        let index = 3;
+
+        store
+            .add_transaction_location(transaction_hash, block_number, index)
+            .unwrap();
+
+        let stored_location = store
+            .get_transaction_location(transaction_hash)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(stored_location, (block_number, index));
     }
 }
