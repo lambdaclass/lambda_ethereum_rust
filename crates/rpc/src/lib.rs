@@ -46,6 +46,12 @@ pub async fn handle_authrpc_request(body: String) -> Json<Value> {
     rpc_response(req.id, res)
 }
 
+pub async fn handle_http_request(body: String) -> Json<Value> {
+    let req: RpcRequest = serde_json::from_str(&body).unwrap();
+    let res = map_requests(&req);
+    rpc_response(req.id, res)
+}
+
 pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => {
@@ -67,22 +73,9 @@ pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
                 parse_new_payload_v3_request(req.params.as_ref().ok_or(RpcErr::BadParams)?)?;
             Ok(serde_json::to_value(engine::new_payload_v3(request)?).unwrap())
         }
-        _ => Err(RpcErr::MethodNotFound),
-    }
-}
-
-pub async fn handle_http_request(body: String) -> Json<Value> {
-    let req: RpcRequest = serde_json::from_str(&body).unwrap();
-
-    let res: Result<Value, RpcErr> = match req.method.as_str() {
-        "eth_chainId" => client::chain_id(),
-        "eth_syncing" => client::syncing(),
-        "eth_getBlockByNumber" => block::get_block_by_number(),
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),
-    };
-
-    rpc_response(req.id, res)
+    }
 }
 
 fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
