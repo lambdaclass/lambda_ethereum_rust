@@ -1,8 +1,10 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{AccountInfoRLP, AddressRLP};
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
-use ethereum_types::Address;
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index,
+};
+use ethereum_types::{Address, H256};
 use libmdbx::orm::{Decodable, Encodable};
 use sled::Db;
 use std::fmt::Debug;
