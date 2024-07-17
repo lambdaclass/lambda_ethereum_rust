@@ -83,10 +83,8 @@ pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
 }
 
 /// Handle requests from other clients
-pub fn map_internal_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
-    match req.method.as_str() {
-        _ => Err(RpcErr::MethodNotFound),
-    }
+pub fn map_internal_requests(_req: &RpcRequest) -> Result<Value, RpcErr> {
+    Err(RpcErr::MethodNotFound)
 }
 
 fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
