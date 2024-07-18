@@ -35,10 +35,11 @@ fn execute_test(test: &TestUnit) {
         &pre,
         SpecId::CANCUN,
     )
+    .unwrap()
     .is_success());
 }
 
-fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
+pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     let s: String = std::fs::read_to_string(path).expect("Unable to read file");
     let tests: HashMap<String, TestUnit> = serde_json::from_str(&s).expect("Unable to parse JSON");
     tests

@@ -3,11 +3,11 @@ use ethereum_types::{Address, Bloom};
 use keccak_hash::H256;
 use serde::{Deserialize, Serialize};
 
+use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    BlockBody, BlockHeader, EIP1559Transaction, LegacyTransaction, Transaction, Withdrawal,
-    DEFAULT_OMMERS_HASH,
+    compute_withdrawals_root, BlockBody, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -20,24 +20,24 @@ pub struct ExecutionPayloadV3 {
     receipts_root: H256,
     logs_bloom: Bloom,
     prev_randao: H256,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     block_number: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     gas_limit: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     gas_used: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     timestamp: u64,
-    #[serde(deserialize_with = "crate::serde_utils::bytes::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::bytes")]
     extra_data: Bytes,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     base_fee_per_gas: u64,
-    block_hash: H256,
+    pub block_hash: H256,
     transactions: Vec<EncodedTransaction>,
     withdrawals: Vec<Withdrawal>,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     blob_gas_used: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     excess_blob_gas: u64,
 }
 
@@ -50,7 +50,7 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(EncodedTransaction(serde_utils::bytes::deser_hex_str(
+        Ok(EncodedTransaction(serde_utils::bytes::deserialize(
             deserializer,
         )?))
     }
@@ -63,26 +63,7 @@ impl EncodedTransaction {
     /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
     /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
-        // Look at the first byte to check if it corresponds to a TransactionType
-        match self.0.first() {
-            // First byte is a valid TransactionType
-            Some(tx_type) if *tx_type < 0x7f => {
-                // Decode tx based on type
-                let tx_bytes = &self.0.as_ref()[1..];
-                match *tx_type {
-                    // Legacy
-                    0x0 => {
-                        LegacyTransaction::decode_rlp(tx_bytes).map(Transaction::LegacyTransaction)
-                    } // TODO: check if this is a real case scenario
-                    // EIP1559
-                    0x2 => EIP1559Transaction::decode_rlp(tx_bytes)
-                        .map(Transaction::EIP1559Transaction),
-                    _ => unimplemented!("We don't know this tx type yet"),
-                }
-            }
-            // LegacyTransaction
-            _ => LegacyTransaction::decode_rlp(self.0.as_ref()).map(Transaction::LegacyTransaction),
-        }
+        Transaction::decode(self.0.as_ref())
     }
 }
 
@@ -90,7 +71,7 @@ impl EncodedTransaction {
 impl ExecutionPayloadV3 {
     /// Converts an `ExecutionPayloadV3` into a block (aka a BlockHeader and BlockBody)
     /// using the parentBeaconBlockRoot received along with the payload in the rpc call `engine_newPayloadV3`
-    fn into_block(
+    pub fn into_block(
         self,
         parent_beacon_block_root: H256,
     ) -> Result<(BlockHeader, BlockBody), RLPDecodeError> {
@@ -111,7 +92,7 @@ impl ExecutionPayloadV3 {
                 state_root: self.state_root,
                 transactions_root: block_body.compute_transactions_root(),
                 receipt_root: self.receipts_root,
-                logs_bloom: self.logs_bloom.into(),
+                logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
                 number: self.block_number,
                 gas_limit: self.gas_limit,
@@ -121,7 +102,7 @@ impl ExecutionPayloadV3 {
                 prev_randao: self.prev_randao,
                 nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
-                withdrawals_root: H256::zero(), // TODO: Use result of root calculation once implemented
+                withdrawals_root: compute_withdrawals_root(&block_body.withdrawals),
                 blob_gas_used: self.blob_gas_used,
                 excess_blob_gas: self.excess_blob_gas,
                 parent_beacon_block_root,
@@ -135,9 +116,9 @@ impl ExecutionPayloadV3 {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PayloadStatus {
-    status: PayloadValidationStatus,
-    latest_valid_hash: H256,
-    validation_error: Option<String>,
+    pub status: PayloadValidationStatus,
+    pub latest_valid_hash: Option<H256>,
+    pub validation_error: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

@@ -1,13 +1,56 @@
 use bytes::BufMut;
+use bytes::Bytes;
 use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H512};
-use k256::ecdsa::{signature::Signer, SigningKey};
-use std::net::IpAddr;
+use ethereum_rust_core::{H256, H512, H520};
+use k256::ecdsa::SigningKey;
+use sha3::{Digest, Keccak256};
+use std::net::{IpAddr, SocketAddr};
+
+const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;
+
+#[allow(unused)]
+#[derive(Debug)]
+pub struct Packet {
+    hash: H256,
+    signature: H520,
+    message: Message,
+}
+
+impl Packet {
+    pub fn decode(encoded_packet: &[u8]) -> Result<Packet, RLPDecodeError> {
+        // the packet structure is
+        // hash || signature || packet-type || packet-data
+        let hash_len = 32;
+        let signature_len = 65;
+        let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
+        let packet_type = encoded_packet[hash_len + signature_len];
+        let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
+
+        // TODO: verify hash and signature
+        let hash = H256::from_slice(&encoded_packet[..hash_len]);
+        let signature = H520::from_slice(signature_bytes);
+        let message = Message::decode_with_type(packet_type, encoded_msg)?;
+
+        Ok(Self {
+            hash,
+            signature,
+            message,
+        })
+    }
+
+    pub fn get_hash(&self) -> H256 {
+        self.hash
+    }
+
+    pub fn get_message(&self) -> &Message {
+        &self.message
+    }
+}
 
 #[derive(Debug, Eq, PartialEq)]
 // NOTE: All messages could have more fields than specified by the spec.
@@ -19,29 +62,31 @@ pub(crate) enum Message {
     Ping(PingMessage),
     Pong(PongMessage),
     FindNode(FindNodeMessage),
-    Neighbors(()),
-    ENRRequest(()),
-    ENRResponse(()),
+    Neighbors(NeighborsMessage),
+    ENRRequest(ENRRequestMessage),
+    ENRResponse(ENRResponseMessage),
 }
 
 impl Message {
-    pub fn encode_with_header(&self, buf: &mut dyn BufMut, node_signer: SigningKey) {
+    pub fn encode_with_header(&self, buf: &mut dyn BufMut, node_signer: &SigningKey) {
         let signature_size = 65_usize;
         let mut data: Vec<u8> = Vec::with_capacity(signature_size.next_power_of_two());
         data.resize(signature_size, 0);
 
         self.encode_with_type(&mut data);
 
-        let digest = keccak_hash::keccak_buffer(&mut &data[signature_size..]).unwrap();
+        let digest = Keccak256::digest(&data[signature_size..]);
 
-        let (signature, recovery_id) = node_signer.try_sign(&digest.0).expect("failed to sign");
+        let (signature, recovery_id) = node_signer
+            .sign_prehash_recoverable(&digest)
+            .expect("failed to sign");
         let b = signature.to_bytes();
 
         data[..signature_size - 1].copy_from_slice(&b);
         data[signature_size - 1] = recovery_id.to_byte();
 
-        let hash = keccak_hash::keccak_buffer(&mut &data[..]).unwrap();
-        buf.put_slice(&hash.0);
+        let hash = Keccak256::digest(&data[..]);
+        buf.put_slice(&hash);
         buf.put_slice(&data[..]);
     }
 
@@ -51,25 +96,13 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::FindNode(msg) => msg.encode(buf),
-            _ => todo!(),
+            Message::ENRRequest(msg) => msg.encode(buf),
+            Message::ENRResponse(msg) => msg.encode(buf),
+            Message::Neighbors(msg) => msg.encode(buf),
         }
     }
 
-    pub fn decode_with_header(encoded_msg: &[u8]) -> Result<Message, RLPDecodeError> {
-        let hash_len = 32;
-        let signature_len = 65;
-        let packet_index = hash_len + signature_len;
-
-        // TODO: verify hash and signature
-        let _hash = &encoded_msg[..hash_len];
-        let _signature = &encoded_msg[hash_len..packet_index];
-
-        let packet_type = encoded_msg[packet_index];
-
-        Self::decode_with_type(packet_type, &encoded_msg[packet_index + 1..])
-    }
-
-    fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
+    pub fn decode_with_type(packet_type: u8, msg: &[u8]) -> Result<Message, RLPDecodeError> {
         // NOTE: extra elements inside the message should be ignored, along with extra data
         // after the message.
         match packet_type {
@@ -85,9 +118,18 @@ impl Message {
                 let (find_node_msg, _rest) = FindNodeMessage::decode_unfinished(msg)?;
                 Ok(Message::FindNode(find_node_msg))
             }
-            0x04 => todo!(),
-            0x05 => todo!(),
-            0x06 => todo!(),
+            0x04 => {
+                let (neighbors_msg, _rest) = NeighborsMessage::decode_unfinished(msg)?;
+                Ok(Message::Neighbors(neighbors_msg))
+            }
+            0x05 => {
+                let (enr_request_msg, _rest) = ENRRequestMessage::decode_unfinished(msg)?;
+                Ok(Message::ENRRequest(enr_request_msg))
+            }
+            0x06 => {
+                let (enr_response_msg, _rest) = ENRResponseMessage::decode_unfinished(msg)?;
+                Ok(Message::ENRResponse(enr_response_msg))
+            }
             _ => Err(RLPDecodeError::MalformedData),
         }
     }
@@ -109,6 +151,12 @@ pub(crate) struct Endpoint {
     pub ip: IpAddr,
     pub udp_port: u16,
     pub tcp_port: u16,
+}
+
+impl Endpoint {
+    pub fn tcp_address(&self) -> Option<SocketAddr> {
+        (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
+    }
 }
 
 impl RLPEncode for Endpoint {
@@ -142,14 +190,14 @@ pub(crate) struct PingMessage {
     /// The Ping message version. Should be set to 4, but mustn't be enforced.
     version: u8,
     /// The endpoint of the sender.
-    from: Endpoint,
+    pub from: Endpoint,
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PingMessage {
@@ -188,10 +236,10 @@ impl RLPEncode for PingMessage {
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct FindNodeMessage {
     /// The target is a 64-byte secp256k1 public key.
-    target: H512,
+    pub target: H512,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
 }
 
 impl FindNodeMessage {
@@ -246,14 +294,14 @@ impl RLPDecode for PingMessage {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PongMessage {
     /// The endpoint of the receiver.
-    to: Endpoint,
+    pub to: Endpoint,
     /// The hash of the corresponding ping packet.
-    ping_hash: H256,
+    pub ping_hash: H256,
     /// The expiration time of the message. If the message is older than this time,
     /// it shouldn't be responded to.
-    expiration: u64,
+    pub expiration: u64,
     /// The ENR sequence number of the sender. This field is optional.
-    enr_seq: Option<u64>,
+    pub enr_seq: Option<u64>,
 }
 
 impl PongMessage {
@@ -308,12 +356,203 @@ impl RLPDecode for PongMessage {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct NeighborsMessage {
+    // nodes is the list of neighbors
+    pub nodes: Vec<Node>,
+    pub expiration: u64,
+}
+
+impl NeighborsMessage {
+    pub fn new(nodes: Vec<Node>, expiration: u64) -> Self {
+        Self { nodes, expiration }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Node {
+    pub ip: IpAddr,
+    pub udp_port: u16,
+    pub tcp_port: u16,
+    pub node_id: H512,
+}
+
+impl RLPDecode for NeighborsMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (nodes, decoder) = decoder.decode_field("nodes")?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+
+        let neighbors = NeighborsMessage::new(nodes, expiration);
+        Ok((neighbors, remaining))
+    }
+}
+
+impl RLPEncode for NeighborsMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.nodes)
+            .encode_field(&self.expiration)
+            .finish();
+    }
+}
+
+impl RLPDecode for Node {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (ip, decoder) = decoder.decode_field("ip")?;
+        let (udp_port, decoder) = decoder.decode_field("upd_port")?;
+        let (tcp_port, decoder) = decoder.decode_field("tcp_port")?;
+        let (node_id, decoder) = decoder.decode_field("node_id")?;
+        let remaining = decoder.finish_unchecked();
+
+        let node = Node {
+            ip,
+            udp_port,
+            tcp_port,
+            node_id,
+        };
+        Ok((node, remaining))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ENRResponseMessage {
+    pub request_hash: H256,
+    pub node_record: NodeRecord,
+}
+
+#[derive(Debug, PartialEq, Eq, Default)]
+pub struct NodeRecord {
+    signature: H512,
+    seq: u64,
+    id: String,
+    pub pairs: Vec<(Bytes, Bytes)>,
+}
+
+impl RLPDecode for ENRResponseMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (request_hash, decoder) = decoder.decode_field("request_hash")?;
+        let (node_record, decoder) = decoder.decode_field("node_record")?;
+        let remaining = decoder.finish_unchecked();
+        let response = ENRResponseMessage {
+            request_hash,
+            node_record,
+        };
+        Ok((response, remaining))
+    }
+}
+
+impl RLPDecode for NodeRecord {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        if rlp.len() > MAX_NODE_RECORD_ENCODED_SIZE {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let decoder = Decoder::new(rlp)?;
+        let (signature, decoder) = decoder.decode_field("signature")?;
+        let (seq, decoder) = decoder.decode_field("seq")?;
+        let (pairs, decoder) = decode_node_record_optional_fields(vec![], decoder);
+
+        // all fields in pairs are optional except for id
+        let id_pair = pairs.iter().find(|(k, _v)| k.eq("id".as_bytes()));
+        if let Some((_key, id)) = id_pair {
+            let node_record = NodeRecord {
+                signature,
+                seq,
+                id: String::decode(id).unwrap(),
+                pairs,
+            };
+            let remaining = decoder.finish()?;
+            Ok((node_record, remaining))
+        } else {
+            Err(RLPDecodeError::Custom(
+                "Invalid node record, 'id' field missing".into(),
+            ))
+        }
+    }
+}
+
+/// The NodeRecord optional fields are encoded as key/value pairs, according to the documentation
+/// <https://github.com/ethereum/devp2p/blob/master/enr.md#record-structure>
+/// This function returns a vector with (key, value) tuples. Both keys and values are stored as Bytes.
+/// Each value is the actual RLP encoding of the field including its prefix so it can be decoded as T::decode(value)
+fn decode_node_record_optional_fields(
+    mut pairs: Vec<(Bytes, Bytes)>,
+    decoder: Decoder,
+) -> (Vec<(Bytes, Bytes)>, Decoder) {
+    let (key, decoder): (Option<Bytes>, Decoder) = decoder.decode_optional_field();
+    if let Some(k) = key {
+        let (value, decoder): (Vec<u8>, Decoder) = decoder.get_encoded_item().unwrap();
+        pairs.push((k, Bytes::from(value)));
+        decode_node_record_optional_fields(pairs, decoder)
+    } else {
+        (pairs, decoder)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ENRRequestMessage {
+    expiration: u64,
+}
+
+impl RLPDecode for ENRRequestMessage {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (expiration, decoder) = decoder.decode_field("expiration")?;
+        let remaining = decoder.finish_unchecked();
+        let enr_request = ENRRequestMessage { expiration };
+        Ok((enr_request, remaining))
+    }
+}
+
+impl RLPEncode for ENRRequestMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.expiration)
+            .finish();
+    }
+}
+
+impl RLPEncode for ENRResponseMessage {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.request_hash)
+            .encode_field(&self.node_record)
+            .finish();
+    }
+}
+
+impl RLPEncode for NodeRecord {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.signature)
+            .encode_field(&self.seq)
+            .encode_key_value_list::<Bytes>(&self.pairs)
+            .finish();
+    }
+}
+
+impl RLPEncode for Node {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        structs::Encoder::new(buf)
+            .encode_field(&self.ip)
+            .encode_field(&self.udp_port)
+            .encode_field(&self.tcp_port)
+            .encode_field(&self.node_id)
+            .finish();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use keccak_hash::H256;
+    use ethereum_rust_core::{H256, H264};
+    use std::fmt::Write;
+    use std::net::Ipv4Addr;
     use std::num::ParseIntError;
-    use std::{fmt::Write, str::FromStr};
+    use std::str::FromStr;
 
     fn to_hex(bytes: &[u8]) -> String {
         bytes.iter().fold(String::new(), |mut buf, b| {
@@ -346,14 +585,13 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "d9b83d9701c6481a99db908b19551c6b082bcb28d5bef44cfa55256bc7977500";
-        let signature = "f0bff907b5c432e623ba5d3803d6a405bdbaffdfc0373499ac2a243ef3ab52de3a5312c0a9a96593979b746a4cd37ebdf21cf6971cf8c10c94f4d45c1a0f90dd00";
+        let hash = "d2821841963050aa505c00d8e4fd2d016f95eff739b784e0e26587a58226738e";
+        let signature = "8a73f13d613c0ba5148787bb52fd04eb984c3dae486bac19433adf658d29bbb352f3acf2d55f2bdae3afff5298723114581e3f34c37815b32b9195a3326dd68700";
         let pkt_type = "01";
         let encoded_message = "dd04cb840102030482064d8218dbc984ffff0205820bf780850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
-
         assert_eq!(result, expected);
     }
 
@@ -370,6 +608,7 @@ mod tests {
                 .unwrap();
         let enr_seq = 1704896740573;
         let msg = Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
+
         let key_bytes =
             H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
                 .unwrap();
@@ -377,10 +616,10 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "852ef38c2087413400cb33215709a8cfa6f274929e91704ec27a1ae4d226f85d";
-        let signature = "a7ab61ec963f779d10918c9bc3c3243c05f45eabbd078e90bf78313904e1c91201a03e78a133c2676e1c2686601e70ab1ec7aa602ad7f65bb468e52367d7123c00";
+        let hash = "9657e4e2db33b51cbbeb503bd195efcf081d6a83befbb42b4be95d0f7bf27ffe";
+        let signature = "b1a91caa6105b941d3ecce052dcfea5e4f4290c9e6a89ff72707a8b5116ee87a1ea3fa0086990cd862a8a2347f346f1b118122a28bf2ed2ca371d2c493a86bde01";
         let pkt_type = "02";
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
         let expected = [hash, signature, pkt_type, msg].concat();
@@ -407,14 +646,13 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "cccfa9bf8e49603f8cc5381579d435bd322d386091732e3da7f6b7df13172b92";
-        let signature = "b1caebcd4d754552be21df4a100bd4ccd85e9d95b2e29b29db2df681c17c370068e410ea31e7106081c2ed39489c1762125cbd34477b41d940d230d1d3888a4101";
+        let hash = "58a1d0ea66afd9617c198b60a7417637ae27b847b004dbebc1e29d4067327e35";
+        let signature = "e1988832d7d7b73925ec584ff818ff3a7bffe1a84fe3835923c3ab17af40071f7c9263176203c80c6ed77f0586479b78884e9e47fdb3287d2aafa92348e5c16700";
         let pkt_type = "02";
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
         let expected = [hash, signature, pkt_type, msg].concat();
-
         assert_eq!(result, expected);
     }
 
@@ -432,13 +670,146 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
+        msg.encode_with_header(&mut buf, &signer);
         let result = to_hex(&buf);
-        let hash = "dabe1b1a4dc26324120594091bb94dbdd4aa98326cbfecb60a4a67778ebb0e67";
-        let signature = "28cf71e9a929fa29f4e528f5fdc96e25a3086a777c8967710ddc1ef5f456bae40808baf0840d0449ea5a17ba11bbb012719e679cf3cf8d137106884c393ef15b00";
+        let hash = "23770430fc208bdc78bc77052bf7ec2e928b38c13c085b87491c15ebebb2050f";
+        let signature = "7c98bb4759569117031a9fbbeb00314d018eba55135c65ee98dbf6871aaebe61225f36b36e4f60da5b5d6c917e3589dd235acfacc6de4dade116c4bb851b884b01";
         let pkt_type = "03";
         let encoded_message = "f848b840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666850400e78bba";
         let expected = [hash, signature, pkt_type, encoded_message].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_neighbors_message() {
+        let expiration: u64 = 17195043770;
+        let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let node_1 = Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_1,
+        };
+
+        let node_id_2 = H512::from_str("11f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50").unwrap();
+        let node_2 = Node {
+            ip: "190.191.188.57".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_2,
+        };
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+
+        let mut buf = Vec::new();
+        let msg = Message::Neighbors(NeighborsMessage::new(vec![node_1, node_2], expiration));
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+
+        let hash = "a009d1dae92e9b3f6e48811ba70c1fec1a9d6f818139604b0e3abcaeabb74850";
+        let signature = "f996d31ba3a409ba3c64121d8afa70ef10553d4da327594ac63225b53a34906d1e4d45312771d7bcf6390ef541157e688c7db946295c2d0712c50698a0fb8c9b00";
+        let packet_type = "04";
+        let encoded_msg = "f8a6f89ef84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666f84d84bebfbc3982765f82765fb84011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f50850400e78bba";
+        let expected = [hash, signature, packet_type, encoded_msg].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_enr_request_message() {
+        let expiration: u64 = 17195043770;
+        let msg = Message::ENRRequest(ENRRequestMessage { expiration });
+        let key_bytes =
+            H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+        let mut buf = Vec::new();
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+        let hash = "ddb4faf81ed7bee047e42088a0efd01650c2191988c08c71dd10635573bee31f";
+        let signature = "ec86b35edf60470d81e9796bc4fad68c1d187266492662d91f56b7e42ed46b9317444a72172f13aa91af41ca7a4fec49d5619de9abc0be6c79da0d92bc1c9f3201";
+        let pkt_type = "05";
+        let encoded_message = "c6850400e78bba";
+        let expected = [hash, signature, pkt_type, encoded_message].concat();
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_encode_enr_response() {
+        let request_hash =
+            H256::from_str("ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98")
+                .unwrap();
+        let signature = H512::from_str("131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe3").unwrap();
+        let seq = 0x018cf3c3bd18;
+
+        // define optional fields
+        let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
+        let id = String::from("v4");
+        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let secp256k1 =
+            H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
+                .unwrap();
+        let tcp: u16 = 30303;
+        let udp: u16 = 30303;
+        let snap: Vec<u32> = vec![];
+
+        // declare buffers for optional fields encoding
+        let mut eth_rlp = Vec::new();
+        let mut id_rlp = Vec::new();
+        let mut ip_rlp = Vec::new();
+        let mut secp256k1_rlp = Vec::new();
+        let mut tcp_rlp = Vec::new();
+        let mut udp_rlp = Vec::new();
+        let mut snap_rlp = Vec::new();
+
+        // encode optional fields
+        eth.encode(&mut eth_rlp);
+        id.encode(&mut id_rlp);
+        ip.encode(&mut ip_rlp);
+        secp256k1.encode(&mut secp256k1_rlp);
+        tcp.encode(&mut tcp_rlp);
+        udp.encode(&mut udp_rlp);
+        snap.encode(&mut snap_rlp);
+
+        // initialize vector with (key, value) pairs
+        let pairs: Vec<(Bytes, Bytes)> = vec![
+            (String::from("eth").into(), eth_rlp.into()),
+            (String::from("id").into(), id_rlp.into()),
+            (String::from("ip").into(), ip_rlp.into()),
+            (String::from("secp256k1").into(), secp256k1_rlp.into()),
+            (String::from("snap").into(), snap_rlp.into()),
+            (String::from("tcp").into(), tcp_rlp.clone().into()),
+            (String::from("udp").into(), udp_rlp.clone().into()),
+        ];
+        let node_record = NodeRecord {
+            signature,
+            seq,
+            id: String::from("v4"),
+            pairs,
+        };
+        let msg = Message::ENRResponse(ENRResponseMessage {
+            request_hash,
+            node_record,
+        });
+
+        let key_bytes =
+            H256::from_str("2e6a09427ba14acc853cbbff291c75c3cb57754ac1e3df8df9cac086b3a83aa4")
+                .unwrap();
+        let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
+        let mut buf = Vec::new();
+        msg.encode_with_header(&mut buf, &signer);
+        let result = to_hex(&buf);
+
+        let hash = "85e7d3ee8494d23694e2cbcc495be900bb035969366c4b3267ba80eef6cc9b2a";
+        let signature = "7b714d79b4f8ec780b27329a6a8cb8188b882ecf99be0f89feeab33ebbb76ecb3dcb5ab53a1c7f27a4fc9e6e70220e614de9a351c3f39e100f40b5d0e2a7331501";
+        let packet_type = "06";
+        let encoded_msg = "f8c6a0ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98f8a3b840131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe386018cf3c3bd1883657468c7c68488cf81d980826964827634826970848ac533b589736563703235366b31a1034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f3647684736e6170c08374637082765f8375647082765f";
+        let expected = [hash, signature, packet_type, encoded_msg].concat();
+
         assert_eq!(result, expected);
     }
 
@@ -450,10 +821,8 @@ mod tests {
         let msg = "f7c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af086018cf3c3bcdd";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -466,7 +835,7 @@ mod tests {
         let enr_seq = 1704896740573;
         let expected =
             Message::Pong(PongMessage::new(to, ping_hash, expiration).with_enr_seq(enr_seq));
-        assert_eq!(decoded, expected);
+        assert_eq!(decoded_msg, &expected);
     }
 
     #[test]
@@ -478,10 +847,9 @@ mod tests {
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
         let encoded_packet = [hash, signature, pkt_type, msg].concat();
 
-        let decoded = Message::decode_with_header(
-            &decode_hex(&encoded_packet).expect("Failed while parsing encoded_packet"),
-        )
-        .unwrap();
+        let decoded_packet = Packet::decode(&decode_hex(&encoded_packet).unwrap()).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+
         let to = Endpoint {
             ip: IpAddr::from_str("190.191.188.57").unwrap(),
             udp_port: 30303,
@@ -492,6 +860,69 @@ mod tests {
             H256::from_str("3e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be23")
                 .unwrap();
         let expected = Message::Pong(PongMessage::new(to, ping_hash, expiration));
+        assert_eq!(decoded_msg, &expected);
+    }
+
+    #[test]
+    fn test_decode_enr_response() {
+        let encoded = "f8c6a0ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98f8a3b840131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe386018cf3c3bd1883657468c7c68488cf81d980826964827634826970848ac533b589736563703235366b31a1034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f3647684736e6170c08374637082765f8375647082765f";
+        let decoded = Message::decode_with_type(0x06, &decode_hex(encoded).unwrap()).unwrap();
+        let request_hash =
+            H256::from_str("ebc0a41dfdf5499552fb7e61799c577360a442170dbed4cb0745d628f06d9f98")
+                .unwrap();
+        let signature = H512::from_str("131d8cbc28a2dee4cae36ee3c268c44877e77eb248758d5a204df36b29a13ee53100fd47d3d6fd498ea48349d822d0965904fabcdeeecd9f5133a6062abdfbe3").unwrap();
+        let seq = 0x018cf3c3bd18;
+
+        // define optional fields
+        let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
+        let id = String::from("v4");
+        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let secp256k1 =
+            H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
+                .unwrap();
+        let tcp: u16 = 30303;
+        let udp: u16 = 30303;
+        let snap: Vec<u32> = vec![];
+
+        // declare buffers for optional fields encoding
+        let mut eth_rlp = Vec::new();
+        let mut id_rlp = Vec::new();
+        let mut ip_rlp = Vec::new();
+        let mut secp256k1_rlp = Vec::new();
+        let mut tcp_rlp = Vec::new();
+        let mut udp_rlp = Vec::new();
+        let mut snap_rlp = Vec::new();
+
+        // encode optional fields
+        eth.encode(&mut eth_rlp);
+        id.encode(&mut id_rlp);
+        ip.encode(&mut ip_rlp);
+        secp256k1.encode(&mut secp256k1_rlp);
+        tcp.encode(&mut tcp_rlp);
+        udp.encode(&mut udp_rlp);
+        snap.encode(&mut snap_rlp);
+
+        // initialize vector with (key, value) pairs
+        let pairs: Vec<(Bytes, Bytes)> = vec![
+            (String::from("eth").into(), eth_rlp.into()),
+            (String::from("id").into(), id_rlp.into()),
+            (String::from("ip").into(), ip_rlp.into()),
+            (String::from("secp256k1").into(), secp256k1_rlp.into()),
+            (String::from("snap").into(), snap_rlp.into()),
+            (String::from("tcp").into(), tcp_rlp.clone().into()),
+            (String::from("udp").into(), udp_rlp.clone().into()),
+        ];
+        let node_record = NodeRecord {
+            signature,
+            seq,
+            id: String::from("v4"),
+            pairs,
+        };
+        let expected = Message::ENRResponse(ENRResponseMessage {
+            request_hash,
+            node_record,
+        });
+
         assert_eq!(decoded, expected);
     }
 
@@ -526,9 +957,10 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer.clone());
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        msg.encode_with_header(&mut buf, &signer);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -556,9 +988,10 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer.clone());
-        let result = Message::decode_with_header(&buf).expect("Failed decoding PingMessage");
-        assert_eq!(result, msg);
+        msg.encode_with_header(&mut buf, &signer);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
     }
 
     #[test]
@@ -574,9 +1007,36 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        msg.encode_with_header(&mut buf, signer);
-        let result = Message::decode_with_header(&buf).unwrap();
-        assert_eq!(result, msg);
+        msg.encode_with_header(&mut buf, &signer);
+        let decoded_packet = Packet::decode(&buf).unwrap();
+        let decoded_msg = decoded_packet.get_message();
+        assert_eq!(decoded_msg, &msg);
+    }
+
+    #[test]
+    fn test_decode_neighbors_message() {
+        let encoded = "f857f84ff84d847f00000182765f82765fb840d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666850400e78bba";
+        let decoded = Message::decode_with_type(0x04, &decode_hex(encoded).unwrap()).unwrap();
+        let expiration: u64 = 17195043770;
+        let node_id = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        let node = Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id,
+        };
+
+        let expected = Message::Neighbors(NeighborsMessage::new(vec![node], expiration));
+        assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn test_decode_enr_request_message() {
+        let encoded = "c6850400e78bba";
+        let decoded = Message::decode_with_type(0x05, &decode_hex(encoded).unwrap()).unwrap();
+        let expiration = 0x400E78BBA;
+        let expected = Message::ENRRequest(ENRRequestMessage { expiration });
+        assert_eq!(decoded, expected);
     }
 
     #[test]

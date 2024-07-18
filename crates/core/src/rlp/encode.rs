@@ -5,6 +5,14 @@ use tinyvec::ArrayVec;
 
 use super::constants::RLP_NULL;
 
+/// Function for encoding a value to RLP.
+/// For encoding the value into a buffer directly, use [`RLPEncode::encode`].
+pub fn encode<T: RLPEncode>(value: T) -> Vec<u8> {
+    let mut buf = Vec::new();
+    value.encode(&mut buf);
+    buf
+}
+
 pub trait RLPEncode {
     fn encode(&self, buf: &mut dyn BufMut);
 
@@ -12,6 +20,12 @@ pub trait RLPEncode {
         let mut buf = Vec::new();
         self.encode(&mut buf);
         buf.len()
+    }
+
+    fn encode_to_vec(&self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        self.encode(&mut buf);
+        buf
     }
 }
 
@@ -348,6 +362,12 @@ impl RLPEncode for ethereum_types::H512 {
 impl RLPEncode for ethereum_types::Signature {
     fn encode(&self, buf: &mut dyn BufMut) {
         self.as_bytes().encode(buf)
+    }
+}
+
+impl RLPEncode for ethereum_types::Bloom {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        self.0.encode(buf)
     }
 }
 

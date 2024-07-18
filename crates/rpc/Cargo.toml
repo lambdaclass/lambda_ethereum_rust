@@ -13,3 +13,5 @@ tokio.workspace = true
 
 tracing.workspace = true
 tracing-subscriber.workspace = true
+ethereum_rust-core.workspace = true
+ethereum_rust-storage.workspace = true

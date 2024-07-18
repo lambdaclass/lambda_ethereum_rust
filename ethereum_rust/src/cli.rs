@@ -1,4 +1,5 @@
 use clap::{Arg, ArgAction, Command};
+use ethereum_rust_net::bootnode::BootNode;
 
 pub fn cli() -> Command {
     Command::new("ethereum_rust")
@@ -71,6 +72,7 @@ pub fn cli() -> Command {
             Arg::new("bootnodes")
                 .long("bootnodes")
                 .value_name("BOOTNODE_LIST")
+                .value_parser(clap::value_parser!(BootNode))
                 .value_delimiter(',')
                 .num_args(1..)
                 .action(ArgAction::Set),
