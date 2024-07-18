@@ -108,10 +108,10 @@ pub struct Header {
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub block_header: Header,
+    pub block_header: Option<Header>,
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
-    pub transactions: Vec<Transaction>,
+    pub transactions: Option<Vec<Transaction>>,
     pub uncle_headers: Option<Vec<Header>>,
 }
 
@@ -160,10 +160,10 @@ impl From<Header> for BlockHeader {
             prev_randao: val.mix_hash,
             nonce: val.nonce.to_low_u64_be(),
             base_fee_per_gas: val.base_fee_per_gas.unwrap().as_u64(),
-            withdrawals_root: val.withdrawals_root.unwrap(),
-            blob_gas_used: val.blob_gas_used.unwrap().as_u64(),
-            excess_blob_gas: val.excess_blob_gas.unwrap().as_u64(),
-            parent_beacon_block_root: val.parent_beacon_block_root.unwrap(),
+            withdrawals_root: val.withdrawals_root.unwrap_or_default(),
+            blob_gas_used: val.blob_gas_used.unwrap_or_default().as_u64(),
+            excess_blob_gas: val.excess_blob_gas.unwrap_or_default().as_u64(),
+            parent_beacon_block_root: val.parent_beacon_block_root.unwrap_or_default(),
         }
     }
 }

@@ -1,12 +1,10 @@
-use core::panic;
 use std::{collections::HashMap, path::Path};
 
 use ::ef_tests::types::TestUnit;
-use ef_tests::types::Block;
 use ethereum_rust_core::{
     evm::{execute_tx, SpecId},
-    rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder},
-    types::{BlockBody, BlockHeader, Transaction, Withdrawal},
+    rlp::{error::RLPDecodeError, structs::Decoder},
+    types::{BlockHeader, Transaction, Withdrawal},
 };
 use std::num::ParseIntError;
 
@@ -36,27 +34,18 @@ fn execute_test(test: &TestUnit) {
         .first()
         .unwrap()
         .transactions
-        //.as_ref()
-        //.unwrap()
+        .as_ref()
+        .unwrap()
         .first()
         .unwrap();
-    /*
+
     let pre = test
         .pre
         .clone()
         .into_iter()
         .map(|(k, v)| (k, v.into()))
         .collect();
-    */
 
-    let genesis_rlp_as_string = test.genesis_rlp.clone();
-    let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
-    let block_header = decode_block(&genesis_rlp_bytes).unwrap();
-    assert_eq!(block_header, test.genesis_block_header.clone().into());
-
-    // let block = test.blocks.first().unwrap();
-    // let decoded_block = Block::decode(block.rlp.as_ref()).unwrap();
-    /*
     assert!(execute_tx(
         &transaction.clone().into(),
         &test
@@ -72,7 +61,7 @@ fn execute_test(test: &TestUnit) {
         SpecId::CANCUN,
     )
     .unwrap()
-    .is_success());*/
+    .is_success());
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
@@ -81,10 +70,23 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
+fn validate_test(test: &TestUnit) {
+    // check that the decoded genesis block header matches the deserialized one
+    let genesis_rlp_as_string = test.genesis_rlp.clone();
+    let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
+    let block_header = decode_block(&genesis_rlp_bytes).unwrap();
+    assert_eq!(block_header, test.genesis_block_header.clone().into());
+
+    // check that blocks can be decoded
+    let block = test.blocks.first().unwrap();
+    assert!(decode_block(block.rlp.as_ref()).is_ok());
+}
+
 pub fn parse_and_execute_test_file(path: &Path) {
     let tests = parse_test_file(path);
 
     for (_k, test) in tests {
+        validate_test(&test);
         execute_test(&test)
     }
 }
