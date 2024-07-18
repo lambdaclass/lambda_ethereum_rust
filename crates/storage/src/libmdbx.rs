@@ -1,9 +1,8 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AccountStorageKeyRLP,
-    AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
-    TransactionHashRLP,
+    AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
+    BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
@@ -11,6 +10,7 @@ use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
 };
 use ethereum_types::{Address, H256};
+use libmdbx::orm::{Decodable, Encodable};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -278,7 +278,7 @@ table!(
 );
 dupsort!(
     /// Account storages table.
-    ( AccountStorages ) AddressRLP => (AccountStorageKeyRLP, AccountStorageValueRLP) [AccountStorageKeyRLP]
+    ( AccountStorages ) AddressRLP => (AccountStorageKeyBytes, AccountStorageValueBytes) [AccountStorageKeyBytes]
 );
 table!(
     /// Account codes table.
@@ -293,6 +293,57 @@ table!(
     /// Transaction locations table.
     ( TransactionLocations ) TransactionHashRLP => (BlockNumber, Index)
 );
+
+// Storage values are stored as bytes instead of using their rlp encoding
+// As they are stored in a dupsort table, they need to have a fixed size, and encoding them doesn't preserve their size
+pub struct AccountStorageKeyBytes(pub [u8; 32]);
+pub struct AccountStorageValueBytes(pub [u8; 32]);
+
+impl Encodable for AccountStorageKeyBytes {
+    type Encoded = [u8; 32];
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountStorageKeyBytes {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountStorageKeyBytes(b.try_into()?))
+    }
+}
+
+impl Encodable for AccountStorageValueBytes {
+    type Encoded = [u8; 32];
+
+    fn encode(self) -> Self::Encoded {
+        self.0
+    }
+}
+
+impl Decodable for AccountStorageValueBytes {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(AccountStorageValueBytes(b.try_into()?))
+    }
+}
+
+impl From<H256> for AccountStorageKeyBytes {
+    fn from(value: H256) -> Self {
+        AccountStorageKeyBytes(value.0)
+    }
+}
+
+impl From<H256> for AccountStorageValueBytes {
+    fn from(value: H256) -> Self {
+        AccountStorageValueBytes(value.0)
+    }
+}
+
+impl From<AccountStorageValueBytes> for H256 {
+    fn from(value: AccountStorageValueBytes) -> Self {
+        H256(value.0)
+    }
+}
 
 /// Initializes a new database with the provided path. If the path is `None`, the database
 /// will be temporary.
