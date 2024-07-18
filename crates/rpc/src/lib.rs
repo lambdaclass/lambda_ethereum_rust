@@ -5,7 +5,8 @@ use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest,
-        GetBlockTransactionCountByNumberRequest,
+        GetBlockTransactionCountByNumberRequest, GetTransactionByBlockHashAndIndexRequest,
+        GetTransactionByBlockNumberAndIndexRequest,
     },
     client,
 };
@@ -95,6 +96,16 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = GetBlockTransactionCountByNumberRequest::parse(&req.params)
                 .ok_or(RpcErr::BadParams)?;
             block::get_block_transaction_count_by_number(&request, storage)
+        }
+        "eth_getTransactionByBlockNumberAndIndex" => {
+            let request = GetTransactionByBlockNumberAndIndexRequest::parse(&req.params)
+                .ok_or(RpcErr::BadParams)?;
+            block::get_transaction_by_block_number_and_index(&request, storage)
+        }
+        "eth_getTransactionByBlockHashAndIndex" => {
+            let request = GetTransactionByBlockHashAndIndexRequest::parse(&req.params)
+                .ok_or(RpcErr::BadParams)?;
+            block::get_transaction_by_block_hash_and_index(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
