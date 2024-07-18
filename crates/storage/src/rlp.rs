@@ -27,6 +27,9 @@ pub type BlockBodyRLP = Rlp<BlockBody>;
 // Receipt types
 pub type ReceiptRLP = Rlp<Receipt>;
 
+// Transaction types
+pub type TransactionHashRLP = Rlp<H256>;
+
 #[derive(Clone)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
 

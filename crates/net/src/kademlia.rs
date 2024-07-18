@@ -1,6 +1,6 @@
 use crate::discv4::Node;
-use ethereum_rust_core::{H512, U256};
-use keccak_hash::keccak;
+use ethereum_rust_core::{H256, H512, U256};
+use sha3::{Digest, Keccak256};
 use std::net::IpAddr;
 
 const MAX_NODES_PER_BUCKET: usize = 16;
@@ -37,9 +37,9 @@ impl KademliaTable {
 /// and returns the corresponding bucket number
 /// <https://github.com/ethereum/devp2p/blob/master/discv4.md#node-identities>
 pub fn bucket_number(node_id_1: H512, node_id_2: H512) -> usize {
-    let hash_1 = keccak(node_id_1);
-    let hash_2 = keccak(node_id_2);
-    let xor = hash_1 ^ hash_2;
+    let hash_1 = Keccak256::digest(node_id_1);
+    let hash_2 = Keccak256::digest(node_id_2);
+    let xor = H256(hash_1.into()) ^ H256(hash_2.into());
     let distance = U256::from_big_endian(xor.as_bytes());
     distance.bits() - 1
 }
@@ -61,5 +61,20 @@ impl From<Node> for PeerData {
             tcp_port: node.tcp_port,
             node_id: node.node_id,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex_literal::hex;
+
+    #[test]
+    fn bucket_number_works_as_expected() {
+        let node_id_1 = H512(hex!("4dc429669029ceb17d6438a35c80c29e09ca2c25cc810d690f5ee690aa322274043a504b8d42740079c4f4cef50777c991010208b333b80bee7b9ae8e5f6b6f0"));
+        let node_id_2 = H512(hex!("034ee575a025a661e19f8cda2b6fd8b2fd4fe062f6f2f75f0ec3447e23c1bb59beb1e91b2337b264c7386150b24b621b8224180c9e4aaf3e00584402dc4a8386"));
+        let expected_bucket = 255;
+        let result = bucket_number(node_id_1, node_id_2);
+        assert_eq!(result, expected_bucket);
     }
 }

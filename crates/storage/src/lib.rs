@@ -14,7 +14,9 @@ use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
 use bytes::Bytes;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+};
 use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -77,6 +79,35 @@ pub trait StoreEngine: Debug + Send {
 
     /// Obtain block number
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
+
+    /// Store transaction location (block number and index of the transaction within the block)
+    fn add_transaction_location(
+        &mut self,
+        transaction_hash: H256,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<(), StoreError>;
+
+    /// Obtain transaction location (block number and index)
+    fn get_transaction_location(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError>;
+
+    /// Add receipt
+    fn add_receipt(
+        &mut self,
+        block_number: BlockNumber,
+        index: Index,
+        receipt: Receipt,
+    ) -> Result<(), StoreError>;
+
+    /// Obtain receipt
+    fn get_receipt(
+        &self,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<Option<Receipt>, StoreError>;
 
     /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
     fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;
@@ -245,6 +276,28 @@ impl Store {
             .get_block_number(block_hash)
     }
 
+    pub fn add_transaction_location(
+        &self,
+        transaction_hash: H256,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .add_transaction_location(transaction_hash, block_number, index)
+    }
+
+    pub fn get_transaction_location(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_transaction_location(transaction_hash)
+    }
+
     pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine
             .clone()
@@ -270,6 +323,31 @@ impl Store {
             .lock()
             .unwrap()
             .get_code_by_account_address(address)
+    }
+
+    pub fn add_receipt(
+        &self,
+        block_number: BlockNumber,
+        index: Index,
+        receipt: Receipt,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_receipt(block_number, index, receipt)
+    }
+
+    pub fn get_receipt(
+        &self,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_receipt(block_number, index)
     }
 
     pub fn add_storage_at(
@@ -303,7 +381,7 @@ mod tests {
     use bytes::Bytes;
     use ethereum_rust_core::{
         rlp::decode::RLPDecode,
-        types::{self, Transaction},
+        types::{self, Transaction, TxType},
         Bloom,
     };
     use ethereum_types::{H256, U256};
@@ -351,6 +429,8 @@ mod tests {
         test_store_account(store.clone());
         test_store_block(store.clone());
         test_store_block_number(store.clone());
+        test_store_transaction_location(store.clone());
+        test_store_block_receipt(store.clone());
         test_store_account_code(store.clone());
         test_store_account_storage(store.clone());
     }
@@ -473,6 +553,43 @@ mod tests {
         let stored_number = store.get_block_number(block_hash).unwrap().unwrap();
 
         assert_eq!(stored_number, block_number);
+    }
+
+    fn test_store_transaction_location(store: Store) {
+        let transaction_hash = H256::random();
+        let block_number = 6;
+        let index = 3;
+
+        store
+            .add_transaction_location(transaction_hash, block_number, index)
+            .unwrap();
+
+        let stored_location = store
+            .get_transaction_location(transaction_hash)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(stored_location, (block_number, index));
+    }
+
+    fn test_store_block_receipt(store: Store) {
+        let receipt = Receipt {
+            tx_type: TxType::EIP2930,
+            succeeded: true,
+            cumulative_gas_used: 1747,
+            bloom: Bloom::random(),
+            logs: vec![],
+        };
+        let block_number = 6;
+        let index = 4;
+
+        store
+            .add_receipt(block_number, index, receipt.clone())
+            .unwrap();
+
+        let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
+
+        assert_eq!(stored_receipt, receipt);
     }
 
     fn test_store_account_code(store: Store) {

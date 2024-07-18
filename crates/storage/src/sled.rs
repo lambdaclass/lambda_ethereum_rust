@@ -2,7 +2,9 @@ use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use crate::rlp::{AccountInfoRLP, AddressRLP};
 use bytes::Bytes;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+};
 use ethereum_types::{Address, H256};
 use libmdbx::orm::{Decodable, Encodable};
 use sled::Db;
@@ -95,6 +97,23 @@ impl StoreEngine for Store {
         Ok(self.values.get(key)?.map(|value| value.to_vec()))
     }
 
+    fn add_receipt(
+        &mut self,
+        _block_number: BlockNumber,
+        _index: Index,
+        _receipt: Receipt,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_receipt(
+        &self,
+        _block_number: BlockNumber,
+        _index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
+        todo!()
+    }
+
     fn add_account_code(&mut self, _code_hash: H256, _code: Bytes) -> Result<(), StoreError> {
         todo!()
     }
@@ -108,6 +127,22 @@ impl StoreEngine for Store {
         _address: Address,
         _storage_key: H256,
         _storage_value: H256,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_transaction_location(
+        &self,
+        _transaction_hash: H256,
+    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+        todo!()
+    }
+
+    fn add_transaction_location(
+        &mut self,
+        _transaction_hash: H256,
+        _block_number: BlockNumber,
+        _index: Index,
     ) -> Result<(), StoreError> {
         todo!()
     }

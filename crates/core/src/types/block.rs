@@ -1,6 +1,6 @@
 use super::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
-    GAS_LIMIT_MINIMUM,
+    ReceiptBlockInfo, BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER,
+    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM,
 };
 use crate::{
     rlp::{
@@ -207,7 +207,7 @@ pub fn compute_receipts_root(receipts: &[Receipt]) -> H256 {
             // Value: tx_type || RLP(receipt)  if tx_type != 0
             //                   RLP(receipt)  else
             let mut v = Vec::new();
-            receipt.encode_with_type(&mut v);
+            receipt.encode(&mut v);
 
             (k, v)
         })
@@ -267,6 +267,16 @@ impl BlockHeader {
         let mut buf = vec![];
         self.encode(&mut buf);
         keccak(buf)
+    }
+
+    pub fn receipt_info(&self) -> ReceiptBlockInfo {
+        ReceiptBlockInfo {
+            block_hash: self.compute_block_hash(),
+            block_number: self.number,
+            gas_used: self.gas_used,
+            blob_gas_used: self.blob_gas_used,
+            root: self.state_root,
+        }
     }
 }
 
