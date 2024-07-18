@@ -5,15 +5,15 @@ use std::{
 
 use bootnode::BootNode;
 use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
-use ethereum_rust_core::H512;
+use ethereum_rust_core::{H256, H512};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData};
-use keccak_hash::H256;
-use rlpx::ecies::RLPxConnection;
+use rlpx::handshake::RLPxLocalClient;
+use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpSocket, UdpSocket},
@@ -163,13 +163,14 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_udp_addr = "127.0.0.1:51311";
+    let str_tcp_addr = "127.0.0.1:54139";
+    let str_udp_addr = "127.0.0.1:50073";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
-    let (mut msg, sig_bytes, endpoint) = loop {
+    let (msg, sig_bytes, endpoint) = loop {
         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
@@ -190,19 +191,20 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         };
     };
 
-    let digest = keccak_hash::keccak_buffer(&mut msg).unwrap();
+    let digest = Keccak256::digest(msg);
     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
     let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
 
-    let peer_pk = VerifyingKey::recover_from_prehash(&digest.0, signature, rid).unwrap();
+    let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
 
-    let mut conn = RLPxConnection::random();
+    let mut client = RLPxLocalClient::random();
     let mut auth_message = vec![];
-    conn.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
+    client.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
 
-    let tcp_addr = "127.0.0.1:58617";
     // NOTE: for some reason kurtosis peers don't publish their active TCP port
-    let tcp_addr = endpoint.tcp_address().unwrap_or(tcp_addr.parse().unwrap());
+    let tcp_addr = endpoint
+        .tcp_address()
+        .unwrap_or(str_tcp_addr.parse().unwrap());
 
     let mut stream = TcpSocket::new_v4()
         .unwrap()
@@ -212,26 +214,25 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
+    // Read the ack message's size
     stream.read_exact(&mut buf[..2]).await.unwrap();
     let auth_data = buf[..2].try_into().unwrap();
     let msg_size = u16::from_be_bytes(auth_data) as usize;
-    let msg = &mut buf[..msg_size];
-    stream.read_exact(msg).await.unwrap();
-    conn.decode_ack_message(&secret_key, msg, auth_data);
-    info!("Completed handshake!");
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use kademlia::bucket_number;
-    use std::str::FromStr;
-    #[test]
-    fn bucket_number_works_as_expected() {
-        let node_id_1 = H512::from_str("4dc429669029ceb17d6438a35c80c29e09ca2c25cc810d690f5ee690aa322274043a504b8d42740079c4f4cef50777c991010208b333b80bee7b9ae8e5f6b6f0").unwrap();
-        let node_id_2 = H512::from_str("034ee575a025a661e19f8cda2b6fd8b2fd4fe062f6f2f75f0ec3447e23c1bb59beb1e91b2337b264c7386150b24b621b8224180c9e4aaf3e00584402dc4a8386").unwrap();
-        let expected_bucket = 255;
-        let result = bucket_number(node_id_1, node_id_2);
-        assert_eq!(result, expected_bucket);
-    }
+    // Read the rest of the ack message
+    stream.read_exact(&mut buf[2..msg_size + 2]).await.unwrap();
+
+    let msg = &mut buf[2..msg_size + 2];
+    let mut pending_conn = client.decode_ack_message(&secret_key, msg, auth_data);
+    info!("Completed handshake!");
+
+    pending_conn
+        .send_hello(&PublicKey::from(signer.verifying_key()), &mut stream)
+        .await;
+
+    let _conn = pending_conn.receive_hello(&mut stream).await;
+
+    info!("Completed Hello roundtrip!");
+
+    // TODO: messages after the Hello must be snappy compressed
 }
