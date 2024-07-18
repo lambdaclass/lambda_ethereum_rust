@@ -2,7 +2,10 @@ use std::{future::IntoFuture, net::SocketAddr};
 
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
-use eth::{block, client};
+use eth::{
+    block::{self, GetBlockByHashRequest, GetBlockByNumberRequest},
+    client,
+};
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
@@ -13,11 +16,18 @@ mod engine;
 mod eth;
 mod utils;
 
-pub async fn start_api(http_addr: SocketAddr, authrpc_addr: SocketAddr) {
-    let http_router = Router::new().route("/", post(handle_http_request));
+use axum::extract::State;
+use ethereum_rust_storage::Store;
+
+pub async fn start_api(http_addr: SocketAddr, authrpc_addr: SocketAddr, storage: Store) {
+    let http_router = Router::new()
+        .route("/", post(handle_http_request))
+        .with_state(storage.clone());
     let http_listener = TcpListener::bind(http_addr).await.unwrap();
 
-    let authrpc_router = Router::new().route("/", post(handle_authrpc_request));
+    let authrpc_router = Router::new()
+        .route("/", post(handle_authrpc_request))
+        .with_state(storage);
     let authrpc_listener = TcpListener::bind(authrpc_addr).await.unwrap();
 
     let authrpc_server = axum::serve(authrpc_listener, authrpc_router)
@@ -40,23 +50,23 @@ async fn shutdown_signal() {
         .expect("failed to install Ctrl+C handler");
 }
 
-pub async fn handle_authrpc_request(body: String) -> Json<Value> {
+pub async fn handle_authrpc_request(State(storage): State<Store>, body: String) -> Json<Value> {
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = match map_requests(&req) {
+    let res = match map_requests(&req, storage.clone()) {
         res @ Ok(_) => res,
-        _ => map_internal_requests(&req),
+        _ => map_internal_requests(&req, storage),
     };
     rpc_response(req.id, res)
 }
 
-pub async fn handle_http_request(body: String) -> Json<Value> {
+pub async fn handle_http_request(State(storage): State<Store>, body: String) -> Json<Value> {
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_requests(&req);
+    let res = map_requests(&req, storage);
     rpc_response(req.id, res)
 }
 
 /// Handle requests that can come from either clients or other users
-pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
+pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => {
             let capabilities: ExchangeCapabilitiesRequest = req
@@ -70,7 +80,14 @@ pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
         }
         "eth_chainId" => client::chain_id(),
         "eth_syncing" => client::syncing(),
-        "eth_getBlockByNumber" => block::get_block_by_number(),
+        "eth_getBlockByNumber" => {
+            let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_block_by_number(&request, storage)
+        }
+        "eth_getBlockByHash" => {
+            let request = GetBlockByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_block_by_hash(&request, storage)
+        }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
             let request =
@@ -83,7 +100,7 @@ pub fn map_requests(req: &RpcRequest) -> Result<Value, RpcErr> {
 }
 
 /// Handle requests from other clients
-pub fn map_internal_requests(_req: &RpcRequest) -> Result<Value, RpcErr> {
+pub fn map_internal_requests(_req: &RpcRequest, _storage: Store) -> Result<Value, RpcErr> {
     Err(RpcErr::MethodNotFound)
 }
 
