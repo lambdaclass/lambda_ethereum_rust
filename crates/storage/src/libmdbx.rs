@@ -284,6 +284,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
 #[cfg(test)]
 mod tests {
     use libmdbx::{
+        dupsort,
         orm::{table, Database, Decodable, Encodable},
         table_info,
     };
@@ -381,5 +382,84 @@ mod tests {
             txn.get::<StructsExample>(key).unwrap()
         };
         assert_eq!(read_value, Some(value));
+    }
+
+    #[test]
+    fn mdbx_dupsort_smoke_test() {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct ExampleKey(u8);
+
+        impl Encodable for ExampleKey {
+            type Encoded = [u8; 1];
+
+            fn encode(self) -> Self::Encoded {
+                [self.0]
+            }
+        }
+        impl Decodable for ExampleKey {
+            fn decode(b: &[u8]) -> anyhow::Result<Self> {
+                if b.len() != 1 {
+                    anyhow::bail!("Invalid length");
+                }
+                Ok(Self(b[0]))
+            }
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct ExampleValue {
+            x: u64,
+            y: [u8; 32],
+        }
+
+        impl Encodable for ExampleValue {
+            type Encoded = [u8; 40];
+
+            fn encode(self) -> Self::Encoded {
+                let mut encoded = [0u8; 40];
+                encoded[..8].copy_from_slice(&self.x.to_ne_bytes());
+                encoded[8..].copy_from_slice(&self.y);
+                encoded
+            }
+        }
+
+        impl Decodable for ExampleValue {
+            fn decode(b: &[u8]) -> anyhow::Result<Self> {
+                let x = u64::from_ne_bytes(b[..8].try_into()?);
+                let y = b[8..].try_into()?;
+                Ok(Self { x, y })
+            }
+        }
+
+        // Declare tables used for the smoke test
+        dupsort!(
+            /// Example table.
+            ( DupsortExample ) ExampleKey => (ExampleKey, ExampleValue) [ExampleKey]
+        );
+
+        // Assemble database chart
+        let tables = [table_info!(DupsortExample)].into_iter().collect();
+        let key = ExampleKey(151);
+        let subkey1 = ExampleKey(16);
+        let subkey2 = ExampleKey(42);
+        let value = ExampleValue { x: 42, y: [42; 32] };
+
+        let db = Database::create(None, &tables).unwrap();
+
+        // Write values
+        {
+            let txn = db.begin_readwrite().unwrap();
+            txn.upsert::<DupsortExample>(key, (subkey1, value)).unwrap();
+            txn.upsert::<DupsortExample>(key, (subkey2, value)).unwrap();
+            txn.commit().unwrap();
+        }
+        // Read written values
+        {
+            let txn = db.begin_read().unwrap();
+            let mut cursor = txn.cursor::<DupsortExample>().unwrap();
+            let value1 = cursor.seek_exact(key).unwrap().unwrap();
+            assert_eq!(value1, (key, (subkey1, value)));
+            let value2 = cursor.seek_value(key, subkey2).unwrap().unwrap();
+            assert_eq!(value2, (subkey2, value));
+        };
     }
 }
