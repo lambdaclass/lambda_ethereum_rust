@@ -25,10 +25,7 @@ datatest_stable::harness!(
     // cancun_tests,
     // "vectors/cancun/eip7516_blobgasfee/",
     // r"^.*.json",
-    // parse_test,
-    // "vectors/cancun/",
-    // r"^.*.json",
     cancun_tests,
     "vectors/cancun/",
-    r"^.*create_selfdestruct_same_tx.json",
+    r"^.*.json",
 );

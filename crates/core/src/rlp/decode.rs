@@ -3,7 +3,6 @@ use super::{
     error::RLPDecodeError,
 };
 use bytes::{Bytes, BytesMut};
-use sha3::digest::InvalidLength;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.
@@ -162,7 +161,6 @@ impl RLPDecode for crate::Address {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         match RLPDecode::decode_unfinished(rlp) {
             Ok((value, rest)) => Ok((crate::H160(value), rest)),
-            Err(RLPDecodeError::InvalidLength) => Ok((crate::H160::zero(), &[])),
             Err(err) => Err(err),
         }
     }
@@ -188,6 +186,14 @@ impl RLPDecode for crate::U256 {
         let padded_bytes: [u8; 32] = static_left_pad(bytes)?;
         Ok((crate::U256::from_big_endian(&padded_bytes), rest))
     }
+}
+use std::fmt::Write;
+
+fn to_hex(bytes: &[u8]) -> String {
+    bytes.iter().fold(String::new(), |mut buf, b| {
+        let _ = write!(&mut buf, "{b:02x}");
+        buf
+    })
 }
 
 impl RLPDecode for crate::Bloom {
@@ -469,11 +475,9 @@ pub(crate) fn static_left_pad<const N: usize>(data: &[u8]) -> Result<[u8; N], RL
     if data.is_empty() {
         return Ok(result);
     }
-    /*
     if data[0] == 0 {
         return Err(RLPDecodeError::MalformedData);
     }
-    */
     let data_start_index = N.saturating_sub(data.len());
     result
         .get_mut(data_start_index..)

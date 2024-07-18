@@ -6,7 +6,7 @@ use ethereum_rust_core::types::{
     Transaction as ethereum_rustTransaction, TxKind,
 };
 use ethereum_rust_core::H160;
-use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, U256, U64};
+use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, H64, U256, U64};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -90,7 +90,7 @@ pub struct Header {
     pub gas_used: U256,
     pub hash: H256,
     pub mix_hash: H256,
-    pub nonce: U64,
+    pub nonce: H64,
     pub number: U256,
     pub parent_hash: H256,
     pub receipt_trie: H256,
@@ -109,7 +109,7 @@ pub struct Header {
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub block_header: Option<Header>,
+    pub block_header: Header,
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
     pub transactions: Vec<Transaction>,
@@ -159,7 +159,7 @@ impl From<Header> for BlockHeader {
             timestamp: val.timestamp.as_u64(),
             extra_data: val.extra_data,
             prev_randao: val.mix_hash,
-            nonce: val.nonce.as_u64(),
+            nonce: val.nonce.to_low_u64_be(),
             base_fee_per_gas: val.base_fee_per_gas.unwrap().as_u64(),
             withdrawals_root: val.withdrawals_root.unwrap(),
             blob_gas_used: val.blob_gas_used.unwrap().as_u64(),
@@ -256,9 +256,8 @@ impl RLPDecode for Block {
     ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
 
-        let (block_header, decoder) = decoder.decode_optional_field();
-        let (transactions, decoder): (Vec<Transaction>, Decoder) =
-            decoder.decode_field("transactions")?;
+        let (block_header, decoder) = decoder.decode_field("block_header")?;
+        let (transactions, decoder) = decoder.decode_field("transactions")?;
         let (uncle_headers, decoder) = decoder.decode_optional_field();
         let (_withdrawals, decoder): (Option<Vec<Bytes>>, Decoder) =
             decoder.decode_optional_field();
@@ -282,14 +281,17 @@ impl RLPDecode for Transaction {
         let (nonce, decoder) = decoder.decode_field("nonce")?;
         let (gas_price, decoder) = decoder.decode_optional_field();
         let (gas_limit, decoder) = decoder.decode_field("gas_limit")?;
-        let (to, decoder) = decoder.decode_field("to")?;
+        let (to, decoder): (Bytes, Decoder) = decoder.decode_field("to")?;
         let (value, decoder) = decoder.decode_field("value")?;
         let (data, decoder) = decoder.decode_field("data")?;
         let (access_list, decoder) = decoder.decode_optional_field();
         let (v, decoder) = decoder.decode_field("v")?;
         let (r, decoder) = decoder.decode_field("r")?;
         let (s, decoder) = decoder.decode_field("s")?;
-        //let (sender, decoder) = decoder.decode_field("sender")?; not included in the RLP encoding
+        let to = match to.len() {
+            20 => H160::from_slice(to.as_ref()),
+            _ => H160::zero(),
+        };
         let remaining = decoder.finish()?;
         let transaction = Transaction {
             transaction_type: Some(U256::zero()),
@@ -332,7 +334,7 @@ impl RLPDecode for Header {
         let (timestamp, decoder) = decoder.decode_field("timestamp")?;
         let (extra_data, decoder) = decoder.decode_field("extra_data")?;
         let (mix_hash, decoder) = decoder.decode_field("mix_hash")?;
-        let (nonce, decoder): (u64, Decoder) = decoder.decode_field("nonce")?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
         let (base_fee_per_gas, decoder) = decoder.decode_optional_field();
         let (withdrawals_root, decoder) = decoder.decode_optional_field();
         let (blob_gas_used, decoder) = decoder.decode_optional_field();
@@ -352,7 +354,7 @@ impl RLPDecode for Header {
             gas_limit,
             gas_used,
             mix_hash,
-            nonce: nonce.into(),
+            nonce,
             number,
             parent_hash,
             receipt_trie,

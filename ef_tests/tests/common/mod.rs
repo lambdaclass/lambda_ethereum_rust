@@ -36,18 +36,21 @@ fn execute_test(test: &TestUnit) {
         .collect();
     */
 
-    /*
     let genesis_rlp_as_string = test.genesis_rlp.clone();
     let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
+    //assert!(Block::decode(&genesis_rlp_bytes));
 
     match Block::decode(&genesis_rlp_bytes) {
         Ok(decoded_block) => {
-            let decoded_block_header = decoded_block.block_header.unwrap();
-            assert_eq!(test.genesis_block_header, decoded_block_header);
+            let decoded_block_header = decoded_block.block_header;
+            //assert_eq!(test.genesis_block_header, decoded_block_header);
         }
-        Err(_) => panic!(),
+        Err(err) => {
+            dbg!(err);
+            panic!();
+        }
     }
-    */
+
     let block = test.blocks.first().unwrap();
     let decoded_block = Block::decode(block.rlp.as_ref()).unwrap();
     /*
