@@ -226,10 +226,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let mut pending_conn = client.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
-    // TODO: write directly to the stream
-    let mut buf = vec![];
-    pending_conn.send_hello(&PublicKey::from(signer.verifying_key()), &mut buf);
-    stream.write_all(&buf).await.unwrap();
+    pending_conn
+        .send_hello(&PublicKey::from(signer.verifying_key()), &mut stream)
+        .await;
 
     let _conn = pending_conn.receive_hello(&mut stream).await;
 

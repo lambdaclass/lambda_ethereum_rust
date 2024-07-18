@@ -3,7 +3,7 @@ use aes::{
     cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
     Aes256Enc,
 };
-use bytes::{BufMut, Bytes};
+use bytes::Bytes;
 use ethereum_rust_core::{
     rlp::{
         decode::RLPDecode,
@@ -15,13 +15,12 @@ use ethereum_rust_core::{
 use k256::PublicKey;
 use sha3::{Digest, Keccak256};
 use std::pin::pin;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
-// TODO: make state diagram
 /// Fully working RLPx connection.
 pub(crate) struct RLPxConnection {
     #[allow(unused)]
@@ -29,10 +28,8 @@ pub(crate) struct RLPxConnection {
     // ...capabilities information
 }
 
-// TODO: move to connection.rs
 /// RLPx connection which is pending the receive of a Hello message.
 pub(crate) struct RLPxConnectionPending {
-    // TODO: make private
     state: RLPxState,
 }
 
@@ -41,7 +38,9 @@ impl RLPxConnectionPending {
         Self { state }
     }
 
-    pub fn send_hello(&mut self, node_pk: &PublicKey, buf: &mut dyn BufMut) {
+    pub async fn send_hello<S: AsyncWrite>(&mut self, node_pk: &PublicKey, stream: S) {
+        let mut stream = pin!(stream);
+
         let egress_aes = &mut self.state.egress_aes;
         let egress_mac = &mut self.state.egress_mac;
 
@@ -87,7 +86,7 @@ impl RLPxConnectionPending {
         header.extend_from_slice(&header_mac[..16]);
 
         // Write header
-        buf.put_slice(&header);
+        stream.write_all(&header).await.unwrap();
 
         // Pad to next multiple of 16
         frame_data.resize(frame_data.len().next_multiple_of(16), 0);
@@ -95,7 +94,7 @@ impl RLPxConnectionPending {
         let frame_ciphertext = frame_data;
 
         // Send frame
-        buf.put_slice(&frame_ciphertext);
+        stream.write_all(&frame_ciphertext).await.unwrap();
 
         // Compute frame-mac
         egress_mac.update(&frame_ciphertext);
@@ -111,7 +110,7 @@ impl RLPxConnectionPending {
         let frame_mac = egress_mac.clone().finalize();
 
         // Send frame-mac
-        buf.put_slice(&frame_mac[..16]);
+        stream.write_all(&frame_mac[..16]).await.unwrap();
     }
 
     pub async fn receive_hello<S: AsyncRead>(self, stream: S) -> RLPxConnection {
