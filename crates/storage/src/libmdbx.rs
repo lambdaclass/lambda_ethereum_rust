@@ -6,8 +6,9 @@ use crate::rlp::{
 };
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
-use ethereum_rust_core::types::{BlockNumber, Index};
+use ethereum_rust_core::types::{
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+};
 use ethereum_types::{Address, H256};
 use libmdbx::{
     dupsort,
@@ -160,6 +161,35 @@ impl StoreEngine for Store {
             .map_err(StoreError::LibmdbxError)?
             .map(|b| b.to()))
     }
+
+    fn add_receipt(
+        &mut self,
+        block_number: BlockNumber,
+        index: Index,
+        receipt: Receipt,
+    ) -> Result<(), StoreError> {
+        // Write block number to mdbx
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<Receipts>((block_number, index), receipt.into())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_receipt(
+        &self,
+        block_number: BlockNumber,
+        index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
+        // Read block number from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        Ok(txn
+            .get::<Receipts>((block_number, index))
+            .map_err(StoreError::LibmdbxError)?
+            .map(|r| r.to()))
+    }
 }
 
 impl Debug for Store {
@@ -197,7 +227,7 @@ table!(
 );
 dupsort!(
     /// Receipts table.
-    ( Receipts ) BlockNumber[Index] => ReceiptRLP
+    ( Receipts ) (BlockNumber, Index)[Index] => ReceiptRLP
 );
 
 /// Initializes a new database with the provided path. If the path is `None`, the database

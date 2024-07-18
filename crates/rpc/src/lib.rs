@@ -5,7 +5,7 @@ use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
     account::{self, GetBalanceRequest, GetCodeRequest},
     block::{
-        self, GetBlockByHashRequest, GetBlockByNumberRequest,
+        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
         GetBlockTransactionCountByNumberRequest, GetTransactionByBlockHashAndIndexRequest,
         GetTransactionByBlockNumberAndIndexRequest,
     },
@@ -115,6 +115,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = GetTransactionByBlockHashAndIndexRequest::parse(&req.params)
                 .ok_or(RpcErr::BadParams)?;
             block::get_transaction_by_block_hash_and_index(&request, storage)
+        }
+        "eth_getBlockReceipts" => {
+            let request = GetBlockReceiptsRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_block_receipts(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {

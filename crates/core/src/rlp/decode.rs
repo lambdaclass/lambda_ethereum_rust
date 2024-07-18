@@ -385,6 +385,7 @@ pub fn decode_rlp_item(data: &[u8]) -> Result<(bool, &[u8], &[u8]), RLPDecodeErr
 /// Splits an RLP item in two:
 /// - The first item including its prefix
 /// - The remaining bytes after the item
+///
 /// It returns a 2-element tuple with the following elements:
 /// - The payload of the item, including its prefix.
 /// - The remaining bytes after the item.
