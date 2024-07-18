@@ -1,4 +1,15 @@
-use std::pin::pin;
+//! # RLPx Connection
+//!
+//! This state diagram shows how an RLPx connection is established.
+//!
+//! ```mermaid
+//! flowchart TD
+//! Start --> |sends auth| Initiator
+//! Start --> |receives auth| Recipient
+//! Initiator --> |receives ack| CompletedHandshake
+//! Recipient --> |sends ack| CompletedHandshake
+//! CompletedHandshake --> |sends and receives Hello| ConnectionCompleted
+//! ```
 
 use crate::rlpx::utils::pubkey2id;
 use aes::{
@@ -16,6 +27,7 @@ use ethereum_rust_core::{
 };
 use k256::PublicKey;
 use sha3::{Digest, Keccak256};
+use std::pin::pin;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
