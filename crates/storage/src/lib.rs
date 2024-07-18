@@ -21,7 +21,7 @@ use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-mod error;
+pub mod error;
 mod rlp;
 
 #[cfg(feature = "in_memory")]

@@ -1,12 +1,13 @@
+mod database;
 mod errors;
 mod execution_result;
 
-use ethereum_rust_core::types::TxKind;
-
+use database::StoreWrapper;
 use ethereum_rust_core::{
-    types::{Account, BlockHeader, Transaction},
+    types::{Account, BlockHeader, Transaction, TxKind},
     Address,
 };
+use ethereum_rust_storage::{EngineType, Store};
 use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
@@ -26,16 +27,17 @@ pub use revm::primitives::SpecId;
 pub fn execute_tx(
     tx: &Transaction,
     header: &BlockHeader,
-    pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
+    _pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
+    let mut state = StoreWrapper(Store::new("temp.db", EngineType::InMemory).unwrap());
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
-    let cache_state = cache_state(pre);
-    let mut state = revm::db::State::builder()
-        .with_cached_prestate(cache_state)
-        .with_bundle_update()
-        .build();
+    // let cache_state = cache_state(pre);
+    // let mut state = revm::db::State::builder()
+    //     .with_cached_prestate(cache_state)
+    //     .with_bundle_update()
+    //     .build();
     let mut evm = Evm::builder()
         .with_db(&mut state)
         .with_block_env(block_env)
