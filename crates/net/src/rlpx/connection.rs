@@ -1,16 +1,3 @@
-//! # RLPx Connection
-//!
-//! This state diagram shows how an RLPx connection is established.
-//!
-//! ```mermaid
-//! flowchart TD
-//! Start --> |sends auth| Initiator
-//! Start --> |receives auth| Recipient
-//! Initiator --> |receives ack| CompletedHandshake
-//! Recipient --> |sends ack| CompletedHandshake
-//! CompletedHandshake --> |sends and receives Hello| ConnectionCompleted
-//! ```
-
 use crate::rlpx::utils::pubkey2id;
 use aes::{
     cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
@@ -34,7 +21,6 @@ const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
-// TODO: move to connection.rs
 // TODO: make state diagram
 /// Fully working RLPx connection.
 pub(crate) struct RLPxConnection {
