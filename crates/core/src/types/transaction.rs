@@ -130,6 +130,14 @@ impl RLPDecode for Transaction {
     /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
     /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        // Adjust the encoding in case the transaction is encoded as a string (prefix between 0xb8 and 0xbf)
+        let prefix = rlp.first().unwrap();
+        let rlp = if *prefix >= 0xb8 && *prefix <= 0xbf {
+            let offset: usize = (prefix - 0xb8 + 1).into();
+            &rlp[offset + 1..]
+        } else {
+            rlp
+        };
         // Look at the first byte to check if it corresponds to a TransactionType
         match rlp.first() {
             // First byte is a valid TransactionType
