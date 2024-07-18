@@ -1,9 +1,10 @@
 use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
+use bytes::Bytes;
 use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
 };
-use ethereum_types::Address;
+use ethereum_types::{Address, H256};
 use std::{collections::HashMap, fmt::Debug};
 
 #[derive(Default)]
@@ -14,6 +15,8 @@ pub struct Store {
     headers: HashMap<BlockNumber, BlockHeader>,
     values: HashMap<Key, Value>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
+    // Maps code hashes to code
+    account_codes: HashMap<H256, Bytes>,
 }
 
 impl Store {
@@ -105,6 +108,15 @@ impl StoreEngine for Store {
             .get(&block_number)
             .and_then(|entry| entry.get(&index))
             .cloned())
+    }
+
+    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+        self.account_codes.insert(code_hash, code);
+        Ok(())
+    }
+
+    fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
+        Ok(self.account_codes.get(&code_hash).cloned())
     }
 }
 
