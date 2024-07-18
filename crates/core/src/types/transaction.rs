@@ -12,6 +12,8 @@ use crate::rlp::{
     structs::{Decoder, Encoder},
 };
 
+use super::ReceiptTxInfo;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum Transaction {
@@ -581,6 +583,17 @@ impl Transaction {
 
     pub fn compute_hash(&self) -> H256 {
         keccak_hash::keccak(self.encode_to_vec())
+    }
+
+    pub fn receipt_info(&self, index: u64) -> ReceiptTxInfo {
+        ReceiptTxInfo {
+            transaction_hash: self.compute_hash(),
+            transaction_index: index,
+            from: self.sender(),
+            to: self.to(),
+            effective_gas_price: self.gas_price(),
+            blob_gas_price: self.max_fee_per_blob_gas(),
+        }
     }
 }
 
