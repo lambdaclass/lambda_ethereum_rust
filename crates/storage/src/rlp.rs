@@ -6,7 +6,6 @@ use ethereum_rust_core::{
     types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt},
     Address, H256,
 };
-use ethereum_types::H256;
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
