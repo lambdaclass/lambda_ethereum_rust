@@ -1,9 +1,9 @@
 mod errors;
 mod execution_result;
 
-use crate::types::TxKind;
+use ethereum_rust_core::types::TxKind;
 
-use super::{
+use ethereum_rust_core::{
     types::{Account, BlockHeader, Transaction},
     Address,
 };
@@ -87,7 +87,10 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         caller: RevmAddress(tx.sender().0.into()),
         gas_limit: tx.gas_limit(),
         gas_price: U256::from(tx.gas_price()),
-        transact_to: tx.to().into(),
+        transact_to: match tx.to() {
+            TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
+            TxKind::Create => RevmTxKind::Create,
+        },
         value: U256::from_limbs(tx.value().0),
         data: tx.data().clone().into(),
         nonce: Some(tx.nonce()),
@@ -112,11 +115,11 @@ fn tx_env(tx: &Transaction) -> TxEnv {
     }
 }
 
-impl From<TxKind> for RevmTxKind {
-    fn from(val: TxKind) -> Self {
-        match val {
-            TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
-            TxKind::Create => RevmTxKind::Create,
-        }
-    }
-}
+// impl From<TxKind> for RevmTxKind {
+//     fn from(val: TxKind) -> Self {
+//         match val {
+//             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
+//             TxKind::Create => RevmTxKind::Create,
+//         }
+//     }
+// }

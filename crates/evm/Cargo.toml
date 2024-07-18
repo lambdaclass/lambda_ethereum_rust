@@ -1,0 +1,14 @@
+[package]
+name = "ethereum_rust-evm"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ethereum_rust-core.workspace = true
+ethereum_rust-storage.workspace = true
+revm = { version = "10.0.0", features = ["serde", "std", "serde-json"] }
+bytes.workspace = true
+thiserror.workspace = true
+
+[lib]
+path = "lib.rs"
