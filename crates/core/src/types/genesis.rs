@@ -3,6 +3,8 @@ use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;
 use std::collections::HashMap;
 
+use super::{Block, BlockBody, BlockHeader};
+
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -86,6 +88,43 @@ pub struct GenesisAccount {
     pub balance: U256,
     #[serde(default, deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
     pub nonce: u64,
+}
+
+impl Genesis {
+    pub fn get_block(&self) -> Block {
+        let header = self.get_block_header();
+        let body = self.get_block_body();
+        Block { header, body }
+    }
+
+    fn get_block_header(&self) -> BlockHeader {
+        BlockHeader {
+            parent_hash: H256::zero(),
+            ommers_hash: todo!(),
+            coinbase: self.coinbase,
+            state_root: todo!(),
+            transactions_root: todo!(),
+            receipt_root: todo!(),
+            logs_bloom: todo!(),
+            difficulty: self.difficulty,
+            number: 0,
+            gas_limit: self.gas_limit,
+            gas_used: todo!(),
+            timestamp: self.timestamp,
+            extra_data: self.extra_data,
+            prev_randao: self.mixhash,
+            nonce: self.nonce,
+            base_fee_per_gas: todo!(),
+            withdrawals_root: todo!(),
+            blob_gas_used: todo!(),
+            excess_blob_gas: todo!(),
+            parent_beacon_block_root: todo!(),
+        }
+    }
+
+    fn get_block_body(&self) -> BlockBody {
+        todo!()
+    }
 }
 
 #[cfg(test)]

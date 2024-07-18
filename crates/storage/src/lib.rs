@@ -13,7 +13,7 @@ use self::libmdbx::Store as LibmdbxStore;
 use self::rocksdb::Store as RocksDbStore;
 #[cfg(feature = "sled")]
 use self::sled::Store as SledStore;
-use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use ethereum_rust_core::types::{AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis};
 use ethereum_types::Address;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -211,6 +211,37 @@ impl Store {
             .lock()
             .unwrap()
             .get_block_number(block_hash)
+    }
+
+    pub fn add_block(
+        &self, 
+        block: Block
+    ) -> Result<(), StoreError> {
+        todo!()
+        // self.engine
+        //     .clone()
+        //     .lock()
+        //     .unwrap()
+        //     .add_block(block)
+    }
+
+    pub fn add_initial_state(&self, genesis: Genesis) -> Result<(), StoreError> {
+
+        // Obtain genesis block
+        let genesis_block = genesis.get_block();
+
+        // Store genesis block
+        let _ = self.add_block(genesis_block);
+
+        // Obtain alloc accounts
+        // let accounts = genesis.getAlloc();
+
+        // Store each alloc account
+        // accounts
+        //    .foreach( | account: Account | {
+        //          self.add_account(account);
+        //      });
+        Ok(())
     }
 }
 
