@@ -1,3 +1,8 @@
+use crate::rlpx::{
+    connection::{RLPxConnectionPending, RLPxState},
+    utils::{ecdh_xchng, id2pubkey, kdf, pubkey2id, sha256, sha256_hmac},
+};
+
 use aes::cipher::{KeyIvInit, StreamCipher};
 use bytes::BufMut;
 use ethereum_rust_core::{
@@ -7,54 +12,40 @@ use ethereum_rust_core::{
         error::RLPDecodeError,
         structs::{Decoder, Encoder},
     },
-    Signature, H128, H512, H520,
+    Signature, H128, H256, H512,
 };
-use k256::{
-    ecdsa::SigningKey,
-    elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
-    EncodedPoint, PublicKey, SecretKey,
-};
-use keccak_hash::H256;
-use rand::{thread_rng, Rng};
+use k256::{ecdsa::SigningKey, elliptic_curve::sec1::ToEncodedPoint, PublicKey, SecretKey};
+use rand::Rng;
+use sha3::{Digest, Keccak256};
 
 type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 
-#[derive(Debug, Clone, Copy)]
-#[allow(unused)]
-pub(crate) struct HandshakeData {
-    pub remote_nonce: H256,
-    pub aes_key: H256,
-    pub mac_key: H256,
-}
-
+/// RLPx local client for initiating or accepting connections.
+/// Use [`RLPxLocalClient::encode_auth_message`] to initiate a connection,
+/// or [`RLPxLocalClient::decode_auth_message_and_encode_ack`] to accept a connection.
 #[derive(Debug)]
-// TODO: refactor into two parts, one for the handshake and another one after that.
-pub(crate) struct RLPxConnection {
-    pub nonce: H256,
-    pub ephemeral_key: SecretKey,
-    pub handshake_data: Option<HandshakeData>,
+pub(crate) struct RLPxLocalClient {
+    pub(crate) nonce: H256,
+    pub(crate) ephemeral_key: SecretKey,
+    pub(crate) auth_message: Option<Vec<u8>>,
 }
 
-impl RLPxConnection {
+impl RLPxLocalClient {
     pub fn new(nonce: H256, ephemeral_key: SecretKey) -> Self {
         Self {
             nonce,
             ephemeral_key,
-            handshake_data: None,
+            auth_message: None,
         }
     }
 
     pub fn random() -> Self {
-        let mut rng = thread_rng();
+        let mut rng = rand::thread_rng();
         Self::new(H256::random_using(&mut rng), SecretKey::random(&mut rng))
     }
 
-    pub fn is_connected(&self) -> bool {
-        self.handshake_data.is_some()
-    }
-
     pub fn encode_auth_message(
-        &self,
+        &mut self,
         static_key: &SecretKey,
         remote_static_pubkey: &PublicKey,
         buf: &mut dyn BufMut,
@@ -66,14 +57,11 @@ impl RLPxConnection {
         let mut rng = rand::thread_rng();
         let node_id = pubkey2id(&static_key.public_key());
 
-        // Generate a keypair just for this message.
-        let message_secret_key = SecretKey::random(&mut rng);
-
-        // Derive a shared secret for this message.
-        let message_secret = ecdh_xchng(&message_secret_key, remote_static_pubkey);
+        // Derive a shared secret from the static keys.
+        let static_shared_secret = ecdh_xchng(static_key, remote_static_pubkey);
 
         // Create the signature included in the message.
-        let signature = self.sign_shared_secret(message_secret.into());
+        let signature = self.sign_shared_secret(static_shared_secret.into());
 
         // Compose the auth message.
         let auth = AuthMessage::new(signature, node_id, self.nonce);
@@ -93,6 +81,12 @@ impl RLPxConnection {
             .unwrap();
         let auth_size_bytes = auth_size.to_be_bytes();
 
+        // Generate a keypair just for this message.
+        let message_secret_key = SecretKey::random(&mut rng);
+
+        // Derive a shared secret for this message.
+        let message_secret = ecdh_xchng(&message_secret_key, remote_static_pubkey);
+
         // Derive the AES and MAC keys from the message secret.
         let mut secret_keys = [0; 32];
         kdf(&message_secret, &mut secret_keys);
@@ -111,6 +105,17 @@ impl RLPxConnection {
         let r_public_key = message_secret_key.public_key().to_encoded_point(false);
         let mac_footer = sha256_hmac(&mac_key, &[&iv.0, &encrypted_auth_msg], &auth_size_bytes);
 
+        // Save the Auth message for the egress-mac initialization
+        let auth_message = [
+            &auth_size_bytes,
+            r_public_key.as_bytes(),
+            &iv.0,
+            &encrypted_auth_msg,
+            &mac_footer,
+        ]
+        .concat();
+        self.auth_message = Some(auth_message);
+
         // Write everything into the buffer.
         buf.put_slice(&auth_size_bytes);
         buf.put_slice(r_public_key.as_bytes());
@@ -119,7 +124,7 @@ impl RLPxConnection {
         buf.put_slice(&mac_footer);
     }
 
-    fn sign_shared_secret(&self, shared_secret: H256) -> H520 {
+    fn sign_shared_secret(&self, shared_secret: H256) -> Signature {
         let signature_prehash = shared_secret ^ self.nonce;
         let (signature, rid) = SigningKey::from(&self.ephemeral_key)
             .sign_prehash_recoverable(&signature_prehash.0)
@@ -127,24 +132,27 @@ impl RLPxConnection {
         let mut signature_bytes = [0; 65];
         signature_bytes[..64].copy_from_slice(signature.to_bytes().as_slice());
         signature_bytes[64] = rid.to_byte();
-        H520(signature_bytes)
+        signature_bytes.into()
     }
 
+    /// Decodes an Ack message, completing a handshake.
+    /// Consumes `self` and returns an [`RLPxConnectionPending`]
     pub fn decode_ack_message(
-        &mut self,
+        self,
         static_key: &SecretKey,
-        msg: &mut [u8],
+        msg: &[u8],
         auth_data: [u8; 2],
-    ) {
+    ) -> RLPxConnectionPending {
         // TODO: return errors instead of panicking
-        assert!(!self.is_connected(), "connection already established");
+        let sent_auth = self.auth_message.is_some();
+        assert!(sent_auth, "received Ack without having sent Auth");
         assert!(msg.len() > 65 + 16 + 32, "message is too short");
 
         // Split the message into its components. General layout is:
         // public-key (65) || iv (16) || ciphertext || mac (32)
-        let (pk, rest) = msg.split_at_mut(65);
-        let (iv, rest) = rest.split_at_mut(16);
-        let (c, d) = rest.split_at_mut(rest.len() - 32);
+        let (pk, rest) = msg.split_at(65);
+        let (iv, rest) = rest.split_at(16);
+        let (c, d) = rest.split_at(rest.len() - 32);
 
         // Derive the message shared secret.
         let shared_secret = ecdh_xchng(static_key, &PublicKey::from_sec1_bytes(pk).unwrap());
@@ -161,38 +169,58 @@ impl RLPxConnection {
 
         // Decrypt the message with the AES key.
         let mut stream_cipher = Aes128Ctr64BE::new_from_slices(aes_key, iv).unwrap();
-        stream_cipher.try_apply_keystream(c).unwrap();
+        let decoded_payload = {
+            let mut decoded = c.to_vec();
+            stream_cipher.try_apply_keystream(&mut decoded).unwrap();
+            decoded
+        };
 
         // RLP-decode the message.
-        let (ack, _padding) = AckMessage::decode_unfinished(c).unwrap();
+        let (ack, _padding) = AckMessage::decode_unfinished(&decoded_payload).unwrap();
 
-        // Finish deriving and store handshake data to be used during further communication.
-        let handshake_data = self.derive_secrets(ack);
-        self.handshake_data.replace(handshake_data);
+        let (aes_key, mac_key) = self.derive_secrets(&ack);
+
+        let ack_message = [&auth_data, msg].concat();
+
+        let state = RLPxState::new(
+            aes_key,
+            mac_key,
+            self.nonce,
+            self.auth_message.as_ref().unwrap(),
+            ack.nonce,
+            &ack_message,
+        );
+
+        RLPxConnectionPending::new(state)
     }
 
-    fn derive_secrets(&self, ack: AckMessage) -> HandshakeData {
+    fn derive_secrets(&self, ack: &AckMessage) -> (H256, H256) {
         // TODO: don't panic
         let ephemeral_key_secret =
             ecdh_xchng(&self.ephemeral_key, &ack.get_ephemeral_pubkey().unwrap());
 
+        println!(
+            "local_ephemeral_public_key: {:x}",
+            pubkey2id(&self.ephemeral_key.public_key())
+        );
+        // ad57a6adc787e0db24d734e4fc0f9de9add333e17dc09677719ff8ae86b5741725a7f8467a56b4a190808c42f83a833e0543a842a2b6684df847609b009e97e9
+        // ba202bf05245e569da208c195957cd0354e33ac429dcd1f596b59ce84977a40e 16718c27ef912689639dc28bc77dcf978803e0017093dc67c79852cdcb79352a
+        println!("ephemeral_key_secret: {:x}", H256(ephemeral_key_secret));
+
         // keccak256(nonce || initiator-nonce)
         let nonce = ack.nonce.0;
         let initiator_nonce = self.nonce.0;
-        let hashed_nonces = keccak_hash::keccak([nonce, initiator_nonce].concat());
+        let hashed_nonces = Keccak256::digest([nonce, initiator_nonce].concat()).into();
         // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
-        let shared_secret = keccak_hash::keccak([ephemeral_key_secret, hashed_nonces.0].concat());
+        let shared_secret =
+            Keccak256::digest([ephemeral_key_secret, hashed_nonces].concat()).into();
 
         // aes-secret = keccak256(ephemeral-key || shared-secret)
-        let aes_key = keccak_hash::keccak([ephemeral_key_secret, shared_secret.0].concat());
+        let aes_key = Keccak256::digest([ephemeral_key_secret, shared_secret].concat()).into();
         // mac-secret = keccak256(ephemeral-key || aes-secret)
-        let mac_key = keccak_hash::keccak([ephemeral_key_secret, aes_key.0].concat());
+        let mac_key = Keccak256::digest([ephemeral_key_secret, aes_key].concat());
 
-        HandshakeData {
-            remote_nonce: ack.nonce,
-            aes_key,
-            mac_key,
-        }
+        (H256(aes_key), H256(mac_key.into()))
     }
 }
 
@@ -264,7 +292,6 @@ pub(crate) struct AckMessage {
 }
 
 impl AckMessage {
-    #[allow(unused)]
     pub fn get_ephemeral_pubkey(&self) -> Option<PublicKey> {
         id2pubkey(self.ephemeral_pubkey)
     }
@@ -295,121 +322,5 @@ impl RLPDecode for AckMessage {
             version,
         };
         Ok((this, rest))
-    }
-}
-
-fn sha256(data: &[u8]) -> [u8; 32] {
-    use k256::sha2::Digest;
-    k256::sha2::Sha256::digest(data).into()
-}
-
-fn sha256_hmac(key: &[u8], inputs: &[&[u8]], auth_data: &[u8]) -> [u8; 32] {
-    use hmac::Mac;
-    use k256::sha2::Sha256;
-
-    let mut hasher = hmac::Hmac::<Sha256>::new_from_slice(key).unwrap();
-    for input in inputs {
-        hasher.update(input);
-    }
-    hasher.update(auth_data);
-    hasher.finalize().into_bytes().into()
-}
-
-fn ecdh_xchng(secret_key: &SecretKey, public_key: &PublicKey) -> [u8; 32] {
-    k256::ecdh::diffie_hellman(secret_key.to_nonzero_scalar(), public_key.as_affine())
-        .raw_secret_bytes()[..32]
-        .try_into()
-        .unwrap()
-}
-
-fn kdf(secret: &[u8], output: &mut [u8]) {
-    // We don't use the `other_info` field
-    concat_kdf::derive_key_into::<k256::sha2::Sha256>(secret, &[], output).unwrap();
-}
-
-/// Computes recipient id from public key.
-pub fn pubkey2id(pk: &PublicKey) -> H512 {
-    let encoded = pk.to_encoded_point(false);
-    let bytes = encoded.as_bytes();
-    debug_assert_eq!(bytes[0], 4);
-    H512::from_slice(&bytes[1..])
-}
-
-/// Computes public key from recipient id.
-/// The node ID is the uncompressed public key of a node, with the first byte omitted (0x04).
-pub fn id2pubkey(id: H512) -> Option<PublicKey> {
-    let point = EncodedPoint::from_untagged_bytes(&id.0.into());
-    PublicKey::from_encoded_point(&point).into_option()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use hex_literal::hex;
-
-    #[test]
-    fn ecdh_xchng_smoke_test() {
-        use rand::rngs::OsRng;
-
-        let a_sk = SecretKey::random(&mut OsRng);
-        let b_sk = SecretKey::random(&mut OsRng);
-
-        let a_sk_b_pk = ecdh_xchng(&a_sk, &b_sk.public_key());
-        let b_sk_a_pk = ecdh_xchng(&b_sk, &a_sk.public_key());
-
-        // The shared secrets should be the same.
-        // The operation done is:
-        //   a_sk * b_pk = a * (b * G) = b * (a * G) = b_sk * a_pk
-        assert_eq!(a_sk_b_pk, b_sk_a_pk);
-    }
-
-    #[test]
-    fn id2pubkey_pubkey2id_smoke_test() {
-        use rand::rngs::OsRng;
-
-        let sk = SecretKey::random(&mut OsRng);
-        let pk = sk.public_key();
-        let id = pubkey2id(&pk);
-        let _pk2 = id2pubkey(id).unwrap();
-    }
-
-    #[test]
-    fn test_ack_decoding() {
-        // This is the Ack₂ message from EIP-8.
-        let mut msg = hex!("01ea0451958701280a56482929d3b0757da8f7fbe5286784beead59d95089c217c9b917788989470b0e330cc6e4fb383c0340ed85fab836ec9fb8a49672712aeabbdfd1e837c1ff4cace34311cd7f4de05d59279e3524ab26ef753a0095637ac88f2b499b9914b5f64e143eae548a1066e14cd2f4bd7f814c4652f11b254f8a2d0191e2f5546fae6055694aed14d906df79ad3b407d94692694e259191cde171ad542fc588fa2b7333313d82a9f887332f1dfc36cea03f831cb9a23fea05b33deb999e85489e645f6aab1872475d488d7bd6c7c120caf28dbfc5d6833888155ed69d34dbdc39c1f299be1057810f34fbe754d021bfca14dc989753d61c413d261934e1a9c67ee060a25eefb54e81a4d14baff922180c395d3f998d70f46f6b58306f969627ae364497e73fc27f6d17ae45a413d322cb8814276be6ddd13b885b201b943213656cde498fa0e9ddc8e0b8f8a53824fbd82254f3e2c17e8eaea009c38b4aa0a3f306e8797db43c25d68e86f262e564086f59a2fc60511c42abfb3057c247a8a8fe4fb3ccbadde17514b7ac8000cdb6a912778426260c47f38919a91f25f4b5ffb455d6aaaf150f7e5529c100ce62d6d92826a71778d809bdf60232ae21ce8a437eca8223f45ac37f6487452ce626f549b3b5fdee26afd2072e4bc75833c2464c805246155289f4");
-
-        let static_key = hex!("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee");
-        let nonce = hex!("7e968bba13b6c50e2c4cd7f241cc0d64d1ac25c7f5952df231ac6a2bda8ee5d6");
-        let ephemeral_key =
-            hex!("869d6ecf5211f1cc60418a13b9d870b22959d0c16f02bec714c960dd2298a32d");
-
-        let mut conn =
-            RLPxConnection::new(nonce.into(), SecretKey::from_slice(&ephemeral_key).unwrap());
-
-        assert_eq!(&conn.ephemeral_key.to_bytes()[..], &ephemeral_key[..]);
-        assert_eq!(conn.nonce.0, nonce);
-
-        let auth_data = msg[..2].try_into().unwrap();
-
-        conn.decode_ack_message(
-            &SecretKey::from_slice(&static_key).unwrap(),
-            &mut msg[2..],
-            auth_data,
-        );
-
-        let handshake_data = conn.handshake_data.unwrap();
-
-        let expected_remote_nonce =
-            hex!("559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd");
-
-        assert_eq!(handshake_data.remote_nonce.0, expected_remote_nonce);
-
-        let expected_aes_secret =
-            hex!("80e8632c05fed6fc2a13b0f8d31a3cf645366239170ea067065aba8e28bac487");
-        let expected_mac_secret =
-            hex!("2ea74ec5dae199227dff1af715362700e989d889d7a493cb0639691efb8e5f98");
-
-        assert_eq!(handshake_data.aes_key.0, expected_aes_secret);
-        assert_eq!(handshake_data.mac_key.0, expected_mac_secret);
     }
 }

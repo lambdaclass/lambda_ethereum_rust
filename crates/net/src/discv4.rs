@@ -8,6 +8,7 @@ use ethereum_rust_core::rlp::{
 };
 use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
+use sha3::{Digest, Keccak256};
 use std::net::{IpAddr, SocketAddr};
 
 const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;
@@ -74,18 +75,18 @@ impl Message {
 
         self.encode_with_type(&mut data);
 
-        let digest = keccak_hash::keccak_buffer(&mut &data[signature_size..]).unwrap();
+        let digest = Keccak256::digest(&data[signature_size..]);
 
         let (signature, recovery_id) = node_signer
-            .sign_prehash_recoverable(&digest.0)
+            .sign_prehash_recoverable(&digest)
             .expect("failed to sign");
         let b = signature.to_bytes();
 
         data[..signature_size - 1].copy_from_slice(&b);
         data[signature_size - 1] = recovery_id.to_byte();
 
-        let hash = keccak_hash::keccak_buffer(&mut &data[..]).unwrap();
-        buf.put_slice(&hash.0);
+        let hash = Keccak256::digest(&data[..]);
+        buf.put_slice(&hash);
         buf.put_slice(&data[..]);
     }
 
@@ -547,8 +548,7 @@ impl RLPEncode for Node {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ethereum_rust_core::H264;
-    use keccak_hash::H256;
+    use ethereum_rust_core::{H256, H264};
     use std::fmt::Write;
     use std::net::Ipv4Addr;
     use std::num::ParseIntError;

@@ -1,17 +1,18 @@
 use std::marker::PhantomData;
 
+use bytes::Bytes;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt},
-    Address,
+    Address, H256,
 };
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
 pub type AddressRLP = Rlp<Address>;
 pub type AccountInfoRLP = Rlp<AccountInfo>;
-pub type AccountCodeHashRLP = Rlp<Vec<u8>>;
-pub type AccountCodeRLP = Rlp<Vec<u8>>;
+pub type AccountCodeHashRLP = Rlp<H256>;
+pub type AccountCodeRLP = Rlp<Bytes>;
 
 // TODO: these structs were changed after a merge.
 // See if we can reuse Rlp struct
@@ -25,6 +26,9 @@ pub type BlockBodyRLP = Rlp<BlockBody>;
 
 // Receipt types
 pub type ReceiptRLP = Rlp<Receipt>;
+
+// Transaction types
+pub type TransactionHashRLP = Rlp<H256>;
 
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
 
