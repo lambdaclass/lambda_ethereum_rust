@@ -6,7 +6,9 @@ use serde_json::Value;
 use tracing::info;
 
 use crate::utils::RpcErr;
-use ethereum_rust_core::types::{BlockHash, BlockSerializable, ReceiptWithTxAndBlockInfo};
+use ethereum_rust_core::types::{
+    BlockHash, BlockNumber, BlockSerializable, ReceiptWithTxAndBlockInfo,
+};
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
@@ -18,13 +20,27 @@ pub struct GetBlockByHashRequest {
     pub hydrated: bool,
 }
 
+pub struct GetBlockTransactionCountByNumberRequest {
+    pub block: BlockIdentifier,
+}
+
+pub struct GetTransactionByBlockNumberAndIndexRequest {
+    pub block: BlockIdentifier,
+    pub transaction_index: usize,
+}
+
+pub struct GetTransactionByBlockHashAndIndexRequest {
+    pub block: BlockHash,
+    pub transaction_index: usize,
+}
+
 pub struct GetBlockReceiptsRequest {
     pub block: BlockIdentifier,
 }
 
 #[derive(Deserialize)]
 pub enum BlockIdentifier {
-    Number(u64),
+    Number(BlockNumber),
     #[allow(unused)]
     Tag(BlockTag),
 }
@@ -61,6 +77,46 @@ impl GetBlockByHashRequest {
         Some(GetBlockByHashRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
             hydrated: serde_json::from_value(params[1].clone()).ok()?,
+        })
+    }
+}
+
+impl GetBlockTransactionCountByNumberRequest {
+    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockTransactionCountByNumberRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 1 {
+            return None;
+        };
+        Some(GetBlockTransactionCountByNumberRequest {
+            block: serde_json::from_value(params[0].clone()).ok()?,
+        })
+    }
+}
+
+impl GetTransactionByBlockNumberAndIndexRequest {
+    pub fn parse(
+        params: &Option<Vec<Value>>,
+    ) -> Option<GetTransactionByBlockNumberAndIndexRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 2 {
+            return None;
+        };
+        Some(GetTransactionByBlockNumberAndIndexRequest {
+            block: serde_json::from_value(params[0].clone()).ok()?,
+            transaction_index: serde_json::from_value(params[1].clone()).ok()?,
+        })
+    }
+}
+
+impl GetTransactionByBlockHashAndIndexRequest {
+    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockHashAndIndexRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 2 {
+            return None;
+        };
+        Some(GetTransactionByBlockHashAndIndexRequest {
+            block: serde_json::from_value(params[0].clone()).ok()?,
+            transaction_index: serde_json::from_value(params[1].clone()).ok()?,
         })
     }
 }
@@ -119,6 +175,79 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
     let block = BlockSerializable::from_block(header, body, request.hydrated);
 
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_block_transaction_count_by_number(
+    request: &GetBlockTransactionCountByNumberRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    info!(
+        "Requested transaction count for block with number: {}",
+        request.block
+    );
+    let block_number = match request.block {
+        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
+        BlockIdentifier::Number(block_number) => block_number,
+    };
+    let block_body = match storage.get_block_body(block_number) {
+        Ok(Some(block_body)) => block_body,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let transaction_count = block_body.transactions.len();
+
+    serde_json::to_value(format!("{:#x}", transaction_count)).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_transaction_by_block_number_and_index(
+    request: &GetTransactionByBlockNumberAndIndexRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    info!(
+        "Requested transaction at index: {} of block with number: {}",
+        request.transaction_index, request.block,
+    );
+    let block_number = match request.block {
+        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
+        BlockIdentifier::Number(block_number) => block_number,
+    };
+    let block_body = match storage.get_block_body(block_number) {
+        Ok(Some(block_body)) => block_body,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let tx = match block_body.transactions.get(request.transaction_index) {
+        Some(tx) => tx,
+        None => return Ok(Value::Null),
+    };
+
+    serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_transaction_by_block_hash_and_index(
+    request: &GetTransactionByBlockHashAndIndexRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    info!(
+        "Requested transaction at index: {} of block with hash: {}",
+        request.transaction_index, request.block,
+    );
+    let block_number = match storage.get_block_number(request.block) {
+        Ok(Some(number)) => number,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let block_body = match storage.get_block_body(block_number) {
+        Ok(Some(block_body)) => block_body,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let tx = match block_body.transactions.get(request.transaction_index) {
+        Some(tx) => tx,
+        None => return Ok(Value::Null),
+    };
+
+    serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
 }
 
 pub fn get_block_receipts(
