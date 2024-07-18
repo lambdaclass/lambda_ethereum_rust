@@ -18,6 +18,10 @@ pub struct GetBlockByHashRequest {
     pub hydrated: bool,
 }
 
+pub struct GetBlockTransactionCountByNumberRequest {
+    pub block: BlockIdentifier,
+}
+
 #[derive(Deserialize)]
 pub enum BlockIdentifier {
     Number(u64),
@@ -57,6 +61,18 @@ impl GetBlockByHashRequest {
         Some(GetBlockByHashRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
             hydrated: serde_json::from_value(params[1].clone()).ok()?,
+        })
+    }
+}
+
+impl GetBlockTransactionCountByNumberRequest {
+    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockTransactionCountByNumberRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 1 {
+            return None;
+        };
+        Some(GetBlockTransactionCountByNumberRequest {
+            block: serde_json::from_value(params[0].clone()).ok()?,
         })
     }
 }
@@ -103,6 +119,28 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
     let block = BlockSerializable::from_block(header, body, request.hydrated);
 
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_block_transaction_count_by_number(
+    request: &GetBlockTransactionCountByNumberRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    info!(
+        "Requested transaction count for block with number: {}",
+        request.block
+    );
+    let block_number = match request.block {
+        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
+        BlockIdentifier::Number(block_number) => block_number,
+    };
+    let block_body = match storage.get_block_body(block_number) {
+        Ok(Some(block_body)) => block_body,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let transaction_count = block_body.transactions.len();
+
+    serde_json::to_value(format!("{:#x}", transaction_count)).map_err(|_| RpcErr::Internal)
 }
 
 impl Display for BlockIdentifier {
