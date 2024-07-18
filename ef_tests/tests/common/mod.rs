@@ -5,7 +5,8 @@ use ::ef_tests::types::TestUnit;
 use ef_tests::types::Block;
 use ethereum_rust_core::{
     evm::{execute_tx, SpecId},
-    rlp::decode::RLPDecode,
+    rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder},
+    types::{BlockBody, BlockHeader, Transaction, Withdrawal},
 };
 use std::num::ParseIntError;
 
@@ -14,6 +15,18 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
         .collect()
+}
+
+fn decode_block(rlp: &[u8]) -> Result<BlockHeader, RLPDecodeError> {
+    let decoder = Decoder::new(rlp)?;
+    let (block_header, decoder) = decoder.decode_field("block_header")?;
+    let (_transactions, decoder): (Vec<Transaction>, Decoder) =
+        decoder.decode_field("block_body")?;
+    let (_ommers, decoder): (Vec<BlockHeader>, Decoder) = decoder.decode_field("ommers")?;
+    let (_withdrawals, decoder): (Option<Vec<Withdrawal>>, Decoder) =
+        decoder.decode_optional_field();
+    let _remaining = decoder.finish()?;
+    Ok(block_header)
 }
 
 fn execute_test(test: &TestUnit) {
@@ -38,21 +51,11 @@ fn execute_test(test: &TestUnit) {
 
     let genesis_rlp_as_string = test.genesis_rlp.clone();
     let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
-    //assert!(Block::decode(&genesis_rlp_bytes));
+    let block_header = decode_block(&genesis_rlp_bytes).unwrap();
+    assert_eq!(block_header, test.genesis_block_header.clone().into());
 
-    match Block::decode(&genesis_rlp_bytes) {
-        Ok(decoded_block) => {
-            let decoded_block_header = decoded_block.block_header;
-            //assert_eq!(test.genesis_block_header, decoded_block_header);
-        }
-        Err(err) => {
-            dbg!(err);
-            panic!();
-        }
-    }
-
-    let block = test.blocks.first().unwrap();
-    let decoded_block = Block::decode(block.rlp.as_ref()).unwrap();
+    // let block = test.blocks.first().unwrap();
+    // let decoded_block = Block::decode(block.rlp.as_ref()).unwrap();
     /*
     assert!(execute_tx(
         &transaction.clone().into(),

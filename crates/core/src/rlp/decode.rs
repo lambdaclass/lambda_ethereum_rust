@@ -187,14 +187,6 @@ impl RLPDecode for crate::U256 {
         Ok((crate::U256::from_big_endian(&padded_bytes), rest))
     }
 }
-use std::fmt::Write;
-
-fn to_hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut buf, b| {
-        let _ = write!(&mut buf, "{b:02x}");
-        buf
-    })
-}
 
 impl RLPDecode for crate::Bloom {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {

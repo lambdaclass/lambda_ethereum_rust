@@ -116,11 +116,11 @@ impl RLPDecode for BlockHeader {
         let (nonce, decoder) = decoder.decode_field("nonce")?;
         let nonce = u64::from_be_bytes(nonce);
         let (base_fee_per_gas, decoder) = decoder.decode_field("base_fee_per_gas")?;
-        let (withdrawals_root, decoder) = decoder.decode_field("withdrawals_root")?;
-        let (blob_gas_used, decoder) = decoder.decode_field("blob_gas_used")?;
-        let (excess_blob_gas, decoder) = decoder.decode_field("excess_blob_gas")?;
-        let (parent_beacon_block_root, decoder) =
-            decoder.decode_field("parent_beacon_block_root")?;
+        let (withdrawals_root, decoder) = decoder.decode_optional_field();
+        let (blob_gas_used, decoder) = decoder.decode_optional_field();
+        let (excess_blob_gas, decoder) = decoder.decode_optional_field();
+        let (parent_beacon_block_root, decoder) = decoder.decode_optional_field();
+
         Ok((
             BlockHeader {
                 parent_hash,
@@ -139,10 +139,10 @@ impl RLPDecode for BlockHeader {
                 prev_randao,
                 nonce,
                 base_fee_per_gas,
-                withdrawals_root,
-                blob_gas_used,
-                excess_blob_gas,
-                parent_beacon_block_root,
+                withdrawals_root: withdrawals_root.unwrap_or_default(),
+                blob_gas_used: blob_gas_used.unwrap_or_default(),
+                excess_blob_gas: excess_blob_gas.unwrap_or_default(),
+                parent_beacon_block_root: parent_beacon_block_root.unwrap_or_default(),
             },
             decoder.finish()?,
         ))
