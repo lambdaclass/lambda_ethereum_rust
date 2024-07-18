@@ -11,22 +11,13 @@
 //! CompletedHandshake --> |sends and receives Hello| ConnectionCompleted
 //! ```
 
-#![allow(unused)]
-
-use super::{
-    utils::{id2pubkey, pubkey2id},
-    RLPxConnectionPending,
-};
 use crate::rlpx::{
-    utils::{ecdh_xchng, kdf, sha256, sha256_hmac},
-    Aes256Ctr64BE, RLPxState,
+    connection::{RLPxConnectionPending, RLPxState},
+    utils::{ecdh_xchng, id2pubkey, kdf, pubkey2id, sha256, sha256_hmac},
 };
 
-use aes::{
-    cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
-    Aes256Enc,
-};
-use bytes::{BufMut, Bytes};
+use aes::cipher::{KeyIvInit, StreamCipher};
+use bytes::BufMut;
 use ethereum_rust_core::{
     rlp::{
         decode::RLPDecode,
@@ -39,8 +30,6 @@ use ethereum_rust_core::{
 use k256::{ecdsa::SigningKey, elliptic_curve::sec1::ToEncodedPoint, PublicKey, SecretKey};
 use rand::Rng;
 use sha3::{Digest, Keccak256};
-use std::pin::pin;
-use tokio::io::{AsyncRead, AsyncReadExt};
 
 type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 
@@ -49,9 +38,9 @@ type Aes128Ctr64BE = ctr::Ctr64BE<aes::Aes128>;
 /// or [`RLPxLocalClient::decode_auth_message_and_encode_ack`] to accept a connection.
 #[derive(Debug)]
 pub(crate) struct RLPxLocalClient {
-    nonce: H256,
-    ephemeral_key: SecretKey,
-    auth_message: Option<Vec<u8>>,
+    pub(crate) nonce: H256,
+    pub(crate) ephemeral_key: SecretKey,
+    pub(crate) auth_message: Option<Vec<u8>>,
 }
 
 impl RLPxLocalClient {
@@ -201,7 +190,6 @@ impl RLPxLocalClient {
 
         // RLP-decode the message.
         let (ack, _padding) = AckMessage::decode_unfinished(&decoded_payload).unwrap();
-        let remote_nonce = ack.nonce;
 
         let (aes_key, mac_key) = self.derive_secrets(&ack);
 
@@ -216,7 +204,7 @@ impl RLPxLocalClient {
             &ack_message,
         );
 
-        RLPxConnectionPending { state }
+        RLPxConnectionPending::new(state)
     }
 
     fn derive_secrets(&self, ack: &AckMessage) -> (H256, H256) {
@@ -246,10 +234,6 @@ impl RLPxLocalClient {
         let mac_key = Keccak256::digest([ephemeral_key_secret, aes_key].concat());
 
         (H256(aes_key), H256(mac_key.into()))
-    }
-
-    pub fn decode_auth_message_and_encode_ack() {
-        todo!()
     }
 }
 
@@ -351,49 +335,5 @@ impl RLPDecode for AckMessage {
             version,
         };
         Ok((this, rest))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::rlpx::handshake::RLPxLocalClient;
-    use hex_literal::hex;
-    use k256::SecretKey;
-
-    #[test]
-    fn test_ack_decoding() {
-        // This is the Ack₂ message from EIP-8.
-        let mut msg = hex!("01ea0451958701280a56482929d3b0757da8f7fbe5286784beead59d95089c217c9b917788989470b0e330cc6e4fb383c0340ed85fab836ec9fb8a49672712aeabbdfd1e837c1ff4cace34311cd7f4de05d59279e3524ab26ef753a0095637ac88f2b499b9914b5f64e143eae548a1066e14cd2f4bd7f814c4652f11b254f8a2d0191e2f5546fae6055694aed14d906df79ad3b407d94692694e259191cde171ad542fc588fa2b7333313d82a9f887332f1dfc36cea03f831cb9a23fea05b33deb999e85489e645f6aab1872475d488d7bd6c7c120caf28dbfc5d6833888155ed69d34dbdc39c1f299be1057810f34fbe754d021bfca14dc989753d61c413d261934e1a9c67ee060a25eefb54e81a4d14baff922180c395d3f998d70f46f6b58306f969627ae364497e73fc27f6d17ae45a413d322cb8814276be6ddd13b885b201b943213656cde498fa0e9ddc8e0b8f8a53824fbd82254f3e2c17e8eaea009c38b4aa0a3f306e8797db43c25d68e86f262e564086f59a2fc60511c42abfb3057c247a8a8fe4fb3ccbadde17514b7ac8000cdb6a912778426260c47f38919a91f25f4b5ffb455d6aaaf150f7e5529c100ce62d6d92826a71778d809bdf60232ae21ce8a437eca8223f45ac37f6487452ce626f549b3b5fdee26afd2072e4bc75833c2464c805246155289f4");
-
-        let static_key = hex!("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee");
-        let nonce = hex!("7e968bba13b6c50e2c4cd7f241cc0d64d1ac25c7f5952df231ac6a2bda8ee5d6");
-        let ephemeral_key =
-            hex!("869d6ecf5211f1cc60418a13b9d870b22959d0c16f02bec714c960dd2298a32d");
-
-        let mut client =
-            RLPxLocalClient::new(nonce.into(), SecretKey::from_slice(&ephemeral_key).unwrap());
-
-        assert_eq!(&client.ephemeral_key.to_bytes()[..], &ephemeral_key[..]);
-        assert_eq!(client.nonce.0, nonce);
-
-        let auth_data = msg[..2].try_into().unwrap();
-
-        client.auth_message = Some(vec![]);
-
-        let conn = client.decode_ack_message(
-            &SecretKey::from_slice(&static_key).unwrap(),
-            &msg[2..],
-            auth_data,
-        );
-
-        let state = conn.state;
-
-        let expected_aes_secret =
-            hex!("80e8632c05fed6fc2a13b0f8d31a3cf645366239170ea067065aba8e28bac487");
-        let expected_mac_secret =
-            hex!("2ea74ec5dae199227dff1af715362700e989d889d7a493cb0639691efb8e5f98");
-
-        assert_eq!(state.aes_key.0, expected_aes_secret);
-        assert_eq!(state.mac_key.0, expected_mac_secret);
     }
 }
