@@ -351,6 +351,16 @@ impl Store {
             .unwrap()
             .get_receipt(block_number, index)
     }
+
+    pub fn get_transaction_by_hash(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<Transaction>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_transaction_by_hash(transaction_hash)
+    }
 }
 
 #[cfg(test)]
