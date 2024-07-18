@@ -5,9 +5,10 @@ use crate::rlp::{
     AccountStorageValueRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
 };
 use anyhow::Result;
+use bytes::Bytes;
 use ethereum_rust_core::types::{AccountInfo, BlockBody, BlockHash, BlockHeader};
 use ethereum_rust_core::types::{BlockNumber, Index};
-use ethereum_types::Address;
+use ethereum_types::{Address, H256};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -138,6 +139,26 @@ impl StoreEngine for Store {
 
     fn get_value(&self, _key: Key) -> Result<Option<Value>, StoreError> {
         todo!()
+    }
+
+    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+        // Write account code to mdbx
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<AccountCodes>(code_hash.into(), code.into())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
+        // Read account code from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        Ok(txn
+            .get::<AccountCodes>(code_hash.into())
+            .map_err(StoreError::LibmdbxError)?
+            .map(|b| b.to()))
     }
 }
 

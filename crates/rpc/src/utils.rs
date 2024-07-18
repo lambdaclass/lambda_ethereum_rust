@@ -5,6 +5,7 @@ pub enum RpcErr {
     MethodNotFound,
     BadParams,
     UnsuportedFork,
+    Internal,
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -21,6 +22,10 @@ impl From<RpcErr> for RpcErrorMetadata {
             RpcErr::UnsuportedFork => RpcErrorMetadata {
                 code: -38005,
                 message: "Unsupported fork".to_string(),
+            },
+            RpcErr::Internal => RpcErrorMetadata {
+                code: -32603,
+                message: "Internal Error".to_string(),
             },
         }
     }

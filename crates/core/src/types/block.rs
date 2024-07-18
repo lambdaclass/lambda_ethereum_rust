@@ -22,6 +22,8 @@ use std::cmp::{max, Ordering};
 
 use super::Transaction;
 
+pub use serializable::BlockSerializable;
+
 pub type BlockNumber = u64;
 pub type BlockHash = H256;
 
