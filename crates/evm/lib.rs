@@ -9,10 +9,7 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::{EngineType, Store};
 use revm::{
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{BlockEnv, TxEnv, B256, U256},
-    Evm,
+    db::states::bundle_state::BundleRetention, inspector_handle_register, inspectors::TracerEip3155, primitives::{BlockEnv, TxEnv, B256, U256}, Evm
 };
 use std::collections::HashMap;
 // Rename imported types for clarity
@@ -38,8 +35,6 @@ pub fn execute_tx(
     let tx_env = tx_env(tx);
     let mut state = evm_state(store);
     let tx_result = run_evm(tx_env, block_env, &mut state, spec_id)?;
-    state.merge_transitions(revm::db::states::bundle_state::BundleRetention::Reverts);
-    let bundle = state.bundle_state;
     Ok(tx_result.into())
 }
 
@@ -65,6 +60,13 @@ pub fn run_evm(
         evm.transact_commit().map_err(EvmError::from)?
     };
     Ok(tx_result.into())
+}
+
+// Merges transitions stored when executing transactions and applies the resulting changes to the DB
+pub fn apply_state_transitions(state: &mut EvmState) {
+    state.merge_transitions(BundleRetention::Reverts);
+    let _bundle = state.take_bundle();
+    // TODO: apply bundle to db
 }
 
 pub fn evm_state(store: Store) -> EvmState {
