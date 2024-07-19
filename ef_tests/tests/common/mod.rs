@@ -1,7 +1,10 @@
 use std::{collections::HashMap, path::Path};
 
 use ::ef_tests::types::TestUnit;
-use ethereum_rust_evm::{execute_tx, SpecId};
+use ef_tests::types::Account;
+use ethereum_rust_core::{types::Account as CoreAccount, Address};
+use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
+use ethereum_rust_storage::{EngineType, Store};
 
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
@@ -32,7 +35,7 @@ fn execute_test(test: &TestUnit) {
             .clone()
             .unwrap()
             .into(),
-        &pre,
+        &mut build_evm_state_from_prestate(&pre),
         SpecId::CANCUN,
     )
     .unwrap()
@@ -51,4 +54,17 @@ pub fn parse_and_execute_test_file(path: &Path) {
     for (_k, test) in tests {
         execute_test(&test)
     }
+}
+
+// Creates an in-memory DB for evm execution and loads the prestate accounts
+pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmState {
+    let mut store =
+        Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
+    for (address, account) in pre {
+        let account: CoreAccount = account.clone().into();
+        store
+            .add_account(*address, account)
+            .expect("Failed to write to test DB")
+    }
+    evm_state(store)
 }

@@ -3,11 +3,8 @@ mod errors;
 mod execution_result;
 
 use database::StoreWrapper;
-use ethereum_rust_core::{
-    types::{Account, BlockHeader, Transaction, TxKind},
-    Address,
-};
-use ethereum_rust_storage::{EngineType, Store};
+use ethereum_rust_core::types::{BlockHeader, Transaction, TxKind};
+use ethereum_rust_storage::Store;
 use revm::{
     db::states::bundle_state::BundleRetention,
     inspector_handle_register,
@@ -15,7 +12,6 @@ use revm::{
     primitives::{BlockEnv, TxEnv, B256, U256},
     Evm,
 };
-use std::collections::HashMap;
 // Rename imported types for clarity
 use revm::primitives::Address as RevmAddress;
 use revm::primitives::TxKind as RevmTxKind;
@@ -32,14 +28,12 @@ pub struct EvmState(revm::db::State<StoreWrapper>);
 pub fn execute_tx(
     tx: &Transaction,
     header: &BlockHeader,
-    _pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
+    state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let store = Store::new("temp.db", EngineType::InMemory).unwrap();
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
-    let mut state = evm_state(store);
-    let tx_result = run_evm(tx_env, block_env, &mut state, spec_id)?;
+    let tx_result = run_evm(tx_env, block_env, state, spec_id)?;
     Ok(tx_result.into())
 }
 
@@ -47,12 +41,12 @@ pub fn execute_tx(
 pub fn run_evm(
     tx_env: TxEnv,
     block_env: BlockEnv,
-    db: &mut EvmState,
+    state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
         let mut evm = Evm::builder()
-            .with_db(&mut db.0)
+            .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
             .with_spec_id(spec_id)
@@ -71,15 +65,18 @@ pub fn run_evm(
 pub fn apply_state_transitions(state: &mut EvmState) {
     state.0.merge_transitions(BundleRetention::Reverts);
     let _bundle = state.0.take_bundle();
-    // TODO: apply bundle to db
+    // TODO: Apply bundle to db
 }
 
+/// Builds EvmState from a Store
 pub fn evm_state(store: Store) -> EvmState {
-    EvmState(revm::db::State::builder()
-        .with_database(StoreWrapper(store))
-        .with_bundle_update()
-        .without_state_clear()
-        .build())
+    EvmState(
+        revm::db::State::builder()
+            .with_database(StoreWrapper(store))
+            .with_bundle_update()
+            .without_state_clear()
+            .build(),
+    )
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
