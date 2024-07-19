@@ -19,4 +19,4 @@ Cargo.lock
 
 .DS_Store
 
-ef_tests/vectors
+cmd/ef_tests/vectors
