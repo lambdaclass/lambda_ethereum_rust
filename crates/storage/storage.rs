@@ -16,6 +16,7 @@ use self::sled::Store as SledStore;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+    Transaction,
 };
 use ethereum_types::{Address, H256};
 use std::fmt::Debug;
@@ -123,12 +124,29 @@ pub trait StoreEngine: Debug + Send {
 
     /// Obtain account code via account address
     fn get_code_by_account_address(&self, address: Address) -> Result<Option<Bytes>, StoreError> {
-        let code_hash = match self.get_account_info(address) {
-            Ok(Some(acc_info)) => acc_info.code_hash,
-            Ok(None) => return Ok(None),
-            Err(error) => return Err(error),
+        let code_hash = match self.get_account_info(address)? {
+            Some(acc_info) => acc_info.code_hash,
+            None => return Ok(None),
         };
         self.get_account_code(code_hash)
+    }
+
+    fn get_transaction_by_hash(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<Transaction>, StoreError> {
+        let (block_number, index) = match self.get_transaction_location(transaction_hash)? {
+            Some(locations) => locations,
+            None => return Ok(None),
+        };
+        let block_body = match self.get_block_body(block_number)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(index
+            .try_into()
+            .ok()
+            .and_then(|index: usize| block_body.transactions.get(index).cloned()))
     }
 
     // Add storage value
@@ -362,6 +380,16 @@ impl Store {
             .lock()
             .unwrap()
             .get_receipt(block_number, index)
+    }
+
+    pub fn get_transaction_by_hash(
+        &self,
+        transaction_hash: H256,
+    ) -> Result<Option<Transaction>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_transaction_by_hash(transaction_hash)
     }
 
     pub fn add_storage_at(
