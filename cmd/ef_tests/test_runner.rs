@@ -1,11 +1,9 @@
 use std::{collections::HashMap, path::Path};
 
-use ::ef_tests::types::{Account, TestUnit};
+use crate::types::{Account, TestUnit};
 use ethereum_rust_core::{types::Account as CoreAccount, Address};
 use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
-
-use crate::types::TestUnit;
 
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
