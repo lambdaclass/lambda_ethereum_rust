@@ -1,9 +1,10 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransaction, TxKind,
+    code_hash, Account as ethereum_rustAccount, AccountInfo, Block as ethereum_rustBlock,
+    BlockBody, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
+    Transaction as ethereum_rustTransaction, TxKind, Withdrawal as ethereum_rustWithdrawal,
 };
-use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, H64, U256};
+use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -95,7 +96,36 @@ pub struct Block {
     pub rlp: Bytes,
     pub transactions: Option<Vec<Transaction>>,
     pub uncle_headers: Option<Vec<Header>>,
+    pub withdrawals: Option<Vec<Withdrawal>>,
     pub expect_exception: Option<String>,
+}
+
+impl From<Block> for ethereum_rustBlock {
+    fn from(val: Block) -> Self {
+        Self {
+            header: val.block_header.unwrap().into(),
+            body: BlockBody {
+                transactions: val
+                    .transactions
+                    .unwrap()
+                    .iter()
+                    .map(|t| t.clone().into())
+                    .collect(),
+                ommers: val
+                    .uncle_headers
+                    .unwrap()
+                    .iter()
+                    .map(|h| h.clone().into())
+                    .collect(),
+                withdrawals: val
+                    .withdrawals
+                    .unwrap()
+                    .iter()
+                    .map(|w| w.clone().into())
+                    .collect(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
@@ -115,11 +145,24 @@ pub struct Transaction {
     pub chain_id: Option<U256>,
     pub access_list: Option<AccessList>,
     pub max_fee_per_gas: Option<U256>,
+    pub max_fee_per_blob_gas: Option<U256>,
     pub max_priority_fee_per_gas: Option<U256>,
+    pub blob_versioned_hashes: Option<Vec<H256>>,
     pub hash: Option<H256>,
     pub sender: Address,
     #[serde(deserialize_with = "crate::serde_utils::h160::deser_hex_str")]
     pub to: Address,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Withdrawal {
+    #[serde(deserialize_with = "crate::serde_utils::u64::hex_str::deserialize")]
+    pub index: u64,
+    #[serde(deserialize_with = "crate::serde_utils::u64::hex_str::deserialize")]
+    pub validator_index: u64,
+    pub address: Address,
+    pub amount: U256,
 }
 
 // Conversions between EFtests & ethereum_rust types
@@ -156,7 +199,9 @@ impl From<Transaction> for ethereum_rustTransaction {
         match val.transaction_type {
             Some(tx_type) => match tx_type.as_u64() {
                 0 => ethereum_rustTransaction::LegacyTransaction(val.into()),
+                1 => ethereum_rustTransaction::EIP2930Transaction(val.into()),
                 2 => ethereum_rustTransaction::EIP1559Transaction(val.into()),
+                3 => ethereum_rustTransaction::EIP4844Transaction(val.into()),
                 _ => unimplemented!(),
             },
             None => ethereum_rustTransaction::LegacyTransaction(val.into()),
@@ -176,7 +221,10 @@ impl From<Transaction> for EIP1559Transaction {
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(), // TODO: Consider converting this into Option
             gas_limit: val.gas_limit.as_u64(),
-            to: TxKind::Call(val.to),
+            to: match val.to {
+                zero if zero == H160::zero() => TxKind::Create,
+                _ => TxKind::Call(val.to),
+            },
             value: val.value,
             data: val.data,
             access_list: val
@@ -192,18 +240,87 @@ impl From<Transaction> for EIP1559Transaction {
     }
 }
 
+impl From<Transaction> for EIP4844Transaction {
+    fn from(val: Transaction) -> Self {
+        EIP4844Transaction {
+            chain_id: val.chain_id.map(|id: U256| id.as_u64()).unwrap_or(1), // TODO: Consider converting this into Option
+            nonce: val.nonce.as_u64(),
+            max_priority_fee_per_gas: val.max_priority_fee_per_gas.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
+            max_fee_per_gas: val
+                .max_fee_per_gas
+                .unwrap_or(val.gas_price.unwrap_or_default())
+                .as_u64(),
+            gas: val.gas_limit.as_u64(),
+            to: val.to,
+            value: val.value,
+            data: val.data,
+            access_list: val
+                .access_list
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| (a.address, a.storage_keys))
+                .collect(),
+            max_fee_per_blob_gas: val.max_fee_per_blob_gas.unwrap_or_default(),
+            blob_versioned_hashes: val.blob_versioned_hashes.unwrap_or_default(),
+            signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
+            signature_r: val.r,
+            signature_s: val.s,
+        }
+    }
+}
+
 impl From<Transaction> for LegacyTransaction {
     fn from(val: Transaction) -> Self {
         LegacyTransaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas: val.gas_limit.as_u64(),
-            to: TxKind::Call(val.to),
+            to: match val.to {
+                zero if zero == H160::zero() => TxKind::Create,
+                _ => TxKind::Call(val.to),
+            },
             value: val.value,
             data: val.data,
             v: val.v,
             r: val.r,
             s: val.s,
+        }
+    }
+}
+
+impl From<Transaction> for EIP2930Transaction {
+    fn from(val: Transaction) -> Self {
+        EIP2930Transaction {
+            chain_id: val.chain_id.map(|id: U256| id.as_u64()).unwrap_or(1),
+            nonce: val.nonce.as_u64(),
+            gas_price: val.gas_price.unwrap_or_default().as_u64(),
+            gas_limit: val.gas_limit.as_u64(),
+            to: match val.to {
+                zero if zero == H160::zero() => TxKind::Create,
+                _ => TxKind::Call(val.to),
+            },
+            value: val.value,
+            data: val.data,
+            access_list: val
+                .access_list
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| (a.address, a.storage_keys))
+                .collect(),
+            signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
+            signature_r: val.r,
+            signature_s: val.s,
+        }
+    }
+}
+
+impl From<Withdrawal> for ethereum_rustWithdrawal {
+    fn from(value: Withdrawal) -> Self {
+        ethereum_rustWithdrawal {
+            index: value.index,
+            validator_index: value.validator_index,
+            address: value.address,
+            amount: value.amount,
         }
     }
 }

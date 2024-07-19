@@ -3,23 +3,9 @@ use std::{collections::HashMap, path::Path};
 use crate::types::TestUnit;
 use ethereum_rust_core::{
     evm::{execute_tx, SpecId},
-    rlp::{error::RLPDecodeError, structs::Decoder},
-    types::{BlockHeader, Transaction, Withdrawal},
+    rlp::decode::RLPDecode,
+    types::Block,
 };
-
-/// Decodes a block and returns its header
-fn decode_block(rlp: &[u8]) -> Result<BlockHeader, RLPDecodeError> {
-    let decoder = Decoder::new(rlp)?;
-    let (block_header, decoder) = decoder.decode_field("block_header")?;
-    let (_transactions, decoder): (Vec<Transaction>, Decoder) =
-        decoder.decode_field("transactions")?;
-    let (_ommers, decoder): (Vec<BlockHeader>, Decoder) = decoder.decode_field("ommers")?;
-    let (_withdrawals, decoder): (Option<Vec<Withdrawal>>, Decoder) =
-        decoder.decode_optional_field();
-    let _remaining = decoder.finish()?;
-    Ok(block_header)
-}
-
 #[allow(unused)]
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
@@ -67,12 +53,20 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
 fn validate_test(test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
-    let block_header = decode_block(&genesis_rlp).unwrap();
-    assert_eq!(block_header, test.genesis_block_header.clone().into());
+    let decoded_block = Block::decode(&genesis_rlp).unwrap();
+    assert_eq!(
+        decoded_block.header,
+        test.genesis_block_header.clone().into()
+    );
 
     // check that blocks can be decoded
     for block in &test.blocks {
-        assert!(decode_block(block.rlp.as_ref()).is_ok() || block.expect_exception.is_some())
+        match Block::decode(block.rlp.as_ref()) {
+            Ok(decoded_block) => {
+                assert_eq!(decoded_block, (block.clone()).into())
+            }
+            Err(_) => assert!(block.expect_exception.is_some()),
+        }
     }
 }
 
@@ -81,6 +75,6 @@ pub fn parse_and_execute_test_file(path: &Path) {
 
     for (_k, test) in tests {
         validate_test(&test);
-        //execute_test(&test)
+        execute_test(&test)
     }
 }

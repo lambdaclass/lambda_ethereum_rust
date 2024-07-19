@@ -32,6 +32,29 @@ use lazy_static::lazy_static;
 lazy_static! {
     pub static ref DEFAULT_OMMERS_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
 }
+#[derive(PartialEq, Eq, Debug)]
+pub struct Block {
+    pub header: BlockHeader,
+    pub body: BlockBody,
+}
+
+impl RLPDecode for Block {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (header, decoder) = decoder.decode_field("header")?;
+        let (transactions, decoder) = decoder.decode_field("transactions")?;
+        let (ommers, decoder) = decoder.decode_field("ommers")?;
+        let (withdrawals, decoder) = decoder.decode_optional_field();
+        let remaining = decoder.finish()?;
+        let body = BlockBody {
+            transactions,
+            ommers,
+            withdrawals: withdrawals.unwrap_or_default(),
+        };
+        let block = Block { header, body };
+        Ok((block, remaining))
+    }
+}
 
 /// Header part of a block on the chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -284,11 +307,11 @@ impl BlockHeader {
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
     #[serde(with = "crate::serde_utils::u64::hex_str")]
-    index: u64,
+    pub index: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
-    validator_index: u64,
-    address: Address,
-    amount: U256,
+    pub validator_index: u64,
+    pub address: Address,
+    pub amount: U256,
 }
 
 impl RLPEncode for Withdrawal {
