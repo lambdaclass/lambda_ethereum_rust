@@ -11,4 +11,4 @@ bytes.workspace = true
 thiserror.workspace = true
 
 [lib]
-path = "lib.rs"
+path = "./evm.rs"
