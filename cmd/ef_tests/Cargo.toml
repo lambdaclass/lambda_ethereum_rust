@@ -15,6 +15,9 @@ hex.workspace = true
 [dev-dependencies]
 datatest-stable = "0.2.9"
 
+[lib]
+path = "./ef_tests.rs"
+
 [[test]]
 name = "cancun"
 harness = false

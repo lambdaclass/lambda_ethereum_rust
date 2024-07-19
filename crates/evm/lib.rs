@@ -33,8 +33,7 @@ pub fn execute_tx(
 ) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
-    let tx_result = run_evm(tx_env, block_env, state, spec_id)?;
-    Ok(tx_result.into())
+    run_evm(tx_env, block_env, state, spec_id)
 }
 
 /// Runs EVM, doesn't perform state transitions
