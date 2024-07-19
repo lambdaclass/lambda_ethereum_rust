@@ -9,7 +9,10 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::{EngineType, Store};
 use revm::{
-    inspector_handle_register, inspectors::TracerEip3155, primitives::{BlockEnv, Bytecode, TxEnv, B256, U256}, CacheState, DatabaseCommit, Evm
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    primitives::{BlockEnv, TxEnv, B256, U256},
+    Evm,
 };
 use std::collections::HashMap;
 // Rename imported types for clarity
@@ -20,6 +23,9 @@ pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
 
+// State used when running the EVM
+pub type EvmState = revm::db::State<StoreWrapper>;
+
 // Executes a single tx, doesn't perform state transitions
 pub fn execute_tx(
     tx: &Transaction,
@@ -27,28 +33,13 @@ pub fn execute_tx(
     _pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let state = StoreWrapper(Store::new("temp.db", EngineType::InMemory).unwrap());
+    let store = Store::new("temp.db", EngineType::InMemory).unwrap();
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
-    let mut state = revm::db::State::builder()
-        .with_database(state)
-        .with_bundle_update()
-        .without_state_clear()
-        .build();
-    let tx_result = {let mut evm = Evm::builder()
-        .with_db(&mut state)
-        .with_block_env(block_env)
-        .with_tx_env(tx_env)
-        .with_spec_id(spec_id)
-        .reset_handler()
-        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
-        .append_handler_register(inspector_handle_register)
-        .build();
-        evm.transact_commit().map_err(EvmError::from)?
-    };
+    let mut state = evm_state(store);
+    let tx_result = run_evm(tx_env, block_env, &mut state, spec_id)?;
     state.merge_transitions(revm::db::states::bundle_state::BundleRetention::Reverts);
     let bundle = state.bundle_state;
-
     Ok(tx_result.into())
 }
 
@@ -59,18 +50,29 @@ pub fn run_evm(
     db: &mut revm::db::State<StoreWrapper>,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let tx_result = {let mut evm = Evm::builder()
-        .with_db(db)
-        .with_block_env(block_env)
-        .with_tx_env(tx_env)
-        .with_spec_id(spec_id)
-        .reset_handler()
-        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
-        .append_handler_register(inspector_handle_register)
-        .build();
+    let tx_result = {
+        let mut evm = Evm::builder()
+            .with_db(db)
+            .with_block_env(block_env)
+            .with_tx_env(tx_env)
+            .with_spec_id(spec_id)
+            .reset_handler()
+            .with_external_context(
+                TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
+            )
+            .append_handler_register(inspector_handle_register)
+            .build();
         evm.transact_commit().map_err(EvmError::from)?
     };
     Ok(tx_result.into())
+}
+
+pub fn evm_state(store: Store) -> EvmState {
+    revm::db::State::builder()
+        .with_database(StoreWrapper(store))
+        .with_bundle_update()
+        .without_state_clear()
+        .build()
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
