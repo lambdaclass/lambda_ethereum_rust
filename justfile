@@ -21,7 +21,7 @@ build_image:
 
 spectest_version := "v2.1.1"
 spectest_artifact := "tests_" + spectest_version + ".tar.gz"
-spectest_vectors_dir := "ef_tests/vectors"
+spectest_vectors_dir := "cmd/ef_tests/vectors"
 
 download-vectors: clean-vectors
     curl -L -o {{spectest_artifact}} "https://github.com/ethereum/execution-spec-tests/releases/download/{{spectest_version}}/fixtures_develop.tar.gz"
