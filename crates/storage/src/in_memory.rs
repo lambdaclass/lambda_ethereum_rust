@@ -14,11 +14,12 @@ pub struct Store {
     bodies: HashMap<BlockNumber, BlockBody>,
     headers: HashMap<BlockNumber, BlockHeader>,
     values: HashMap<Key, Value>,
+    // Maps code hashes to code
+    account_codes: HashMap<H256, Bytes>,
+    account_storages: HashMap<Address, HashMap<H256, H256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
-    // Maps code hashes to code
-    account_codes: HashMap<H256, Bytes>,
 }
 
 impl Store {
@@ -137,6 +138,28 @@ impl StoreEngine for Store {
 
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
         Ok(self.account_codes.get(&code_hash).cloned())
+    }
+
+    fn add_storage_at(
+        &mut self,
+        address: Address,
+        storage_key: H256,
+        storage_value: H256,
+    ) -> Result<(), StoreError> {
+        let entry = self.account_storages.entry(address).or_default();
+        entry.insert(storage_key, storage_value);
+        Ok(())
+    }
+
+    fn get_storage_at(
+        &self,
+        address: Address,
+        storage_key: H256,
+    ) -> Result<Option<H256>, StoreError> {
+        Ok(self
+            .account_storages
+            .get(&address)
+            .and_then(|entry| entry.get(&storage_key).cloned()))
     }
 }
 
