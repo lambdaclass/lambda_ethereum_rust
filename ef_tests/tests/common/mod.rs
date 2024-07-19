@@ -28,6 +28,7 @@ fn decode_block(rlp: &[u8]) -> Result<BlockHeader, RLPDecodeError> {
     Ok(block_header)
 }
 
+#[allow(unused)]
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
     let transaction = test

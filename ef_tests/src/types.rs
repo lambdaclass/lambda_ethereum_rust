@@ -1,6 +1,4 @@
 use bytes::Bytes;
-use ethereum_rust_core::rlp::decode::RLPDecode;
-use ethereum_rust_core::rlp::structs::Decoder;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, EIP1559Transaction, LegacyTransaction,
     Transaction as ethereum_rustTransaction, TxKind,
@@ -57,22 +55,6 @@ pub struct Env {
 pub struct AccessListItem {
     pub address: Address,
     pub storage_keys: Vec<H256>,
-}
-
-impl RLPDecode for AccessListItem {
-    fn decode_unfinished(
-        rlp: &[u8],
-    ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
-        let (address, decoder) = decoder.decode_field("address")?;
-        let (storage_keys, decoder) = decoder.decode_field("storage_keys")?;
-        let remaining = decoder.finish()?;
-        let item = AccessListItem {
-            address,
-            storage_keys,
-        };
-        Ok((item, remaining))
-    }
 }
 
 pub type AccessList = Vec<AccessListItem>;

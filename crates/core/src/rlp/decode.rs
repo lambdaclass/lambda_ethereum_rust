@@ -159,10 +159,8 @@ impl RLPDecode for crate::H264 {
 
 impl RLPDecode for crate::Address {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        match RLPDecode::decode_unfinished(rlp) {
-            Ok((value, rest)) => Ok((crate::H160(value), rest)),
-            Err(err) => Err(err),
-        }
+        let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
+        Ok((crate::H160(value), rest))
     }
 }
 
