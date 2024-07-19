@@ -14,8 +14,8 @@ pub struct TestUnit {
     pub info: Option<serde_json::Value>,
     pub blocks: Vec<Block>,
     pub genesis_block_header: Header,
-    #[serde(rename = "genesisRLP")]
-    pub genesis_rlp: String,
+    #[serde(rename = "genesisRLP", with = "ethereum_rust_core::serde_utils::bytes")]
+    pub genesis_rlp: Bytes,
     pub lastblockhash: serde_json::Value,
     pub network: serde_json::Value,
     pub post_state: serde_json::Value,

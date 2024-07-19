@@ -6,14 +6,6 @@ use ethereum_rust_core::{
     rlp::{error::RLPDecodeError, structs::Decoder},
     types::{BlockHeader, Transaction, Withdrawal},
 };
-use std::num::ParseIntError;
-
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-        .collect()
-}
 
 /// Decodes a block and returns its header
 fn decode_block(rlp: &[u8]) -> Result<BlockHeader, RLPDecodeError> {
@@ -74,9 +66,8 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
 
 fn validate_test(test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
-    let genesis_rlp_as_string = test.genesis_rlp.clone();
-    let genesis_rlp_bytes = decode_hex(&genesis_rlp_as_string.clone()[2..]).unwrap();
-    let block_header = decode_block(&genesis_rlp_bytes).unwrap();
+    let genesis_rlp = test.genesis_rlp.clone();
+    let block_header = decode_block(&genesis_rlp).unwrap();
     assert_eq!(block_header, test.genesis_block_header.clone().into());
 
     // check that blocks can be decoded
