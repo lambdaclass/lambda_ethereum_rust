@@ -9,14 +9,10 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::{EngineType, Store};
 use revm::{
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{BlockEnv, Bytecode, TxEnv, B256, U256},
-    CacheState, Evm,
+    inspector_handle_register, inspectors::TracerEip3155, primitives::{BlockEnv, Bytecode, TxEnv, B256, U256}, CacheState, DatabaseCommit, Evm
 };
 use std::collections::HashMap;
 // Rename imported types for clarity
-use revm::primitives::AccountInfo as RevmAccountInfo;
 use revm::primitives::Address as RevmAddress;
 use revm::primitives::TxKind as RevmTxKind;
 // Export needed types
@@ -24,21 +20,22 @@ pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
 
+// Executes a single tx, doesn't perform state transitions
 pub fn execute_tx(
     tx: &Transaction,
     header: &BlockHeader,
     _pre: &HashMap<Address, Account>, // TODO: Modify this type when we have a defined State structure
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let mut state = StoreWrapper(Store::new("temp.db", EngineType::InMemory).unwrap());
+    let state = StoreWrapper(Store::new("temp.db", EngineType::InMemory).unwrap());
     let block_env = block_env(header);
     let tx_env = tx_env(tx);
-    // let cache_state = cache_state(pre);
-    // let mut state = revm::db::State::builder()
-    //     .with_cached_prestate(cache_state)
-    //     .with_bundle_update()
-    //     .build();
-    let mut evm = Evm::builder()
+    let mut state = revm::db::State::builder()
+        .with_database(state)
+        .with_bundle_update()
+        .without_state_clear()
+        .build();
+    let tx_result = {let mut evm = Evm::builder()
         .with_db(&mut state)
         .with_block_env(block_env)
         .with_tx_env(tx_env)
@@ -47,28 +44,33 @@ pub fn execute_tx(
         .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .append_handler_register(inspector_handle_register)
         .build();
-    let tx_result = evm.transact().map_err(EvmError::from)?;
-    Ok(tx_result.result.into())
+        evm.transact_commit().map_err(EvmError::from)?
+    };
+    state.merge_transitions(revm::db::states::bundle_state::BundleRetention::Reverts);
+    let bundle = state.bundle_state;
+
+    Ok(tx_result.into())
 }
 
-fn cache_state(pre: &HashMap<Address, Account>) -> CacheState {
-    let mut cache_state = revm::CacheState::new(false);
-    for (address, account) in pre {
-        let acc_info = RevmAccountInfo {
-            balance: U256::from_limbs(account.info.balance.0),
-            code_hash: account.info.code_hash.0.into(),
-            code: Some(Bytecode::new_raw(account.code.clone().into())),
-            nonce: account.info.nonce,
-        };
-
-        let mut storage = HashMap::new();
-        for (k, v) in &account.storage {
-            storage.insert(U256::from_be_bytes(k.0), U256::from_be_bytes(v.0));
-        }
-
-        cache_state.insert_account_with_storage(address.to_fixed_bytes().into(), acc_info, storage);
-    }
-    cache_state
+/// Runs EVM, doesn't perform state transitions
+pub fn run_evm(
+    tx_env: TxEnv,
+    block_env: BlockEnv,
+    db: &mut revm::db::State<StoreWrapper>,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    let tx_result = {let mut evm = Evm::builder()
+        .with_db(db)
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .reset_handler()
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
+        .append_handler_register(inspector_handle_register)
+        .build();
+        evm.transact_commit().map_err(EvmError::from)?
+    };
+    Ok(tx_result.into())
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
