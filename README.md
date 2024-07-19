@@ -81,14 +81,37 @@ kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.
 
 ### Milestone 1: RPC Node
 Add support to participate in a Cancun localnet as a read-only node.
+
+RPC endpoints
+- `engine_newPayloadV3` (partially)
+- `eth_getBlockByHash`
+- `eth_getBlockByNumber`
+- `eth_blockNumber`
+- `eth_getBlockReceipts`
+- `eth_getBlockTransactionCountByNumber`
+- `eth_getTransactionByBlockHashAndIndex`
+- `eth_getTransactionByBlockNumberAndIndex`
+
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/1
 
 ### Milestone 2: P2P Network
 Implement DevP2P protocol, including RLPx and `eth` capability.
+
+RPC endpoints
+- `eth_getBalance`
+- `eth_getCode`
+- `eth_getStorageAt`
+- `eth_getProof`
+
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 
-### Milestone 3: Snap Sync
-TBD
+### Milestone 3: Syncing
+Support snap sync on all major public networks
 
+RPC endpoints
+- `eth_syncing`
+- `engine_forkchoiceUpdatedV3`
+- `engine_newPayloadV3`
 
+See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
 
