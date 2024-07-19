@@ -1,14 +1,15 @@
 [workspace]
 members = [
-    "ethereum_rust",
     "crates/consensus",
     "crates/core",
     "crates/net",
     "crates/rpc",
     "crates/storage",
-    "ef_tests",
+    "cmd/ethereum_rust",
+    "cmd/ef_tests",
 ]
 resolver = "2"
+default-members = ["cmd/ethereum_rust"]
 
 [workspace.package]
 version = "0.1.0"

@@ -209,6 +209,23 @@ impl StoreEngine for Store {
     ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
         todo!()
     }
+
+    fn add_storage_at(
+        &mut self,
+        _address: Address,
+        _storage_key: H256,
+        _storage_value: H256,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
+
+    fn get_storage_at(
+        &self,
+        _address: Address,
+        _storage_key: H256,
+    ) -> Result<Option<H256>, StoreError> {
+        todo!()
+    }
 }
 
 impl Debug for Store {
