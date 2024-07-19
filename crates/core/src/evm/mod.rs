@@ -83,6 +83,14 @@ fn block_env(header: &BlockHeader) -> BlockEnv {
 }
 
 fn tx_env(tx: &Transaction) -> TxEnv {
+    let mut max_fee_per_blob_gas_bytes: [u8; 32] = [0; 32];
+    let max_fee_per_blob_gas = match tx.max_fee_per_blob_gas() {
+        Some(x) => {
+            x.to_big_endian(&mut max_fee_per_blob_gas_bytes);
+            Some(U256::from_be_bytes(max_fee_per_blob_gas_bytes))
+        }
+        None => None,
+    };
     TxEnv {
         caller: RevmAddress(tx.sender().0.into()),
         gas_limit: tx.gas_limit(),
@@ -108,7 +116,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .into_iter()
             .map(|hash| B256::from(hash.0))
             .collect(),
-        max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(|x| U256::from(x)),
+        max_fee_per_blob_gas,
     }
 }
 

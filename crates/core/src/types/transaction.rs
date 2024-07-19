@@ -78,7 +78,7 @@ pub struct EIP4844Transaction {
     pub value: U256,
     pub data: Bytes,
     pub access_list: Vec<(Address, Vec<H256>)>,
-    pub max_fee_per_blob_gas: u64,
+    pub max_fee_per_blob_gas: U256,
     pub blob_versioned_hashes: Vec<H256>,
     pub signature_y_parity: bool,
     pub signature_r: U256,
@@ -578,7 +578,7 @@ impl Transaction {
         }
     }
 
-    pub fn max_fee_per_blob_gas(&self) -> Option<u64> {
+    pub fn max_fee_per_blob_gas(&self) -> Option<U256> {
         match self {
             Transaction::LegacyTransaction(_tx) => None,
             Transaction::EIP2930Transaction(_tx) => None,
