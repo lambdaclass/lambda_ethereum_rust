@@ -36,7 +36,7 @@ pub fn execute_tx(
     run_evm(tx_env, block_env, state, spec_id)
 }
 
-/// Runs EVM, doesn't perform state transitions
+/// Runs EVM, doesn't perform state transitions, but stores them
 pub fn run_evm(
     tx_env: TxEnv,
     block_env: BlockEnv,
