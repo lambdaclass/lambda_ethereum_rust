@@ -9,7 +9,11 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::{EngineType, Store};
 use revm::{
-    db::states::bundle_state::BundleRetention, inspector_handle_register, inspectors::TracerEip3155, primitives::{BlockEnv, TxEnv, B256, U256}, Evm
+    db::states::bundle_state::BundleRetention,
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    primitives::{BlockEnv, TxEnv, B256, U256},
+    Evm,
 };
 use std::collections::HashMap;
 // Rename imported types for clarity
@@ -20,8 +24,9 @@ pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
 
-// State used when running the EVM
-pub type EvmState = revm::db::State<StoreWrapper>;
+/// State used when running the EVM
+// Encapsulates state behaviour to be agnostic to the evm implementation for crate users
+pub struct EvmState(revm::db::State<StoreWrapper>);
 
 // Executes a single tx, doesn't perform state transitions
 pub fn execute_tx(
@@ -42,12 +47,12 @@ pub fn execute_tx(
 pub fn run_evm(
     tx_env: TxEnv,
     block_env: BlockEnv,
-    db: &mut revm::db::State<StoreWrapper>,
+    db: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
         let mut evm = Evm::builder()
-            .with_db(db)
+            .with_db(&mut db.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
             .with_spec_id(spec_id)
@@ -64,17 +69,17 @@ pub fn run_evm(
 
 // Merges transitions stored when executing transactions and applies the resulting changes to the DB
 pub fn apply_state_transitions(state: &mut EvmState) {
-    state.merge_transitions(BundleRetention::Reverts);
-    let _bundle = state.take_bundle();
+    state.0.merge_transitions(BundleRetention::Reverts);
+    let _bundle = state.0.take_bundle();
     // TODO: apply bundle to db
 }
 
 pub fn evm_state(store: Store) -> EvmState {
-    revm::db::State::builder()
+    EvmState(revm::db::State::builder()
         .with_database(StoreWrapper(store))
         .with_bundle_update()
         .without_state_clear()
-        .build()
+        .build())
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
