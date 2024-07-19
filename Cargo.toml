@@ -9,6 +9,7 @@ members = [
     "cmd/ef_tests",
 ]
 resolver = "2"
+default-members = ["cmd/ethereum_rust"]
 
 [workspace.package]
 version = "0.1.0"

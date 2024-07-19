@@ -24,3 +24,6 @@ rand = "0.8.5"
 
 [dev-dependencies]
 hex-literal = "0.4.1"
+
+[lib]
+path = "./net.rs"

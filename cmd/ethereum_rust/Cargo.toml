@@ -16,3 +16,7 @@ tracing-subscriber.workspace = true
 clap = { version = "4.5.4", features = ["cargo"] }
 serde_json.workspace = true
 tokio = { version = "1.38.0", features = ["full"] }
+
+[[bin]]
+name = "ethereum_rust"
+path = "./ethereum_rust.rs"
