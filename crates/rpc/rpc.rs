@@ -7,7 +7,7 @@ use eth::{
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
         GetBlockTransactionCountByNumberRequest, GetTransactionByBlockHashAndIndexRequest,
-        GetTransactionByBlockNumberAndIndexRequest,
+        GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
     },
     client,
 };
@@ -123,6 +123,11 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_getBlockReceipts" => {
             let request = GetBlockReceiptsRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             block::get_block_receipts(&request, storage)
+        }
+        "eth_getTransactionByHash" => {
+            let request =
+                GetTransactionByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_transaction_by_hash(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
