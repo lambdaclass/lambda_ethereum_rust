@@ -116,12 +116,3 @@ fn tx_env(tx: &Transaction) -> TxEnv {
         max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
     }
 }
-
-// impl From<TxKind> for RevmTxKind {
-//     fn from(val: TxKind) -> Self {
-//         match val {
-//             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
-//             TxKind::Create => RevmTxKind::Create,
-//         }
-//     }
-// }
