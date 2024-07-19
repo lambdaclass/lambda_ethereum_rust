@@ -23,25 +23,25 @@ We believe this approach is the best way to build a client that is both fast and
 ### Build
 
 To build the main executable and its crates, run:
-```
+```bash
 just build
 ```
 
 ### Test
 To run the tests from a crate, run:
-```
+```bash
 just test <crate>
 ```
 
 Or just run all the tests:
-```
+```bash
 just test-all
 ```
 
 ### Run
 
 To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client.
-```
+```bash
 # Make sure to have docker installed
 
 # Kurtosis cli
@@ -56,12 +56,12 @@ git checkout ethereum-rust-integration
 ```
 
 Create a `network_params.yaml` to set up the localnet
-```
+```yaml
 participants:
   - el_type: geth
     cl_type: lighthouse
     count: 2
-  - el_type: ethereumrust
+  - el_type: ethereum_rust
     cl_type: lighthouse
     vc_count: 0
     validator_count: 0
@@ -106,7 +106,7 @@ RPC endpoints
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 
 ### Milestone 3: Syncing
-Support snap sync on all major public networks
+Support snap sync on public testnets and mainnet.
 
 RPC endpoints
 - `eth_syncing`
@@ -114,4 +114,3 @@ RPC endpoints
 - `engine_newPayloadV3`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
-
