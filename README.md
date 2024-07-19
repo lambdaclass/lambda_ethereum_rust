@@ -69,7 +69,7 @@ participants:
 ```
 
 Run the localnet
-```
+```bash
 # Make sure we build our docker image with latest changes
 docker build -t ethereum_rust .
 
