@@ -15,6 +15,7 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         .collect()
 }
 
+/// Decodes a block and returns its header
 fn decode_block(rlp: &[u8]) -> Result<BlockHeader, RLPDecodeError> {
     let decoder = Decoder::new(rlp)?;
     let (block_header, decoder) = decoder.decode_field("block_header")?;
@@ -78,9 +79,9 @@ fn validate_test(test: &TestUnit) {
     assert_eq!(block_header, test.genesis_block_header.clone().into());
 
     // check that blocks can be decoded
-    let block = test.blocks.first().unwrap();
-    let _decoded = decode_block(block.rlp.as_ref()).unwrap();
-    assert!(decode_block(block.rlp.as_ref()).is_ok());
+    for block in &test.blocks {
+        assert!(decode_block(block.rlp.as_ref()).is_ok() || block.expect_exception.is_some())
+    }
 }
 
 pub fn parse_and_execute_test_file(path: &Path) {

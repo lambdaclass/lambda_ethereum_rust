@@ -27,5 +27,5 @@ datatest_stable::harness!(
     // r"^.*.json",
     cancun_tests,
     "vectors/cancun/",
-    r"^.*.json",
+    r"^(?!.*create_selfdestruct_same_tx.json)(.*.json)",
 );

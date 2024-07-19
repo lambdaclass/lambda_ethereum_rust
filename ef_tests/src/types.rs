@@ -113,6 +113,7 @@ pub struct Block {
     pub rlp: Bytes,
     pub transactions: Option<Vec<Transaction>>,
     pub uncle_headers: Option<Vec<Header>>,
+    pub expect_exception: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
