@@ -64,7 +64,8 @@ pub fn run_evm(
 pub fn apply_state_transitions(state: &mut EvmState) {
     state.0.merge_transitions(BundleRetention::Reverts);
     let _bundle = state.0.take_bundle();
-    // TODO: Apply bundle to db
+    // TODO: Apply bundle to DB
+    unimplemented!("Apply state transitions to DB")
 }
 
 /// Builds EvmState from a Store
