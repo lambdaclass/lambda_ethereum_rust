@@ -66,6 +66,7 @@ fn run_evm(
     Ok(tx_result.into())
 }
 
+/// Runs the transaction and returns the access list for it
 pub fn create_access_list(
     tx: &Transaction,
     header: &BlockHeader,
@@ -82,6 +83,10 @@ pub fn create_access_list(
             .with_tx_env(tx_env)
             .with_spec_id(spec_id)
             .reset_handler()
+            .modify_cfg_env(|env| {
+                env.disable_base_fee = true;
+                env.disable_block_gas_limit = true
+            })
             .with_external_context(&access_list_inspector)
             .build();
         evm.transact().map_err(EvmError::from)?
