@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path};
 use crate::types::TestUnit;
 use ethereum_rust_core::{
     evm::{execute_tx, SpecId},
-    rlp::decode::RLPDecode,
+    rlp::{decode::RLPDecode, encode::RLPEncode},
     types::Block,
 };
 #[allow(unused)]
@@ -63,7 +63,10 @@ fn validate_test(test: &TestUnit) {
     for block in &test.blocks {
         match Block::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
-                assert_eq!(decoded_block, (block.clone()).into())
+                let mut rlp_block = Vec::new();
+                decoded_block.encode(&mut rlp_block);
+                assert_eq!(decoded_block, (block.clone()).into());
+                assert_eq!(rlp_block, block.rlp.to_vec());
             }
             Err(_) => assert!(block.expect_exception.is_some()),
         }

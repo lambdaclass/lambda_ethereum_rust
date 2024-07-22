@@ -38,6 +38,17 @@ pub struct Block {
     pub body: BlockBody,
 }
 
+impl RLPEncode for Block {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.header)
+            .encode_field(&self.body.transactions)
+            .encode_field(&self.body.ommers)
+            .encode_field(&self.body.withdrawals)
+            .finish();
+    }
+}
+
 impl RLPDecode for Block {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
