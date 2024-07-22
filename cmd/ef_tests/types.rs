@@ -186,10 +186,10 @@ impl From<Header> for BlockHeader {
             prev_randao: val.mix_hash,
             nonce: val.nonce.to_low_u64_be(),
             base_fee_per_gas: val.base_fee_per_gas.unwrap().as_u64(),
-            withdrawals_root: val.withdrawals_root.unwrap_or_default(),
-            blob_gas_used: val.blob_gas_used.unwrap_or_default().as_u64(),
-            excess_blob_gas: val.excess_blob_gas.unwrap_or_default().as_u64(),
-            parent_beacon_block_root: val.parent_beacon_block_root.unwrap_or_default(),
+            withdrawals_root: val.withdrawals_root,
+            blob_gas_used: val.blob_gas_used.map(|x| x.as_u64()),
+            excess_blob_gas: val.excess_blob_gas.map(|x| x.as_u64()),
+            parent_beacon_block_root: val.parent_beacon_block_root,
         }
     }
 }

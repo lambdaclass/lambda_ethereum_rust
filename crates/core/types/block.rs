@@ -68,7 +68,7 @@ impl RLPDecode for Block {
 }
 
 /// Header part of a block on the chain.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
@@ -97,12 +97,12 @@ pub struct BlockHeader {
     pub nonce: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub base_fee_per_gas: u64,
-    pub withdrawals_root: H256,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub blob_gas_used: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub excess_blob_gas: u64,
-    pub parent_beacon_block_root: H256,
+    pub withdrawals_root: Option<H256>,
+    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    pub blob_gas_used: Option<u64>,
+    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    pub excess_blob_gas: Option<u64>,
+    pub parent_beacon_block_root: Option<H256>,
 }
 
 impl RLPEncode for BlockHeader {
@@ -124,10 +124,10 @@ impl RLPEncode for BlockHeader {
             .encode_field(&self.prev_randao)
             .encode_field(&self.nonce.to_be_bytes())
             .encode_field(&self.base_fee_per_gas)
-            .encode_field(&self.withdrawals_root)
-            .encode_field(&self.blob_gas_used)
-            .encode_field(&self.excess_blob_gas)
-            .encode_field(&self.parent_beacon_block_root)
+            .encode_optional_field(&self.withdrawals_root)
+            .encode_optional_field(&self.blob_gas_used)
+            .encode_optional_field(&self.excess_blob_gas)
+            .encode_optional_field(&self.parent_beacon_block_root)
             .finish();
     }
 }
@@ -175,10 +175,10 @@ impl RLPDecode for BlockHeader {
                 prev_randao,
                 nonce,
                 base_fee_per_gas,
-                withdrawals_root: withdrawals_root.unwrap_or_default(),
-                blob_gas_used: blob_gas_used.unwrap_or_default(),
-                excess_blob_gas: excess_blob_gas.unwrap_or_default(),
-                parent_beacon_block_root: parent_beacon_block_root.unwrap_or_default(),
+                withdrawals_root,
+                blob_gas_used,
+                excess_blob_gas,
+                parent_beacon_block_root,
             },
             decoder.finish()?,
         ))
@@ -308,7 +308,7 @@ impl BlockHeader {
             block_hash: self.compute_block_hash(),
             block_number: self.number,
             gas_used: self.gas_used,
-            blob_gas_used: self.blob_gas_used,
+            blob_gas_used: self.blob_gas_used.unwrap_or_default(),
             root: self.state_root,
         }
     }
@@ -552,13 +552,15 @@ mod test {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
         let block = BlockHeader {
             parent_hash: H256::from_str(
@@ -592,13 +594,15 @@ mod test {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
         assert!(validate_block_header(&block, &parent_block))
     }
@@ -637,13 +641,15 @@ mod test {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
 
         let tx = EIP1559Transaction {

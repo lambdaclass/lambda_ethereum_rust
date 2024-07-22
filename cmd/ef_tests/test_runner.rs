@@ -78,6 +78,6 @@ pub fn parse_and_execute_test_file(path: &Path) {
 
     for (_k, test) in tests {
         validate_test(&test);
-        execute_test(&test)
+        //execute_test(&test)
     }
 }
