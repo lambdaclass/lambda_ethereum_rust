@@ -3,10 +3,17 @@ mod errors;
 mod execution_result;
 
 use db::StoreWrapper;
-use ethereum_rust_core::types::{BlockHeader, Transaction, TxKind};
+use ethereum_rust_core::{
+    types::{BlockHeader, Transaction, TxKind},
+    Address, H256,
+};
 use ethereum_rust_storage::Store;
 use revm::{
-    db::states::bundle_state::BundleRetention, inspector_handle_register, inspectors::TracerEip3155, primitives::{BlockEnv, TxEnv, B256, U256}, Database, Evm
+    db::states::bundle_state::BundleRetention,
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    primitives::{BlockEnv, TxEnv, B256, U256},
+    Database, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
@@ -16,6 +23,7 @@ use revm::primitives::TxKind as RevmTxKind;
 pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
+use revm_primitives::{AccessList, AccessListItem};
 
 /// State used when running the EVM
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
@@ -62,35 +70,59 @@ pub fn create_access_list(
     header: &BlockHeader,
     state: &mut EvmState,
     spec_id: SpecId,
-) -> Result<ExecutionResult, EvmError> {
+) -> Result<(ExecutionResult, Vec<(Address, Vec<H256>)>), EvmError> {
     let tx_env = tx_env(tx);
     let block_env = block_env(header);
     let access_list_inspector = AccessListInspector::new(
-        AccessList(tx_env.access_list),
+        AccessList(
+            tx_env
+                .access_list
+                .iter()
+                .map(|(addr, list)| AccessListItem {
+                    address: *addr,
+                    storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
+                })
+                .collect(),
+        ),
         tx_env.caller,
         match tx_env.transact_to {
             RevmTxKind::Create => {
-                state.0.basic(tx_env.caller)?.nonce;
-                tx_env.caller.create(tx_env.nonce.unwrap_or_default())
-            },
+                let nonce = state
+                    .0
+                    .basic(tx_env.caller)?
+                    .map(|info| info.nonce)
+                    .unwrap_or_default();
+                tx_env.caller.create(nonce)
+            }
             RevmTxKind::Call(address) => address,
         },
-        precompiles
+        None, //Todo: add cancum precompile addresses
     );
-        let tx_result = {let mut evm = Evm::builder()
+    let tx_result = {
+        let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
             .with_spec_id(spec_id)
             .reset_handler()
-            .with_external_context(
-                &access_list_inspector,
-            )
+            .with_external_context(&access_list_inspector)
             .build();
-        evm.transact_commit().map_err(EvmError::from)?
-        };
-        let access_list = access_list_inspector.into_access_list();
-    Ok(tx_result.into())
+        evm.transact().map_err(EvmError::from)?
+    };
+    let access_list = access_list_inspector.into_access_list();
+    let access_list: Vec<(Address, Vec<H256>)> = access_list
+        .iter()
+        .map(|item| {
+            (
+                Address::from_slice(item.address.0.as_slice()),
+                item.storage_keys
+                    .iter()
+                    .map(|v| H256::from_slice(v.as_slice()))
+                    .collect(),
+            )
+        })
+        .collect();
+    Ok((tx_result.result.into(), access_list))
 }
 
 // Merges transitions stored when executing transactions and applies the resulting changes to the DB

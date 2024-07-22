@@ -8,6 +8,7 @@ ethereum_rust-core.workspace = true
 ethereum_rust-storage.workspace = true
 revm = { version = "10.0.0", features = ["serde", "std", "serde-json"] }
 revm-inspectors = { version = "0.5.3" }
+revm-primitives = { version = "7.1.0" }
 bytes.workspace = true
 thiserror.workspace = true
 
