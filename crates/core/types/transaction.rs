@@ -989,4 +989,22 @@ mod tests {
         };
         assert_eq!(tx, expected_tx);
     }
+
+    #[test]
+    fn deserialize_tx_kind() {
+        let tx_kind_create = r#""""#;
+        let tx_kind_call = r#""0x6177843db3138ae69679A54b95cf345ED759450d""#;
+        let deserialized_tx_kind_create = TxKind::Create;
+        let deserialized_tx_kind_call = TxKind::Call(Address::from_slice(
+            &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+        ));
+        assert_eq!(
+            deserialized_tx_kind_create,
+            serde_json::from_str(tx_kind_create).unwrap()
+        );
+        assert_eq!(
+            deserialized_tx_kind_call,
+            serde_json::from_str(tx_kind_call).unwrap()
+        )
+    }
 }
