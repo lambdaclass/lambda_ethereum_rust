@@ -9,11 +9,7 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::Store;
 use revm::{
-    db::states::bundle_state::BundleRetention,
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{BlockEnv, TxEnv, B256, U256},
-    Database, Evm,
+    db::states::bundle_state::BundleRetention, inspector_handle_register, inspectors::TracerEip3155, precompile::{PrecompileSpecId, Precompiles}, primitives::{BlockEnv, TxEnv, B256, U256}, Database, Evm
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
@@ -96,7 +92,7 @@ pub fn create_access_list(
             }
             RevmTxKind::Call(address) => address,
         },
-        None, //Todo: add cancum precompile addresses
+        Precompiles::new(PrecompileSpecId::from_spec_id(spec_id)).clone().into_addresses(),
     );
     let tx_result = {
         let mut evm = Evm::builder()
