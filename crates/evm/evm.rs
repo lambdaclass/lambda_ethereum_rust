@@ -9,7 +9,12 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::Store;
 use revm::{
-    db::states::bundle_state::BundleRetention, inspector_handle_register, inspectors::TracerEip3155, precompile::{PrecompileSpecId, Precompiles}, primitives::{BlockEnv, TxEnv, B256, U256}, Database, Evm
+    db::states::bundle_state::BundleRetention,
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    precompile::{PrecompileSpecId, Precompiles},
+    primitives::{BlockEnv, TxEnv, B256, U256},
+    Database, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
@@ -69,31 +74,7 @@ pub fn create_access_list(
 ) -> Result<(ExecutionResult, Vec<(Address, Vec<H256>)>), EvmError> {
     let tx_env = tx_env(tx);
     let block_env = block_env(header);
-    let access_list_inspector = AccessListInspector::new(
-        AccessList(
-            tx_env
-                .access_list
-                .iter()
-                .map(|(addr, list)| AccessListItem {
-                    address: *addr,
-                    storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
-                })
-                .collect(),
-        ),
-        tx_env.caller,
-        match tx_env.transact_to {
-            RevmTxKind::Create => {
-                let nonce = state
-                    .0
-                    .basic(tx_env.caller)?
-                    .map(|info| info.nonce)
-                    .unwrap_or_default();
-                tx_env.caller.create(nonce)
-            }
-            RevmTxKind::Call(address) => address,
-        },
-        Precompiles::new(PrecompileSpecId::from_spec_id(spec_id)).clone().into_addresses(),
-    );
+    let access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
     let tx_result = {
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
@@ -184,4 +165,38 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .collect(),
         max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
     }
+}
+
+fn access_list_inspector(
+    tx_env: &TxEnv,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<AccessListInspector, EvmError> {
+    Ok(AccessListInspector::new(
+        AccessList(
+            tx_env
+                .access_list
+                .iter()
+                .map(|(addr, list)| AccessListItem {
+                    address: *addr,
+                    storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
+                })
+                .collect(),
+        ),
+        tx_env.caller,
+        match tx_env.transact_to {
+            RevmTxKind::Create => {
+                let nonce = state
+                    .0
+                    .basic(tx_env.caller)?
+                    .map(|info| info.nonce)
+                    .unwrap_or_default();
+                tx_env.caller.create(nonce)
+            }
+            RevmTxKind::Call(address) => address,
+        },
+        Precompiles::new(PrecompileSpecId::from_spec_id(spec_id))
+            .clone()
+            .into_addresses(),
+    ))
 }
