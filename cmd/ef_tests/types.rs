@@ -107,22 +107,22 @@ impl From<Block> for ethereum_rustBlock {
             body: BlockBody {
                 transactions: val
                     .transactions
-                    .unwrap()
+                    .unwrap_or_default()
                     .iter()
                     .map(|t| t.clone().into())
                     .collect(),
                 ommers: val
                     .uncle_headers
-                    .unwrap()
+                    .unwrap_or_default()
                     .iter()
                     .map(|h| h.clone().into())
                     .collect(),
-                withdrawals: val
-                    .withdrawals
-                    .unwrap()
-                    .iter()
-                    .map(|w| w.clone().into())
-                    .collect(),
+                withdrawals: match val.withdrawals {
+                    Some(withdrawals) => {
+                        withdrawals.iter().map(|w| Some(w.clone().into())).collect()
+                    }
+                    None => None,
+                },
             },
         }
     }

@@ -44,7 +44,7 @@ impl RLPEncode for Block {
             .encode_field(&self.header)
             .encode_field(&self.body.transactions)
             .encode_field(&self.body.ommers)
-            .encode_field(&self.body.withdrawals)
+            .encode_optional_field(&self.body.withdrawals)
             .finish();
     }
 }
@@ -60,7 +60,7 @@ impl RLPDecode for Block {
         let body = BlockBody {
             transactions,
             ommers,
-            withdrawals: withdrawals.unwrap_or_default(),
+            withdrawals,
         };
         let block = Block { header, body };
         Ok((block, remaining))
@@ -192,7 +192,7 @@ pub struct BlockBody {
     // TODO: ommers list is always empty, so we can remove it
     #[serde(rename(serialize = "uncles"))]
     pub ommers: Vec<BlockHeader>,
-    pub withdrawals: Vec<Withdrawal>,
+    pub withdrawals: Option<Vec<Withdrawal>>,
 }
 
 impl BlockBody {
@@ -200,7 +200,7 @@ impl BlockBody {
         Self {
             transactions: Vec::new(),
             ommers: Vec::new(),
-            withdrawals: Vec::new(),
+            withdrawals: Some(Vec::new()),
         }
     }
 
@@ -274,7 +274,7 @@ impl RLPEncode for BlockBody {
         Encoder::new(buf)
             .encode_field(&self.transactions)
             .encode_field(&self.ommers)
-            .encode_field(&self.withdrawals)
+            .encode_optional_field(&self.withdrawals)
             .finish();
     }
 }
@@ -284,7 +284,7 @@ impl RLPDecode for BlockBody {
         let decoder = Decoder::new(rlp)?;
         let (transactions, decoder) = decoder.decode_field("transactions")?;
         let (ommers, decoder) = decoder.decode_field("ommers")?;
-        let (withdrawals, decoder) = decoder.decode_field("withdrawals")?;
+        let (withdrawals, decoder) = decoder.decode_optional_field();
         Ok((
             BlockBody {
                 transactions,
@@ -471,7 +471,7 @@ mod serializable {
                 BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
                     transactions: body.transactions.iter().map(|t| t.compute_hash()).collect(),
                     uncles: body.ommers,
-                    withdrawals: body.withdrawals,
+                    withdrawals: body.withdrawals.unwrap(),
                 })
             };
             let hash = header.compute_block_hash();
@@ -685,7 +685,7 @@ mod test {
         let block_body = BlockBody {
             transactions: vec![Transaction::EIP1559Transaction(tx)],
             ommers: vec![],
-            withdrawals: vec![],
+            withdrawals: Some(vec![]),
         };
 
         let block = BlockSerializable::from_block(block_header, block_body, true);

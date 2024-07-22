@@ -113,11 +113,6 @@ impl RLPEncode for Transaction {
     /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
-            // Legacy transactions don't have a prefix
-            Transaction::LegacyTransaction(_) => {}
-            _ => buf.put_u8(self.tx_type() as u8),
-        }
-        match self {
             Transaction::LegacyTransaction(t) => t.encode(buf),
             Transaction::EIP2930Transaction(t) => t.encode(buf),
             Transaction::EIP1559Transaction(t) => t.encode(buf),
@@ -212,10 +207,18 @@ impl RLPEncode for LegacyTransaction {
             .finish();
     }
 }
+/// Receives an encoded transaction and its type and encodes both as a single rlp item
+/// that has: (tx_type || encoded_tx) as payload
+fn encode_tx_as_bytes(tx_type: u8, encoded_tx: &[u8], buf: &mut dyn bytes::BufMut) {
+    let tx = [&[tx_type], encoded_tx].concat();
+    let tx_as_bytes = Bytes::copy_from_slice(&tx);
+    tx_as_bytes.encode(buf);
+}
 
 impl RLPEncode for EIP2930Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
+        let mut tx_buf = Vec::new();
+        Encoder::new(&mut tx_buf)
             .encode_field(&self.chain_id)
             .encode_field(&self.nonce)
             .encode_field(&self.gas_price)
@@ -228,12 +231,15 @@ impl RLPEncode for EIP2930Transaction {
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
             .finish();
+
+        encode_tx_as_bytes(TxType::EIP2930 as u8, &tx_buf, buf);
     }
 }
 
 impl RLPEncode for EIP1559Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
+        let mut tx_buf = Vec::new();
+        Encoder::new(&mut tx_buf)
             .encode_field(&self.chain_id)
             .encode_field(&self.nonce)
             .encode_field(&self.max_priority_fee_per_gas)
@@ -247,12 +253,14 @@ impl RLPEncode for EIP1559Transaction {
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
             .finish();
+        encode_tx_as_bytes(TxType::EIP1559 as u8, &tx_buf, buf);
     }
 }
 
 impl RLPEncode for EIP4844Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
+        let mut tx_buf = Vec::new();
+        Encoder::new(&mut tx_buf)
             .encode_field(&self.chain_id)
             .encode_field(&self.nonce)
             .encode_field(&self.max_priority_fee_per_gas)
@@ -268,6 +276,8 @@ impl RLPEncode for EIP4844Transaction {
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
             .finish();
+
+        encode_tx_as_bytes(TxType::EIP4844 as u8, &tx_buf, buf);
     }
 }
 
