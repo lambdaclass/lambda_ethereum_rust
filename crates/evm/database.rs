@@ -43,17 +43,14 @@ impl revm::Database for StoreWrapper {
 
     #[doc = " Get storage value of address at index."]
     fn storage(&mut self, address: RevmAddress, index: RevmU256) -> Result<RevmU256, Self::Error> {
-        self.0
+        Ok(self
+            .0
             .get_storage_at(
                 CoreAddress::from(address.0.as_ref()),
                 CoreH256::from(index.to_be_bytes()),
             )?
             .map(|value| RevmU256::from_be_bytes(value.0))
-            .ok_or_else(|| {
-                StoreError::Custom(format!(
-                    "No storage value found for address: {address}, key: {index}"
-                ))
-            })
+            .unwrap_or_else(|| RevmU256::ZERO))
     }
 
     #[doc = " Get block hash by block number."]
