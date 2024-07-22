@@ -630,6 +630,7 @@ fn recover_address(
 
 mod serde_impl {
     use serde::Deserialize;
+    use std::str::FromStr;
 
     use super::*;
 
@@ -642,6 +643,24 @@ mod serde_impl {
                 TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
                 TxKind::Create => serializer.serialize_str(""),
             }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for TxKind {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let str = String::deserialize(deserializer)?;
+            Ok(if str.is_empty() {
+                TxKind::Create
+            } else {
+                TxKind::Call(
+                    Address::from_str(str.trim_start_matches("0x")).map_err(|_| {
+                        serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
+                    })?,
+                )
+            })
         }
     }
 
@@ -823,9 +842,12 @@ mod serde_impl {
     }
 
     #[derive(Deserialize)]
+    #[allow(unused)] //TODO: remove
     struct GenerictTransaction {
         #[serde(default)]
         r#type: TxType,
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        nonce: u64,
     }
 }
 
