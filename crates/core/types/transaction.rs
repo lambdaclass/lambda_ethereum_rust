@@ -87,8 +87,9 @@ pub struct EIP4844Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TxType {
+    #[default]
     Legacy = 0x00,
     EIP2930 = 0x01,
     EIP1559 = 0x02,
@@ -628,12 +629,14 @@ fn recover_address(
 // Serialization
 
 mod serde_impl {
+    use serde::Deserialize;
+
     use super::*;
 
     impl Serialize for TxKind {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
-            S: ::serde::Serializer,
+            S: serde::Serializer,
         {
             match self {
                 TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
@@ -648,6 +651,29 @@ mod serde_impl {
             S: serde::Serializer,
         {
             serializer.serialize_str(&format!("{:#x}", *self as u8))
+        }
+    }
+
+    impl<'de> Deserialize<'de> for TxType {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let str = String::deserialize(deserializer)?;
+            let tx_num = u8::from_str_radix(str.trim_start_matches("0x"), 16).map_err(|_| {
+                serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
+            })?;
+            Ok(match tx_num {
+                0 => TxType::Legacy,
+                1 => TxType::EIP2930,
+                2 => TxType::EIP1559,
+                3 => TxType::EIP4844,
+                _ => {
+                    return Err(serde::de::Error::custom(format!(
+                        "Invalid transaction type {tx_num}"
+                    )))
+                }
+            })
         }
     }
 
@@ -794,6 +820,12 @@ mod serde_impl {
             struct_serializer.serialize_field("s", &self.signature_s)?;
             struct_serializer.end()
         }
+    }
+
+    #[derive(Deserialize)]
+    struct GenerictTransaction {
+        #[serde(default)]
+        r#type: TxType,
     }
 }
 
