@@ -167,36 +167,43 @@ fn tx_env(tx: &Transaction) -> TxEnv {
     }
 }
 
+// Creates an AccessListInspector that will collect the accesses used by the evm execution
 fn access_list_inspector(
     tx_env: &TxEnv,
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<AccessListInspector, EvmError> {
+    // Access list provided by the transaction
+    let current_access_list = AccessList(
+        tx_env
+            .access_list
+            .iter()
+            .map(|(addr, list)| AccessListItem {
+                address: *addr,
+                storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
+            })
+            .collect(),
+    );
+    // Addresses accessed when using precompiles
+    let precompile_addresses = Precompiles::new(PrecompileSpecId::from_spec_id(spec_id))
+        .addresses()
+        .cloned();
+    // Address that is either called or created by the transaction
+    let to = match tx_env.transact_to {
+        RevmTxKind::Call(address) => address,
+        RevmTxKind::Create => {
+            let nonce = state
+                .0
+                .basic(tx_env.caller)?
+                .map(|info| info.nonce)
+                .unwrap_or_default();
+            tx_env.caller.create(nonce)
+        }
+    };
     Ok(AccessListInspector::new(
-        AccessList(
-            tx_env
-                .access_list
-                .iter()
-                .map(|(addr, list)| AccessListItem {
-                    address: *addr,
-                    storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
-                })
-                .collect(),
-        ),
+        current_access_list,
         tx_env.caller,
-        match tx_env.transact_to {
-            RevmTxKind::Create => {
-                let nonce = state
-                    .0
-                    .basic(tx_env.caller)?
-                    .map(|info| info.nonce)
-                    .unwrap_or_default();
-                tx_env.caller.create(nonce)
-            }
-            RevmTxKind::Call(address) => address,
-        },
-        Precompiles::new(PrecompileSpecId::from_spec_id(spec_id))
-            .clone()
-            .into_addresses(),
+        to,
+        precompile_addresses,
     ))
 }
