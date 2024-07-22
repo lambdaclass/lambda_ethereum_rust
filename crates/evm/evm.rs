@@ -1,8 +1,8 @@
-mod database;
+mod db;
 mod errors;
 mod execution_result;
 
-use database::StoreWrapper;
+use db::StoreWrapper;
 use ethereum_rust_core::types::{BlockHeader, Transaction, TxKind};
 use ethereum_rust_storage::Store;
 use revm::{

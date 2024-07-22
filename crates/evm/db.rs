@@ -8,10 +8,8 @@ use revm::primitives::{
 pub struct StoreWrapper(pub Store);
 
 impl revm::Database for StoreWrapper {
-    #[doc = " The database error type."]
     type Error = StoreError;
 
-    #[doc = " Get basic account information."]
     fn basic(&mut self, address: RevmAddress) -> Result<Option<RevmAccountInfo>, Self::Error> {
         let acc_info = match self
             .0
@@ -33,7 +31,6 @@ impl revm::Database for StoreWrapper {
         }))
     }
 
-    #[doc = " Get account code by its hash."]
     fn code_by_hash(&mut self, code_hash: RevmB256) -> Result<RevmBytecode, Self::Error> {
         self.0
             .get_account_code(CoreH256::from(code_hash.as_ref()))?
@@ -41,7 +38,6 @@ impl revm::Database for StoreWrapper {
             .ok_or_else(|| StoreError::Custom(format!("No code for hash {code_hash}")))
     }
 
-    #[doc = " Get storage value of address at index."]
     fn storage(&mut self, address: RevmAddress, index: RevmU256) -> Result<RevmU256, Self::Error> {
         Ok(self
             .0
@@ -53,7 +49,6 @@ impl revm::Database for StoreWrapper {
             .unwrap_or_else(|| RevmU256::ZERO))
     }
 
-    #[doc = " Get block hash by block number."]
     fn block_hash(&mut self, number: RevmU256) -> Result<RevmB256, Self::Error> {
         self.0
             .get_block_header(number.to())?
