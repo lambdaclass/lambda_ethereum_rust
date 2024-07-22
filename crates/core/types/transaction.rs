@@ -696,7 +696,7 @@ mod serde_impl {
         }
     }
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct AccessListEntry {
         address: Address,
@@ -843,11 +843,39 @@ mod serde_impl {
 
     #[derive(Deserialize)]
     #[allow(unused)] //TODO: remove
-    struct GenerictTransaction {
+    #[serde(rename_all = "camelCase")]
+    struct GenericTransaction {
         #[serde(default)]
         r#type: TxType,
         #[serde(with = "crate::serde_utils::u64::hex_str")]
         nonce: u64,
+        to: TxKind,
+        from: Address,
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        gas: u64,
+        value: U256,
+        #[serde(with = "crate::serde_utils::bytes")]
+        input: Bytes,
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        gas_price: u64,
+        #[serde(default)]
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        max_priority_fee_per_gas: u64,
+        #[serde(default)]
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        max_fee_per_gas: u64,
+        #[serde(default)]
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        max_fee_per_blob_gas: u64,
+        #[serde(default)]
+        access_list: Vec<AccessListEntry>,
+        #[serde(default)]
+        blob_versioned_hashes: Vec<H256>,
+        #[serde(default)]
+        blobs: Vec<String>, // TODO: Assign correct type
+        #[serde(default)]
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        chain_id: u64,
     }
 }
 
