@@ -16,12 +16,6 @@ fn execute_test(test: &TestUnit) {
         .unwrap()
         .first()
         .unwrap();
-    let pre = test
-        .pre
-        .clone()
-        .into_iter()
-        .map(|(k, v)| (k, v.into()))
-        .collect();
 
     assert!(execute_tx(
         &transaction.clone().into(),
@@ -34,7 +28,7 @@ fn execute_test(test: &TestUnit) {
             .clone()
             .unwrap()
             .into(),
-        &mut build_evm_state_from_prestate(&pre),
+        &mut build_evm_state_from_prestate(&test.pre),
         SpecId::CANCUN,
     )
     .unwrap()
