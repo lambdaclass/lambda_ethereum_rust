@@ -696,11 +696,11 @@ mod serde_impl {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
     #[serde(rename_all = "camelCase")]
-    struct AccessListEntry {
-        address: Address,
-        storage_keys: Vec<H256>,
+    pub struct AccessListEntry {
+        pub address: Address,
+        pub storage_keys: Vec<H256>,
     }
 
     impl From<&(Address, Vec<H256>)> for AccessListEntry {
@@ -841,41 +841,41 @@ mod serde_impl {
         }
     }
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Debug, PartialEq)]
     #[allow(unused)] //TODO: remove
     #[serde(rename_all = "camelCase")]
-    struct GenericTransaction {
+    pub struct GenericTransaction {
         #[serde(default)]
-        r#type: TxType,
+        pub r#type: TxType,
         #[serde(with = "crate::serde_utils::u64::hex_str")]
-        nonce: u64,
-        to: TxKind,
-        from: Address,
+        pub nonce: u64,
+        pub to: TxKind,
+        pub from: Address,
         #[serde(with = "crate::serde_utils::u64::hex_str")]
-        gas: u64,
-        value: U256,
+        pub gas: u64,
+        pub value: U256,
         #[serde(with = "crate::serde_utils::bytes")]
-        input: Bytes,
+        pub input: Bytes,
         #[serde(with = "crate::serde_utils::u64::hex_str")]
-        gas_price: u64,
-        #[serde(default)]
-        #[serde(with = "crate::serde_utils::u64::hex_str")]
-        max_priority_fee_per_gas: u64,
+        pub gas_price: u64,
         #[serde(default)]
         #[serde(with = "crate::serde_utils::u64::hex_str")]
-        max_fee_per_gas: u64,
+        pub max_priority_fee_per_gas: u64,
         #[serde(default)]
         #[serde(with = "crate::serde_utils::u64::hex_str")]
-        max_fee_per_blob_gas: u64,
-        #[serde(default)]
-        access_list: Vec<AccessListEntry>,
-        #[serde(default)]
-        blob_versioned_hashes: Vec<H256>,
-        #[serde(default)]
-        blobs: Vec<String>, // TODO: Assign correct type
+        pub max_fee_per_gas: u64,
         #[serde(default)]
         #[serde(with = "crate::serde_utils::u64::hex_str")]
-        chain_id: u64,
+        pub max_fee_per_blob_gas: u64,
+        #[serde(default)]
+        pub access_list: Vec<AccessListEntry>,
+        #[serde(default)]
+        pub blob_versioned_hashes: Vec<H256>,
+        #[serde(default)]
+        pub blobs: Vec<String>, // TODO: Assign correct type
+        #[serde(default)]
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        pub chain_id: u64,
     }
 }
 
@@ -885,6 +885,7 @@ mod tests {
 
     use super::*;
     use hex_literal::hex;
+    use serde_impl::{AccessListEntry, GenericTransaction};
 
     #[test]
     fn test_compute_transactions_root() {
@@ -1005,6 +1006,58 @@ mod tests {
         assert_eq!(
             deserialized_tx_kind_call,
             serde_json::from_str(tx_kind_call).unwrap()
+        )
+    }
+
+    #[test]
+    fn deserialize_generic_transaction() {
+        let generic_transaction = r#"{
+            "type":"0x01",
+            "nonce":"0x02",
+            "to":"",
+            "from":"0x6177843db3138ae69679A54b95cf345ED759450d",
+            "nonce":"0x5208",
+            "gas":"0x5208",
+            "value":"0x01",
+            "input":"0x",
+            "gas_price":"0x07",
+            "accessList": [
+                {
+                    "address": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+                    "storageKeys": [
+                        "0x000000000000000000000000000000000000000000000000000000000000000c",
+                        "0x000000000000000000000000000000000000000000000000000000000000200b"
+                    ]
+                }
+            ]
+        }"#;
+        let deserialized_generic_transaction = GenericTransaction {
+            r#type: TxType::EIP2930,
+            nonce: 2,
+            to: TxKind::Create,
+            from: Address::from_slice(
+                &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+            ),
+            gas: 0x5208,
+            value: U256::from(1),
+            input: Bytes::new(),
+            gas_price: 7,
+            max_priority_fee_per_gas: Default::default(),
+            max_fee_per_gas: Default::default(),
+            max_fee_per_blob_gas: Default::default(),
+            access_list: vec![AccessListEntry {
+                address: Address::from_slice(
+                    &hex::decode("0x000f3df6d732807ef1319fb7b8bb8522d0beac02").unwrap(),
+                ),
+                storage_keys: vec![H256::from_low_u64_be(12), H256::from_low_u64_be(8203)],
+            }],
+            blob_versioned_hashes: Default::default(),
+            blobs: Default::default(),
+            chain_id: Default::default(),
+        };
+        assert_eq!(
+            deserialized_generic_transaction,
+            serde_json::from_str(generic_transaction).unwrap()
         )
     }
 }
