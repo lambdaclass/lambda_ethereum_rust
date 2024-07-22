@@ -1,8 +1,8 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    code_hash, Account as ethereum_rustAccount, AccountInfo, Block as ethereum_rustBlock,
-    BlockBody, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransaction, TxKind, Withdrawal as ethereum_rustWithdrawal,
+    code_hash, Account as ethereum_rustAccount, AccountInfo, Block as CoreBlock, BlockBody,
+    EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
+    Transaction as ethereum_rustTransaction, TxKind, Withdrawal as CoreWithdrawal,
 };
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
@@ -100,7 +100,7 @@ pub struct Block {
     pub expect_exception: Option<String>,
 }
 
-impl From<Block> for ethereum_rustBlock {
+impl From<Block> for CoreBlock {
     fn from(val: Block) -> Self {
         Self {
             header: val.block_header.unwrap().into(),
@@ -260,7 +260,7 @@ impl From<Transaction> for EIP4844Transaction {
                 .into_iter()
                 .map(|a| (a.address, a.storage_keys))
                 .collect(),
-            max_fee_per_blob_gas: val.max_fee_per_blob_gas.unwrap_or_default(),
+            max_fee_per_blob_gas: val.max_fee_per_blob_gas.unwrap(),
             blob_versioned_hashes: val.blob_versioned_hashes.unwrap_or_default(),
             signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
             signature_r: val.r,
@@ -314,9 +314,9 @@ impl From<Transaction> for EIP2930Transaction {
     }
 }
 
-impl From<Withdrawal> for ethereum_rustWithdrawal {
+impl From<Withdrawal> for CoreWithdrawal {
     fn from(value: Withdrawal) -> Self {
-        ethereum_rustWithdrawal {
+        CoreWithdrawal {
             index: value.index,
             validator_index: value.validator_index,
             address: value.address,
