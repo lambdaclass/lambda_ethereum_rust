@@ -5,10 +5,10 @@ use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
     account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
     block::{
-        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountByNumberRequest, GetTransactionByBlockHashAndIndexRequest,
-        GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
-        GetTransactionReceiptRequest,
+        self, CreateAccessListRequest, GetBlockByHashRequest, GetBlockByNumberRequest,
+        GetBlockReceiptsRequest, GetBlockTransactionCountByNumberRequest,
+        GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
+        GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
     client,
 };
@@ -134,6 +134,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request =
                 GetTransactionReceiptRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             block::get_transaction_receipt(&request, storage)
+        }
+        "eth_createAccessList" => {
+            let request = CreateAccessListRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::create_access_list(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {

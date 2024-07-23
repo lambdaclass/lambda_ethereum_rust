@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use serde::{ser::SerializeStruct, Serialize};
-pub use serde_impl::GenericTransaction;
+pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
 
 use crate::rlp::{
