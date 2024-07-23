@@ -18,9 +18,9 @@ pub mod u256 {
         D: Deserializer<'de>,
     {
         let value = Number::deserialize(d)?.to_string();
-        Ok(Some(
-            U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))?,
-        ))
+        U256::from_dec_str(&value)
+            .map_err(|e| D::Error::custom(e.to_string()))
+            .map(Some)
     }
 
     pub fn deser_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
@@ -65,6 +65,16 @@ pub mod u64 {
             S: Serializer,
         {
             Option::<String>::serialize(&value.map(|v| format!("{:#x}", v)), serializer)
+        }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Option<u64>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = String::deserialize(d)?;
+            u64::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+                .map(Some)
         }
     }
 
