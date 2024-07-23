@@ -233,7 +233,7 @@ impl From<Transaction> for EIP1559Transaction {
                 .into_iter()
                 .map(|item| (item.address, item.storage_keys))
                 .collect(),
-            signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
+            signature_y_parity: !val.v.is_zero(),
             signature_r: val.r,
             signature_s: val.s,
         }
@@ -262,7 +262,7 @@ impl From<Transaction> for EIP4844Transaction {
                 .collect(),
             max_fee_per_blob_gas: val.max_fee_per_blob_gas.unwrap(),
             blob_versioned_hashes: val.blob_versioned_hashes.unwrap_or_default(),
-            signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
+            signature_y_parity: !val.v.is_zero(),
             signature_r: val.r,
             signature_s: val.s,
         }
@@ -307,7 +307,7 @@ impl From<Transaction> for EIP2930Transaction {
                 .into_iter()
                 .map(|a| (a.address, a.storage_keys))
                 .collect(),
-            signature_y_parity: val.v.as_u64().saturating_sub(27) != 0,
+            signature_y_parity: !val.v.is_zero(),
             signature_r: val.r,
             signature_s: val.s,
         }
