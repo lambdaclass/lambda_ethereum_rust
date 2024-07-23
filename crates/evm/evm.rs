@@ -4,7 +4,7 @@ mod execution_result;
 
 use db::StoreWrapper;
 use ethereum_rust_core::{
-    types::{BlockHeader, Transaction, TxKind},
+    types::{BlockHeader, GenericTransaction, Transaction, TxKind},
     Address, H256,
 };
 use ethereum_rust_storage::Store;
@@ -68,12 +68,12 @@ fn run_evm(
 
 /// Runs the transaction and returns the access list for it
 pub fn create_access_list(
-    tx: &Transaction,
+    tx: &GenericTransaction,
     header: &BlockHeader,
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, Vec<(Address, Vec<H256>)>), EvmError> {
-    let tx_env = tx_env(tx);
+    let tx_env = tx_env_from_generic(tx);
     let block_env = block_env(header);
     let access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
     let tx_result = {
@@ -169,6 +169,43 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .map(|hash| B256::from(hash.0))
             .collect(),
         max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
+    }
+}
+
+fn tx_env_from_generic(tx: &GenericTransaction) -> TxEnv {
+    TxEnv {
+        caller: RevmAddress(tx.from.0.into()),
+        gas_limit: tx.gas,
+        gas_price: U256::from(tx.gas_price),
+        transact_to: match tx.to {
+            TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
+            TxKind::Create => RevmTxKind::Create,
+        },
+        value: U256::from_limbs(tx.value.0),
+        data: tx.input.clone().into(),
+        nonce: Some(tx.nonce),
+        chain_id: tx.chain_id,
+        access_list: tx
+            .access_list
+            .iter()
+            .map(|entry| {
+                (
+                    RevmAddress(entry.address.0.into()),
+                    entry
+                        .storage_keys
+                        .iter()
+                        .map(|a| U256::from_be_bytes(a.0))
+                        .collect(),
+                )
+            })
+            .collect(),
+        gas_priority_fee: tx.max_priority_fee_per_gas.map(U256::from),
+        blob_hashes: tx
+            .blob_versioned_hashes
+            .iter()
+            .map(|hash| B256::from(hash.0))
+            .collect(),
+        max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(U256::from),
     }
 }
 
