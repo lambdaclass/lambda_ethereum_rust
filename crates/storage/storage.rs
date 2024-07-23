@@ -15,13 +15,14 @@ use self::rocksdb::Store as RocksDbStore;
 use self::sled::Store as SledStore;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt, Transaction,
+    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+    Transaction,
 };
 use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-mod error;
+pub mod error;
 mod rlp;
 
 #[cfg(feature = "in_memory")]
@@ -162,6 +163,16 @@ pub trait StoreEngine: Debug + Send {
         address: Address,
         storage_key: H256,
     ) -> Result<Option<H256>, StoreError>;
+
+    /// Stores account in db (including info, code & storage)
+    fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
+        self.add_account_info(address, account.info.clone())?;
+        self.add_account_code(account.info.code_hash, account.code)?;
+        for (storage_key, storage_value) in account.storage {
+            self.add_storage_at(address, storage_key, storage_value)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -340,6 +351,10 @@ impl Store {
             .lock()
             .unwrap()
             .get_code_by_account_address(address)
+    }
+
+    pub fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().add_account(address, account)
     }
 
     pub fn add_receipt(
