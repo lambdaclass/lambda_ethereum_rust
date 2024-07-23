@@ -1,11 +1,15 @@
 use std::{collections::HashMap, path::Path};
 
-use crate::types::TestUnit;
+use crate::types::{Account, TestUnit};
 use ethereum_rust_core::{
-    evm::{execute_tx, SpecId},
-    rlp::{decode::RLPDecode, encode::RLPEncode},
-    types::Block,
+    rlp::decode::RLPDecode,
+    rlp::encode::RLPEncode,
+    types::{Account as CoreAccount, Block as CoreBlock},
+    Address,
 };
+use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
+use ethereum_rust_storage::{EngineType, Store};
+
 #[allow(unused)]
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
@@ -19,13 +23,6 @@ fn execute_test(test: &TestUnit) {
         .first()
         .unwrap();
 
-    let pre = test
-        .pre
-        .clone()
-        .into_iter()
-        .map(|(k, v)| (k, v.into()))
-        .collect();
-
     assert!(execute_tx(
         &transaction.clone().into(),
         &test
@@ -37,7 +34,7 @@ fn execute_test(test: &TestUnit) {
             .clone()
             .unwrap()
             .into(),
-        &pre,
+        &mut build_evm_state_from_prestate(&test.pre),
         SpecId::CANCUN,
     )
     .unwrap()
@@ -53,7 +50,7 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
 fn validate_test(test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
-    let decoded_block = Block::decode(&genesis_rlp).unwrap();
+    let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
     assert_eq!(
         decoded_block.header,
         test.genesis_block_header.clone().into()
@@ -66,7 +63,7 @@ fn validate_test(test: &TestUnit) {
             continue;
         }
 
-        match Block::decode(block.rlp.as_ref()) {
+        match CoreBlock::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
                 // check that the decoded block matches the deserialized one
                 assert_eq!(decoded_block, (block.clone()).into());
@@ -87,4 +84,17 @@ pub fn parse_and_execute_test_file(path: &Path) {
         validate_test(&test);
         //execute_test(&test)
     }
+}
+
+// Creates an in-memory DB for evm execution and loads the prestate accounts
+pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmState {
+    let mut store =
+        Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
+    for (address, account) in pre {
+        let account: CoreAccount = account.clone().into();
+        store
+            .add_account(*address, account)
+            .expect("Failed to write to test DB")
+    }
+    evm_state(store)
 }
