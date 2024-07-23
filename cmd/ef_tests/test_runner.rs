@@ -61,6 +61,11 @@ fn validate_test(test: &TestUnit) {
 
     // check that blocks can be decoded
     for block in &test.blocks {
+        // skip the blocks with exceptions expected
+        if block.expect_exception.is_some() {
+            continue;
+        }
+
         match Block::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
                 let mut rlp_block = Vec::new();
