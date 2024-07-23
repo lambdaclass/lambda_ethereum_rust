@@ -1032,11 +1032,10 @@ mod tests {
             "nonce":"0x02",
             "to":"",
             "from":"0x6177843db3138ae69679A54b95cf345ED759450d",
-            "nonce":"0x5208",
             "gas":"0x5208",
             "value":"0x01",
             "input":"0x",
-            "gas_price":"0x07",
+            "gasPrice":"0x07",
             "accessList": [
                 {
                     "address": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
@@ -1063,7 +1062,7 @@ mod tests {
             max_fee_per_blob_gas: Default::default(),
             access_list: vec![AccessListEntry {
                 address: Address::from_slice(
-                    &hex::decode("0x000f3df6d732807ef1319fb7b8bb8522d0beac02").unwrap(),
+                    &hex::decode("000f3df6d732807ef1319fb7b8bb8522d0beac02").unwrap(),
                 ),
                 storage_keys: vec![H256::from_low_u64_be(12), H256::from_low_u64_be(8203)],
             }],
