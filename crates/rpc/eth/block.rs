@@ -191,7 +191,7 @@ impl CreateAccessListRequest {
         if params.len() > 2 {
             return None;
         };
-        let block = match params.get(2) {
+        let block = match params.get(1) {
             // Differentiate between missing and bad block param
             Some(value) => Some(serde_json::from_value(value.clone()).ok()?),
             None => None,
