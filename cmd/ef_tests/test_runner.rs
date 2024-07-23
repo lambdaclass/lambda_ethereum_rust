@@ -68,9 +68,11 @@ fn validate_test(test: &TestUnit) {
 
         match Block::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
-                let mut rlp_block = Vec::new();
-                decoded_block.encode(&mut rlp_block);
+                // check that the decoded block matches the deserialized one
                 assert_eq!(decoded_block, (block.clone()).into());
+                let mut rlp_block = Vec::new();
+                // check that encoding the decoded block matches the rlp field
+                decoded_block.encode(&mut rlp_block);
                 assert_eq!(rlp_block, block.rlp.to_vec());
             }
             Err(_) => assert!(block.expect_exception.is_some()),
