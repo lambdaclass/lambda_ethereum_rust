@@ -1010,6 +1010,22 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_tx_type() {
+        let tx_type_eip2930 = r#""0x01""#;
+        let tx_type_eip1559 = r#""0x02""#;
+        let deserialized_tx_type_eip2930 = TxType::EIP2930;
+        let deserialized_tx_type_eip1559 = TxType::EIP1559;
+        assert_eq!(
+            deserialized_tx_type_eip2930,
+            serde_json::from_str(tx_type_eip2930).unwrap()
+        );
+        assert_eq!(
+            deserialized_tx_type_eip1559,
+            serde_json::from_str(tx_type_eip1559).unwrap()
+        )
+    }
+
+    #[test]
     fn deserialize_generic_transaction() {
         let generic_transaction = r#"{
             "type":"0x01",
