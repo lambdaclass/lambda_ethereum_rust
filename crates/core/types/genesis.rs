@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, Bloom, H256, U256};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -100,30 +100,34 @@ impl Genesis {
     fn get_block_header(&self) -> BlockHeader {
         BlockHeader {
             parent_hash: H256::zero(),
-            ommers_hash: todo!(),
+            ommers_hash: H256::zero(), // TODO
             coinbase: self.coinbase,
-            state_root: todo!(),
-            transactions_root: todo!(),
-            receipt_root: todo!(),
-            logs_bloom: todo!(),
+            state_root: H256::zero(),        // TODO
+            transactions_root: H256::zero(), // TODO
+            receipt_root: H256::zero(),      // TODO
+            logs_bloom: Bloom::default(),    // TODO
             difficulty: self.difficulty,
             number: 0,
             gas_limit: self.gas_limit,
-            gas_used: todo!(),
+            gas_used: 0, // TODO
             timestamp: self.timestamp,
-            extra_data: self.extra_data,
+            extra_data: Bytes::default(), // TODO
             prev_randao: self.mixhash,
             nonce: self.nonce,
-            base_fee_per_gas: todo!(),
-            withdrawals_root: todo!(),
-            blob_gas_used: todo!(),
-            excess_blob_gas: todo!(),
-            parent_beacon_block_root: todo!(),
+            base_fee_per_gas: 0,                    // TODO
+            withdrawals_root: H256::zero(),         // TODO
+            blob_gas_used: 0,                       // TODO
+            excess_blob_gas: 0,                     // TODO
+            parent_beacon_block_root: H256::zero(), // TODO
         }
     }
 
     fn get_block_body(&self) -> BlockBody {
-        todo!()
+        BlockBody {
+            transactions: vec![], // TODO
+            ommers: vec![],       // TODO
+            withdrawals: vec![],  // TODO
+        }
     }
 }
 
