@@ -1,14 +1,16 @@
 [workspace]
 members = [
-    "ethereum_rust",
     "crates/consensus",
     "crates/core",
     "crates/net",
     "crates/rpc",
     "crates/storage",
-    "ef_tests",
+    "crates/evm",
+    "cmd/ethereum_rust",
+    "cmd/ef_tests",
 ]
 resolver = "2"
+default-members = ["cmd/ethereum_rust"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,6 +22,7 @@ ethereum_rust-core = { path = "./crates/core" }
 ethereum_rust-net = { path = "./crates/net" }
 ethereum_rust-rpc = { path = "./crates/rpc" }
 ethereum_rust-storage = { path = "./crates/storage" }
+ethereum_rust-evm = { path = "./crates/evm" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
@@ -27,7 +30,7 @@ tracing-subscriber = "0.3.0"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 libmdbx = { version = "0.5.0", features = ["orm"] }
-bytes = "1.6.0"
+bytes = { version = "1.6.0", features = ["serde"] }
 tokio = { version = "1.38.0", features = ["full"] }
 thiserror = "1.0.61"
 hex = "0.4.3"

@@ -9,7 +9,6 @@ edition = "2021"
 ethereum_rust-core.workspace = true
 
 ethereum-types = "0.14.1"
-libmdbx.workspace = true
 anyhow = "1.0.86"
 bytes.workspace = true
 tracing.workspace = true
@@ -17,15 +16,19 @@ thiserror.workspace = true
 patricia-merkle-tree.workspace = true
 sha3.workspace = true
 
+libmdbx = { workspace = true, optional = true }
 sled = { version = "0.34.7", optional = true }
 rocksdb = { version = "0.19.0", optional = true }
 
 [features]
 default = ["in_memory", "libmdbx"]
 in_memory = []
-libmdbx = []
+libmdbx = ["dep:libmdbx"]
 sled = ["dep:sled"]
 rocksdb = ["dep:rocksdb"]
 
 [dev-dependencies]
 hex.workspace = true
+
+[lib]
+path = "./storage.rs"

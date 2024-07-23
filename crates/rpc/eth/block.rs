@@ -6,8 +6,9 @@ use serde_json::Value;
 use tracing::info;
 
 use crate::utils::RpcErr;
-use ethereum_rust_core::types::{
-    BlockHash, BlockNumber, BlockSerializable, ReceiptWithTxAndBlockInfo,
+use ethereum_rust_core::{
+    types::{BlockHash, BlockNumber, BlockSerializable, ReceiptWithTxAndBlockInfo},
+    H256,
 };
 
 pub struct GetBlockByNumberRequest {
@@ -36,6 +37,14 @@ pub struct GetTransactionByBlockHashAndIndexRequest {
 
 pub struct GetBlockReceiptsRequest {
     pub block: BlockIdentifier,
+}
+
+pub struct GetTransactionByHashRequest {
+    pub transaction_hash: H256,
+}
+
+pub struct GetTransactionReceiptRequest {
+    pub transaction_hash: H256,
 }
 
 #[derive(Deserialize)]
@@ -129,6 +138,30 @@ impl GetBlockReceiptsRequest {
         };
         Some(GetBlockReceiptsRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
+        })
+    }
+}
+
+impl GetTransactionByHashRequest {
+    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByHashRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 1 {
+            return None;
+        };
+        Some(GetTransactionByHashRequest {
+            transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
+        })
+    }
+}
+
+impl GetTransactionReceiptRequest {
+    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionReceiptRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 1 {
+            return None;
+        };
+        Some(GetTransactionReceiptRequest {
+            transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
         })
     }
 }
@@ -292,6 +325,70 @@ pub fn get_block_receipts(
     }
 
     serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_transaction_by_hash(
+    request: &GetTransactionByHashRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    info!(
+        "Requested transaction with hash: {}",
+        request.transaction_hash,
+    );
+    let transaction: ethereum_rust_core::types::Transaction =
+        match storage.get_transaction_by_hash(request.transaction_hash) {
+            Ok(Some(transaction)) => transaction,
+            Ok(_) => return Ok(Value::Null),
+            _ => return Err(RpcErr::Internal),
+        };
+
+    serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_transaction_receipt(
+    request: &GetTransactionReceiptRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    info!(
+        "Requested receipt for transaction {}",
+        request.transaction_hash,
+    );
+    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash) {
+        Ok(Some(location)) => location,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let block_header = match storage.get_block_header(block_number) {
+        Ok(Some(block_header)) => block_header,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let block_body = match storage.get_block_body(block_number) {
+        Ok(Some(block_body)) => block_body,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let receipt = match storage.get_receipt(block_number, index) {
+        Ok(Some(receipt)) => receipt,
+        Ok(_) => return Ok(Value::Null),
+        _ => return Err(RpcErr::Internal),
+    };
+    let tx = match index
+        .try_into()
+        .ok()
+        .and_then(|index: usize| block_body.transactions.get(index))
+    {
+        Some(tx) => tx,
+        _ => return Ok(Value::Null),
+    };
+    let block_info = block_header.receipt_info();
+    let tx_info = tx.receipt_info(index);
+    let receipt = ReceiptWithTxAndBlockInfo {
+        receipt,
+        tx_info,
+        block_info,
+    };
+    serde_json::to_value(&receipt).map_err(|_| RpcErr::Internal)
 }
 
 impl Display for BlockIdentifier {

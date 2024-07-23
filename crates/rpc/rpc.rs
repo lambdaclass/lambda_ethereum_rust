@@ -3,11 +3,12 @@ use std::{future::IntoFuture, net::SocketAddr};
 use axum::{routing::post, Json, Router};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
-    account::{self, GetBalanceRequest, GetCodeRequest},
+    account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
         GetBlockTransactionCountByNumberRequest, GetTransactionByBlockHashAndIndexRequest,
-        GetTransactionByBlockNumberAndIndexRequest,
+        GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
+        GetTransactionReceiptRequest,
     },
     client,
 };
@@ -101,6 +102,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = GetCodeRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             account::get_code(&request, storage)
         }
+        "eth_getStorageAt" => {
+            let request = GetStorageAtRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            account::get_storage_at(&request, storage)
+        }
         "eth_getBlockTransactionCountByNumber" => {
             let request = GetBlockTransactionCountByNumberRequest::parse(&req.params)
                 .ok_or(RpcErr::BadParams)?;
@@ -119,6 +124,16 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_getBlockReceipts" => {
             let request = GetBlockReceiptsRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             block::get_block_receipts(&request, storage)
+        }
+        "eth_getTransactionByHash" => {
+            let request =
+                GetTransactionByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_transaction_by_hash(&request, storage)
+        }
+        "eth_getTransactionReceipt" => {
+            let request =
+                GetTransactionReceiptRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            block::get_transaction_receipt(&request, storage)
         }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
