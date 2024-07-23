@@ -873,7 +873,8 @@ mod serde_impl {
         #[serde(default)]
         pub blob_versioned_hashes: Vec<H256>,
         #[serde(default)]
-        pub blobs: Vec<String>, // TODO: Assign correct type
+        #[serde(with = "crate::serde_utils::bytes::vec")]
+        pub blobs: Vec<Bytes>,
         #[serde(default)]
         #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
         pub chain_id: Option<u64>,

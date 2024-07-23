@@ -111,6 +111,25 @@ pub mod bytes {
     {
         serializer.serialize_str(&format!("0x{:x}", value))
     }
+
+    pub mod vec {
+        use super::*;
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Vec<Bytes>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Vec::<String>::deserialize(d)?;
+            let mut output = Vec::new();
+            for str in value {
+                let bytes = hex::decode(str.trim_start_matches("0x"))
+                    .map_err(|e| D::Error::custom(e.to_string()))?
+                    .into();
+                output.push(bytes);
+            }
+            Ok(output)
+        }
+    }
 }
 
 /// Serializes to and deserializes from 0x prefixed hex string
