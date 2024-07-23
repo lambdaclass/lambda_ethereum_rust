@@ -859,24 +859,19 @@ mod serde_impl {
         pub input: Bytes,
         #[serde(with = "crate::serde_utils::u64::hex_str")]
         pub gas_price: u64,
-        #[serde(default)]
-        #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_priority_fee_per_gas: Option<u64>,
-        #[serde(default)]
-        #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_gas: Option<u64>,
-        #[serde(default)]
-        #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_blob_gas: Option<u64>,
         #[serde(default)]
         pub access_list: Vec<AccessListEntry>,
         #[serde(default)]
         pub blob_versioned_hashes: Vec<H256>,
-        #[serde(default)]
-        #[serde(with = "crate::serde_utils::bytes::vec")]
+        #[serde(default, with = "crate::serde_utils::bytes::vec")]
         pub blobs: Vec<Bytes>,
-        #[serde(default)]
-        #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub chain_id: Option<u64>,
     }
 }
