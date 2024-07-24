@@ -12,7 +12,7 @@ use crate::rlp::{
     structs::{Decoder, Encoder},
 };
 
-use super::GenesisAccount;
+use super::{GenesisAccount, EMPTY_KECCACK_HASH};
 
 #[allow(unused)]
 #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +35,16 @@ pub struct AccountState {
     pub balance: U256,
     pub storage_root: H256,
     pub code_hash: H256,
+}
+
+impl Default for AccountInfo {
+    fn default() -> Self {
+        Self {
+            code_hash: *EMPTY_KECCACK_HASH,
+            balance: Default::default(),
+            nonce: Default::default(),
+        }
+    }
 }
 
 impl From<GenesisAccount> for Account {
