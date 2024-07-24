@@ -10,8 +10,7 @@ use ethereum_rust_core::{
 use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
-#[allow(unused)]
-fn execute_test(test: &TestUnit) {
+pub fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
     let transaction = test
         .blocks
@@ -47,7 +46,7 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
-fn validate_test(test: &TestUnit) {
+pub fn validate_test(test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
     let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
@@ -74,15 +73,6 @@ fn validate_test(test: &TestUnit) {
             }
             Err(_) => assert!(block.expect_exception.is_some()),
         }
-    }
-}
-
-pub fn parse_and_execute_test_file(path: &Path) {
-    let tests = parse_test_file(path);
-
-    for (_k, test) in tests {
-        validate_test(&test);
-        //execute_test(&test)
     }
 }
 
