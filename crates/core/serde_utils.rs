@@ -66,6 +66,17 @@ pub mod u64 {
         {
             Option::<String>::serialize(&value.map(|v| format!("{:#x}", v)), serializer)
         }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Option<u64>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = String::deserialize(d)?;
+            match u64::from_str_radix(value.trim_start_matches("0x"), 16) {
+                Ok(v) => Ok(Some(v)),
+                Err(_) => Ok(None),
+            }
+        }
     }
 
     pub fn deser_dec_str<'de, D>(d: D) -> Result<u64, D::Error>

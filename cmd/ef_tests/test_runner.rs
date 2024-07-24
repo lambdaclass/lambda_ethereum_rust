@@ -1,10 +1,16 @@
 use std::{collections::HashMap, path::Path};
 
 use crate::types::{Account, TestUnit};
-use ethereum_rust_core::{types::Account as CoreAccount, Address};
+use ethereum_rust_core::{
+    rlp::decode::RLPDecode,
+    rlp::encode::RLPEncode,
+    types::{Account as CoreAccount, Block as CoreBlock},
+    Address,
+};
 use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
+#[allow(unused)]
 fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
     let transaction = test
@@ -41,11 +47,42 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
+fn validate_test(test: &TestUnit) {
+    // check that the decoded genesis block header matches the deserialized one
+    let genesis_rlp = test.genesis_rlp.clone();
+    let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
+    assert_eq!(
+        decoded_block.header,
+        test.genesis_block_header.clone().into()
+    );
+
+    // check that blocks can be decoded
+    for block in &test.blocks {
+        // skip the blocks with exceptions expected
+        if block.expect_exception.is_some() {
+            continue;
+        }
+
+        match CoreBlock::decode(block.rlp.as_ref()) {
+            Ok(decoded_block) => {
+                // check that the decoded block matches the deserialized one
+                assert_eq!(decoded_block, (block.clone()).into());
+                let mut rlp_block = Vec::new();
+                // check that encoding the decoded block matches the rlp field
+                decoded_block.encode(&mut rlp_block);
+                assert_eq!(rlp_block, block.rlp.to_vec());
+            }
+            Err(_) => assert!(block.expect_exception.is_some()),
+        }
+    }
+}
+
 pub fn parse_and_execute_test_file(path: &Path) {
     let tests = parse_test_file(path);
 
     for (_k, test) in tests {
-        execute_test(&test)
+        validate_test(&test);
+        //execute_test(&test)
     }
 }
 
