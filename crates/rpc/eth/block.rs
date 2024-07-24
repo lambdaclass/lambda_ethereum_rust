@@ -69,6 +69,7 @@ pub struct AccessListResult {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum BlockIdentifier {
+    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     Number(BlockNumber),
     Tag(BlockTag),
 }
