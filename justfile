@@ -19,12 +19,12 @@ run_image: build_image
 build_image:
     docker build -t ethereum_rust .
 
-spectest_version := "v2.1.1"
+spectest_version := "v3.0.0"
 spectest_artifact := "tests_" + spectest_version + ".tar.gz"
 spectest_vectors_dir := "cmd/ef_tests/vectors"
 
 download-vectors: clean-vectors
-    curl -L -o {{spectest_artifact}} "https://github.com/ethereum/execution-spec-tests/releases/download/{{spectest_version}}/fixtures_develop.tar.gz"
+    curl -L -o {{spectest_artifact}} "https://github.com/ethereum/execution-spec-tests/releases/download/{{spectest_version}}/fixtures_stable.tar.gz"
     mkdir -p {{spectest_vectors_dir}} tmp
     tar -xzf {{spectest_artifact}} -C tmp
     mv tmp/fixtures/blockchain_tests/* {{spectest_vectors_dir}}
