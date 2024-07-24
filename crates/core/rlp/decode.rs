@@ -445,6 +445,18 @@ pub fn get_item_with_prefix(data: &[u8]) -> Result<(&[u8], &[u8]), RLPDecodeErro
     }
 }
 
+pub fn is_encoded_as_bytes(rlp: &[u8]) -> bool {
+    let prefix = *rlp.first().unwrap();
+    (0xb8..=0xbf).contains(&prefix)
+}
+
+/// Receives an RLP bytes item (prefix between 0xb8 and 0xbf) and returns its payload
+pub fn get_rlp_bytes_item_payload(rlp: &[u8]) -> &[u8] {
+    let prefix = rlp.first().unwrap();
+    let offset: usize = (prefix - 0xb8 + 1).into();
+    &rlp[offset + 1..]
+}
+
 /// Decodes the payload of an RLP item from a slice of bytes.
 /// It returns a 2-element tuple with the following elements:
 /// - The payload of the item.
@@ -466,11 +478,9 @@ pub(crate) fn static_left_pad<const N: usize>(data: &[u8]) -> Result<[u8; N], RL
     if data.is_empty() {
         return Ok(result);
     }
-
     if data[0] == 0 {
         return Err(RLPDecodeError::MalformedData);
     }
-
     let data_start_index = N.saturating_sub(data.len());
     result
         .get_mut(data_start_index..)

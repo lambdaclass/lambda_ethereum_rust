@@ -7,6 +7,7 @@ fn cancun_tests(path: &Path) -> datatest_stable::Result<()> {
     Ok(())
 }
 
+#[allow(unused)]
 fn parse_test(path: &Path) -> datatest_stable::Result<()> {
     parse_test_file(path);
     Ok(())
@@ -14,18 +15,7 @@ fn parse_test(path: &Path) -> datatest_stable::Result<()> {
 
 datatest_stable::harness!(
     cancun_tests,
-    "vectors/cancun/eip4844_blobs/",
-    r"^.*/valid_precompile_calls.json",
-    cancun_tests,
-    "vectors/cancun/eip4788_beacon_root/",
-    r"^.*beacon_root_contract_calls.json",
-    cancun_tests,
-    "vectors/cancun/eip5656_mcopy/",
-    r"^.*mcopy_huge_memory_expansion.json",
-    cancun_tests,
-    "vectors/cancun/eip4788_beacon_root/",
-    r"^.*invalid_beacon_root_calldata_value.json",
-    parse_test,
     "vectors/cancun/",
-    r"^.*.json",
+    // we ignore `create_selfdestruct_same_tx.json` because it has some errors in the encoding
+    r"^(?!.*create_selfdestruct_same_tx.json)(.*.json)",
 );

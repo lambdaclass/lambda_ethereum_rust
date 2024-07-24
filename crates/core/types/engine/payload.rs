@@ -82,7 +82,7 @@ impl ExecutionPayloadV3 {
                 .map(|encoded_tx| encoded_tx.decode())
                 .collect::<Result<Vec<_>, RLPDecodeError>>()?,
             ommers: vec![],
-            withdrawals: self.withdrawals,
+            withdrawals: Some(self.withdrawals),
         };
         Ok((
             BlockHeader {
@@ -102,10 +102,12 @@ impl ExecutionPayloadV3 {
                 prev_randao: self.prev_randao,
                 nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
-                withdrawals_root: compute_withdrawals_root(&block_body.withdrawals),
-                blob_gas_used: self.blob_gas_used,
-                excess_blob_gas: self.excess_blob_gas,
-                parent_beacon_block_root,
+                withdrawals_root: Some(compute_withdrawals_root(
+                    &block_body.withdrawals.clone().unwrap(),
+                )),
+                blob_gas_used: Some(self.blob_gas_used),
+                excess_blob_gas: Some(self.excess_blob_gas),
+                parent_beacon_block_root: Some(parent_beacon_block_root),
             },
             block_body,
         ))
