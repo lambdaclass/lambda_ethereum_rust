@@ -216,7 +216,7 @@ impl Store {
     }
 
     pub fn add_account_info(
-        &mut self,
+        &self,
         address: Address,
         account_info: AccountInfo,
     ) -> Result<(), StoreError> {
@@ -477,7 +477,7 @@ mod tests {
         test_store_account_storage(store.clone());
     }
 
-    fn test_store_account(mut store: Store) {
+    fn test_store_account(store: Store) {
         let address = Address::random();
         let code = Bytes::new();
         let balance = U256::from_dec_str("50").unwrap();
