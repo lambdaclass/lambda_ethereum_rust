@@ -194,3 +194,52 @@ fn parse_new_payload_v3_request(params: &[Value]) -> Result<NewPayloadV3Request,
         parent_beacon_block_root,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use ethereum_rust_core::{
+        types::{AccountInfo, BlockHeader},
+        Address, U256,
+    };
+    use ethereum_rust_storage::EngineType;
+    use std::str::FromStr;
+
+    use super::*;
+
+    // Maps string rpc response to RpcSuccessResponse as serde Value
+    // This is used to avoid failures due to field order and allow easier string comparisons for responses
+    fn to_rpc_response_success_value(str: &str) -> serde_json::Value {
+        serde_json::to_value(serde_json::from_str::<RpcSuccessResponse>(str).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn create_access_list_simple_transfer() {
+        // Create Request
+        // Request taken from https://github.com/ethereum/execution-apis/blob/main/tests/eth_createAccessList/create-al-value-transfer.io
+        let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","nonce":"0x0","to":"0x0100000000000000000000000000000000000000","value":"0xa"},"0x00"]}"#;
+        let request: RpcRequest = serde_json::from_str(&body).unwrap();
+        // Setup initial storage
+        let storage =
+            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
+        // TODO: Replace this initialization with reading and storing genesis block
+        storage
+            .add_block_header(0, BlockHeader::default())
+            .expect("Failed to write to test DB");
+        let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
+        let account_info = AccountInfo {
+            balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
+            ..Default::default()
+        };
+        storage
+            .add_account_info(address, account_info)
+            .expect("Failed to write to test DB");
+        // Process request
+        let result = map_requests(&request, storage);
+        let response = rpc_response(request.id, result);
+        let expected_response = to_rpc_response_success_value(
+            r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[],"gasUsed":"0x5208"}}"#,
+        );
+        assert_eq!(response.to_string(), expected_response.to_string());
+    }
+}
