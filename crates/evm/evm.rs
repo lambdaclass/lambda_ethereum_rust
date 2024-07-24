@@ -7,7 +7,6 @@ use ethereum_rust_core::types::{BlockHeader, Transaction, TxKind};
 use ethereum_rust_storage::Store;
 use revm::{
     db::states::bundle_state::BundleRetention,
-    inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{BlockEnv, TxEnv, B256, U256},
     Evm,
@@ -53,7 +52,6 @@ fn run_evm(
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
             )
-            .append_handler_register(inspector_handle_register)
             .build();
         evm.transact_commit().map_err(EvmError::from)?
     };
