@@ -855,6 +855,7 @@ mod serde_impl {
         pub from: Address,
         #[serde(with = "crate::serde_utils::u64::hex_str")]
         pub gas: u64,
+        #[serde(default)]
         pub value: U256,
         #[serde(with = "crate::serde_utils::bytes")]
         pub input: Bytes,
