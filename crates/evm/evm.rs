@@ -172,10 +172,11 @@ fn tx_env(tx: &Transaction) -> TxEnv {
     }
 }
 
+// Used to estimate gas and create access lists
 fn tx_env_from_generic(tx: &GenericTransaction) -> TxEnv {
     TxEnv {
         caller: RevmAddress(tx.from.0.into()),
-        gas_limit: tx.gas,
+        gas_limit: tx.gas.unwrap_or(u64::MAX), // Ensure tx doesn't fail due to gas limit
         gas_price: U256::from(tx.gas_price),
         transact_to: match tx.to {
             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),

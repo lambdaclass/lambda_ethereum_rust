@@ -853,13 +853,13 @@ mod serde_impl {
         pub nonce: u64,
         pub to: TxKind,
         pub from: Address,
-        #[serde(with = "crate::serde_utils::u64::hex_str")]
-        pub gas: u64,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub gas: Option<u64>,
         #[serde(default)]
         pub value: U256,
-        #[serde(with = "crate::serde_utils::bytes")]
+        #[serde(default, with = "crate::serde_utils::bytes")]
         pub input: Bytes,
-        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
         pub gas_price: u64,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub max_priority_fee_per_gas: Option<u64>,
@@ -1052,7 +1052,7 @@ mod tests {
             from: Address::from_slice(
                 &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
             ),
-            gas: 0x5208,
+            gas: Some(0x5208),
             value: U256::from(1),
             input: Bytes::new(),
             gas_price: 7,
