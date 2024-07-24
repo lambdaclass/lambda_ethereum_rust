@@ -102,20 +102,20 @@ impl Genesis {
             parent_hash: H256::zero(),
             ommers_hash: H256::zero(), // TODO
             coinbase: self.coinbase,
-            state_root: H256::zero(),        // TODO
-            transactions_root: H256::zero(), // TODO
-            receipt_root: H256::zero(),      // TODO
-            logs_bloom: Bloom::default(),    // TODO
+            state_root: H256::zero(), // TODO
+            transactions_root: H256::zero(),
+            receipt_root: H256::zero(),
+            logs_bloom: Bloom::zero(),
             difficulty: self.difficulty,
             number: 0,
             gas_limit: self.gas_limit,
-            gas_used: 0, // TODO
+            gas_used: 0,
             timestamp: self.timestamp,
-            extra_data: Bytes::default(), // TODO
+            extra_data: Bytes::from_static(&[0]),
             prev_randao: self.mixhash,
             nonce: self.nonce,
-            base_fee_per_gas: 0,                    // TODO
-            withdrawals_root: H256::zero(),         // TODO
+            base_fee_per_gas: 0, // TODO
+            withdrawals_root: H256::zero(),
             blob_gas_used: 0,                       // TODO
             excess_blob_gas: 0,                     // TODO
             parent_beacon_block_root: H256::zero(), // TODO
@@ -124,9 +124,9 @@ impl Genesis {
 
     fn get_block_body(&self) -> BlockBody {
         BlockBody {
-            transactions: vec![], // TODO
-            ommers: vec![],       // TODO
-            withdrawals: vec![],  // TODO
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: vec![],
         }
     }
 }
