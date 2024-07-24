@@ -66,13 +66,14 @@ pub struct AccessListResult {
     gas_used: u64,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
 pub enum BlockIdentifier {
     Number(BlockNumber),
     Tag(BlockTag),
 }
 
-#[derive(Deserialize, Default, Clone)]
+#[derive(Deserialize, Default, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum BlockTag {
     Earliest,
