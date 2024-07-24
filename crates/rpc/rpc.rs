@@ -198,8 +198,8 @@ fn parse_new_payload_v3_request(params: &[Value]) -> Result<NewPayloadV3Request,
 #[cfg(test)]
 mod tests {
     use ethereum_rust_core::{
-        types::{AccountInfo, BlockHeader},
-        Address, U256,
+        types::{code_hash, AccountInfo, BlockHeader},
+        Address, Bytes, U256,
     };
     use ethereum_rust_storage::EngineType;
     use std::str::FromStr;

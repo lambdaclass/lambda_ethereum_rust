@@ -1,6 +1,3 @@
-use ethereum_types::H256;
-use lazy_static::lazy_static;
-
 // Fee related
 pub const ELASTICITY_MULTIPLIER: u64 = 2;
 pub const BASE_FEE_MAX_CHANGE_DENOMINATOR: u64 = 8;
