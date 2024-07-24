@@ -1,8 +1,5 @@
 use ethereum_types::H256;
 use lazy_static::lazy_static;
-lazy_static! {
-    pub static ref EMPTY_KECCACK_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
-}
 
 // Fee related
 pub const ELASTICITY_MULTIPLIER: u64 = 2;
