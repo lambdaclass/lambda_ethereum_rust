@@ -242,4 +242,50 @@ mod tests {
         );
         assert_eq!(response.to_string(), expected_response.to_string());
     }
+
+    #[test]
+    fn create_access_list_create() {
+        // Create Request
+        // Request taken from https://github.com/ethereum/execution-apis/blob/main/tests/eth_createAccessList/create-al-contract.io
+        let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","gas":"0xea60","gasPrice":"0x44103f2","input":"0x010203040506","nonce":"0x0","to":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df"},"0x00"]}"#;
+        let request: RpcRequest = serde_json::from_str(&body).unwrap();
+        // Setup initial storage
+        let storage =
+            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
+        // TODO: Replace this initialization with reading and storing genesis block
+        storage
+            .add_block_header(0, BlockHeader::default())
+            .expect("Failed to write to test DB");
+        let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
+        let account_info = AccountInfo {
+            balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
+            ..Default::default()
+        };
+        storage
+            .add_account_info(address, account_info)
+            .expect("Failed to write to test DB");
+        let address = Address::from_str("7dcd17433742f4c0ca53122ab541d0ba67fc27df").unwrap();
+        let code = Bytes::from_static(
+            b"0x3680600080376000206000548082558060010160005560005263656d697460206000a2",
+        );
+        let code_hash = code_hash(&code);
+        let account_info = AccountInfo {
+            code_hash,
+            ..Default::default()
+        };
+        storage
+            .add_account_info(address, account_info)
+            .expect("Failed to write to test DB");
+        storage
+            .add_account_code(code_hash, code)
+            .expect("Failed to write to test DB");
+        // Process request
+        let result = map_requests(&request, storage);
+        let response = rpc_response(request.id, result);
+        let expected_response = to_rpc_response_success_value(
+            r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[{"address":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000","0x13a08e3cd39a1bc7bf9103f63f83273cced2beada9f723945176d6b983c65bd2"]}],"gasUsed":"0xca3c"}}"#,
+        );
+        assert_eq!(response.to_string(), expected_response.to_string());
+    }
 }
