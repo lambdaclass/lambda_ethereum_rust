@@ -75,7 +75,7 @@ pub fn create_access_list(
 ) -> Result<(ExecutionResult, Vec<(Address, Vec<H256>)>), EvmError> {
     let tx_env = tx_env_from_generic(tx);
     let block_env = block_env(header);
-    let access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
+    let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
     let tx_result = {
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
@@ -87,7 +87,8 @@ pub fn create_access_list(
                 env.disable_base_fee = true;
                 env.disable_block_gas_limit = true
             })
-            .with_external_context(&access_list_inspector)
+            .with_external_context(&mut access_list_inspector)
+            .append_handler_register(inspector_handle_register)
             .build();
         evm.transact().map_err(EvmError::from)?
     };
