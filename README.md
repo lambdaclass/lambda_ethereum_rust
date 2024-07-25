@@ -61,7 +61,7 @@ participants:
   - el_type: geth
     cl_type: lighthouse
     count: 2
-  - el_type: ethereum_rust
+  - el_type: ethereumrust
     cl_type: lighthouse
     vc_count: 0
     validator_count: 0

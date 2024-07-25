@@ -32,9 +32,43 @@ use lazy_static::lazy_static;
 lazy_static! {
     pub static ref DEFAULT_OMMERS_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
 }
+#[derive(PartialEq, Eq, Debug)]
+pub struct Block {
+    pub header: BlockHeader,
+    pub body: BlockBody,
+}
+
+impl RLPEncode for Block {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.header)
+            .encode_field(&self.body.transactions)
+            .encode_field(&self.body.ommers)
+            .encode_optional_field(&self.body.withdrawals)
+            .finish();
+    }
+}
+
+impl RLPDecode for Block {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (header, decoder) = decoder.decode_field("header")?;
+        let (transactions, decoder) = decoder.decode_field("transactions")?;
+        let (ommers, decoder) = decoder.decode_field("ommers")?;
+        let (withdrawals, decoder) = decoder.decode_optional_field();
+        let remaining = decoder.finish()?;
+        let body = BlockBody {
+            transactions,
+            ommers,
+            withdrawals,
+        };
+        let block = Block { header, body };
+        Ok((block, remaining))
+    }
+}
 
 /// Header part of a block on the chain.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
@@ -63,12 +97,12 @@ pub struct BlockHeader {
     pub nonce: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub base_fee_per_gas: u64,
-    pub withdrawals_root: H256,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub blob_gas_used: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub excess_blob_gas: u64,
-    pub parent_beacon_block_root: H256,
+    pub withdrawals_root: Option<H256>,
+    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    pub blob_gas_used: Option<u64>,
+    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    pub excess_blob_gas: Option<u64>,
+    pub parent_beacon_block_root: Option<H256>,
 }
 
 impl RLPEncode for BlockHeader {
@@ -90,10 +124,10 @@ impl RLPEncode for BlockHeader {
             .encode_field(&self.prev_randao)
             .encode_field(&self.nonce.to_be_bytes())
             .encode_field(&self.base_fee_per_gas)
-            .encode_field(&self.withdrawals_root)
-            .encode_field(&self.blob_gas_used)
-            .encode_field(&self.excess_blob_gas)
-            .encode_field(&self.parent_beacon_block_root)
+            .encode_optional_field(&self.withdrawals_root)
+            .encode_optional_field(&self.blob_gas_used)
+            .encode_optional_field(&self.excess_blob_gas)
+            .encode_optional_field(&self.parent_beacon_block_root)
             .finish();
     }
 }
@@ -118,11 +152,11 @@ impl RLPDecode for BlockHeader {
         let (nonce, decoder) = decoder.decode_field("nonce")?;
         let nonce = u64::from_be_bytes(nonce);
         let (base_fee_per_gas, decoder) = decoder.decode_field("base_fee_per_gas")?;
-        let (withdrawals_root, decoder) = decoder.decode_field("withdrawals_root")?;
-        let (blob_gas_used, decoder) = decoder.decode_field("blob_gas_used")?;
-        let (excess_blob_gas, decoder) = decoder.decode_field("excess_blob_gas")?;
-        let (parent_beacon_block_root, decoder) =
-            decoder.decode_field("parent_beacon_block_root")?;
+        let (withdrawals_root, decoder) = decoder.decode_optional_field();
+        let (blob_gas_used, decoder) = decoder.decode_optional_field();
+        let (excess_blob_gas, decoder) = decoder.decode_optional_field();
+        let (parent_beacon_block_root, decoder) = decoder.decode_optional_field();
+
         Ok((
             BlockHeader {
                 parent_hash,
@@ -158,7 +192,7 @@ pub struct BlockBody {
     // TODO: ommers list is always empty, so we can remove it
     #[serde(rename(serialize = "uncles"))]
     pub ommers: Vec<BlockHeader>,
-    pub withdrawals: Vec<Withdrawal>,
+    pub withdrawals: Option<Vec<Withdrawal>>,
 }
 
 impl BlockBody {
@@ -166,7 +200,7 @@ impl BlockBody {
         Self {
             transactions: Vec::new(),
             ommers: Vec::new(),
-            withdrawals: Vec::new(),
+            withdrawals: Some(Vec::new()),
         }
     }
 
@@ -240,7 +274,7 @@ impl RLPEncode for BlockBody {
         Encoder::new(buf)
             .encode_field(&self.transactions)
             .encode_field(&self.ommers)
-            .encode_field(&self.withdrawals)
+            .encode_optional_field(&self.withdrawals)
             .finish();
     }
 }
@@ -250,7 +284,7 @@ impl RLPDecode for BlockBody {
         let decoder = Decoder::new(rlp)?;
         let (transactions, decoder) = decoder.decode_field("transactions")?;
         let (ommers, decoder) = decoder.decode_field("ommers")?;
-        let (withdrawals, decoder) = decoder.decode_field("withdrawals")?;
+        let (withdrawals, decoder) = decoder.decode_optional_field();
         Ok((
             BlockBody {
                 transactions,
@@ -274,7 +308,7 @@ impl BlockHeader {
             block_hash: self.compute_block_hash(),
             block_number: self.number,
             gas_used: self.gas_used,
-            blob_gas_used: self.blob_gas_used,
+            blob_gas_used: self.blob_gas_used.unwrap_or_default(),
             root: self.state_root,
         }
     }
@@ -284,11 +318,11 @@ impl BlockHeader {
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
     #[serde(with = "crate::serde_utils::u64::hex_str")]
-    index: u64,
+    pub index: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
-    validator_index: u64,
-    address: Address,
-    amount: U256,
+    pub validator_index: u64,
+    pub address: Address,
+    pub amount: U256,
 }
 
 impl RLPEncode for Withdrawal {
@@ -437,7 +471,7 @@ mod serializable {
                 BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
                     transactions: body.transactions.iter().map(|t| t.compute_hash()).collect(),
                     uncles: body.ommers,
-                    withdrawals: body.withdrawals,
+                    withdrawals: body.withdrawals.unwrap(),
                 })
             };
             let hash = header.compute_block_hash();
@@ -518,13 +552,15 @@ mod test {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
         let block = BlockHeader {
             parent_hash: H256::from_str(
@@ -558,13 +594,15 @@ mod test {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
         assert!(validate_block_header(&block, &parent_block))
     }
@@ -603,13 +641,15 @@ mod test {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
 
         let tx = EIP1559Transaction {
@@ -645,7 +685,7 @@ mod test {
         let block_body = BlockBody {
             transactions: vec![Transaction::EIP1559Transaction(tx)],
             ommers: vec![],
-            withdrawals: vec![],
+            withdrawals: Some(vec![]),
         };
 
         let block = BlockSerializable::from_block(block_header, block_body, true);
