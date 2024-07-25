@@ -266,8 +266,9 @@ mod tests {
             .add_account_info(address, account_info)
             .expect("Failed to write to test DB");
         let address = Address::from_str("7dcd17433742f4c0ca53122ab541d0ba67fc27df").unwrap();
-        let code = Bytes::from_static(
-            b"0x3680600080376000206000548082558060010160005560005263656d697460206000a2",
+        let code = Bytes::copy_from_slice(
+            &hex::decode("3680600080376000206000548082558060010160005560005263656d697460206000a2")
+                .unwrap(),
         );
         let code_hash = code_hash(&code);
         let account_info = AccountInfo {
