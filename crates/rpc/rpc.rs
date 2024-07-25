@@ -248,14 +248,19 @@ mod tests {
         // Create Request
         // Request taken from https://github.com/ethereum/execution-apis/blob/main/tests/eth_createAccessList/create-al-contract.io
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","gas":"0xea60","gasPrice":"0x44103f2","input":"0x010203040506","nonce":"0x0","to":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df"},"0x00"]}"#;
-        let request: RpcRequest = serde_json::from_str(body).unwrap();
+        let request: RpcRequest = serde_json::from_str(&body).unwrap();
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
+        let header = BlockHeader {
+            base_fee_per_gas: 0x3b9aca00,
+            gas_limit: 0x23f3e20,
+            ..Default::default()
+        };
         storage
-            .add_block_header(0, BlockHeader::default())
+            .add_block_header(0, header)
             .expect("Failed to write to test DB");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
         let account_info = AccountInfo {

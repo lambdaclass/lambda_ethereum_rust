@@ -74,26 +74,30 @@ pub fn create_access_list(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, AccessList), EvmError> {
-    let tx_env = tx_env_from_generic(tx);
+    let mut tx_env = tx_env_from_generic(tx);
     let block_env = block_env(header);
-    let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
-    let tx_result = {
-        let mut evm = Evm::builder()
-            .with_db(&mut state.0)
-            .with_block_env(block_env)
-            .with_tx_env(tx_env)
-            .with_spec_id(spec_id)
-            .reset_handler()
-            .modify_cfg_env(|env| {
-                env.disable_base_fee = true;
-                env.disable_block_gas_limit = true
-            })
-            .with_external_context(&mut access_list_inspector)
-            .append_handler_register(inspector_handle_register)
-            .build();
-        evm.transact().map_err(EvmError::from)?
+    // Run tx with access list inspector
+    let (execution_result, access_list) = dbg!(create_access_list_inner(
+        tx_env.clone(),
+        block_env.clone(),
+        state,
+        spec_id
+    ))?;
+    // Run the tx with the resulting access list and estimate its fee
+    let execution_result = if execution_result.is_success() {
+        tx_env.access_list.extend(access_list.0.iter().map(|item| {
+            (
+                item.address,
+                item.storage_keys
+                    .iter()
+                    .map(|b| U256::from_be_slice(b.as_slice()))
+                    .collect(),
+            )
+        }));
+        dbg!(estimate_gas(tx_env, block_env, state, spec_id))?
+    } else {
+        dbg!(execution_result)
     };
-    let access_list = access_list_inspector.into_access_list();
     let access_list: Vec<(Address, Vec<H256>)> = access_list
         .iter()
         .map(|item| {
@@ -106,7 +110,59 @@ pub fn create_access_list(
             )
         })
         .collect();
+    Ok((execution_result, access_list))
+}
+
+/// Runs the transaction and returns the access list for it
+fn create_access_list_inner(
+    tx_env: TxEnv,
+    block_env: BlockEnv,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<(ExecutionResult, RevmAccessList), EvmError> {
+    let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
+    let tx_result = {
+        let mut evm = Evm::builder()
+            .with_db(&mut state.0)
+            .with_block_env(block_env)
+            .with_tx_env(tx_env)
+            .with_spec_id(spec_id)
+            .modify_cfg_env(|env| {
+                env.disable_base_fee = true;
+                env.disable_block_gas_limit = true
+            })
+            .with_external_context(&mut access_list_inspector)
+            .append_handler_register(inspector_handle_register)
+            .build();
+        evm.transact().map_err(EvmError::from)?
+    };
+
+    let access_list = access_list_inspector.into_access_list();
     Ok((tx_result.result.into(), access_list))
+}
+
+/// Runs the transaction and returns the estimated gas
+fn estimate_gas(
+    tx_env: TxEnv,
+    block_env: BlockEnv,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    let tx_result = {
+        let mut evm = Evm::builder()
+            .with_db(&mut state.0)
+            .with_block_env(block_env)
+            .with_tx_env(tx_env)
+            .with_spec_id(spec_id)
+            .reset_handler()
+            .modify_cfg_env(|env| {
+                env.disable_base_fee = true;
+                env.disable_block_gas_limit = true
+            })
+            .build();
+        evm.transact().map_err(EvmError::from)?
+    };
+    Ok(tx_result.result.into())
 }
 
 // Merges transitions stored when executing transactions and applies the resulting changes to the DB
@@ -178,7 +234,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
 fn tx_env_from_generic(tx: &GenericTransaction) -> TxEnv {
     TxEnv {
         caller: RevmAddress(tx.from.0.into()),
-        gas_limit: tx.gas.unwrap_or(u64::MAX), // Ensure tx doesn't fail due to gas limit
+        gas_limit: tx.gas.unwrap_or(0x23f3e20), // Ensure tx doesn't fail due to gas limit
         gas_price: U256::from(tx.gas_price),
         transact_to: match tx.to {
             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
