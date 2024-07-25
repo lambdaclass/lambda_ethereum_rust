@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
@@ -19,7 +19,7 @@ use super::GenesisAccount;
 pub struct Account {
     pub info: AccountInfo,
     pub code: Bytes,
-    pub storage: HashMap<H256, H256>,
+    pub storage: BTreeMap<H256, H256>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -108,7 +108,7 @@ impl RLPDecode for AccountState {
     }
 }
 
-pub fn compute_storage_root(storage: &HashMap<H256, H256>) -> H256 {
+pub fn compute_storage_root(storage: &BTreeMap<H256, H256>) -> H256 {
     let rlp_storage = storage
         .iter()
         .map(|(k, v)| {
@@ -127,7 +127,7 @@ pub fn compute_storage_root(storage: &HashMap<H256, H256>) -> H256 {
 impl AccountState {
     pub fn from_info_and_storage(
         info: &AccountInfo,
-        storage: &HashMap<H256, H256>,
+        storage: &BTreeMap<H256, H256>,
     ) -> AccountState {
         AccountState {
             nonce: info.nonce,

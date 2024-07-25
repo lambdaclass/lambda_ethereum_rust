@@ -405,7 +405,6 @@ impl Store {
 
         // Store each alloc account
         for (address, account) in genesis.alloc.into_iter() {
-            info!("Adding alloc account: {:?}", address);
             self.add_account(address, account.into())?;
         }
         Ok(())

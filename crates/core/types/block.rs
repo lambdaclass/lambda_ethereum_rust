@@ -67,11 +67,6 @@ impl RLPDecode for Block {
     }
 }
 
-pub struct Block {
-    pub header: BlockHeader,
-    pub body: BlockBody,
-}
-
 /// Header part of a block on the chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

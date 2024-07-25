@@ -1,9 +1,15 @@
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256, U256};
+use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::Deserialize;
-use std::collections::HashMap;
+use sha3::Keccak256;
+use std::collections::{BTreeMap, HashMap};
 
-use super::{Block, BlockBody, BlockHeader};
+use crate::rlp::encode::RLPEncode as _;
+
+use super::{
+    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+};
 
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
@@ -83,7 +89,7 @@ pub struct GenesisAccount {
     #[serde(default)]
     pub code: Bytes,
     #[serde(default)]
-    pub storage: HashMap<H256, H256>,
+    pub storage: BTreeMap<H256, H256>,
     #[serde(deserialize_with = "crate::serde_utils::u256::deser_dec_str")]
     pub balance: U256,
     #[serde(default, deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
@@ -98,11 +104,12 @@ impl Genesis {
     }
 
     fn get_block_header(&self) -> BlockHeader {
+        dbg!(self.compute_state_root());
         BlockHeader {
             parent_hash: H256::zero(),
-            ommers_hash: H256::zero(), // TODO
+            ommers_hash: *DEFAULT_OMMERS_HASH,
             coinbase: self.coinbase,
-            state_root: H256::zero(), // TODO
+            state_root: self.compute_state_root(),
             transactions_root: H256::zero(),
             receipt_root: H256::zero(),
             logs_bloom: Bloom::zero(),
@@ -114,11 +121,11 @@ impl Genesis {
             extra_data: Bytes::from_static(&[0]),
             prev_randao: self.mixhash,
             nonce: self.nonce,
-            base_fee_per_gas: 0, // TODO
-            withdrawals_root: H256::zero(),
-            blob_gas_used: 0,                       // TODO
-            excess_blob_gas: 0,                     // TODO
-            parent_beacon_block_root: H256::zero(), // TODO
+            base_fee_per_gas: 0,
+            withdrawals_root: None,
+            blob_gas_used: None,
+            excess_blob_gas: None,
+            parent_beacon_block_root: None,
         }
     }
 
@@ -126,8 +133,32 @@ impl Genesis {
         BlockBody {
             transactions: vec![],
             ommers: vec![],
-            withdrawals: vec![],
+            withdrawals: None,
         }
+    }
+
+    pub fn compute_state_root(&self) -> H256 {
+        let mut pmt = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+
+        for (address, genesis_account) in self.alloc.iter() {
+            // Key: RLP(address)
+            let mut k = Vec::new();
+            address.encode(&mut k);
+
+            let info = AccountInfo {
+                code_hash: code_hash(&genesis_account.code),
+                balance: genesis_account.balance,
+                nonce: genesis_account.nonce,
+            };
+
+            // Value: account
+            let mut v = Vec::new();
+            AccountState::from_info_and_storage(&info, &genesis_account.storage).encode(&mut v);
+
+            pmt.insert(k, v);
+        }
+        let &root = pmt.compute_hash();
+        H256(root.into())
     }
 }
 
