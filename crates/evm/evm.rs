@@ -18,13 +18,14 @@ use revm::{
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
-use revm::primitives::Address as RevmAddress;
-use revm::primitives::TxKind as RevmTxKind;
+use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind};
+use revm_primitives::{AccessList as RevmAccessList, AccessListItem as RevmAccessListItem};
 // Export needed types
 pub use errors::EvmError;
 pub use execution_result::*;
 pub use revm::primitives::SpecId;
-use revm_primitives::{AccessList, AccessListItem};
+
+type AccessList = Vec<(Address, Vec<H256>)>;
 
 /// State used when running the EVM
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
@@ -72,7 +73,7 @@ pub fn create_access_list(
     header: &BlockHeader,
     state: &mut EvmState,
     spec_id: SpecId,
-) -> Result<(ExecutionResult, Vec<(Address, Vec<H256>)>), EvmError> {
+) -> Result<(ExecutionResult, AccessList), EvmError> {
     let tx_env = tx_env_from_generic(tx);
     let block_env = block_env(header);
     let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
@@ -218,11 +219,11 @@ fn access_list_inspector(
     spec_id: SpecId,
 ) -> Result<AccessListInspector, EvmError> {
     // Access list provided by the transaction
-    let current_access_list = AccessList(
+    let current_access_list = RevmAccessList(
         tx_env
             .access_list
             .iter()
-            .map(|(addr, list)| AccessListItem {
+            .map(|(addr, list)| RevmAccessListItem {
                 address: *addr,
                 storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
             })
