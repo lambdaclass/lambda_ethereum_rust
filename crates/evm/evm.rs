@@ -8,6 +8,7 @@ use ethereum_rust_core::{
     Address, H256,
 };
 use ethereum_rust_storage::Store;
+use revm::inspector_handle_register;
 use revm::{
     db::states::bundle_state::BundleRetention,
     inspectors::TracerEip3155,
