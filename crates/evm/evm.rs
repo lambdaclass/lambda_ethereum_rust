@@ -55,14 +55,25 @@ fn run_evm(
             .build();
         evm.transact_commit().map_err(EvmError::from)?
     };
+    apply_state_transitions(state);
     Ok(tx_result.into())
 }
 
 // Merges transitions stored when executing transactions and applies the resulting changes to the DB
 pub fn apply_state_transitions(state: &mut EvmState) {
-    state.0.merge_transitions(BundleRetention::Reverts);
-    let _bundle = state.0.take_bundle();
+    state.0.merge_transitions(BundleRetention::PlainState);
+    let bundle = state.0.take_bundle();
     // TODO: Apply bundle to DB
+    // Update accounts
+    for (address, account) in bundle.state() {
+        if account.status.is_not_modified() {
+            continue
+        }
+        if account.status.was_destroyed() {
+            // Remove account from DB
+        }
+        // Apply changes to DB
+    }
     unimplemented!("Apply state transitions to DB")
 }
 
