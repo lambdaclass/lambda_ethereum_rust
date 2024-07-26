@@ -283,10 +283,18 @@ mod tests {
             .expect("Failed to write to test DB");
         // Process request
         let result = map_requests(&request, storage);
-        let response = rpc_response(request.id, result);
-        let expected_response = to_rpc_response_success_value(
-            r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[{"address":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000","0x13a08e3cd39a1bc7bf9103f63f83273cced2beada9f723945176d6b983c65bd2"]}],"gasUsed":"0xca3c"}}"#,
-        );
-        assert_eq!(response.to_string(), expected_response.to_string());
+        let response =
+            serde_json::from_value::<RpcSuccessResponse>(rpc_response(request.id, result).0)
+                .expect("Request failed");
+        let expected_response_string = r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[{"address":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000","0x13a08e3cd39a1bc7bf9103f63f83273cced2beada9f723945176d6b983c65bd2"]}],"gasUsed":"0xca3c"}}"#;
+        let expected_response =
+            serde_json::from_str::<RpcSuccessResponse>(expected_response_string).unwrap();
+        // Due to the scope of this test, we don't have the full state up to date which can cause variantions in gas used due to the difference in the blockchain state
+        // So we will skip chekcing the gas_used and only check that the access list is correct
+        // The gas_used will be cheked when running the hive test framework
+        assert_eq!(
+            response.result["accessList"],
+            expected_response.result["accessList"]
+        )
     }
 }
