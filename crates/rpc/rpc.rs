@@ -254,13 +254,8 @@ mod tests {
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
-        let header = BlockHeader {
-            base_fee_per_gas: 0x3b9aca00,
-            gas_limit: 0x23f3e20,
-            ..Default::default()
-        };
         storage
-            .add_block_header(0, header)
+            .add_block_header(0, BlockHeader::default())
             .expect("Failed to write to test DB");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
         let account_info = AccountInfo {

@@ -2,13 +2,14 @@ mod db;
 mod errors;
 mod execution_result;
 
+use std::u64;
+
 use db::StoreWrapper;
 use ethereum_rust_core::{
     types::{BlockHeader, GenericTransaction, Transaction, TxKind},
     Address, H256,
 };
 use ethereum_rust_storage::Store;
-use revm::inspector_handle_register;
 use revm::{
     db::states::bundle_state::BundleRetention,
     inspector_handle_register,
@@ -67,7 +68,7 @@ fn run_evm(
     Ok(tx_result.into())
 }
 
-/// Runs the transaction and returns the access list for it
+/// Runs the transaction and returns the access list and estimated gas use (when running the tx with said access list)
 pub fn create_access_list(
     tx: &GenericTransaction,
     header: &BlockHeader,
@@ -77,12 +78,8 @@ pub fn create_access_list(
     let mut tx_env = tx_env_from_generic(tx);
     let block_env = block_env(header);
     // Run tx with access list inspector
-    let (execution_result, access_list) = dbg!(create_access_list_inner(
-        tx_env.clone(),
-        block_env.clone(),
-        state,
-        spec_id
-    ))?;
+    let (execution_result, access_list) =
+        create_access_list_inner(tx_env.clone(), block_env.clone(), state, spec_id)?;
     // Run the tx with the resulting access list and estimate its fee
     let execution_result = if execution_result.is_success() {
         tx_env.access_list.extend(access_list.0.iter().map(|item| {
@@ -94,9 +91,9 @@ pub fn create_access_list(
                     .collect(),
             )
         }));
-        dbg!(estimate_gas(tx_env, block_env, state, spec_id))?
+        estimate_gas(tx_env, block_env, state, spec_id)?
     } else {
-        dbg!(execution_result)
+        execution_result
     };
     let access_list: Vec<(Address, Vec<H256>)> = access_list
         .iter()
@@ -154,7 +151,6 @@ fn estimate_gas(
             .with_block_env(block_env)
             .with_tx_env(tx_env)
             .with_spec_id(spec_id)
-            .reset_handler()
             .modify_cfg_env(|env| {
                 env.disable_base_fee = true;
                 env.disable_block_gas_limit = true
@@ -242,7 +238,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
 fn tx_env_from_generic(tx: &GenericTransaction) -> TxEnv {
     TxEnv {
         caller: RevmAddress(tx.from.0.into()),
-        gas_limit: tx.gas.unwrap_or(0x23f3e20), // Ensure tx doesn't fail due to gas limit
+        gas_limit: tx.gas.unwrap_or(u64::MAX), // Ensure tx doesn't fail due to gas limit
         gas_price: U256::from(tx.gas_price),
         transact_to: match tx.to {
             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
