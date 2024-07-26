@@ -416,14 +416,27 @@ impl Transaction {
                     None => tx.v.as_u64().saturating_sub(27) != 0,
                 };
                 let mut buf = vec![];
-                Encoder::new(&mut buf)
-                    .encode_field(&tx.nonce)
-                    .encode_field(&tx.gas_price)
-                    .encode_field(&tx.gas)
-                    .encode_field(&tx.to)
-                    .encode_field(&tx.value)
-                    .encode_field(&tx.data)
-                    .finish();
+                match self.chain_id() {
+                    None => Encoder::new(&mut buf)
+                        .encode_field(&tx.nonce)
+                        .encode_field(&tx.gas_price)
+                        .encode_field(&tx.gas)
+                        .encode_field(&tx.to)
+                        .encode_field(&tx.value)
+                        .encode_field(&tx.data)
+                        .finish(),
+                    Some(chain_id) => Encoder::new(&mut buf)
+                        .encode_field(&tx.nonce)
+                        .encode_field(&tx.gas_price)
+                        .encode_field(&tx.gas)
+                        .encode_field(&tx.to)
+                        .encode_field(&tx.value)
+                        .encode_field(&tx.data)
+                        .encode_field(&chain_id)
+                        .encode_field(&0u8)
+                        .encode_field(&0u8)
+                        .finish(),
+                }
                 recover_address(&tx.r, &tx.s, signature_y_parity, &Bytes::from(buf))
             }
             Transaction::EIP2930Transaction(tx) => {
