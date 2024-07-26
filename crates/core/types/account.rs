@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
-use sha3::Keccak256;
+use sha3::{Digest as _, Keccak256};
 
 use crate::rlp::{
     decode::RLPDecode,
@@ -109,18 +109,20 @@ impl RLPDecode for AccountState {
 }
 
 pub fn compute_storage_root(storage: &BTreeMap<H256, H256>) -> H256 {
-    let rlp_storage = storage
-        .iter()
-        .map(|(k, v)| {
-            let mut k_buf = vec![];
-            let mut v_buf = vec![];
-            k.encode(&mut k_buf);
-            v.encode(&mut v_buf);
-            (k_buf, v_buf)
-        })
-        .collect::<Vec<_>>();
-    let root =
-        PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
+    let mut pmt = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+
+    for (k, v) in storage.iter() {
+        let mut v_buf = vec![];
+        let k_buf = Keccak256::new_with_prefix(k).finalize().to_vec();
+        v.encode(&mut v_buf);
+        pmt.insert(k_buf, v_buf);
+    }
+
+    // TODO check if sorting by key and using this is more efficient:
+    // let root =
+    //    PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
+
+    let &root = pmt.compute_hash();
     H256(root.into())
 }
 

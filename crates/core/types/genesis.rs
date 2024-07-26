@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::Deserialize;
-use sha3::Keccak256;
+use sha3::{Digest, Keccak256};
 use std::collections::{BTreeMap, HashMap};
 
 use crate::rlp::encode::RLPEncode as _;
@@ -86,7 +86,7 @@ pub struct ChainConfig {
 #[allow(unused)]
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
-    #[serde(default)]
+    #[serde(default, with = "crate::serde_utils::bytes")]
     pub code: Bytes,
     #[serde(default)]
     pub storage: BTreeMap<H256, H256>,
@@ -141,9 +141,10 @@ impl Genesis {
         let mut pmt = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
 
         for (address, genesis_account) in self.alloc.iter() {
-            // Key: RLP(address)
-            let mut k = Vec::new();
-            address.encode(&mut k);
+            // Key: Keccak(address)
+            let k = Keccak256::new_with_prefix(address.to_fixed_bytes())
+                .finalize()
+                .to_vec();
 
             let info = AccountInfo {
                 code_hash: code_hash(&genesis_account.code),
@@ -154,9 +155,11 @@ impl Genesis {
             // Value: account
             let mut v = Vec::new();
             AccountState::from_info_and_storage(&info, &genesis_account.storage).encode(&mut v);
-
             pmt.insert(k, v);
         }
+        // TODO check if sorting by key and using
+        // PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter is more efficient
+
         let &root = pmt.compute_hash();
         H256(root.into())
     }
