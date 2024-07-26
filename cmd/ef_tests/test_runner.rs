@@ -4,7 +4,7 @@ use crate::types::{Account, TestUnit};
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     rlp::encode::RLPEncode,
-    types::{Account as CoreAccount, Block as CoreBlock},
+    types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
     Address,
 };
 use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
@@ -12,32 +12,30 @@ use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
-    let transaction = test
-        .blocks
-        .first()
+    let block = test.blocks.first().unwrap();
+    let transactions = block.transactions.as_ref().unwrap();
+    for transaction in transactions.iter() {
+        assert_eq!(
+            transaction.clone().sender,
+            CoreTransaction::from(transaction.clone()).sender()
+        );
+        assert!(execute_tx(
+            &transaction.clone().into(),
+            &test
+                .blocks
+                .first()
+                .as_ref()
+                .unwrap()
+                .block_header
+                .clone()
+                .unwrap()
+                .into(),
+            &mut build_evm_state_from_prestate(&test.pre),
+            SpecId::CANCUN,
+        )
         .unwrap()
-        .transactions
-        .as_ref()
-        .unwrap()
-        .first()
-        .unwrap();
-
-    assert!(execute_tx(
-        &transaction.clone().into(),
-        &test
-            .blocks
-            .first()
-            .as_ref()
-            .unwrap()
-            .block_header
-            .clone()
-            .unwrap()
-            .into(),
-        &mut build_evm_state_from_prestate(&test.pre),
-        SpecId::CANCUN,
-    )
-    .unwrap()
-    .is_success());
+        .is_success());
+    }
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
@@ -46,6 +44,9 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
+//TODO: We shouldn't skip validating the tests with the field expect_exception.
+//      We should run them and assert that those return the specified exception.
+//      From the vectors/cancun tests, only tests in eip4844_blobs expect exceptions.
 pub fn validate_test(test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();

@@ -552,7 +552,7 @@ impl Transaction {
 
     pub fn chain_id(&self) -> Option<u64> {
         match self {
-            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::LegacyTransaction(tx) => derive_legacy_chain_id(tx.v),
             Transaction::EIP2930Transaction(tx) => Some(tx.chain_id),
             Transaction::EIP1559Transaction(tx) => Some(tx.chain_id),
             Transaction::EIP4844Transaction(tx) => Some(tx.chain_id),
@@ -646,6 +646,15 @@ fn recover_address(
     // Hash public key to obtain address
     let hash = Keccak256::new_with_prefix(&public.serialize_uncompressed()[1..]).finalize();
     Address::from_slice(&hash[12..])
+}
+
+fn derive_legacy_chain_id(v: U256) -> Option<u64> {
+    let v = v.as_u64(); //TODO: Could panic if v is bigger than Max u64
+    if v == 27 || v == 28 {
+        None
+    } else {
+        Some((v - 35) / 2)
+    }
 }
 
 // Serialization
