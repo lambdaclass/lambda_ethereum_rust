@@ -2,8 +2,6 @@ mod db;
 mod errors;
 mod execution_result;
 
-use std::u64;
-
 use db::StoreWrapper;
 use ethereum_rust_core::{
     types::{BlockHeader, GenericTransaction, Transaction, TxKind},
