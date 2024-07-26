@@ -569,16 +569,18 @@ mod tests {
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
             base_fee_per_gas: 0x07,
-            withdrawals_root: H256::from_str(
-                "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-            )
-            .unwrap(),
-            blob_gas_used: 0x00,
-            excess_blob_gas: 0x00,
-            parent_beacon_block_root: H256::zero(),
+            withdrawals_root: Some(
+                H256::from_str(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+                )
+                .unwrap(),
+            ),
+            blob_gas_used: Some(0x00),
+            excess_blob_gas: Some(0x00),
+            parent_beacon_block_root: Some(H256::zero()),
         };
         let block_body = BlockBody {
-            transactions: vec![Transaction::decode(&hex::decode("02f86c8330182480114e82f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee53800080c080a0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4").unwrap()).unwrap(),
+            transactions: vec![Transaction::decode(&hex::decode("b86f02f86c8330182480114e82f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee53800080c080a0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4").unwrap()).unwrap(),
             Transaction::decode(&hex::decode("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4").unwrap()).unwrap()],
             ommers: Default::default(),
             withdrawals: Default::default(),

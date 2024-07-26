@@ -10,7 +10,6 @@ use ethereum_rust_core::{
 use ethereum_rust_storage::Store;
 use revm::{
     db::states::bundle_state::BundleRetention,
-    inspector_handle_register,
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlockEnv, TxEnv, B256, U256},
@@ -60,7 +59,6 @@ fn run_evm(
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
             )
-            .append_handler_register(inspector_handle_register)
             .build();
         evm.transact_commit().map_err(EvmError::from)?
     };
@@ -142,6 +140,14 @@ fn block_env(header: &BlockHeader) -> BlockEnv {
 }
 
 fn tx_env(tx: &Transaction) -> TxEnv {
+    let mut max_fee_per_blob_gas_bytes: [u8; 32] = [0; 32];
+    let max_fee_per_blob_gas = match tx.max_fee_per_blob_gas() {
+        Some(x) => {
+            x.to_big_endian(&mut max_fee_per_blob_gas_bytes);
+            Some(U256::from_be_bytes(max_fee_per_blob_gas_bytes))
+        }
+        None => None,
+    };
     TxEnv {
         caller: RevmAddress(tx.sender().0.into()),
         gas_limit: tx.gas_limit(),
@@ -170,7 +176,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .into_iter()
             .map(|hash| B256::from(hash.0))
             .collect(),
-        max_fee_per_blob_gas: tx.max_fee_per_blob_gas().map(U256::from),
+        max_fee_per_blob_gas,
     }
 }
 
