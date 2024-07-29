@@ -22,6 +22,9 @@ fn parse_and_validate(path: &Path) -> datatest_stable::Result<()> {
     Ok(())
 }
 
+//TODO: eip6780_selfdestruct tests are not passing, probably because they
+//      test using several transactions one after the other.
+//TODO: eip4844_blobs tests are not passing because they expect exceptions.
 datatest_stable::harness!(
     parse_and_execute,
     "vectors/cancun/",
@@ -29,18 +32,10 @@ datatest_stable::harness!(
     parse_and_execute,
     "vectors/cancun/",
     r"eip4788_beacon_root/.*/.*\.json",
-    //parse_and_execute,
-    //"vectors/cancun/",
-    //r"eip4844_blobs/point_evaluation_precompile/valid_precompile_calls.json",
     parse_and_execute,
     "vectors/cancun/",
     r"eip5656_mcopy/.*/.*\.json",
-    //parse_and_execute,
-    //"vectors/cancun/",
-    //r"eip6780_selfdestruct/.*/.*\.json",
-    //parse_and_validate,
-    //"vectors/cancun/",
-    //r"eip7516_blobgasfee/.*/.*\.json"
-    //we ignore `create_selfdestruct_same_tx.json` because it has some errors in the encoding
-    //r"^(?!.*create_selfdestruct_same_tx.json)(.*.json)",
+    parse_and_execute,
+    "vectors/cancun/",
+    r"eip7516_blobgasfee/.*/.*\.json"
 );
