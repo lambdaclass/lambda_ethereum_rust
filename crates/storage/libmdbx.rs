@@ -6,7 +6,6 @@ use crate::rlp::{
 };
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
 };

@@ -49,7 +49,7 @@ impl StoreEngine for Store {
             })
     }
 
-    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
+    fn remove_account_info(&mut self, _address: Address) -> Result<(), StoreError> {
         todo!()
     }
 
@@ -159,7 +159,7 @@ impl StoreEngine for Store {
         todo!()
     }
 
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
+    fn remove_account_storage(&mut self, _address: Address) -> Result<(), StoreError> {
         todo!()
     }
 }
