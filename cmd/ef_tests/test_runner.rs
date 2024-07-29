@@ -45,7 +45,6 @@ pub fn execute_test(test: &TestUnit) {
     apply_state_transitions(&mut state).expect("Failed to update DB state");
     // Check post state
     // TODO
-
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {

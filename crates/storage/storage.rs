@@ -704,25 +704,40 @@ mod tests {
     }
 
     fn test_remove_account_storage(store: Store) {
-        let address = Address::random();
+        let address_alpha = Address::random();
+        let address_beta = Address::random();
+        
         let storage_key_a = H256::random();
         let storage_key_b = H256::random();
         let storage_value_a = H256::random();
         let storage_value_b = H256::random();
 
         store
-            .add_storage_at(address, storage_key_a, storage_value_a)
+            .add_storage_at(address_alpha, storage_key_a, storage_value_a)
             .unwrap();
         store
-            .add_storage_at(address, storage_key_b, storage_value_b)
+            .add_storage_at(address_alpha, storage_key_b, storage_value_b)
             .unwrap();
 
-        store.remove_account_storage(address).unwrap();
+        store
+            .add_storage_at(address_beta, storage_key_a, storage_value_a)
+            .unwrap();
+        store
+            .add_storage_at(address_beta, storage_key_b, storage_value_b)
+            .unwrap();
 
-        let stored_value_a = store.get_storage_at(address, storage_key_a).unwrap();
-        let stored_value_b = store.get_storage_at(address, storage_key_b).unwrap();
+        store.remove_account_storage(address_alpha).unwrap();
 
-        assert!(stored_value_a.is_none());
-        assert!(stored_value_b.is_none());
+        let stored_value_alpha_a = store.get_storage_at(address_alpha, storage_key_a).unwrap();
+        let stored_value_alpha_b = store.get_storage_at(address_alpha, storage_key_b).unwrap();
+
+        let stored_value_beta_a = store.get_storage_at(address_beta, storage_key_a).unwrap();
+        let stored_value_beta_b = store.get_storage_at(address_beta, storage_key_b).unwrap();
+
+        assert!(stored_value_alpha_a.is_none());
+        assert!(stored_value_alpha_b.is_none());
+
+        assert!(stored_value_beta_a.is_some());
+        assert!(stored_value_beta_b.is_some());
     }
 }
