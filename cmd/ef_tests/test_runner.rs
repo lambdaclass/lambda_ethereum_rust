@@ -58,7 +58,7 @@ pub fn validate_test(test: &TestUnit) {
     let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
     assert_eq!(
         decoded_block.header,
-        test.genesis_block_header.clone().into(),
+        test.genesis_block_header.clone().into()
     );
 
     // check that blocks can be decoded
