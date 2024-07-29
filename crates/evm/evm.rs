@@ -100,7 +100,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
                     if let Some(code) = new_acc_info.code {
                         state
                             .database()
-                            .add_account_code(code_hash, code.bytecode().clone().0)?;
+                            .add_account_code(code_hash, code.original_bytes().clone().0)?;
                     }
                 }
             }
