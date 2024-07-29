@@ -5,7 +5,7 @@ mod execution_result;
 use db::StoreWrapper;
 use ethereum_rust_core::{
     types::{AccountInfo, BlockHeader, Transaction, TxKind},
-    Address, H256, U256,
+    Address, BigEndianHash, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 use revm::{
@@ -65,7 +65,7 @@ fn run_evm(
             .build();
         evm.transact_commit().map_err(EvmError::from)?
     };
-    apply_state_transitions(state);
+    apply_state_transitions(state)?;
     Ok(tx_result.into())
 }
 
@@ -108,7 +108,17 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         }
 
         // Update storage
-        //TODO
+        for (key, slot) in account.storage.iter() {
+            if slot.is_changed() {
+                state.database().add_storage_at(
+                    address,
+                    H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
+                    H256::from_uint(&U256::from_little_endian(
+                        slot.present_value().as_le_slice(),
+                    )),
+                )?;
+            }
+        }
     }
     Ok(())
 }
