@@ -44,7 +44,7 @@ pub fn execute_test(test: &TestUnit) {
     // Apply state transitions
     apply_state_transitions(&mut state).expect("Failed to update DB state");
     // Check post state
-    // TODO
+    check_poststate_against_db(&test.post_state, state.database())
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
@@ -83,7 +83,7 @@ pub fn validate_test(test: &TestUnit) {
     }
 }
 
-// Creates an in-memory DB for evm execution and loads the prestate accounts
+/// Creates an in-memory DB for evm execution and loads the prestate accounts
 pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmState {
     let mut store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
@@ -94,4 +94,46 @@ pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmStat
             .expect("Failed to write to test DB")
     }
     evm_state(store)
+}
+
+/// Checks that all accounts in the post-state are present and have the correct values in the DB
+/// Panics if any comparison fails
+fn check_poststate_against_db(post: &HashMap<Address, Account>, db: &Store) {
+    for (addr, account) in post {
+        let expected_account: CoreAccount = account.clone().into();
+        // Check info
+        let db_account_info = db
+            .get_account_info(*addr)
+            .expect("Failed to read from DB")
+            .expect(&format!("Account info for address {addr} not found in DB"));
+        assert_eq!(
+            db_account_info, expected_account.info,
+            "Mismatched account info for address {addr}"
+        );
+        // Check code
+        let code_hash = expected_account.info.code_hash;
+        let db_account_code = db
+            .get_account_code(code_hash)
+            .expect("Failed to read from DB")
+            .expect(&format!(
+                "Account code for code hash {code_hash} not found in DB"
+            ));
+        assert_eq!(
+            db_account_code, expected_account.code,
+            "Mismatched account code for code hash {code_hash}"
+        );
+        // Check storage
+        for (key, value) in expected_account.storage {
+            let db_storage_value = db
+                .get_storage_at(*addr, key)
+                .expect("Failed to read from DB")
+                .expect(&format!(
+                    "Storage missing for address {addr} key {key} in DB"
+                ));
+            assert_eq!(
+                db_storage_value, value,
+                "Mismatched storage value for address {addr}, key {key}"
+            );
+        }
+    }
 }

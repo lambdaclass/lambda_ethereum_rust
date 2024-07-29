@@ -28,7 +28,7 @@ pub struct EvmState(revm::db::State<StoreWrapper>);
 
 impl EvmState {
     /// Get a reference to inner `Store` database
-    fn database(&self) -> &Store {
+    pub fn database(&self) -> &Store {
         &self.0.database.0
     }
 }
