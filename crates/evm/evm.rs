@@ -73,6 +73,13 @@ pub fn apply_state_transitions(state: &mut EvmState) {
             // Remove account from DB
         }
         // Apply changes to DB
+        // If the account was changed then original info will be present
+        if account.is_info_changed() {
+            // Update account info in DB
+        }
+        if account.is_contract_changed() {
+            // Update code in db
+        }
     }
     unimplemented!("Apply state transitions to DB")
 }
