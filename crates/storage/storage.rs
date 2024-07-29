@@ -706,7 +706,7 @@ mod tests {
     fn test_remove_account_storage(store: Store) {
         let address_alpha = Address::random();
         let address_beta = Address::random();
-        
+
         let storage_key_a = H256::random();
         let storage_key_b = H256::random();
         let storage_value_a = H256::random();
