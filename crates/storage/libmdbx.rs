@@ -269,14 +269,17 @@ impl StoreEngine for Store {
         // let mut cursor = txn
         //     .cursor::<AccountStorages>()
         //     .map_err(StoreError::LibmdbxError)?;
-        // let address_rlp = address.encode_to_vec();
-        // // Fetch all storage
-        // while let Some((rlp_address, (storage_key_bytes, storage_value_bytes))) =
-        //     cursor.next().map_err(StoreError::LibmdbxError)? {
-
+        let address_rlp = address.into();
+        // while let Some((address, _)) = cursor.next_key().map_err(StoreError::LibmdbxError)? {
+        //     if address == address_rlp {
+        //         cursor
+        //             .delete_current_key()
+        //             .map_err(StoreError::LibmdbxError)?;
+        //         break;
         //     }
-        txn.delete::<AccountStorages>(address.into(), None)
-            .map_err(StoreError::LibmdbxError)?;
+        // }
+        txn.delete::<AccountStorages>(address_rlp, None);
+        txn.commit().map_err(StoreError::LibmdbxError)?;
         Ok(())
     }
 }
