@@ -104,7 +104,6 @@ impl Genesis {
     }
 
     fn get_block_header(&self) -> BlockHeader {
-        dbg!(self.compute_state_root());
         BlockHeader {
             parent_hash: H256::zero(),
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -118,7 +117,7 @@ impl Genesis {
             gas_limit: self.gas_limit,
             gas_used: 0,
             timestamp: self.timestamp,
-            extra_data: Bytes::from_static(&[0]),
+            extra_data: Bytes::new(),
             prev_randao: self.mixhash,
             nonce: self.nonce,
             base_fee_per_gas: 0,
@@ -253,5 +252,43 @@ mod tests {
                 .unwrap()
             )
         );
+    }
+
+    #[test]
+    fn genesis_block() {
+        // Deserialize genesis file
+        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+        let genesis_block = genesis.get_block();
+        let header = genesis_block.header;
+        let body = genesis_block.body;
+        assert_eq!(header.parent_hash, H256::from([0; 32]));
+        assert_eq!(header.ommers_hash, *DEFAULT_OMMERS_HASH);
+        assert_eq!(header.coinbase, Address::default());
+        assert_eq!(
+            header.state_root,
+            H256::from_str("0x2dab6a1d6d638955507777aecea699e6728825524facbd446bd4e86d44fa5ecd")
+                .unwrap()
+        );
+        assert_eq!(header.transactions_root, H256::from([0; 32]));
+        assert_eq!(header.receipt_root, H256::from([0; 32]));
+        assert_eq!(header.logs_bloom, Bloom::default());
+        assert_eq!(header.difficulty, U256::from(1));
+        assert_eq!(header.gas_limit, 25_000_000);
+        assert_eq!(header.gas_used, 0);
+        assert_eq!(header.timestamp, 1_718_040_081);
+        assert_eq!(header.extra_data, Bytes::default());
+        assert_eq!(header.prev_randao, H256::from([0; 32]));
+        assert_eq!(header.nonce, 4660);
+        assert_eq!(header.base_fee_per_gas, 0);
+        assert_eq!(header.withdrawals_root, None);
+        assert_eq!(header.blob_gas_used, None);
+        assert_eq!(header.excess_blob_gas, None);
+        assert_eq!(header.parent_beacon_block_root, None);
+        assert!(body.transactions.is_empty());
+        assert!(body.ommers.is_empty());
+        assert_eq!(body.withdrawals, None);
     }
 }
