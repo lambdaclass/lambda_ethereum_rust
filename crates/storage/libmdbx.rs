@@ -63,7 +63,7 @@ impl StoreEngine for Store {
             .map_err(StoreError::LibmdbxError)?;
         txn.delete::<AccountInfos>(address.into(), None)
             .map_err(StoreError::LibmdbxError)?;
-        Ok(())
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn add_block_header(
