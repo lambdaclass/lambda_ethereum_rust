@@ -6,6 +6,7 @@ use crate::rlp::{
 };
 use anyhow::Result;
 use bytes::Bytes;
+use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
 };
@@ -54,6 +55,16 @@ impl StoreEngine for Store {
             .get::<AccountInfos>(address.into())
             .map_err(StoreError::LibmdbxError)?
             .map(|a| a.to()))
+    }
+
+    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.delete::<AccountInfos>(address.into(), None)
+            .map_err(StoreError::LibmdbxError)?;
+        Ok(())
     }
 
     fn add_block_header(
@@ -248,6 +259,25 @@ impl StoreEngine for Store {
             .seek_value(address.into(), storage_key.into())
             .map_err(StoreError::LibmdbxError)?
             .map(|s| s.1.into()))
+    }
+
+    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        // let mut cursor = txn
+        //     .cursor::<AccountStorages>()
+        //     .map_err(StoreError::LibmdbxError)?;
+        // let address_rlp = address.encode_to_vec();
+        // // Fetch all storage
+        // while let Some((rlp_address, (storage_key_bytes, storage_value_bytes))) =
+        //     cursor.next().map_err(StoreError::LibmdbxError)? {
+
+        //     }
+        txn.delete::<AccountStorages>(address.into(), None)
+            .map_err(StoreError::LibmdbxError)?;
+        Ok(())
     }
 }
 

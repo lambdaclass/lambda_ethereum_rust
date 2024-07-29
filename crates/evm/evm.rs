@@ -79,11 +79,11 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
             continue;
         }
         let address = Address::from_slice(address.0.as_slice());
+        // Remove account from DB if destroyed
         if account.status.was_destroyed() {
-            // Remove account from DB
-            //TODO
+            state.database().remove_account(address)?;
         }
-        // Apply changes to DB
+        // Apply account changes to DB
         // If the account was changed then both original and current info will be present
         if account.is_info_changed() {
             // Update account info in DB
@@ -106,8 +106,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
                 }
             }
         }
-
-        // Update storage
+        // Update account storage in DB
         for (key, slot) in account.storage.iter() {
             if slot.is_changed() {
                 state.database().add_storage_at(
