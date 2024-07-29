@@ -3,12 +3,15 @@ mod errors;
 mod execution_result;
 
 use db::StoreWrapper;
-use ethereum_rust_core::types::{BlockHeader, Transaction, TxKind};
-use ethereum_rust_storage::Store;
+use ethereum_rust_core::{
+    types::{AccountInfo, BlockHeader, Transaction, TxKind},
+    Address, H256, U256,
+};
+use ethereum_rust_storage::{error::StoreError, Store};
 use revm::{
     db::states::bundle_state::BundleRetention,
     inspectors::TracerEip3155,
-    primitives::{BlockEnv, TxEnv, B256, U256},
+    primitives::{BlockEnv, TxEnv, B256, U256 as RevmU256},
     Evm,
 };
 // Rename imported types for clarity
@@ -22,6 +25,13 @@ pub use revm::primitives::SpecId;
 /// State used when running the EVM
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
 pub struct EvmState(revm::db::State<StoreWrapper>);
+
+impl EvmState {
+    /// Get a reference to inner `Store` database
+    fn database(&self) -> &Store {
+        &self.0.database.0
+    }
+}
 
 // Executes a single tx, doesn't perform state transitions
 pub fn execute_tx(
@@ -60,28 +70,47 @@ fn run_evm(
 }
 
 // Merges transitions stored when executing transactions and applies the resulting changes to the DB
-pub fn apply_state_transitions(state: &mut EvmState) {
+pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
     state.0.merge_transitions(BundleRetention::PlainState);
     let bundle = state.0.take_bundle();
-    // TODO: Apply bundle to DB
     // Update accounts
     for (address, account) in bundle.state() {
         if account.status.is_not_modified() {
-            continue
+            continue;
         }
+        let address = Address::from_slice(address.0.as_slice());
         if account.status.was_destroyed() {
             // Remove account from DB
+            //TODO
         }
         // Apply changes to DB
-        // If the account was changed then original info will be present
+        // If the account was changed then both original and current info will be present
         if account.is_info_changed() {
             // Update account info in DB
+            if let Some(new_acc_info) = account.account_info() {
+                let code_hash = H256::from_slice(new_acc_info.code_hash.as_slice());
+                let account_info = AccountInfo {
+                    code_hash,
+                    balance: U256::from_little_endian(new_acc_info.balance.as_le_slice()),
+                    nonce: new_acc_info.nonce,
+                };
+                state.database().add_account_info(address, account_info)?;
+
+                if account.is_contract_changed() {
+                    // Update code in db
+                    if let Some(code) = new_acc_info.code {
+                        state
+                            .database()
+                            .add_account_code(code_hash, code.bytecode().clone().0)?;
+                    }
+                }
+            }
         }
-        if account.is_contract_changed() {
-            // Update code in db
-        }
+
+        // Update storage
+        //TODO
     }
-    unimplemented!("Apply state transitions to DB")
+    Ok(())
 }
 
 /// Builds EvmState from a Store
@@ -97,12 +126,12 @@ pub fn evm_state(store: Store) -> EvmState {
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
     BlockEnv {
-        number: U256::from(header.number),
+        number: RevmU256::from(header.number),
         coinbase: RevmAddress(header.coinbase.0.into()),
-        timestamp: U256::from(header.timestamp),
-        gas_limit: U256::from(header.gas_limit),
-        basefee: U256::from(header.base_fee_per_gas),
-        difficulty: U256::from_limbs(header.difficulty.0),
+        timestamp: RevmU256::from(header.timestamp),
+        gas_limit: RevmU256::from(header.gas_limit),
+        basefee: RevmU256::from(header.base_fee_per_gas),
+        difficulty: RevmU256::from_limbs(header.difficulty.0),
         prevrandao: Some(header.prev_randao.as_fixed_bytes().into()),
         ..Default::default()
     }
@@ -113,19 +142,19 @@ fn tx_env(tx: &Transaction) -> TxEnv {
     let max_fee_per_blob_gas = match tx.max_fee_per_blob_gas() {
         Some(x) => {
             x.to_big_endian(&mut max_fee_per_blob_gas_bytes);
-            Some(U256::from_be_bytes(max_fee_per_blob_gas_bytes))
+            Some(RevmU256::from_be_bytes(max_fee_per_blob_gas_bytes))
         }
         None => None,
     };
     TxEnv {
         caller: RevmAddress(tx.sender().0.into()),
         gas_limit: tx.gas_limit(),
-        gas_price: U256::from(tx.gas_price()),
+        gas_price: RevmU256::from(tx.gas_price()),
         transact_to: match tx.to() {
             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
             TxKind::Create => RevmTxKind::Create,
         },
-        value: U256::from_limbs(tx.value().0),
+        value: RevmU256::from_limbs(tx.value().0),
         data: tx.data().clone().into(),
         nonce: Some(tx.nonce()),
         chain_id: tx.chain_id(),
@@ -135,11 +164,13 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .map(|(addr, list)| {
                 (
                     RevmAddress(addr.0.into()),
-                    list.into_iter().map(|a| U256::from_be_bytes(a.0)).collect(),
+                    list.into_iter()
+                        .map(|a| RevmU256::from_be_bytes(a.0))
+                        .collect(),
                 )
             })
             .collect(),
-        gas_priority_fee: tx.max_priority_fee().map(U256::from),
+        gas_priority_fee: tx.max_priority_fee().map(RevmU256::from),
         blob_hashes: tx
             .blob_versioned_hashes()
             .into_iter()
