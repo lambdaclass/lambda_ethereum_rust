@@ -109,20 +109,20 @@ impl RLPDecode for AccountState {
 }
 
 pub fn compute_storage_root(storage: &BTreeMap<H256, H256>) -> H256 {
-    let mut pmt = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+    let mut storage_trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
 
     for (k, v) in storage.iter() {
         let mut v_buf = vec![];
         let k_buf = Keccak256::new_with_prefix(k).finalize().to_vec();
         v.encode(&mut v_buf);
-        pmt.insert(k_buf, v_buf);
+        storage_trie.insert(k_buf, v_buf);
     }
 
     // TODO check if sorting by key and using this is more efficient:
     // let root =
     //    PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
 
-    let &root = pmt.compute_hash();
+    let &root = storage_trie.compute_hash();
     H256(root.into())
 }
 

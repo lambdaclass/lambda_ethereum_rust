@@ -137,7 +137,7 @@ impl Genesis {
     }
 
     pub fn compute_state_root(&self) -> H256 {
-        let mut pmt = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+        let mut state_trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
 
         for (address, genesis_account) in self.alloc.iter() {
             // Key: Keccak(address)
@@ -154,12 +154,12 @@ impl Genesis {
             // Value: account
             let mut v = Vec::new();
             AccountState::from_info_and_storage(&info, &genesis_account.storage).encode(&mut v);
-            pmt.insert(k, v);
+            state_trie.insert(k, v);
         }
         // TODO check if sorting by key and using
         // PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter is more efficient
 
-        let &root = pmt.compute_hash();
+        let &root = state_trie.compute_hash();
         H256(root.into())
     }
 }

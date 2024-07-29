@@ -72,7 +72,7 @@ async fn main() {
 
     let mut store = Store::new("storage.db", EngineType::InMemory).expect("Failed to create Store");
     let genesis = read_genesis_file(genesis_file_path);
-    let _ = store.add_initial_state(genesis);
+    store.add_initial_state(genesis).expect("Failed to create genesis block");
 
     let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store);
     let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
