@@ -10,31 +10,36 @@ use ethereum_rust_core::{
 use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
-pub fn execute_test(test: &TestUnit) {
+pub fn execute_test(test_key: &str, test: &TestUnit) {
     // TODO: Add support for multiple blocks and multiple transactions per block.
     let block = test.blocks.first().unwrap();
     let transactions = block.transactions.as_ref().unwrap();
     for transaction in transactions.iter() {
         assert_eq!(
             transaction.clone().sender,
-            CoreTransaction::from(transaction.clone()).sender()
+            CoreTransaction::from(transaction.clone()).sender(),
+            "Expected sender address differs from derived sender address on test: {}",
+            test_key
         );
-        assert!(execute_tx(
-            &transaction.clone().into(),
-            &test
-                .blocks
-                .first()
-                .as_ref()
-                .unwrap()
-                .block_header
-                .clone()
-                .unwrap()
-                .into(),
-            &mut build_evm_state_from_prestate(&test.pre),
-            SpecId::CANCUN,
-        )
-        .unwrap()
-        .is_success());
+        assert!(
+            execute_tx(
+                &transaction.clone().into(),
+                &test
+                    .blocks
+                    .first()
+                    .as_ref()
+                    .unwrap()
+                    .block_header
+                    .clone()
+                    .unwrap()
+                    .into(),
+                &mut build_evm_state_from_prestate(&test.pre),
+                SpecId::CANCUN,
+            )
+            .is_ok(), //TODO: Assert ExecutionResult depending on test case
+            "Transaction execution failed on test: {}",
+            test_key
+        );
     }
 }
 
@@ -53,7 +58,7 @@ pub fn validate_test(test: &TestUnit) {
     let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
     assert_eq!(
         decoded_block.header,
-        test.genesis_block_header.clone().into()
+        test.genesis_block_header.clone().into(),
     );
 
     // check that blocks can be decoded

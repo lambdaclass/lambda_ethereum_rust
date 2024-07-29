@@ -442,6 +442,7 @@ impl Transaction {
             Transaction::EIP2930Transaction(tx) => {
                 let mut buf = vec![self.tx_type() as u8];
                 Encoder::new(&mut buf)
+                    .encode_field(&tx.chain_id)
                     .encode_field(&tx.nonce)
                     .encode_field(&tx.gas_price)
                     .encode_field(&tx.gas_limit)
@@ -449,9 +450,6 @@ impl Transaction {
                     .encode_field(&tx.value)
                     .encode_field(&tx.data)
                     .encode_field(&tx.access_list)
-                    .encode_field(&tx.signature_y_parity)
-                    .encode_field(&tx.signature_r)
-                    .encode_field(&tx.signature_s)
                     .finish();
                 recover_address(
                     &tx.signature_r,
