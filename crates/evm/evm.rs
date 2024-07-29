@@ -65,7 +65,6 @@ fn run_evm(
             .build();
         evm.transact_commit().map_err(EvmError::from)?
     };
-    apply_state_transitions(state)?;
     Ok(tx_result.into())
 }
 
