@@ -416,19 +416,33 @@ impl Transaction {
                     None => tx.v.as_u64().saturating_sub(27) != 0,
                 };
                 let mut buf = vec![];
-                Encoder::new(&mut buf)
-                    .encode_field(&tx.nonce)
-                    .encode_field(&tx.gas_price)
-                    .encode_field(&tx.gas)
-                    .encode_field(&tx.to)
-                    .encode_field(&tx.value)
-                    .encode_field(&tx.data)
-                    .finish();
+                match self.chain_id() {
+                    None => Encoder::new(&mut buf)
+                        .encode_field(&tx.nonce)
+                        .encode_field(&tx.gas_price)
+                        .encode_field(&tx.gas)
+                        .encode_field(&tx.to)
+                        .encode_field(&tx.value)
+                        .encode_field(&tx.data)
+                        .finish(),
+                    Some(chain_id) => Encoder::new(&mut buf)
+                        .encode_field(&tx.nonce)
+                        .encode_field(&tx.gas_price)
+                        .encode_field(&tx.gas)
+                        .encode_field(&tx.to)
+                        .encode_field(&tx.value)
+                        .encode_field(&tx.data)
+                        .encode_field(&chain_id)
+                        .encode_field(&0u8)
+                        .encode_field(&0u8)
+                        .finish(),
+                }
                 recover_address(&tx.r, &tx.s, signature_y_parity, &Bytes::from(buf))
             }
             Transaction::EIP2930Transaction(tx) => {
                 let mut buf = vec![self.tx_type() as u8];
                 Encoder::new(&mut buf)
+                    .encode_field(&tx.chain_id)
                     .encode_field(&tx.nonce)
                     .encode_field(&tx.gas_price)
                     .encode_field(&tx.gas_limit)
@@ -436,9 +450,6 @@ impl Transaction {
                     .encode_field(&tx.value)
                     .encode_field(&tx.data)
                     .encode_field(&tx.access_list)
-                    .encode_field(&tx.signature_y_parity)
-                    .encode_field(&tx.signature_r)
-                    .encode_field(&tx.signature_s)
                     .finish();
                 recover_address(
                     &tx.signature_r,
@@ -539,7 +550,7 @@ impl Transaction {
 
     pub fn chain_id(&self) -> Option<u64> {
         match self {
-            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::LegacyTransaction(tx) => derive_legacy_chain_id(tx.v),
             Transaction::EIP2930Transaction(tx) => Some(tx.chain_id),
             Transaction::EIP1559Transaction(tx) => Some(tx.chain_id),
             Transaction::EIP4844Transaction(tx) => Some(tx.chain_id),
@@ -633,6 +644,15 @@ fn recover_address(
     // Hash public key to obtain address
     let hash = Keccak256::new_with_prefix(&public.serialize_uncompressed()[1..]).finalize();
     Address::from_slice(&hash[12..])
+}
+
+fn derive_legacy_chain_id(v: U256) -> Option<u64> {
+    let v = v.as_u64(); //TODO: Could panic if v is bigger than Max u64
+    if v == 27 || v == 28 {
+        None
+    } else {
+        Some((v - 35) / 2)
+    }
 }
 
 // Serialization
