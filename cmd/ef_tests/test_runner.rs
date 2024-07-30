@@ -12,27 +12,29 @@ use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test_key: &str, test: &TestUnit) {
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
-    let block = test.blocks.first().unwrap();
-    let block_header = block.block_header.clone().unwrap();
-    let transactions = block.transactions.as_ref().unwrap();
-    for transaction in transactions.iter() {
-        assert_eq!(
-            transaction.clone().sender,
-            CoreTransaction::from(transaction.clone()).sender(),
-            "Expected sender address differs from derived sender address on test: {}",
-            test_key
-        );
-        assert!(
-            execute_tx(
-                &transaction.clone().into(),
-                &block_header.clone().clone().into(),
-                &mut evm_state,
-                SpecId::CANCUN,
-            )
-            .is_ok(), //TODO: Assert ExecutionResult depending on test case
-            "Transaction execution failed on test: {}",
-            test_key
-        );
+    let blocks = test.blocks.clone();
+    for block in blocks.iter() {
+        let block_header = block.block_header.clone().unwrap();
+        let transactions = block.transactions.as_ref().unwrap();
+        for transaction in transactions.iter() {
+            assert_eq!(
+                transaction.clone().sender,
+                CoreTransaction::from(transaction.clone()).sender(),
+                "Expected sender address differs from derived sender address on test: {}",
+                test_key
+            );
+            assert!(
+                execute_tx(
+                    &transaction.clone().into(),
+                    &block_header.clone().clone().into(),
+                    &mut evm_state,
+                    SpecId::CANCUN,
+                )
+                .is_ok(), //TODO: Assert ExecutionResult depending on test case
+                "Transaction execution failed on test: {}",
+                test_key
+            );
+        }
     }
 }
 
