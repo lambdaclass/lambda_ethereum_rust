@@ -290,8 +290,8 @@ mod tests {
         let expected_response =
             serde_json::from_str::<RpcSuccessResponse>(expected_response_string).unwrap();
         // Due to the scope of this test, we don't have the full state up to date which can cause variantions in gas used due to the difference in the blockchain state
-        // So we will skip chekcing the gas_used and only check that the access list is correct
-        // The gas_used will be cheked when running the hive test framework
+        // So we will skip checking the gas_used and only check that the access list is correct
+        // The gas_used will be checked when running the hive test framework
         assert_eq!(
             response.result["accessList"],
             expected_response.result["accessList"]
