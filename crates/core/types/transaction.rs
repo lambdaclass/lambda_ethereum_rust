@@ -637,6 +637,18 @@ fn recover_address(
     Address::from_slice(&hash[12..])
 }
 
+impl TxType {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x00 => Some(Self::Legacy),
+            0x01 => Some(Self::EIP2930),
+            0x02 => Some(Self::EIP1559),
+            0x03 => Some(Self::EIP4844),
+            _ => None,
+        }
+    }
+}
+
 // Serialization
 
 mod serde_impl {
@@ -693,16 +705,8 @@ mod serde_impl {
             let tx_num = u8::from_str_radix(str.trim_start_matches("0x"), 16).map_err(|_| {
                 serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
             })?;
-            Ok(match tx_num {
-                0 => TxType::Legacy,
-                1 => TxType::EIP2930,
-                2 => TxType::EIP1559,
-                3 => TxType::EIP4844,
-                _ => {
-                    return Err(serde::de::Error::custom(format!(
-                        "Invalid transaction type {tx_num}"
-                    )))
-                }
+            TxType::from_u8(tx_num).ok_or_else(|| {
+                serde::de::Error::custom(format!("Invalid transaction type {tx_num}"))
             })
         }
     }
