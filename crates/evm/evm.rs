@@ -83,7 +83,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
             state.database().remove_account(address)?;
         }
         // Apply account changes to DB
-        // If the account was changed then both original and current info will be present
+        // If the account was changed then both original and current info will be present in the bundle account
         if account.is_info_changed() {
             // Update account info in DB
             if let Some(new_acc_info) = account.account_info() {
