@@ -15,12 +15,13 @@ use self::rocksdb::Store as RocksDbStore;
 use self::sled::Store as SledStore;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
-    Transaction,
+    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
+    Receipt, Transaction,
 };
 use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
+use tracing::info;
 
 pub mod error;
 mod rlp;
@@ -181,6 +182,7 @@ pub struct Store {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum EngineType {
     #[cfg(feature = "in_memory")]
     InMemory,
@@ -194,6 +196,7 @@ pub enum EngineType {
 
 impl Store {
     pub fn new(path: &str, engine_type: EngineType) -> Result<Self, StoreError> {
+        info!("Starting storage engine ({engine_type:?})");
         let store = match engine_type {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
@@ -212,6 +215,7 @@ impl Store {
                 engine: Arc::new(Mutex::new(RocksDbStore::new(path)?)),
             },
         };
+        info!("Started store engine");
         Ok(store)
     }
 
@@ -380,6 +384,30 @@ impl Store {
             .lock()
             .unwrap()
             .get_receipt(block_number, index)
+    }
+
+    pub fn add_block(&self, block: Block) -> Result<(), StoreError> {
+        // TODO Maybe add both in a single tx?
+        self.add_block_body(block.header.number, block.body)?;
+        self.add_block_header(block.header.number, block.header)?;
+        Ok(())
+    }
+
+    pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {
+        // TODO: Check initial state is not already present in db
+        info!("Storing initial state from genesis");
+
+        // Obtain genesis block
+        let genesis_block = genesis.get_block();
+
+        // Store genesis block
+        self.add_block(genesis_block)?;
+
+        // Store each alloc account
+        for (address, account) in genesis.alloc.into_iter() {
+            self.add_account(address, account.into())?;
+        }
+        Ok(())
     }
 
     pub fn get_transaction_by_hash(

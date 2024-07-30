@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use bytes::Bytes;
 use ethereum_types::{H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
-use sha3::Keccak256;
+use sha3::{Digest as _, Keccak256};
 
 use crate::rlp::{
     decode::RLPDecode,
@@ -25,7 +25,7 @@ lazy_static! {
 pub struct Account {
     pub info: AccountInfo,
     pub code: Bytes,
-    pub storage: HashMap<H256, H256>,
+    pub storage: BTreeMap<H256, H256>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -124,26 +124,28 @@ impl RLPDecode for AccountState {
     }
 }
 
-pub fn compute_storage_root(storage: &HashMap<H256, H256>) -> H256 {
-    let rlp_storage = storage
-        .iter()
-        .map(|(k, v)| {
-            let mut k_buf = vec![];
-            let mut v_buf = vec![];
-            k.encode(&mut k_buf);
-            v.encode(&mut v_buf);
-            (k_buf, v_buf)
-        })
-        .collect::<Vec<_>>();
-    let root =
-        PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
+pub fn compute_storage_root(storage: &BTreeMap<H256, H256>) -> H256 {
+    let mut storage_trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+
+    for (k, v) in storage.iter() {
+        let mut v_buf = vec![];
+        let k_buf = Keccak256::new_with_prefix(k).finalize().to_vec();
+        v.encode(&mut v_buf);
+        storage_trie.insert(k_buf, v_buf);
+    }
+
+    // TODO check if sorting by key and using this is more efficient:
+    // let root =
+    //    PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
+
+    let &root = storage_trie.compute_hash();
     H256(root.into())
 }
 
 impl AccountState {
     pub fn from_info_and_storage(
         info: &AccountInfo,
-        storage: &HashMap<H256, H256>,
+        storage: &BTreeMap<H256, H256>,
     ) -> AccountState {
         AccountState {
             nonce: info.nonce,
