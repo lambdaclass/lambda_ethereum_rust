@@ -48,9 +48,9 @@ jobs:
         run: |
           just download-vectors
 
-      - name: Run cargo test
+      - name: Run tests
         run: |
-          cargo test
+          just test-all
       
   docker-build:
     name: Build Docker image
