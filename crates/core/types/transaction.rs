@@ -852,8 +852,8 @@ mod serde_impl {
         }
     }
 
-    /// Unsigned Transaction struct generic to all types
-    /// Used by RPC endpoints such as estimateGas & createAccessList
+    /// Unsigned Transaction struct generic to all types which may not contain all required transaction fields
+    /// Used to perform gas estimations and access list creation
     #[derive(Deserialize, Debug, PartialEq)]
     #[serde(rename_all = "camelCase")]
     pub struct GenericTransaction {
