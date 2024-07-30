@@ -22,8 +22,6 @@ fn parse_and_validate(path: &Path) -> datatest_stable::Result<()> {
     Ok(())
 }
 
-//TODO: eip6780_selfdestruct tests are not passing, probably because they
-//      test using several transactions one after the other.
 //TODO: eip4844_blobs tests are not passing because they expect exceptions.
 datatest_stable::harness!(
     parse_and_execute,

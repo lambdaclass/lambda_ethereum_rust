@@ -26,7 +26,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
             assert!(
                 execute_tx(
                     &transaction.clone().into(),
-                    &block_header.clone().clone().into(),
+                    &block_header.clone().into(),
                     &mut evm_state,
                     SpecId::CANCUN,
                 )
