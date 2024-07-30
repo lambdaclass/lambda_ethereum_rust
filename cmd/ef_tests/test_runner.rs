@@ -11,8 +11,9 @@ use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test_key: &str, test: &TestUnit) {
-    // TODO: Add support for multiple blocks and multiple transactions per block.
+    let mut evm_state = build_evm_state_from_prestate(&test.pre);
     let block = test.blocks.first().unwrap();
+    let block_header = block.block_header.clone().unwrap();
     let transactions = block.transactions.as_ref().unwrap();
     for transaction in transactions.iter() {
         assert_eq!(
@@ -24,16 +25,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
         assert!(
             execute_tx(
                 &transaction.clone().into(),
-                &test
-                    .blocks
-                    .first()
-                    .as_ref()
-                    .unwrap()
-                    .block_header
-                    .clone()
-                    .unwrap()
-                    .into(),
-                &mut build_evm_state_from_prestate(&test.pre),
+                &block_header.clone().clone().into(),
+                &mut evm_state,
                 SpecId::CANCUN,
             )
             .is_ok(), //TODO: Assert ExecutionResult depending on test case

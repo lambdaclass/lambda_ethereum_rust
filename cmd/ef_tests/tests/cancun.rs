@@ -37,5 +37,8 @@ datatest_stable::harness!(
     r"eip5656_mcopy/.*/.*\.json",
     parse_and_execute,
     "vectors/cancun/",
-    r"eip7516_blobgasfee/.*/.*\.json"
+    r"eip7516_blobgasfee/.*/.*\.json",
+    parse_and_execute,
+    "vectors/cancun/",
+    r"eip6780_selfdestruct/.*/.*\.json"
 );
