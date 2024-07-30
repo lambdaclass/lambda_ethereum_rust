@@ -41,7 +41,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Apply state transitions
     apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
     // Check post state
-    check_poststate_against_db(&test.post_state, state.database())
+    check_poststate_against_db(&test.post_state, evm_state.database())
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
