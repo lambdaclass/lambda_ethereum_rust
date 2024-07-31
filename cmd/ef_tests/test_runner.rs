@@ -107,7 +107,7 @@ fn check_poststate_against_db(post: &HashMap<Address, Account>, db: &Store) {
         let db_account_info = db
             .get_account_info(*addr)
             .expect("Failed to read from DB")
-            .expect(&format!("Account info for address {addr} not found in DB"));
+            .unwrap_or_else(|| panic!("Account info for address {addr} not found in DB"));
         assert_eq!(
             db_account_info, expected_account.info,
             "Mismatched account info for address {addr}"
@@ -117,9 +117,7 @@ fn check_poststate_against_db(post: &HashMap<Address, Account>, db: &Store) {
         let db_account_code = db
             .get_account_code(code_hash)
             .expect("Failed to read from DB")
-            .expect(&format!(
-                "Account code for code hash {code_hash} not found in DB"
-            ));
+            .unwrap_or_else(|| panic!("Account code for code hash {code_hash} not found in DB"));
         assert_eq!(
             db_account_code, expected_account.code,
             "Mismatched account code for code hash {code_hash}"
@@ -129,9 +127,7 @@ fn check_poststate_against_db(post: &HashMap<Address, Account>, db: &Store) {
             let db_storage_value = db
                 .get_storage_at(*addr, key)
                 .expect("Failed to read from DB")
-                .expect(&format!(
-                    "Storage missing for address {addr} key {key} in DB"
-                ));
+                .unwrap_or_else(|| panic!("Storage missing for address {addr} key {key} in DB"));
             assert_eq!(
                 db_storage_value, value,
                 "Mismatched storage value for address {addr}, key {key}"
