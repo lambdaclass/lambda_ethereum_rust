@@ -19,24 +19,36 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Execute all txs in the test unit
     for block in blocks.iter() {
         let block_header = block.header().clone();
-        for transaction in block.transactions().iter() {
+        for (tx_index, transaction) in block.transactions().iter().enumerate() {
             assert_eq!(
                 transaction.clone().sender,
                 CoreTransaction::from(transaction.clone()).sender(),
                 "Expected sender address differs from derived sender address on test: {}",
                 test_key
             );
-            assert!(
-                execute_tx(
-                    &transaction.clone().into(),
-                    &block_header.clone().into(),
-                    &mut evm_state,
-                    SpecId::CANCUN,
-                )
-                .is_ok(), //TODO: Assert ExecutionResult depending on test case
-                "Transaction execution failed on test: {}",
-                test_key
+            let execution_result = execute_tx(
+                &transaction.clone().into(),
+                &block_header.clone().into(),
+                &mut evm_state,
+                SpecId::CANCUN,
             );
+            // If this is the last tx in a block that is expecting an exception then we must make sure it fails
+            // TODO: Check that the exception is the one in the test unit
+            let is_last_tx = block.transactions().len() == tx_index + 1;
+            if block.expect_exception.is_some() && is_last_tx {
+                assert!(
+                    execution_result.is_err(),
+                    "Expected transaction execution to fail on test: {}",
+                    test_key
+                )
+            } else {
+                assert!(
+                    execution_result.is_ok(),
+                    "Transaction execution failed on test: {} with error: {}",
+                    test_key,
+                    execution_result.unwrap_err().to_string()
+                )
+            }
         }
         // Apply state transitions
         apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
