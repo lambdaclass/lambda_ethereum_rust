@@ -77,6 +77,28 @@ pub fn evm_state(store: Store) -> EvmState {
     )
 }
 
+pub fn update_beacon_block_root_contract(
+    state: &mut EvmState,
+    beacon_root: B256,
+    header: &BlockHeader,
+) {
+    let tx_env = TxEnv {
+        caller: "0xfffffffffffffffffffffffffffffffffffffffe",
+        transact_to: TxKind::Call("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"),
+        nonce: None,
+        gas_limit: 30_000_000,
+        value: U256::ZERO,
+        data: beacon_root,
+        gas_price: U256::ZERO,
+        chain_id: None,
+        gas_priority_fee: None,
+        access_list: Vec::new(),
+        blob_hashes: Vec::new(),
+        max_fee_per_blob_gas: None,
+        ..Default::default()
+    };
+}
+
 fn block_env(header: &BlockHeader) -> BlockEnv {
     BlockEnv {
         number: U256::from(header.number),
