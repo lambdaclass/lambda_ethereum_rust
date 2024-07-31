@@ -6,6 +6,7 @@ pub enum RpcErr {
     BadParams,
     UnsuportedFork,
     Internal,
+    Vm,
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -26,6 +27,10 @@ impl From<RpcErr> for RpcErrorMetadata {
             RpcErr::Internal => RpcErrorMetadata {
                 code: -32603,
                 message: "Internal Error".to_string(),
+            },
+            RpcErr::Vm => RpcErrorMetadata {
+                code: -32015,
+                message: "Vm execution error".to_string(),
             },
         }
     }

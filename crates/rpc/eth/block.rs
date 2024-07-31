@@ -1,13 +1,17 @@
 use std::fmt::Display;
 
+use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
 use ethereum_rust_storage::Store;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::info;
 
 use crate::utils::RpcErr;
 use ethereum_rust_core::{
-    types::{BlockHash, BlockNumber, BlockSerializable, ReceiptWithTxAndBlockInfo},
+    types::{
+        AccessListEntry, BlockHash, BlockNumber, BlockSerializable, GenericTransaction,
+        ReceiptWithTxAndBlockInfo,
+    },
     H256,
 };
 
@@ -47,19 +51,36 @@ pub struct GetTransactionReceiptRequest {
     pub transaction_hash: H256,
 }
 
-#[derive(Deserialize)]
+pub struct CreateAccessListRequest {
+    pub transaction: GenericTransaction,
+    pub block: Option<BlockIdentifier>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessListResult {
+    access_list: Vec<AccessListEntry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    gas_used: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
 pub enum BlockIdentifier {
+    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     Number(BlockNumber),
-    #[allow(unused)]
     Tag(BlockTag),
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum BlockTag {
     Earliest,
     Finalized,
     Safe,
+    #[default]
     Latest,
     Pending,
 }
@@ -162,6 +183,24 @@ impl GetTransactionReceiptRequest {
         };
         Some(GetTransactionReceiptRequest {
             transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
+        })
+    }
+}
+
+impl CreateAccessListRequest {
+    pub fn parse(params: &Option<Vec<Value>>) -> Option<CreateAccessListRequest> {
+        let params = params.as_ref()?;
+        if params.len() > 2 {
+            return None;
+        };
+        let block = match params.get(1) {
+            // Differentiate between missing and bad block param
+            Some(value) => Some(serde_json::from_value(value.clone()).ok()?),
+            None => None,
+        };
+        Some(CreateAccessListRequest {
+            transaction: serde_json::from_value(params.first()?.clone()).ok()?,
+            block,
         })
     }
 }
@@ -391,6 +430,71 @@ pub fn get_transaction_receipt(
     serde_json::to_value(&receipt).map_err(|_| RpcErr::Internal)
 }
 
+pub fn create_access_list(
+    request: &CreateAccessListRequest,
+    storage: Store,
+) -> Result<Value, RpcErr> {
+    let block = request.block.clone().unwrap_or_default();
+    info!("Requested access list creation for tx on block: {}", block);
+    let block_number = match block {
+        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
+        BlockIdentifier::Number(block_number) => block_number,
+    };
+    let header = match storage.get_block_header(block_number) {
+        Ok(Some(header)) => header,
+        // Block not found
+        Ok(_) => return Ok(Value::Null),
+        // DB error
+        _ => return Err(RpcErr::Internal),
+    };
+    // Run transaction and obtain access list
+    let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
+        &request.transaction,
+        &header,
+        &mut evm_state(storage),
+        SpecId::CANCUN,
+    )
+    .map_err(|_| RpcErr::Vm)?
+    {
+        (
+            ExecutionResult::Success {
+                reason: _,
+                gas_used,
+                gas_refunded: _,
+                output: _,
+            },
+            access_list,
+        ) => (gas_used, access_list, None),
+        (
+            ExecutionResult::Revert {
+                gas_used,
+                output: _,
+            },
+            access_list,
+        ) => (
+            gas_used,
+            access_list,
+            Some("Transaction Reverted".to_string()),
+        ),
+        (ExecutionResult::Halt { reason, gas_used }, access_list) => {
+            (gas_used, access_list, Some(reason))
+        }
+    };
+    let result = AccessListResult {
+        access_list: access_list
+            .into_iter()
+            .map(|(address, storage_keys)| AccessListEntry {
+                address,
+                storage_keys,
+            })
+            .collect(),
+        error,
+        gas_used,
+    };
+
+    serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+}
+
 impl Display for BlockIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -403,5 +507,11 @@ impl Display for BlockIdentifier {
                 BlockTag::Pending => "Pending".fmt(f),
             },
         }
+    }
+}
+
+impl Default for BlockIdentifier {
+    fn default() -> BlockIdentifier {
+        BlockIdentifier::Tag(BlockTag::default())
     }
 }
