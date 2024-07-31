@@ -119,8 +119,7 @@ pub struct Block {
     pub transactions: Vec<Transaction>,
     #[serde(default)]
     pub uncle_headers: Vec<Header>,
-    #[serde(default)]
-    pub withdrawals: Vec<Withdrawal>,
+    pub withdrawals: Option<Vec<Withdrawal>>,
 }
 
 impl BlockWithRLP {
@@ -139,8 +138,8 @@ impl BlockWithRLP {
         &self.block().transactions
     }
 
-    pub fn withdrawals(&self) -> &Vec<Withdrawal> {
-        &self.block().withdrawals
+    pub fn withdrawals(&self) -> Option<&Vec<Withdrawal>> {
+        self.block().withdrawals.as_ref()
     }
 }
 impl From<Block> for CoreBlock {
@@ -150,7 +149,9 @@ impl From<Block> for CoreBlock {
             body: BlockBody {
                 transactions: val.transactions.iter().map(|t| t.clone().into()).collect(),
                 ommers: val.uncle_headers.iter().map(|h| h.clone().into()).collect(),
-                withdrawals: val.withdrawals.iter().map(|w| Some(w.clone())).collect(),
+                withdrawals: val
+                    .withdrawals
+                    .map(|ws| ws.iter().map(|w| w.clone()).collect()),
             },
         }
     }
