@@ -5,7 +5,7 @@ use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     rlp::encode::RLPEncode,
     types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
-    Address,
+    Address, U256,
 };
 use ethereum_rust_evm::{
     apply_state_transitions, beacon_root_contract_call, evm_state, execute_tx, EvmState, SpecId,
@@ -19,7 +19,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Execute all txs in the test unit
     for block in blocks.iter() {
         let block_header = block.block_header.clone().unwrap();
-        if block_header.parent_beacon_block_root.is_some() {
+        if block_header.parent_beacon_block_root.is_some() && (block_header.number != U256::from(0))
+        {
             beacon_root_contract_call(&mut evm_state, &block_header.clone().into(), SpecId::CANCUN)
                 .expect("Error on beacon root contract call");
         }

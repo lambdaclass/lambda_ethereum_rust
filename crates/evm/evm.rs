@@ -232,6 +232,8 @@ pub fn evm_state(store: Store) -> EvmState {
     )
 }
 
+/// Calls the eip4788 beacon block root system call contract
+/// As of the Cancun hard-fork, parent_beacon_block_root needs to be present in the block header.
 pub fn beacon_root_contract_call(
     state: &mut EvmState,
     header: &BlockHeader,
