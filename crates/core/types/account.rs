@@ -13,6 +13,12 @@ use crate::rlp::{
 };
 
 use super::GenesisAccount;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    // Keccak256(""), represents the code hash for an account without code
+    pub static ref EMPTY_KECCACK_HASH: H256 = H256::from_slice(&hex::decode("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470").unwrap());
+}
 
 #[allow(unused)]
 #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +41,16 @@ pub struct AccountState {
     pub balance: U256,
     pub storage_root: H256,
     pub code_hash: H256,
+}
+
+impl Default for AccountInfo {
+    fn default() -> Self {
+        Self {
+            code_hash: *EMPTY_KECCACK_HASH,
+            balance: Default::default(),
+            nonce: Default::default(),
+        }
+    }
 }
 
 impl From<GenesisAccount> for Account {

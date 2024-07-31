@@ -2,6 +2,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use serde::{ser::SerializeStruct, Serialize};
+pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
 
 use crate::rlp::{
@@ -87,8 +88,9 @@ pub struct EIP4844Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TxType {
+    #[default]
     Legacy = 0x00,
     EIP2930 = 0x01,
     EIP1559 = 0x02,
@@ -655,20 +657,53 @@ fn derive_legacy_chain_id(v: U256) -> Option<u64> {
     }
 }
 
+impl TxType {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x00 => Some(Self::Legacy),
+            0x01 => Some(Self::EIP2930),
+            0x02 => Some(Self::EIP1559),
+            0x03 => Some(Self::EIP4844),
+            _ => None,
+        }
+    }
+}
+
 // Serialization
 
 mod serde_impl {
+    use serde::Deserialize;
+    use std::str::FromStr;
+
     use super::*;
 
     impl Serialize for TxKind {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
-            S: ::serde::Serializer,
+            S: serde::Serializer,
         {
             match self {
                 TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
                 TxKind::Create => serializer.serialize_str(""),
             }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for TxKind {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let str = String::deserialize(deserializer)?;
+            Ok(if str.is_empty() {
+                TxKind::Create
+            } else {
+                TxKind::Call(
+                    Address::from_str(str.trim_start_matches("0x")).map_err(|_| {
+                        serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
+                    })?,
+                )
+            })
         }
     }
 
@@ -681,11 +716,26 @@ mod serde_impl {
         }
     }
 
-    #[derive(Serialize)]
+    impl<'de> Deserialize<'de> for TxType {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let str = String::deserialize(deserializer)?;
+            let tx_num = u8::from_str_radix(str.trim_start_matches("0x"), 16).map_err(|_| {
+                serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
+            })?;
+            TxType::from_u8(tx_num).ok_or_else(|| {
+                serde::de::Error::custom(format!("Invalid transaction type {tx_num}"))
+            })
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
     #[serde(rename_all = "camelCase")]
-    struct AccessListEntry {
-        address: Address,
-        storage_keys: Vec<H256>,
+    pub struct AccessListEntry {
+        pub address: Address,
+        pub storage_keys: Vec<H256>,
     }
 
     impl From<&(Address, Vec<H256>)> for AccessListEntry {
@@ -825,6 +875,41 @@ mod serde_impl {
             struct_serializer.end()
         }
     }
+
+    /// Unsigned Transaction struct generic to all types which may not contain all required transaction fields
+    /// Used to perform gas estimations and access list creation
+    #[derive(Deserialize, Debug, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    pub struct GenericTransaction {
+        #[serde(default)]
+        pub r#type: TxType,
+        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        pub nonce: u64,
+        pub to: TxKind,
+        pub from: Address,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub gas: Option<u64>,
+        #[serde(default)]
+        pub value: U256,
+        #[serde(default, with = "crate::serde_utils::bytes")]
+        pub input: Bytes,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
+        pub gas_price: u64,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub max_priority_fee_per_gas: Option<u64>,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub max_fee_per_gas: Option<u64>,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub max_fee_per_blob_gas: Option<u64>,
+        #[serde(default)]
+        pub access_list: Vec<AccessListEntry>,
+        #[serde(default)]
+        pub blob_versioned_hashes: Vec<H256>,
+        #[serde(default, with = "crate::serde_utils::bytes::vec")]
+        pub blobs: Vec<Bytes>,
+        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        pub chain_id: Option<u64>,
+    }
 }
 
 #[cfg(test)]
@@ -833,6 +918,7 @@ mod tests {
 
     use super::*;
     use hex_literal::hex;
+    use serde_impl::{AccessListEntry, GenericTransaction};
 
     #[test]
     fn test_compute_transactions_root() {
@@ -936,5 +1022,90 @@ mod tests {
             access_list: vec![],
         };
         assert_eq!(tx, expected_tx);
+    }
+
+    #[test]
+    fn deserialize_tx_kind() {
+        let tx_kind_create = r#""""#;
+        let tx_kind_call = r#""0x6177843db3138ae69679A54b95cf345ED759450d""#;
+        let deserialized_tx_kind_create = TxKind::Create;
+        let deserialized_tx_kind_call = TxKind::Call(Address::from_slice(
+            &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+        ));
+        assert_eq!(
+            deserialized_tx_kind_create,
+            serde_json::from_str(tx_kind_create).unwrap()
+        );
+        assert_eq!(
+            deserialized_tx_kind_call,
+            serde_json::from_str(tx_kind_call).unwrap()
+        )
+    }
+
+    #[test]
+    fn deserialize_tx_type() {
+        let tx_type_eip2930 = r#""0x01""#;
+        let tx_type_eip1559 = r#""0x02""#;
+        let deserialized_tx_type_eip2930 = TxType::EIP2930;
+        let deserialized_tx_type_eip1559 = TxType::EIP1559;
+        assert_eq!(
+            deserialized_tx_type_eip2930,
+            serde_json::from_str(tx_type_eip2930).unwrap()
+        );
+        assert_eq!(
+            deserialized_tx_type_eip1559,
+            serde_json::from_str(tx_type_eip1559).unwrap()
+        )
+    }
+
+    #[test]
+    fn deserialize_generic_transaction() {
+        let generic_transaction = r#"{
+            "type":"0x01",
+            "nonce":"0x02",
+            "to":"",
+            "from":"0x6177843db3138ae69679A54b95cf345ED759450d",
+            "gas":"0x5208",
+            "value":"0x01",
+            "input":"0x",
+            "gasPrice":"0x07",
+            "accessList": [
+                {
+                    "address": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+                    "storageKeys": [
+                        "0x000000000000000000000000000000000000000000000000000000000000000c",
+                        "0x000000000000000000000000000000000000000000000000000000000000200b"
+                    ]
+                }
+            ]
+        }"#;
+        let deserialized_generic_transaction = GenericTransaction {
+            r#type: TxType::EIP2930,
+            nonce: 2,
+            to: TxKind::Create,
+            from: Address::from_slice(
+                &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+            ),
+            gas: Some(0x5208),
+            value: U256::from(1),
+            input: Bytes::new(),
+            gas_price: 7,
+            max_priority_fee_per_gas: Default::default(),
+            max_fee_per_gas: Default::default(),
+            max_fee_per_blob_gas: Default::default(),
+            access_list: vec![AccessListEntry {
+                address: Address::from_slice(
+                    &hex::decode("000f3df6d732807ef1319fb7b8bb8522d0beac02").unwrap(),
+                ),
+                storage_keys: vec![H256::from_low_u64_be(12), H256::from_low_u64_be(8203)],
+            }],
+            blob_versioned_hashes: Default::default(),
+            blobs: Default::default(),
+            chain_id: Default::default(),
+        };
+        assert_eq!(
+            deserialized_generic_transaction,
+            serde_json::from_str(generic_transaction).unwrap()
+        )
     }
 }

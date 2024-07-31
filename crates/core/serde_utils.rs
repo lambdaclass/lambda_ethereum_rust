@@ -18,9 +18,9 @@ pub mod u256 {
         D: Deserializer<'de>,
     {
         let value = Number::deserialize(d)?.to_string();
-        Ok(Some(
-            U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))?,
-        ))
+        U256::from_dec_str(&value)
+            .map_err(|e| D::Error::custom(e.to_string()))
+            .map(Some)
     }
 
     pub fn deser_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
@@ -72,10 +72,9 @@ pub mod u64 {
             D: Deserializer<'de>,
         {
             let value = String::deserialize(d)?;
-            match u64::from_str_radix(value.trim_start_matches("0x"), 16) {
-                Ok(v) => Ok(Some(v)),
-                Err(_) => Ok(None),
-            }
+            u64::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+                .map(Some)
         }
     }
 
@@ -111,6 +110,25 @@ pub mod bytes {
         S: Serializer,
     {
         serializer.serialize_str(&format!("0x{:x}", value))
+    }
+
+    pub mod vec {
+        use super::*;
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Vec<Bytes>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Vec::<String>::deserialize(d)?;
+            let mut output = Vec::new();
+            for str in value {
+                let bytes = hex::decode(str.trim_start_matches("0x"))
+                    .map_err(|e| D::Error::custom(e.to_string()))?
+                    .into();
+                output.push(bytes);
+            }
+            Ok(output)
+        }
     }
 }
 

@@ -7,12 +7,14 @@ use ethereum_rust_core::{
     types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
     Address,
 };
-use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
+use ethereum_rust_evm::{apply_state_transitions, evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
-pub fn execute_test(test_key: &str, test: &TestUnit) {
+pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
+    // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
     let blocks = test.blocks.clone();
+    // Execute all txs in the test unit
     for block in blocks.iter() {
         let block_header = block.block_header.clone().unwrap();
         let transactions = block.transactions.as_ref().unwrap();
@@ -35,6 +37,12 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
                 test_key
             );
         }
+    }
+    // Apply state transitions
+    apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
+    // Check post state
+    if check_post_state {
+        check_poststate_against_db(&test.post_state, evm_state.database())
     }
 }
 
@@ -77,7 +85,7 @@ pub fn validate_test(test: &TestUnit) {
     }
 }
 
-// Creates an in-memory DB for evm execution and loads the prestate accounts
+/// Creates an in-memory DB for evm execution and loads the prestate accounts
 pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmState {
     let mut store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
@@ -88,4 +96,42 @@ pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmStat
             .expect("Failed to write to test DB")
     }
     evm_state(store)
+}
+
+/// Checks that all accounts in the post-state are present and have the correct values in the DB
+/// Panics if any comparison fails
+fn check_poststate_against_db(post: &HashMap<Address, Account>, db: &Store) {
+    for (addr, account) in post {
+        let expected_account: CoreAccount = account.clone().into();
+        // Check info
+        let db_account_info = db
+            .get_account_info(*addr)
+            .expect("Failed to read from DB")
+            .unwrap_or_else(|| panic!("Account info for address {addr} not found in DB"));
+        assert_eq!(
+            db_account_info, expected_account.info,
+            "Mismatched account info for address {addr}"
+        );
+        // Check code
+        let code_hash = expected_account.info.code_hash;
+        let db_account_code = db
+            .get_account_code(code_hash)
+            .expect("Failed to read from DB")
+            .unwrap_or_else(|| panic!("Account code for code hash {code_hash} not found in DB"));
+        assert_eq!(
+            db_account_code, expected_account.code,
+            "Mismatched account code for code hash {code_hash}"
+        );
+        // Check storage
+        for (key, value) in expected_account.storage {
+            let db_storage_value = db
+                .get_storage_at(*addr, key)
+                .expect("Failed to read from DB")
+                .unwrap_or_else(|| panic!("Storage missing for address {addr} key {key} in DB"));
+            assert_eq!(
+                db_storage_value, value,
+                "Mismatched storage value for address {addr}, key {key}"
+            );
+        }
+    }
 }
