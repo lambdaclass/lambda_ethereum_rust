@@ -2,8 +2,10 @@ mod db;
 mod errors;
 mod execution_result;
 
+use bytes::Bytes;
 use db::StoreWrapper;
 use ethereum_rust_core::types::{BlockHeader, Transaction, TxKind};
+use ethereum_rust_core::H256;
 use ethereum_rust_storage::Store;
 use revm::{
     db::states::bundle_state::BundleRetention,
@@ -79,10 +81,12 @@ pub fn evm_state(store: Store) -> EvmState {
 
 pub fn beacon_root_contract_call(
     state: &mut EvmState,
-    beacon_root: B256,
     header: &BlockHeader,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
+    let beacon_root = header
+        .parent_beacon_block_root
+        .expect("No parent beacon block root on block header");
     let tx_env = TxEnv {
         caller: RevmAddress::from_slice(
             &hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap(),
@@ -93,7 +97,7 @@ pub fn beacon_root_contract_call(
         nonce: None,
         gas_limit: 30_000_000,
         value: U256::ZERO,
-        data: beacon_root.into(),
+        data: revm::primitives::Bytes::copy_from_slice(beacon_root.as_bytes()),
         gas_price: U256::ZERO,
         chain_id: None,
         gas_priority_fee: None,
@@ -102,7 +106,8 @@ pub fn beacon_root_contract_call(
         max_fee_per_blob_gas: None,
         ..Default::default()
     };
-    let block_env = block_env(header);
+    let mut block_env = block_env(header);
+    block_env.basefee = U256::ZERO;
     run_evm(tx_env, block_env, state, spec_id)
 }
 
