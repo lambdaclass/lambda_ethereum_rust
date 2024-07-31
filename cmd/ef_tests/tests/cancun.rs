@@ -8,7 +8,7 @@ fn parse_and_execute(path: &Path) -> datatest_stable::Result<()> {
     for (test_key, test) in tests {
         validate_test(&test);
         // TODO: Enable post state check
-        execute_test(&test_key, &test, false)
+        execute_test(&test_key, &test, true)
     }
     Ok(())
 }

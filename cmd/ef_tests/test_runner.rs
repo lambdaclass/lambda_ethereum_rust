@@ -7,7 +7,9 @@ use ethereum_rust_core::{
     types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
     Address,
 };
-use ethereum_rust_evm::{apply_state_transitions, evm_state, execute_tx, EvmState, SpecId};
+use ethereum_rust_evm::{
+    apply_state_transitions, beacon_root_contract_call, evm_state, execute_tx, EvmState, SpecId,
+};
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
@@ -17,6 +19,10 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Execute all txs in the test unit
     for block in blocks.iter() {
         let block_header = block.block_header.clone().unwrap();
+        if block_header.parent_beacon_block_root.is_some() {
+            beacon_root_contract_call(&mut evm_state, &block_header.clone().into(), SpecId::CANCUN)
+                .expect("Error on beacon root contract call");
+        }
         let transactions = block.transactions.as_ref().unwrap();
         for transaction in transactions.iter() {
             assert_eq!(
@@ -32,7 +38,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
                     &mut evm_state,
                     SpecId::CANCUN,
                 )
-                .is_ok(), //TODO: Assert ExecutionResult depending on test case
+                .is_ok(),
                 "Transaction execution failed on test: {}",
                 test_key
             );

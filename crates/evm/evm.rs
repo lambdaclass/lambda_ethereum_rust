@@ -245,7 +245,7 @@ pub fn beacon_root_contract_call(
             &hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap(),
         ),
         transact_to: RevmTxKind::Call(RevmAddress::from_slice(
-            &hex::decode("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
+            &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
         )),
         nonce: None,
         gas_limit: 30_000_000,
