@@ -19,7 +19,7 @@ pub struct TestUnit {
     pub genesis_rlp: Bytes,
     pub lastblockhash: serde_json::Value,
     pub network: serde_json::Value,
-    pub post_state: serde_json::Value,
+    pub post_state: HashMap<Address, Account>,
     pub pre: HashMap<Address, Account>,
     pub seal_engine: serde_json::Value,
 }
