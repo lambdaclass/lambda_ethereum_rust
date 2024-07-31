@@ -58,9 +58,6 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
-//TODO: We shouldn't skip validating the tests with the field expect_exception.
-//      We should run them and assert that those return the specified exception.
-//      From the vectors/cancun tests, only tests in eip4844_blobs expect exceptions.
 pub fn validate_test(test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
@@ -72,11 +69,6 @@ pub fn validate_test(test: &TestUnit) {
 
     // check that blocks can be decoded
     for block in &test.blocks {
-        // skip the blocks with exceptions expected
-        if block.expect_exception.is_some() {
-            continue;
-        }
-
         match CoreBlock::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
                 // check that the decoded block matches the deserialized one
