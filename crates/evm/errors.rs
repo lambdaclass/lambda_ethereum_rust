@@ -9,7 +9,7 @@ pub enum EvmError {
     #[error("Invalid Header: {0}")]
     Header(String),
     #[error("DB error: {0}")]
-    DB(StoreError),
+    DB(#[from] StoreError),
     #[error("{0}")]
     Custom(String),
     #[error("{0}")]
