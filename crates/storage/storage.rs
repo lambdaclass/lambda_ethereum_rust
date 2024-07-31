@@ -18,7 +18,7 @@ use ethereum_rust_core::types::{
     Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
     Receipt, Transaction,
 };
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -185,6 +185,15 @@ pub trait StoreEngine: Debug + Send {
     fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
         self.remove_account_info(address)?;
         self.remove_account_storage(address)
+    }
+
+    /// Increments the balance of an account by a given account (if it exists)
+    fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {
+        if let Some(mut account_info) = self.get_account_info(address)? {
+            account_info.balance = account_info.balance.saturating_add(amount);
+            self.add_account_info(address, account_info)?;
+        }
+        Ok(())
     }
 }
 
@@ -470,6 +479,13 @@ impl Store {
     pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
         self.engine.lock().unwrap().remove_account(address)
     }
+
+    pub fn increment_balance(&self, address: Address, amount: U256) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .increment_balance(address, amount)
+    }
 }
 
 #[cfg(test)]
@@ -532,6 +548,7 @@ mod tests {
         test_store_account_code(store.clone());
         test_store_account_storage(store.clone());
         test_remove_account_storage(store.clone());
+        test_increment_balance(store.clone());
     }
 
     fn test_store_account(store: Store) {
@@ -767,5 +784,19 @@ mod tests {
 
         assert!(stored_value_beta_a.is_some());
         assert!(stored_value_beta_b.is_some());
+    }
+
+    fn test_increment_balance(store: Store) {
+        let address = Address::random();
+        let account_info = AccountInfo {
+            balance: 50.into(),
+            ..Default::default()
+        };
+        store.add_account_info(address, account_info).unwrap();
+        store.increment_balance(address, 25.into()).unwrap();
+
+        let stored_account_info = store.get_account_info(address).unwrap().unwrap();
+
+        assert_eq!(stored_account_info.balance, 75.into());
     }
 }
