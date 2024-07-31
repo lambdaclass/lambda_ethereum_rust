@@ -14,7 +14,7 @@ use std::collections::HashMap;
 pub struct TestUnit {
     #[serde(default, rename = "_info")]
     pub info: Option<serde_json::Value>,
-    pub blocks: Vec<Block>,
+    pub blocks: Vec<BlockWithRLP>,
     pub genesis_block_header: Header,
     #[serde(rename = "genesisRLP", with = "ethereum_rust_core::serde_utils::bytes")]
     pub genesis_rlp: Bytes,
@@ -91,37 +91,66 @@ pub struct Header {
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Block {
-    pub block_header: Option<Header>,
+pub struct BlockWithRLP {
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
-    pub transactions: Option<Vec<Transaction>>,
-    pub uncle_headers: Option<Vec<Header>>,
-    pub withdrawals: Option<Vec<Withdrawal>>,
+    #[serde(flatten)]
+    inner: BlockInner,
     pub expect_exception: Option<String>,
 }
 
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BlockInner {
+    Block(Block),
+    DecodedRLP(DecodedRLPBlock),
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+pub struct DecodedRLPBlock {
+    rlp_decoded: Block,
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Block {
+    pub block_header: Header,
+    #[serde(default)]
+    pub transactions: Vec<Transaction>,
+    #[serde(default)]
+    pub uncle_headers: Vec<Header>,
+    #[serde(default)]
+    pub withdrawals: Vec<Withdrawal>,
+}
+
+impl BlockWithRLP {
+    pub fn block(&self) -> &Block {
+        match self.inner {
+            BlockInner::Block(ref block) => block,
+            BlockInner::DecodedRLP(ref decoded) => &decoded.rlp_decoded,
+        }
+    }
+
+    pub fn header(&self) -> &Header {
+        &self.block().block_header
+    }
+
+    pub fn transactions(&self) -> &Vec<Transaction> {
+        &self.block().transactions
+    }
+
+    pub fn withdrawals(&self) -> &Vec<Withdrawal> {
+        &self.block().withdrawals
+    }
+}
 impl From<Block> for CoreBlock {
     fn from(val: Block) -> Self {
         Self {
-            header: val.block_header.unwrap().into(),
+            header: val.block_header.into(),
             body: BlockBody {
-                transactions: val
-                    .transactions
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|t| t.clone().into())
-                    .collect(),
-                ommers: val
-                    .uncle_headers
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|h| h.clone().into())
-                    .collect(),
-                withdrawals: match val.withdrawals {
-                    Some(withdrawals) => withdrawals.iter().map(|w| Some(w.clone())).collect(),
-                    None => None,
-                },
+                transactions: val.transactions.iter().map(|t| t.clone().into()).collect(),
+                ommers: val.uncle_headers.iter().map(|h| h.clone().into()).collect(),
+                withdrawals: val.withdrawals.iter().map(|w| Some(w.clone())).collect(),
             },
         }
     }

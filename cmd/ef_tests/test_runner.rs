@@ -18,9 +18,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     let blocks = test.blocks.clone();
     // Execute all txs in the test unit
     for block in blocks.iter() {
-        let block_header = block.block_header.clone().unwrap();
-        let transactions = block.transactions.as_ref().unwrap();
-        for transaction in transactions.iter() {
+        let block_header = block.header().clone();
+        for transaction in block.transactions().iter() {
             assert_eq!(
                 transaction.clone().sender,
                 CoreTransaction::from(transaction.clone()).sender(),
@@ -42,10 +41,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
         // Apply state transitions
         apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
         // Process withdrawals (if present)
-        if let Some(ref withdrawals) = block.withdrawals {
-            process_withdrawals(evm_state.database(), withdrawals)
-                .expect("DB error when processing withdrawals")
-        }
+        process_withdrawals(evm_state.database(), block.withdrawals())
+            .expect("DB error when processing withdrawals")
     }
     // Check post state
     if check_post_state {
@@ -81,7 +78,7 @@ pub fn validate_test(test: &TestUnit) {
         match CoreBlock::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
                 // check that the decoded block matches the deserialized one
-                assert_eq!(decoded_block, (block.clone()).into());
+                assert_eq!(decoded_block, (block.block().clone()).into());
                 let mut rlp_block = Vec::new();
                 // check that encoding the decoded block matches the rlp field
                 decoded_block.encode(&mut rlp_block);
