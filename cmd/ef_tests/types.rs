@@ -119,9 +119,7 @@ impl From<Block> for CoreBlock {
                     .map(|h| h.clone().into())
                     .collect(),
                 withdrawals: match val.withdrawals {
-                    Some(withdrawals) => {
-                        withdrawals.iter().map(|w| Some(w.clone().into())).collect()
-                    }
+                    Some(withdrawals) => withdrawals.iter().map(|w| Some(w.clone())).collect(),
                     None => None,
                 },
             },

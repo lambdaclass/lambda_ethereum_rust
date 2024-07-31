@@ -42,8 +42,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
         // Apply state transitions
         apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
         // Process withdrawals (if present)
-        if let Some(withdrawals) = block.withdrawals {
-            process_withdrawals(evm_state.database(), &withdrawals[..])
+        if let Some(ref withdrawals) = block.withdrawals {
+            process_withdrawals(evm_state.database(), withdrawals)
                 .expect("DB error when processing withdrawals")
         }
     }
