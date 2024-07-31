@@ -33,7 +33,7 @@ pub struct EvmState(revm::db::State<StoreWrapper>);
 
 impl EvmState {
     /// Get a reference to inner `Store` database
-    fn database(&self) -> &Store {
+    pub fn database(&self) -> &Store {
         &self.0.database.0
     }
 }
@@ -220,7 +220,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
 }
 
 /// Processes a block's withdrawals, updating the account balances in the state
-pub fn process_withdrawals(state: Store, withdrawals: &[Withdrawal]) -> Result<(), StoreError> {
+pub fn process_withdrawals(state: &Store, withdrawals: &[Withdrawal]) -> Result<(), StoreError> {
     for withdrawal in withdrawals {
         if !withdrawal.amount.is_zero() {
             state.increment_balance(withdrawal.address, withdrawal.amount)?

@@ -1,8 +1,9 @@
 use bytes::Bytes;
+use ethereum_rust_core::types::Withdrawal;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, Block as CoreBlock, BlockBody,
     EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransaction, TxKind, Withdrawal as CoreWithdrawal,
+    Transaction as ethereum_rustTransaction, TxKind,
 };
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
@@ -154,17 +155,6 @@ pub struct Transaction {
     pub to: Address,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Withdrawal {
-    #[serde(deserialize_with = "crate::serde_utils::u64::hex_str::deserialize")]
-    pub index: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::hex_str::deserialize")]
-    pub validator_index: u64,
-    pub address: Address,
-    pub amount: U256,
-}
-
 // Conversions between EFtests & ethereum_rust types
 
 impl From<Header> for BlockHeader {
@@ -310,17 +300,6 @@ impl From<Transaction> for EIP2930Transaction {
             signature_y_parity: !val.v.is_zero(),
             signature_r: val.r,
             signature_s: val.s,
-        }
-    }
-}
-
-impl From<Withdrawal> for CoreWithdrawal {
-    fn from(value: Withdrawal) -> Self {
-        CoreWithdrawal {
-            index: value.index,
-            validator_index: value.validator_index,
-            address: value.address,
-            amount: value.amount,
         }
     }
 }

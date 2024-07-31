@@ -7,7 +7,9 @@ use ethereum_rust_core::{
     types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
     Address,
 };
-use ethereum_rust_evm::{apply_state_transitions, evm_state, execute_tx, EvmState, SpecId};
+use ethereum_rust_evm::{
+    apply_state_transitions, evm_state, execute_tx, process_withdrawals, EvmState, SpecId,
+};
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test_key: &str, test: &TestUnit) {
@@ -37,9 +39,14 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
                 test_key
             );
         }
+        // Apply state transitions
+        apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
+        // Process withdrawals (if present)
+        if let Some(withdrawals) = block.withdrawals {
+            process_withdrawals(evm_state.database(), &withdrawals[..])
+                .expect("DB error when processing withdrawals")
+        }
     }
-    // Apply state transitions
-    apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
     // Check post state
     // TODO
 }
