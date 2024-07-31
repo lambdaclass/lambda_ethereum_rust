@@ -4,7 +4,9 @@ mod execution_result;
 
 use db::StoreWrapper;
 use ethereum_rust_core::{
-    types::{AccountInfo, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal},
+    types::{
+        AccountInfo, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal, GWEI_TO_WEI,
+    },
     Address, BigEndianHash, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -223,7 +225,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
 pub fn process_withdrawals(state: &Store, withdrawals: &[Withdrawal]) -> Result<(), StoreError> {
     for withdrawal in withdrawals {
         if !withdrawal.amount.is_zero() {
-            state.increment_balance(withdrawal.address, withdrawal.amount)?
+            state.increment_balance(withdrawal.address, withdrawal.amount * GWEI_TO_WEI)?
         }
     }
     Ok(())
