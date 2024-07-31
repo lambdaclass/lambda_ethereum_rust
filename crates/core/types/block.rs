@@ -68,7 +68,7 @@ impl RLPDecode for Block {
 }
 
 /// Header part of a block on the chain.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
