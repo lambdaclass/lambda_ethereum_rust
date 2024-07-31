@@ -50,7 +50,8 @@ jobs:
         with:
           toolchain: 1.78.0
           components: rustfmt, clippy
-            - name: Setup just
+
+      - name: Setup just
         uses: extractions/setup-just@v2
       
       - name: Download test vectors
