@@ -46,7 +46,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
                     execution_result.is_ok(),
                     "Transaction execution failed on test: {} with error: {}",
                     test_key,
-                    execution_result.unwrap_err().to_string()
+                    execution_result.unwrap_err()
                 )
             }
         }
