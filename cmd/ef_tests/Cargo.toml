@@ -21,3 +21,7 @@ path = "./ef_tests.rs"
 [[test]]
 name = "cancun"
 harness = false
+
+[[test]]
+name = "shanghai"
+harness = false
