@@ -7,12 +7,14 @@ use ethereum_rust_core::{
     types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
     Address,
 };
-use ethereum_rust_evm::{evm_state, execute_tx, EvmState, SpecId};
+use ethereum_rust_evm::{apply_state_transitions, evm_state, execute_tx, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test_key: &str, test: &TestUnit) {
+    // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
     let blocks = test.blocks.clone();
+    // Execute all txs in the test unit
     for block in blocks.iter() {
         let block_header = block.block_header.clone().unwrap();
         let transactions = block.transactions.as_ref().unwrap();
@@ -36,6 +38,10 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
             );
         }
     }
+    // Apply state transitions
+    apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
+    // Check post state
+    // TODO
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {

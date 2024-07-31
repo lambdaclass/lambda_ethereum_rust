@@ -49,6 +49,9 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain account info
     fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError>;
 
+    /// Remove account info
+    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError>;
+
     /// Add block header
     fn add_block_header(
         &mut self,
@@ -165,6 +168,9 @@ pub trait StoreEngine: Debug + Send {
         storage_key: H256,
     ) -> Result<Option<H256>, StoreError>;
 
+    // Add storage value
+    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError>;
+
     /// Stores account in db (including info, code & storage)
     fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
         self.add_account_info(address, account.info.clone())?;
@@ -173,6 +179,12 @@ pub trait StoreEngine: Debug + Send {
             self.add_storage_at(address, storage_key, storage_value)?;
         }
         Ok(())
+    }
+
+    /// Removes account info and storage
+    fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
+        self.remove_account_info(address)?;
+        self.remove_account_storage(address)
     }
 }
 
@@ -237,6 +249,14 @@ impl Store {
             .lock()
             .unwrap()
             .get_account_info(address)
+    }
+
+    pub fn remove_account_info(&self, address: Address) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .remove_account_info(address)
     }
 
     pub fn add_block_header(
@@ -442,6 +462,14 @@ impl Store {
             .unwrap()
             .get_storage_at(address, storage_key)
     }
+
+    pub fn remove_account_storage(&self, address: Address) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().remove_account_storage(address)
+    }
+
+    pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().remove_account(address)
+    }
 }
 
 #[cfg(test)]
@@ -503,6 +531,7 @@ mod tests {
         test_store_block_receipt(store.clone());
         test_store_account_code(store.clone());
         test_store_account_storage(store.clone());
+        test_remove_account_storage(store.clone());
     }
 
     fn test_store_account(store: Store) {
@@ -700,5 +729,43 @@ mod tests {
 
         assert_eq!(stored_value_a, storage_value_a);
         assert_eq!(stored_value_b, storage_value_b);
+    }
+
+    fn test_remove_account_storage(store: Store) {
+        let address_alpha = Address::random();
+        let address_beta = Address::random();
+
+        let storage_key_a = H256::random();
+        let storage_key_b = H256::random();
+        let storage_value_a = H256::random();
+        let storage_value_b = H256::random();
+
+        store
+            .add_storage_at(address_alpha, storage_key_a, storage_value_a)
+            .unwrap();
+        store
+            .add_storage_at(address_alpha, storage_key_b, storage_value_b)
+            .unwrap();
+
+        store
+            .add_storage_at(address_beta, storage_key_a, storage_value_a)
+            .unwrap();
+        store
+            .add_storage_at(address_beta, storage_key_b, storage_value_b)
+            .unwrap();
+
+        store.remove_account_storage(address_alpha).unwrap();
+
+        let stored_value_alpha_a = store.get_storage_at(address_alpha, storage_key_a).unwrap();
+        let stored_value_alpha_b = store.get_storage_at(address_alpha, storage_key_b).unwrap();
+
+        let stored_value_beta_a = store.get_storage_at(address_beta, storage_key_a).unwrap();
+        let stored_value_beta_b = store.get_storage_at(address_beta, storage_key_b).unwrap();
+
+        assert!(stored_value_alpha_a.is_none());
+        assert!(stored_value_alpha_b.is_none());
+
+        assert!(stored_value_beta_a.is_some());
+        assert!(stored_value_beta_b.is_some());
     }
 }
