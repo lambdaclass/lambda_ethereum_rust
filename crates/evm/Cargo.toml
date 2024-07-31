@@ -9,6 +9,7 @@ ethereum_rust-storage.workspace = true
 revm = { version = "10.0.0", features = ["serde", "std", "serde-json"] }
 bytes.workspace = true
 thiserror.workspace = true
+hex.workspace = true
 
 [lib]
 path = "./evm.rs"
