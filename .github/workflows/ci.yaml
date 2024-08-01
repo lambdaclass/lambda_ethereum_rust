@@ -1,5 +1,6 @@
 name: CI
 on:
+  merge_group:
   push:
     branches: [main]
   pull_request:
@@ -10,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  compile:
-    name: Compile
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -22,9 +23,6 @@ jobs:
         with:
           toolchain: 1.78.0
           components: rustfmt, clippy
-
-      - name: Set up cargo cache
-        uses: Swatinem/rust-cache@v2
 
       - name: Run cargo check
         run: cargo check
@@ -40,7 +38,19 @@ jobs:
       - name: Run cargo fmt
         run: |
           cargo fmt --all -- --check
-      
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.78.0
+
       - name: Setup just
         uses: extractions/setup-just@v2
       
@@ -51,7 +61,7 @@ jobs:
       - name: Run tests
         run: |
           just test-all
-      
+
   docker-build:
     name: Build Docker image
     runs-on: ubuntu-latest
