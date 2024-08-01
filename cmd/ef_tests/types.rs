@@ -1,8 +1,9 @@
 use bytes::Bytes;
+use ethereum_rust_core::types::Withdrawal;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, Block as CoreBlock, BlockBody,
     EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransaction, TxKind, Withdrawal as CoreWithdrawal,
+    Transaction as ethereum_rustTransaction, TxKind,
 };
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H160, H256, H64, U256};
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 pub struct TestUnit {
     #[serde(default, rename = "_info")]
     pub info: Option<serde_json::Value>,
-    pub blocks: Vec<Block>,
+    pub blocks: Vec<BlockWithRLP>,
     pub genesis_block_header: Header,
     #[serde(rename = "genesisRLP", with = "ethereum_rust_core::serde_utils::bytes")]
     pub genesis_rlp: Bytes,
@@ -90,39 +91,65 @@ pub struct Header {
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct Block {
-    pub block_header: Option<Header>,
+pub struct BlockWithRLP {
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
-    pub transactions: Option<Vec<Transaction>>,
-    pub uncle_headers: Option<Vec<Header>>,
-    pub withdrawals: Option<Vec<Withdrawal>>,
+    #[serde(flatten)]
+    inner: BlockInner,
     pub expect_exception: Option<String>,
 }
 
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BlockInner {
+    Block(Block),
+    DecodedRLP(DecodedRLPBlock),
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+pub struct DecodedRLPBlock {
+    rlp_decoded: Block,
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Block {
+    pub block_header: Header,
+    #[serde(default)]
+    pub transactions: Vec<Transaction>,
+    #[serde(default)]
+    pub uncle_headers: Vec<Header>,
+    pub withdrawals: Option<Vec<Withdrawal>>,
+}
+
+impl BlockWithRLP {
+    pub fn block(&self) -> &Block {
+        match self.inner {
+            BlockInner::Block(ref block) => block,
+            BlockInner::DecodedRLP(ref decoded) => &decoded.rlp_decoded,
+        }
+    }
+
+    pub fn header(&self) -> &Header {
+        &self.block().block_header
+    }
+
+    pub fn transactions(&self) -> &Vec<Transaction> {
+        &self.block().transactions
+    }
+
+    pub fn withdrawals(&self) -> Option<&Vec<Withdrawal>> {
+        self.block().withdrawals.as_ref()
+    }
+}
 impl From<Block> for CoreBlock {
     fn from(val: Block) -> Self {
         Self {
-            header: val.block_header.unwrap().into(),
+            header: val.block_header.into(),
             body: BlockBody {
-                transactions: val
-                    .transactions
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|t| t.clone().into())
-                    .collect(),
-                ommers: val
-                    .uncle_headers
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|h| h.clone().into())
-                    .collect(),
-                withdrawals: match val.withdrawals {
-                    Some(withdrawals) => {
-                        withdrawals.iter().map(|w| Some(w.clone().into())).collect()
-                    }
-                    None => None,
-                },
+                transactions: val.transactions.iter().map(|t| t.clone().into()).collect(),
+                ommers: val.uncle_headers.iter().map(|h| h.clone().into()).collect(),
+                withdrawals: val.withdrawals,
             },
         }
     }
@@ -152,17 +179,6 @@ pub struct Transaction {
     pub sender: Address,
     #[serde(deserialize_with = "crate::serde_utils::h160::deser_hex_str")]
     pub to: Address,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Withdrawal {
-    #[serde(deserialize_with = "crate::serde_utils::u64::hex_str::deserialize")]
-    pub index: u64,
-    #[serde(deserialize_with = "crate::serde_utils::u64::hex_str::deserialize")]
-    pub validator_index: u64,
-    pub address: Address,
-    pub amount: U256,
 }
 
 // Conversions between EFtests & ethereum_rust types
@@ -310,17 +326,6 @@ impl From<Transaction> for EIP2930Transaction {
             signature_y_parity: !val.v.is_zero(),
             signature_r: val.r,
             signature_s: val.s,
-        }
-    }
-}
-
-impl From<Withdrawal> for CoreWithdrawal {
-    fn from(value: Withdrawal) -> Self {
-        CoreWithdrawal {
-            index: value.index,
-            validator_index: value.validator_index,
-            address: value.address,
-            amount: value.amount,
         }
     }
 }

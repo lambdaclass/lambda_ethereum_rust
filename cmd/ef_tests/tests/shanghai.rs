@@ -22,7 +22,7 @@ datatest_stable::harness!(
     // parse_and_execute,
     // "vectors/shanghai/eip3860_initcode/",
     // r"^.*/*",
-    // parse_and_execute,
-    // "vectors/shanghai/eip4895_withdrawals/",
-    // r"^.*/*",
+    parse_and_execute,
+    "vectors/shanghai/eip4895_withdrawals/",
+    r"^.*/*",
 );

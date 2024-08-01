@@ -1,4 +1,4 @@
-use super::{Key, StoreEngine, Value};
+use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
@@ -143,14 +143,6 @@ impl StoreEngine for Store {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<BlockNumbers>(block_hash.into())
             .map_err(StoreError::LibmdbxError)
-    }
-
-    fn set_value(&mut self, _key: Key, _value: Value) -> Result<(), StoreError> {
-        todo!()
-    }
-
-    fn get_value(&self, _key: Key) -> Result<Option<Value>, StoreError> {
-        todo!()
     }
 
     fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
