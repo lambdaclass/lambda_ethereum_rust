@@ -15,14 +15,29 @@ use ethereum_rust_storage::{EngineType, Store};
 pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
+    apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
     let blocks = test.blocks.clone();
     // Execute all txs in the test unit
     for block in blocks.iter() {
+        let beacon_contract_account = evm_state
+            .database()
+            .get_account_info(Address::from_slice(
+                &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
+            ))
+            .unwrap();
         let block_header = block.block_header.clone().unwrap();
-        if block_header.parent_beacon_block_root.is_some() && (block_header.number != U256::from(0))
-        {
-            beacon_root_contract_call(&mut evm_state, &block_header.clone().into(), SpecId::CANCUN)
+
+        if beacon_contract_account.is_some() {
+            if block_header.parent_beacon_block_root.is_some()
+                && (block_header.number != U256::from(0))
+            {
+                beacon_root_contract_call(
+                    &mut evm_state,
+                    &block_header.clone().into(),
+                    SpecId::CANCUN,
+                )
                 .expect("Error on beacon root contract call");
+            }
         }
         let transactions = block.transactions.as_ref().unwrap();
         for transaction in transactions.iter() {
@@ -44,9 +59,10 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
                 test_key
             );
         }
+
+        apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
     }
     // Apply state transitions
-    apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
     // Check post state
     if check_post_state {
         check_poststate_against_db(&test.post_state, evm_state.database())
