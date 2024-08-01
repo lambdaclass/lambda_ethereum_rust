@@ -166,4 +166,38 @@ pub trait StoreEngine: Debug + Send {
 
     /// Obtain the current chain id
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
+
+    // Update earliest block number
+    fn update_earliest_block_number(&mut self, block_number: BlockNumber)
+        -> Result<(), StoreError>;
+
+    // Obtain earliest block number
+    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update finalized block number
+    fn update_finalized_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError>;
+
+    // Obtain finalized block number
+    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update safe block number
+    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+
+    // Obtain safe block number
+    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update latest block number
+    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+
+    // Obtain latest block number
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update pending block number
+    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+
+    // Obtain pending block number
+    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 }

@@ -287,6 +287,147 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
+
+    fn update_earliest_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        // Overwrites previous value if present
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<ChainData>(
+            ChainDataIndex::EarliestBlockNumber,
+            block_number.encode_to_vec(),
+        )
+        .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        match txn
+            .get::<ChainData>(ChainDataIndex::EarliestBlockNumber)
+            .map_err(StoreError::LibmdbxError)?
+        {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_finalized_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        // Overwrites previous value if present
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<ChainData>(
+            ChainDataIndex::FinalizedBlockNumber,
+            block_number.encode_to_vec(),
+        )
+        .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        match txn
+            .get::<ChainData>(ChainDataIndex::FinalizedBlockNumber)
+            .map_err(StoreError::LibmdbxError)?
+        {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        // Overwrites previous value if present
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<ChainData>(
+            ChainDataIndex::SafeBlockNumber,
+            block_number.encode_to_vec(),
+        )
+        .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        match txn
+            .get::<ChainData>(ChainDataIndex::SafeBlockNumber)
+            .map_err(StoreError::LibmdbxError)?
+        {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        // Overwrites previous value if present
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<ChainData>(
+            ChainDataIndex::LatestBlockNumber,
+            block_number.encode_to_vec(),
+        )
+        .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        match txn
+            .get::<ChainData>(ChainDataIndex::LatestBlockNumber)
+            .map_err(StoreError::LibmdbxError)?
+        {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        // Overwrites previous value if present
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<ChainData>(
+            ChainDataIndex::PendingBlockNumber,
+            block_number.encode_to_vec(),
+        )
+        .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        match txn
+            .get::<ChainData>(ChainDataIndex::PendingBlockNumber)
+            .map_err(StoreError::LibmdbxError)?
+        {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
 }
 
 impl Debug for Store {
@@ -393,6 +534,11 @@ impl From<AccountStorageValueBytes> for H256 {
 // (TODO: Remove this comment once full) Will store chain-specific data such as chain id and latest finalized/pending/safe block number
 pub enum ChainDataIndex {
     ChainId = 0,
+    EarliestBlockNumber = 1,
+    FinalizedBlockNumber = 2,
+    SafeBlockNumber = 3,
+    LatestBlockNumber = 4,
+    PendingBlockNumber = 5,
 }
 
 impl Encodable for ChainDataIndex {
