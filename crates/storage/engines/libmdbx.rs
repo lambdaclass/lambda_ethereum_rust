@@ -145,14 +145,6 @@ impl StoreEngine for Store {
             .map_err(StoreError::LibmdbxError)
     }
 
-    fn set_value(&mut self, _key: Key, _value: Value) -> Result<(), StoreError> {
-        todo!()
-    }
-
-    fn get_value(&self, _key: Key) -> Result<Option<Value>, StoreError> {
-        todo!()
-    }
-
     fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         // Write account code to mdbx
         let txn = self

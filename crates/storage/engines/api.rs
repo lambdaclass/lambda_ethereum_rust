@@ -89,12 +89,6 @@ pub trait StoreEngine: Debug + Send {
         index: Index,
     ) -> Result<Option<Receipt>, StoreError>;
 
-    /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
-    fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;
-
-    /// Retrieve a stored value under Key
-    fn get_value(&self, key: Key) -> Result<Option<Value>, StoreError>;
-
     /// Add account code
     fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
 

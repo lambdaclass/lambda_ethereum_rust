@@ -48,15 +48,6 @@ impl StoreEngine for Store {
         Ok(())
     }
 
-    fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError> {
-        let _ = self.values.insert(key, value);
-        Ok(())
-    }
-
-    fn get_value(&self, key: Key) -> Result<Option<Vec<u8>>, StoreError> {
-        Ok(self.values.get(&key).cloned())
-    }
-
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
         Ok(self.headers.get(&block_number).cloned())
     }
