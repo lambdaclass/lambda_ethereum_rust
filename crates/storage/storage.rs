@@ -291,7 +291,7 @@ impl Store {
         self.engine.lock().unwrap().remove_account(address)
     }
 
-    pub fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
+    pub fn update_chain_id(&self, chain_id: U256) -> Result<(), StoreError> {
         self.engine.lock().unwrap().update_chain_id(chain_id)
     }
 
@@ -340,6 +340,7 @@ mod tests {
         test_store_account_code(store.clone());
         test_store_account_storage(store.clone());
         test_remove_account_storage(store.clone());
+        test_store_chain_data(store.clone());
     }
 
     fn test_store_account(store: Store) {
@@ -575,5 +576,15 @@ mod tests {
 
         assert!(stored_value_beta_a.is_some());
         assert!(stored_value_beta_b.is_some());
+    }
+
+    fn test_store_chain_data(store: Store) {
+        let chain_id = U256::from_dec_str("46").unwrap();
+
+        store.update_chain_id(chain_id).unwrap();
+
+        let stored_chain_id = store.get_chain_id().unwrap().unwrap();
+
+        assert_eq!(chain_id, stored_chain_id);
     }
 }
