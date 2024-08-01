@@ -247,7 +247,7 @@ impl Store {
         }
 
         // Store chain info
-        Ok(())
+        self.update_chain_id(genesis.config.chain_id)
     }
 
     pub fn get_transaction_by_hash(
@@ -289,6 +289,14 @@ impl Store {
 
     pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
         self.engine.lock().unwrap().remove_account(address)
+    }
+
+    pub fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().update_chain_id(chain_id)
+    }
+
+    pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
+        self.engine.lock().unwrap().get_chain_id()
     }
 }
 
