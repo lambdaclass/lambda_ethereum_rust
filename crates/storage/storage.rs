@@ -44,14 +44,6 @@ impl Store {
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
             },
-            #[cfg(feature = "sled")]
-            EngineType::Sled => Self {
-                engine: Arc::new(Mutex::new(SledStore::new(path)?)),
-            },
-            #[cfg(feature = "rocksdb")]
-            EngineType::RocksDb => Self {
-                engine: Arc::new(Mutex::new(RocksDbStore::new(path)?)),
-            },
         };
         info!("Started store engine");
         Ok(store)
