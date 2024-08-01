@@ -283,7 +283,7 @@ impl StoreEngine for Store {
         {
             None => Ok(None),
             Some(ref rlp) => U256::decode(rlp)
-                .map(|ci| Some(ci))
+                .map(Some)
                 .map_err(|_| StoreError::DecodeError),
         }
     }
