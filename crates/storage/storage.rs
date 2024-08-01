@@ -1,19 +1,10 @@
-//! Abstraction for persistent data storage.
-//!    Supporting InMemory and Libmdbx storage.
-//!    There is also a template for Sled and RocksDb implementation in case we
-//!    want to test or benchmark against those engines (Currently disabled behind feature flags
-//!    to avoid requiring the implementation of the full API).
-
-use self::error::StoreError;
 #[cfg(feature = "in_memory")]
-use self::in_memory::Store as InMemoryStore;
+use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
-use self::libmdbx::Store as LibmdbxStore;
-#[cfg(feature = "rocksdb")]
-use self::rocksdb::Store as RocksDbStore;
-#[cfg(feature = "sled")]
-use self::sled::Store as SledStore;
+use self::engines::libmdbx::Store as LibmdbxStore;
+use self::error::StoreError;
 use bytes::Bytes;
+use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
     Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
     Receipt, Transaction,
@@ -23,179 +14,9 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
 
+mod engines;
 pub mod error;
 mod rlp;
-
-#[cfg(feature = "in_memory")]
-mod in_memory;
-#[cfg(feature = "libmdbx")]
-mod libmdbx;
-#[cfg(feature = "rocksdb")]
-mod rocksdb;
-#[cfg(feature = "sled")]
-mod sled;
-
-pub(crate) type Key = Vec<u8>;
-pub(crate) type Value = Vec<u8>;
-
-pub trait StoreEngine: Debug + Send {
-    /// Add account info
-    fn add_account_info(
-        &mut self,
-        address: Address,
-        account_info: AccountInfo,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain account info
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError>;
-
-    /// Remove account info
-    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError>;
-
-    /// Add block header
-    fn add_block_header(
-        &mut self,
-        block_number: BlockNumber,
-        block_header: BlockHeader,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain block header
-    fn get_block_header(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<BlockHeader>, StoreError>;
-
-    /// Add block body
-    fn add_block_body(
-        &mut self,
-        block_number: BlockNumber,
-        block_body: BlockBody,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain block body
-    fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError>;
-
-    /// Add block body
-    fn add_block_number(
-        &mut self,
-        block_hash: BlockHash,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain block number
-    fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
-
-    /// Store transaction location (block number and index of the transaction within the block)
-    fn add_transaction_location(
-        &mut self,
-        transaction_hash: H256,
-        block_number: BlockNumber,
-        index: Index,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain transaction location (block number and index)
-    fn get_transaction_location(
-        &self,
-        transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError>;
-
-    /// Add receipt
-    fn add_receipt(
-        &mut self,
-        block_number: BlockNumber,
-        index: Index,
-        receipt: Receipt,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain receipt
-    fn get_receipt(
-        &self,
-        block_number: BlockNumber,
-        index: Index,
-    ) -> Result<Option<Receipt>, StoreError>;
-
-    /// Set an arbitrary value (used for eventual persistent values: eg. current_block_height)
-    fn set_value(&mut self, key: Key, value: Value) -> Result<(), StoreError>;
-
-    /// Retrieve a stored value under Key
-    fn get_value(&self, key: Key) -> Result<Option<Value>, StoreError>;
-
-    /// Add account code
-    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
-
-    /// Obtain account code via code hash
-    fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError>;
-
-    /// Obtain account code via account address
-    fn get_code_by_account_address(&self, address: Address) -> Result<Option<Bytes>, StoreError> {
-        let code_hash = match self.get_account_info(address)? {
-            Some(acc_info) => acc_info.code_hash,
-            None => return Ok(None),
-        };
-        self.get_account_code(code_hash)
-    }
-
-    fn get_transaction_by_hash(
-        &self,
-        transaction_hash: H256,
-    ) -> Result<Option<Transaction>, StoreError> {
-        let (block_number, index) = match self.get_transaction_location(transaction_hash)? {
-            Some(locations) => locations,
-            None => return Ok(None),
-        };
-        let block_body = match self.get_block_body(block_number)? {
-            Some(body) => body,
-            None => return Ok(None),
-        };
-        Ok(index
-            .try_into()
-            .ok()
-            .and_then(|index: usize| block_body.transactions.get(index).cloned()))
-    }
-
-    // Add storage value
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: H256,
-    ) -> Result<(), StoreError>;
-
-    // Obtain storage value
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<H256>, StoreError>;
-
-    // Add storage value
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError>;
-
-    /// Stores account in db (including info, code & storage)
-    fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
-        self.add_account_info(address, account.info.clone())?;
-        self.add_account_code(account.info.code_hash, account.code)?;
-        for (storage_key, storage_value) in account.storage {
-            self.add_storage_at(address, storage_key, storage_value)?;
-        }
-        Ok(())
-    }
-
-    /// Removes account info and storage
-    fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
-        self.remove_account_info(address)?;
-        self.remove_account_storage(address)
-    }
-
-    /// Increments the balance of an account by a given ammount (if it exists)
-    fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {
-        if let Some(mut account_info) = self.get_account_info(address)? {
-            account_info.balance = account_info.balance.saturating_add(amount);
-            self.add_account_info(address, account_info)?;
-        }
-        Ok(())
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Store {
@@ -209,10 +30,6 @@ pub enum EngineType {
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
-    #[cfg(feature = "sled")]
-    Sled,
-    #[cfg(feature = "rocksdb")]
-    RocksDb,
 }
 
 impl Store {
@@ -226,14 +43,6 @@ impl Store {
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
-            },
-            #[cfg(feature = "sled")]
-            EngineType::Sled => Self {
-                engine: Arc::new(Mutex::new(SledStore::new(path)?)),
-            },
-            #[cfg(feature = "rocksdb")]
-            EngineType::RocksDb => Self {
-                engine: Arc::new(Mutex::new(RocksDbStore::new(path)?)),
             },
         };
         info!("Started store engine");
@@ -517,26 +326,6 @@ mod tests {
         let store = Store::new("test.mdbx", EngineType::Libmdbx).unwrap();
         test_store_suite(store);
         remove_test_dbs("test.mdbx");
-    }
-
-    #[cfg(feature = "sled")]
-    #[test]
-    fn test_sled_store() {
-        // Removing preexistent DBs in case of a failed previous test
-        remove_test_dbs("test.sled");
-        let store = Store::new("test.sled", EngineType::Sled).unwrap();
-        test_store_suite(store);
-        remove_test_dbs("test.sled");
-    }
-
-    #[cfg(feature = "rocksdb")]
-    #[test]
-    fn test_rocksdb_store() {
-        // Removing preexistent DBs in case of a failed previous test
-        remove_test_dbs("test.rocksdb");
-        let store = Store::new("test.rocksdb", EngineType::Sled).unwrap();
-        test_store_suite(store);
-        remove_test_dbs("test.rocksdb");
     }
 
     fn test_store_suite(store: Store) {
