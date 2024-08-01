@@ -334,6 +334,7 @@ table!(
 
 table!(
     /// Stores chain data, each value is unique and stored as its rlp encoding
+    /// See [ChainDataIndex] for available chain values
     ( ChainData ) ChainDataIndex => Vec<u8>
 );
 
@@ -388,7 +389,8 @@ impl From<AccountStorageValueBytes> for H256 {
     }
 }
 
-// Represents the key for each unique value of the chain data
+/// Represents the key for each unique value of the chain data stored in the db
+// (TODO: Remove this comment once full) Will store chain-specific data such as chain id and latest finalized/pending/safe block number
 pub enum ChainDataIndex {
     ChainId = 0,
 }
