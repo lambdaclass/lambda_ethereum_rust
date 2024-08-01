@@ -3,10 +3,6 @@ use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
-#[cfg(feature = "rocksdb")]
-use self::rocksdb::Store as RocksDbStore;
-#[cfg(feature = "sled")]
-use self::sled::Store as SledStore;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
@@ -62,7 +58,7 @@ impl Store {
     }
 
     pub fn add_account_info(
-        &mut self,
+        &self,
         address: Address,
         account_info: AccountInfo,
     ) -> Result<(), StoreError> {
@@ -79,6 +75,14 @@ impl Store {
             .lock()
             .unwrap()
             .get_account_info(address)
+    }
+
+    pub fn remove_account_info(&self, address: Address) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .remove_account_info(address)
     }
 
     pub fn add_block_header(
@@ -284,6 +288,14 @@ impl Store {
             .unwrap()
             .get_storage_at(address, storage_key)
     }
+
+    pub fn remove_account_storage(&self, address: Address) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().remove_account_storage(address)
+    }
+
+    pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().remove_account(address)
+    }
 }
 
 #[cfg(test)]
@@ -317,26 +329,6 @@ mod tests {
         remove_test_dbs("test.mdbx");
     }
 
-    #[cfg(feature = "sled")]
-    #[test]
-    fn test_sled_store() {
-        // Removing preexistent DBs in case of a failed previous test
-        remove_test_dbs("test.sled");
-        let store = Store::new("test.sled", EngineType::Sled).unwrap();
-        test_store_suite(store);
-        remove_test_dbs("test.sled");
-    }
-
-    #[cfg(feature = "rocksdb")]
-    #[test]
-    fn test_rocksdb_store() {
-        // Removing preexistent DBs in case of a failed previous test
-        remove_test_dbs("test.rocksdb");
-        let store = Store::new("test.rocksdb", EngineType::Sled).unwrap();
-        test_store_suite(store);
-        remove_test_dbs("test.rocksdb");
-    }
-
     fn test_store_suite(store: Store) {
         test_store_account(store.clone());
         test_store_block(store.clone());
@@ -345,9 +337,10 @@ mod tests {
         test_store_block_receipt(store.clone());
         test_store_account_code(store.clone());
         test_store_account_storage(store.clone());
+        test_remove_account_storage(store.clone());
     }
 
-    fn test_store_account(mut store: Store) {
+    fn test_store_account(store: Store) {
         let address = Address::random();
         let code = Bytes::new();
         let balance = U256::from_dec_str("50").unwrap();
@@ -542,5 +535,43 @@ mod tests {
 
         assert_eq!(stored_value_a, storage_value_a);
         assert_eq!(stored_value_b, storage_value_b);
+    }
+
+    fn test_remove_account_storage(store: Store) {
+        let address_alpha = Address::random();
+        let address_beta = Address::random();
+
+        let storage_key_a = H256::random();
+        let storage_key_b = H256::random();
+        let storage_value_a = H256::random();
+        let storage_value_b = H256::random();
+
+        store
+            .add_storage_at(address_alpha, storage_key_a, storage_value_a)
+            .unwrap();
+        store
+            .add_storage_at(address_alpha, storage_key_b, storage_value_b)
+            .unwrap();
+
+        store
+            .add_storage_at(address_beta, storage_key_a, storage_value_a)
+            .unwrap();
+        store
+            .add_storage_at(address_beta, storage_key_b, storage_value_b)
+            .unwrap();
+
+        store.remove_account_storage(address_alpha).unwrap();
+
+        let stored_value_alpha_a = store.get_storage_at(address_alpha, storage_key_a).unwrap();
+        let stored_value_alpha_b = store.get_storage_at(address_alpha, storage_key_b).unwrap();
+
+        let stored_value_beta_a = store.get_storage_at(address_beta, storage_key_a).unwrap();
+        let stored_value_beta_b = store.get_storage_at(address_beta, storage_key_b).unwrap();
+
+        assert!(stored_value_alpha_a.is_none());
+        assert!(stored_value_alpha_b.is_none());
+
+        assert!(stored_value_beta_a.is_some());
+        assert!(stored_value_beta_b.is_some());
     }
 }

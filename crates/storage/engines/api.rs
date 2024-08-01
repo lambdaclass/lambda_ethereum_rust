@@ -24,6 +24,9 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain account info
     fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError>;
 
+    /// Remove account info
+    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError>;
+
     /// Add block header
     fn add_block_header(
         &mut self,
@@ -140,6 +143,9 @@ pub trait StoreEngine: Debug + Send {
         storage_key: H256,
     ) -> Result<Option<H256>, StoreError>;
 
+    // Add storage value
+    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError>;
+
     /// Stores account in db (including info, code & storage)
     fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
         self.add_account_info(address, account.info.clone())?;
@@ -148,5 +154,11 @@ pub trait StoreEngine: Debug + Send {
             self.add_storage_at(address, storage_key, storage_value)?;
         }
         Ok(())
+    }
+
+    /// Removes account info and storage
+    fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
+        self.remove_account_info(address)?;
+        self.remove_account_storage(address)
     }
 }

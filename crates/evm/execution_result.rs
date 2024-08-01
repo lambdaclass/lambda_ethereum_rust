@@ -4,6 +4,7 @@ use revm::primitives::result::Output as RevmOutput;
 use revm::primitives::result::SuccessReason as RevmSuccessReason;
 use revm::primitives::ExecutionResult as RevmExecutionResult;
 
+#[derive(Debug)]
 pub enum ExecutionResult {
     Success {
         reason: SuccessReason,
@@ -21,6 +22,7 @@ pub enum ExecutionResult {
     },
 }
 
+#[derive(Debug)]
 pub enum SuccessReason {
     Stop,
     Return,
@@ -28,6 +30,7 @@ pub enum SuccessReason {
     EofReturnContract,
 }
 
+#[derive(Debug)]
 pub enum Output {
     Call(Bytes),
     Create(Bytes, Option<Address>),
