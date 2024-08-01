@@ -1,4 +1,3 @@
-use super::{Key, StoreEngine, Value};
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
@@ -6,6 +5,8 @@ use ethereum_rust_core::types::{
 };
 use ethereum_types::{Address, H256};
 use std::{collections::HashMap, fmt::Debug};
+
+use super::api::{Key, StoreEngine, Value};
 
 #[derive(Default)]
 pub struct Store {
