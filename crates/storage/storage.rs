@@ -18,7 +18,7 @@ use ethereum_rust_core::types::{
     Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
     Receipt, Transaction,
 };
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -186,6 +186,12 @@ pub trait StoreEngine: Debug + Send {
         self.remove_account_info(address)?;
         self.remove_account_storage(address)
     }
+
+    /// Updates the value of the chain id
+    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError>;
+
+    /// Obtain the current chain id
+    fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -427,6 +433,8 @@ impl Store {
         for (address, account) in genesis.alloc.into_iter() {
             self.add_account(address, account.into())?;
         }
+
+        // Store chain info
         Ok(())
     }
 
