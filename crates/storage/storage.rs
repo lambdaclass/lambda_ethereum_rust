@@ -291,6 +291,13 @@ impl Store {
         self.engine.lock().unwrap().remove_account(address)
     }
 
+    pub fn increment_balance(&self, address: Address, amount: U256) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .increment_balance(address, amount)
+    }
+
     pub fn update_chain_id(&self, chain_id: U256) -> Result<(), StoreError> {
         self.engine.lock().unwrap().update_chain_id(chain_id)
     }
@@ -340,6 +347,7 @@ mod tests {
         test_store_account_code(store.clone());
         test_store_account_storage(store.clone());
         test_remove_account_storage(store.clone());
+        test_increment_balance(store.clone());
         test_store_chain_data(store.clone());
     }
 
@@ -576,6 +584,20 @@ mod tests {
 
         assert!(stored_value_beta_a.is_some());
         assert!(stored_value_beta_b.is_some());
+    }
+
+    fn test_increment_balance(store: Store) {
+        let address = Address::random();
+        let account_info = AccountInfo {
+            balance: 50.into(),
+            ..Default::default()
+        };
+        store.add_account_info(address, account_info).unwrap();
+        store.increment_balance(address, 25.into()).unwrap();
+
+        let stored_account_info = store.get_account_info(address).unwrap().unwrap();
+
+        assert_eq!(stored_account_info.balance, 75.into());
     }
 
     fn test_store_chain_data(store: Store) {
