@@ -389,9 +389,8 @@ impl From<AccountStorageValueBytes> for H256 {
 }
 
 // Represents the key for each unique value of the chain data
-enum ChainDataIndex {
+pub enum ChainDataIndex {
     ChainId = 0,
-    LatestBlockNumber = 1,
 }
 
 impl Encodable for ChainDataIndex {
