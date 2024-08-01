@@ -10,9 +10,6 @@ use ethereum_rust_core::types::{
 
 use crate::error::StoreError;
 
-pub(crate) type Key = Vec<u8>;
-pub(crate) type Value = Vec<u8>;
-
 pub trait StoreEngine: Debug + Send {
     /// Add account info
     fn add_account_info(

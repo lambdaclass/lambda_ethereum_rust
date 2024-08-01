@@ -6,7 +6,7 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256};
 use std::{collections::HashMap, fmt::Debug};
 
-use super::api::{Key, StoreEngine, Value};
+use super::api::StoreEngine;
 
 #[derive(Default)]
 pub struct Store {
@@ -14,7 +14,6 @@ pub struct Store {
     block_numbers: HashMap<BlockHash, BlockNumber>,
     bodies: HashMap<BlockNumber, BlockBody>,
     headers: HashMap<BlockNumber, BlockHeader>,
-    values: HashMap<Key, Value>,
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
     account_storages: HashMap<Address, HashMap<H256, H256>>,
