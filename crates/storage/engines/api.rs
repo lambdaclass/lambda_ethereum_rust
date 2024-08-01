@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use bytes::Bytes;
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 
 use ethereum_rust_core::types::{
     Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
@@ -151,5 +151,14 @@ pub trait StoreEngine: Debug + Send {
     fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
         self.remove_account_info(address)?;
         self.remove_account_storage(address)
+    }
+
+    /// Increments the balance of an account by a given ammount (if it exists)
+    fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {
+        if let Some(mut account_info) = self.get_account_info(address)? {
+            account_info.balance = account_info.balance.saturating_add(amount);
+            self.add_account_info(address, account_info)?;
+        }
+        Ok(())
     }
 }
