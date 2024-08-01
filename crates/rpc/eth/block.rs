@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{error::StoreError, Store};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::info;
@@ -83,6 +83,22 @@ pub enum BlockTag {
     #[default]
     Latest,
     Pending,
+}
+
+pub(crate) fn resolve_block_number(
+    identifier: &BlockIdentifier,
+    storage: &Store,
+) -> Result<Option<BlockNumber>, StoreError> {
+    match identifier {
+        BlockIdentifier::Number(num) => Ok(Some(*num)),
+        BlockIdentifier::Tag(tag) => match tag {
+            BlockTag::Earliest => storage.get_earliest_block_number(),
+            BlockTag::Finalized => storage.get_finalized_block_number(),
+            BlockTag::Safe => storage.get_safe_block_number(),
+            BlockTag::Latest => storage.get_latest_block_number(),
+            BlockTag::Pending => storage.get_pending_block_number(),
+        },
+    }
 }
 
 impl GetBlockByNumberRequest {
@@ -210,9 +226,9 @@ pub fn get_block_by_number(
     storage: Store,
 ) -> Result<Value, RpcErr> {
     info!("Requested block with number: {}", request.block);
-    let block_number = match request.block {
-        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
-        BlockIdentifier::Number(block_number) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage) {
+        Ok(Some(block_number)) => block_number,
+        _ => return Ok(Value::Null),
     };
     let header = storage.get_block_header(block_number);
     let body = storage.get_block_body(block_number);
@@ -257,9 +273,9 @@ pub fn get_block_transaction_count_by_number(
         "Requested transaction count for block with number: {}",
         request.block
     );
-    let block_number = match request.block {
-        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
-        BlockIdentifier::Number(block_number) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage) {
+        Ok(Some(block_number)) => block_number,
+        _ => return Ok(Value::Null),
     };
     let block_body = match storage.get_block_body(block_number) {
         Ok(Some(block_body)) => block_body,
@@ -279,9 +295,9 @@ pub fn get_transaction_by_block_number_and_index(
         "Requested transaction at index: {} of block with number: {}",
         request.transaction_index, request.block,
     );
-    let block_number = match request.block {
-        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
-        BlockIdentifier::Number(block_number) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage) {
+        Ok(Some(block_number)) => block_number,
+        _ => return Ok(Value::Null),
     };
     let block_body = match storage.get_block_body(block_number) {
         Ok(Some(block_body)) => block_body,
@@ -330,9 +346,9 @@ pub fn get_block_receipts(
         "Requested receipts for block with number: {}",
         request.block
     );
-    let block_number = match request.block {
-        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
-        BlockIdentifier::Number(block_number) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage) {
+        Ok(Some(block_number)) => block_number,
+        _ => return Ok(Value::Null),
     };
     let header = storage.get_block_header(block_number);
     let body = storage.get_block_body(block_number);
