@@ -154,10 +154,18 @@ pub trait StoreEngine: Debug + Send {
     }
 
     /// Increments the balance of an account by a given ammount (if it exists)
-    fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {
+    fn increment_balance(&mut self, address: Address, ammount: U256) -> Result<(), StoreError> {
         if let Some(mut account_info) = self.get_account_info(address)? {
-            account_info.balance = account_info.balance.saturating_add(amount);
+            account_info.balance = account_info.balance.saturating_add(ammount);
             self.add_account_info(address, account_info)?;
+        } else {
+            self.add_account_info(
+                address,
+                AccountInfo {
+                    balance: ammount,
+                    ..Default::default()
+                },
+            )?;
         }
         Ok(())
     }

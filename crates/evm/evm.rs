@@ -314,7 +314,7 @@ pub fn beacon_root_contract_call(
 
     evm.context.evm.db.commit(state);
 
-    Ok(())
+    Ok(transaction_result.result.into())
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
