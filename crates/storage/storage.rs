@@ -247,6 +247,9 @@ impl Store {
         }
 
         // Store chain info
+        if let Some(cancun_time) = genesis.config.cancun_time {
+            self.update_cancun_time(cancun_time)?;
+        }
         self.update_chain_id(genesis.config.chain_id)
     }
 

@@ -313,15 +313,6 @@ impl StoreEngine for Store {
     }
 }
 
-impl Store {
-
-fn upsert<T: libmdbx::orm::Table>(&self, table: T, key: T::Key, value: T::Value) -> Result<(), StoreError> {
-    let txn = self.db.begin_readwrite().map_err(StoreError::LibmdbxError)?;
-    txn.upsert::<T>(key, value).map_err(StoreError::LibmdbxError)?;
-    txn.commit().map_err(StoreError::LibmdbxError)
-}
-}
-
 impl Debug for Store {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Libmdbx Store").finish()
