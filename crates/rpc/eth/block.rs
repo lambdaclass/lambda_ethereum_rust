@@ -512,7 +512,7 @@ pub fn create_access_list(
 }
 
 pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
-    info!("Requested chain id");
+    info!("Requested latest block number");
     match storage.get_latest_block_number() {
         Ok(Some(block_number)) => {
             serde_json::to_value(format!("{:#x}", block_number)).map_err(|_| RpcErr::Internal)
