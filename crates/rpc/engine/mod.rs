@@ -45,7 +45,10 @@ pub fn forkchoice_updated_v3() -> Result<Value, RpcErr> {
     }))
 }
 
-pub fn new_payload_v3(request: NewPayloadV3Request, storage: Store) -> Result<PayloadStatus, RpcErr> {
+pub fn new_payload_v3(
+    request: NewPayloadV3Request,
+    storage: Store,
+) -> Result<PayloadStatus, RpcErr> {
     let block_hash = request.payload.block_hash;
 
     info!("Received new payload with block hash: {}", block_hash);
@@ -66,7 +69,7 @@ pub fn new_payload_v3(request: NewPayloadV3Request, storage: Store) -> Result<Pa
 
     // Check timestamp does not fall within the time frame of the Cancun fork
     match storage.get_cancun_time().map_err(|_| RpcErr::Internal)? {
-        Some(cancun_time) if block_header.timestamp > cancun_time => {},
+        Some(cancun_time) if block_header.timestamp > cancun_time => {}
         _ => return Err(RpcErr::UnsuportedFork),
     }
 

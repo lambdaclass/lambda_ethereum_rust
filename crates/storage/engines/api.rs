@@ -168,9 +168,9 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain the current chain id
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
 
-/// Updates the value of the timestamp at which the cancun fork was activated
-fn update_cancun_time(&mut self, cancun_time: u64) -> Result<(), StoreError>;
+    /// Updates the value of the timestamp at which the cancun fork was activated
+    fn update_cancun_time(&mut self, cancun_time: u64) -> Result<(), StoreError>;
 
-/// Obtain the timestamp at which the cancun fork was activated
-fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;
+    /// Obtain the timestamp at which the cancun fork was activated
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;
 }
