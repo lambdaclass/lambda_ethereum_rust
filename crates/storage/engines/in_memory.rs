@@ -26,6 +26,7 @@ pub struct Store {
 #[derive(Default)]
 struct ChainData {
     chain_id: Option<U256>,
+    cancun_time: Option<u64>,
 }
 
 impl Store {
@@ -176,6 +177,15 @@ impl StoreEngine for Store {
 
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         Ok(self.chain_data.chain_id)
+    }
+
+    fn update_cancun_time(&mut self, cancun_time: u64) -> Result<(), StoreError> {
+        self.chain_data.cancun_time.replace(cancun_time);
+        Ok(())
+    }
+
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        Ok(self.chain_data.cancun_time)
     }
 }
 

@@ -287,6 +287,39 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
+
+    fn update_cancun_time(&mut self, cancun_time: u64) -> Result<(), StoreError> {
+        // Overwrites previous value if present
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.upsert::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        match txn
+            .get::<ChainData>(ChainDataIndex::CancunTime)
+            .map_err(StoreError::LibmdbxError)?
+        {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+}
+
+impl Store {
+
+fn upsert<T: libmdbx::orm::Table>(&self, table: T, key: T::Key, value: T::Value) -> Result<(), StoreError> {
+    let txn = self.db.begin_readwrite().map_err(StoreError::LibmdbxError)?;
+    txn.upsert::<T>(key, value).map_err(StoreError::LibmdbxError)?;
+    txn.commit().map_err(StoreError::LibmdbxError)
+}
 }
 
 impl Debug for Store {
@@ -393,6 +426,7 @@ impl From<AccountStorageValueBytes> for H256 {
 // (TODO: Remove this comment once full) Will store chain-specific data such as chain id and latest finalized/pending/safe block number
 pub enum ChainDataIndex {
     ChainId = 0,
+    CancunTime = 1,
 }
 
 impl Encodable for ChainDataIndex {

@@ -305,6 +305,14 @@ impl Store {
     pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         self.engine.lock().unwrap().get_chain_id()
     }
+
+    pub fn update_cancun_time(&self, cancun_time: u64) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().update_cancun_time(cancun_time)
+    }
+
+    pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_cancun_time()
+    }
 }
 
 #[cfg(test)]
