@@ -6,7 +6,8 @@ use db::StoreWrapper;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal, GWEI_TO_WEI,
+        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal,
+        GWEI_TO_WEI,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -40,6 +41,24 @@ impl EvmState {
     pub fn database(&self) -> &Store {
         &self.0.database.0
     }
+}
+
+/// Executes all transactions in a block and performs the state transition on the database
+pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Result<(), EvmError> {
+    let block_header = block.header.clone();
+    //eip 4788: execute beacon_root_contract_call before block transactions
+    if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+        beacon_root_contract_call(state, &block_header, spec_id)?;
+    }
+    for transaction in block.body.transactions.iter() {
+        execute_tx(&transaction.clone(), &block_header.clone(), state, spec_id)?;
+        apply_state_transitions(state)?;
+    }
+    if let Some(withdrawals) = block.body.withdrawals.clone() {
+        process_withdrawals(state.database(), &withdrawals)?;
+    }
+    apply_state_transitions(state)?;
+    Ok(())
 }
 
 // Executes a single tx, doesn't perform state transitions

@@ -8,11 +8,29 @@ use ethereum_rust_core::{
     Address, U256,
 };
 use ethereum_rust_evm::{
-    apply_state_transitions, beacon_root_contract_call, evm_state, execute_tx, process_withdrawals,
-    EvmState, SpecId,
+    apply_state_transitions, beacon_root_contract_call, evm_state, execute_block, execute_tx,
+    process_withdrawals, EvmState, SpecId,
 };
 use ethereum_rust_storage::{EngineType, Store};
 
+pub fn execute_test2(test_key: &str, test: &TestUnit, check_post_state: bool) {
+    // Build pre state
+    let mut evm_state = build_evm_state_from_prestate(&test.pre);
+    apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
+    let blocks = test.blocks.clone();
+    // Execute all blocks in test
+    for block in blocks.iter() {
+        execute_block(
+            &block.block().clone().into(),
+            &mut evm_state,
+            SpecId::CANCUN,
+        )
+        .expect("Error executing block");
+    }
+    if check_post_state {
+        check_poststate_against_db(&test.post_state, evm_state.database())
+    }
+}
 pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
