@@ -161,4 +161,9 @@ pub trait StoreEngine: Debug + Send {
         }
         Ok(())
     }
+    /// Updates the value of the chain id
+    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError>;
+
+    /// Obtain the current chain id
+    fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
 }
