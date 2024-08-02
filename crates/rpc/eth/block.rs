@@ -511,6 +511,16 @@ pub fn create_access_list(
     serde_json::to_value(result).map_err(|_| RpcErr::Internal)
 }
 
+pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
+    info!("Requested latest block number");
+    match storage.get_latest_block_number() {
+        Ok(Some(block_number)) => {
+            serde_json::to_value(format!("{:#x}", block_number)).map_err(|_| RpcErr::Internal)
+        }
+        _ => Err(RpcErr::Internal),
+    }
+}
+
 impl Display for BlockIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
