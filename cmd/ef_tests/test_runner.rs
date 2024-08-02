@@ -46,17 +46,12 @@ pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
             ))
             .unwrap();
         let block_header = block.header().clone();
-        if beacon_contract_account.is_some() {
-            if block_header.parent_beacon_block_root.is_some()
-                && (block_header.number != U256::from(0))
-            {
-                beacon_root_contract_call(
-                    &mut evm_state,
-                    &block_header.clone().into(),
-                    SpecId::CANCUN,
-                )
+        if beacon_contract_account.is_some()
+            && block_header.parent_beacon_block_root.is_some()
+            && (block_header.number != U256::from(0))
+        {
+            beacon_root_contract_call(&mut evm_state, &block_header.clone().into(), SpecId::CANCUN)
                 .expect("Error on beacon root contract call");
-            }
         }
 
         for (tx_index, transaction) in block.transactions().iter().enumerate() {

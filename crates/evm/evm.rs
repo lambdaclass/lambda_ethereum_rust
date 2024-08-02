@@ -292,7 +292,6 @@ pub fn beacon_root_contract_call(
         access_list: Vec::new(),
         blob_hashes: Vec::new(),
         max_fee_per_blob_gas: None,
-        ..Default::default()
     };
     let mut block_env = block_env(header);
     block_env.basefee = RevmU256::ZERO;
