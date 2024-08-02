@@ -1,14 +1,14 @@
 use std::path::Path;
 
-use ef_tests::test_runner::{execute_test, parse_test_file, validate_test};
+use ef_tests::test_runner::{execute_test, execute_test2, parse_test_file, validate_test};
 
 fn parse_and_execute(path: &Path) -> datatest_stable::Result<()> {
     let tests = parse_test_file(path);
 
     for (test_key, test) in tests {
         validate_test(&test);
-        // TODO: Enable post state check
-        execute_test(&test_key, &test, true)
+        execute_test(&test_key, &test, true);
+        execute_test2(&test);
     }
     Ok(())
 }

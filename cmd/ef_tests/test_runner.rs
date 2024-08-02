@@ -13,7 +13,8 @@ use ethereum_rust_evm::{
 };
 use ethereum_rust_storage::{EngineType, Store};
 
-pub fn execute_test2(test_key: &str, test: &TestUnit, check_post_state: bool) {
+/// Tests the execute_block function
+pub fn execute_test2(test: &TestUnit) {
     // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
     apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
@@ -27,10 +28,10 @@ pub fn execute_test2(test_key: &str, test: &TestUnit, check_post_state: bool) {
         )
         .expect("Error executing block");
     }
-    if check_post_state {
-        check_poststate_against_db(&test.post_state, evm_state.database())
-    }
+    check_poststate_against_db(&test.post_state, evm_state.database())
 }
+
+/// Tests each functionality separetely
 pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
