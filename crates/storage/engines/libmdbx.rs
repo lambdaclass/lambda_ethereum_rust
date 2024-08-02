@@ -94,7 +94,7 @@ impl StoreEngine for Store {
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        Ok(self.read::<Headers>(block_number.into())?.map(|a| a.to()))
+        Ok(self.read::<Headers>(block_number)?.map(|a| a.to()))
     }
 
     fn add_block_body(
