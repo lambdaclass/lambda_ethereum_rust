@@ -213,22 +213,11 @@ impl StoreEngine for Store {
     }
 
     fn update_cancun_time(&mut self, cancun_time: u64) -> Result<(), StoreError> {
-        // Overwrites previous value if present
-        let txn = self
-            .db
-            .begin_readwrite()
-            .map_err(StoreError::LibmdbxError)?;
-        txn.upsert::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())
-            .map_err(StoreError::LibmdbxError)?;
-        txn.commit().map_err(StoreError::LibmdbxError)
+        self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        match txn
-            .get::<ChainData>(ChainDataIndex::CancunTime)
-            .map_err(StoreError::LibmdbxError)?
-        {
+        match self.read::<ChainData>(ChainDataIndex::CancunTime)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(rlp)
                 .map(Some)
