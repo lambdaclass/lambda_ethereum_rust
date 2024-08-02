@@ -19,7 +19,7 @@ use revm::{
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlockEnv, TxEnv, B256, U256 as RevmU256},
-    Database, Evm,
+    Database, DatabaseCommit, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
@@ -270,16 +270,18 @@ pub fn beacon_root_contract_call(
     header: &BlockHeader,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
+    let system_caller_address =
+        RevmAddress::from_slice(&hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap());
+    let beacon_root_contract_address = RevmTxKind::Call(RevmAddress::from_slice(
+        &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
+    ));
     let beacon_root = header
         .parent_beacon_block_root
         .expect("No parent beacon block root on block header");
+
     let tx_env = TxEnv {
-        caller: RevmAddress::from_slice(
-            &hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap(),
-        ),
-        transact_to: RevmTxKind::Call(RevmAddress::from_slice(
-            &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
-        )),
+        caller: system_caller_address,
+        transact_to: beacon_root_contract_address,
         nonce: None,
         gas_limit: 30_000_000,
         value: RevmU256::ZERO,
@@ -294,7 +296,25 @@ pub fn beacon_root_contract_call(
     };
     let mut block_env = block_env(header);
     block_env.basefee = RevmU256::ZERO;
-    run_evm(tx_env, block_env, state, spec_id)
+
+    let mut evm = Evm::builder()
+        .with_db(&mut state.0)
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .reset_handler()
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
+        .build();
+
+    let transaction_result = evm.transact()?;
+    let mut state = transaction_result.state;
+
+    state.remove(&system_caller_address);
+    state.remove(&evm.block().coinbase);
+
+    evm.context.evm.db.commit(state);
+
+    Ok(())
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {
