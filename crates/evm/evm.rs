@@ -12,7 +12,7 @@ use ethereum_rust_core::{
     Address, BigEndianHash, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
-
+use lazy_static::lazy_static;
 use revm::{
     db::states::bundle_state::BundleRetention,
     inspector_handle_register,
@@ -271,18 +271,26 @@ pub fn beacon_root_contract_call(
     header: &BlockHeader,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let system_caller_address =
-        RevmAddress::from_slice(&hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap());
-    let beacon_root_contract_address = RevmTxKind::Call(RevmAddress::from_slice(
-        &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
-    ));
-    let beacon_root = header
-        .parent_beacon_block_root
-        .expect("No parent beacon block root on block header");
+    lazy_static! {
+        static ref SYSTEM_ADDRESS: RevmAddress = RevmAddress::from_slice(
+            &hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap()
+        );
+        static ref CONTRACT_ADDRESS: RevmAddress = RevmAddress::from_slice(
+            &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
+        );
+    };
+    let beacon_root = match header.parent_beacon_block_root {
+        None => {
+            return Err(EvmError::Header(
+                "parent_beacon_block_root field is missing".to_string(),
+            ))
+        }
+        Some(beacon_root) => beacon_root,
+    };
 
     let tx_env = TxEnv {
-        caller: system_caller_address,
-        transact_to: beacon_root_contract_address,
+        caller: *SYSTEM_ADDRESS,
+        transact_to: RevmTxKind::Call(*CONTRACT_ADDRESS),
         nonce: None,
         gas_limit: 30_000_000,
         value: RevmU256::ZERO,
@@ -309,7 +317,7 @@ pub fn beacon_root_contract_call(
     let transaction_result = evm.transact()?;
     let mut state = transaction_result.state;
 
-    state.remove(&system_caller_address);
+    state.remove(&*SYSTEM_ADDRESS);
     state.remove(&evm.block().coinbase);
 
     evm.context.evm.db.commit(state);

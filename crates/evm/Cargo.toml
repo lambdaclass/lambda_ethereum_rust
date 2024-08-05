@@ -13,6 +13,7 @@ revm-primitives = { version = "6.0.0" }
 bytes.workspace = true
 thiserror.workspace = true
 hex.workspace = true
+lazy_static.workspace = true
 
 [lib]
 path = "./evm.rs"
