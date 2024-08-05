@@ -4,64 +4,40 @@ use crate::types::{Account, TestUnit};
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     rlp::encode::RLPEncode,
-    types::{Account as CoreAccount, Block as CoreBlock, Transaction as CoreTransaction},
+    types::{Account as CoreAccount, Block as CoreBlock},
     Address,
 };
-use ethereum_rust_evm::{
-    apply_state_transitions, evm_state, execute_tx, process_withdrawals, EvmState, SpecId,
-};
+use ethereum_rust_evm::{evm_state, execute_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
-pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
+/// Tests the execute_block function
+pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Build pre state
     let mut evm_state = build_evm_state_from_prestate(&test.pre);
     let blocks = test.blocks.clone();
-    // Execute all txs in the test unit
+    // Execute all blocks in test
     for block in blocks.iter() {
-        let block_header = block.header().clone();
-        for (tx_index, transaction) in block.transactions().iter().enumerate() {
-            assert_eq!(
-                transaction.clone().sender,
-                CoreTransaction::from(transaction.clone()).sender(),
-                "Expected sender address differs from derived sender address on test: {}",
+        let execution_result = execute_block(
+            &block.block().clone().into(),
+            &mut evm_state,
+            SpecId::CANCUN,
+        );
+        if block.expect_exception.is_some() {
+            assert!(
+                execution_result.is_err(),
+                "Expected transaction execution to fail on test: {}",
                 test_key
-            );
-            let execution_result = execute_tx(
-                &transaction.clone().into(),
-                &block_header.clone().into(),
-                &mut evm_state,
-                SpecId::CANCUN,
-            );
-            // If this is the last tx in a block that is expecting an exception then we must make sure it fails
-            // TODO: Check that the exception is the one in the test unit
-            let is_last_tx = block.transactions().len() == tx_index + 1;
-            if block.expect_exception.is_some() && is_last_tx {
-                assert!(
-                    execution_result.is_err(),
-                    "Expected transaction execution to fail on test: {}",
-                    test_key
-                )
-            } else {
-                assert!(
-                    execution_result.is_ok(),
-                    "Transaction execution failed on test: {} with error: {}",
-                    test_key,
-                    execution_result.unwrap_err()
-                )
-            }
-        }
-        // Apply state transitions
-        apply_state_transitions(&mut evm_state).expect("Failed to update DB state");
-        // Process withdrawals (if present)
-        if let Some(withdrawals) = block.withdrawals() {
-            process_withdrawals(evm_state.database(), withdrawals)
-                .expect("DB error when processing withdrawals")
+            )
+        } else {
+            assert!(
+                execution_result.is_ok(),
+                "Transaction execution failed on test: {} with error: {}",
+                test_key,
+                execution_result.unwrap_err()
+            )
         }
     }
-    // Check post state
-    if check_post_state {
-        check_poststate_against_db(&test.post_state, evm_state.database())
-    }
+    check_poststate_against_db(test_key, &test.post_state, evm_state.database())
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
@@ -110,37 +86,43 @@ pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmStat
 
 /// Checks that all accounts in the post-state are present and have the correct values in the DB
 /// Panics if any comparison fails
-fn check_poststate_against_db(post: &HashMap<Address, Account>, db: &Store) {
+fn check_poststate_against_db(test_key: &str, post: &HashMap<Address, Account>, db: &Store) {
     for (addr, account) in post {
         let expected_account: CoreAccount = account.clone().into();
         // Check info
         let db_account_info = db
             .get_account_info(*addr)
             .expect("Failed to read from DB")
-            .unwrap_or_else(|| panic!("Account info for address {addr} not found in DB"));
+            .unwrap_or_else(|| {
+                panic!("Account info for address {addr} not found in DB, test:{test_key}")
+            });
         assert_eq!(
             db_account_info, expected_account.info,
-            "Mismatched account info for address {addr}"
+            "Mismatched account info for address {addr} test:{test_key}"
         );
         // Check code
         let code_hash = expected_account.info.code_hash;
         let db_account_code = db
             .get_account_code(code_hash)
             .expect("Failed to read from DB")
-            .unwrap_or_else(|| panic!("Account code for code hash {code_hash} not found in DB"));
+            .unwrap_or_else(|| {
+                panic!("Account code for code hash {code_hash} not found in DB test:{test_key}")
+            });
         assert_eq!(
             db_account_code, expected_account.code,
-            "Mismatched account code for code hash {code_hash}"
+            "Mismatched account code for code hash {code_hash} test:{test_key}"
         );
         // Check storage
         for (key, value) in expected_account.storage {
             let db_storage_value = db
                 .get_storage_at(*addr, key)
                 .expect("Failed to read from DB")
-                .unwrap_or_else(|| panic!("Storage missing for address {addr} key {key} in DB"));
+                .unwrap_or_else(|| {
+                    panic!("Storage missing for address {addr} key {key} in DB test:{test_key}")
+                });
             assert_eq!(
                 db_storage_value, value,
-                "Mismatched storage value for address {addr}, key {key}"
+                "Mismatched storage value for address {addr}, key {key} test:{test_key}"
             );
         }
     }
