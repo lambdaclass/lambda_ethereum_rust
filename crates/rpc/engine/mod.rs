@@ -1,5 +1,5 @@
 use ethereum_rust_core::{
-    types::{ExecutionPayloadV3, PayloadStatus, PayloadValidationStatus},
+    types::{validate_block_header, ExecutionPayloadV3, PayloadStatus},
     H256,
 };
 use ethereum_rust_storage::Store;
@@ -57,11 +57,7 @@ pub fn new_payload_v3(
         match request.payload.into_block(request.parent_beacon_block_root) {
             Ok(block) => block,
             Err(error) => {
-                return Ok(PayloadStatus {
-                    status: PayloadValidationStatus::Invalid,
-                    latest_valid_hash: Some(H256::zero()),
-                    validation_error: Some(error.to_string()),
-                })
+                return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
             }
         };
 
@@ -76,11 +72,7 @@ pub fn new_payload_v3(
     // Check that block_hash is valid
     let actual_block_hash = block_header.compute_block_hash();
     if block_hash != actual_block_hash {
-        return Ok(PayloadStatus {
-            status: PayloadValidationStatus::Invalid,
-            latest_valid_hash: None,
-            validation_error: Some("Invalid block hash".to_string()),
-        });
+        return Ok(PayloadStatus::invalid_with_err("Invalid block hash"));
     }
     info!("Block hash {} is valid", block_hash);
     // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
@@ -91,16 +83,17 @@ pub fn new_payload_v3(
         .flat_map(|tx| tx.blob_versioned_hashes())
         .collect();
     if request.expected_blob_versioned_hashes != blob_versioned_hashes {
-        return Ok(PayloadStatus {
-            status: PayloadValidationStatus::Invalid,
-            latest_valid_hash: None,
-            validation_error: Some("Invalid blob_versioned_hashes".to_string()),
-        });
+        return Ok(PayloadStatus::invalid_with_err("Invalid blob_versioned_hashes"));
     }
 
-    Ok(PayloadStatus {
-        status: PayloadValidationStatus::Valid,
-        latest_valid_hash: Some(block_hash),
-        validation_error: None,
-    })
+    // Fetch parent block header and validate current header
+    if let Some(parent_header) = storage.get_block_header(block_header.number.saturating_sub(1)).map_err(|_| RpcErr::Internal)? {
+        if !validate_block_header(&block_header, &parent_header){
+            return Ok(PayloadStatus::invalid_with_hash(parent_header.compute_block_hash()))
+        }
+    } else {
+        return Ok(PayloadStatus::invalid())
+    }
+
+    Ok(PayloadStatus::valid_with_hash(block_hash))
 }

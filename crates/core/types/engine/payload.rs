@@ -7,7 +7,7 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, BlockBody, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+    compute_withdrawals_root, BlockBody, BlockHash, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH
 };
 
 #[allow(unused)]
@@ -130,6 +130,46 @@ pub enum PayloadValidationStatus {
     Invalid,
     Syncing,
     Accepted,
+}
+
+impl PayloadStatus {
+    // Convinience methods to create payload status
+
+    /// Creates a PayloadStatus with invalid status and error message
+    pub fn invalid_with_err(error: &str) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: None,
+            validation_error: Some(error.to_string()),
+        }
+    }
+
+    /// Creates a PayloadStatus with invalid status and latest valid hash
+    pub fn invalid_with_hash(hash: BlockHash) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: Some(hash),
+            validation_error: None,
+        }
+    }
+
+    /// Creates a PayloadStatus with invalid status and no other info
+    pub fn invalid() -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: None,
+            validation_error: None,
+        }
+    }
+
+    /// Creates a PayloadStatus with valid status and latest valid hash
+    pub fn valid_with_hash(hash: BlockHash) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Valid,
+            latest_valid_hash: Some(hash),
+            validation_error: None,
+        }
+    }
 }
 
 #[cfg(test)]
