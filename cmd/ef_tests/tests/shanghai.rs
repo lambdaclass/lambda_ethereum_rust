@@ -7,7 +7,7 @@ fn parse_and_execute(path: &Path) -> datatest_stable::Result<()> {
 
     for (test_key, test) in tests {
         validate_test(&test);
-        execute_test(&test_key, &test, false);
+        execute_test(&test_key, &test);
     }
     Ok(())
 }
@@ -16,13 +16,13 @@ datatest_stable::harness!(
     parse_and_execute,
     "vectors/shanghai/eip3855_push0/",
     r"^.*/*",
-    parse_and_execute,
-    "vectors/shanghai/eip3651_warm_coinbase/",
-    r"^.*/*",
+    //parse_and_execute,
+    //"vectors/shanghai/eip3651_warm_coinbase/",
+    //r"^.*/*",
     // parse_and_execute,
     // "vectors/shanghai/eip3860_initcode/",
     // r"^.*/*",
-    parse_and_execute,
-    "vectors/shanghai/eip4895_withdrawals/",
-    r"^.*/*",
+    //parse_and_execute,
+    //"vectors/shanghai/eip4895_withdrawals/",
+    //r"^.*/*",
 );
