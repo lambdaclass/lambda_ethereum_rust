@@ -48,7 +48,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
     let block_header = &block.header;
     //eip 4788: execute beacon_root_contract_call before block transactions
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(state, &block_header, spec_id)?;
+        beacon_root_contract_call(state, block_header, spec_id)?;
     }
     for transaction in block.body.transactions.iter() {
         execute_tx(transaction, block_header, state, spec_id)?;
