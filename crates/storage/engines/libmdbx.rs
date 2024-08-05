@@ -9,7 +9,7 @@ use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -199,8 +199,16 @@ impl StoreEngine for Store {
         self.remove::<AccountStorages>(address.into())
     }
 
-    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
-        self.write::<ChainData>(ChainDataIndex::ChainId, chain_id.encode_to_vec())
+    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        // Store cancun timestamp
+        if let Some(cancun_time) = chain_config.cancun_time {
+            self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())?;
+        };
+        // Store chain id
+        self.write::<ChainData>(
+            ChainDataIndex::ChainId,
+            chain_config.chain_id.encode_to_vec(),
+        )
     }
 
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
@@ -210,10 +218,6 @@ impl StoreEngine for Store {
                 .map(Some)
                 .map_err(|_| StoreError::DecodeError),
         }
-    }
-
-    fn update_cancun_time(&mut self, cancun_time: u64) -> Result<(), StoreError> {
-        self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {

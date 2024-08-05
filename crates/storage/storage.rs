@@ -6,8 +6,8 @@ use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
-    Receipt, Transaction,
+    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig,
+    Genesis, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
@@ -246,11 +246,8 @@ impl Store {
             self.add_account(address, account.into())?;
         }
 
-        // Store chain info
-        if let Some(cancun_time) = genesis.config.cancun_time {
-            self.update_cancun_time(cancun_time)?;
-        }
-        self.update_chain_id(genesis.config.chain_id)
+        // Set chain config
+        self.set_chain_config(&genesis.config)
     }
 
     pub fn get_transaction_by_hash(
@@ -301,16 +298,12 @@ impl Store {
             .increment_balance(address, amount)
     }
 
-    pub fn update_chain_id(&self, chain_id: U256) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().update_chain_id(chain_id)
+    pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().set_chain_config(chain_config)
     }
 
     pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         self.engine.lock().unwrap().get_chain_id()
-    }
-
-    pub fn update_cancun_time(&self, cancun_time: u64) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().update_cancun_time(cancun_time)
     }
 
     pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
@@ -613,11 +606,19 @@ mod tests {
 
     fn test_store_chain_data(store: Store) {
         let chain_id = U256::from_dec_str("46").unwrap();
+        let cancun_time = 12;
+        let chain_config = ChainConfig {
+            chain_id,
+            cancun_time: Some(cancun_time),
+            ..Default::default()
+        };
 
-        store.update_chain_id(chain_id).unwrap();
+        store.set_chain_config(&chain_config).unwrap();
 
         let stored_chain_id = store.get_chain_id().unwrap().unwrap();
+        let stored_cancun_time = store.get_cancun_time().unwrap().unwrap();
 
         assert_eq!(chain_id, stored_chain_id);
+        assert_eq!(cancun_time, stored_cancun_time);
     }
 }
