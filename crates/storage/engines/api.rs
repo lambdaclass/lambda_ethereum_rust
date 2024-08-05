@@ -161,4 +161,26 @@ pub trait StoreEngine: Debug + Send {
         self.remove_account_info(address)?;
         self.remove_account_storage(address)
     }
+
+    /// Increments the balance of an account by a given amount (if it exists)
+    fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {
+        if let Some(mut account_info) = self.get_account_info(address)? {
+            account_info.balance = account_info.balance.saturating_add(amount);
+            self.add_account_info(address, account_info)?;
+        } else {
+            self.add_account_info(
+                address,
+                AccountInfo {
+                    balance: amount,
+                    ..Default::default()
+                },
+            )?;
+        }
+        Ok(())
+    }
+    /// Updates the value of the chain id
+    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError>;
+
+    /// Obtain the current chain id
+    fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
 }

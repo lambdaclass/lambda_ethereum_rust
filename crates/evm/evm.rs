@@ -3,18 +3,23 @@ mod errors;
 mod execution_result;
 
 use db::StoreWrapper;
+
 use ethereum_rust_core::{
-    types::{AccountInfo, BlockHeader, GenericTransaction, Transaction, TxKind},
+    types::{
+        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal,
+        GWEI_TO_WEI,
+    },
     Address, BigEndianHash, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
+use lazy_static::lazy_static;
 use revm::{
     db::states::bundle_state::BundleRetention,
     inspector_handle_register,
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlockEnv, TxEnv, B256, U256 as RevmU256},
-    Database, Evm,
+    Database, DatabaseCommit, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
@@ -36,6 +41,25 @@ impl EvmState {
     pub fn database(&self) -> &Store {
         &self.0.database.0
     }
+}
+
+/// Executes all transactions in a block and performs the state transition on the database
+pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Result<(), EvmError> {
+    let block_header = &block.header;
+    //eip 4788: execute beacon_root_contract_call before block transactions
+    if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+        beacon_root_contract_call(state, block_header, spec_id)?;
+    }
+    for transaction in block.body.transactions.iter() {
+        execute_tx(transaction, block_header, state, spec_id)?;
+    }
+
+    apply_state_transitions(state)?;
+    if let Some(withdrawals) = &block.body.withdrawals {
+        process_withdrawals(state.database(), withdrawals)?;
+    }
+    apply_state_transitions(state)?;
+    Ok(())
 }
 
 // Executes a single tx, doesn't perform state transitions
@@ -217,6 +241,16 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
     Ok(())
 }
 
+/// Processes a block's withdrawals, updating the account balances in the state
+pub fn process_withdrawals(state: &Store, withdrawals: &[Withdrawal]) -> Result<(), StoreError> {
+    for withdrawal in withdrawals {
+        if !withdrawal.amount.is_zero() {
+            state.increment_balance(withdrawal.address, withdrawal.amount * GWEI_TO_WEI)?
+        }
+    }
+    Ok(())
+}
+
 /// Builds EvmState from a Store
 pub fn evm_state(store: Store) -> EvmState {
     EvmState(
@@ -226,6 +260,60 @@ pub fn evm_state(store: Store) -> EvmState {
             .without_state_clear()
             .build(),
     )
+}
+
+/// Calls the eip4788 beacon block root system call contract
+/// As of the Cancun hard-fork, parent_beacon_block_root needs to be present in the block header.
+pub fn beacon_root_contract_call(
+    state: &mut EvmState,
+    header: &BlockHeader,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    lazy_static! {
+        static ref SYSTEM_ADDRESS: RevmAddress = RevmAddress::from_slice(
+            &hex::decode("fffffffffffffffffffffffffffffffffffffffe").unwrap()
+        );
+        static ref CONTRACT_ADDRESS: RevmAddress = RevmAddress::from_slice(
+            &hex::decode("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap(),
+        );
+    };
+    let beacon_root = match header.parent_beacon_block_root {
+        None => {
+            return Err(EvmError::Header(
+                "parent_beacon_block_root field is missing".to_string(),
+            ))
+        }
+        Some(beacon_root) => beacon_root,
+    };
+
+    let tx_env = TxEnv {
+        caller: *SYSTEM_ADDRESS,
+        transact_to: RevmTxKind::Call(*CONTRACT_ADDRESS),
+        gas_limit: 30_000_000,
+        data: revm::primitives::Bytes::copy_from_slice(beacon_root.as_bytes()),
+        ..Default::default()
+    };
+    let mut block_env = block_env(header);
+    block_env.basefee = RevmU256::ZERO;
+
+    let mut evm = Evm::builder()
+        .with_db(&mut state.0)
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .reset_handler()
+        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
+        .build();
+
+    let transaction_result = evm.transact()?;
+    let mut state = transaction_result.state;
+
+    state.remove(&*SYSTEM_ADDRESS);
+    state.remove(&evm.block().coinbase);
+
+    evm.context.evm.db.commit(state);
+
+    Ok(transaction_result.result.into())
 }
 
 fn block_env(header: &BlockHeader) -> BlockEnv {

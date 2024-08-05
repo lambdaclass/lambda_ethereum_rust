@@ -10,6 +10,7 @@ use super::api::StoreEngine;
 
 #[derive(Default)]
 pub struct Store {
+    chain_data: ChainData,
     account_infos: HashMap<Address, AccountInfo>,
     block_numbers: HashMap<BlockHash, BlockNumber>,
     bodies: HashMap<BlockNumber, BlockBody>,
@@ -20,6 +21,11 @@ pub struct Store {
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
+}
+
+#[derive(Default)]
+struct ChainData {
+    chain_id: Option<U256>,
 }
 
 impl Store {
@@ -180,6 +186,15 @@ impl StoreEngine for Store {
                 .into_iter()
                 .flatten(),
         ))
+    }
+
+    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
+        self.chain_data.chain_id.replace(chain_id);
+        Ok(())
+    }
+
+    fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
+        Ok(self.chain_data.chain_id)
     }
 }
 

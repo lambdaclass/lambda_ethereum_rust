@@ -84,7 +84,7 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
                 .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
             engine::exchange_capabilities(&capabilities)
         }
-        "eth_chainId" => client::chain_id(),
+        "eth_chainId" => client::chain_id(storage),
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => {
             let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
