@@ -1,12 +1,10 @@
-use std::fmt::Debug;
-
 use bytes::Bytes;
-use ethereum_types::{Address, H256};
-
 use ethereum_rust_core::types::{
     Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
     Transaction,
 };
+use ethereum_types::{Address, H256, U256};
+use std::fmt::Debug;
 
 use crate::error::StoreError;
 
@@ -23,6 +21,11 @@ pub trait StoreEngine: Debug + Send {
 
     /// Remove account info
     fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError>;
+
+    /// Iterate all accounts in the storage
+    fn account_infos_iter(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError>;
 
     /// Add block header
     fn add_block_header(
@@ -124,7 +127,7 @@ pub trait StoreEngine: Debug + Send {
         &mut self,
         address: Address,
         storage_key: H256,
-        storage_value: H256,
+        storage_value: U256,
     ) -> Result<(), StoreError>;
 
     // Obtain storage value
@@ -132,10 +135,16 @@ pub trait StoreEngine: Debug + Send {
         &self,
         address: Address,
         storage_key: H256,
-    ) -> Result<Option<H256>, StoreError>;
+    ) -> Result<Option<U256>, StoreError>;
 
     // Add storage value
     fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError>;
+
+    // Get full account storage
+    fn account_storage_iter(
+        &mut self,
+        address: Address,
+    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError>;
 
     /// Stores account in db (including info, code & storage)
     fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {

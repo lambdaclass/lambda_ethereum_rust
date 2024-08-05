@@ -12,8 +12,15 @@ use ethereum_rust_storage::{EngineType, Store};
 
 pub fn execute_test(test_key: &str, test: &TestUnit, check_post_state: bool) {
     // Build pre state
-    let mut evm_state = build_evm_state_from_prestate(&test.pre);
+    let mut evm_state = build_evm_state_for_test(test);
     let blocks = test.blocks.clone();
+    // Check world_state
+    let mut database = evm_state.database().clone();
+    let block_header = database
+        .get_block_header(test.genesis_block_header.number.low_u64())
+        .unwrap()
+        .unwrap();
+    assert_eq!(block_header.state_root, database.world_state_root());
     // Execute all txs in the test unit
     for block in blocks.iter() {
         let block_header = block.block_header.clone().unwrap();
@@ -86,10 +93,16 @@ pub fn validate_test(test: &TestUnit) {
 }
 
 /// Creates an in-memory DB for evm execution and loads the prestate accounts
-pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmState {
+pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
     let mut store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
-    for (address, account) in pre {
+    store
+        .add_block_header(
+            test.genesis_block_header.number.low_u64(),
+            test.genesis_block_header.clone().into(),
+        )
+        .unwrap();
+    for (address, account) in &test.pre {
         let account: CoreAccount = account.clone().into();
         store
             .add_account(*address, account)

@@ -339,10 +339,8 @@ impl From<Account> for ethereum_rustAccount {
                 .into_iter()
                 .map(|(k, v)| {
                     let mut k_bytes = [0; 32];
-                    let mut v_bytes = [0; 32];
                     k.to_big_endian(&mut k_bytes);
-                    v.to_big_endian(&mut v_bytes);
-                    (H256(k_bytes), H256(v_bytes))
+                    (H256(k_bytes), v)
                 })
                 .collect(),
         }
