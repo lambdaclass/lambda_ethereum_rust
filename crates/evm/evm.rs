@@ -291,16 +291,9 @@ pub fn beacon_root_contract_call(
     let tx_env = TxEnv {
         caller: *SYSTEM_ADDRESS,
         transact_to: RevmTxKind::Call(*CONTRACT_ADDRESS),
-        nonce: None,
         gas_limit: 30_000_000,
-        value: RevmU256::ZERO,
         data: revm::primitives::Bytes::copy_from_slice(beacon_root.as_bytes()),
-        gas_price: RevmU256::ZERO,
-        chain_id: None,
-        gas_priority_fee: None,
-        access_list: Vec::new(),
-        blob_hashes: Vec::new(),
-        max_fee_per_blob_gas: None,
+        ..Default::default()
     };
     let mut block_env = block_env(header);
     block_env.basefee = RevmU256::ZERO;
