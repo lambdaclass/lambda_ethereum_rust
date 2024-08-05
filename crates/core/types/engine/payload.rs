@@ -7,7 +7,8 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, BlockBody, BlockHash, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH
+    compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader, Transaction, Withdrawal,
+    DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -71,11 +72,8 @@ impl EncodedTransaction {
 impl ExecutionPayloadV3 {
     /// Converts an `ExecutionPayloadV3` into a block (aka a BlockHeader and BlockBody)
     /// using the parentBeaconBlockRoot received along with the payload in the rpc call `engine_newPayloadV3`
-    pub fn into_block(
-        self,
-        parent_beacon_block_root: H256,
-    ) -> Result<(BlockHeader, BlockBody), RLPDecodeError> {
-        let block_body = BlockBody {
+    pub fn into_block(self, parent_beacon_block_root: H256) -> Result<Block, RLPDecodeError> {
+        let body = BlockBody {
             transactions: self
                 .transactions
                 .iter()
@@ -84,13 +82,13 @@ impl ExecutionPayloadV3 {
             ommers: vec![],
             withdrawals: Some(self.withdrawals),
         };
-        Ok((
-            BlockHeader {
+        Ok(Block {
+            header: BlockHeader {
                 parent_hash: self.parent_hash,
                 ommers_hash: *DEFAULT_OMMERS_HASH,
                 coinbase: self.fee_recipient,
                 state_root: self.state_root,
-                transactions_root: block_body.compute_transactions_root(),
+                transactions_root: body.compute_transactions_root(),
                 receipt_root: self.receipts_root,
                 logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
@@ -103,14 +101,14 @@ impl ExecutionPayloadV3 {
                 nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
                 withdrawals_root: Some(compute_withdrawals_root(
-                    &block_body.withdrawals.clone().unwrap(),
+                    &body.withdrawals.clone().unwrap_or_default(),
                 )),
                 blob_gas_used: Some(self.blob_gas_used),
                 excess_blob_gas: Some(self.excess_blob_gas),
                 parent_beacon_block_root: Some(parent_beacon_block_root),
             },
-            block_body,
-        ))
+            body,
+        })
     }
 }
 
