@@ -153,10 +153,10 @@ impl PayloadStatus {
         }
     }
 
-    /// Creates a PayloadStatus with invalid status and no other info
-    pub fn invalid() -> Self {
+    /// Creates a PayloadStatus with syncing status and no other info
+    pub fn syncing() -> Self {
         PayloadStatus {
-            status: PayloadValidationStatus::Invalid,
+            status: PayloadValidationStatus::Syncing,
             latest_valid_hash: None,
             validation_error: None,
         }

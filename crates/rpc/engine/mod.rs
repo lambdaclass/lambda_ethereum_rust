@@ -50,7 +50,6 @@ pub fn new_payload_v3(
     storage: Store,
 ) -> Result<PayloadStatus, RpcErr> {
     let block_hash = request.payload.block_hash;
-
     info!("Received new payload with block hash: {}", block_hash);
 
     let (block_header, block_body) =
@@ -92,7 +91,7 @@ pub fn new_payload_v3(
             return Ok(PayloadStatus::invalid_with_hash(parent_header.compute_block_hash()))
         }
     } else {
-        return Ok(PayloadStatus::invalid())
+        return Ok(PayloadStatus::syncing())
     }
 
     Ok(PayloadStatus::valid_with_hash(block_hash))
