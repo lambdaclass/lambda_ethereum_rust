@@ -26,6 +26,11 @@ pub struct Store {
 #[derive(Default)]
 struct ChainData {
     chain_id: Option<U256>,
+    earliest_block_number: Option<BlockNumber>,
+    finalized_block_number: Option<BlockNumber>,
+    safe_block_number: Option<BlockNumber>,
+    latest_block_number: Option<BlockNumber>,
+    pending_block_number: Option<BlockNumber>,
     cancun_time: Option<u64>,
 }
 
@@ -184,6 +189,57 @@ impl StoreEngine for Store {
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
         Ok(self.chain_data.cancun_time)
+    }
+
+    fn update_earliest_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.chain_data.earliest_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.earliest_block_number)
+    }
+
+    fn update_finalized_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.chain_data.finalized_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.finalized_block_number)
+    }
+
+    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.chain_data.safe_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.safe_block_number)
+    }
+
+    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.chain_data.latest_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.latest_block_number)
+    }
+
+    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.chain_data.pending_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.pending_block_number)
     }
 }
 

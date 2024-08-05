@@ -309,6 +309,67 @@ impl Store {
     pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
         self.engine.lock().unwrap().get_cancun_time()
     }
+
+    pub fn update_earliest_block_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_earliest_block_number(block_number)
+    }
+
+    pub fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_earliest_block_number()
+    }
+
+    pub fn update_finalized_block_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_finalized_block_number(block_number)
+    }
+
+    pub fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_finalized_block_number()
+    }
+
+    pub fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_safe_block_number(block_number)
+    }
+
+    pub fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_safe_block_number()
+    }
+
+    pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_latest_block_number(block_number)
+    }
+
+    pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_latest_block_number()
+    }
+
+    pub fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_pending_block_number(block_number)
+    }
+
+    pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_pending_block_number()
+    }
 }
 
 #[cfg(test)]
@@ -352,7 +413,8 @@ mod tests {
         test_store_account_storage(store.clone());
         test_remove_account_storage(store.clone());
         test_increment_balance(store.clone());
-        test_store_chain_data(store.clone());
+        test_store_chain_config(store.clone());
+        test_store_block_tags(store.clone());
     }
 
     fn test_store_account(store: Store) {
@@ -604,7 +666,7 @@ mod tests {
         assert_eq!(stored_account_info.balance, 75.into());
     }
 
-    fn test_store_chain_data(store: Store) {
+    fn test_store_chain_config(store: Store) {
         let chain_id = U256::from_dec_str("46").unwrap();
         let cancun_time = 12;
         let chain_config = ChainConfig {
@@ -620,5 +682,38 @@ mod tests {
 
         assert_eq!(chain_id, stored_chain_id);
         assert_eq!(cancun_time, stored_cancun_time);
+    }
+    fn test_store_block_tags(store: Store) {
+        let earliest_block_number = 0;
+        let finalized_block_number = 7;
+        let safe_block_number = 6;
+        let latest_block_number = 8;
+        let pending_block_number = 9;
+
+        store
+            .update_earliest_block_number(earliest_block_number)
+            .unwrap();
+        store
+            .update_finalized_block_number(finalized_block_number)
+            .unwrap();
+        store.update_safe_block_number(safe_block_number).unwrap();
+        store
+            .update_latest_block_number(latest_block_number)
+            .unwrap();
+        store
+            .update_pending_block_number(pending_block_number)
+            .unwrap();
+
+        let stored_earliest_block_number = store.get_earliest_block_number().unwrap().unwrap();
+        let stored_finalized_block_number = store.get_finalized_block_number().unwrap().unwrap();
+        let stored_safe_block_number = store.get_safe_block_number().unwrap().unwrap();
+        let stored_latest_block_number = store.get_latest_block_number().unwrap().unwrap();
+        let stored_pending_block_number = store.get_pending_block_number().unwrap().unwrap();
+
+        assert_eq!(earliest_block_number, stored_earliest_block_number);
+        assert_eq!(finalized_block_number, stored_finalized_block_number);
+        assert_eq!(safe_block_number, stored_safe_block_number);
+        assert_eq!(latest_block_number, stored_latest_block_number);
+        assert_eq!(pending_block_number, stored_pending_block_number);
     }
 }
