@@ -104,6 +104,9 @@ pub fn new_payload_v3(
     info!("Executing payload with block hash: {}", block_hash);
     execute_block(&block, &mut evm_state(storage.clone()), SpecId::CANCUN)
         .map_err(|_| RpcErr::Vm)?;
+    storage
+        .add_block_number(block_hash, block.header.number)
+        .map_err(|_| RpcErr::Internal)?;
     storage.add_block(block).map_err(|_| RpcErr::Internal)?;
 
     Ok(PayloadStatus::valid_with_hash(block_hash))
