@@ -142,9 +142,8 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_blockNumber" => block::block_number(storage),
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
-            let request =
-                parse_new_payload_v3_request(req.params.as_ref().ok_or(RpcErr::BadParams)?)?;
-            Ok(serde_json::to_value(engine::new_payload_v3(request)?).unwrap())
+            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
         }
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),
@@ -178,22 +177,6 @@ where
             .unwrap(),
         ),
     }
-}
-
-fn parse_new_payload_v3_request(params: &[Value]) -> Result<NewPayloadV3Request, RpcErr> {
-    if params.len() != 3 {
-        return Err(RpcErr::BadParams);
-    }
-    let payload = serde_json::from_value(params[0].clone()).map_err(|_| RpcErr::BadParams)?;
-    let expected_blob_versioned_hashes =
-        serde_json::from_value(params[1].clone()).map_err(|_| RpcErr::BadParams)?;
-    let parent_beacon_block_root =
-        serde_json::from_value(params[2].clone()).map_err(|_| RpcErr::BadParams)?;
-    Ok(NewPayloadV3Request {
-        payload,
-        expected_blob_versioned_hashes,
-        parent_beacon_block_root,
-    })
 }
 
 #[cfg(test)]

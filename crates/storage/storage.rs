@@ -6,8 +6,8 @@ use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
-    Receipt, Transaction,
+    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig,
+    Genesis, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
@@ -246,8 +246,8 @@ impl Store {
             self.add_account(address, account.into())?;
         }
 
-        // Store chain info
-        self.update_chain_id(genesis.config.chain_id)
+        // Set chain config
+        self.set_chain_config(&genesis.config)
     }
 
     pub fn get_transaction_by_hash(
@@ -298,12 +298,16 @@ impl Store {
             .increment_balance(address, amount)
     }
 
-    pub fn update_chain_id(&self, chain_id: U256) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().update_chain_id(chain_id)
+    pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().set_chain_config(chain_config)
     }
 
     pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         self.engine.lock().unwrap().get_chain_id()
+    }
+
+    pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_cancun_time()
     }
 
     pub fn update_earliest_block_number(
@@ -409,7 +413,8 @@ mod tests {
         test_store_account_storage(store.clone());
         test_remove_account_storage(store.clone());
         test_increment_balance(store.clone());
-        test_store_chain_data(store.clone());
+        test_store_chain_config(store.clone());
+        test_store_block_tags(store.clone());
     }
 
     fn test_store_account(store: Store) {
@@ -661,15 +666,30 @@ mod tests {
         assert_eq!(stored_account_info.balance, 75.into());
     }
 
-    fn test_store_chain_data(store: Store) {
+    fn test_store_chain_config(store: Store) {
         let chain_id = U256::from_dec_str("46").unwrap();
+        let cancun_time = 12;
+        let chain_config = ChainConfig {
+            chain_id,
+            cancun_time: Some(cancun_time),
+            ..Default::default()
+        };
+
+        store.set_chain_config(&chain_config).unwrap();
+
+        let stored_chain_id = store.get_chain_id().unwrap().unwrap();
+        let stored_cancun_time = store.get_cancun_time().unwrap().unwrap();
+
+        assert_eq!(chain_id, stored_chain_id);
+        assert_eq!(cancun_time, stored_cancun_time);
+    }
+    fn test_store_block_tags(store: Store) {
         let earliest_block_number = 0;
         let finalized_block_number = 7;
         let safe_block_number = 6;
         let latest_block_number = 8;
         let pending_block_number = 9;
 
-        store.update_chain_id(chain_id).unwrap();
         store
             .update_earliest_block_number(earliest_block_number)
             .unwrap();
@@ -684,14 +704,12 @@ mod tests {
             .update_pending_block_number(pending_block_number)
             .unwrap();
 
-        let stored_chain_id = store.get_chain_id().unwrap().unwrap();
         let stored_earliest_block_number = store.get_earliest_block_number().unwrap().unwrap();
         let stored_finalized_block_number = store.get_finalized_block_number().unwrap().unwrap();
         let stored_safe_block_number = store.get_safe_block_number().unwrap().unwrap();
         let stored_latest_block_number = store.get_latest_block_number().unwrap().unwrap();
         let stored_pending_block_number = store.get_pending_block_number().unwrap().unwrap();
 
-        assert_eq!(chain_id, stored_chain_id);
         assert_eq!(earliest_block_number, stored_earliest_block_number);
         assert_eq!(finalized_block_number, stored_finalized_block_number);
         assert_eq!(safe_block_number, stored_safe_block_number);

@@ -4,8 +4,8 @@ use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 
 use ethereum_rust_core::types::{
-    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
-    Transaction,
+    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 
 use crate::error::StoreError;
@@ -169,11 +169,16 @@ pub trait StoreEngine: Debug + Send {
         }
         Ok(())
     }
-    /// Updates the value of the chain id
-    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError>;
+
+    /// Stores the chain configuration values, should only be called once after reading the genesis file
+    /// Ignores previously stored values if present
+    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
 
     /// Obtain the current chain id
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
+
+    /// Obtain the timestamp at which the cancun fork was activated
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;
 
     // Update earliest block number
     fn update_earliest_block_number(&mut self, block_number: BlockNumber)

@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{collections::HashMap, fmt::Debug};
@@ -31,6 +31,7 @@ struct ChainData {
     safe_block_number: Option<BlockNumber>,
     latest_block_number: Option<BlockNumber>,
     pending_block_number: Option<BlockNumber>,
+    cancun_time: Option<u64>,
 }
 
 impl Store {
@@ -174,13 +175,20 @@ impl StoreEngine for Store {
         Ok(())
     }
 
-    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
-        self.chain_data.chain_id.replace(chain_id);
+    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        // Store cancun timestamp
+        self.chain_data.cancun_time = chain_config.cancun_time;
+        // Store chain id
+        self.chain_data.chain_id.replace(chain_config.chain_id);
         Ok(())
     }
 
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         Ok(self.chain_data.chain_id)
+    }
+
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        Ok(self.chain_data.cancun_time)
     }
 
     fn update_earliest_block_number(
