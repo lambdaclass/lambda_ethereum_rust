@@ -5,11 +5,15 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Genesis, Index,
-    Receipt, Transaction,
+    Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    ChainConfig, Genesis, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
+use patricia_merkle_tree::PatriciaMerkleTree;
+use sha3::{Digest as _, Keccak256};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -21,6 +25,7 @@ mod rlp;
 #[derive(Debug, Clone)]
 pub struct Store {
     engine: Arc<Mutex<dyn StoreEngine>>,
+    //world_state:  PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>,
 }
 
 #[allow(dead_code)]
@@ -39,10 +44,13 @@ impl Store {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
                 engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
+                // TODO: build from DB
+                //world_state: PatriciaMerkleTree::default(),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
+                //world_state: PatriciaMerkleTree::default(),
             },
         };
         info!("Started store engine");
@@ -246,8 +254,8 @@ impl Store {
             self.add_account(address, account.into())?;
         }
 
-        // Store chain info
-        self.update_chain_id(genesis.config.chain_id)
+        // Set chain config
+        self.set_chain_config(&genesis.config)
     }
 
     pub fn get_transaction_by_hash(
@@ -264,7 +272,7 @@ impl Store {
         &self,
         address: Address,
         storage_key: H256,
-        storage_value: H256,
+        storage_value: U256,
     ) -> Result<(), StoreError> {
         self.engine
             .lock()
@@ -276,7 +284,7 @@ impl Store {
         &self,
         address: Address,
         storage_key: H256,
-    ) -> Result<Option<H256>, StoreError> {
+    ) -> Result<Option<U256>, StoreError> {
         self.engine
             .lock()
             .unwrap()
@@ -287,8 +295,21 @@ impl Store {
         self.engine.lock().unwrap().remove_account_storage(address)
     }
 
+    pub fn account_storage_iter(
+        &self,
+        address: Address,
+    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
+        self.engine.lock().unwrap().account_storage_iter(address)
+    }
+
     pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
         self.engine.lock().unwrap().remove_account(address)
+    }
+
+    pub fn account_infos_iter(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
+        self.engine.lock().unwrap().account_infos_iter()
     }
 
     pub fn increment_balance(&self, address: Address, amount: U256) -> Result<(), StoreError> {
@@ -298,12 +319,113 @@ impl Store {
             .increment_balance(address, amount)
     }
 
-    pub fn update_chain_id(&self, chain_id: U256) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().update_chain_id(chain_id)
+    pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        self.engine.lock().unwrap().set_chain_config(chain_config)
     }
 
     pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         self.engine.lock().unwrap().get_chain_id()
+    }
+
+    pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_cancun_time()
+    }
+
+    pub fn update_earliest_block_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_earliest_block_number(block_number)
+    }
+
+    pub fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_earliest_block_number()
+    }
+
+    pub fn update_finalized_block_number(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_finalized_block_number(block_number)
+    }
+
+    pub fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_finalized_block_number()
+    }
+
+    pub fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_safe_block_number(block_number)
+    }
+
+    pub fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_safe_block_number()
+    }
+
+    pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_latest_block_number(block_number)
+    }
+
+    pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_latest_block_number()
+    }
+
+    pub fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_pending_block_number(block_number)
+    }
+
+    pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        self.engine.lock().unwrap().get_pending_block_number()
+    }
+
+    /// Returns the root hash of the merkle tree.
+    /// Version 1: computes the trie fully from scratch
+    ///   TODO:
+    ///     Version 2: Keeps trie in memory
+    ///     Version 3: Persists trie in db
+    pub fn world_state_root(&mut self) -> H256 {
+        // build trie from state
+        let mut trie = self.build_trie_from_state();
+
+        // compute hash from in memory world_state trie
+        //let &root = self.world_state.compute_hash();
+
+        let &root = trie.compute_hash();
+        H256(root.into())
+    }
+
+    fn build_trie_from_state(&self) -> PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256> {
+        let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+        for (address, account) in self.account_infos_iter().unwrap() {
+            // Key: Keccak(address)
+            let k = Keccak256::new_with_prefix(address.to_fixed_bytes())
+                .finalize()
+                .to_vec();
+
+            let storage: HashMap<H256, U256> = self
+                .account_storage_iter(address)
+                .unwrap_or_else(|_| panic!("Failed to retrieve storage for {address}"))
+                .collect();
+            // Value: account
+            let mut v = Vec::new();
+            AccountState::from_info_and_storage(&account, &storage).encode(&mut v);
+            trie.insert(k, v);
+        }
+        trie
     }
 }
 
@@ -348,7 +470,8 @@ mod tests {
         test_store_account_storage(store.clone());
         test_remove_account_storage(store.clone());
         test_increment_balance(store.clone());
-        test_store_chain_data(store.clone());
+        test_store_chain_config(store.clone());
+        test_store_block_tags(store.clone());
     }
 
     fn test_store_account(store: Store) {
@@ -525,8 +648,8 @@ mod tests {
         let address = Address::random();
         let storage_key_a = H256::random();
         let storage_key_b = H256::random();
-        let storage_value_a = H256::random();
-        let storage_value_b = H256::random();
+        let storage_value_a = U256::from(50);
+        let storage_value_b = U256::from(100);
 
         store
             .add_storage_at(address, storage_key_a, storage_value_a)
@@ -554,8 +677,8 @@ mod tests {
 
         let storage_key_a = H256::random();
         let storage_key_b = H256::random();
-        let storage_value_a = H256::random();
-        let storage_value_b = H256::random();
+        let storage_value_a = U256::from(50);
+        let storage_value_b = U256::from(100);
 
         store
             .add_storage_at(address_alpha, storage_key_a, storage_value_a)
@@ -600,13 +723,54 @@ mod tests {
         assert_eq!(stored_account_info.balance, 75.into());
     }
 
-    fn test_store_chain_data(store: Store) {
+    fn test_store_chain_config(store: Store) {
         let chain_id = U256::from_dec_str("46").unwrap();
+        let cancun_time = 12;
+        let chain_config = ChainConfig {
+            chain_id,
+            cancun_time: Some(cancun_time),
+            ..Default::default()
+        };
 
-        store.update_chain_id(chain_id).unwrap();
+        store.set_chain_config(&chain_config).unwrap();
 
         let stored_chain_id = store.get_chain_id().unwrap().unwrap();
+        let stored_cancun_time = store.get_cancun_time().unwrap().unwrap();
 
         assert_eq!(chain_id, stored_chain_id);
+        assert_eq!(cancun_time, stored_cancun_time);
+    }
+    fn test_store_block_tags(store: Store) {
+        let earliest_block_number = 0;
+        let finalized_block_number = 7;
+        let safe_block_number = 6;
+        let latest_block_number = 8;
+        let pending_block_number = 9;
+
+        store
+            .update_earliest_block_number(earliest_block_number)
+            .unwrap();
+        store
+            .update_finalized_block_number(finalized_block_number)
+            .unwrap();
+        store.update_safe_block_number(safe_block_number).unwrap();
+        store
+            .update_latest_block_number(latest_block_number)
+            .unwrap();
+        store
+            .update_pending_block_number(pending_block_number)
+            .unwrap();
+
+        let stored_earliest_block_number = store.get_earliest_block_number().unwrap().unwrap();
+        let stored_finalized_block_number = store.get_finalized_block_number().unwrap().unwrap();
+        let stored_safe_block_number = store.get_safe_block_number().unwrap().unwrap();
+        let stored_latest_block_number = store.get_latest_block_number().unwrap().unwrap();
+        let stored_pending_block_number = store.get_pending_block_number().unwrap().unwrap();
+
+        assert_eq!(earliest_block_number, stored_earliest_block_number);
+        assert_eq!(finalized_block_number, stored_finalized_block_number);
+        assert_eq!(safe_block_number, stored_safe_block_number);
+        assert_eq!(latest_block_number, stored_latest_block_number);
+        assert_eq!(pending_block_number, stored_pending_block_number);
     }
 }

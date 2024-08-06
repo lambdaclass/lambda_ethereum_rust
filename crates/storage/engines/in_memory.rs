@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{collections::HashMap, fmt::Debug};
@@ -17,7 +17,7 @@ pub struct Store {
     headers: HashMap<BlockNumber, BlockHeader>,
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
-    account_storages: HashMap<Address, HashMap<H256, H256>>,
+    account_storages: HashMap<Address, HashMap<H256, U256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
@@ -26,6 +26,12 @@ pub struct Store {
 #[derive(Default)]
 struct ChainData {
     chain_id: Option<U256>,
+    earliest_block_number: Option<BlockNumber>,
+    finalized_block_number: Option<BlockNumber>,
+    safe_block_number: Option<BlockNumber>,
+    latest_block_number: Option<BlockNumber>,
+    pending_block_number: Option<BlockNumber>,
+    cancun_time: Option<u64>,
 }
 
 impl Store {
@@ -51,6 +57,12 @@ impl StoreEngine for Store {
     fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
         self.account_infos.remove(&address);
         Ok(())
+    }
+
+    fn account_infos_iter(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
+        Ok(Box::new(self.account_infos.clone().into_iter()))
     }
 
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
@@ -146,7 +158,7 @@ impl StoreEngine for Store {
         &mut self,
         address: Address,
         storage_key: H256,
-        storage_value: H256,
+        storage_value: U256,
     ) -> Result<(), StoreError> {
         let entry = self.account_storages.entry(address).or_default();
         entry.insert(storage_key, storage_value);
@@ -157,7 +169,7 @@ impl StoreEngine for Store {
         &self,
         address: Address,
         storage_key: H256,
-    ) -> Result<Option<H256>, StoreError> {
+    ) -> Result<Option<U256>, StoreError> {
         Ok(self
             .account_storages
             .get(&address)
@@ -169,13 +181,84 @@ impl StoreEngine for Store {
         Ok(())
     }
 
-    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
-        self.chain_data.chain_id.replace(chain_id);
+    fn account_storage_iter(
+        &mut self,
+        address: Address,
+    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
+        Ok(Box::new(
+            self.account_storages
+                .get(&address)
+                .cloned()
+                .into_iter()
+                .flatten(),
+        ))
+    }
+
+    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        // Store cancun timestamp
+        self.chain_data.cancun_time = chain_config.cancun_time;
+        // Store chain id
+        self.chain_data.chain_id.replace(chain_config.chain_id);
         Ok(())
     }
 
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         Ok(self.chain_data.chain_id)
+    }
+
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        Ok(self.chain_data.cancun_time)
+    }
+
+    fn update_earliest_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.chain_data.earliest_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.earliest_block_number)
+    }
+
+    fn update_finalized_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.chain_data.finalized_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.finalized_block_number)
+    }
+
+    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.chain_data.safe_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.safe_block_number)
+    }
+
+    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.chain_data.latest_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.latest_block_number)
+    }
+
+    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.chain_data.pending_block_number.replace(block_number);
+        Ok(())
+    }
+
+    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        Ok(self.chain_data.pending_block_number)
     }
 }
 

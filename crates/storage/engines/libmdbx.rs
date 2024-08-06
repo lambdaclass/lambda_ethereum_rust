@@ -9,7 +9,7 @@ use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -80,6 +80,20 @@ impl StoreEngine for Store {
 
     fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
         self.remove::<AccountInfos>(address.into())
+    }
+
+    fn account_infos_iter(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
+        // Read storage from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn
+            .cursor::<AccountInfos>()
+            .map_err(StoreError::LibmdbxError)?;
+        Ok(Box::new(cursor.walk(None).map(|elem| {
+            let (a, b) = elem.unwrap();
+            (a.to(), b.to())
+        })))
     }
 
     fn add_block_header(
@@ -174,7 +188,7 @@ impl StoreEngine for Store {
         &mut self,
         address: Address,
         storage_key: H256,
-        storage_value: H256,
+        storage_value: U256,
     ) -> Result<(), StoreError> {
         self.write::<AccountStorages>(address.into(), (storage_key.into(), storage_value.into()))
     }
@@ -183,7 +197,7 @@ impl StoreEngine for Store {
         &self,
         address: Address,
         storage_key: H256,
-    ) -> std::result::Result<Option<H256>, StoreError> {
+    ) -> std::result::Result<Option<U256>, StoreError> {
         // Read storage from mdbx
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         let mut cursor = txn
@@ -199,12 +213,131 @@ impl StoreEngine for Store {
         self.remove::<AccountStorages>(address.into())
     }
 
-    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError> {
-        self.write::<ChainData>(ChainDataIndex::ChainId, chain_id.encode_to_vec())
+    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+        // Store cancun timestamp
+        if let Some(cancun_time) = chain_config.cancun_time {
+            self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())?;
+        };
+        // Store chain id
+        self.write::<ChainData>(
+            ChainDataIndex::ChainId,
+            chain_config.chain_id.encode_to_vec(),
+        )
     }
 
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
         match self.read::<ChainData>(ChainDataIndex::ChainId)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn account_storage_iter(
+        &mut self,
+        address: Address,
+    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn
+            .cursor::<AccountStorages>()
+            .map_err(StoreError::LibmdbxError)?;
+        Ok(Box::new(cursor.walk_key(address.into(), None).map(
+            |elem| {
+                let (a, b) = elem.unwrap();
+                (a.into(), b.into())
+            },
+        )))
+    }
+
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::CancunTime)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_earliest_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::EarliestBlockNumber,
+            block_number.encode_to_vec(),
+        )
+    }
+
+    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::EarliestBlockNumber)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_finalized_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::FinalizedBlockNumber,
+            block_number.encode_to_vec(),
+        )
+    }
+
+    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::FinalizedBlockNumber)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::SafeBlockNumber,
+            block_number.encode_to_vec(),
+        )
+    }
+
+    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::SafeBlockNumber)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::LatestBlockNumber,
+            block_number.encode_to_vec(),
+        )
+    }
+
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::LatestBlockNumber)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
+    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::PendingBlockNumber,
+            block_number.encode_to_vec(),
+        )
+    }
+
+    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::PendingBlockNumber)? {
             None => Ok(None),
             Some(ref rlp) => RLPDecode::decode(rlp)
                 .map(Some)
@@ -301,15 +434,23 @@ impl From<H256> for AccountStorageKeyBytes {
     }
 }
 
-impl From<H256> for AccountStorageValueBytes {
-    fn from(value: H256) -> Self {
-        AccountStorageValueBytes(value.0)
+impl From<U256> for AccountStorageValueBytes {
+    fn from(value: U256) -> Self {
+        let mut value_bytes = [0; 32];
+        value.to_big_endian(&mut value_bytes);
+        AccountStorageValueBytes(value_bytes)
     }
 }
 
-impl From<AccountStorageValueBytes> for H256 {
-    fn from(value: AccountStorageValueBytes) -> Self {
+impl From<AccountStorageKeyBytes> for H256 {
+    fn from(value: AccountStorageKeyBytes) -> Self {
         H256(value.0)
+    }
+}
+
+impl From<AccountStorageValueBytes> for U256 {
+    fn from(value: AccountStorageValueBytes) -> Self {
+        U256::from_big_endian(&value.0)
     }
 }
 
@@ -317,6 +458,12 @@ impl From<AccountStorageValueBytes> for H256 {
 // (TODO: Remove this comment once full) Will store chain-specific data such as chain id and latest finalized/pending/safe block number
 pub enum ChainDataIndex {
     ChainId = 0,
+    EarliestBlockNumber = 1,
+    FinalizedBlockNumber = 2,
+    SafeBlockNumber = 3,
+    LatestBlockNumber = 4,
+    PendingBlockNumber = 5,
+    CancunTime = 6,
 }
 
 impl Encodable for ChainDataIndex {
