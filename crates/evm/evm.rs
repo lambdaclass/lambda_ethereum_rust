@@ -230,6 +230,10 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         // Update account storage in DB
         for (key, slot) in account.storage.iter() {
             if slot.is_changed() {
+                // TODO check if we need to remove the value from our db
+                // if slot.present_value().is_zero() {
+                //     state.database().remove_account_storage(address)
+                // }
                 state.database().add_storage_at(
                     address,
                     H256::from_uint(&U256::from_little_endian(key.as_le_slice())),

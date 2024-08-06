@@ -152,10 +152,9 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
             );
         }
         // Check world state
-        // TODO: several tests won't pass, fix them to uncomment these lines
-        // let result_blocks = &test.blocks;
-        // let test_block = result_blocks.last().unwrap().header();
-        // let test_state_root = test_block.state_root;
+        let result_blocks = &test.blocks;
+        let test_block = result_blocks.last().unwrap().header();
+        let test_state_root = test_block.state_root;
         // let db_block_header = db
         //     .get_block_header(test_block.number.low_u64())
         //     .unwrap()
@@ -164,9 +163,9 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
         //     test_state_root,
         //     db_block_header.state_root,
         //     "Mismatched state root for database, test: {test_key}");
-        // assert_eq!(
-        //     test_state_root,
-        //     db.clone().world_state_root(),
-        //     "Mismatched state root for world state trie, test: {test_key}");
+        assert_eq!(
+            test_state_root,
+            db.clone().world_state_root(),
+            "Mismatched state root for world state trie, test: {test_key}");
     }
 }
