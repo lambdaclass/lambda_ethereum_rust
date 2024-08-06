@@ -3,7 +3,7 @@ use ethereum_types::{Address, Bloom, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::Deserialize;
 use sha3::{Digest, Keccak256};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use crate::rlp::encode::RLPEncode as _;
 
@@ -89,7 +89,7 @@ pub struct GenesisAccount {
     #[serde(default, with = "crate::serde_utils::bytes")]
     pub code: Bytes,
     #[serde(default)]
-    pub storage: BTreeMap<H256, H256>,
+    pub storage: HashMap<H256, U256>,
     #[serde(deserialize_with = "crate::serde_utils::u256::deser_dec_str")]
     pub balance: U256,
     #[serde(default, deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
@@ -232,7 +232,7 @@ mod tests {
                 .unwrap()
             ),
             Some(
-                &H256::from_str(
+                &U256::from_str(
                     "0xf5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b"
                 )
                 .unwrap()
@@ -246,7 +246,7 @@ mod tests {
                 .unwrap()
             ),
             Some(
-                &H256::from_str(
+                &U256::from_str(
                     "0xe71f0aa83cc32edfbefa9f4d3e0174ca85182eec9f3a09f6a6c0df6377a510d7"
                 )
                 .unwrap()

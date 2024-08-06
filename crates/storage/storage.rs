@@ -5,11 +5,15 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig,
-    Genesis, Index, Receipt, Transaction,
+    Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    ChainConfig, Genesis, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
+use patricia_merkle_tree::PatriciaMerkleTree;
+use sha3::{Digest as _, Keccak256};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -21,6 +25,7 @@ mod rlp;
 #[derive(Debug, Clone)]
 pub struct Store {
     engine: Arc<Mutex<dyn StoreEngine>>,
+    //world_state:  PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>,
 }
 
 #[allow(dead_code)]
@@ -39,10 +44,13 @@ impl Store {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
                 engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
+                // TODO: build from DB
+                //world_state: PatriciaMerkleTree::default(),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
+                //world_state: PatriciaMerkleTree::default(),
             },
         };
         info!("Started store engine");
@@ -264,7 +272,7 @@ impl Store {
         &self,
         address: Address,
         storage_key: H256,
-        storage_value: H256,
+        storage_value: U256,
     ) -> Result<(), StoreError> {
         self.engine
             .lock()
@@ -276,7 +284,7 @@ impl Store {
         &self,
         address: Address,
         storage_key: H256,
-    ) -> Result<Option<H256>, StoreError> {
+    ) -> Result<Option<U256>, StoreError> {
         self.engine
             .lock()
             .unwrap()
@@ -287,8 +295,21 @@ impl Store {
         self.engine.lock().unwrap().remove_account_storage(address)
     }
 
+    pub fn account_storage_iter(
+        &self,
+        address: Address,
+    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
+        self.engine.lock().unwrap().account_storage_iter(address)
+    }
+
     pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
         self.engine.lock().unwrap().remove_account(address)
+    }
+
+    pub fn account_infos_iter(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
+        self.engine.lock().unwrap().account_infos_iter()
     }
 
     pub fn increment_balance(&self, address: Address, amount: U256) -> Result<(), StoreError> {
@@ -369,6 +390,42 @@ impl Store {
 
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
+    }
+
+    /// Returns the root hash of the merkle tree.
+    /// Version 1: computes the trie fully from scratch
+    ///   TODO:
+    ///     Version 2: Keeps trie in memory
+    ///     Version 3: Persists trie in db
+    pub fn world_state_root(&mut self) -> H256 {
+        // build trie from state
+        let mut trie = self.build_trie_from_state();
+
+        // compute hash from in memory world_state trie
+        //let &root = self.world_state.compute_hash();
+
+        let &root = trie.compute_hash();
+        H256(root.into())
+    }
+
+    fn build_trie_from_state(&self) -> PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256> {
+        let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+        for (address, account) in self.account_infos_iter().unwrap() {
+            // Key: Keccak(address)
+            let k = Keccak256::new_with_prefix(address.to_fixed_bytes())
+                .finalize()
+                .to_vec();
+
+            let storage: HashMap<H256, U256> = self
+                .account_storage_iter(address)
+                .unwrap_or_else(|_| panic!("Failed to retrieve storage for {address}"))
+                .collect();
+            // Value: account
+            let mut v = Vec::new();
+            AccountState::from_info_and_storage(&account, &storage).encode(&mut v);
+            trie.insert(k, v);
+        }
+        trie
     }
 }
 
@@ -591,8 +648,8 @@ mod tests {
         let address = Address::random();
         let storage_key_a = H256::random();
         let storage_key_b = H256::random();
-        let storage_value_a = H256::random();
-        let storage_value_b = H256::random();
+        let storage_value_a = U256::from(50);
+        let storage_value_b = U256::from(100);
 
         store
             .add_storage_at(address, storage_key_a, storage_value_a)
@@ -620,8 +677,8 @@ mod tests {
 
         let storage_key_a = H256::random();
         let storage_key_b = H256::random();
-        let storage_value_a = H256::random();
-        let storage_value_b = H256::random();
+        let storage_value_a = U256::from(50);
+        let storage_value_b = U256::from(100);
 
         store
             .add_storage_at(address_alpha, storage_key_a, storage_value_a)

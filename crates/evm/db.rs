@@ -45,7 +45,7 @@ impl revm::Database for StoreWrapper {
                 CoreAddress::from(address.0.as_ref()),
                 CoreH256::from(index.to_be_bytes()),
             )?
-            .map(|value| RevmU256::from_be_bytes(value.0))
+            .map(|value| RevmU256::from_limbs(value.0))
             .unwrap_or_else(|| RevmU256::ZERO))
     }
 

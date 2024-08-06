@@ -17,7 +17,7 @@ pub struct Store {
     headers: HashMap<BlockNumber, BlockHeader>,
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
-    account_storages: HashMap<Address, HashMap<H256, H256>>,
+    account_storages: HashMap<Address, HashMap<H256, U256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
@@ -57,6 +57,12 @@ impl StoreEngine for Store {
     fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
         self.account_infos.remove(&address);
         Ok(())
+    }
+
+    fn account_infos_iter(
+        &self,
+    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
+        Ok(Box::new(self.account_infos.clone().into_iter()))
     }
 
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
@@ -152,7 +158,7 @@ impl StoreEngine for Store {
         &mut self,
         address: Address,
         storage_key: H256,
-        storage_value: H256,
+        storage_value: U256,
     ) -> Result<(), StoreError> {
         let entry = self.account_storages.entry(address).or_default();
         entry.insert(storage_key, storage_value);
@@ -163,7 +169,7 @@ impl StoreEngine for Store {
         &self,
         address: Address,
         storage_key: H256,
-    ) -> Result<Option<H256>, StoreError> {
+    ) -> Result<Option<U256>, StoreError> {
         Ok(self
             .account_storages
             .get(&address)
@@ -173,6 +179,19 @@ impl StoreEngine for Store {
     fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
         self.account_storages.remove(&address);
         Ok(())
+    }
+
+    fn account_storage_iter(
+        &mut self,
+        address: Address,
+    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
+        Ok(Box::new(
+            self.account_storages
+                .get(&address)
+                .cloned()
+                .into_iter()
+                .flatten(),
+        ))
     }
 
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {

@@ -233,9 +233,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
                 state.database().add_storage_at(
                     address,
                     H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
-                    H256::from_uint(&U256::from_little_endian(
-                        slot.present_value().as_le_slice(),
-                    )),
+                    U256::from_little_endian(slot.present_value().as_le_slice()),
                 )?;
             }
         }
