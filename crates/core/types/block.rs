@@ -322,7 +322,6 @@ pub struct Withdrawal {
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub validator_index: u64,
     pub address: Address,
-    //TODO: According to the spec this should be a u64 https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4895.md
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub amount: u64,
 }
