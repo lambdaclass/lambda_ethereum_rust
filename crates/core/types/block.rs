@@ -471,7 +471,7 @@ mod serializable {
                 BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
                     transactions: body.transactions.iter().map(|t| t.compute_hash()).collect(),
                     uncles: body.ommers,
-                    withdrawals: body.withdrawals.unwrap(),
+                    withdrawals: body.withdrawals.unwrap_or_default(),
                 })
             };
             let hash = header.compute_block_hash();
