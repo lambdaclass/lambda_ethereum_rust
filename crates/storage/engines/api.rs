@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, Index, Receipt,
-    Transaction,
+    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
@@ -178,9 +178,48 @@ pub trait StoreEngine: Debug + Send {
         }
         Ok(())
     }
-    /// Updates the value of the chain id
-    fn update_chain_id(&mut self, chain_id: U256) -> Result<(), StoreError>;
+
+    /// Stores the chain configuration values, should only be called once after reading the genesis file
+    /// Ignores previously stored values if present
+    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
 
     /// Obtain the current chain id
     fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
+
+    /// Obtain the timestamp at which the cancun fork was activated
+    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;
+
+    // Update earliest block number
+    fn update_earliest_block_number(&mut self, block_number: BlockNumber)
+        -> Result<(), StoreError>;
+
+    // Obtain earliest block number
+    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update finalized block number
+    fn update_finalized_block_number(
+        &mut self,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError>;
+
+    // Obtain finalized block number
+    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update safe block number
+    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+
+    // Obtain safe block number
+    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update latest block number
+    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+
+    // Obtain latest block number
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Update pending block number
+    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+
+    // Obtain pending block number
+    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 }
