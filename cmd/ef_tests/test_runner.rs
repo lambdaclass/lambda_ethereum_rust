@@ -1,11 +1,10 @@
 use std::{collections::HashMap, path::Path};
 
-use crate::types::{Account, TestUnit};
+use crate::types::TestUnit;
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     rlp::encode::RLPEncode,
     types::{Account as CoreAccount, Block as CoreBlock},
-    Address,
 };
 use ethereum_rust_evm::{evm_state, execute_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
@@ -13,8 +12,12 @@ use ethereum_rust_storage::{EngineType, Store};
 /// Tests the execute_block function
 pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Build pre state
-    let mut evm_state = build_evm_state_from_prestate(&test.pre);
+    let mut evm_state = build_evm_state_for_test(test);
     let blocks = test.blocks.clone();
+
+    // Check world_state
+    check_prestate_against_db(test_key, test, evm_state.database());
+
     // Execute all blocks in test
     for block in blocks.iter() {
         let execution_result = execute_block(
@@ -37,7 +40,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
             )
         }
     }
-    check_poststate_against_db(test_key, &test.post_state, evm_state.database())
+    check_poststate_against_db(test_key, test, evm_state.database())
 }
 
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
@@ -72,10 +75,16 @@ pub fn validate_test(test: &TestUnit) {
 }
 
 /// Creates an in-memory DB for evm execution and loads the prestate accounts
-pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmState {
+pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
     let mut store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
-    for (address, account) in pre {
+    store
+        .add_block_header(
+            test.genesis_block_header.number.low_u64(),
+            test.genesis_block_header.clone().into(),
+        )
+        .unwrap();
+    for (address, account) in &test.pre {
         let account: CoreAccount = account.clone().into();
         store
             .add_account(*address, account)
@@ -84,10 +93,27 @@ pub fn build_evm_state_from_prestate(pre: &HashMap<Address, Account>) -> EvmStat
     evm_state(store)
 }
 
+/// Checks db is correct after setting up initial state
+/// Panics if any comparison fails
+fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
+    let block_number = test.genesis_block_header.number.low_u64();
+    let db_block_header = db.get_block_header(block_number).unwrap().unwrap();
+    let test_state_root = test.genesis_block_header.state_root;
+    assert_eq!(
+        test_state_root, db_block_header.state_root,
+        "Mismatched genesis state root for database, test: {test_key}"
+    );
+    assert_eq!(
+        test_state_root,
+        db.clone().world_state_root(),
+        "Mismatched genesis state root for world state trie, test: {test_key}"
+    );
+}
+
 /// Checks that all accounts in the post-state are present and have the correct values in the DB
 /// Panics if any comparison fails
-fn check_poststate_against_db(test_key: &str, post: &HashMap<Address, Account>, db: &Store) {
-    for (addr, account) in post {
+fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
+    for (addr, account) in &test.post_state {
         let expected_account: CoreAccount = account.clone().into();
         // Check info
         let db_account_info = db
@@ -125,5 +151,22 @@ fn check_poststate_against_db(test_key: &str, post: &HashMap<Address, Account>, 
                 "Mismatched storage value for address {addr}, key {key} test:{test_key}"
             );
         }
+        // Check world state
+        // TODO: several tests won't pass, fix them to uncomment these lines
+        // let result_blocks = &test.blocks;
+        // let test_block = result_blocks.last().unwrap().header();
+        // let test_state_root = test_block.state_root;
+        // let db_block_header = db
+        //     .get_block_header(test_block.number.low_u64())
+        //     .unwrap()
+        //     .unwrap();
+        // assert_eq!(
+        //     test_state_root,
+        //     db_block_header.state_root,
+        //     "Mismatched state root for database, test: {test_key}");
+        // assert_eq!(
+        //     test_state_root,
+        //     db.clone().world_state_root(),
+        //     "Mismatched state root for world state trie, test: {test_key}");
     }
 }
