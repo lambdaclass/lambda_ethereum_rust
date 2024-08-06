@@ -113,6 +113,7 @@ fn check_poststate_against_db(test_key: &str, post: &HashMap<Address, Account>, 
             "Mismatched account code for code hash {code_hash} test:{test_key}"
         );
         // Check storage
+
         for (key, value) in expected_account.storage {
             let db_storage_value = db
                 .get_storage_at(*addr, key)
