@@ -248,15 +248,18 @@ pub fn process_withdrawals(
     state: &mut EvmState,
     withdrawals: &[Withdrawal],
 ) -> Result<(), StoreError> {
-    let mut balance_increments = vec![];
-    for withdrawal in withdrawals {
-        if withdrawal.amount > 0 {
-            balance_increments.push((
+    //balance_increments is a vector of tuples (Address, increment as u128)
+    let balance_increments = withdrawals
+        .iter()
+        .filter(|withdrawal| withdrawal.amount > 0)
+        .map(|withdrawal| {
+            (
                 RevmAddress::from_slice(withdrawal.address.as_bytes()),
                 (withdrawal.amount as u128 * GWEI_TO_WEI as u128),
-            ));
-        }
-    }
+            )
+        })
+        .collect::<Vec<_>>();
+
     state.0.increment_balances(balance_increments)?;
     Ok(())
 }
