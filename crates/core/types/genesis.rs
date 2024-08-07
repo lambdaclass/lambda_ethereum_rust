@@ -8,8 +8,9 @@ use std::collections::{BTreeMap, HashMap};
 use crate::rlp::encode::RLPEncode as _;
 
 use super::{
-    code_hash, compute_receipts_root, compute_transactions_root, AccountInfo, AccountState, Block,
-    BlockBody, BlockHeader, DEFAULT_OMMERS_HASH, INITIAL_BASE_FEE,
+    code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
+    AccountInfo, AccountState, Block, BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+    INITIAL_BASE_FEE,
 };
 
 #[allow(unused)]
@@ -122,10 +123,10 @@ impl Genesis {
             prev_randao: self.mixhash,
             nonce: self.nonce,
             base_fee_per_gas: INITIAL_BASE_FEE,
-            withdrawals_root: None,
-            blob_gas_used: None,
-            excess_blob_gas: None,
-            parent_beacon_block_root: None,
+            withdrawals_root: Some(compute_withdrawals_root(&vec![])),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(0),
+            parent_beacon_block_root: Some(H256::zero()),
         }
     }
 
