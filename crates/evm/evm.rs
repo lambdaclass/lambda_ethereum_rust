@@ -291,7 +291,7 @@ pub fn beacon_root_contract_call(
     let tx_env = TxEnv {
         caller: *SYSTEM_ADDRESS,
         transact_to: RevmTxKind::Call(*CONTRACT_ADDRESS),
-        gas_limit: 30_000_000,
+        gas_limit: header.gas_limit,
         data: revm::primitives::Bytes::copy_from_slice(beacon_root.as_bytes()),
         ..Default::default()
     };
