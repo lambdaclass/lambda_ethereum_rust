@@ -51,7 +51,7 @@ pub fn new_payload_v3(
     storage: Store,
 ) -> Result<PayloadStatus, RpcErr> {
     let block_hash = request.payload.block_hash;
-    info!("Received new payload with block hash: {}", block_hash);
+    info!("Received new payload with block hash: {block_hash}");
 
     let block = match request.payload.into_block(request.parent_beacon_block_root) {
         Ok(block) => block,
@@ -71,7 +71,7 @@ pub fn new_payload_v3(
     if block_hash != actual_block_hash {
         return Ok(PayloadStatus::invalid_with_err("Invalid block hash"));
     }
-    info!("Block hash {} is valid", block_hash);
+    info!("Block hash {block_hash} is valid");
     // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
     // and check that the resulting array matches expected_blob_versioned_hashes
     let blob_versioned_hashes: Vec<H256> = block
@@ -101,13 +101,15 @@ pub fn new_payload_v3(
     }
 
     // Execute and store the block
-    info!("Executing payload with block hash: {}", block_hash);
+    info!("Executing payload with block hash: {block_hash}");
     execute_block(&block, &mut evm_state(storage.clone()), SpecId::CANCUN)
         .map_err(|_| RpcErr::Vm)?;
+    info!("Block with hash {block_hash} executed succesfully");
     storage
         .add_block_number(block_hash, block.header.number)
         .map_err(|_| RpcErr::Internal)?;
     storage.add_block(block).map_err(|_| RpcErr::Internal)?;
+    info!("Block with hash {block_hash} added to storage");
 
     Ok(PayloadStatus::valid_with_hash(block_hash))
 }
