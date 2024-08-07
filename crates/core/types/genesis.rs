@@ -274,8 +274,8 @@ mod tests {
             H256::from_str("0x2dab6a1d6d638955507777aecea699e6728825524facbd446bd4e86d44fa5ecd")
                 .unwrap()
         );
-        assert_eq!(header.transactions_root, H256::from([0; 32]));
-        assert_eq!(header.receipt_root, H256::from([0; 32]));
+        assert_eq!(header.transactions_root, compute_transactions_root(&[]));
+        assert_eq!(header.receipt_root, compute_receipts_root(&[]));
         assert_eq!(header.logs_bloom, Bloom::default());
         assert_eq!(header.difficulty, U256::from(1));
         assert_eq!(header.gas_limit, 25_000_000);
@@ -284,13 +284,13 @@ mod tests {
         assert_eq!(header.extra_data, Bytes::default());
         assert_eq!(header.prev_randao, H256::from([0; 32]));
         assert_eq!(header.nonce, 4660);
-        assert_eq!(header.base_fee_per_gas, 0);
-        assert_eq!(header.withdrawals_root, None);
-        assert_eq!(header.blob_gas_used, None);
-        assert_eq!(header.excess_blob_gas, None);
-        assert_eq!(header.parent_beacon_block_root, None);
+        assert_eq!(header.base_fee_per_gas, INITIAL_BASE_FEE);
+        assert_eq!(header.withdrawals_root, Some(compute_withdrawals_root(&[])));
+        assert_eq!(header.blob_gas_used, Some(0));
+        assert_eq!(header.excess_blob_gas, Some(0));
+        assert_eq!(header.parent_beacon_block_root, Some(H256::zero()));
         assert!(body.transactions.is_empty());
         assert!(body.ommers.is_empty());
-        assert_eq!(body.withdrawals, None);
+        assert!(body.withdrawals.is_some_and(|w| w.is_empty()));
     }
 }
