@@ -8,7 +8,7 @@ use crate::{
         encode::RLPEncode,
         structs::{Decoder, Encoder},
     },
-    types::Receipt,
+    types::{Receipt, EIP1559_INITIAL_BASE_FEE},
     Address, H256, U256,
 };
 use bytes::Bytes;
@@ -380,15 +380,19 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
     if header.gas_used > header.gas_limit {
         return false;
     }
-    let expected_base_fee_per_gas = if let Some(base_fee) = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-    ) {
-        base_fee
+    let expected_base_fee_per_gas = if parent_header.number == 0 {
+        EIP1559_INITIAL_BASE_FEE
     } else {
-        return false;
+        if let Some(base_fee) = calculate_base_fee_per_gas(
+            header.gas_limit,
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_header.base_fee_per_gas,
+        ) {
+            base_fee
+        } else {
+            return false;
+        }
     };
 
     expected_base_fee_per_gas == header.base_fee_per_gas
