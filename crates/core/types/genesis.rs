@@ -8,7 +8,8 @@ use std::collections::{BTreeMap, HashMap};
 use crate::rlp::encode::RLPEncode as _;
 
 use super::{
-    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+    code_hash, compute_receipts_root, compute_transactions_root, AccountInfo, AccountState, Block,
+    BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -109,8 +110,8 @@ impl Genesis {
             ommers_hash: *DEFAULT_OMMERS_HASH,
             coinbase: self.coinbase,
             state_root: self.compute_state_root(),
-            transactions_root: H256::zero(),
-            receipt_root: H256::zero(),
+            transactions_root: compute_transactions_root(&vec![]),
+            receipt_root: compute_receipts_root(&vec![]),
             logs_bloom: Bloom::zero(),
             difficulty: self.difficulty,
             number: 0,
@@ -132,7 +133,7 @@ impl Genesis {
         BlockBody {
             transactions: vec![],
             ommers: vec![],
-            withdrawals: None,
+            withdrawals: Some(vec![]),
         }
     }
 

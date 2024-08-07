@@ -203,18 +203,18 @@ impl BlockBody {
             withdrawals: Some(Vec::new()),
         }
     }
+}
 
-    pub fn compute_transactions_root(&self) -> H256 {
-        let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-        for (idx, tx) in self.transactions.iter().enumerate() {
-            // Key: RLP(tx_index)
-            // Value: tx_type || RLP(tx)  if tx_type != 0
-            //                   RLP(tx)  else
-            trie.insert(idx.encode_to_vec(), tx.encode_to_vec());
-        }
-        let &root = trie.compute_hash();
-        H256(root.into())
+pub fn compute_transactions_root(transactions: &[Transaction]) -> H256 {
+    let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
+    for (idx, tx) in transactions.iter().enumerate() {
+        // Key: RLP(tx_index)
+        // Value: tx_type || RLP(tx)  if tx_type != 0
+        //                   RLP(tx)  else
+        trie.insert(idx.encode_to_vec(), tx.encode_to_vec());
     }
+    let &root = trie.compute_hash();
+    H256(root.into())
 }
 
 pub fn compute_receipts_root(receipts: &[Receipt]) -> H256 {

@@ -7,8 +7,8 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader, Transaction, Withdrawal,
-    DEFAULT_OMMERS_HASH,
+    compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader,
+    Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -88,7 +88,7 @@ impl ExecutionPayloadV3 {
                 ommers_hash: *DEFAULT_OMMERS_HASH,
                 coinbase: self.fee_recipient,
                 state_root: self.state_root,
-                transactions_root: body.compute_transactions_root(),
+                transactions_root: compute_transactions_root(&body.transactions),
                 receipt_root: self.receipts_root,
                 logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
