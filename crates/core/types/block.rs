@@ -292,7 +292,8 @@ pub struct Withdrawal {
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub validator_index: u64,
     pub address: Address,
-    pub amount: U256,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub amount: u64,
 }
 
 impl RLPEncode for Withdrawal {
@@ -479,7 +480,7 @@ mod test {
             index: 0x00,
             validator_index: 0x00,
             address: H160::from_slice(&hex!("c94f5374fce5edbc8e2a8697c15331677e6ebf0b")),
-            amount: 0x00.into(),
+            amount: 0x00_u64,
         }];
         let expected_root = H256::from_slice(&hex!(
             "48a703da164234812273ea083e4ec3d09d028300cd325b46a6a75402e5a7ab95"
