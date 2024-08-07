@@ -293,4 +293,19 @@ mod tests {
         assert!(body.ommers.is_empty());
         assert!(body.withdrawals.is_some_and(|w| w.is_empty()));
     }
+
+    #[test]
+    // Parses genesis received by kurtosis and checks that the hash matches the next block's parent hash
+    fn read_and_compute_hash() {
+        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+        let genesis_block_hash = genesis.get_block().header.compute_block_hash();
+        assert_eq!(
+            genesis_block_hash,
+            H256::from_str("0xcb5306dd861d0f2c1f9952fbfbc75a46d0b6ce4f37bea370c3471fe8410bf40b")
+                .unwrap()
+        )
+    }
 }
