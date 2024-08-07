@@ -8,7 +8,7 @@ use crate::{
         encode::RLPEncode,
         structs::{Decoder, Encoder},
     },
-    types::{Receipt, EIP1559_INITIAL_BASE_FEE},
+    types::Receipt,
     Address, H256, U256,
 };
 use bytes::Bytes;

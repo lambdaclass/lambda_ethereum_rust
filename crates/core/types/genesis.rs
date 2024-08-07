@@ -9,7 +9,7 @@ use crate::rlp::encode::RLPEncode as _;
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, AccountInfo, AccountState, Block,
-    BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+    BlockBody, BlockHeader, DEFAULT_OMMERS_HASH, INITIAL_BASE_FEE,
 };
 
 #[allow(unused)]
@@ -121,7 +121,7 @@ impl Genesis {
             extra_data: Bytes::new(),
             prev_randao: self.mixhash,
             nonce: self.nonce,
-            base_fee_per_gas: 0,
+            base_fee_per_gas: INITIAL_BASE_FEE,
             withdrawals_root: None,
             blob_gas_used: None,
             excess_blob_gas: None,
