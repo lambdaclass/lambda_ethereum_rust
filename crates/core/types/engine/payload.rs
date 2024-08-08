@@ -131,7 +131,7 @@ pub enum PayloadValidationStatus {
 }
 
 impl PayloadStatus {
-    // Convinience methods to create payload status
+    // Convenience methods to create payload status
 
     /// Creates a PayloadStatus with invalid status and error message
     pub fn invalid_with_err(error: &str) -> Self {
