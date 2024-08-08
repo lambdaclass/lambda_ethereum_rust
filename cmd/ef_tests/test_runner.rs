@@ -27,7 +27,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
             "Cancun" => SpecId::CANCUN,
             "Paris" => SpecId::MERGE,
             "ShanghaiToCancunAtTime15k" => {
-                if block.header.timestamp > 15_000 {
+                if block.header.timestamp >= 15_000 {
                     SpecId::CANCUN
                 } else {
                     SpecId::SHANGHAI
