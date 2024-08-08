@@ -8,7 +8,9 @@ use std::collections::HashMap;
 use crate::rlp::encode::RLPEncode as _;
 
 use super::{
-    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+    code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
+    AccountInfo, AccountState, Block, BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+    INITIAL_BASE_FEE,
 };
 
 #[allow(unused)]
@@ -109,8 +111,8 @@ impl Genesis {
             ommers_hash: *DEFAULT_OMMERS_HASH,
             coinbase: self.coinbase,
             state_root: self.compute_state_root(),
-            transactions_root: H256::zero(),
-            receipt_root: H256::zero(),
+            transactions_root: compute_transactions_root(&[]),
+            receipt_root: compute_receipts_root(&[]),
             logs_bloom: Bloom::zero(),
             difficulty: self.difficulty,
             number: 0,
@@ -120,11 +122,11 @@ impl Genesis {
             extra_data: Bytes::new(),
             prev_randao: self.mixhash,
             nonce: self.nonce,
-            base_fee_per_gas: 0,
-            withdrawals_root: None,
-            blob_gas_used: None,
-            excess_blob_gas: None,
-            parent_beacon_block_root: None,
+            base_fee_per_gas: INITIAL_BASE_FEE,
+            withdrawals_root: Some(compute_withdrawals_root(&[])),
+            blob_gas_used: Some(0),
+            excess_blob_gas: Some(0),
+            parent_beacon_block_root: Some(H256::zero()),
         }
     }
 
@@ -132,7 +134,7 @@ impl Genesis {
         BlockBody {
             transactions: vec![],
             ommers: vec![],
-            withdrawals: None,
+            withdrawals: Some(vec![]),
         }
     }
 
@@ -272,8 +274,8 @@ mod tests {
             H256::from_str("0x2dab6a1d6d638955507777aecea699e6728825524facbd446bd4e86d44fa5ecd")
                 .unwrap()
         );
-        assert_eq!(header.transactions_root, H256::from([0; 32]));
-        assert_eq!(header.receipt_root, H256::from([0; 32]));
+        assert_eq!(header.transactions_root, compute_transactions_root(&[]));
+        assert_eq!(header.receipt_root, compute_receipts_root(&[]));
         assert_eq!(header.logs_bloom, Bloom::default());
         assert_eq!(header.difficulty, U256::from(1));
         assert_eq!(header.gas_limit, 25_000_000);
@@ -282,13 +284,28 @@ mod tests {
         assert_eq!(header.extra_data, Bytes::default());
         assert_eq!(header.prev_randao, H256::from([0; 32]));
         assert_eq!(header.nonce, 4660);
-        assert_eq!(header.base_fee_per_gas, 0);
-        assert_eq!(header.withdrawals_root, None);
-        assert_eq!(header.blob_gas_used, None);
-        assert_eq!(header.excess_blob_gas, None);
-        assert_eq!(header.parent_beacon_block_root, None);
+        assert_eq!(header.base_fee_per_gas, INITIAL_BASE_FEE);
+        assert_eq!(header.withdrawals_root, Some(compute_withdrawals_root(&[])));
+        assert_eq!(header.blob_gas_used, Some(0));
+        assert_eq!(header.excess_blob_gas, Some(0));
+        assert_eq!(header.parent_beacon_block_root, Some(H256::zero()));
         assert!(body.transactions.is_empty());
         assert!(body.ommers.is_empty());
-        assert_eq!(body.withdrawals, None);
+        assert!(body.withdrawals.is_some_and(|w| w.is_empty()));
+    }
+
+    #[test]
+    // Parses genesis received by kurtosis and checks that the hash matches the next block's parent hash
+    fn read_and_compute_hash() {
+        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+        let genesis_block_hash = genesis.get_block().header.compute_block_hash();
+        assert_eq!(
+            genesis_block_hash,
+            H256::from_str("0xcb5306dd861d0f2c1f9952fbfbc75a46d0b6ce4f37bea370c3471fe8410bf40b")
+                .unwrap()
+        )
     }
 }
