@@ -82,10 +82,16 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
+        let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
+            .modify_cfg_env(|cfg| {
+                if let Some(chain_id) = chain_id {
+                    cfg.chain_id = chain_id
+                }
+            })
             .with_spec_id(spec_id)
             .reset_handler()
             .with_external_context(
