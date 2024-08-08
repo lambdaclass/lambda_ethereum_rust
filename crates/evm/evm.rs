@@ -202,15 +202,22 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         }
         let address = Address::from_slice(address.0.as_slice());
         // Remove account from DB if destroyed
-
         if account.status.was_destroyed()
             || account
                 .account_info()
                 .is_some_and(|acc_info| acc_info.is_empty())
         {
             state.database().remove_account(address)?;
+        }
+
+        // If account is empty, do not add to the database
+        if account
+            .account_info()
+            .is_some_and(|acc_info| acc_info.is_empty())
+        {
             continue;
         }
+
         // Apply account changes to DB
         // If the account was changed then both original and current info will be present in the bundle account
         if account.is_info_changed() {
