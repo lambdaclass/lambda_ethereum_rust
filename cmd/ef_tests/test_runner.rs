@@ -163,21 +163,22 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
                 "Mismatched storage value for address {addr}, key {key} test:{test_key}"
             );
         }
-        // Check world state
-        let result_blocks = &test.blocks;
-        let test_block = result_blocks.last().unwrap().header();
-        let test_state_root = test_block.state_root;
-        // let db_block_header = db
-        //     .get_block_header(test_block.number.low_u64())
-        //     .unwrap()
-        //     .unwrap();
-        // assert_eq!(
-        //     test_state_root,
-        //     db_block_header.state_root,
-        //     "Mismatched state root for database, test: {test_key}");
-        assert_eq!(
-            test_state_root,
-            db.clone().world_state_root(),
-            "Mismatched state root for world state trie, test: {test_key}");
     }
+    // Check world state
+    let result_blocks = &test.blocks;
+    let test_block = result_blocks.last().unwrap().header();
+    let test_state_root = test_block.state_root;
+    // let db_block_header = db
+    //     .get_block_header(test_block.number.low_u64())
+    //     .unwrap()
+    //     .unwrap();
+    // assert_eq!(
+    //     test_state_root,
+    //     db_block_header.state_root,
+    //     "Mismatched state root for database, test: {test_key}");
+    assert_eq!(
+        test_state_root,
+        db.clone().world_state_root(),
+        "Mismatched state root for world state trie, test: {test_key}"
+    );
 }

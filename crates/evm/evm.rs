@@ -50,6 +50,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(state, block_header, spec_id)?;
     }
+
     for transaction in block.body.transactions.iter() {
         execute_tx(transaction, block_header, state, spec_id)?;
     }
@@ -201,8 +202,14 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         }
         let address = Address::from_slice(address.0.as_slice());
         // Remove account from DB if destroyed
-        if account.status.was_destroyed() {
+
+        if account.status.was_destroyed()
+            || account
+                .account_info()
+                .is_some_and(|acc_info| acc_info.is_empty())
+        {
             state.database().remove_account(address)?;
+            continue;
         }
         // Apply account changes to DB
         // If the account was changed then both original and current info will be present in the bundle account
@@ -230,7 +237,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         // Update account storage in DB
         for (key, slot) in account.storage.iter() {
             if slot.is_changed() {
-                // TODO check if we need to remove the value from our db
+                // TODO check if we need to remove the value from our db when value is zero
                 // if slot.present_value().is_zero() {
                 //     state.database().remove_account_storage(address)
                 // }
@@ -322,12 +329,11 @@ pub fn beacon_root_contract_call(
         .build();
 
     let transaction_result = evm.transact()?;
-    let mut state = transaction_result.state;
+    let mut result_state = transaction_result.state;
+    result_state.remove(&*SYSTEM_ADDRESS);
+    result_state.remove(&evm.block().coinbase);
 
-    state.remove(&*SYSTEM_ADDRESS);
-    state.remove(&evm.block().coinbase);
-
-    evm.context.evm.db.commit(state);
+    evm.context.evm.db.commit(result_state);
 
     Ok(transaction_result.result.into())
 }
