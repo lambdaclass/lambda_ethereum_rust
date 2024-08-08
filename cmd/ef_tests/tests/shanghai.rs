@@ -16,13 +16,14 @@ datatest_stable::harness!(
     parse_and_execute,
     "vectors/shanghai/eip3855_push0/",
     r"^.*/*",
-    //parse_and_execute,
-    //"vectors/shanghai/eip3651_warm_coinbase/",
-    //r"^.*/*",
-    // parse_and_execute,
-    // "vectors/shanghai/eip3860_initcode/",
-    // r"^.*/*",
-    //parse_and_execute,
-    //"vectors/shanghai/eip4895_withdrawals/",
-    //r"^.*/*",
+    parse_and_execute,
+    "vectors/shanghai/eip3651_warm_coinbase/",
+    r"^.*/*",
+    parse_and_execute,
+    "vectors/shanghai/eip3860_initcode/",
+    r"^.*/*",
+    // TODO: Get withdrawals/self_destructing_account.json test to pass
+    parse_and_execute,
+    "vectors/shanghai/eip4895_withdrawals/",
+    r"^(?!.*withdrawals/self_destructing_account\.json$).*"
 );

@@ -19,13 +19,25 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
     check_prestate_against_db(test_key, test, evm_state.database());
 
     // Execute all blocks in test
-    for block in blocks.iter() {
-        let execution_result = execute_block(
-            &block.block().clone().into(),
-            &mut evm_state,
-            SpecId::CANCUN,
-        );
-        if block.expect_exception.is_some() {
+    for block_fixture in blocks.iter() {
+        let block: &CoreBlock = &block_fixture.block().clone().into();
+
+        let spec = match &*test.network {
+            "Shanghai" => SpecId::SHANGHAI,
+            "Cancun" => SpecId::CANCUN,
+            "Paris" => SpecId::MERGE,
+            "ShanghaiToCancunAtTime15k" => {
+                if block.header.timestamp > 15_000 {
+                    SpecId::CANCUN
+                } else {
+                    SpecId::SHANGHAI
+                }
+            }
+            _ => panic!("Unsupported network: {}", test.network),
+        };
+
+        let execution_result = execute_block(block, &mut evm_state, spec);
+        if block_fixture.expect_exception.is_some() {
             assert!(
                 execution_result.is_err(),
                 "Expected transaction execution to fail on test: {}",

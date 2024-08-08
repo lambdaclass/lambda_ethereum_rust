@@ -56,7 +56,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
 
     apply_state_transitions(state)?;
     if let Some(withdrawals) = &block.body.withdrawals {
-        process_withdrawals(state.database(), withdrawals)?;
+        process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
     Ok(())
@@ -246,12 +246,23 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
 }
 
 /// Processes a block's withdrawals, updating the account balances in the state
-pub fn process_withdrawals(state: &Store, withdrawals: &[Withdrawal]) -> Result<(), StoreError> {
-    for withdrawal in withdrawals {
-        if !withdrawal.amount.is_zero() {
-            state.increment_balance(withdrawal.address, withdrawal.amount * GWEI_TO_WEI)?
-        }
-    }
+pub fn process_withdrawals(
+    state: &mut EvmState,
+    withdrawals: &[Withdrawal],
+) -> Result<(), StoreError> {
+    //balance_increments is a vector of tuples (Address, increment as u128)
+    let balance_increments = withdrawals
+        .iter()
+        .filter(|withdrawal| withdrawal.amount > 0)
+        .map(|withdrawal| {
+            (
+                RevmAddress::from_slice(withdrawal.address.as_bytes()),
+                (withdrawal.amount as u128 * GWEI_TO_WEI as u128),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    state.0.increment_balances(balance_increments)?;
     Ok(())
 }
 

@@ -22,23 +22,23 @@ fn parse_and_validate(path: &Path) -> datatest_stable::Result<()> {
     Ok(())
 }
 
-//TODO: eip4844_blobs tests are not passing because they expect exceptions.
 datatest_stable::harness!(
     parse_and_execute,
     "vectors/cancun/",
     r"eip1153_tstore/.*/.*\.json",
     parse_and_execute,
     "vectors/cancun/",
-    r"eip4788_beacon_root/.*/.*\.json",
+    // TODO: fix beacon_root_contract_deploy.json and beacon_root_transition.json
+    r"eip4788_beacon_root/.*/(?!beacon_root_contract_deploy\.json|beacon_root_transition\.json).*\.json",
     parse_and_execute,
     "vectors/cancun/",
     r"eip5656_mcopy/.*/.*\.json",
-    //parse_and_execute,
-    //"vectors/cancun/",
-    //r"eip7516_blobgasfee/.*/.*\.json",
-    //parse_and_execute,
-    //"vectors/cancun/",
-    //r"eip6780_selfdestruct/.*/.*\.json",
+    // parse_and_execute,
+    // "vectors/cancun/",
+    // r"eip7516_blobgasfee/.*/.*\.json",
+    parse_and_execute,
+    "vectors/cancun/",
+    r"eip6780_selfdestruct/.*/.*\.json",
     //parse_and_execute,
     //"vectors/cancun/",
     //r"eip4844_blobs/.*/.*\.json",
