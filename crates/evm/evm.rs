@@ -82,7 +82,11 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
-        let chain_id = state.database().get_chain_id()?.unwrap_or_default().low_u64();
+        let chain_id = state
+            .database()
+            .get_chain_id()?
+            .ok_or_else(|| EvmError::Custom(String::from("Missing chain id")))?
+            .low_u64();
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
