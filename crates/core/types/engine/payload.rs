@@ -7,7 +7,8 @@ use crate::rlp::decode::RLPDecode;
 use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
-    compute_withdrawals_root, BlockBody, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+    compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader,
+    Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
 };
 
 #[allow(unused)]
@@ -71,11 +72,8 @@ impl EncodedTransaction {
 impl ExecutionPayloadV3 {
     /// Converts an `ExecutionPayloadV3` into a block (aka a BlockHeader and BlockBody)
     /// using the parentBeaconBlockRoot received along with the payload in the rpc call `engine_newPayloadV3`
-    pub fn into_block(
-        self,
-        parent_beacon_block_root: H256,
-    ) -> Result<(BlockHeader, BlockBody), RLPDecodeError> {
-        let block_body = BlockBody {
+    pub fn into_block(self, parent_beacon_block_root: H256) -> Result<Block, RLPDecodeError> {
+        let body = BlockBody {
             transactions: self
                 .transactions
                 .iter()
@@ -84,13 +82,13 @@ impl ExecutionPayloadV3 {
             ommers: vec![],
             withdrawals: Some(self.withdrawals),
         };
-        Ok((
-            BlockHeader {
+        Ok(Block {
+            header: BlockHeader {
                 parent_hash: self.parent_hash,
                 ommers_hash: *DEFAULT_OMMERS_HASH,
                 coinbase: self.fee_recipient,
                 state_root: self.state_root,
-                transactions_root: block_body.compute_transactions_root(),
+                transactions_root: compute_transactions_root(&body.transactions),
                 receipt_root: self.receipts_root,
                 logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
@@ -103,14 +101,14 @@ impl ExecutionPayloadV3 {
                 nonce: 0,
                 base_fee_per_gas: self.base_fee_per_gas,
                 withdrawals_root: Some(compute_withdrawals_root(
-                    &block_body.withdrawals.clone().unwrap(),
+                    &body.withdrawals.clone().unwrap_or_default(),
                 )),
                 blob_gas_used: Some(self.blob_gas_used),
                 excess_blob_gas: Some(self.excess_blob_gas),
                 parent_beacon_block_root: Some(parent_beacon_block_root),
             },
-            block_body,
-        ))
+            body,
+        })
     }
 }
 
@@ -130,6 +128,46 @@ pub enum PayloadValidationStatus {
     Invalid,
     Syncing,
     Accepted,
+}
+
+impl PayloadStatus {
+    // Convenience methods to create payload status
+
+    /// Creates a PayloadStatus with invalid status and error message
+    pub fn invalid_with_err(error: &str) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: None,
+            validation_error: Some(error.to_string()),
+        }
+    }
+
+    /// Creates a PayloadStatus with invalid status and latest valid hash
+    pub fn invalid_with_hash(hash: BlockHash) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: Some(hash),
+            validation_error: None,
+        }
+    }
+
+    /// Creates a PayloadStatus with syncing status and no other info
+    pub fn syncing() -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Syncing,
+            latest_valid_hash: None,
+            validation_error: None,
+        }
+    }
+
+    /// Creates a PayloadStatus with valid status and latest valid hash
+    pub fn valid_with_hash(hash: BlockHash) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Valid,
+            latest_valid_hash: Some(hash),
+            validation_error: None,
+        }
+    }
 }
 
 #[cfg(test)]
