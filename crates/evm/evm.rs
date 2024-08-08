@@ -300,12 +300,13 @@ pub fn beacon_root_contract_call(
     let tx_env = TxEnv {
         caller: *SYSTEM_ADDRESS,
         transact_to: RevmTxKind::Call(*CONTRACT_ADDRESS),
-        gas_limit: header.gas_limit,
+        gas_limit: 30_000_000,
         data: revm::primitives::Bytes::copy_from_slice(beacon_root.as_bytes()),
         ..Default::default()
     };
     let mut block_env = block_env(header);
     block_env.basefee = RevmU256::ZERO;
+    block_env.gas_limit = RevmU256::from(30_000_000);
 
     let mut evm = Evm::builder()
         .with_db(&mut state.0)
