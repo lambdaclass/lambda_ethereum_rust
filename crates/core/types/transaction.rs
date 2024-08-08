@@ -914,7 +914,7 @@ mod serde_impl {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{compute_receipts_root, BlockBody, Receipt};
+    use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
 
     use super::*;
     use hex_literal::hex;
@@ -941,7 +941,7 @@ mod tests {
         body.transactions.push(Transaction::LegacyTransaction(tx));
         let expected_root =
             hex!("8151d548273f6683169524b66ca9fe338b9ce42bc3540046c828fd939ae23bcb");
-        let result = body.compute_transactions_root();
+        let result = compute_transactions_root(&body.transactions);
 
         assert_eq!(result, expected_root.into());
     }
