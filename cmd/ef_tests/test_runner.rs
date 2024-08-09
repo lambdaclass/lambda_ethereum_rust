@@ -178,15 +178,15 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
             .unwrap(),
     };
     let test_state_root = last_block.state_root;
-    // TODO: these checks should be enabled once we start storing the Blocks in the DB
-    // let db_block_header = db
-    //     .get_block_header(test_block.number.low_u64())
-    //     .unwrap()
-    //     .unwrap();
-    // assert_eq!(
-    //     test_state_root,
-    //     db_block_header.state_root,
-    //     "Mismatched state root for database, test: {test_key}");
+    // Check latest block in store
+    let db_block_header = db
+        .get_block_header(last_block.number.low_u64())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        test_state_root, db_block_header.state_root,
+        "Mismatched state root for database, test: {test_key}"
+    );
     assert_eq!(
         test_state_root,
         db.clone().world_state_root(),
