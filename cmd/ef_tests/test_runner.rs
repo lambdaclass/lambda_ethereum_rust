@@ -25,7 +25,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
 
     // Execute all blocks in test
     for block_fixture in blocks.iter() {
-        let block: &CoreBlock = &block_fixture.block().clone().into();
+        let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
         let spec = match &*test.network {
             "Shanghai" => SpecId::SHANGHAI,
@@ -77,7 +77,7 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
-pub fn validate_test(test: &TestUnit) {
+pub fn validate_test(test: &TestUnit) -> bool {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
     let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
@@ -91,15 +91,20 @@ pub fn validate_test(test: &TestUnit) {
         match CoreBlock::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
                 // check that the decoded block matches the deserialized one
-                assert_eq!(decoded_block, (block.block().clone()).into());
+                let inner_block = block.block().unwrap();
+                assert_eq!(decoded_block, (inner_block.clone()).into());
                 let mut rlp_block = Vec::new();
                 // check that encoding the decoded block matches the rlp field
                 decoded_block.encode(&mut rlp_block);
                 assert_eq!(rlp_block, block.rlp.to_vec());
             }
-            Err(_) => assert!(block.expect_exception.is_some()),
+            Err(_) => {
+                assert!(block.expect_exception.is_some());
+                return false;
+            }
         }
     }
+    true
 }
 
 /// Creates an in-memory DB for evm execution and loads the prestate accounts

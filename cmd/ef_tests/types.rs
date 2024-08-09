@@ -95,7 +95,7 @@ pub struct BlockWithRLP {
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
     #[serde(flatten)]
-    inner: BlockInner,
+    inner: Option<BlockInner>,
     pub expect_exception: Option<String>,
 }
 
@@ -123,23 +123,12 @@ pub struct Block {
 }
 
 impl BlockWithRLP {
-    pub fn block(&self) -> &Block {
+    pub fn block(&self) -> Option<&Block> {
         match self.inner {
-            BlockInner::Block(ref block) => block,
-            BlockInner::DecodedRLP(ref decoded) => &decoded.rlp_decoded,
+            Some(BlockInner::Block(ref block)) => Some(block),
+            Some(BlockInner::DecodedRLP(ref decoded)) => Some(&decoded.rlp_decoded),
+            None => None,
         }
-    }
-
-    pub fn header(&self) -> &Header {
-        &self.block().block_header
-    }
-
-    pub fn transactions(&self) -> &Vec<Transaction> {
-        &self.block().transactions
-    }
-
-    pub fn withdrawals(&self) -> Option<&Vec<Withdrawal>> {
-        self.block().withdrawals.as_ref()
     }
 }
 impl From<Block> for CoreBlock {
