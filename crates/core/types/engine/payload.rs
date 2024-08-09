@@ -1,10 +1,8 @@
+use crate::{rlp::error::RLPDecodeError, serde_utils};
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom};
 use keccak_hash::H256;
 use serde::{Deserialize, Serialize};
-
-use crate::rlp::decode::RLPDecode;
-use crate::{rlp::error::RLPDecodeError, serde_utils};
 
 use crate::types::{
     compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader,
@@ -64,7 +62,7 @@ impl EncodedTransaction {
     /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
     /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
-        Transaction::decode(self.0.as_ref())
+        Transaction::decode_canonical(self.0.as_ref())
     }
 }
 

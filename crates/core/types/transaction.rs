@@ -212,20 +212,7 @@ fn encode_tx_as_bytes(tx_type: u8, encoded_tx: &[u8], buf: &mut dyn bytes::BufMu
 impl RLPEncode for EIP2930Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         let mut tx_buf = Vec::new();
-        Encoder::new(&mut tx_buf)
-            .encode_field(&self.chain_id)
-            .encode_field(&self.nonce)
-            .encode_field(&self.gas_price)
-            .encode_field(&self.gas_limit)
-            .encode_field(&self.to)
-            .encode_field(&self.value)
-            .encode_field(&self.data)
-            .encode_field(&self.access_list)
-            .encode_field(&self.signature_y_parity)
-            .encode_field(&self.signature_r)
-            .encode_field(&self.signature_s)
-            .finish();
-
+        self.encode_canonical(&mut tx_buf);
         encode_tx_as_bytes(TxType::EIP2930 as u8, &tx_buf, buf);
     }
 }
@@ -233,20 +220,7 @@ impl RLPEncode for EIP2930Transaction {
 impl RLPEncode for EIP1559Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         let mut tx_buf = Vec::new();
-        Encoder::new(&mut tx_buf)
-            .encode_field(&self.chain_id)
-            .encode_field(&self.nonce)
-            .encode_field(&self.max_priority_fee_per_gas)
-            .encode_field(&self.max_fee_per_gas)
-            .encode_field(&self.gas_limit)
-            .encode_field(&self.to)
-            .encode_field(&self.value)
-            .encode_field(&self.data)
-            .encode_field(&self.access_list)
-            .encode_field(&self.signature_y_parity)
-            .encode_field(&self.signature_r)
-            .encode_field(&self.signature_s)
-            .finish();
+        self.encode_canonical(&mut tx_buf);
         encode_tx_as_bytes(TxType::EIP1559 as u8, &tx_buf, buf);
     }
 }
@@ -254,23 +228,7 @@ impl RLPEncode for EIP1559Transaction {
 impl RLPEncode for EIP4844Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         let mut tx_buf = Vec::new();
-        Encoder::new(&mut tx_buf)
-            .encode_field(&self.chain_id)
-            .encode_field(&self.nonce)
-            .encode_field(&self.max_priority_fee_per_gas)
-            .encode_field(&self.max_fee_per_gas)
-            .encode_field(&self.gas)
-            .encode_field(&self.to)
-            .encode_field(&self.value)
-            .encode_field(&self.data)
-            .encode_field(&self.access_list)
-            .encode_field(&self.max_fee_per_blob_gas)
-            .encode_field(&self.blob_versioned_hashes)
-            .encode_field(&self.signature_y_parity)
-            .encode_field(&self.signature_r)
-            .encode_field(&self.signature_s)
-            .finish();
-
+        self.encode_canonical(&mut tx_buf);
         encode_tx_as_bytes(TxType::EIP4844 as u8, &tx_buf, buf);
     }
 }
@@ -666,6 +624,139 @@ impl TxType {
             0x03 => Some(Self::EIP4844),
             _ => None,
         }
+    }
+}
+
+/// Canonical encoding used to decode payload transactions and calculate transaction roots
+/// Based on [EIP-2718]
+/// Transactions can be encoded in the following formats:
+/// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+/// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+mod canonic_encoding {
+    use super::*;
+
+    // Decoding
+
+    impl Transaction {
+        /// Decodes a single transaction in canonical format
+        /// Based on [EIP-2718]
+        /// Transactions can be encoded in the following formats:
+        /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+        /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+        pub fn decode_canonical(bytes: &[u8]) -> Result<Self, RLPDecodeError> {
+            // Look at the first byte to check if it corresponds to a TransactionType
+            match bytes.first() {
+                // First byte is a valid TransactionType
+                Some(tx_type) if *tx_type < 0x7f => {
+                    // Decode tx based on type
+                    let tx_bytes = &bytes[1..];
+                    match *tx_type {
+                        // Legacy
+                        0x0 => {
+                            LegacyTransaction::decode(tx_bytes).map(Transaction::LegacyTransaction)
+                        } // TODO: check if this is a real case scenario
+                        // EIP2930
+                        0x1 => EIP2930Transaction::decode(tx_bytes)
+                            .map(Transaction::EIP2930Transaction),
+                        // EIP1559
+                        0x2 => EIP1559Transaction::decode(tx_bytes)
+                            .map(Transaction::EIP1559Transaction),
+                        // EIP4844
+                        0x3 => EIP4844Transaction::decode(tx_bytes)
+                            .map(Transaction::EIP4844Transaction),
+                        ty => Err(RLPDecodeError::Custom(format!(
+                            "Invalid transaction type: {ty}"
+                        ))),
+                    }
+                }
+                // LegacyTransaction
+                _ => LegacyTransaction::decode(bytes).map(Transaction::LegacyTransaction),
+            }
+        }
+
+        // Encoding
+        /// Encodes a transaction in canonical format
+        /// Based on [EIP-2718]
+        /// Transactions can be encoded in the following formats:
+        /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+        /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+        pub fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
+            match self {
+                // Legacy transactions don't have a prefix
+                Transaction::LegacyTransaction(_) => {}
+                _ => buf.put_u8(self.tx_type() as u8),
+            }
+            match self {
+                Transaction::LegacyTransaction(t) => t.encode(buf),
+                Transaction::EIP2930Transaction(t) => t.encode_canonical(buf),
+                Transaction::EIP1559Transaction(t) => t.encode_canonical(buf),
+                Transaction::EIP4844Transaction(t) => t.encode_canonical(buf),
+            };
+        }
+
+        pub fn encode_canonical_to_vec(&self) -> Vec<u8> {
+            let mut buf = Vec::new();
+            self.encode_canonical(&mut buf);
+            buf
+        }
+    }
+}
+
+impl EIP2930Transaction {
+    fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.gas_price)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish()
+    }
+}
+
+impl EIP1559Transaction {
+    fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish()
+    }
+}
+
+impl EIP4844Transaction {
+    fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.max_fee_per_blob_gas)
+            .encode_field(&self.blob_versioned_hashes)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish()
     }
 }
 

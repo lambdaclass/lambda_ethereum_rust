@@ -211,7 +211,7 @@ pub fn compute_transactions_root(transactions: &[Transaction]) -> H256 {
         // Key: RLP(tx_index)
         // Value: tx_type || RLP(tx)  if tx_type != 0
         //                   RLP(tx)  else
-        trie.insert(idx.encode_to_vec(), tx.encode_to_vec());
+        trie.insert(idx.encode_to_vec(), tx.encode_canonical_to_vec());
     }
     let &root = trie.compute_hash();
     H256(root.into())
