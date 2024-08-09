@@ -8,6 +8,7 @@ use ethereum_rust_core::{
         validate_block_header, validate_cancun_header_fields, Account as CoreAccount,
         Block as CoreBlock, BlockHeader as CoreBlockHeader,
     },
+    U256,
 };
 use ethereum_rust_evm::{evm_state, execute_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
@@ -101,6 +102,25 @@ pub fn validate_test(test: &TestUnit) -> bool {
             Err(_) => {
                 assert!(block.expect_exception.is_some());
                 return false;
+            }
+        }
+        let mut blob_gas_used = U256::from(0);
+        for tx in block.block().unwrap().transactions.clone() {
+            if tx
+                .transaction_type
+                .is_some_and(|tx_type| tx_type == U256::from(0x03))
+            {
+                let tx_total_blob_gas =
+                    U256::from(2).pow(U256::from(17)) * tx.blob_versioned_hashes.unwrap().len();
+                blob_gas_used = blob_gas_used + tx_total_blob_gas;
+            }
+        }
+        if block.block().unwrap().block_header.blob_gas_used.is_some() {
+            if !(blob_gas_used <= U256::from(786432)) {
+                assert!(block.expect_exception.is_some());
+            }
+            if !(blob_gas_used == block.block().unwrap().block_header.blob_gas_used.unwrap()) {
+                assert!(block.expect_exception.is_some());
             }
         }
     }
