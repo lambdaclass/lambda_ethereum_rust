@@ -12,6 +12,7 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
+use ethereum_rust_evm::SpecId;
 use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
@@ -401,6 +402,14 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
         && header.ommers_hash == *DEFAULT_OMMERS_HASH
         && header.parent_hash == parent_header.compute_block_hash()
 }
+/*
+pub fn validate_cancun_header(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
+    let valid = validate_block_header(header, parent_header);
+    valid
+        && header.parent_beacon_block_root.is_some()
+        && header.excess_blob_gas == calc_excess_blob_gas(header)
+}
+*/
 
 #[allow(unused)]
 mod serializable {
