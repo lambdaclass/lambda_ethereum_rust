@@ -343,6 +343,10 @@ fn block_env(header: &BlockHeader) -> BlockEnv {
         basefee: RevmU256::from(header.base_fee_per_gas),
         difficulty: RevmU256::from_limbs(header.difficulty.0),
         prevrandao: Some(header.prev_randao.as_fixed_bytes().into()),
+        blob_excess_gas_and_price: match header.excess_blob_gas {
+            Some(excess_blob_gas) => Some(BlobExcessGasAndPrice::new(excess_blob_gas)),
+            None => Some(BlobExcessGasAndPrice::new(0)),
+        },
         ..Default::default()
     }
 }

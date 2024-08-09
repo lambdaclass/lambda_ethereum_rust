@@ -12,7 +12,6 @@ use crate::{
     Address, H256, U256,
 };
 use bytes::Bytes;
-use ethereum_rust_evm::SpecId;
 use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use patricia_merkle_tree::PatriciaMerkleTree;
