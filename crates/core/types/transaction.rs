@@ -627,15 +627,13 @@ impl TxType {
     }
 }
 
-/// Canonical encoding used to decode payload transactions and calculate transaction roots
+/// Canonical Transaction Encoding
 /// Based on [EIP-2718]
 /// Transactions can be encoded in the following formats:
 /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
 /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
 mod canonic_encoding {
     use super::*;
-
-    // Decoding
 
     impl Transaction {
         /// Decodes a single transaction in canonical format
@@ -674,7 +672,6 @@ mod canonic_encoding {
             }
         }
 
-        // Encoding
         /// Encodes a transaction in canonical format
         /// Based on [EIP-2718]
         /// Transactions can be encoded in the following formats:
@@ -694,6 +691,11 @@ mod canonic_encoding {
             };
         }
 
+        /// Encodes a transaction in canonical format into a newly created buffer
+        /// Based on [EIP-2718]
+        /// Transactions can be encoded in the following formats:
+        /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+        /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
         pub fn encode_canonical_to_vec(&self) -> Vec<u8> {
             let mut buf = Vec::new();
             self.encode_canonical(&mut buf);
