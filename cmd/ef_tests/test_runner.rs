@@ -165,9 +165,20 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
         }
     }
     // Check world state
-    let result_blocks = &test.blocks;
-    let test_block = result_blocks.last().unwrap().header();
-    let test_state_root = test_block.state_root;
+    // get last valid block
+    let last_block = match test.genesis_block_header.hash == test.lastblockhash {
+        // lastblockhash matches genesis block
+        true => &test.genesis_block_header,
+        // lastblockhash matches a block in blocks list
+        false => test
+            .blocks
+            .iter()
+            .map(|b| b.header())
+            .find(|h| h.hash == test.lastblockhash)
+            .unwrap(),
+    };
+    let test_state_root = last_block.state_root;
+    // TODO: these checks should be enabled once we start storing the Blocks in the DB
     // let db_block_header = db
     //     .get_block_header(test_block.number.low_u64())
     //     .unwrap()
