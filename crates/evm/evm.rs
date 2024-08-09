@@ -208,11 +208,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         }
         let address = Address::from_slice(address.0.as_slice());
         // Remove account from DB if destroyed
-        if account.status.was_destroyed()
-            || account
-                .account_info()
-                .is_some_and(|acc_info| acc_info.is_empty())
-        {
+        if account.status.was_destroyed() {
             state.database().remove_account(address)?;
         }
 
