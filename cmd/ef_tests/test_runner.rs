@@ -4,7 +4,10 @@ use crate::types::TestUnit;
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     rlp::encode::RLPEncode,
-    types::{Account as CoreAccount, Block as CoreBlock},
+    types::{
+        validate_block_header, validate_cancun_header_fields, Account as CoreAccount,
+        Block as CoreBlock, BlockHeader as CoreBlockHeader,
+    },
 };
 use ethereum_rust_evm::{evm_state, execute_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
@@ -17,6 +20,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
 
     // Check world_state
     check_prestate_against_db(test_key, test, evm_state.database());
+
+    let mut parent_header = CoreBlockHeader::from(test.genesis_block_header.clone());
 
     // Execute all blocks in test
     for block_fixture in blocks.iter() {
@@ -36,6 +41,16 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
             _ => panic!("Unsupported network: {}", test.network),
         };
 
+        let mut valid_header = validate_block_header(&block.header, &parent_header);
+        if spec == SpecId::CANCUN {
+            valid_header =
+                valid_header && validate_cancun_header_fields(&block.header, &parent_header);
+        }
+
+        if !valid_header {
+            assert!(block_fixture.expect_exception.is_some())
+        }
+
         let execution_result = execute_block(block, &mut evm_state, spec);
         if block_fixture.expect_exception.is_some() {
             assert!(
@@ -51,6 +66,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
                 execution_result.unwrap_err()
             )
         }
+        parent_header = CoreBlockHeader::from(block.header.clone());
     }
     check_poststate_against_db(test_key, test, evm_state.database())
 }
