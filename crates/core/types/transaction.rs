@@ -201,7 +201,7 @@ impl RLPEncode for LegacyTransaction {
             .finish();
     }
 }
-/// Receives an encoded transaction and its type and encodes both as a single rlp item
+/// Receives an encoded transaction and its type and encodes both as a single rlp bytes object
 /// that has: (tx_type || encoded_tx) as payload
 fn encode_tx_as_bytes(tx_type: u8, encoded_tx: &[u8], buf: &mut dyn bytes::BufMut) {
     let tx = [&[tx_type], encoded_tx].concat();
