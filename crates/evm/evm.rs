@@ -486,3 +486,23 @@ fn access_list_inspector(
         precompile_addresses,
     ))
 }
+
+/// Returns the spec id according to the block timestamp and the stored chain config
+/// Assumes at least Merge fork is active
+pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
+    Ok(
+        if store
+            .get_cancun_time()?
+            .is_some_and(|t| t < block_timestamp)
+        {
+            SpecId::CANCUN
+        } else if store
+            .get_shanghai_time()?
+            .is_some_and(|t| t < block_timestamp)
+        {
+            SpecId::SHANGHAI
+        } else {
+            SpecId::MERGE
+        },
+    )
+}

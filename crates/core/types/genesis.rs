@@ -36,7 +36,7 @@ pub struct Genesis {
 
 /// Blockchain settings defined per block
 #[allow(unused)]
-#[derive(Debug, Deserialize, Default, PartialEq)]
+#[derive(Debug, Deserialize, Default, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier

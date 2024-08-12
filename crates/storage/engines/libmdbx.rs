@@ -259,6 +259,15 @@ impl StoreEngine for Store {
         }
     }
 
+    fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::ShanghaiTime)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
     fn update_earliest_block_number(
         &mut self,
         block_number: BlockNumber,
@@ -464,6 +473,7 @@ pub enum ChainDataIndex {
     LatestBlockNumber = 4,
     PendingBlockNumber = 5,
     CancunTime = 6,
+    ShanghaiTime = 7,
 }
 
 impl Encodable for ChainDataIndex {

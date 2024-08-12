@@ -335,6 +335,10 @@ impl Store {
         self.engine.lock().unwrap().get_cancun_time()
     }
 
+    pub fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_shanghai_time()
+    }
+
     pub fn update_earliest_block_number(
         &self,
         block_number: BlockNumber,

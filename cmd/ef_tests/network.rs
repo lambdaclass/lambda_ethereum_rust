@@ -1,9 +1,9 @@
 use ethereum_rust_core::{types::ChainConfig, U256};
-use serde::Deserialize;
 use lazy_static::lazy_static;
+use serde::Deserialize;
 
 // Chain config for different forks as defined on https://ethereum.github.io/execution-spec-tests/v3.0.0/consuming_tests/common_types/#fork
-lazy_static!{
+lazy_static! {
     pub static ref MERGE_CONFIG: ChainConfig = ChainConfig {
         chain_id: U256::one(),
         homestead_block: Some(0),
@@ -25,14 +25,23 @@ lazy_static!{
         terminal_total_difficulty: Some(U256::zero()),
         ..Default::default()
     };
-    pub static ref MERGE_TO_SHANGAI_AT_15K_CONFIG: ChainConfig = ChainConfig {shanghai_time: Some(0x3a98), ..*MERGE_CONFIG};
-    pub static ref SHANGHAI_CONFIG: ChainConfig = ChainConfig {shanghai_time: Some(0), ..*MERGE_CONFIG};
-    pub static ref SHANGHAI_TO_CANCUN_AT_15K_CONFIG: ChainConfig = ChainConfig {cancun_time: Some(0x3a98), ..*SHANGHAI_CONFIG};
-    pub static ref CANCUN_CONFIG: ChainConfig = ChainConfig {cancun_time: Some(0), ..*SHANGHAI_CONFIG};
-
+    pub static ref MERGE_TO_SHANGAI_AT_15K_CONFIG: ChainConfig = ChainConfig {
+        shanghai_time: Some(0x3a98),
+        ..*MERGE_CONFIG
+    };
+    pub static ref SHANGHAI_CONFIG: ChainConfig = ChainConfig {
+        shanghai_time: Some(0),
+        ..*MERGE_CONFIG
+    };
+    pub static ref SHANGHAI_TO_CANCUN_AT_15K_CONFIG: ChainConfig = ChainConfig {
+        cancun_time: Some(0x3a98),
+        ..*SHANGHAI_CONFIG
+    };
+    pub static ref CANCUN_CONFIG: ChainConfig = ChainConfig {
+        cancun_time: Some(0),
+        ..*SHANGHAI_CONFIG
+    };
 }
-
-
 
 #[derive(Debug, Deserialize)]
 pub enum Network {
