@@ -25,6 +25,16 @@ pub struct TestUnit {
     pub seal_engine: serde_json::Value,
 }
 
+impl TestUnit {
+    pub fn is_rlp_only_test(&self) -> bool {
+        let mut is_rlp_only = false;
+        for block in self.blocks.iter() {
+            is_rlp_only = is_rlp_only || block.block().is_none();
+        }
+        is_rlp_only
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
     pub balance: U256,

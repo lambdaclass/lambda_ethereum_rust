@@ -100,28 +100,37 @@ pub fn validate_test(test: &TestUnit) -> bool {
                 assert_eq!(rlp_block, block.rlp.to_vec());
             }
             Err(_) => {
-                assert!(block.expect_exception.is_some());
+                assert!(block.expect_exception.is_some() && test.is_rlp_only_test());
                 return false;
             }
         }
         let mut blob_gas_used = U256::from(0);
+        let mut blobs_in_block = 0;
         for tx in block.block().unwrap().transactions.clone() {
+            //EIP-4844 transactions
             if tx
                 .transaction_type
                 .is_some_and(|tx_type| tx_type == U256::from(0x03))
             {
-                let tx_total_blob_gas =
-                    U256::from(2).pow(U256::from(17)) * tx.blob_versioned_hashes.unwrap().len();
+                let tx_total_blob_gas = U256::from(2).pow(U256::from(17))
+                    * tx.blob_versioned_hashes.clone().unwrap().len();
                 blob_gas_used = blob_gas_used + tx_total_blob_gas;
+                blobs_in_block += tx.blob_versioned_hashes.unwrap().len();
             }
         }
         if block.block().unwrap().block_header.blob_gas_used.is_some() {
-            if !(blob_gas_used <= U256::from(786432)) {
+            if blob_gas_used > U256::from(786432) {
                 assert!(block.expect_exception.is_some());
+                return false;
             }
             if !(blob_gas_used == block.block().unwrap().block_header.blob_gas_used.unwrap()) {
                 assert!(block.expect_exception.is_some());
+                return false;
             }
+        }
+        if blobs_in_block > 6 {
+            assert!(block.expect_exception.is_some());
+            return false;
         }
     }
     true
@@ -165,6 +174,7 @@ fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
 
 /// Checks that all accounts in the post-state are present and have the correct values in the DB
 /// Panics if any comparison fails
+/// Tests that previously failed the validation stage shouldn't be executed with this function.
 fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
     for (addr, account) in &test.post_state {
         let expected_account: CoreAccount = account.clone().into();
@@ -214,7 +224,7 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
         false => test
             .blocks
             .iter()
-            .map(|b| b.header())
+            .map(|b| &b.block().unwrap().block_header)
             .find(|h| h.hash == test.lastblockhash)
             .unwrap(),
     };
