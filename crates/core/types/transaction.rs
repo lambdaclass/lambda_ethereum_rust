@@ -116,9 +116,7 @@ impl RLPEncode for Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
             Transaction::LegacyTransaction(t) => t.encode(buf),
-            Transaction::EIP2930Transaction(t) => t.encode(buf),
-            Transaction::EIP1559Transaction(t) => t.encode(buf),
-            Transaction::EIP4844Transaction(t) => t.encode(buf),
+            tx => Bytes::copy_from_slice(&tx.encode_canonical_to_vec()).encode(buf),
         };
     }
 }
@@ -201,35 +199,62 @@ impl RLPEncode for LegacyTransaction {
             .finish();
     }
 }
-/// Receives an encoded transaction and its type and encodes both as a single rlp bytes object
-/// that has: (tx_type || encoded_tx) as payload
-fn encode_tx_as_bytes(tx_type: u8, encoded_tx: &[u8], buf: &mut dyn bytes::BufMut) {
-    let tx = [&[tx_type], encoded_tx].concat();
-    let tx_as_bytes = Bytes::copy_from_slice(&tx);
-    tx_as_bytes.encode(buf);
-}
 
 impl RLPEncode for EIP2930Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let mut tx_buf = Vec::new();
-        self.encode_canonical(&mut tx_buf);
-        encode_tx_as_bytes(TxType::EIP2930 as u8, &tx_buf, buf);
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.gas_price)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish()
     }
 }
 
 impl RLPEncode for EIP1559Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let mut tx_buf = Vec::new();
-        self.encode_canonical(&mut tx_buf);
-        encode_tx_as_bytes(TxType::EIP1559 as u8, &tx_buf, buf);
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas_limit)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish()
     }
 }
 
 impl RLPEncode for EIP4844Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let mut tx_buf = Vec::new();
-        self.encode_canonical(&mut tx_buf);
-        encode_tx_as_bytes(TxType::EIP4844 as u8, &tx_buf, buf);
+        Encoder::new(buf)
+            .encode_field(&self.chain_id)
+            .encode_field(&self.nonce)
+            .encode_field(&self.max_priority_fee_per_gas)
+            .encode_field(&self.max_fee_per_gas)
+            .encode_field(&self.gas)
+            .encode_field(&self.to)
+            .encode_field(&self.value)
+            .encode_field(&self.data)
+            .encode_field(&self.access_list)
+            .encode_field(&self.max_fee_per_blob_gas)
+            .encode_field(&self.blob_versioned_hashes)
+            .encode_field(&self.signature_y_parity)
+            .encode_field(&self.signature_r)
+            .encode_field(&self.signature_s)
+            .finish()
     }
 }
 
@@ -685,9 +710,9 @@ mod canonic_encoding {
             }
             match self {
                 Transaction::LegacyTransaction(t) => t.encode(buf),
-                Transaction::EIP2930Transaction(t) => t.encode_canonical(buf),
-                Transaction::EIP1559Transaction(t) => t.encode_canonical(buf),
-                Transaction::EIP4844Transaction(t) => t.encode_canonical(buf),
+                Transaction::EIP2930Transaction(t) => t.encode(buf),
+                Transaction::EIP1559Transaction(t) => t.encode(buf),
+                Transaction::EIP4844Transaction(t) => t.encode(buf),
             };
         }
 
@@ -701,64 +726,6 @@ mod canonic_encoding {
             self.encode_canonical(&mut buf);
             buf
         }
-    }
-}
-
-impl EIP2930Transaction {
-    fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
-            .encode_field(&self.chain_id)
-            .encode_field(&self.nonce)
-            .encode_field(&self.gas_price)
-            .encode_field(&self.gas_limit)
-            .encode_field(&self.to)
-            .encode_field(&self.value)
-            .encode_field(&self.data)
-            .encode_field(&self.access_list)
-            .encode_field(&self.signature_y_parity)
-            .encode_field(&self.signature_r)
-            .encode_field(&self.signature_s)
-            .finish()
-    }
-}
-
-impl EIP1559Transaction {
-    fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
-            .encode_field(&self.chain_id)
-            .encode_field(&self.nonce)
-            .encode_field(&self.max_priority_fee_per_gas)
-            .encode_field(&self.max_fee_per_gas)
-            .encode_field(&self.gas_limit)
-            .encode_field(&self.to)
-            .encode_field(&self.value)
-            .encode_field(&self.data)
-            .encode_field(&self.access_list)
-            .encode_field(&self.signature_y_parity)
-            .encode_field(&self.signature_r)
-            .encode_field(&self.signature_s)
-            .finish()
-    }
-}
-
-impl EIP4844Transaction {
-    fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
-            .encode_field(&self.chain_id)
-            .encode_field(&self.nonce)
-            .encode_field(&self.max_priority_fee_per_gas)
-            .encode_field(&self.max_fee_per_gas)
-            .encode_field(&self.gas)
-            .encode_field(&self.to)
-            .encode_field(&self.value)
-            .encode_field(&self.data)
-            .encode_field(&self.access_list)
-            .encode_field(&self.max_fee_per_blob_gas)
-            .encode_field(&self.blob_versioned_hashes)
-            .encode_field(&self.signature_y_parity)
-            .encode_field(&self.signature_r)
-            .encode_field(&self.signature_s)
-            .finish()
     }
 }
 
