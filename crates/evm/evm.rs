@@ -494,12 +494,12 @@ pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError
     Ok(
         if store
             .get_cancun_time()?
-            .is_some_and(|t| t < block_timestamp)
+            .is_some_and(|t| t <= block_timestamp)
         {
             SpecId::CANCUN
         } else if store
             .get_shanghai_time()?
-            .is_some_and(|t| t < block_timestamp)
+            .is_some_and(|t| t <= block_timestamp)
         {
             SpecId::SHANGHAI
         } else {
