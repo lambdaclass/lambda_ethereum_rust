@@ -218,6 +218,10 @@ impl StoreEngine for Store {
         if let Some(cancun_time) = chain_config.cancun_time {
             self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())?;
         };
+        // Store shanghai timestamp
+        if let Some(shanghai_time) = chain_config.shanghai_time {
+            self.write::<ChainData>(ChainDataIndex::ShanghaiTime, shanghai_time.encode_to_vec())?;
+        };
         // Store chain id
         self.write::<ChainData>(
             ChainDataIndex::ChainId,
