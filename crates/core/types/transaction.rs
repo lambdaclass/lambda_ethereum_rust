@@ -109,10 +109,10 @@ impl Transaction {
 }
 
 impl RLPEncode for Transaction {
-    /// Based on [EIP-2718]
     /// Transactions can be encoded in the following formats:
-    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
-    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+    /// A) Legacy transactions: rlp(LegacyTransaction)
+    /// B) Non legacy transactions: rlp(Bytes) where bytes represents the canonical encoding for the transaction as a bytes object.
+    /// Checkout [Transaction::encode_canonical] for more information
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
             Transaction::LegacyTransaction(t) => t.encode(buf),
@@ -124,10 +124,10 @@ impl RLPEncode for Transaction {
 }
 
 impl RLPDecode for Transaction {
-    /// Based on [EIP-2718]
     /// Transactions can be encoded in the following formats:
-    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
-    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+    /// A) Legacy transactions: rlp(LegacyTransaction)
+    /// B) Non legacy transactions: rlp(Bytes) where bytes represents the canonical encoding for the transaction as a bytes object.
+    /// Checkout [Transaction::decode_canonical] for more information
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if is_encoded_as_bytes(rlp) {
             // Adjust the encoding to get the payload
