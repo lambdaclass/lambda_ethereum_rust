@@ -111,7 +111,7 @@ impl Transaction {
 impl RLPEncode for Transaction {
     /// Transactions can be encoded in the following formats:
     /// A) Legacy transactions: rlp(LegacyTransaction)
-    /// B) Non legacy transactions: rlp(Bytes) where bytes represents the canonical encoding for the transaction as a bytes object.
+    /// B) Non legacy transactions: rlp(Bytes) where Bytes represents the canonical encoding for the transaction as a bytes object.
     /// Checkout [Transaction::encode_canonical] for more information
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
@@ -126,7 +126,7 @@ impl RLPEncode for Transaction {
 impl RLPDecode for Transaction {
     /// Transactions can be encoded in the following formats:
     /// A) Legacy transactions: rlp(LegacyTransaction)
-    /// B) Non legacy transactions: rlp(Bytes) where bytes represents the canonical encoding for the transaction as a bytes object.
+    /// B) Non legacy transactions: rlp(Bytes) where Bytes represents the canonical encoding for the transaction as a bytes object.
     /// Checkout [Transaction::decode_canonical] for more information
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if is_encoded_as_bytes(rlp) {
