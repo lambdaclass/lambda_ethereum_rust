@@ -234,8 +234,12 @@ impl Store {
 
     pub fn add_block(&self, block: Block) -> Result<(), StoreError> {
         // TODO Maybe add both in a single tx?
-        self.add_block_body(block.header.number, block.body)?;
-        self.add_block_header(block.header.number, block.header)?;
+        let header = block.header;
+        let number = header.number;
+        let hash = header.compute_block_hash();
+        self.add_block_body(number, block.body)?;
+        self.add_block_header(number, header)?;
+        self.add_block_number(hash, number)?;
         Ok(())
     }
 

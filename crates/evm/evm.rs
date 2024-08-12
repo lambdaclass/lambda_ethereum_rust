@@ -50,6 +50,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(state, block_header, spec_id)?;
     }
+
     for transaction in block.body.transactions.iter() {
         execute_tx(transaction, block_header, state, spec_id)?;
     }
@@ -59,6 +60,11 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
         process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
+    // Store Block in database
+    state.database().add_block(block.clone())?;
+    state
+        .database()
+        .update_latest_block_number(block_header.number)?;
     Ok(())
 }
 
@@ -82,10 +88,16 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
+        let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
+            .modify_cfg_env(|cfg| {
+                if let Some(chain_id) = chain_id {
+                    cfg.chain_id = chain_id
+                }
+            })
             .with_spec_id(spec_id)
             .reset_handler()
             .with_external_context(
@@ -204,6 +216,15 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         if account.status.was_destroyed() {
             state.database().remove_account(address)?;
         }
+
+        // If account is empty, do not add to the database
+        if account
+            .account_info()
+            .is_some_and(|acc_info| acc_info.is_empty())
+        {
+            continue;
+        }
+
         // Apply account changes to DB
         // If the account was changed then both original and current info will be present in the bundle account
         if account.is_info_changed() {
@@ -230,6 +251,10 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         // Update account storage in DB
         for (key, slot) in account.storage.iter() {
             if slot.is_changed() {
+                // TODO check if we need to remove the value from our db when value is zero
+                // if slot.present_value().is_zero() {
+                //     state.database().remove_account_storage(address)
+                // }
                 state.database().add_storage_at(
                     address,
                     H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
@@ -318,12 +343,11 @@ pub fn beacon_root_contract_call(
         .build();
 
     let transaction_result = evm.transact()?;
-    let mut state = transaction_result.state;
+    let mut result_state = transaction_result.state;
+    result_state.remove(&*SYSTEM_ADDRESS);
+    result_state.remove(&evm.block().coinbase);
 
-    state.remove(&*SYSTEM_ADDRESS);
-    state.remove(&evm.block().coinbase);
-
-    evm.context.evm.db.commit(state);
+    evm.context.evm.db.commit(result_state);
 
     Ok(transaction_result.result.into())
 }

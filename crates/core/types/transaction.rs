@@ -109,25 +109,23 @@ impl Transaction {
 }
 
 impl RLPEncode for Transaction {
-    /// Based on [EIP-2718]
     /// Transactions can be encoded in the following formats:
-    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
-    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+    /// A) Legacy transactions: rlp(LegacyTransaction)
+    /// B) Non legacy transactions: rlp(Bytes) where Bytes represents the canonical encoding for the transaction as a bytes object.
+    /// Checkout [Transaction::encode_canonical] for more information
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         match self {
             Transaction::LegacyTransaction(t) => t.encode(buf),
-            Transaction::EIP2930Transaction(t) => t.encode(buf),
-            Transaction::EIP1559Transaction(t) => t.encode(buf),
-            Transaction::EIP4844Transaction(t) => t.encode(buf),
+            tx => Bytes::copy_from_slice(&tx.encode_canonical_to_vec()).encode(buf),
         };
     }
 }
 
 impl RLPDecode for Transaction {
-    /// Based on [EIP-2718]
     /// Transactions can be encoded in the following formats:
-    /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
-    /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+    /// A) Legacy transactions: rlp(LegacyTransaction)
+    /// B) Non legacy transactions: rlp(Bytes) where Bytes represents the canonical encoding for the transaction as a bytes object.
+    /// Checkout [Transaction::decode_canonical] for more information
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         if is_encoded_as_bytes(rlp) {
             // Adjust the encoding to get the payload
@@ -201,18 +199,10 @@ impl RLPEncode for LegacyTransaction {
             .finish();
     }
 }
-/// Receives an encoded transaction and its type and encodes both as a single rlp item
-/// that has: (tx_type || encoded_tx) as payload
-fn encode_tx_as_bytes(tx_type: u8, encoded_tx: &[u8], buf: &mut dyn bytes::BufMut) {
-    let tx = [&[tx_type], encoded_tx].concat();
-    let tx_as_bytes = Bytes::copy_from_slice(&tx);
-    tx_as_bytes.encode(buf);
-}
 
 impl RLPEncode for EIP2930Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let mut tx_buf = Vec::new();
-        Encoder::new(&mut tx_buf)
+        Encoder::new(buf)
             .encode_field(&self.chain_id)
             .encode_field(&self.nonce)
             .encode_field(&self.gas_price)
@@ -224,16 +214,13 @@ impl RLPEncode for EIP2930Transaction {
             .encode_field(&self.signature_y_parity)
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
-            .finish();
-
-        encode_tx_as_bytes(TxType::EIP2930 as u8, &tx_buf, buf);
+            .finish()
     }
 }
 
 impl RLPEncode for EIP1559Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let mut tx_buf = Vec::new();
-        Encoder::new(&mut tx_buf)
+        Encoder::new(buf)
             .encode_field(&self.chain_id)
             .encode_field(&self.nonce)
             .encode_field(&self.max_priority_fee_per_gas)
@@ -246,15 +233,13 @@ impl RLPEncode for EIP1559Transaction {
             .encode_field(&self.signature_y_parity)
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
-            .finish();
-        encode_tx_as_bytes(TxType::EIP1559 as u8, &tx_buf, buf);
+            .finish()
     }
 }
 
 impl RLPEncode for EIP4844Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let mut tx_buf = Vec::new();
-        Encoder::new(&mut tx_buf)
+        Encoder::new(buf)
             .encode_field(&self.chain_id)
             .encode_field(&self.nonce)
             .encode_field(&self.max_priority_fee_per_gas)
@@ -269,9 +254,7 @@ impl RLPEncode for EIP4844Transaction {
             .encode_field(&self.signature_y_parity)
             .encode_field(&self.signature_r)
             .encode_field(&self.signature_s)
-            .finish();
-
-        encode_tx_as_bytes(TxType::EIP4844 as u8, &tx_buf, buf);
+            .finish()
     }
 }
 
@@ -665,6 +648,83 @@ impl TxType {
             0x02 => Some(Self::EIP1559),
             0x03 => Some(Self::EIP4844),
             _ => None,
+        }
+    }
+}
+
+/// Canonical Transaction Encoding
+/// Based on [EIP-2718]
+/// Transactions can be encoded in the following formats:
+/// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+/// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+mod canonic_encoding {
+    use super::*;
+
+    impl Transaction {
+        /// Decodes a single transaction in canonical format
+        /// Based on [EIP-2718]
+        /// Transactions can be encoded in the following formats:
+        /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+        /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+        pub fn decode_canonical(bytes: &[u8]) -> Result<Self, RLPDecodeError> {
+            // Look at the first byte to check if it corresponds to a TransactionType
+            match bytes.first() {
+                // First byte is a valid TransactionType
+                Some(tx_type) if *tx_type < 0x7f => {
+                    // Decode tx based on type
+                    let tx_bytes = &bytes[1..];
+                    match *tx_type {
+                        // Legacy
+                        0x0 => {
+                            LegacyTransaction::decode(tx_bytes).map(Transaction::LegacyTransaction)
+                        } // TODO: check if this is a real case scenario
+                        // EIP2930
+                        0x1 => EIP2930Transaction::decode(tx_bytes)
+                            .map(Transaction::EIP2930Transaction),
+                        // EIP1559
+                        0x2 => EIP1559Transaction::decode(tx_bytes)
+                            .map(Transaction::EIP1559Transaction),
+                        // EIP4844
+                        0x3 => EIP4844Transaction::decode(tx_bytes)
+                            .map(Transaction::EIP4844Transaction),
+                        ty => Err(RLPDecodeError::Custom(format!(
+                            "Invalid transaction type: {ty}"
+                        ))),
+                    }
+                }
+                // LegacyTransaction
+                _ => LegacyTransaction::decode(bytes).map(Transaction::LegacyTransaction),
+            }
+        }
+
+        /// Encodes a transaction in canonical format
+        /// Based on [EIP-2718]
+        /// Transactions can be encoded in the following formats:
+        /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+        /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+        pub fn encode_canonical(&self, buf: &mut dyn bytes::BufMut) {
+            match self {
+                // Legacy transactions don't have a prefix
+                Transaction::LegacyTransaction(_) => {}
+                _ => buf.put_u8(self.tx_type() as u8),
+            }
+            match self {
+                Transaction::LegacyTransaction(t) => t.encode(buf),
+                Transaction::EIP2930Transaction(t) => t.encode(buf),
+                Transaction::EIP1559Transaction(t) => t.encode(buf),
+                Transaction::EIP4844Transaction(t) => t.encode(buf),
+            };
+        }
+
+        /// Encodes a transaction in canonical format into a newly created buffer
+        /// Based on [EIP-2718]
+        /// Transactions can be encoded in the following formats:
+        /// A) `TransactionType || Transaction` (Where Transaction type is an 8-bit number between 0 and 0x7f, and Transaction is an rlp encoded transaction of type TransactionType)
+        /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
+        pub fn encode_canonical_to_vec(&self) -> Vec<u8> {
+            let mut buf = Vec::new();
+            self.encode_canonical(&mut buf);
+            buf
         }
     }
 }

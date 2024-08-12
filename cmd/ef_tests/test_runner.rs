@@ -2,8 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use crate::types::TestUnit;
 use ethereum_rust_core::{
-    rlp::decode::RLPDecode,
-    rlp::encode::RLPEncode,
+    rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{Account as CoreAccount, Block as CoreBlock},
 };
 use ethereum_rust_evm::{evm_state, execute_block, EvmState, SpecId};
@@ -27,7 +26,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
             "Cancun" => SpecId::CANCUN,
             "Paris" => SpecId::MERGE,
             "ShanghaiToCancunAtTime15k" => {
-                if block.header.timestamp > 15_000 {
+                if block.header.timestamp >= 15_000 {
                     SpecId::CANCUN
                 } else {
                     SpecId::SHANGHAI
@@ -90,12 +89,14 @@ pub fn validate_test(test: &TestUnit) {
 pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
     let mut store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
+    let block_number = test.genesis_block_header.number.as_u64();
     store
-        .add_block_header(
-            test.genesis_block_header.number.low_u64(),
-            test.genesis_block_header.clone().into(),
-        )
+        .add_block_header(block_number, test.genesis_block_header.clone().into())
         .unwrap();
+    store
+        .add_block_number(test.genesis_block_header.hash, block_number)
+        .unwrap();
+    let _ = store.update_latest_block_number(block_number);
     for (address, account) in &test.pre {
         let account: CoreAccount = account.clone().into();
         store
@@ -163,22 +164,26 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
                 "Mismatched storage value for address {addr}, key {key} test:{test_key}"
             );
         }
-        // Check world state
-        // TODO: several tests won't pass, fix them to uncomment these lines
-        // let result_blocks = &test.blocks;
-        // let test_block = result_blocks.last().unwrap().header();
-        // let test_state_root = test_block.state_root;
-        // let db_block_header = db
-        //     .get_block_header(test_block.number.low_u64())
-        //     .unwrap()
-        //     .unwrap();
-        // assert_eq!(
-        //     test_state_root,
-        //     db_block_header.state_root,
-        //     "Mismatched state root for database, test: {test_key}");
-        // assert_eq!(
-        //     test_state_root,
-        //     db.clone().world_state_root(),
-        //     "Mismatched state root for world state trie, test: {test_key}");
     }
+    // Check lastblockhash is in store
+    let last_block_number = db.get_latest_block_number().unwrap().unwrap();
+    let last_block_hash = db
+        .get_block_header(last_block_number)
+        .unwrap()
+        .unwrap()
+        .compute_block_hash();
+    assert_eq!(
+        test.lastblockhash, last_block_hash,
+        "Last block number does not match"
+    );
+    // Get block header
+    let last_block = db.get_block_header(last_block_number).unwrap();
+    assert!(last_block.is_some(), "Block hash is not stored in db");
+    // Check world state
+    let db_state_root = last_block.unwrap().state_root;
+    assert_eq!(
+        db_state_root,
+        db.clone().world_state_root(),
+        "Mismatched state root for world state trie, test: {test_key}"
+    );
 }
