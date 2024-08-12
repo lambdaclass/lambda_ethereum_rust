@@ -5,7 +5,7 @@ use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{Account as CoreAccount, Block as CoreBlock},
 };
-use ethereum_rust_evm::{evm_state, execute_block, spec_id, EvmState};
+use ethereum_rust_evm::{evm_state, execute_block, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
 
 /// Tests the execute_block function
@@ -27,10 +27,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Execute all blocks in test
     for block_fixture in blocks.iter() {
         let block: &CoreBlock = &block_fixture.block().clone().into();
-        let spec_id =
-            spec_id(evm_state.database(), block.header.timestamp).expect("Failed to read from DB");
 
-        let execution_result = execute_block(block, &mut evm_state, spec_id);
+        let execution_result = execute_block(block, &mut evm_state);
         if block_fixture.expect_exception.is_some() {
             assert!(
                 execution_result.is_err(),

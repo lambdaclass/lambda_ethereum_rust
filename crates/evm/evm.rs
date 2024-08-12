@@ -44,8 +44,9 @@ impl EvmState {
 }
 
 /// Executes all transactions in a block and performs the state transition on the database
-pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Result<(), EvmError> {
+pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
     let block_header = &block.header;
+    let spec_id = spec_id(state.database(), block_header.timestamp)?;
     //eip 4788: execute beacon_root_contract_call before block transactions
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(state, block_header, spec_id)?;
@@ -488,7 +489,7 @@ fn access_list_inspector(
 }
 
 /// Returns the spec id according to the block timestamp and the stored chain config
-/// Assumes at least Merge fork is active
+/// WARNING: Assumes at least Merge fork is active
 pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
     Ok(
         if store
