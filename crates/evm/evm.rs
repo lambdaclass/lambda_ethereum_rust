@@ -60,6 +60,11 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
         process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
+    // Store Block in database
+    state.database().add_block(block.clone())?;
+    state
+        .database()
+        .update_latest_block_number(block_header.number)?;
     Ok(())
 }
 
