@@ -57,11 +57,11 @@ pub enum Network {
 impl Network {
     pub fn chain_config(&self) -> &ChainConfig {
         match self {
-            Network::Merge => &*MERGE_CONFIG,
-            Network::MergeToShanghaiAtTime15k => &*MERGE_TO_SHANGHAI_AT_15K_CONFIG,
-            Network::Shanghai => &*SHANGHAI_CONFIG,
-            Network::ShanghaiToCancunAtTime15k => &*SHANGHAI_TO_CANCUN_AT_15K_CONFIG,
-            Network::Cancun => &*CANCUN_CONFIG,
+            Network::Merge => &MERGE_CONFIG,
+            Network::MergeToShanghaiAtTime15k => &MERGE_TO_SHANGHAI_AT_15K_CONFIG,
+            Network::Shanghai => &SHANGHAI_CONFIG,
+            Network::ShanghaiToCancunAtTime15k => &SHANGHAI_TO_CANCUN_AT_15K_CONFIG,
+            Network::Cancun => &CANCUN_CONFIG,
         }
     }
 }
