@@ -10,7 +10,8 @@ pub mod u256 {
         D: Deserializer<'de>,
     {
         let value = Number::deserialize(d)?.to_string();
-        U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
+        U256::from_dec_str(&value)
+            .map_err(|e: ethereum_types::FromDecStrErr| D::Error::custom(e.to_string()))
     }
 
     pub fn deser_number_opt<'de, D>(d: D) -> Result<Option<U256>, D::Error>
@@ -30,6 +31,28 @@ pub mod u256 {
         let value = String::deserialize(d)?;
         U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
     }
+
+    pub fn deser_hex_str<'de, D>(d: D) -> Result<U256, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        U256::from_str_radix(value.trim_start_matches("0x"), 16)
+            .map_err(|_| D::Error::custom("Failed to deserialize u64 to u256 value"))
+    }
+
+    pub fn deser_hex_or_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        if value.starts_with("0x") {
+            U256::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 to u256 value"))
+        } else {
+            U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
+        }
+    }
 }
 
 pub mod u64 {
@@ -43,8 +66,9 @@ pub mod u64 {
             D: Deserializer<'de>,
         {
             let value = String::deserialize(d)?;
-            u64::from_str_radix(value.trim_start_matches("0x"), 16)
-                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+            let res = u64::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"));
+            res
         }
 
         pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
@@ -86,6 +110,21 @@ pub mod u64 {
         value
             .parse()
             .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+    }
+
+    pub fn deser_hex_or_dec_str<'de, D>(d: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        if value.starts_with("0x") {
+            u64::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+        } else {
+            value
+                .parse()
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+        }
     }
 }
 
