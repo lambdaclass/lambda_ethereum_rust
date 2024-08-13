@@ -87,14 +87,14 @@ impl StoreEngine for Store {
     ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
         // Read storage from mdbx
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let mut cursor = txn
+        let cursor = txn
             .cursor::<AccountInfos>()
             .map_err(StoreError::LibmdbxError)?;
-        let mut iter = Vec::new();
-        while let Some((address, acc_info)) = cursor.next().map_err(StoreError::LibmdbxError)? {
-            iter.push((address.to(), acc_info.to()))
-        }
-        Ok(Box::new(iter.into_iter()))
+        let iter  = cursor.walk(None).map_while(|res| {
+            res.ok().map(|(addr, info)| (addr.to(), info.to()))
+        });
+        // We need to collect here so the resulting iterator doesn't read from the cursor itself
+        Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
     }
 
     fn add_block_header(
