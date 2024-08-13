@@ -795,4 +795,40 @@ mod tests {
         assert_eq!(latest_block_number, stored_latest_block_number);
         assert_eq!(pending_block_number, stored_pending_block_number);
     }
+
+    fn test_account_info_iter(store: Store) {
+        // Build preset account infos
+        let account_infos = HashMap::from([
+            (
+                Address::repeat_byte(1),
+                AccountInfo {
+                    balance: 1.into(),
+                    ..Default::default()
+                },
+            ),
+            (
+                Address::repeat_byte(2),
+                AccountInfo {
+                    balance: 2.into(),
+                    ..Default::default()
+                },
+            ),
+            (
+                Address::repeat_byte(2),
+                AccountInfo {
+                    balance: 3.into(),
+                    ..Default::default()
+                },
+            ),
+        ]);
+
+        // Store account infos
+        for (address, account_info) in account_infos.clone() {
+            store.add_account_info(address, account_info).unwrap();
+        }
+
+        let account_info_iter = store.account_infos_iter().unwrap();
+        let account_infos_from_iter = HashMap::from_iter(account_info_iter);
+        assert_eq!(account_infos, account_infos_from_iter)
+    }
 }
