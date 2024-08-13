@@ -8,9 +8,8 @@ use ethereum_rust_core::{
         validate_block_header, validate_cancun_header_fields, Account as CoreAccount,
         Block as CoreBlock, BlockHeader as CoreBlockHeader,
     },
-    U256,
 };
-use ethereum_rust_evm::{evm_state, execute_block, EvmState, SpecId};
+use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
 /// Tests the execute_block function
@@ -72,31 +71,26 @@ pub fn validate_test(test: &TestUnit) -> bool {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
     let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
-    assert_eq!(
-        decoded_block.header,
-        test.genesis_block_header.clone().into()
-    );
+    let genesis_block_header = CoreBlockHeader::from(test.genesis_block_header.clone());
+    assert_eq!(decoded_block.header, genesis_block_header);
 
-    // check that blocks can be decoded
+    // check that all blocks are valid
+    let mut parent_block_header = genesis_block_header;
     for block in &test.blocks {
+        if let Some(inner_block) = block.block() {
+            let core_block = CoreBlock::from(inner_block.clone());
+            let spec = block_fork_spec(test, &core_block.header);
+            let valid_block = validate_block(&core_block, &parent_block_header, spec);
+            if !valid_block {
+                assert!(block.expect_exception.is_some());
+                return false;
+            }
+            parent_block_header = core_block.header;
+        }
+
+        // check that blocks can be decoded, only when the block has already been validated
         match CoreBlock::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
-                let core_block = CoreBlock::from(block.block().unwrap().clone());
-                let spec = block_fork_spec(test, &core_block.header);
-
-                if spec != SpecId::CANCUN
-                    && (core_block.header.excess_blob_gas.is_some()
-                        || core_block.header.blob_gas_used.is_some())
-                {
-                    assert!(block.expect_exception.is_some());
-                    return false;
-                } else if spec == SpecId::CANCUN
-                    && (core_block.header.excess_blob_gas.is_none()
-                        || core_block.header.blob_gas_used.is_none())
-                {
-                    assert!(block.expect_exception.is_some());
-                    return false;
-                }
                 // check that the decoded block matches the deserialized one
                 let inner_block = block.block().unwrap();
                 assert_eq!(decoded_block, (inner_block.clone()).into());
@@ -109,35 +103,6 @@ pub fn validate_test(test: &TestUnit) -> bool {
                 assert!(block.expect_exception.is_some() && test.is_rlp_only_test());
                 return false;
             }
-        }
-
-        let mut blob_gas_used = U256::from(0);
-        let mut blobs_in_block = 0;
-        for tx in block.block().unwrap().transactions.clone() {
-            //EIP-4844 transactions
-            if tx
-                .transaction_type
-                .is_some_and(|tx_type| tx_type == U256::from(0x03))
-            {
-                let tx_total_blob_gas = U256::from(2).pow(U256::from(17))
-                    * tx.blob_versioned_hashes.clone().unwrap().len();
-                blob_gas_used = blob_gas_used + tx_total_blob_gas;
-                blobs_in_block += tx.blob_versioned_hashes.unwrap().len();
-            }
-        }
-        if block.block().unwrap().block_header.blob_gas_used.is_some() {
-            if blob_gas_used > U256::from(786432) {
-                assert!(block.expect_exception.is_some());
-                return false;
-            }
-            if !(blob_gas_used == block.block().unwrap().block_header.blob_gas_used.unwrap()) {
-                assert!(block.expect_exception.is_some());
-                return false;
-            }
-        }
-        if blobs_in_block > 6 {
-            assert!(block.expect_exception.is_some());
-            return false;
         }
     }
     true

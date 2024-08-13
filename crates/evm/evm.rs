@@ -48,7 +48,8 @@ impl EvmState {
 }
 
 pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) -> bool {
-    //TODO: Check wether block is already imported
+    //TODO: Fail if block is already on the blockchain
+    //TODO: Fail if the parent block identified by parent_hash is not present on the blockchain
 
     // Verify initial header validity against parent
     let valid_header = match spec {
@@ -62,11 +63,14 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
         }
     };
     if !valid_header {
+        println!("invalid header");
         return false;
     }
 
-    //TODO: Verify withdrawals root
-    //TODO: Verify transactions root
+    //TODO: Verify withdrawals_root ¿?
+    //TODO: Verify transactions_root ¿?
+    // These values are computed by this execution engine, they are not parameters in the
+    // ExecutionPayloadV3, so I'm not sure if it makes sense to verify them.
 
     // Verifiy blob gas usage
     let mut blob_gas_used = 0_u64;
@@ -81,12 +85,15 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
         }
     }
     if spec == SpecId::CANCUN && blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
+        println!("SpecId::CANCUN && blob_gas_used > MAX_BLOB_GAS_PER_BLOCK");
         return false;
     }
     if spec == SpecId::CANCUN && blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
+        println!("SpecId::CANCUN && blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK");
         return false;
     }
     if spec == SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap() as u64 {
+        println!("SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap()");
         return false;
     }
 
