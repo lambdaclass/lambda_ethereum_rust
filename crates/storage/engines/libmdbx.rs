@@ -244,17 +244,14 @@ impl StoreEngine for Store {
         address: Address,
     ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let mut cursor = txn
+        let cursor = txn
             .cursor::<AccountStorages>()
             .map_err(StoreError::LibmdbxError)?;
-        let mut iter = Vec::new();
-        while let Some((addr, (key, value))) = cursor.next().map_err(StoreError::LibmdbxError)? {
-            // TODO: Improve this
-            if address == addr.to() {
-                iter.push((key.into(), value.into()))
-            }
-        }
-        Ok(Box::new(iter.into_iter()))
+        let iter  = cursor.walk_key(address.into(), None).map_while(|res| {
+            res.ok().map(|(key, value)| (key.into(), value.into()))
+        });
+        // We need to collect here so the resulting iterator doesn't read from the cursor itself
+        Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
