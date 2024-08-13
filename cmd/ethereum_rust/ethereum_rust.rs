@@ -65,10 +65,10 @@ async fn main() {
     let authrpc_socket_addr = parse_socket_addr(authrpc_addr, authrpc_port)
         .expect("Failed to parse authrpc address and port");
 
-    // let udp_socket_addr =
-    //     parse_socket_addr(udp_addr, udp_port).expect("Failed to parse discovery address and port");
-    // let tcp_socket_addr =
-    //     parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
+    let udp_socket_addr =
+        parse_socket_addr(udp_addr, udp_port).expect("Failed to parse discovery address and port");
+    let tcp_socket_addr =
+        parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
     let mut store = match matches.get_one::<String>("datadir") {
         Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir, EngineType::Libmdbx),
@@ -82,9 +82,9 @@ async fn main() {
         .expect("Failed to create genesis block");
 
     let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store);
-    //let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
+    let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
-    try_join!(tokio::spawn(rpc_api)).unwrap();
+    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }
 
 fn read_genesis_file(genesis_file_path: &str) -> Genesis {
