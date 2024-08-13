@@ -29,7 +29,7 @@ pub struct Store {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum EngineType {
     #[cfg(feature = "in_memory")]
     InMemory,
@@ -456,32 +456,44 @@ mod tests {
     #[cfg(feature = "in_memory")]
     #[test]
     fn test_in_memory_store() {
-        let store = Store::new("test", EngineType::InMemory).unwrap();
-        test_store_suite(store);
+        test_store_suite(EngineType::InMemory);
     }
 
     #[cfg(feature = "libmdbx")]
     #[test]
     fn test_libmdbx_store() {
-        // Removing preexistent DBs in case of a failed previous test
-        remove_test_dbs("test.mdbx");
-        let store = Store::new("test.mdbx", EngineType::Libmdbx).unwrap();
-        test_store_suite(store);
-        remove_test_dbs("test.mdbx");
+        test_store_suite(EngineType::Libmdbx);
     }
 
-    fn test_store_suite(store: Store) {
-        test_store_account(store.clone());
-        test_store_block(store.clone());
-        test_store_block_number(store.clone());
-        test_store_transaction_location(store.clone());
-        test_store_block_receipt(store.clone());
-        test_store_account_code(store.clone());
-        test_store_account_storage(store.clone());
-        test_remove_account_storage(store.clone());
-        test_increment_balance(store.clone());
-        test_store_chain_config(store.clone());
-        test_store_block_tags(store.clone());
+    // Creates an empty store, runs the test and then removes the store (if needed)
+    fn run_test(test_func: &dyn Fn(Store) -> (), engine_type: EngineType) {
+        // Remove preexistent DBs in case of a failed previous test
+        if matches!(engine_type, EngineType::Libmdbx) {
+            remove_test_dbs("test.db");
+        };
+        // Build a new store
+        let store = Store::new("test.db", engine_type).expect("Failed to create test db");
+        // Run the test
+        test_func(store);
+        // Remove store (if needed)
+        if matches!(engine_type, EngineType::Libmdbx) {
+            remove_test_dbs("test.db");
+        };
+    }
+
+    fn test_store_suite(engine_type: EngineType) {
+        run_test(&test_store_account, engine_type);
+        run_test(&test_store_block, engine_type);
+        run_test(&test_store_block_number, engine_type);
+        run_test(&test_store_transaction_location, engine_type);
+        run_test(&test_store_block_receipt, engine_type);
+        run_test(&test_store_account_code, engine_type);
+        run_test(&test_store_account_storage, engine_type);
+        run_test(&test_remove_account_storage, engine_type);
+        run_test(&test_increment_balance, engine_type);
+        run_test(&test_store_chain_config, engine_type);
+        run_test(&test_store_block_tags, engine_type);
+        run_test(&test_account_info_iter, engine_type);
     }
 
     fn test_store_account(store: Store) {
