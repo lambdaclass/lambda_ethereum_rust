@@ -441,7 +441,7 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs, str::FromStr};
+    use std::{fs, str::FromStr};
 
     use bytes::Bytes;
     use ethereum_rust_core::{
@@ -469,15 +469,15 @@ mod tests {
     fn run_test(test_func: &dyn Fn(Store) -> (), engine_type: EngineType) {
         // Remove preexistent DBs in case of a failed previous test
         if matches!(engine_type, EngineType::Libmdbx) {
-            remove_test_dbs("test.db");
+            remove_test_dbs("store-test-db");
         };
         // Build a new store
-        let store = Store::new("test.db", engine_type).expect("Failed to create test db");
+        let store = Store::new("store-test-db", engine_type).expect("Failed to create test db");
         // Run the test
         test_func(store);
         // Remove store (if needed)
         if matches!(engine_type, EngineType::Libmdbx) {
-            remove_test_dbs("test.db");
+            remove_test_dbs("store-test-db");
         };
     }
 
@@ -523,19 +523,10 @@ mod tests {
         }
     }
 
-    fn remove_test_dbs(prefix: &str) {
+    fn remove_test_dbs(path: &str) {
         // Removes all test databases from filesystem
-        for entry in fs::read_dir(env::current_dir().unwrap()).unwrap() {
-            if entry
-                .as_ref()
-                .unwrap()
-                .file_name()
-                .to_str()
-                .unwrap()
-                .starts_with(prefix)
-            {
-                fs::remove_dir_all(entry.unwrap().path()).unwrap();
-            }
+        if std::path::Path::new(path).exists() {
+            fs::remove_dir_all(path).expect("Failed to clean test db dir");
         }
     }
 
