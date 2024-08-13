@@ -70,7 +70,9 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
             .database()
             .update_latest_block_number(block_header.number)?;
     } else {
-        return Err(EvmError::StateRootMismatch);
+        return Err(EvmError::Custom(
+            "State root mismatch after executing block".into(),
+        ));
     }
     Ok(())
 }
