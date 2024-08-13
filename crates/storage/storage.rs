@@ -405,7 +405,7 @@ impl Store {
     ///   TODO:
     ///     Version 2: Keeps trie in memory
     ///     Version 3: Persists trie in db
-    pub fn world_state_root(&mut self) -> H256 {
+    pub fn world_state_root(&self) -> H256 {
         // build trie from state
         let mut trie = self.build_trie_from_state();
 

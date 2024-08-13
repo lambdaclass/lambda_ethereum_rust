@@ -6,8 +6,8 @@ use db::StoreWrapper;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal,
-        GWEI_TO_WEI,
+        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction,
+        TxKind, Withdrawal, GWEI_TO_WEI,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -61,11 +61,17 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
         process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
-    // Store Block in database
-    state.database().add_block(block.clone())?;
-    state
-        .database()
-        .update_latest_block_number(block_header.number)?;
+    // Compare state root
+    if state.database().world_state_root() == block.header.state_root {
+        dbg!("WORLD STATE ROOT MATCHES");
+        // Store Block in database
+        state.database().add_block(block.clone())?;
+        state
+            .database()
+            .update_latest_block_number(block_header.number)?;
+    } else {
+        dbg!("WORLD STATE ROOT DOES NOT MATCH");
+    }
     Ok(())
 }
 
