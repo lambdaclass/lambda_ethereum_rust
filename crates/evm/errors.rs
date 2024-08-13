@@ -14,6 +14,9 @@ pub enum EvmError {
     Custom(String),
     #[error("{0}")]
     Precompile(String),
+    // TODO: Consider moving this error type along with the corresponding check to a separate `execution` crate
+    #[error("State root mismatch after executing block")]
+    StateRootMismatch,
 }
 
 impl From<RevmError<StoreError>> for EvmError {

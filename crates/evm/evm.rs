@@ -6,8 +6,8 @@ use db::StoreWrapper;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction,
-        TxKind, Withdrawal, GWEI_TO_WEI,
+        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal,
+        GWEI_TO_WEI,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -43,7 +43,8 @@ impl EvmState {
     }
 }
 
-/// Executes all transactions in a block and performs the state transition on the database
+/// Executes all transactions in a block, performs the state transition on the database and stores the block in the DB
+// TODO: Consider leaving only block execution and moving state transitions & storage into a different crate
 pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
     let block_header = &block.header;
     let spec_id = spec_id(state.database(), block_header.timestamp)?;
@@ -63,14 +64,13 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
     apply_state_transitions(state)?;
     // Compare state root
     if state.database().world_state_root() == block.header.state_root {
-        dbg!("WORLD STATE ROOT MATCHES");
         // Store Block in database
         state.database().add_block(block.clone())?;
         state
             .database()
             .update_latest_block_number(block_header.number)?;
     } else {
-        dbg!("WORLD STATE ROOT DOES NOT MATCH");
+        return Err(EvmError::StateRootMismatch);
     }
     Ok(())
 }
