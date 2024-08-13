@@ -495,6 +495,7 @@ mod tests {
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_account_info_iter, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
+        run_test(&test_account_storage_iter, engine_type);
     }
 
     fn test_store_account(store: Store) {
@@ -852,5 +853,26 @@ mod tests {
                 .unwrap();
         }
         store.world_state_root();
+    }
+
+    fn test_account_storage_iter(store: Store) {
+        let address = Address::random();
+        // Build preset account storage
+        let account_storage = HashMap::from([
+            (H256::random(), U256::from(7)),
+            (H256::random(), U256::from(17)),
+            (H256::random(), U256::from(77)),
+            (H256::random(), U256::from(707)),
+        ]);
+
+        // Store account storage
+        for (key, value) in account_storage.clone() {
+            store.add_storage_at(address, key, value).unwrap();
+        }
+
+        // Fetch account storage from db and compare against preset
+        let account_storage_iter = store.account_storage_iter(address).unwrap();
+        let account_storage_from_iter = HashMap::from_iter(account_storage_iter);
+        assert_eq!(account_storage, account_storage_from_iter)
     }
 }
