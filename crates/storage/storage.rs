@@ -466,7 +466,7 @@ mod tests {
     }
 
     // Creates an empty store, runs the test and then removes the store (if needed)
-    fn run_test(test_func: &dyn Fn(Store) -> (), engine_type: EngineType) {
+    fn run_test(test_func: &dyn Fn(Store), engine_type: EngineType) {
         // Remove preexistent DBs in case of a failed previous test
         if matches!(engine_type, EngineType::Libmdbx) {
             remove_test_dbs("store-test-db");
