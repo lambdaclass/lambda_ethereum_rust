@@ -10,8 +10,7 @@ pub mod u256 {
         D: Deserializer<'de>,
     {
         let value = Number::deserialize(d)?.to_string();
-        U256::from_dec_str(&value)
-            .map_err(|e: ethereum_types::FromDecStrErr| D::Error::custom(e.to_string()))
+        U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
     }
 
     pub fn deser_number_opt<'de, D>(d: D) -> Result<Option<U256>, D::Error>
@@ -51,6 +50,26 @@ pub mod u256 {
                 .map_err(|_| D::Error::custom("Failed to deserialize u64 to u256 value"))
         } else {
             U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
+        }
+    }
+}
+
+pub mod h160 {
+    use super::*;
+
+    use ethereum_types::H160;
+    use std::str::FromStr;
+
+    pub fn deser_hex_str<'de, D>(d: D) -> Result<H160, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        if value.is_empty() {
+            Ok(H160::zero())
+        } else {
+            H160::from_str(value.trim_start_matches("0x"))
+                .map_err(|_| D::Error::custom("Failed to deserialize H160 value"))
         }
     }
 }

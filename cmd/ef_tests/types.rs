@@ -177,12 +177,11 @@ pub struct Transaction {
     pub blob_versioned_hashes: Option<Vec<H256>>,
     pub hash: Option<H256>,
     pub sender: Address,
-    #[serde(deserialize_with = "crate::serde_utils::h160::deser_hex_str")]
+    #[serde(deserialize_with = "ethereum_rust_core::serde_utils::h160::deser_hex_str")]
     pub to: Address,
 }
 
 // Conversions between EFtests & ethereum_rust types
-
 impl From<Header> for BlockHeader {
     fn from(val: Header) -> Self {
         BlockHeader {
