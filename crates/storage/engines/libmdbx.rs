@@ -248,7 +248,7 @@ impl StoreEngine for Store {
             .cursor::<AccountStorages>()
             .map_err(StoreError::LibmdbxError)?;
         let mut iter = Vec::new();
-        while let Some((addr, (key, value))) = cursor.next_key().map_err(StoreError::LibmdbxError)? {
+        while let Some((addr, (key, value))) = cursor.next().map_err(StoreError::LibmdbxError)? {
             // TODO: Improve this
             if address == addr.to() {
                 iter.push((key.into(), value.into()))
