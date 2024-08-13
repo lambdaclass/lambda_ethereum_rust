@@ -77,4 +77,11 @@ pub fn cli() -> Command {
                 .num_args(1..)
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("datadir")
+                .long("datadir")
+                .default_value("")
+                .value_name("DATABASE_DIRECTORY")
+                .action(ArgAction::Set),
+        )
 }

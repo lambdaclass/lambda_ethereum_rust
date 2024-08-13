@@ -70,7 +70,12 @@ async fn main() {
     // let tcp_socket_addr =
     //     parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let mut store = Store::new("storage.db", EngineType::InMemory).expect("Failed to create Store");
+    let mut store = match matches.get_one::<String>("datadir") {
+        Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir, EngineType::Libmdbx),
+        _ => Store::new("storage.db", EngineType::InMemory),
+    }
+    .expect("Failed to create Store");
+
     let genesis = read_genesis_file(genesis_file_path);
     store
         .add_initial_state(genesis)

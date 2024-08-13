@@ -251,6 +251,8 @@ impl Store {
         let genesis_block = genesis.get_block();
 
         // Store genesis block
+        self.update_earliest_block_number(genesis_block.header.number)?;
+        self.update_latest_block_number(genesis_block.header.number)?;
         self.add_block(genesis_block)?;
 
         // Store each alloc account
