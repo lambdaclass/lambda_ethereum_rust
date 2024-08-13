@@ -12,7 +12,7 @@ use ethereum_rust_core::{
 use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
 
-/// Tests the execute_block function
+/// Tests the execute_block function, only run on validated tests, check [validate_test] function.
 pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Build pre state
     let mut evm_state = build_evm_state_for_test(test);
@@ -21,42 +21,31 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Check world_state
     check_prestate_against_db(test_key, test, evm_state.database());
 
-    let mut parent_header = CoreBlockHeader::from(test.genesis_block_header.clone());
-
     // Execute all blocks in test
     for block_fixture in blocks.iter() {
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
-
         let spec = block_fork_spec(test, &block.header);
 
-        let mut valid_header = validate_block_header(&block.header, &parent_header);
-        if spec == SpecId::CANCUN {
-            valid_header =
-                valid_header && validate_cancun_header_fields(&block.header, &parent_header);
-        }
-
-        if !valid_header {
-            assert!(block_fixture.expect_exception.is_some());
-            return;
-        }
-
         let execution_result = execute_block(block, &mut evm_state, spec);
-        if block_fixture.expect_exception.is_some() {
-            assert!(
-                execution_result.is_err(),
-                "Expected transaction execution to fail on test: {}",
-                test_key
-            );
-            return;
-        } else {
-            assert!(
-                execution_result.is_ok(),
-                "Transaction execution failed on test: {} with error: {}",
-                test_key,
-                execution_result.unwrap_err()
-            )
+
+        match execution_result {
+            Err(_) => {
+                assert!(
+                    block_fixture.expect_exception.is_some(),
+                    "Expected transaction execution to fail on test: {}",
+                    test_key
+                );
+                return;
+            }
+            Ok(()) => {
+                assert!(
+                    block_fixture.expect_exception.is_none(),
+                    "Transaction execution failed on test: {} with error: {}",
+                    test_key,
+                    execution_result.unwrap_err()
+                )
+            }
         }
-        parent_header = CoreBlockHeader::from(block.header.clone());
     }
     check_poststate_against_db(test_key, test, evm_state.database())
 }
@@ -74,7 +63,7 @@ pub fn validate_test(test: &TestUnit) -> bool {
     let genesis_block_header = CoreBlockHeader::from(test.genesis_block_header.clone());
     assert_eq!(decoded_block.header, genesis_block_header);
 
-    // check that all blocks are valid
+    // check that all blocks are valid, tests validate_block function
     let mut parent_block_header = genesis_block_header;
     for block in &test.blocks {
         if let Some(inner_block) = block.block() {
