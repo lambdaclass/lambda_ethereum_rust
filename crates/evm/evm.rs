@@ -49,6 +49,8 @@ impl EvmState {
 
 pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) -> bool {
     //TODO: Check wether block is already imported
+
+    // Verify initial header validity against parent
     let valid_header = match spec {
         SpecId::CANCUN => {
             validate_block_header(&block.header, parent_header)
@@ -63,6 +65,10 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
         return false;
     }
 
+    //TODO: Verify withdrawals root
+    //TODO: Verify transactions root
+
+    // Verifiy blob gas usage
     let mut blob_gas_used = 0_u64;
     let mut blobs_in_block = 0_u64;
     for transaction in block.body.transactions.iter() {
@@ -83,6 +89,7 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
     if spec == SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap() as u64 {
         return false;
     }
+
     true
 }
 
