@@ -90,9 +90,9 @@ impl StoreEngine for Store {
         let cursor = txn
             .cursor::<AccountInfos>()
             .map_err(StoreError::LibmdbxError)?;
-        let iter  = cursor.walk(None).map_while(|res| {
-            res.ok().map(|(addr, info)| (addr.to(), info.to()))
-        });
+        let iter = cursor
+            .walk(None)
+            .map_while(|res| res.ok().map(|(addr, info)| (addr.to(), info.to())));
         // We need to collect here so the resulting iterator doesn't read from the cursor itself
         Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
     }
@@ -247,9 +247,9 @@ impl StoreEngine for Store {
         let cursor = txn
             .cursor::<AccountStorages>()
             .map_err(StoreError::LibmdbxError)?;
-        let iter  = cursor.walk_key(address.into(), None).map_while(|res| {
-            res.ok().map(|(key, value)| (key.into(), value.into()))
-        });
+        let iter = cursor
+            .walk_key(address.into(), None)
+            .map_while(|res| res.ok().map(|(key, value)| (key.into(), value.into())));
         // We need to collect here so the resulting iterator doesn't read from the cursor itself
         Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
     }
