@@ -28,19 +28,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
     for block_fixture in blocks.iter() {
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
-        let spec = match &*test.network {
-            "Shanghai" => SpecId::SHANGHAI,
-            "Cancun" => SpecId::CANCUN,
-            "Paris" => SpecId::MERGE,
-            "ShanghaiToCancunAtTime15k" => {
-                if block.header.timestamp >= 15_000 {
-                    SpecId::CANCUN
-                } else {
-                    SpecId::SHANGHAI
-                }
-            }
-            _ => panic!("Unsupported network: {}", test.network),
-        };
+        let spec = block_fork_spec(test, &block.header);
 
         let mut valid_header = validate_block_header(&block.header, &parent_header);
         if spec == SpecId::CANCUN {
@@ -59,7 +47,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
                 execution_result.is_err(),
                 "Expected transaction execution to fail on test: {}",
                 test_key
-            )
+            );
+            return;
         } else {
             assert!(
                 execution_result.is_ok(),
@@ -92,6 +81,22 @@ pub fn validate_test(test: &TestUnit) -> bool {
     for block in &test.blocks {
         match CoreBlock::decode(block.rlp.as_ref()) {
             Ok(decoded_block) => {
+                let core_block = CoreBlock::from(block.block().unwrap().clone());
+                let spec = block_fork_spec(test, &core_block.header);
+
+                if spec != SpecId::CANCUN
+                    && (core_block.header.excess_blob_gas.is_some()
+                        || core_block.header.blob_gas_used.is_some())
+                {
+                    assert!(block.expect_exception.is_some());
+                    return false;
+                } else if spec == SpecId::CANCUN
+                    && (core_block.header.excess_blob_gas.is_none()
+                        || core_block.header.blob_gas_used.is_none())
+                {
+                    assert!(block.expect_exception.is_some());
+                    return false;
+                }
                 // check that the decoded block matches the deserialized one
                 let inner_block = block.block().unwrap();
                 assert_eq!(decoded_block, (inner_block.clone()).into());
@@ -105,6 +110,7 @@ pub fn validate_test(test: &TestUnit) -> bool {
                 return false;
             }
         }
+
         let mut blob_gas_used = U256::from(0);
         let mut blobs_in_block = 0;
         for tx in block.block().unwrap().transactions.clone() {
@@ -137,6 +143,22 @@ pub fn validate_test(test: &TestUnit) -> bool {
     true
 }
 
+pub fn block_fork_spec(test: &TestUnit, header: &CoreBlockHeader) -> SpecId {
+    let spec = match &*test.network {
+        "Shanghai" => SpecId::SHANGHAI,
+        "Cancun" => SpecId::CANCUN,
+        "Paris" => SpecId::MERGE,
+        "ShanghaiToCancunAtTime15k" => {
+            if header.timestamp >= 15_000 {
+                SpecId::CANCUN
+            } else {
+                SpecId::SHANGHAI
+            }
+        }
+        _ => panic!("Unsupported network: {}", test.network),
+    };
+    spec
+}
 /// Creates an in-memory DB for evm execution and loads the prestate accounts
 pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
     let mut store =
