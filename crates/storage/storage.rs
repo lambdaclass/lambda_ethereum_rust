@@ -827,6 +827,7 @@ mod tests {
             store.add_account_info(address, account_info).unwrap();
         }
 
+        // Fetch all account infos from db and compare against preset
         let account_info_iter = store.account_infos_iter().unwrap();
         let account_infos_from_iter = HashMap::from_iter(account_info_iter);
         assert_eq!(account_infos, account_infos_from_iter)
