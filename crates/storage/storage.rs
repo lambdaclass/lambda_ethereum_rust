@@ -203,7 +203,7 @@ impl Store {
             .get_code_by_account_address(address)
     }
 
-    pub fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
+    pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
         self.engine.lock().unwrap().add_account(address, account)
     }
 
@@ -494,6 +494,7 @@ mod tests {
         run_test(&test_store_chain_config, engine_type);
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_account_info_iter, engine_type);
+        run_test(&test_world_state_root_smoke, engine_type);
     }
 
     fn test_store_account(store: Store) {
@@ -831,5 +832,25 @@ mod tests {
         let account_info_iter = store.account_infos_iter().unwrap();
         let account_infos_from_iter = HashMap::from_iter(account_info_iter);
         assert_eq!(account_infos, account_infos_from_iter)
+    }
+
+    fn test_world_state_root_smoke(store: Store) {
+        // Fill the DB with some data (the data itself is not important as we only want to check that computing the world state root doesn't fail)
+        for i in 0..5 {
+            store
+                .add_account(
+                    Address::random(),
+                    Account {
+                        storage: HashMap::from([
+                            (H256::random(), U256::from(i * 5)),
+                            (H256::random(), U256::from(i * 5 + 1)),
+                            (H256::random(), U256::from(i * 5 + 2)),
+                        ]),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+        }
+        store.world_state_root();
     }
 }
