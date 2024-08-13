@@ -49,7 +49,8 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
         }
 
         if !valid_header {
-            assert!(block_fixture.expect_exception.is_some())
+            assert!(block_fixture.expect_exception.is_some());
+            return;
         }
 
         let execution_result = execute_block(block, &mut evm_state, spec);
