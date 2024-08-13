@@ -46,7 +46,9 @@ impl EvmState {
         &self.0.database.0
     }
 }
-
+/// Performs pre-execution validation of the block's header values in reference to the parent_header
+/// Verifies that blob gas fields in the header are correct in reference to the block's body.
+/// If a block passes this check, execution will still fail with execute_block when a transaction runs out of gas
 pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) -> bool {
     //TODO: Fail if block is already on the blockchain
     //TODO: Fail if the parent block identified by parent_hash is not present on the blockchain
@@ -63,7 +65,6 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
         }
     };
     if !valid_header {
-        println!("invalid header");
         return false;
     }
 
@@ -85,15 +86,12 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
         }
     }
     if spec == SpecId::CANCUN && blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
-        println!("SpecId::CANCUN && blob_gas_used > MAX_BLOB_GAS_PER_BLOCK");
         return false;
     }
     if spec == SpecId::CANCUN && blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
-        println!("SpecId::CANCUN && blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK");
         return false;
     }
     if spec == SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap() as u64 {
-        println!("SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap()");
         return false;
     }
 

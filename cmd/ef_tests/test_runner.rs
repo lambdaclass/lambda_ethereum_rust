@@ -4,10 +4,7 @@ use crate::types::TestUnit;
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     rlp::encode::RLPEncode,
-    types::{
-        validate_block_header, validate_cancun_header_fields, Account as CoreAccount,
-        Block as CoreBlock, BlockHeader as CoreBlockHeader,
-    },
+    types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
 use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState, SpecId};
 use ethereum_rust_storage::{EngineType, Store};
