@@ -84,4 +84,10 @@ pub fn cli() -> Command {
                 .value_name("DATABASE_DIRECTORY")
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("import")
+                .long("import")
+                .required(false)
+                .value_name("CHAIN_RLP_PATH"),
+        )
 }
