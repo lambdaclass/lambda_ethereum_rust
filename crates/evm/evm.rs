@@ -178,12 +178,8 @@ pub fn create_access_list(
     let block_env = block_env(header);
     // Run tx with access list inspector
 
-    let (execution_result, access_list) = dbg!(create_access_list_inner(
-        tx_env.clone(),
-        block_env.clone(),
-        state,
-        spec_id
-    ))?;
+    let (execution_result, access_list) =
+        create_access_list_inner(tx_env.clone(), block_env.clone(), state, spec_id)?;
 
     // Run the tx with the resulting access list and estimate its gas used
     let execution_result = if execution_result.is_success() {
