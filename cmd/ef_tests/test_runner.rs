@@ -8,25 +8,6 @@ use ethereum_rust_core::{
 use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
 
-/*
-pub fn validate_and_execute_test(test_key: &str, test: &TestUnit) {
-    // Build pre state
-    let mut evm_state = build_evm_state_for_test(test);
-    let blocks = test.blocks.clone();
-
-    // Check world_state
-    check_prestate_against_db(test_key, test, evm_state.database());
-
-    // Setup chain config
-    let chain_config = test.network.chain_config();
-    evm_state
-        .database()
-        .set_chain_config(chain_config)
-        .expect("Failed to write to DB");
-
-    let valid_test = validate_test(test, &mut evm_state);
-}
-*/
 /// Tests the execute_block function, only run on validated tests, check [validate_test] function.
 pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Build pre state
