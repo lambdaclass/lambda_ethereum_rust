@@ -5,7 +5,7 @@ use ethereum_rust_core::types::{
     EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
     Transaction as ethereum_rustTransaction, TxKind,
 };
-use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H160, H256, H64, U256};
+use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -179,12 +179,10 @@ pub struct Transaction {
     pub blob_versioned_hashes: Option<Vec<H256>>,
     pub hash: Option<H256>,
     pub sender: Address,
-    #[serde(deserialize_with = "crate::serde_utils::h160::deser_hex_str")]
-    pub to: Address,
+    pub to: TxKind,
 }
 
 // Conversions between EFtests & ethereum_rust types
-
 impl From<Header> for BlockHeader {
     fn from(val: Header) -> Self {
         BlockHeader {
@@ -239,10 +237,11 @@ impl From<Transaction> for EIP1559Transaction {
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(), // TODO: Consider converting this into Option
             gas_limit: val.gas_limit.as_u64(),
-            to: match val.to {
-                zero if zero == H160::zero() => TxKind::Create,
-                _ => TxKind::Call(val.to),
-            },
+            // to: match val.to {
+            //     zero if zero == H160::zero() => TxKind::Create,
+            //     _ => TxKind::Call(val.to),
+            // },
+            to: val.to,
             value: val.value,
             data: val.data,
             access_list: val
@@ -293,10 +292,11 @@ impl From<Transaction> for LegacyTransaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas: val.gas_limit.as_u64(),
-            to: match val.to {
-                zero if zero == H160::zero() => TxKind::Create,
-                _ => TxKind::Call(val.to),
-            },
+            // to: match val.to {
+            //     zero if zero == H160::zero() => TxKind::Create,
+            //     _ => TxKind::Call(val.to),
+            // },
+            to: val.to,
             value: val.value,
             data: val.data,
             v: val.v,
@@ -313,10 +313,11 @@ impl From<Transaction> for EIP2930Transaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(),
             gas_limit: val.gas_limit.as_u64(),
-            to: match val.to {
-                zero if zero == H160::zero() => TxKind::Create,
-                _ => TxKind::Call(val.to),
-            },
+            // to: match val.to {
+            //     zero if zero == H160::zero() => TxKind::Create,
+            //     _ => TxKind::Call(val.to),
+            // },
+            to: val.to,
             value: val.value,
             data: val.data,
             access_list: val

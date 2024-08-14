@@ -1,3 +1,5 @@
+use ethereum_rust_evm::EvmError;
+use ethereum_rust_storage::error::StoreError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -62,4 +64,17 @@ pub struct RpcErrorResponse {
     pub id: i32,
     pub jsonrpc: String,
     pub error: RpcErrorMetadata,
+}
+
+/// Failure to read from DB will always constitute an internal error
+impl From<StoreError> for RpcErr {
+    fn from(_value: StoreError) -> Self {
+        RpcErr::Internal
+    }
+}
+
+impl From<EvmError> for RpcErr {
+    fn from(_value: EvmError) -> Self {
+        RpcErr::Vm
+    }
 }
