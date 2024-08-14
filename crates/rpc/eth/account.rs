@@ -1,26 +1,36 @@
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::info;
+use std::fmt::Display;
 
 use crate::utils::RpcErr;
 use ethereum_rust_core::{Address, H256};
 
 use super::block::BlockIdentifier;
+use ethereum_rust_core::types::BlockHash;
+use serde::Deserialize;
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum BlockIdentifierOrHash {
+    Identifier(BlockIdentifier),
+    Hash(BlockHash),
+}
 
 pub struct GetBalanceRequest {
     pub address: Address,
-    pub block: BlockIdentifier,
+    pub block: BlockIdentifierOrHash,
 }
 
 pub struct GetCodeRequest {
     pub address: Address,
-    pub block: BlockIdentifier,
+    pub block: BlockIdentifierOrHash,
 }
 
 pub struct GetStorageAtRequest {
     pub address: Address,
     pub storage_slot: H256,
-    pub block: BlockIdentifier,
+    pub block: BlockIdentifierOrHash,
 }
 
 impl GetBalanceRequest {
@@ -103,4 +113,13 @@ pub fn get_storage_at(request: &GetStorageAtRequest, storage: Store) -> Result<V
     };
 
     serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)
+}
+
+impl Display for BlockIdentifierOrHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockIdentifierOrHash::Identifier(id) => id.fmt(f),
+            BlockIdentifierOrHash::Hash(hash) => hash.fmt(f),
+        }
+    }
 }
