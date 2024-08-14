@@ -12,6 +12,16 @@ pub enum ChainError {
     EvmError(EvmError),
 }
 
+//TODO: Move validate_block and execute_block functions from evm crate into this crate
+//      Those functions should also be refactored to return our own results and errors instead of
+//      revm generic errors, empty results, or booleans.
+
+//TODO: execute_block function should not have the responsability of updating the database.
+
+//TODO: execute_block should return a result with some kind of execution receipts to validate
+//      against the block header, for example we should be able to know how much gas was used
+//      in the block execution to validate the gas_used field.
+
 /// Adds a new block as head of the chain.
 /// Performs pre and post execution validation, and updates the database.
 pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainError> {
