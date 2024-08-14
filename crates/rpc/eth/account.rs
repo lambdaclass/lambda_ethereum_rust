@@ -1,7 +1,7 @@
 use ethereum_rust_storage::Store;
 use serde_json::Value;
-use tracing::info;
 use std::fmt::Display;
+use tracing::info;
 
 use crate::utils::RpcErr;
 use ethereum_rust_core::{Address, H256};
@@ -15,6 +15,16 @@ use serde::Deserialize;
 pub enum BlockIdentifierOrHash {
     Identifier(BlockIdentifier),
     Hash(BlockHash),
+}
+
+pub(crate) fn resolve_block_number(
+    identifier: &BlockIdentifierOrHash,
+    storage: &Store,
+) -> Result<Option<BlockNumber>, StoreError> {
+    match identifier {
+        BlockIdentifierOrHash::Identifier(id) => super::block::resolve_block_number(id, storage),
+        BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(block_hash),
+    }
 }
 
 pub struct GetBalanceRequest {
