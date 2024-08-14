@@ -1,14 +1,15 @@
-use ethereum_rust_core::types::Genesis;
+use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
 use std::{
-    io::{self, BufReader},
+    io,
     net::{SocketAddr, ToSocketAddrs},
 };
 use tokio::try_join;
-use tracing::{warn, Level};
+use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 mod cli;
+mod decode;
 
 #[tokio::main]
 async fn main() {
@@ -81,16 +82,31 @@ async fn main() {
         .add_initial_state(genesis)
         .expect("Failed to create genesis block");
 
+    if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
+        let blocks = read_chain_file(chain_rlp_path);
+        let size = blocks.len();
+        for block in blocks {
+            store
+                .add_block(block)
+                .expect("Failed to add block to blockchain");
+        }
+        info!("Added {} blocks to blockchain", size);
+    }
+
     let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store);
     let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
     try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }
 
+fn read_chain_file(chain_rlp_path: &str) -> Vec<Block> {
+    let chain_file = std::fs::File::open(chain_rlp_path).expect("Failed to open chain rlp file");
+    decode::chain_file(chain_file).expect("Failed to decode chain rlp file")
+}
+
 fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     let genesis_file = std::fs::File::open(genesis_file_path).expect("Failed to open genesis file");
-    let genesis_reader = BufReader::new(genesis_file);
-    serde_json::from_reader(genesis_reader).expect("Failed to read genesis file")
+    decode::genesis_file(genesis_file).expect("Failed to decode genesis file")
 }
 
 fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
