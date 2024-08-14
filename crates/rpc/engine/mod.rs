@@ -61,7 +61,7 @@ pub fn new_payload_v3(
     // Payload Validation
 
     // Check timestamp does not fall within the time frame of the Cancun fork
-    match storage.get_cancun_time().map_err(|_| RpcErr::Internal)? {
+    match storage.get_cancun_time()? {
         Some(cancun_time) if block.header.timestamp > cancun_time => {}
         _ => return Err(RpcErr::UnsuportedFork),
     }
@@ -107,10 +107,7 @@ pub fn new_payload_v3(
     }
 
     // Fetch parent block header and validate current header
-    if let Some(parent_header) = storage
-        .get_block_header(block.header.number.saturating_sub(1))
-        .map_err(|_| RpcErr::Internal)?
-    {
+    if let Some(parent_header) = storage.get_block_header(block.header.number.saturating_sub(1))? {
         if !validate_block_header(&block.header, &parent_header) {
             return Ok(PayloadStatus::invalid_with_hash(
                 parent_header.compute_block_hash(),
@@ -122,7 +119,7 @@ pub fn new_payload_v3(
 
     // Execute and store the block
     info!("Executing payload with block hash: {block_hash}");
-    execute_block(&block, &mut evm_state(storage.clone())).map_err(|_| RpcErr::Vm)?;
+    execute_block(&block, &mut evm_state(storage.clone()))?;
     info!("Block with hash {block_hash} executed succesfully");
     info!("Block with hash {block_hash} added to storage");
 

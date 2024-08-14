@@ -5,7 +5,7 @@ use ethereum_rust_core::types::{
     EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
     Transaction as ethereum_rustTransaction, TxKind,
 };
-use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H160, H256, H64, U256};
+use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -25,6 +25,18 @@ pub struct TestUnit {
     pub post_state: HashMap<Address, Account>,
     pub pre: HashMap<Address, Account>,
     pub seal_engine: serde_json::Value,
+}
+
+impl TestUnit {
+    /// Checks wether a test has a block where the inner_block is none.
+    /// These tests only check for failures in decoding invalid rlp and expect an exception.
+    pub fn is_rlp_only_test(&self) -> bool {
+        let mut is_rlp_only = false;
+        for block in self.blocks.iter() {
+            is_rlp_only = is_rlp_only || block.block().is_none();
+        }
+        is_rlp_only
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
@@ -97,7 +109,7 @@ pub struct BlockWithRLP {
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
     #[serde(flatten)]
-    inner: BlockInner,
+    inner: Option<BlockInner>,
     pub expect_exception: Option<String>,
 }
 
@@ -125,23 +137,12 @@ pub struct Block {
 }
 
 impl BlockWithRLP {
-    pub fn block(&self) -> &Block {
+    pub fn block(&self) -> Option<&Block> {
         match self.inner {
-            BlockInner::Block(ref block) => block,
-            BlockInner::DecodedRLP(ref decoded) => &decoded.rlp_decoded,
+            Some(BlockInner::Block(ref block)) => Some(block),
+            Some(BlockInner::DecodedRLP(ref decoded)) => Some(&decoded.rlp_decoded),
+            None => None,
         }
-    }
-
-    pub fn header(&self) -> &Header {
-        &self.block().block_header
-    }
-
-    pub fn transactions(&self) -> &Vec<Transaction> {
-        &self.block().transactions
-    }
-
-    pub fn withdrawals(&self) -> Option<&Vec<Withdrawal>> {
-        self.block().withdrawals.as_ref()
     }
 }
 impl From<Block> for CoreBlock {
@@ -179,12 +180,10 @@ pub struct Transaction {
     pub blob_versioned_hashes: Option<Vec<H256>>,
     pub hash: Option<H256>,
     pub sender: Address,
-    #[serde(deserialize_with = "crate::serde_utils::h160::deser_hex_str")]
-    pub to: Address,
+    pub to: TxKind,
 }
 
 // Conversions between EFtests & ethereum_rust types
-
 impl From<Header> for BlockHeader {
     fn from(val: Header) -> Self {
         BlockHeader {
@@ -239,10 +238,11 @@ impl From<Transaction> for EIP1559Transaction {
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(), // TODO: Consider converting this into Option
             gas_limit: val.gas_limit.as_u64(),
-            to: match val.to {
-                zero if zero == H160::zero() => TxKind::Create,
-                _ => TxKind::Call(val.to),
-            },
+            // to: match val.to {
+            //     zero if zero == H160::zero() => TxKind::Create,
+            //     _ => TxKind::Call(val.to),
+            // },
+            to: val.to,
             value: val.value,
             data: val.data,
             access_list: val
@@ -269,7 +269,10 @@ impl From<Transaction> for EIP4844Transaction {
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(),
             gas: val.gas_limit.as_u64(),
-            to: val.to,
+            to: match val.to {
+                TxKind::Call(address) => address,
+                TxKind::Create => panic!("EIP4844Transaction cannot be contract creation"),
+            },
             value: val.value,
             data: val.data,
             access_list: val
@@ -293,10 +296,11 @@ impl From<Transaction> for LegacyTransaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(), // TODO: Consider converting this into Option
             gas: val.gas_limit.as_u64(),
-            to: match val.to {
-                zero if zero == H160::zero() => TxKind::Create,
-                _ => TxKind::Call(val.to),
-            },
+            // to: match val.to {
+            //     zero if zero == H160::zero() => TxKind::Create,
+            //     _ => TxKind::Call(val.to),
+            // },
+            to: val.to,
             value: val.value,
             data: val.data,
             v: val.v,
@@ -313,10 +317,11 @@ impl From<Transaction> for EIP2930Transaction {
             nonce: val.nonce.as_u64(),
             gas_price: val.gas_price.unwrap_or_default().as_u64(),
             gas_limit: val.gas_limit.as_u64(),
-            to: match val.to {
-                zero if zero == H160::zero() => TxKind::Create,
-                _ => TxKind::Call(val.to),
-            },
+            // to: match val.to {
+            //     zero if zero == H160::zero() => TxKind::Create,
+            //     _ => TxKind::Call(val.to),
+            // },
+            to: val.to,
             value: val.value,
             data: val.data,
             access_list: val

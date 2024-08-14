@@ -377,6 +377,7 @@ fn calculate_base_fee_per_gas(
     })
 }
 
+/// Validates that the header fields are correct in reference to the parent_header
 pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
     if header.gas_used > header.gas_limit {
         return false;
@@ -400,6 +401,33 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
         && header.nonce == 0
         && header.ommers_hash == *DEFAULT_OMMERS_HASH
         && header.parent_hash == parent_header.compute_block_hash()
+}
+/// Validates that excess_blob_gas and blob_gas_used are present in the header and
+/// validates that excess_blob_gas value is correct on the block header
+/// according to the values in the parent header.
+pub fn validate_cancun_header_fields(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
+    header.excess_blob_gas.is_some()
+        && header.blob_gas_used.is_some()
+        && header.excess_blob_gas.unwrap() == calc_excess_blob_gas(parent_header)
+        && header.parent_beacon_block_root.is_some()
+}
+
+/// Validates that the excess blob gas value is correct on the block header
+/// according to the values in the parent header.
+pub fn validate_no_cancun_header_fields(header: &BlockHeader) -> bool {
+    header.excess_blob_gas.is_none() && header.blob_gas_used.is_none()
+}
+
+fn calc_excess_blob_gas(parent_header: &BlockHeader) -> u64 {
+    let parent_excess_blob_gas = parent_header.excess_blob_gas.unwrap_or_default();
+    let parent_blob_gas_used = parent_header.blob_gas_used.unwrap_or_default();
+    let parent_blob_gas = parent_excess_blob_gas + parent_blob_gas_used;
+
+    if parent_blob_gas < 393216_u64 {
+        0u64
+    } else {
+        parent_blob_gas - 393216_u64
+    }
 }
 
 #[allow(unused)]
