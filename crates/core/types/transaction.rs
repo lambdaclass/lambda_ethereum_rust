@@ -77,7 +77,7 @@ pub struct EIP4844Transaction {
     pub max_priority_fee_per_gas: u64,
     pub max_fee_per_gas: u64,
     pub gas: u64,
-    pub to: TxKind,
+    pub to: Address,
     pub value: U256,
     pub data: Bytes,
     pub access_list: Vec<(Address, Vec<H256>)>,
@@ -511,7 +511,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.to.clone(),
             Transaction::EIP2930Transaction(tx) => tx.to.clone(),
             Transaction::EIP1559Transaction(tx) => tx.to.clone(),
-            Transaction::EIP4844Transaction(tx) => tx.to.clone(),
+            Transaction::EIP4844Transaction(tx) => TxKind::Call(tx.to.clone()),
         }
     }
 

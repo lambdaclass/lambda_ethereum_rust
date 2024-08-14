@@ -269,7 +269,10 @@ impl From<Transaction> for EIP4844Transaction {
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(),
             gas: val.gas_limit.as_u64(),
-            to: val.to,
+            to: match val.to {
+                TxKind::Call(address) => address,
+                TxKind::Create => panic!("EIP4844Transaction cannot be contract creation"),
+            },
             value: val.value,
             data: val.data,
             access_list: val
