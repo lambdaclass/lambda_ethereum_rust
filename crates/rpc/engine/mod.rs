@@ -5,7 +5,7 @@ use ethereum_rust_core::{
 use ethereum_rust_evm::{evm_state, execute_block};
 use ethereum_rust_storage::Store;
 use serde_json::{json, Value};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::RpcErr;
 
@@ -84,6 +84,26 @@ pub fn new_payload_v3(
         return Ok(PayloadStatus::invalid_with_err(
             "Invalid blob_versioned_hashes",
         ));
+    }
+    // Check that the incoming block extends the current chain
+    let last_block_number = storage
+        .get_latest_block_number()
+        .map_err(|_| RpcErr::Internal)?;
+    if let Some(latest) = last_block_number {
+        if latest <= block.header.number {
+            // Check if we already have this block stored
+            if storage
+                .get_block_number(block_hash)
+                .map_err(|_| RpcErr::Internal)?
+                .is_some_and(|num| num == block.header.number)
+            {
+                return Ok(PayloadStatus::valid_with_hash(block_hash));
+            }
+            warn!("Should start reorg but it is not supported yet");
+            return Err(RpcErr::Internal);
+        } else if block.header.number != latest + 1 {
+            return Ok(PayloadStatus::syncing());
+        }
     }
 
     // Fetch parent block header and validate current header
