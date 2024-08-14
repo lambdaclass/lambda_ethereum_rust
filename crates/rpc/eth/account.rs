@@ -79,11 +79,9 @@ pub fn get_code(request: &GetCodeRequest, storage: Store) -> Result<Value, RpcEr
         "Requested code of account {} at block {}",
         request.address, request.block
     );
-    let code = match storage.get_code_by_account_address(request.address)? {
-        Some(code) => code,
-        // Account not found
-        _ => return Ok(Value::Null),
-    };
+    let code = storage
+        .get_code_by_account_address(request.address)?
+        .unwrap_or_default();
 
     serde_json::to_value(format!("0x{:x}", code)).map_err(|_| RpcErr::Internal)
 }
@@ -93,11 +91,9 @@ pub fn get_storage_at(request: &GetStorageAtRequest, storage: Store) -> Result<V
         "Requested storage sot {} of account {} at block {}",
         request.storage_slot, request.address, request.block
     );
-    let storage_value = match storage.get_storage_at(request.address, request.storage_slot)? {
-        Some(storage_value) => storage_value,
-        // Account not found
-        _ => return Ok(Value::Null),
-    };
+    let storage_value = storage
+        .get_storage_at(request.address, request.storage_slot)?
+        .unwrap_or_default();
 
     serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)
 }
