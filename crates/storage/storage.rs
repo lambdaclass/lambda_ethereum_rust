@@ -251,6 +251,8 @@ impl Store {
         let genesis_block = genesis.get_block();
 
         // Store genesis block
+        self.update_earliest_block_number(genesis_block.header.number)?;
+        self.update_latest_block_number(genesis_block.header.number)?;
         self.add_block(genesis_block)?;
 
         // Store each alloc account
@@ -333,6 +335,10 @@ impl Store {
 
     pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
         self.engine.lock().unwrap().get_cancun_time()
+    }
+
+    pub fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_shanghai_time()
     }
 
     pub fn update_earliest_block_number(
