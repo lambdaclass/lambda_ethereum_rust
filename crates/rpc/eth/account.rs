@@ -17,13 +17,15 @@ pub enum BlockIdentifierOrHash {
     Hash(BlockHash),
 }
 
-pub(crate) fn resolve_block_number(
-    identifier: &BlockIdentifierOrHash,
-    storage: &Store,
-) -> Result<Option<BlockNumber>, StoreError> {
-    match identifier {
-        BlockIdentifierOrHash::Identifier(id) => super::block::resolve_block_number(id, storage),
-        BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(block_hash),
+impl BlockIdentifierOrHash {
+    pub(crate) fn resolve_block_number(
+        &self,
+        storage: &Store,
+    ) -> Result<Option<BlockNumber>, StoreError> {
+        match self {
+            BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
+            BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(block_hash),
+        }
     }
 }
 
