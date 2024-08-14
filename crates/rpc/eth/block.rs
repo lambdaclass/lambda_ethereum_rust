@@ -86,10 +86,7 @@ pub enum BlockTag {
 }
 
 impl BlockIdentifier {
-    pub(crate) fn resolve_block_number(
-        &self,
-        storage: &Store,
-    ) -> Result<Option<BlockNumber>, StoreError> {
+    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
         match self {
             BlockIdentifier::Number(num) => Ok(Some(*num)),
             BlockIdentifier::Tag(tag) => match tag {
@@ -437,7 +434,7 @@ pub fn create_access_list(
 ) -> Result<Value, RpcErr> {
     let block = request.block.clone().unwrap_or_default();
     info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match resolve_block_number(&block, &storage)? {
+    let block_number = match block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };

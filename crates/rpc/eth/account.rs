@@ -1,10 +1,10 @@
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
 use std::fmt::Display;
 use tracing::info;
 
 use crate::utils::RpcErr;
-use ethereum_rust_core::{Address, H256};
+use ethereum_rust_core::{types::BlockNumber, Address, H256};
 
 use super::block::BlockIdentifier;
 use ethereum_rust_core::types::BlockHash;
@@ -18,13 +18,10 @@ pub enum BlockIdentifierOrHash {
 }
 
 impl BlockIdentifierOrHash {
-    pub(crate) fn resolve_block_number(
-        &self,
-        storage: &Store,
-    ) -> Result<Option<BlockNumber>, StoreError> {
+    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
         match self {
             BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
-            BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(block_hash),
+            BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(*block_hash),
         }
     }
 }
