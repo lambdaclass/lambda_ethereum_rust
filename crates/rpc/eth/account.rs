@@ -68,13 +68,10 @@ pub fn get_balance(request: &GetBalanceRequest, storage: Store) -> Result<Value,
         "Requested balance of account {} at block {}",
         request.address, request.block
     );
-    let account = match storage.get_account_info(request.address)? {
-        Some(account) => account,
-        // Account not found
-        _ => return Ok(Value::Null),
-    };
+    let account = storage.get_account_info(request.address)?;
+    let balance = account.map(|acc| acc.balance).unwrap_or_default();
 
-    serde_json::to_value(format!("{:#x}", account.balance)).map_err(|_| RpcErr::Internal)
+    serde_json::to_value(format!("{:#x}", balance)).map_err(|_| RpcErr::Internal)
 }
 
 pub fn get_code(request: &GetCodeRequest, storage: Store) -> Result<Value, RpcErr> {
