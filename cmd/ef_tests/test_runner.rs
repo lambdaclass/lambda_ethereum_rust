@@ -26,6 +26,7 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
 
     // Execute all blocks in test
     for block_fixture in blocks.iter() {
+        // Won't panic because test has been validated
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
         let execution_result = execute_block(block, &mut evm_state);
