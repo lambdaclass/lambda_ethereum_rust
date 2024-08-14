@@ -226,18 +226,16 @@ pub fn get_block_by_number(
     storage: Store,
 ) -> Result<Value, RpcErr> {
     info!("Requested block with number: {}", request.block);
-    let block_number = match resolve_block_number(&request.block, &storage) {
-        Ok(Some(block_number)) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage)? {
+        Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
-    let header = storage.get_block_header(block_number);
-    let body = storage.get_block_body(block_number);
+    let header = storage.get_block_header(block_number)?;
+    let body = storage.get_block_body(block_number)?;
     let (header, body) = match (header, body) {
-        (Ok(Some(header)), Ok(Some(body))) => (header, body),
+        (Some(header), Some(body)) => (header, body),
         // Block not found
-        (Ok(_), Ok(_)) => return Ok(Value::Null),
-        // DB error
-        _ => return Err(RpcErr::Internal),
+        _ => return Ok(Value::Null),
     };
     let block = BlockSerializable::from_block(header, body, request.hydrated);
 
@@ -246,19 +244,16 @@ pub fn get_block_by_number(
 
 pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Result<Value, RpcErr> {
     info!("Requested block with hash: {}", request.block);
-    let block_number = match storage.get_block_number(request.block) {
-        Ok(Some(number)) => number,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_number = match storage.get_block_number(request.block)? {
+        Some(number) => number,
+        _ => return Ok(Value::Null),
     };
-    let header = storage.get_block_header(block_number);
-    let body = storage.get_block_body(block_number);
+    let header = storage.get_block_header(block_number)?;
+    let body = storage.get_block_body(block_number)?;
     let (header, body) = match (header, body) {
-        (Ok(Some(header)), Ok(Some(body))) => (header, body),
+        (Some(header), Some(body)) => (header, body),
         // Block not found
-        (Ok(_), Ok(_)) => return Ok(Value::Null),
-        // DB error
-        _ => return Err(RpcErr::Internal),
+        _ => return Ok(Value::Null),
     };
     let block = BlockSerializable::from_block(header, body, request.hydrated);
 
@@ -273,14 +268,13 @@ pub fn get_block_transaction_count_by_number(
         "Requested transaction count for block with number: {}",
         request.block
     );
-    let block_number = match resolve_block_number(&request.block, &storage) {
-        Ok(Some(block_number)) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage)? {
+        Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
-    let block_body = match storage.get_block_body(block_number) {
-        Ok(Some(block_body)) => block_body,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_body = match storage.get_block_body(block_number)? {
+        Some(block_body) => block_body,
+        _ => return Ok(Value::Null),
     };
     let transaction_count = block_body.transactions.len();
 
@@ -295,14 +289,13 @@ pub fn get_transaction_by_block_number_and_index(
         "Requested transaction at index: {} of block with number: {}",
         request.transaction_index, request.block,
     );
-    let block_number = match resolve_block_number(&request.block, &storage) {
-        Ok(Some(block_number)) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage)? {
+        Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
-    let block_body = match storage.get_block_body(block_number) {
-        Ok(Some(block_body)) => block_body,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_body = match storage.get_block_body(block_number)? {
+        Some(block_body) => block_body,
+        _ => return Ok(Value::Null),
     };
     let tx = match block_body.transactions.get(request.transaction_index) {
         Some(tx) => tx,
@@ -320,15 +313,13 @@ pub fn get_transaction_by_block_hash_and_index(
         "Requested transaction at index: {} of block with hash: {}",
         request.transaction_index, request.block,
     );
-    let block_number = match storage.get_block_number(request.block) {
-        Ok(Some(number)) => number,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_number = match storage.get_block_number(request.block)? {
+        Some(number) => number,
+        _ => return Ok(Value::Null),
     };
-    let block_body = match storage.get_block_body(block_number) {
-        Ok(Some(block_body)) => block_body,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_body = match storage.get_block_body(block_number)? {
+        Some(block_body) => block_body,
+        _ => return Ok(Value::Null),
     };
     let tx = match block_body.transactions.get(request.transaction_index) {
         Some(tx) => tx,
@@ -346,18 +337,16 @@ pub fn get_block_receipts(
         "Requested receipts for block with number: {}",
         request.block
     );
-    let block_number = match resolve_block_number(&request.block, &storage) {
-        Ok(Some(block_number)) => block_number,
+    let block_number = match resolve_block_number(&request.block, &storage)? {
+        Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
-    let header = storage.get_block_header(block_number);
-    let body = storage.get_block_body(block_number);
+    let header = storage.get_block_header(block_number)?;
+    let body = storage.get_block_body(block_number)?;
     let (header, body) = match (header, body) {
-        (Ok(Some(header)), Ok(Some(body))) => (header, body),
+        (Some(header), Some(body)) => (header, body),
         // Block not found
-        (Ok(_), Ok(_)) => return Ok(Value::Null),
-        // DB error
-        _ => return Err(RpcErr::Internal),
+        _ => return Ok(Value::Null),
     };
     // Fetch receipt info from block
     let block_info = header.receipt_info();
@@ -365,10 +354,9 @@ pub fn get_block_receipts(
     let mut receipts = Vec::new();
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
-        let receipt = match storage.get_receipt(block_number, index) {
-            Ok(Some(receipt)) => receipt,
-            Ok(_) => return Ok(Value::Null),
-            _ => return Err(RpcErr::Internal),
+        let receipt = match storage.get_receipt(block_number, index)? {
+            Some(receipt) => receipt,
+            _ => return Ok(Value::Null),
         };
         let block_info = block_info.clone();
         let tx_info = tx.receipt_info(index);
@@ -391,10 +379,9 @@ pub fn get_transaction_by_hash(
         request.transaction_hash,
     );
     let transaction: ethereum_rust_core::types::Transaction =
-        match storage.get_transaction_by_hash(request.transaction_hash) {
-            Ok(Some(transaction)) => transaction,
-            Ok(_) => return Ok(Value::Null),
-            _ => return Err(RpcErr::Internal),
+        match storage.get_transaction_by_hash(request.transaction_hash)? {
+            Some(transaction) => transaction,
+            _ => return Ok(Value::Null),
         };
 
     serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
@@ -408,25 +395,21 @@ pub fn get_transaction_receipt(
         "Requested receipt for transaction {}",
         request.transaction_hash,
     );
-    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash) {
-        Ok(Some(location)) => location,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash)? {
+        Some(location) => location,
+        _ => return Ok(Value::Null),
     };
-    let block_header = match storage.get_block_header(block_number) {
-        Ok(Some(block_header)) => block_header,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_header = match storage.get_block_header(block_number)? {
+        Some(block_header) => block_header,
+        _ => return Ok(Value::Null),
     };
-    let block_body = match storage.get_block_body(block_number) {
-        Ok(Some(block_body)) => block_body,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let block_body = match storage.get_block_body(block_number)? {
+        Some(block_body) => block_body,
+        _ => return Ok(Value::Null),
     };
-    let receipt = match storage.get_receipt(block_number, index) {
-        Ok(Some(receipt)) => receipt,
-        Ok(_) => return Ok(Value::Null),
-        _ => return Err(RpcErr::Internal),
+    let receipt = match storage.get_receipt(block_number, index)? {
+        Some(receipt) => receipt,
+        _ => return Ok(Value::Null),
     };
     let tx = match index
         .try_into()
@@ -452,16 +435,14 @@ pub fn create_access_list(
 ) -> Result<Value, RpcErr> {
     let block = request.block.clone().unwrap_or_default();
     info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match block {
-        BlockIdentifier::Tag(_) => unimplemented!("Obtain block number from tag"),
-        BlockIdentifier::Number(block_number) => block_number,
+    let block_number = match resolve_block_number(&block, &storage)? {
+        Some(block_number) => block_number,
+        _ => return Ok(Value::Null),
     };
-    let header = match storage.get_block_header(block_number) {
-        Ok(Some(header)) => header,
+    let header = match storage.get_block_header(block_number)? {
+        Some(header) => header,
         // Block not found
-        Ok(_) => return Ok(Value::Null),
-        // DB error
-        _ => return Err(RpcErr::Internal),
+        _ => return Ok(Value::Null),
     };
     // Run transaction and obtain access list
     let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
@@ -469,9 +450,7 @@ pub fn create_access_list(
         &header,
         &mut evm_state(storage),
         SpecId::CANCUN,
-    )
-    .map_err(|_| RpcErr::Vm)?
-    {
+    )? {
         (
             ExecutionResult::Success {
                 reason: _,
