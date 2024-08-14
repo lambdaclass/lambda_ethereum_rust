@@ -86,24 +86,20 @@ pub fn new_payload_v3(
         ));
     }
     // Check that the incoming block extends the current chain
-    let last_block_number = storage
-        .get_latest_block_number()
-        .map_err(|_| RpcErr::Internal)?;
-    if let Some(latest) = last_block_number {
-        if latest <= block.header.number {
-            // Check if we already have this block stored
-            if storage
-                .get_block_number(block_hash)
-                .map_err(|_| RpcErr::Internal)?
-                .is_some_and(|num| num == block.header.number)
-            {
-                return Ok(PayloadStatus::valid_with_hash(block_hash));
-            }
-            warn!("Should start reorg but it is not supported yet");
-            return Err(RpcErr::Internal);
-        } else if block.header.number != latest + 1 {
-            return Ok(PayloadStatus::syncing());
+    let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
+    if last_block_number <= block.header.number {
+        // Check if we already have this block stored
+        if storage
+            .get_block_number(block_hash)
+            .map_err(|_| RpcErr::Internal)?
+            .is_some_and(|num| num == block.header.number)
+        {
+            return Ok(PayloadStatus::valid_with_hash(block_hash));
         }
+        warn!("Should start reorg but it is not supported yet");
+        return Err(RpcErr::Internal);
+    } else if block.header.number != last_block_number + 1 {
+        return Ok(PayloadStatus::syncing());
     }
 
     // Fetch parent block header and validate current header
