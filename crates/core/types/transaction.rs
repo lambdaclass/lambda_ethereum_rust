@@ -511,7 +511,7 @@ impl Transaction {
             Transaction::LegacyTransaction(tx) => tx.to.clone(),
             Transaction::EIP2930Transaction(tx) => tx.to.clone(),
             Transaction::EIP1559Transaction(tx) => tx.to.clone(),
-            Transaction::EIP4844Transaction(tx) => TxKind::Call(tx.to.clone()),
+            Transaction::EIP4844Transaction(tx) => TxKind::Call(tx.to),
         }
     }
 
