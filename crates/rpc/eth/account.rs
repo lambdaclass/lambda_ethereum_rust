@@ -18,6 +18,7 @@ pub enum BlockIdentifierOrHash {
 }
 
 impl BlockIdentifierOrHash {
+    #[allow(unused)]
     pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
         match self {
             BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
