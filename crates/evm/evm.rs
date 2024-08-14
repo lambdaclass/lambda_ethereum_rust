@@ -46,6 +46,10 @@ impl EvmState {
         &self.0.database.0
     }
 }
+
+//TODO:validate_block and execute_block should return declarative results and errors indicating the
+//     outcome of executing these functions.
+
 /// Performs pre-execution validation of the block's header values in reference to the parent_header
 /// Verifies that blob gas fields in the header are correct in reference to the block's body.
 /// If a block passes this check, execution will still fail with execute_block when a transaction runs out of gas
@@ -70,11 +74,6 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, state: &EvmSta
         return false;
     }
 
-    //TODO: Verify withdrawals_root ¿?
-    //TODO: Verify transactions_root ¿?
-    // These values are computed by this execution engine, they are not parameters in the
-    // ExecutionPayloadV3, so I'm not sure if it makes sense to verify them.
-
     // Verifiy blob gas usage
     let mut blob_gas_used = 0_u64;
     let mut blobs_in_block = 0_u64;
@@ -97,6 +96,7 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, state: &EvmSta
     true
 }
 
+/// Calculates the blob gas required by a transaction
 pub fn get_total_blob_gas(tx: &EIP4844Transaction) -> u64 {
     GAS_PER_BLOB * tx.blob_versioned_hashes.len() as u64
 }
