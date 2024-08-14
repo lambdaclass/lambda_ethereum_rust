@@ -80,7 +80,7 @@ pub fn validate_test(test: &TestUnit) {
 
 /// Creates an in-memory DB for evm execution and loads the prestate accounts
 pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
-    let mut store =
+    let store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
     let block_number = test.genesis_block_header.number.as_u64();
     store
