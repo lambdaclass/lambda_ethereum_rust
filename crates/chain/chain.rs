@@ -25,9 +25,11 @@ pub enum ChainError {
 /// Adds a new block as head of the chain.
 /// Performs pre and post execution validation, and updates the database.
 pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainError> {
+    // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(block, &storage)?;
-    let mut state = evm_state(storage);
 
+    // Validate the block pre-execution
+    let mut state = evm_state(storage.clone());
     let valid_block = validate_block(block, &parent_header, &state);
 
     if !valid_block {
@@ -38,7 +40,29 @@ pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainErro
 
     execute_block(block, &mut state).map_err(|e| ChainError::EvmError(e))?;
 
+    // Check state root matches the one in block header after execution
+    validate_state(&block.header, storage.clone())?;
+
+    // Store Block in database
+    storage
+        .add_block(block.clone())
+        .map_err(|e| ChainError::StoreError(e))?;
+    storage
+        .update_latest_block_number(block.header.number)
+        .map_err(|e| ChainError::StoreError(e))?;
     Ok(ChainResult::InsertedBlock("ok!".to_string()))
+}
+
+/// Performs post-execution checks
+pub fn validate_state(block_header: &BlockHeader, storage: Store) -> Result<(), ChainError> {
+    // Compare state root
+    if storage.world_state_root() == block_header.state_root {
+        Ok(())
+    } else {
+        return Err(ChainError::RejectedBlock(
+            "State root mismatch after executing block".into(),
+        ));
+    }
 }
 
 /// Validates if the provided block could be the new head of the chain, and returns the
