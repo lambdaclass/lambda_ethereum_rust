@@ -377,6 +377,7 @@ fn calculate_base_fee_per_gas(
     })
 }
 
+/// Validates that the header fields are correct in reference to the parent_header
 pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
     if header.gas_used > header.gas_limit {
         return false;
