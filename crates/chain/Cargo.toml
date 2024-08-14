@@ -1,11 +1,15 @@
 [package]
-name = "ethereum_rust-consensus"
+name = "ethereum_rust-chain"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ethereum_rust-core.workspace = true
+ethereum_rust-storage.workspace = true
+ethereum_rust-evm.workspace = true
+
 
 [lib]
-path = "./consensus.rs"
+path = "./chain.rs"
