@@ -32,7 +32,7 @@ use lazy_static::lazy_static;
 lazy_static! {
     pub static ref DEFAULT_OMMERS_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
 }
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Block {
     pub header: BlockHeader,
     pub body: BlockBody,
@@ -211,7 +211,7 @@ pub fn compute_transactions_root(transactions: &[Transaction]) -> H256 {
         // Key: RLP(tx_index)
         // Value: tx_type || RLP(tx)  if tx_type != 0
         //                   RLP(tx)  else
-        trie.insert(idx.encode_to_vec(), tx.encode_to_vec());
+        trie.insert(idx.encode_to_vec(), tx.encode_canonical_to_vec());
     }
     let &root = trie.compute_hash();
     H256(root.into())
@@ -418,14 +418,8 @@ pub fn validate_no_cancun_header_fields(header: &BlockHeader) -> bool {
 }
 
 fn calc_excess_blob_gas(parent_header: &BlockHeader) -> u64 {
-    let parent_excess_blob_gas = match parent_header.excess_blob_gas {
-        Some(excess_blob_gas) => excess_blob_gas,
-        None => 0_u64,
-    };
-    let parent_blob_gas_used = match parent_header.blob_gas_used {
-        Some(blob_gas_used) => blob_gas_used,
-        None => 0_u64,
-    };
+    let parent_excess_blob_gas = parent_header.excess_blob_gas.unwrap_or_default();
+    let parent_blob_gas_used = parent_header.blob_gas_used.unwrap_or_default();
     let parent_blob_gas = parent_excess_blob_gas + parent_blob_gas_used;
 
     if parent_blob_gas < 393216_u64 {
@@ -695,5 +689,28 @@ mod test {
         let block = BlockSerializable::from_block(block_header, block_body, true);
         let expected_block = r#"{"hash":"0x63d6a2504601fc2db0ccf02a28055eb0cdb40c444ecbceec0f613980421a035e","parentHash":"0x1ac1bf1eef97dc6b03daba5af3b89881b7ae4bc1600dc434f450a9ec34d44999","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","miner":"0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba","stateRoot":"0x9de6f95cb4ff4ef22a73705d6ba38c4b927c7bca9887ef5d24a734bb863218d9","transactionsRoot":"0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d","receiptRoot":"0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","difficulty":"0x0","number":"0x1","gasLimit":"0x16345785d8a0000","gasUsed":"0xa8de","timestamp":"0x3e8","extraData":"0x","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0","baseFeePerGas":"0x7","withdrawalsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","blobGasUsed":"0x0","excessBlobGas":"0x0","parentBeaconBlockRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","transactions":[{"type":"0x2","nonce":"0x0","to":"0x6177843db3138ae69679a54b95cf345ed759450d","gas":"0xf618","value":"0xaa87bee538000","input":"0x307831353638","maxPriorityFeePerGas":"0x11","maxFeePerGas":"0x4e","gasPrice":"0x4e","accessList":[{"address":"0x6177843db3138ae69679a54b95cf345ed759450d","storageKeys":[]}],"chainId":"0x301824","yParity":"0x0","r":"0x151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65d","s":"0x64c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4"}],"uncles":[],"withdrawals":[]}"#;
         assert_eq!(serde_json::to_string(&block).unwrap(), expected_block)
+    }
+
+    #[test]
+    fn test_compute_transactions_root() {
+        let encoded_transactions = [
+            "0x01f8d68330182404842daf517a830186a08080b880c1597f3c842558e64df52c3e0f0973067577c030c0c6578dbb2eef63155a21106fd4426057527f296b2ecdfabc81e34ffc82e89dec20f6b7c41fa1969d3c3bc44262c86f08b5b76077527fb7ece918787c50c878052c30a8b1d4abc07331e6d14b8ded52bbc58a6e9992b76097527f0110937c38cc13b914f201fc09dc6f7a80c001a09930cb92b4a27dce971c697a8c47fa34c98d076abc7b36e1239d6abcfc7c8403a041b35118447fe77c38c0b3a92a2dd3ecba4a9e4b35cc6534cd787f56c0cf2e21",
+            "0xf86e81fa843127403882f61894db8d964741c53e55df9c2d4e9414c6c96482874e870aa87bee538000808360306ca03aa421df67a101c45ff9cb06ce28f518a5d8d8dbb76a79361280071909650a27a05a447ff053c4ae601cfe81859b58d5603f2d0a73481c50f348089032feb0b073",
+            "0x02f8ef83301824048413f157f8842daf517a830186a094000000000000000000000000000000000000000080b8807a0a600060a0553db8600060c855c77fb29ecd7661d8aefe101a0db652a728af0fded622ff55d019b545d03a7532932a60ad52604260cd5360bf60ce53609460cf53603e60d05360f560d153bc596000609e55600060c6556000601f556000609155535660556057536055605853606e60595360e7605a5360d0605b5360eb60c080a03acb03b1fc20507bc66210f7e18ff5af65038fb22c626ae488ad9513d9b6debca05d38459e9d2a221eb345b0c2761b719b313d062ff1ea3d10cf5b8762c44385a6",
+            "0x01f8ea8330182402842daf517a830186a094000000000000000000000000000000000000000080b880bdb30d976000604e557145600060a155d67fe7e473caf6e33cba341136268fc1189ba07837ef8a266570289ff53afc43436260c7527f333dfe837f4838f6053e5e46e4151aeec28f356ec39a2db9769f36ec92e3e3f660e7527f0b261608674300d4621eff679096a6ed786591aca69f2b22a3ea6949621daade610107527f3cc080a01f3f906540fb56b0576c51b3ffa86df213fd1f407378c9441cfdd9d5f3c1df3da035691b16c053b68ec74683ae020293cbc6a47ac773dc8defb96cb680c576e5a3"
+        ];
+        let transactions: Vec<Transaction> = encoded_transactions
+            .iter()
+            .map(|hex| {
+                Transaction::decode_canonical(&hex::decode(hex.trim_start_matches("0x")).unwrap())
+                    .unwrap()
+            })
+            .collect();
+        let transactions_root = compute_transactions_root(&transactions);
+        let expected_root = H256::from_slice(
+            &hex::decode("adf0387d2303fe80aeca23bf6828c979b44d8a8fe4a1ba1d3511bc1567ca80de")
+                .unwrap(),
+        );
+        assert_eq!(transactions_root, expected_root);
     }
 }

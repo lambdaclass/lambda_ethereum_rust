@@ -234,8 +234,12 @@ impl Store {
 
     pub fn add_block(&self, block: Block) -> Result<(), StoreError> {
         // TODO Maybe add both in a single tx?
-        self.add_block_body(block.header.number, block.body)?;
-        self.add_block_header(block.header.number, block.header)?;
+        let header = block.header;
+        let number = header.number;
+        let hash = header.compute_block_hash();
+        self.add_block_body(number, block.body)?;
+        self.add_block_header(number, header)?;
+        self.add_block_number(hash, number)?;
         Ok(())
     }
 
@@ -247,6 +251,8 @@ impl Store {
         let genesis_block = genesis.get_block();
 
         // Store genesis block
+        self.update_earliest_block_number(genesis_block.header.number)?;
+        self.update_latest_block_number(genesis_block.header.number)?;
         self.add_block(genesis_block)?;
 
         // Store each alloc account
@@ -329,6 +335,10 @@ impl Store {
 
     pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
         self.engine.lock().unwrap().get_cancun_time()
+    }
+
+    pub fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_shanghai_time()
     }
 
     pub fn update_earliest_block_number(

@@ -2,13 +2,31 @@ use std::{collections::HashMap, path::Path};
 
 use crate::types::TestUnit;
 use ethereum_rust_core::{
-    rlp::decode::RLPDecode,
-    rlp::encode::RLPEncode,
+    rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
-use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState, SpecId};
+use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
 
+/*
+pub fn validate_and_execute_test(test_key: &str, test: &TestUnit) {
+    // Build pre state
+    let mut evm_state = build_evm_state_for_test(test);
+    let blocks = test.blocks.clone();
+
+    // Check world_state
+    check_prestate_against_db(test_key, test, evm_state.database());
+
+    // Setup chain config
+    let chain_config = test.network.chain_config();
+    evm_state
+        .database()
+        .set_chain_config(chain_config)
+        .expect("Failed to write to DB");
+
+    let valid_test = validate_test(test, &mut evm_state);
+}
+*/
 /// Tests the execute_block function, only run on validated tests, check [validate_test] function.
 pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Build pre state
@@ -18,28 +36,35 @@ pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Check world_state
     check_prestate_against_db(test_key, test, evm_state.database());
 
+    // Setup chain config
+    let chain_config = test.network.chain_config();
+    evm_state
+        .database()
+        .set_chain_config(chain_config)
+        .expect("Failed to write to DB");
+
     // Execute all blocks in test
     for block_fixture in blocks.iter() {
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
-        let spec = block_fork_spec(test, &block.header);
 
-        let execution_result = execute_block(block, &mut evm_state, spec);
+        let execution_result = execute_block(block, &mut evm_state);
 
         match execution_result {
-            Err(_) => {
+            Err(error) => {
                 assert!(
                     block_fixture.expect_exception.is_some(),
-                    "Expected transaction execution to fail on test: {}",
-                    test_key
+                    "Transaction execution unexpectedly failed on test: {}, with error {}",
+                    test_key,
+                    error
                 );
                 return;
             }
             Ok(()) => {
                 assert!(
                     block_fixture.expect_exception.is_none(),
-                    "Transaction execution failed on test: {} with error: {}",
+                    "Expecte transaction execution to fail in test: {} with error: {}",
                     test_key,
-                    execution_result.unwrap_err()
+                    block_fixture.expect_exception.clone().unwrap()
                 )
             }
         }
@@ -60,13 +85,22 @@ pub fn validate_test(test: &TestUnit) -> bool {
     let genesis_block_header = CoreBlockHeader::from(test.genesis_block_header.clone());
     assert_eq!(decoded_block.header, genesis_block_header);
 
+    // Build pre state
+    let evm_state = build_evm_state_for_test(test);
+
+    // Setup chain config
+    let chain_config = test.network.chain_config();
+    evm_state
+        .database()
+        .set_chain_config(chain_config)
+        .expect("Failed to write to DB");
+
     // check that all blocks are valid, tests validate_block function
     let mut parent_block_header = genesis_block_header;
     for block in &test.blocks {
         if let Some(inner_block) = block.block() {
             let core_block = CoreBlock::from(inner_block.clone());
-            let spec = block_fork_spec(test, &core_block.header);
-            let valid_block = validate_block(&core_block, &parent_block_header, spec);
+            let valid_block = validate_block(&core_block, &parent_block_header, &evm_state);
             if !valid_block {
                 assert!(block.expect_exception.is_some());
                 return false;
@@ -94,32 +128,18 @@ pub fn validate_test(test: &TestUnit) -> bool {
     true
 }
 
-pub fn block_fork_spec(test: &TestUnit, header: &CoreBlockHeader) -> SpecId {
-    let spec = match &*test.network {
-        "Shanghai" => SpecId::SHANGHAI,
-        "Cancun" => SpecId::CANCUN,
-        "Paris" => SpecId::MERGE,
-        "ShanghaiToCancunAtTime15k" => {
-            if header.timestamp >= 15_000 {
-                SpecId::CANCUN
-            } else {
-                SpecId::SHANGHAI
-            }
-        }
-        _ => panic!("Unsupported network: {}", test.network),
-    };
-    spec
-}
 /// Creates an in-memory DB for evm execution and loads the prestate accounts
 pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
     let mut store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
+    let block_number = test.genesis_block_header.number.as_u64();
     store
-        .add_block_header(
-            test.genesis_block_header.number.low_u64(),
-            test.genesis_block_header.clone().into(),
-        )
+        .add_block_header(block_number, test.genesis_block_header.clone().into())
         .unwrap();
+    store
+        .add_block_number(test.genesis_block_header.hash, block_number)
+        .unwrap();
+    let _ = store.update_latest_block_number(block_number);
     for (address, account) in &test.pre {
         let account: CoreAccount = account.clone().into();
         store
@@ -189,31 +209,24 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
             );
         }
     }
-    // Check world state
-    // get last valid block
-    let last_block = match test.genesis_block_header.hash == test.lastblockhash {
-        // lastblockhash matches genesis block
-        true => &test.genesis_block_header,
-        // lastblockhash matches a block in blocks list
-        false => test
-            .blocks
-            .iter()
-            .map(|b| &b.block().unwrap().block_header)
-            .find(|h| h.hash == test.lastblockhash)
-            .unwrap(),
-    };
-    let test_state_root = last_block.state_root;
-    // TODO: these checks should be enabled once we start storing the Blocks in the DB
-    // let db_block_header = db
-    //     .get_block_header(test_block.number.low_u64())
-    //     .unwrap()
-    //     .unwrap();
-    // assert_eq!(
-    //     test_state_root,
-    //     db_block_header.state_root,
-    //     "Mismatched state root for database, test: {test_key}");
+    // Check lastblockhash is in store
+    let last_block_number = db.get_latest_block_number().unwrap().unwrap();
+    let last_block_hash = db
+        .get_block_header(last_block_number)
+        .unwrap()
+        .unwrap()
+        .compute_block_hash();
     assert_eq!(
-        test_state_root,
+        test.lastblockhash, last_block_hash,
+        "Last block number does not match"
+    );
+    // Get block header
+    let last_block = db.get_block_header(last_block_number).unwrap();
+    assert!(last_block.is_some(), "Block hash is not stored in db");
+    // Check world state
+    let db_state_root = last_block.unwrap().state_root;
+    assert_eq!(
+        db_state_root,
         db.clone().world_state_root(),
         "Mismatched state root for world state trie, test: {test_key}"
     );

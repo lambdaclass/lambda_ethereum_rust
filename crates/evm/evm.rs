@@ -49,9 +49,11 @@ impl EvmState {
 /// Performs pre-execution validation of the block's header values in reference to the parent_header
 /// Verifies that blob gas fields in the header are correct in reference to the block's body.
 /// If a block passes this check, execution will still fail with execute_block when a transaction runs out of gas
-pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) -> bool {
+pub fn validate_block(block: &Block, parent_header: &BlockHeader, state: &EvmState) -> bool {
     //TODO: Fail if block is already on the blockchain
     //TODO: Fail if the parent block identified by parent_hash is not present on the blockchain
+
+    let spec = spec_id(state.database(), block.header.timestamp).unwrap();
 
     // Verify initial header validity against parent
     let valid_header = match spec {
@@ -77,12 +79,9 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
     let mut blob_gas_used = 0_u64;
     let mut blobs_in_block = 0_u64;
     for transaction in block.body.transactions.iter() {
-        match transaction {
-            Transaction::EIP4844Transaction(tx) => {
-                blob_gas_used += get_total_blob_gas(tx);
-                blobs_in_block += tx.blob_versioned_hashes.len() as u64;
-            }
-            _ => (),
+        if let Transaction::EIP4844Transaction(tx) = transaction {
+            blob_gas_used += get_total_blob_gas(tx);
+            blobs_in_block += tx.blob_versioned_hashes.len() as u64;
         }
     }
     if spec == SpecId::CANCUN && blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
@@ -91,7 +90,7 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, spec: SpecId) 
     if spec == SpecId::CANCUN && blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
         return false;
     }
-    if spec == SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap() as u64 {
+    if spec == SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap() {
         return false;
     }
 
@@ -102,8 +101,9 @@ pub fn get_total_blob_gas(tx: &EIP4844Transaction) -> u64 {
     GAS_PER_BLOB * tx.blob_versioned_hashes.len() as u64
 }
 /// Executes all transactions in a block and performs the state transition on the database
-pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Result<(), EvmError> {
+pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
     let block_header = &block.header;
+    let spec_id = spec_id(state.database(), block_header.timestamp)?;
     //eip 4788: execute beacon_root_contract_call before block transactions
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(state, block_header, spec_id)?;
@@ -118,6 +118,11 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
         process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
+    // Store Block in database
+    state.database().add_block(block.clone())?;
+    state
+        .database()
+        .update_latest_block_number(block_header.number)?;
     Ok(())
 }
 
@@ -419,7 +424,6 @@ fn block_env(header: &BlockHeader) -> BlockEnv {
         } else {
             Default::default()
         },
-        ..Default::default()
     }
 }
 
@@ -543,4 +547,24 @@ fn access_list_inspector(
         to,
         precompile_addresses,
     ))
+}
+
+/// Returns the spec id according to the block timestamp and the stored chain config
+/// WARNING: Assumes at least Merge fork is active
+pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
+    Ok(
+        if store
+            .get_cancun_time()?
+            .is_some_and(|t| t <= block_timestamp)
+        {
+            SpecId::CANCUN
+        } else if store
+            .get_shanghai_time()?
+            .is_some_and(|t| t <= block_timestamp)
+        {
+            SpecId::SHANGHAI
+        } else {
+            SpecId::MERGE
+        },
+    )
 }
