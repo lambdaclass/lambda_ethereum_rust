@@ -28,6 +28,8 @@ pub struct TestUnit {
 }
 
 impl TestUnit {
+    /// Checks wether a test has a block where the inner_block is none.
+    /// These tests only check for failures in decoding invalid rlp and expect an exception.
     pub fn is_rlp_only_test(&self) -> bool {
         let mut is_rlp_only = false;
         for block in self.blocks.iter() {
