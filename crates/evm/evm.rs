@@ -60,15 +60,13 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, state: &EvmSta
     let spec = spec_id(state.database(), block.header.timestamp).unwrap();
 
     // Verify initial header validity against parent
-    let valid_header = match spec {
+    let mut valid_header = validate_block_header(&block.header, parent_header);
+
+    valid_header = match spec {
         SpecId::CANCUN => {
-            validate_block_header(&block.header, parent_header)
-                && validate_cancun_header_fields(&block.header, parent_header)
+            valid_header && validate_cancun_header_fields(&block.header, parent_header)
         }
-        _ => {
-            validate_block_header(&block.header, parent_header)
-                && validate_no_cancun_header_fields(&block.header)
-        }
+        _ => valid_header && validate_no_cancun_header_fields(&block.header),
     };
     if !valid_header {
         return false;
@@ -430,11 +428,9 @@ fn block_env(header: &BlockHeader) -> BlockEnv {
         basefee: RevmU256::from(header.base_fee_per_gas),
         difficulty: RevmU256::from_limbs(header.difficulty.0),
         prevrandao: Some(header.prev_randao.as_fixed_bytes().into()),
-        blob_excess_gas_and_price: if let Some(excess_blob_gas) = header.excess_blob_gas {
-            Some(BlobExcessGasAndPrice::new(excess_blob_gas))
-        } else {
-            Some(BlobExcessGasAndPrice::new(0))
-        },
+        blob_excess_gas_and_price: Some(BlobExcessGasAndPrice::new(
+            header.excess_blob_gas.unwrap_or_default(),
+        )),
     }
 }
 
