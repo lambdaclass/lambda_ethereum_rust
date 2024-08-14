@@ -27,6 +27,18 @@ pub struct TestUnit {
     pub seal_engine: serde_json::Value,
 }
 
+impl TestUnit {
+    /// Checks wether a test has a block where the inner_block is none.
+    /// These tests only check for failures in decoding invalid rlp and expect an exception.
+    pub fn is_rlp_only_test(&self) -> bool {
+        let mut is_rlp_only = false;
+        for block in self.blocks.iter() {
+            is_rlp_only = is_rlp_only || block.block().is_none();
+        }
+        is_rlp_only
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
     pub balance: U256,
@@ -97,7 +109,7 @@ pub struct BlockWithRLP {
     #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
     pub rlp: Bytes,
     #[serde(flatten)]
-    inner: BlockInner,
+    inner: Option<BlockInner>,
     pub expect_exception: Option<String>,
 }
 
@@ -125,23 +137,12 @@ pub struct Block {
 }
 
 impl BlockWithRLP {
-    pub fn block(&self) -> &Block {
+    pub fn block(&self) -> Option<&Block> {
         match self.inner {
-            BlockInner::Block(ref block) => block,
-            BlockInner::DecodedRLP(ref decoded) => &decoded.rlp_decoded,
+            Some(BlockInner::Block(ref block)) => Some(block),
+            Some(BlockInner::DecodedRLP(ref decoded)) => Some(&decoded.rlp_decoded),
+            None => None,
         }
-    }
-
-    pub fn header(&self) -> &Header {
-        &self.block().block_header
-    }
-
-    pub fn transactions(&self) -> &Vec<Transaction> {
-        &self.block().transactions
-    }
-
-    pub fn withdrawals(&self) -> Option<&Vec<Withdrawal>> {
-        self.block().withdrawals.as_ref()
     }
 }
 impl From<Block> for CoreBlock {
@@ -268,7 +269,10 @@ impl From<Transaction> for EIP4844Transaction {
                 .unwrap_or(val.gas_price.unwrap_or_default())
                 .as_u64(),
             gas: val.gas_limit.as_u64(),
-            to: val.to,
+            to: match val.to {
+                TxKind::Call(address) => address,
+                TxKind::Create => panic!("EIP4844Transaction cannot be contract creation"),
+            },
             value: val.value,
             data: val.data,
             access_list: val
