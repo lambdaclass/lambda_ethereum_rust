@@ -8,7 +8,8 @@ use ethereum_rust_core::{
 use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
 
-/// Tests the execute_block function, only run on validated tests, check [validate_test] function.
+/// Tests the [execute_block] function.
+/// Shuold only be run on validated tests, check [validate_test] function.
 pub fn execute_test(test_key: &str, test: &TestUnit) {
     // Build pre state
     let mut evm_state = build_evm_state_for_test(test);
@@ -60,6 +61,8 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     tests
 }
 
+/// Performs pre-execution validations for the test cases.
+/// Checks that rlp decoding works bidirectionally and tests the [validate_block] function.
 pub fn validate_test(test: &TestUnit) -> bool {
     // check that the decoded genesis block header matches the deserialized one
     let genesis_rlp = test.genesis_rlp.clone();
