@@ -77,4 +77,11 @@ pub fn cli() -> Command {
                 .num_args(1..)
                 .action(ArgAction::Set),
         )
+        .arg(
+            Arg::new("import")
+                .long("import")
+                .required(false)
+                .value_name("CHAIN_RLP_PATH")
+                .action(ArgAction::Set),
+        )
 }
