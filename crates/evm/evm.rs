@@ -100,7 +100,9 @@ pub fn validate_block(block: &Block, parent_header: &BlockHeader, state: &EvmSta
 pub fn get_total_blob_gas(tx: &EIP4844Transaction) -> u64 {
     GAS_PER_BLOB * tx.blob_versioned_hashes.len() as u64
 }
-/// Executes all transactions in a block and performs the state transition on the database
+
+/// Executes all transactions in a block, performs the state transition on the database and stores the block in the DB
+// TODO: Consider leaving only block execution and moving state transitions & storage into a different crate
 pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
     let block_header = &block.header;
     let spec_id = spec_id(state.database(), block_header.timestamp)?;
@@ -118,11 +120,18 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
         process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
-    // Store Block in database
-    state.database().add_block(block.clone())?;
-    state
-        .database()
-        .update_latest_block_number(block_header.number)?;
+    // Compare state root
+    if state.database().world_state_root() == block.header.state_root {
+        // Store Block in database
+        state.database().add_block(block.clone())?;
+        state
+            .database()
+            .update_latest_block_number(block_header.number)?;
+    } else {
+        return Err(EvmError::Custom(
+            "State root mismatch after executing block".into(),
+        ));
+    }
     Ok(())
 }
 

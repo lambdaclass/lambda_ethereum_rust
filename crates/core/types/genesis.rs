@@ -29,8 +29,9 @@ pub struct Genesis {
     pub gas_limit: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
-    pub mixhash: H256,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
+    #[serde(alias = "mixHash", alias = "mixhash")]
+    pub mix_hash: H256,
+    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_or_dec_str")]
     pub timestamp: u64,
 }
 
@@ -92,9 +93,9 @@ pub struct GenesisAccount {
     pub code: Bytes,
     #[serde(default)]
     pub storage: HashMap<H256, U256>,
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_dec_str")]
+    #[serde(deserialize_with = "crate::serde_utils::u256::deser_hex_or_dec_str")]
     pub balance: U256,
-    #[serde(default, deserialize_with = "crate::serde_utils::u64::deser_dec_str")]
+    #[serde(default, with = "crate::serde_utils::u64::hex_str")]
     pub nonce: u64,
 }
 
@@ -120,7 +121,7 @@ impl Genesis {
             gas_used: 0,
             timestamp: self.timestamp,
             extra_data: Bytes::new(),
-            prev_randao: self.mixhash,
+            prev_randao: self.mix_hash,
             nonce: self.nonce,
             base_fee_per_gas: INITIAL_BASE_FEE,
             withdrawals_root: Some(compute_withdrawals_root(&[])),
@@ -176,7 +177,8 @@ mod tests {
     #[test]
     fn deserialize_genesis_file() {
         // Deserialize genesis file
-        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let file = File::open("../../test_data/genesis-kurtosis.json")
+            .expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
@@ -209,7 +211,7 @@ mod tests {
         assert!(genesis.extra_data.is_empty());
         assert_eq!(genesis.gas_limit, 0x17d7840);
         assert_eq!(genesis.nonce, 0x1234);
-        assert_eq!(genesis.mixhash, H256::from([0; 32]));
+        assert_eq!(genesis.mix_hash, H256::from([0; 32]));
         assert_eq!(genesis.timestamp, 1718040081);
         // Check alloc field
         // We will only check a couple of the hashmap's values as it is quite large
@@ -259,7 +261,8 @@ mod tests {
     #[test]
     fn genesis_block() {
         // Deserialize genesis file
-        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let file = File::open("../../test_data/genesis-kurtosis.json")
+            .expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
@@ -297,7 +300,8 @@ mod tests {
     #[test]
     // Parses genesis received by kurtosis and checks that the hash matches the next block's parent hash
     fn read_and_compute_hash() {
-        let file = File::open("../../test_data/genesis.json").expect("Failed to open genesis file");
+        let file = File::open("../../test_data/genesis-kurtosis.json")
+            .expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
@@ -307,5 +311,14 @@ mod tests {
             H256::from_str("0xcb5306dd861d0f2c1f9952fbfbc75a46d0b6ce4f37bea370c3471fe8410bf40b")
                 .unwrap()
         )
+    }
+
+    #[test]
+    fn parse_hive_genesis_file() {
+        let file =
+            File::open("../../test_data/genesis-hive.json").expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let _genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
     }
 }
