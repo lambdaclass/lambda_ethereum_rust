@@ -37,7 +37,7 @@ pub mod u256 {
     {
         let value = String::deserialize(d)?;
         U256::from_str_radix(value.trim_start_matches("0x"), 16)
-            .map_err(|_| D::Error::custom("Failed to deserialize u64 to u256 value"))
+            .map_err(|_| D::Error::custom("Failed to deserialize u256 value"))
     }
 
     pub fn deser_hex_or_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
@@ -47,29 +47,9 @@ pub mod u256 {
         let value = String::deserialize(d)?;
         if value.starts_with("0x") {
             U256::from_str_radix(value.trim_start_matches("0x"), 16)
-                .map_err(|_| D::Error::custom("Failed to deserialize u64 to u256 value"))
+                .map_err(|_| D::Error::custom("Failed to deserialize u256 value"))
         } else {
             U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
-        }
-    }
-}
-
-pub mod h160 {
-    use super::*;
-
-    use ethereum_types::H160;
-    use std::str::FromStr;
-
-    pub fn deser_hex_str<'de, D>(d: D) -> Result<H160, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(d)?;
-        if value.is_empty() {
-            Ok(H160::zero())
-        } else {
-            H160::from_str(value.trim_start_matches("0x"))
-                .map_err(|_| D::Error::custom("Failed to deserialize H160 value"))
         }
     }
 }
