@@ -29,7 +29,7 @@ pub struct Store {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum EngineType {
     #[cfg(feature = "in_memory")]
     InMemory,
@@ -203,7 +203,7 @@ impl Store {
             .get_code_by_account_address(address)
     }
 
-    pub fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
+    pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
         self.engine.lock().unwrap().add_account(address, account)
     }
 
@@ -251,6 +251,8 @@ impl Store {
         let genesis_block = genesis.get_block();
 
         // Store genesis block
+        self.update_earliest_block_number(genesis_block.header.number)?;
+        self.update_latest_block_number(genesis_block.header.number)?;
         self.add_block(genesis_block)?;
 
         // Store each alloc account
@@ -335,6 +337,10 @@ impl Store {
         self.engine.lock().unwrap().get_cancun_time()
     }
 
+    pub fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
+        self.engine.lock().unwrap().get_shanghai_time()
+    }
+
     pub fn update_earliest_block_number(
         &self,
         block_number: BlockNumber,
@@ -401,7 +407,7 @@ impl Store {
     ///   TODO:
     ///     Version 2: Keeps trie in memory
     ///     Version 3: Persists trie in db
-    pub fn world_state_root(&mut self) -> H256 {
+    pub fn world_state_root(&self) -> H256 {
         // build trie from state
         let mut trie = self.build_trie_from_state();
 
@@ -435,7 +441,7 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs, str::FromStr};
+    use std::{fs, str::FromStr};
 
     use bytes::Bytes;
     use ethereum_rust_core::{
@@ -450,32 +456,46 @@ mod tests {
     #[cfg(feature = "in_memory")]
     #[test]
     fn test_in_memory_store() {
-        let store = Store::new("test", EngineType::InMemory).unwrap();
-        test_store_suite(store);
+        test_store_suite(EngineType::InMemory);
     }
 
     #[cfg(feature = "libmdbx")]
     #[test]
     fn test_libmdbx_store() {
-        // Removing preexistent DBs in case of a failed previous test
-        remove_test_dbs("test.mdbx");
-        let store = Store::new("test.mdbx", EngineType::Libmdbx).unwrap();
-        test_store_suite(store);
-        remove_test_dbs("test.mdbx");
+        test_store_suite(EngineType::Libmdbx);
     }
 
-    fn test_store_suite(store: Store) {
-        test_store_account(store.clone());
-        test_store_block(store.clone());
-        test_store_block_number(store.clone());
-        test_store_transaction_location(store.clone());
-        test_store_block_receipt(store.clone());
-        test_store_account_code(store.clone());
-        test_store_account_storage(store.clone());
-        test_remove_account_storage(store.clone());
-        test_increment_balance(store.clone());
-        test_store_chain_config(store.clone());
-        test_store_block_tags(store.clone());
+    // Creates an empty store, runs the test and then removes the store (if needed)
+    fn run_test(test_func: &dyn Fn(Store), engine_type: EngineType) {
+        // Remove preexistent DBs in case of a failed previous test
+        if matches!(engine_type, EngineType::Libmdbx) {
+            remove_test_dbs("store-test-db");
+        };
+        // Build a new store
+        let store = Store::new("store-test-db", engine_type).expect("Failed to create test db");
+        // Run the test
+        test_func(store);
+        // Remove store (if needed)
+        if matches!(engine_type, EngineType::Libmdbx) {
+            remove_test_dbs("store-test-db");
+        };
+    }
+
+    fn test_store_suite(engine_type: EngineType) {
+        run_test(&test_store_account, engine_type);
+        run_test(&test_store_block, engine_type);
+        run_test(&test_store_block_number, engine_type);
+        run_test(&test_store_transaction_location, engine_type);
+        run_test(&test_store_block_receipt, engine_type);
+        run_test(&test_store_account_code, engine_type);
+        run_test(&test_store_account_storage, engine_type);
+        run_test(&test_remove_account_storage, engine_type);
+        run_test(&test_increment_balance, engine_type);
+        run_test(&test_store_chain_config, engine_type);
+        run_test(&test_store_block_tags, engine_type);
+        run_test(&test_account_info_iter, engine_type);
+        run_test(&test_world_state_root_smoke, engine_type);
+        run_test(&test_account_storage_iter, engine_type);
     }
 
     fn test_store_account(store: Store) {
@@ -503,19 +523,10 @@ mod tests {
         }
     }
 
-    fn remove_test_dbs(prefix: &str) {
+    fn remove_test_dbs(path: &str) {
         // Removes all test databases from filesystem
-        for entry in fs::read_dir(env::current_dir().unwrap()).unwrap() {
-            if entry
-                .as_ref()
-                .unwrap()
-                .file_name()
-                .to_str()
-                .unwrap()
-                .starts_with(prefix)
-            {
-                fs::remove_dir_all(entry.unwrap().path()).unwrap();
-            }
+        if std::path::Path::new(path).exists() {
+            fs::remove_dir_all(path).expect("Failed to clean test db dir");
         }
     }
 
@@ -776,5 +787,83 @@ mod tests {
         assert_eq!(safe_block_number, stored_safe_block_number);
         assert_eq!(latest_block_number, stored_latest_block_number);
         assert_eq!(pending_block_number, stored_pending_block_number);
+    }
+
+    fn test_account_info_iter(store: Store) {
+        // Build preset account infos
+        let account_infos = HashMap::from([
+            (
+                Address::repeat_byte(1),
+                AccountInfo {
+                    balance: 1.into(),
+                    ..Default::default()
+                },
+            ),
+            (
+                Address::repeat_byte(2),
+                AccountInfo {
+                    balance: 2.into(),
+                    ..Default::default()
+                },
+            ),
+            (
+                Address::repeat_byte(2),
+                AccountInfo {
+                    balance: 3.into(),
+                    ..Default::default()
+                },
+            ),
+        ]);
+
+        // Store account infos
+        for (address, account_info) in account_infos.clone() {
+            store.add_account_info(address, account_info).unwrap();
+        }
+
+        // Fetch all account infos from db and compare against preset
+        let account_info_iter = store.account_infos_iter().unwrap();
+        let account_infos_from_iter = HashMap::from_iter(account_info_iter);
+        assert_eq!(account_infos, account_infos_from_iter)
+    }
+
+    fn test_world_state_root_smoke(store: Store) {
+        // Fill the DB with some data (the data itself is not important as we only want to check that computing the world state root doesn't fail)
+        for i in 0..5 {
+            store
+                .add_account(
+                    Address::random(),
+                    Account {
+                        storage: HashMap::from([
+                            (H256::random(), U256::from(i * 5)),
+                            (H256::random(), U256::from(i * 5 + 1)),
+                            (H256::random(), U256::from(i * 5 + 2)),
+                        ]),
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+        }
+        store.world_state_root();
+    }
+
+    fn test_account_storage_iter(store: Store) {
+        let address = Address::random();
+        // Build preset account storage
+        let account_storage = HashMap::from([
+            (H256::random(), U256::from(7)),
+            (H256::random(), U256::from(17)),
+            (H256::random(), U256::from(77)),
+            (H256::random(), U256::from(707)),
+        ]);
+
+        // Store account storage
+        for (key, value) in account_storage.clone() {
+            store.add_storage_at(address, key, value).unwrap();
+        }
+
+        // Fetch account storage from db and compare against preset
+        let account_storage_iter = store.account_storage_iter(address).unwrap();
+        let account_storage_from_iter = HashMap::from_iter(account_storage_iter);
+        assert_eq!(account_storage, account_storage_from_iter)
     }
 }

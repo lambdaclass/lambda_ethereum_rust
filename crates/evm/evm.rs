@@ -43,9 +43,11 @@ impl EvmState {
     }
 }
 
-/// Executes all transactions in a block and performs the state transition on the database
-pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Result<(), EvmError> {
+/// Executes all transactions in a block, performs the state transition on the database and stores the block in the DB
+// TODO: Consider leaving only block execution and moving state transitions & storage into a different crate
+pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
     let block_header = &block.header;
+    let spec_id = spec_id(state.database(), block_header.timestamp)?;
     //eip 4788: execute beacon_root_contract_call before block transactions
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(state, block_header, spec_id)?;
@@ -60,11 +62,18 @@ pub fn execute_block(block: &Block, state: &mut EvmState, spec_id: SpecId) -> Re
         process_withdrawals(state, withdrawals)?;
     }
     apply_state_transitions(state)?;
-    // Store Block in database
-    state.database().add_block(block.clone())?;
-    state
-        .database()
-        .update_latest_block_number(block_header.number)?;
+    // Compare state root
+    if state.database().world_state_root() == block.header.state_root {
+        // Store Block in database
+        state.database().add_block(block.clone())?;
+        state
+            .database()
+            .update_latest_block_number(block_header.number)?;
+    } else {
+        return Err(EvmError::Custom(
+            "State root mismatch after executing block".into(),
+        ));
+    }
     Ok(())
 }
 
@@ -485,4 +494,24 @@ fn access_list_inspector(
         to,
         precompile_addresses,
     ))
+}
+
+/// Returns the spec id according to the block timestamp and the stored chain config
+/// WARNING: Assumes at least Merge fork is active
+pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
+    Ok(
+        if store
+            .get_cancun_time()?
+            .is_some_and(|t| t <= block_timestamp)
+        {
+            SpecId::CANCUN
+        } else if store
+            .get_shanghai_time()?
+            .is_some_and(|t| t <= block_timestamp)
+        {
+            SpecId::SHANGHAI
+        } else {
+            SpecId::MERGE
+        },
+    )
 }

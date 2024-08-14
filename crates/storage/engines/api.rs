@@ -189,6 +189,9 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain the timestamp at which the cancun fork was activated
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;
 
+    /// Obtain the timestamp at which the shanghai fork was activated
+    fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError>;
+
     // Update earliest block number
     fn update_earliest_block_number(&mut self, block_number: BlockNumber)
         -> Result<(), StoreError>;
