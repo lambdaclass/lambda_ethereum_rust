@@ -48,15 +48,20 @@ pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainErro
     // Check state root matches the one in block header after execution
     validate_state(&block.header, storage.clone())?;
 
-    // Store Block in database
+    store_block(storage.clone(), block.clone())?;
+
+    Ok(ChainResult::InsertedBlock)
+}
+
+/// Stores block and header in the database
+pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
     storage
         .add_block(block.clone())
         .map_err(|e| ChainError::StoreError(e))?;
     storage
         .update_latest_block_number(block.header.number)
         .map_err(|e| ChainError::StoreError(e))?;
-
-    Ok(ChainResult::InsertedBlock)
+    Ok(())
 }
 
 /// Performs post-execution checks
