@@ -37,5 +37,6 @@ setup-hive:
     git clone https://github.com/lambdaclass/hive.git
     cd hive && go build .
 
-run-hive: build_image
-    cd hive && ./hive --sim ethereum/rpc-compat --client ethereumrust
+test-pattern-default := "/"
+run-hive test-pattern=test-pattern-default: build_image
+    cd hive && ./hive --sim ethereum/rpc-compat --client ethereumrust --sim.limit {{test-pattern}}
