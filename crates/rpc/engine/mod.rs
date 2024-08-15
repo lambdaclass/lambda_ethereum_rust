@@ -1,8 +1,8 @@
+use ethereum_rust_chain::{add_block, ChainError};
 use ethereum_rust_core::{
     types::{validate_block_header, ExecutionPayloadV3, PayloadStatus},
     H256,
 };
-use ethereum_rust_evm::{evm_state, execute_block};
 use ethereum_rust_storage::Store;
 use serde_json::{json, Value};
 use tracing::info;
@@ -99,7 +99,11 @@ pub fn new_payload_v3(
 
     // Execute and store the block
     info!("Executing payload with block hash: {block_hash}");
-    execute_block(&block, &mut evm_state(storage.clone()))?;
+    match add_block(&block, storage.clone()) {
+        Err(ChainError::GreaterThanLatestPlusOne) => return Ok(PayloadStatus::syncing()),
+        Err(ChainError::InvalidBlock(error)) => return Ok(PayloadStatus::invalid_with_err(error)),
+    }
+
     info!("Block with hash {block_hash} executed succesfully");
     info!("Block with hash {block_hash} added to storage");
 

@@ -12,34 +12,39 @@ use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
 use thiserror::Error;
 
-#[derive(Debug)]
-pub enum ChainResult {
-    InsertedBlock,
-}
-
 #[derive(Debug, Error)]
 pub enum ChainError {
-    #[error("Invalid Transaction: {0}")]
-    InvalidBlock(String),
+    #[error("Invalid Block: {0}")]
+    InvalidBlock(InvalidBlockError),
+    #[error("Parent block not found (block with block_number-1)")]
+    ParentNotFound,
+    #[error("Block number is not the latest plus one")]
+    GreaterThanLatestPlusOne,
+    #[error("Previous block's hash does not match parent_hash in header")]
+    ParentHashMismatch,
     #[error("DB error: {0}")]
     StoreError(StoreError),
     #[error("EVM error: {0}")]
     EvmError(EvmError),
 }
 
-//TODO: Move validate_block and execute_block functions from evm crate into this crate
-//      Those functions should also be refactored to return our own results and errors instead of
-//      revm generic errors, empty results, or booleans.
-
-//TODO: execute_block function should not have the responsability of updating the database.
-
-//TODO: execute_block should return a result with some kind of execution receipts to validate
-//      against the block header, for example we should be able to know how much gas was used
-//      in the block execution to validate the gas_used field.
+#[derive(Debug, Error)]
+pub enum InvalidBlockError {
+    #[error("World State Root does not match the one in the header after executing")]
+    StateRootMismatch,
+    #[error("Invalid Header, validation failed pre-execution")]
+    InvalidHeader,
+    #[error("Exceeded MAX_BLOB_GAS_PER_BLOCK")]
+    ExceededMaxBlobGasPerBlock,
+    #[error("Exceeded MAX_BLOB_NUMBER_PER_BLOCK")]
+    ExceededMaxBlobNumberPerBlock,
+    #[error("blob gas used doesn't match value in header")]
+    BlobGasUsedMismatch,
+}
 
 /// Adds a new block as head of the chain.
 /// Performs pre and post execution validation, and updates the database.
-pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainError> {
+pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(block, &storage)?;
 
@@ -57,7 +62,7 @@ pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainErro
 
     store_block(storage.clone(), block.clone())?;
 
-    Ok(ChainResult::InsertedBlock)
+    Ok(())
 }
 
 /// Stores block and header in the database
@@ -78,7 +83,7 @@ pub fn validate_state(block_header: &BlockHeader, storage: Store) -> Result<(), 
         Ok(())
     } else {
         return Err(ChainError::InvalidBlock(
-            "State root mismatch after executing block".into(),
+            InvalidBlockError::StateRootMismatch,
         ));
     }
 }
@@ -87,31 +92,29 @@ pub fn validate_state(block_header: &BlockHeader, storage: Store) -> Result<(), 
 /// parent_header in that case.
 fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, ChainError> {
     let block_number = block.header.number;
+
     let last_block_number = storage
         .get_latest_block_number()
         .map_err(|e| ChainError::StoreError(e))?
         .unwrap();
-    if block_number != last_block_number.saturating_add(1) {
-        return Err(ChainError::InvalidBlock(
-            "Block number is not the latest plus one".to_string(),
-        ));
+
+    if block_number > last_block_number.saturating_add(1) {
+        return Err(ChainError::GreaterThanLatestPlusOne);
     }
 
     // Fetch the block header with previous number
-    let parent_header_result = storage.get_block_header(block_number.saturating_sub(1));
+    let parent_header_result = storage
+        .get_block_header(block_number.saturating_sub(1))
+        .map_err(|e| ChainError::StoreError(e))?;
     let parent_header = match parent_header_result {
-        Ok(Some(parent_header)) => {
+        Some(parent_header) => {
             if parent_header.compute_block_hash() != block.header.parent_hash {
-                return Err(ChainError::InvalidBlock(
-                    "Parent hash doesn't match block found in store".to_string(),
-                ));
+                return Err(ChainError::ParentHashMismatch);
             }
             parent_header
         }
-        _ => {
-            return Err(ChainError::InvalidBlock(
-                "Parent block not found in store (invalid block number)".to_string(),
-            ));
+        None => {
+            return Err(ChainError::ParentNotFound);
         }
     };
     Ok(parent_header)
@@ -137,7 +140,7 @@ pub fn validate_block(
         _ => valid_header && validate_no_cancun_header_fields(&block.header),
     };
     if !valid_header {
-        return Err(ChainError::InvalidBlock("Invalid Header".to_string()));
+        return Err(ChainError::InvalidBlock(InvalidBlockError::InvalidHeader));
     }
 
     if spec == SpecId::CANCUN {
@@ -157,17 +160,17 @@ fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
     }
     if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
         return Err(ChainError::InvalidBlock(
-            "Exceeded MAX_BLOB_GAS_PER_BLOCK".to_string(),
+            InvalidBlockError::ExceededMaxBlobGasPerBlock,
         ));
     }
     if blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
         return Err(ChainError::InvalidBlock(
-            "Exceeded MAX_BLOB_NUMBER_PER_BLOCK".to_string(),
+            InvalidBlockError::ExceededMaxBlobNumberPerBlock,
         ));
     }
     if blob_gas_used != block.header.blob_gas_used.unwrap() {
         return Err(ChainError::InvalidBlock(
-            "blob gas used doesn't match value in header".to_string(),
+            InvalidBlockError::BlobGasUsedMismatch,
         ));
     }
     Ok(())

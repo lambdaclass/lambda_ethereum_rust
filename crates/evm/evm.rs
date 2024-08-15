@@ -43,11 +43,11 @@ impl EvmState {
     }
 }
 
-//TODO:validate_block and execute_block should return declarative results and errors indicating the
-//     outcome of executing these functions.
+//TODO: execute_block should return a result with some kind of execution receipts to validate
+//      against the block header, for example we should be able to know how much gas was used
+//      in the block execution to validate the gas_used field.
 
 /// Executes all transactions in a block, performs the state transition on the database and stores the block in the DB
-// TODO: Consider leaving only block execution and moving state transitions & storage into a different crate
 pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
     let block_header = &block.header;
     let spec_id = spec_id(state.database(), block_header.timestamp)?;

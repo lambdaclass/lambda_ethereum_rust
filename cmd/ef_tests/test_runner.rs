@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::Path};
 use crate::types::{BlockWithRLP, TestUnit};
 use ethereum_rust_chain::add_block;
 use ethereum_rust_core::{
-    rlp::{decode::RLPDecode, encode::RLPEncode},
+    rlp::decode::RLPDecode,
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
 use ethereum_rust_evm::{evm_state, EvmState};
@@ -30,11 +30,12 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
 
     for block_fixture in test.blocks.iter() {
         let expects_exception = block_fixture.expect_exception.is_some();
-        check_for_rlp_exception(&block_fixture);
+        test_rlp_decoding(&block_fixture);
 
         // Won't panic because test has been validated
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
+        // Attempt to add the block as the head of the chain
         let chain_result = add_block(block, store.clone());
         match chain_result {
             Err(error) => {
@@ -56,7 +57,8 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
     check_poststate_against_db(test_key, test, &store)
 }
 
-fn check_for_rlp_exception(block_fixture: &BlockWithRLP) {
+/// Tests the rlp decoding of a block
+fn test_rlp_decoding(block_fixture: &BlockWithRLP) {
     let expects_rlp_exception = block_fixture
         .expect_exception
         .as_ref()
@@ -71,6 +73,7 @@ fn check_for_rlp_exception(block_fixture: &BlockWithRLP) {
         }
     }
 }
+
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     let s: String = std::fs::read_to_string(path).expect("Unable to read file");
     let tests: HashMap<String, TestUnit> = serde_json::from_str(&s).expect("Unable to parse JSON");
