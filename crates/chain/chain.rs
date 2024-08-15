@@ -1,11 +1,19 @@
-use ethereum_rust_core::types::{Block, BlockHeader};
-use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmError};
+pub mod constants;
+use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK};
+use ethereum_rust_core::types::{
+    validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
+    BlockHeader, EIP4844Transaction, Transaction,
+};
+use ethereum_rust_evm::{
+    apply_state_transitions, evm_state, execute_block, spec_id, EvmError, EvmState, SpecId,
+};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
 
 pub enum ChainResult {
-    InsertedBlock(String),
+    InsertedBlock,
 }
+
 pub enum ChainError {
     RejectedBlock(String),
     StoreError(StoreError),
@@ -28,17 +36,14 @@ pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainErro
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(block, &storage)?;
 
-    // Validate the block pre-execution
     let mut state = evm_state(storage.clone());
-    let valid_block = validate_block(block, &parent_header, &state);
 
-    if !valid_block {
-        return Err(ChainError::RejectedBlock(
-            "Failed to validate block".to_string(),
-        ));
-    }
+    // Validate the block pre-execution
+    validate_block(block, &parent_header, &state)?;
 
     execute_block(block, &mut state).map_err(|e| ChainError::EvmError(e))?;
+
+    apply_state_transitions(&mut state).map_err(|e| ChainError::StoreError(e))?;
 
     // Check state root matches the one in block header after execution
     validate_state(&block.header, storage.clone())?;
@@ -50,7 +55,8 @@ pub fn add_block(block: &Block, storage: Store) -> Result<ChainResult, ChainErro
     storage
         .update_latest_block_number(block.header.number)
         .map_err(|e| ChainError::StoreError(e))?;
-    Ok(ChainResult::InsertedBlock("ok!".to_string()))
+
+    Ok(ChainResult::InsertedBlock)
 }
 
 /// Performs post-execution checks
@@ -75,13 +81,12 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
         .unwrap();
     if block_number != last_block_number.saturating_add(1) {
         return Err(ChainError::RejectedBlock(
-            "Block is not the latest block".to_string(),
+            "Block number is not the latest plus one".to_string(),
         ));
     }
 
     // Fetch the block header with previous number
     let parent_header_result = storage.get_block_header(block_number.saturating_sub(1));
-
     let parent_header = match parent_header_result {
         Ok(Some(parent_header)) => {
             if parent_header.compute_block_hash() != block.header.parent_hash {
@@ -98,6 +103,67 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
         }
     };
     Ok(parent_header)
+}
+
+/// Performs pre-execution validation of the block's header values in reference to the parent_header
+/// Verifies that blob gas fields in the header are correct in reference to the block's body.
+/// If a block passes this check, execution will still fail with execute_block when a transaction runs out of gas
+pub fn validate_block(
+    block: &Block,
+    parent_header: &BlockHeader,
+    state: &EvmState,
+) -> Result<(), ChainError> {
+    let spec = spec_id(state.database(), block.header.timestamp).unwrap();
+
+    // Verify initial header validity against parent
+    let mut valid_header = validate_block_header(&block.header, parent_header);
+
+    valid_header = match spec {
+        SpecId::CANCUN => {
+            valid_header && validate_cancun_header_fields(&block.header, parent_header)
+        }
+        _ => valid_header && validate_no_cancun_header_fields(&block.header),
+    };
+    if !valid_header {
+        return Err(ChainError::RejectedBlock("Invalid Header".to_string()));
+    }
+
+    if spec == SpecId::CANCUN {
+        verify_blob_gas_usage(block)?
+    }
+    Ok(())
+}
+
+fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
+    let mut blob_gas_used = 0_u64;
+    let mut blobs_in_block = 0_u64;
+    for transaction in block.body.transactions.iter() {
+        if let Transaction::EIP4844Transaction(tx) = transaction {
+            blob_gas_used += get_total_blob_gas(tx);
+            blobs_in_block += tx.blob_versioned_hashes.len() as u64;
+        }
+    }
+    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
+        return Err(ChainError::RejectedBlock(
+            "Exceeded MAX_BLOB_GAS_PER_BLOCK".to_string(),
+        ));
+    }
+    if blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
+        return Err(ChainError::RejectedBlock(
+            "Exceeded MAX_BLOB_NUMBER_PER_BLOCK".to_string(),
+        ));
+    }
+    if blob_gas_used != block.header.blob_gas_used.unwrap() {
+        return Err(ChainError::RejectedBlock(
+            "blob gas used doesn't match value in header".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Calculates the blob gas required by a transaction
+fn get_total_blob_gas(tx: &EIP4844Transaction) -> u64 {
+    GAS_PER_BLOB * tx.blob_versioned_hashes.len() as u64
 }
 
 #[cfg(test)]

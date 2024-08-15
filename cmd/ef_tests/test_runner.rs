@@ -1,12 +1,49 @@
 use std::{collections::HashMap, path::Path};
 
 use crate::types::TestUnit;
+use ethereum_rust_chain::add_block;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
-use ethereum_rust_evm::{evm_state, execute_block, validate_block, EvmState};
+use ethereum_rust_evm::{evm_state, execute_block, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
+
+pub fn test_add_block(test_key: &str, test: &TestUnit) {
+    let store = build_store_for_test(test);
+    // Check world_state
+    check_prestate_against_db(test_key, test, &store);
+
+    // Setup chain config
+    let chain_config = test.network.chain_config();
+    store
+        .set_chain_config(chain_config)
+        .expect("failed to set chain config on db");
+    // Execute all blocks in test
+
+    for block_fixture in test.blocks.iter() {
+        // Won't panic because test has been validated
+        let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
+
+        let chain_result = add_block(block, store.clone());
+        match chain_result {
+            Err(_) => {
+                assert!(
+                    block_fixture.expect_exception.is_some(),
+                    "Transaction execution unexpectedly failed on test: {}, with error",
+                    test_key,
+                );
+                return;
+            }
+            Ok(_) => assert!(
+                block_fixture.expect_exception.is_none(),
+                "Expecte transaction execution to fail in test: {} with error: {}",
+                test_key,
+                block_fixture.expect_exception.clone().unwrap()
+            ),
+        }
+    }
+}
 
 /// Tests the [execute_block] function.
 /// Shuold only be run on validated tests, check [validate_test] function.
@@ -113,8 +150,7 @@ pub fn validate_test(test: &TestUnit) -> bool {
     true
 }
 
-/// Creates an in-memory DB for evm execution and loads the prestate accounts
-pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
+pub fn build_store_for_test(test: &TestUnit) -> Store {
     let store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
     let block_number = test.genesis_block_header.number.as_u64();
@@ -131,6 +167,11 @@ pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
             .add_account(*address, account)
             .expect("Failed to write to test DB")
     }
+    store
+}
+/// Creates an in-memory DB for evm execution and loads the prestate accounts
+pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
+    let store = build_store_for_test(test);
     evm_state(store)
 }
 

@@ -6,9 +6,8 @@ use db::StoreWrapper;
 
 use ethereum_rust_core::{
     types::{
-        validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields,
-        AccountInfo, Block, BlockHeader, EIP4844Transaction, GenericTransaction, Transaction,
-        TxKind, Withdrawal, GWEI_TO_WEI,
+        AccountInfo, Block, BlockHeader, GenericTransaction, Transaction, TxKind, Withdrawal,
+        GWEI_TO_WEI,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -19,15 +18,12 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{
-        BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, MAX_BLOB_GAS_PER_BLOCK,
-        MAX_BLOB_NUMBER_PER_BLOCK, U256 as RevmU256,
-    },
+    primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, U256 as RevmU256},
     Database, DatabaseCommit, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
-use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind, GAS_PER_BLOB};
+use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind};
 use revm_primitives::{AccessList as RevmAccessList, AccessListItem as RevmAccessListItem};
 // Export needed types
 pub use errors::EvmError;
@@ -50,55 +46,6 @@ impl EvmState {
 //TODO:validate_block and execute_block should return declarative results and errors indicating the
 //     outcome of executing these functions.
 
-/// Performs pre-execution validation of the block's header values in reference to the parent_header
-/// Verifies that blob gas fields in the header are correct in reference to the block's body.
-/// If a block passes this check, execution will still fail with execute_block when a transaction runs out of gas
-pub fn validate_block(block: &Block, parent_header: &BlockHeader, state: &EvmState) -> bool {
-    //TODO: Fail if block is already on the blockchain
-    //TODO: Fail if the parent block identified by parent_hash is not present on the blockchain
-
-    let spec = spec_id(state.database(), block.header.timestamp).unwrap();
-
-    // Verify initial header validity against parent
-    let mut valid_header = validate_block_header(&block.header, parent_header);
-
-    valid_header = match spec {
-        SpecId::CANCUN => {
-            valid_header && validate_cancun_header_fields(&block.header, parent_header)
-        }
-        _ => valid_header && validate_no_cancun_header_fields(&block.header),
-    };
-    if !valid_header {
-        return false;
-    }
-
-    // Verifiy blob gas usage
-    let mut blob_gas_used = 0_u64;
-    let mut blobs_in_block = 0_u64;
-    for transaction in block.body.transactions.iter() {
-        if let Transaction::EIP4844Transaction(tx) = transaction {
-            blob_gas_used += get_total_blob_gas(tx);
-            blobs_in_block += tx.blob_versioned_hashes.len() as u64;
-        }
-    }
-    if spec == SpecId::CANCUN && blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
-        return false;
-    }
-    if spec == SpecId::CANCUN && blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
-        return false;
-    }
-    if spec == SpecId::CANCUN && blob_gas_used != block.header.blob_gas_used.unwrap() {
-        return false;
-    }
-
-    true
-}
-
-/// Calculates the blob gas required by a transaction
-pub fn get_total_blob_gas(tx: &EIP4844Transaction) -> u64 {
-    GAS_PER_BLOB * tx.blob_versioned_hashes.len() as u64
-}
-
 /// Executes all transactions in a block, performs the state transition on the database and stores the block in the DB
 // TODO: Consider leaving only block execution and moving state transitions & storage into a different crate
 pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError> {
@@ -113,22 +60,8 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
         execute_tx(transaction, block_header, state, spec_id)?;
     }
 
-    apply_state_transitions(state)?;
     if let Some(withdrawals) = &block.body.withdrawals {
         process_withdrawals(state, withdrawals)?;
-    }
-    apply_state_transitions(state)?;
-    // Compare state root
-    if state.database().world_state_root() == block.header.state_root {
-        // Store Block in database
-        state.database().add_block(block.clone())?;
-        state
-            .database()
-            .update_latest_block_number(block_header.number)?;
-    } else {
-        return Err(EvmError::Custom(
-            "State root mismatch after executing block".into(),
-        ));
     }
     Ok(())
 }
