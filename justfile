@@ -41,7 +41,7 @@ setup-hive:
 test-pattern-default := "/"
 
 # Runs the rpc-compact hive testing suite
-# The endpoints tested may be limited by suppliying a test pattern in the form "/endpoint_1|enpoint_2|..|enpoint_n"
+# The endpoints tested may be limited by supplying a test pattern in the form "/endpoint_1|enpoint_2|..|enpoint_n"
 # For example, to run the testing suites for eth_chainId & eth_blockNumber you should run:
 # `just run-hive "/eth_chainId|eth_blockNumber"`
 run-hive test-pattern=test-pattern-default: build_image
