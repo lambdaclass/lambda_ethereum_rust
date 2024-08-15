@@ -1,3 +1,6 @@
+# Runs the rpc-compact hive testing suite
+# Only runs the tests for the rpc endpoints specified in the HIVE_TEST_PATTERN env var
+# Please add more rpc endpoints as soon as their tests pass, and eventually remove the env var when they all do
 name: Hive
 on:
   merge_group:
