@@ -1,4 +1,8 @@
-use ethereum_rust_core::{serde_utils, types::{BlockHash, BlockNumber, Transaction}, Address, H256};
+use ethereum_rust_core::{
+    serde_utils,
+    types::{BlockHash, BlockNumber, Transaction},
+    Address, H256,
+};
 use serde::Serialize;
 
 #[allow(unused)]
@@ -17,10 +21,22 @@ pub struct RpcTransaction {
 }
 
 impl RpcTransaction {
-    pub fn build(tx: Transaction, block_number: BlockNumber, block_hash: BlockHash, transaction_index: usize) -> Self {
+    pub fn build(
+        tx: Transaction,
+        block_number: BlockNumber,
+        block_hash: BlockHash,
+        transaction_index: usize,
+    ) -> Self {
         let from = tx.sender();
         let hash = tx.compute_hash();
         let transaction_index = transaction_index as u64;
-        RpcTransaction { tx, block_number, block_hash, from, hash, transaction_index }
+        RpcTransaction {
+            tx,
+            block_number,
+            block_hash,
+            from,
+            hash,
+            transaction_index,
+        }
     }
 }

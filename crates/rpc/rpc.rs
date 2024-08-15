@@ -20,8 +20,8 @@ use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessRe
 mod admin;
 mod engine;
 mod eth;
-mod utils;
 mod types;
+mod utils;
 
 use axum::extract::State;
 use ethereum_rust_storage::Store;
