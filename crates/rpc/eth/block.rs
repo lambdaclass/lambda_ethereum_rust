@@ -162,9 +162,11 @@ impl GetTransactionByBlockHashAndIndexRequest {
         if params.len() != 2 {
             return None;
         };
+        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
         Some(GetTransactionByBlockHashAndIndexRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
-            transaction_index: serde_json::from_value(params[1].clone()).ok()?,
+            transaction_index: usize::from_str_radix(&index_as_string.trim_start_matches("0x"), 16)
+                .ok()?,
         })
     }
 }
@@ -331,7 +333,7 @@ pub fn get_transaction_by_block_hash_and_index(
         Some(tx) => tx,
         None => return Ok(Value::Null),
     };
-
+    let tx = RpcTransaction::build(tx.clone(), block_number, request.block, request.transaction_index);
     serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
 }
 
