@@ -32,3 +32,10 @@ download-vectors: clean-vectors
 
 clean-vectors:
     rm -rf {{spectest_vectors_dir}}
+
+setup-hive:
+    git clone https://github.com/lambdaclass/hive.git
+    cd hive && go build .
+
+run-hive: build_image
+    cd hive && ./hive --sim ethereum/rpc-compat --client ethereumrust
