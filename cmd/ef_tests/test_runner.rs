@@ -1,16 +1,23 @@
 use std::{collections::HashMap, path::Path};
 
-use crate::types::TestUnit;
-use ethereum_rust_chain::{add_block, validate_block};
+use crate::types::{BlockWithRLP, TestUnit};
+use ethereum_rust_chain::add_block;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
-use ethereum_rust_evm::{evm_state, execute_block, EvmState};
+use ethereum_rust_evm::{evm_state, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
 
-pub fn test_add_block(test_key: &str, test: &TestUnit) {
+pub fn run_ef_test(test_key: &str, test: &TestUnit) {
+    // check that the decoded genesis block header matches the deserialized one
+    let genesis_rlp = test.genesis_rlp.clone();
+    let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
+    let genesis_block_header = CoreBlockHeader::from(test.genesis_block_header.clone());
+    assert_eq!(decoded_block.header, genesis_block_header);
+
     let store = build_store_for_test(test);
+
     // Check world_state
     check_prestate_against_db(test_key, test, &store);
 
@@ -22,132 +29,52 @@ pub fn test_add_block(test_key: &str, test: &TestUnit) {
     // Execute all blocks in test
 
     for block_fixture in test.blocks.iter() {
+        let expects_exception = block_fixture.expect_exception.is_some();
+        check_for_rlp_exception(&block_fixture);
+
         // Won't panic because test has been validated
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
         let chain_result = add_block(block, store.clone());
         match chain_result {
-            Err(_) => {
+            Err(error) => {
                 assert!(
-                    block_fixture.expect_exception.is_some(),
-                    "Transaction execution unexpectedly failed on test: {}, with error",
-                    test_key,
+                    expects_exception,
+                    "Transaction execution unexpectedly failed on test: {}, with error {}",
+                    test_key, error
                 );
                 return;
             }
             Ok(_) => assert!(
-                block_fixture.expect_exception.is_none(),
+                !expects_exception,
                 "Expecte transaction execution to fail in test: {} with error: {}",
                 test_key,
                 block_fixture.expect_exception.clone().unwrap()
             ),
         }
     }
+    check_poststate_against_db(test_key, test, &store)
 }
 
-/// Tests the [execute_block] function.
-/// Shuold only be run on validated tests, check [validate_test] function.
-pub fn execute_test(test_key: &str, test: &TestUnit) {
-    // Build pre state
-    let mut evm_state = build_evm_state_for_test(test);
-    let blocks = test.blocks.clone();
-
-    // Check world_state
-    check_prestate_against_db(test_key, test, evm_state.database());
-
-    // Setup chain config
-    let chain_config = test.network.chain_config();
-    evm_state
-        .database()
-        .set_chain_config(chain_config)
-        .expect("Failed to write to DB");
-
-    // Execute all blocks in test
-    for block_fixture in blocks.iter() {
-        // Won't panic because test has been validated
-        let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
-
-        let execution_result = execute_block(block, &mut evm_state);
-
-        match execution_result {
-            Err(error) => {
-                assert!(
-                    block_fixture.expect_exception.is_some(),
-                    "Transaction execution unexpectedly failed on test: {}, with error {}",
-                    test_key,
-                    error
-                );
-                return;
-            }
-            Ok(()) => {
-                assert!(
-                    block_fixture.expect_exception.is_none(),
-                    "Expecte transaction execution to fail in test: {} with error: {}",
-                    test_key,
-                    block_fixture.expect_exception.clone().unwrap()
-                )
-            }
+fn check_for_rlp_exception(block_fixture: &BlockWithRLP) {
+    let expects_rlp_exception = block_fixture
+        .expect_exception
+        .as_ref()
+        .map_or(false, |s| s.starts_with("BlockException.RLP_"));
+    match CoreBlock::decode(block_fixture.rlp.as_ref()) {
+        Ok(_) => {
+            assert!(!expects_rlp_exception);
+        }
+        Err(_) => {
+            assert!(expects_rlp_exception);
+            return;
         }
     }
-    check_poststate_against_db(test_key, test, evm_state.database())
 }
-
 pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
     let s: String = std::fs::read_to_string(path).expect("Unable to read file");
     let tests: HashMap<String, TestUnit> = serde_json::from_str(&s).expect("Unable to parse JSON");
     tests
-}
-
-/// Performs pre-execution validations for the test cases.
-/// Checks that rlp decoding works bidirectionally and tests the [validate_block] function.
-pub fn validate_test(test: &TestUnit) -> bool {
-    // check that the decoded genesis block header matches the deserialized one
-    let genesis_rlp = test.genesis_rlp.clone();
-    let decoded_block = CoreBlock::decode(&genesis_rlp).unwrap();
-    let genesis_block_header = CoreBlockHeader::from(test.genesis_block_header.clone());
-    assert_eq!(decoded_block.header, genesis_block_header);
-
-    let storage = build_store_for_test(test);
-    // Build pre state
-    let evm_state = evm_state(storage.clone());
-
-    // Setup chain config
-    let chain_config = test.network.chain_config();
-    storage
-        .set_chain_config(chain_config)
-        .expect("Failed to write to DB");
-
-    // check that all blocks are valid, tests validate_block function
-    let mut parent_block_header = genesis_block_header;
-    for block in &test.blocks {
-        if let Some(inner_block) = block.block() {
-            let core_block = CoreBlock::from(inner_block.clone());
-            let valid_block = validate_block(&core_block, &parent_block_header, &evm_state);
-            if valid_block.is_err() {
-                assert!(block.expect_exception.is_some());
-                return false;
-            }
-            parent_block_header = core_block.header;
-        }
-
-        // check that blocks can be decoded, only when the block has already been validated
-        match CoreBlock::decode(block.rlp.as_ref()) {
-            Ok(decoded_block) => {
-                // check that the decoded block matches the deserialized one
-                let inner_block = block.block().unwrap();
-                assert_eq!(decoded_block, (inner_block.clone()).into());
-                let mut rlp_block = Vec::new();
-                // check that encoding the decoded block matches the rlp field
-                decoded_block.encode(&mut rlp_block);
-                assert_eq!(rlp_block, block.rlp.to_vec());
-            }
-            Err(_) => {
-                assert!(block.expect_exception.is_some() && test.is_rlp_only_test());
-                return false;
-            }
-        }
-    }
-    true
 }
 
 pub fn build_store_for_test(test: &TestUnit) -> Store {
@@ -169,6 +96,7 @@ pub fn build_store_for_test(test: &TestUnit) -> Store {
     }
     store
 }
+
 /// Creates an in-memory DB for evm execution and loads the prestate accounts
 pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
     let store = build_store_for_test(test);

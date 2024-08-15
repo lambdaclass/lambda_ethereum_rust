@@ -6,10 +6,7 @@ fn parse_and_execute(path: &Path) -> datatest_stable::Result<()> {
     let tests = parse_test_file(path);
 
     for (test_key, test) in tests {
-        let valid_test = validate_test(&test);
-        if valid_test {
-            test_add_block(&test_key, &test);
-        }
+        test_add_block(&test_key, &test);
     }
     Ok(())
 }
