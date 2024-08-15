@@ -4,19 +4,26 @@ use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
     BlockHeader, EIP4844Transaction, Transaction,
 };
+
 use ethereum_rust_evm::{
     apply_state_transitions, evm_state, execute_block, spec_id, EvmError, EvmState, SpecId,
 };
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
+use thiserror::Error;
 
+#[derive(Debug)]
 pub enum ChainResult {
     InsertedBlock,
 }
 
+#[derive(Debug, Error)]
 pub enum ChainError {
-    RejectedBlock(String),
+    #[error("Invalid Transaction: {0}")]
+    InvalidBlock(String),
+    #[error("DB error: {0}")]
     StoreError(StoreError),
+    #[error("EVM error: {0}")]
     EvmError(EvmError),
 }
 
@@ -70,7 +77,7 @@ pub fn validate_state(block_header: &BlockHeader, storage: Store) -> Result<(), 
     if storage.world_state_root() == block_header.state_root {
         Ok(())
     } else {
-        return Err(ChainError::RejectedBlock(
+        return Err(ChainError::InvalidBlock(
             "State root mismatch after executing block".into(),
         ));
     }
@@ -85,7 +92,7 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
         .map_err(|e| ChainError::StoreError(e))?
         .unwrap();
     if block_number != last_block_number.saturating_add(1) {
-        return Err(ChainError::RejectedBlock(
+        return Err(ChainError::InvalidBlock(
             "Block number is not the latest plus one".to_string(),
         ));
     }
@@ -95,14 +102,14 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
     let parent_header = match parent_header_result {
         Ok(Some(parent_header)) => {
             if parent_header.compute_block_hash() != block.header.parent_hash {
-                return Err(ChainError::RejectedBlock(
+                return Err(ChainError::InvalidBlock(
                     "Parent hash doesn't match block found in store".to_string(),
                 ));
             }
             parent_header
         }
         _ => {
-            return Err(ChainError::RejectedBlock(
+            return Err(ChainError::InvalidBlock(
                 "Parent block not found in store (invalid block number)".to_string(),
             ));
         }
@@ -130,7 +137,7 @@ pub fn validate_block(
         _ => valid_header && validate_no_cancun_header_fields(&block.header),
     };
     if !valid_header {
-        return Err(ChainError::RejectedBlock("Invalid Header".to_string()));
+        return Err(ChainError::InvalidBlock("Invalid Header".to_string()));
     }
 
     if spec == SpecId::CANCUN {
@@ -149,17 +156,17 @@ fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
         }
     }
     if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK {
-        return Err(ChainError::RejectedBlock(
+        return Err(ChainError::InvalidBlock(
             "Exceeded MAX_BLOB_GAS_PER_BLOCK".to_string(),
         ));
     }
     if blobs_in_block > MAX_BLOB_NUMBER_PER_BLOCK {
-        return Err(ChainError::RejectedBlock(
+        return Err(ChainError::InvalidBlock(
             "Exceeded MAX_BLOB_NUMBER_PER_BLOCK".to_string(),
         ));
     }
     if blob_gas_used != block.header.blob_gas_used.unwrap() {
-        return Err(ChainError::RejectedBlock(
+        return Err(ChainError::InvalidBlock(
             "blob gas used doesn't match value in header".to_string(),
         ));
     }
