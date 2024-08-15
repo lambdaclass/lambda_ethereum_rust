@@ -10,8 +10,9 @@ test-all:
 test crate='*':
     cargo test -p '{{crate}}'
 
-clean:
+clean:  clean-vectors
     cargo clean
+    rm -rf hive
 
 run_image: build_image
     docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
@@ -37,10 +38,11 @@ setup-hive:
     git clone https://github.com/lambdaclass/hive.git
     cd hive && go build .
 
+test-pattern-default := "/"
+
 # Runs the rpc-compact hive testing suite
 # The endpoints tested may be limited by suppliying a test pattern in the form "/endpoint_1|enpoint_2|..|enpoint_n"
 # For example, to run the testing suites for eth_chainId & eth_blockNumber you should run:
-# just run-hive "/eth_chainId|eth_blockNumber"
-test-pattern-default := "/"
+# `just run-hive "/eth_chainId|eth_blockNumber"`
 run-hive test-pattern=test-pattern-default: build_image
     cd hive && ./hive --sim ethereum/rpc-compat --client ethereumrust --sim.limit {{test-pattern}}
