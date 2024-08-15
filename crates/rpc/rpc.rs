@@ -21,6 +21,7 @@ mod admin;
 mod engine;
 mod eth;
 mod utils;
+mod types;
 
 use axum::extract::State;
 use ethereum_rust_storage::Store;

@@ -744,7 +744,7 @@ mod serde_impl {
         {
             match self {
                 TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
-                TxKind::Create => serializer.serialize_str(""),
+                TxKind::Create => serializer.serialize_none(),
             }
         }
     }
