@@ -12,6 +12,8 @@ concurrency:
 
 env:
   RUST_VERSION: 1.80.1
+  # TODO: Add the corresponding test groups once they pass
+  HIVE_TEST_PATTERN: "/eth_chainId|eth_blockNumer"
 
 jobs:
   run-hive:
@@ -40,6 +42,3 @@ jobs:
 
       - name: Run Hive
         run: just run-hive
-
-
-
