@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use crate::types::TestUnit;
-use ethereum_rust_chain::add_block;
+use ethereum_rust_chain::{add_block, validate_block};
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
@@ -107,13 +107,13 @@ pub fn validate_test(test: &TestUnit) -> bool {
     let genesis_block_header = CoreBlockHeader::from(test.genesis_block_header.clone());
     assert_eq!(decoded_block.header, genesis_block_header);
 
+    let storage = build_store_for_test(test);
     // Build pre state
-    let evm_state = build_evm_state_for_test(test);
+    let evm_state = evm_state(storage.clone());
 
     // Setup chain config
     let chain_config = test.network.chain_config();
-    evm_state
-        .database()
+    storage
         .set_chain_config(chain_config)
         .expect("Failed to write to DB");
 
@@ -123,7 +123,7 @@ pub fn validate_test(test: &TestUnit) -> bool {
         if let Some(inner_block) = block.block() {
             let core_block = CoreBlock::from(inner_block.clone());
             let valid_block = validate_block(&core_block, &parent_block_header, &evm_state);
-            if !valid_block {
+            if valid_block.is_err() {
                 assert!(block.expect_exception.is_some());
                 return false;
             }

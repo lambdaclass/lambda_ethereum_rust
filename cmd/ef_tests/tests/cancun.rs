@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ef_tests::test_runner::{execute_test, parse_test_file, validate_test};
+use ef_tests::test_runner::{parse_test_file, test_add_block, validate_test};
 
 fn parse_and_execute(path: &Path) -> datatest_stable::Result<()> {
     let tests = parse_test_file(path);
@@ -8,7 +8,7 @@ fn parse_and_execute(path: &Path) -> datatest_stable::Result<()> {
     for (test_key, test) in tests {
         let valid_test = validate_test(&test);
         if valid_test {
-            execute_test(&test_key, &test);
+            test_add_block(&test_key, &test);
         }
     }
     Ok(())
