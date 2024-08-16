@@ -21,7 +21,7 @@ pub enum ChainError {
     //TODO: If a block with block_number greater than latest plus one is received
     //maybe we are missing data and should wait for syncing
     #[error("Block number is greater than the latest plus one")]
-    GreaterThanLatestPlusOne,
+    NonCanonicalBlock,
 
     //TODO: If a block with less than latest plus one is received we should reorg
     #[error("Block number is less than the latest plus one")]
@@ -64,7 +64,7 @@ pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
     apply_state_transitions(&mut state).map_err(|e| ChainError::StoreError(e))?;
 
     // Check state root matches the one in block header after execution
-    validate_state(&block.header, storage.clone())?;
+    validate_state_root(&block.header, storage.clone())?;
 
     store_block(storage.clone(), block.clone())?;
 
@@ -83,7 +83,7 @@ pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
 }
 
 /// Performs post-execution checks
-pub fn validate_state(block_header: &BlockHeader, storage: Store) -> Result<(), ChainError> {
+pub fn validate_state_root(block_header: &BlockHeader, storage: Store) -> Result<(), ChainError> {
     // Compare state root
     if storage.world_state_root() == block_header.state_root {
         Ok(())
@@ -97,36 +97,24 @@ pub fn validate_state(block_header: &BlockHeader, storage: Store) -> Result<(), 
 /// Validates if the provided block could be the new head of the chain, and returns the
 /// parent_header in that case.
 fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, ChainError> {
-    let block_number = block.header.number;
-
-    let last_block_number = storage
-        .get_latest_block_number()
-        .map_err(|e| ChainError::StoreError(e))?
-        .unwrap();
-
-    if block_number > last_block_number.saturating_add(1) {
-        return Err(ChainError::GreaterThanLatestPlusOne);
-    }
-    if block_number < last_block_number.saturating_add(1) {
-        return Err(ChainError::LessThanLatestPlusOne);
-    }
-
-    // Fetch the block header with previous number
-    let parent_header_result = storage
-        .get_block_header(block_number.saturating_sub(1))
+    let parent_hash = block.header.parent_hash;
+    let parent_number = storage
+        .get_block_number(parent_hash)
         .map_err(|e| ChainError::StoreError(e))?;
-    let parent_header = match parent_header_result {
-        Some(parent_header) => {
-            if parent_header.compute_block_hash() != block.header.parent_hash {
-                return Err(ChainError::ParentHashMismatch);
-            }
-            parent_header
+
+    if let Some(parent_number) = parent_number {
+        let parent_header = storage
+            .get_block_header(parent_number)
+            .map_err(|e| ChainError::StoreError(e))?;
+
+        if let Some(parent_header) = parent_header {
+            Ok(parent_header)
+        } else {
+            Err(ChainError::ParentNotFound)
         }
-        None => {
-            return Err(ChainError::ParentNotFound);
-        }
-    };
-    Ok(parent_header)
+    } else {
+        Err(ChainError::ParentNotFound)
+    }
 }
 
 /// Performs pre-execution validation of the block's header values in reference to the parent_header
