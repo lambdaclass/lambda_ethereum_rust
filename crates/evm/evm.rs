@@ -63,6 +63,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
     if let Some(withdrawals) = &block.body.withdrawals {
         process_withdrawals(state, withdrawals)?;
     }
+
     Ok(())
 }
 
