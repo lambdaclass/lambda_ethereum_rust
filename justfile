@@ -45,4 +45,4 @@ test-pattern-default := "/"
 # For example, to run the testing suites for eth_chainId & eth_blockNumber you should run:
 # `just run-hive "/eth_chainId|eth_blockNumber"`
 run-hive test-pattern=test-pattern-default: build_image
-    cd hive && ./hive --sim ethereum/rpc-compat --client ethereumrust --sim.limit {{test-pattern}}
+    cd hive && ./hive --sim "ethereum/rpc-compat" --client ethereumrust --sim.limit "{{test-pattern}}"
