@@ -63,7 +63,7 @@ jobs:
 
       - name: Run tests
         run: |
-          just test-all
+          just test
 
   docker-build:
     name: Build Docker image
