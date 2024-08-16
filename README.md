@@ -39,7 +39,7 @@ just test <crate>
 
 Or just run all the tests:
 ```bash
-just test-all
+just test
 ```
 
 ### Run
