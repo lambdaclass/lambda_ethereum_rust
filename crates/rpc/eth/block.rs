@@ -85,19 +85,18 @@ pub enum BlockTag {
     Pending,
 }
 
-pub(crate) fn resolve_block_number(
-    identifier: &BlockIdentifier,
-    storage: &Store,
-) -> Result<Option<BlockNumber>, StoreError> {
-    match identifier {
-        BlockIdentifier::Number(num) => Ok(Some(*num)),
-        BlockIdentifier::Tag(tag) => match tag {
-            BlockTag::Earliest => storage.get_earliest_block_number(),
-            BlockTag::Finalized => storage.get_finalized_block_number(),
-            BlockTag::Safe => storage.get_safe_block_number(),
-            BlockTag::Latest => storage.get_latest_block_number(),
-            BlockTag::Pending => storage.get_pending_block_number(),
-        },
+impl BlockIdentifier {
+    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
+        match self {
+            BlockIdentifier::Number(num) => Ok(Some(*num)),
+            BlockIdentifier::Tag(tag) => match tag {
+                BlockTag::Earliest => storage.get_earliest_block_number(),
+                BlockTag::Finalized => storage.get_finalized_block_number(),
+                BlockTag::Safe => storage.get_safe_block_number(),
+                BlockTag::Latest => storage.get_latest_block_number(),
+                BlockTag::Pending => storage.get_pending_block_number(),
+            },
+        }
     }
 }
 
@@ -230,7 +229,7 @@ pub fn get_block_by_number(
     storage: Store,
 ) -> Result<Value, RpcErr> {
     info!("Requested block with number: {}", request.block);
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -272,7 +271,7 @@ pub fn get_block_transaction_count_by_number(
         "Requested transaction count for block with number: {}",
         request.block
     );
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -293,7 +292,7 @@ pub fn get_transaction_by_block_number_and_index(
         "Requested transaction at index: {} of block with number: {}",
         request.transaction_index, request.block,
     );
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -355,7 +354,7 @@ pub fn get_block_receipts(
         "Requested receipts for block with number: {}",
         request.block
     );
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -453,7 +452,7 @@ pub fn create_access_list(
 ) -> Result<Value, RpcErr> {
     let block = request.block.clone().unwrap_or_default();
     info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match resolve_block_number(&block, &storage)? {
+    let block_number = match block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
