@@ -19,7 +19,7 @@ impl From<RpcErr> for RpcErrorMetadata {
                 message: "Method not found".to_string(),
             },
             RpcErr::BadParams => RpcErrorMetadata {
-                code: -32602,
+                code: -32000,
                 message: "Invalid params".to_string(),
             },
             RpcErr::UnsuportedFork => RpcErrorMetadata {
