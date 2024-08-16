@@ -29,7 +29,7 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
 
     for block_fixture in test.blocks.iter() {
         let expects_exception = block_fixture.expect_exception.is_some();
-        if exception_in_rlp_decoding(&block_fixture) {
+        if exception_in_rlp_decoding(block_fixture) {
             return;
         }
 
@@ -67,11 +67,11 @@ fn exception_in_rlp_decoding(block_fixture: &BlockWithRLP) -> bool {
     match CoreBlock::decode(block_fixture.rlp.as_ref()) {
         Ok(_) => {
             assert!(!expects_rlp_exception);
-            return false;
+            false
         }
         Err(_) => {
             assert!(expects_rlp_exception);
-            return true;
+            true
         }
     }
 }

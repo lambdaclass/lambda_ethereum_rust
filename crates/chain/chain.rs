@@ -26,7 +26,7 @@ use ethereum_rust_storage::Store;
 pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
     //TODO: Eventually we should be able to handle blocks
     //which are not directly extending the canonical chain
-    extends_canonical_chain(&block, &storage)?;
+    extends_canonical_chain(block, &storage)?;
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(block, &storage)?;
     let mut state = evm_state(storage.clone());
@@ -34,9 +34,9 @@ pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
 
-    execute_block(block, &mut state).map_err(|e| ChainError::EvmError(e))?;
+    execute_block(block, &mut state).map_err(ChainError::EvmError)?;
 
-    apply_state_transitions(&mut state).map_err(|e| ChainError::StoreError(e))?;
+    apply_state_transitions(&mut state).map_err(ChainError::StoreError)?;
 
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, storage.clone())?;
@@ -49,7 +49,7 @@ pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
 pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let latest_block_number = storage
         .get_latest_block_number()
-        .map_err(|e| ChainError::StoreError(e))?
+        .map_err(ChainError::StoreError)?
         .ok_or(ChainError::StoreError(StoreError::Custom(
             "Could not find latest valid hash".to_string(),
         )))?;
@@ -64,7 +64,7 @@ pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), Cha
 pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
     storage
         .add_block(block.clone())
-        .map_err(|e| ChainError::StoreError(e))?;
+        .map_err(ChainError::StoreError)?;
     Ok(())
 }
 
@@ -74,20 +74,20 @@ pub fn validate_state_root(block_header: &BlockHeader, storage: Store) -> Result
     if storage.world_state_root() == block_header.state_root {
         Ok(())
     } else {
-        return Err(ChainError::InvalidBlock(
+        Err(ChainError::InvalidBlock(
             InvalidBlockError::StateRootMismatch,
-        ));
+        ))
     }
 }
 
 pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
     if let Some(latest_block_number) = storage
         .get_latest_block_number()
-        .map_err(|e| ChainError::StoreError(e))?
+        .map_err(ChainError::StoreError)?
     {
         if let Some(latest_valid_header) = storage
             .get_block_header(latest_block_number)
-            .map_err(|e| ChainError::StoreError(e))?
+            .map_err(ChainError::StoreError)?
         {
             let latest_valid_hash = latest_valid_header.compute_block_hash();
             return Ok(latest_valid_hash);
@@ -104,12 +104,12 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
     let parent_hash = block.header.parent_hash;
     let parent_number = storage
         .get_block_number(parent_hash)
-        .map_err(|e| ChainError::StoreError(e))?;
+        .map_err(ChainError::StoreError)?;
 
     if let Some(parent_number) = parent_number {
         let parent_header = storage
             .get_block_header(parent_number)
-            .map_err(|e| ChainError::StoreError(e))?;
+            .map_err(ChainError::StoreError)?;
 
         if let Some(parent_header) = parent_header {
             Ok(parent_header)

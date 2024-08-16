@@ -108,20 +108,14 @@ pub fn new_payload_v3(
     // Execute and store the block
     info!("Executing payload with block hash: {block_hash}");
     match add_block(&block, storage.clone()) {
-        Err(ChainError::NonCanonicalBlock) => return Ok(PayloadStatus::syncing()),
-        Err(ChainError::ParentNotFound) => {
-            return Ok(PayloadStatus::invalid_with_err(
-                "Could not reference parent block with parent_hash",
-            ))
-        }
-        Err(ChainError::InvalidBlock(_)) => {
-            return Ok(PayloadStatus::invalid_with_hash(latest_valid_hash))
-        }
-        Err(ChainError::EvmError(error)) => {
-            return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
-        }
+        Err(ChainError::NonCanonicalBlock) => Ok(PayloadStatus::syncing()),
+        Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
+            "Could not reference parent block with parent_hash",
+        )),
+        Err(ChainError::InvalidBlock(_)) => Ok(PayloadStatus::invalid_with_hash(latest_valid_hash)),
+        Err(ChainError::EvmError(error)) => Ok(PayloadStatus::invalid_with_err(&error.to_string())),
         Err(ChainError::StoreError(error)) => {
-            return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
+            Ok(PayloadStatus::invalid_with_err(&error.to_string()))
         }
         Ok(()) => {
             info!("Block with hash {block_hash} executed succesfully");
