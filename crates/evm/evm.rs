@@ -145,6 +145,32 @@ pub fn execute_tx(
     run_evm(tx_env, block_env, state, spec_id)
 }
 
+// Executes a single GenericTransaction, doesn't perform state transitions
+pub fn execute_tx_from_generic(
+    tx: &GenericTransaction,
+    header: &BlockHeader,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    let block_env = block_env(header);
+    let tx_env = tx_env_from_generic(tx);
+    let tx_result = {
+        let mut evm = Evm::builder()
+            .with_db(&mut state.0)
+            .with_block_env(block_env)
+            .with_tx_env(tx_env)
+            .modify_cfg_env(|env| {
+                env.disable_base_fee = true;
+                env.disable_block_gas_limit = true
+            })
+            .with_spec_id(spec_id)
+            .reset_handler()
+            .build();
+        evm.transact_commit().map_err(EvmError::from)?
+    };
+    Ok(tx_result.into())
+}
+
 /// Runs EVM, doesn't perform state transitions, but stores them
 fn run_evm(
     tx_env: TxEnv,

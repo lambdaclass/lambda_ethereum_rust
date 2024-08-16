@@ -9,6 +9,7 @@ pub enum RpcErr {
     UnsuportedFork,
     Internal,
     Vm,
+    Revert { data: String },
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -16,23 +17,38 @@ impl From<RpcErr> for RpcErrorMetadata {
         match value {
             RpcErr::MethodNotFound => RpcErrorMetadata {
                 code: -32601,
+                data: None,
                 message: "Method not found".to_string(),
             },
             RpcErr::BadParams => RpcErrorMetadata {
                 code: -32602,
+                data: None,
                 message: "Invalid params".to_string(),
             },
             RpcErr::UnsuportedFork => RpcErrorMetadata {
                 code: -38005,
+                data: None,
                 message: "Unsupported fork".to_string(),
             },
             RpcErr::Internal => RpcErrorMetadata {
                 code: -32603,
+                data: None,
                 message: "Internal Error".to_string(),
             },
             RpcErr::Vm => RpcErrorMetadata {
                 code: -32015,
+                data: None,
                 message: "Vm execution error".to_string(),
+            },
+            RpcErr::Revert { data } => RpcErrorMetadata {
+                // This code (3) was hand-picked to match hive tests.
+                // Could not find proper documentation about it.
+                code: 3,
+                data: Some(data.clone()),
+                message: format!(
+                    "execution reverted: {}",
+                    get_message_from_revert_data(&data)
+                ),
             },
         }
     }
@@ -49,6 +65,7 @@ pub struct RpcRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcErrorMetadata {
     pub code: i32,
+    pub data: Option<String>,
     pub message: String,
 }
 
@@ -77,4 +94,12 @@ impl From<EvmError> for RpcErr {
     fn from(_value: EvmError) -> Self {
         RpcErr::Vm
     }
+}
+
+fn get_message_from_revert_data(_data: &str) -> String {
+    // TODO
+    // Hive tests are not failing when revert message does not match, but currently it is not matching
+    // It should be fixed
+    // See https://github.com/ethereum/go-ethereum/blob/8fd43c80132434dca896d8ae5004ae2aac1450d3/accounts/abi/abi.go#L275
+    "".to_owned()
 }
