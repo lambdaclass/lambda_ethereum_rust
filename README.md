@@ -27,6 +27,13 @@ just build
 ```
 
 ### Test
+
+Before running the tests for the first time, download the test vectors:
+
+```bash
+just download-vectors
+``` 
+
 To run the tests from a crate, run:
 ```bash
 just test <crate>
@@ -41,7 +48,7 @@ just test-all
 
 To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a git submodule. Make sure to fetch it like follows:
 
-```
+```bash
 git submodule update --init
 ```
 
