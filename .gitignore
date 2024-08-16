@@ -20,3 +20,4 @@ Cargo.lock
 .DS_Store
 
 cmd/ef_tests/vectors
+hive
