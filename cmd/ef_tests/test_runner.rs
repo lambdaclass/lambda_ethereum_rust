@@ -29,7 +29,9 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
 
     for block_fixture in test.blocks.iter() {
         let expects_exception = block_fixture.expect_exception.is_some();
-        test_rlp_decoding(&block_fixture);
+        if exception_in_rlp_decoding(&block_fixture) {
+            return;
+        }
 
         // Won't panic because test has been validated
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
@@ -57,7 +59,7 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
 }
 
 /// Tests the rlp decoding of a block
-fn test_rlp_decoding(block_fixture: &BlockWithRLP) {
+fn exception_in_rlp_decoding(block_fixture: &BlockWithRLP) -> bool {
     let expects_rlp_exception = block_fixture
         .expect_exception
         .as_ref()
@@ -65,10 +67,11 @@ fn test_rlp_decoding(block_fixture: &BlockWithRLP) {
     match CoreBlock::decode(block_fixture.rlp.as_ref()) {
         Ok(_) => {
             assert!(!expects_rlp_exception);
+            return false;
         }
         Err(_) => {
             assert!(expects_rlp_exception);
-            return;
+            return true;
         }
     }
 }
