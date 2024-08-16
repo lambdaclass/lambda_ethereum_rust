@@ -1,6 +1,6 @@
-use ethereum_rust_chain::{add_block, ChainError};
+use ethereum_rust_chain::{add_block, latest_valid_hash, ChainError};
 use ethereum_rust_core::{
-    types::{validate_block_header, ExecutionPayloadV3, PayloadStatus},
+    types::{ExecutionPayloadV3, PayloadStatus},
     H256,
 };
 use ethereum_rust_storage::Store;
@@ -85,6 +85,9 @@ pub fn new_payload_v3(
             "Invalid blob_versioned_hashes",
         ));
     }
+
+    let latest_valid_hash = latest_valid_hash(&storage).map_err(|_| RpcErr::Internal)?;
+
     // Execute and store the block
     info!("Executing payload with block hash: {block_hash}");
     match add_block(&block, storage.clone()) {
@@ -94,8 +97,8 @@ pub fn new_payload_v3(
                 "Could not reference parent block with parent_hash",
             ))
         }
-        Err(ChainError::InvalidBlock(error)) => {
-            return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
+        Err(ChainError::InvalidBlock(_)) => {
+            return Ok(PayloadStatus::invalid_with_hash(latest_valid_hash))
         }
         Err(ChainError::EvmError(error)) => {
             return Ok(PayloadStatus::invalid_with_err(&error.to_string()))

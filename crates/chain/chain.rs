@@ -4,6 +4,7 @@ use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
     BlockHeader, EIP4844Transaction, Transaction,
 };
+use ethereum_rust_core::H256;
 
 use ethereum_rust_evm::{
     apply_state_transitions, evm_state, execute_block, spec_id, EvmError, EvmState, SpecId,
@@ -22,7 +23,6 @@ pub enum ChainError {
     //maybe we are missing data and should wait for syncing
     #[error("Block number is greater than the latest plus one")]
     NonCanonicalBlock,
-
     #[error("DB error: {0}")]
     StoreError(StoreError),
     #[error("EVM error: {0}")]
@@ -46,6 +46,13 @@ pub enum InvalidBlockError {
 /// Adds a new block as head of the chain.
 /// Performs pre and post execution validation, and updates the database.
 pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
+    //
+    let latest_block_number = storage
+        .get_latest_block_number()
+        .map_err(|e| ChainError::StoreError(e))?;
+    if latest_block_number.is_some_and(|number| block.header.number > number.saturating_add(1)) {
+        return Err(ChainError::NonCanonicalBlock);
+    }
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(block, &storage)?;
 
@@ -87,6 +94,24 @@ pub fn validate_state_root(block_header: &BlockHeader, storage: Store) -> Result
             InvalidBlockError::StateRootMismatch,
         ));
     }
+}
+
+pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
+    if let Some(latest_block_number) = storage
+        .get_latest_block_number()
+        .map_err(|e| ChainError::StoreError(e))?
+    {
+        if let Some(latest_valid_header) = storage
+            .get_block_header(latest_block_number)
+            .map_err(|e| ChainError::StoreError(e))?
+        {
+            let latest_valid_hash = latest_valid_header.compute_block_hash();
+            return Ok(latest_valid_hash);
+        }
+    }
+    Err(ChainError::StoreError(StoreError::Custom(
+        "Could not find latest valid hash".to_string(),
+    )))
 }
 
 /// Validates if the provided block could be the new head of the chain, and returns the
