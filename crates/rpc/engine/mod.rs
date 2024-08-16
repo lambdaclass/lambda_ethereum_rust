@@ -1,4 +1,5 @@
-use ethereum_rust_chain::{add_block, latest_valid_hash, ChainError};
+use ethereum_rust_chain::error::ChainError;
+use ethereum_rust_chain::{add_block, latest_valid_hash};
 use ethereum_rust_core::{
     types::{ExecutionPayloadV3, PayloadStatus},
     H256,

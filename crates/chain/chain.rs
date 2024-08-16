@@ -1,5 +1,7 @@
 pub mod constants;
+pub mod error;
 use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK};
+use error::{ChainError, InvalidBlockError};
 use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
     BlockHeader, EIP4844Transaction, Transaction,
@@ -7,41 +9,10 @@ use ethereum_rust_core::types::{
 use ethereum_rust_core::H256;
 
 use ethereum_rust_evm::{
-    apply_state_transitions, evm_state, execute_block, spec_id, EvmError, EvmState, SpecId,
+    apply_state_transitions, evm_state, execute_block, spec_id, EvmState, SpecId,
 };
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum ChainError {
-    #[error("Invalid Block: {0}")]
-    InvalidBlock(InvalidBlockError),
-    #[error("Parent block not found")]
-    ParentNotFound,
-    //TODO: If a block with block_number greater than latest plus one is received
-    //maybe we are missing data and should wait for syncing
-    #[error("Block number is greater than the latest plus one")]
-    NonCanonicalBlock,
-    #[error("DB error: {0}")]
-    StoreError(StoreError),
-    #[error("EVM error: {0}")]
-    EvmError(EvmError),
-}
-
-#[derive(Debug, Error)]
-pub enum InvalidBlockError {
-    #[error("World State Root does not match the one in the header after executing")]
-    StateRootMismatch,
-    #[error("Invalid Header, validation failed pre-execution")]
-    InvalidHeader,
-    #[error("Exceeded MAX_BLOB_GAS_PER_BLOCK")]
-    ExceededMaxBlobGasPerBlock,
-    #[error("Exceeded MAX_BLOB_NUMBER_PER_BLOCK")]
-    ExceededMaxBlobNumberPerBlock,
-    #[error("blob gas used doesn't match value in header")]
-    BlobGasUsedMismatch,
-}
 
 /// Adds a new block as head of the chain.
 /// Performs pre and post execution validation, and updates the database.
