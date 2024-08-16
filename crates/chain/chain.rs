@@ -16,18 +16,13 @@ use thiserror::Error;
 pub enum ChainError {
     #[error("Invalid Block: {0}")]
     InvalidBlock(InvalidBlockError),
-    #[error("Parent block not found (block with block_number-1)")]
+    #[error("Parent block not found")]
     ParentNotFound,
     //TODO: If a block with block_number greater than latest plus one is received
     //maybe we are missing data and should wait for syncing
     #[error("Block number is greater than the latest plus one")]
     NonCanonicalBlock,
 
-    //TODO: If a block with less than latest plus one is received we should reorg
-    #[error("Block number is less than the latest plus one")]
-    LessThanLatestPlusOne,
-    #[error("Previous block's hash does not match parent_hash in header")]
-    ParentHashMismatch,
     #[error("DB error: {0}")]
     StoreError(StoreError),
     #[error("EVM error: {0}")]
@@ -95,7 +90,7 @@ pub fn validate_state_root(block_header: &BlockHeader, storage: Store) -> Result
 }
 
 /// Validates if the provided block could be the new head of the chain, and returns the
-/// parent_header in that case.
+/// parent_header in that case
 fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, ChainError> {
     let parent_hash = block.header.parent_hash;
     let parent_number = storage
