@@ -43,4 +43,4 @@ jobs:
         run: just setup-hive
 
       - name: Run Hive
-        run: just run-hive ${{ env.HIVE_TEST_PATTERN }}
+        run: just run-hive "${{ env.HIVE_TEST_PATTERN }}"
