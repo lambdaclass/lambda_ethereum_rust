@@ -101,11 +101,12 @@ pub fn new_payload_v3(
     info!("Executing payload with block hash: {block_hash}");
     match add_block(&block, storage.clone()) {
         Err(ChainError::GreaterThanLatestPlusOne) => return Ok(PayloadStatus::syncing()),
-        Err(ChainError::InvalidBlock(error)) => return Ok(PayloadStatus::invalid_with_err(error)),
+        Err(ChainError::ParentNotFound) => return Ok(PayloadStatus::invalid_with_err(error)),
+        Ok(()) => {
+            info!("Block with hash {block_hash} executed succesfully");
+            info!("Block with hash {block_hash} added to storage");
+
+            Ok(PayloadStatus::valid_with_hash(block_hash))
+        }
     }
-
-    info!("Block with hash {block_hash} executed succesfully");
-    info!("Block with hash {block_hash} added to storage");
-
-    Ok(PayloadStatus::valid_with_hash(block_hash))
 }

@@ -6,7 +6,6 @@ use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
-use ethereum_rust_evm::{evm_state, EvmState};
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn run_ef_test(test_key: &str, test: &TestUnit) {
@@ -98,12 +97,6 @@ pub fn build_store_for_test(test: &TestUnit) -> Store {
             .expect("Failed to write to test DB")
     }
     store
-}
-
-/// Creates an in-memory DB for evm execution and loads the prestate accounts
-pub fn build_evm_state_for_test(test: &TestUnit) -> EvmState {
-    let store = build_store_for_test(test);
-    evm_state(store)
 }
 
 /// Checks db is correct after setting up initial state

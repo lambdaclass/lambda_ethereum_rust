@@ -18,8 +18,14 @@ pub enum ChainError {
     InvalidBlock(InvalidBlockError),
     #[error("Parent block not found (block with block_number-1)")]
     ParentNotFound,
-    #[error("Block number is not the latest plus one")]
+    //TODO: If a block with block_number greater than latest plus one is received
+    //maybe we are missing data and should wait for syncing
+    #[error("Block number is greater than the latest plus one")]
     GreaterThanLatestPlusOne,
+
+    //TODO: If a block with less than latest plus one is received we should reorg
+    #[error("Block number is less than the latest plus one")]
+    LessThanLatestPlusOne,
     #[error("Previous block's hash does not match parent_hash in header")]
     ParentHashMismatch,
     #[error("DB error: {0}")]
@@ -100,6 +106,9 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
 
     if block_number > last_block_number.saturating_add(1) {
         return Err(ChainError::GreaterThanLatestPlusOne);
+    }
+    if block_number < last_block_number.saturating_add(1) {
+        return Err(ChainError::LessThanLatestPlusOne);
     }
 
     // Fetch the block header with previous number
