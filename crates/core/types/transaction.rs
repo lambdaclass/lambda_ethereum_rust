@@ -744,7 +744,7 @@ mod serde_impl {
         {
             match self {
                 TxKind::Call(address) => serializer.serialize_str(&format!("{:#x}", address)),
-                TxKind::Create => serializer.serialize_str(""),
+                TxKind::Create => serializer.serialize_none(),
             }
         }
     }
@@ -820,7 +820,10 @@ mod serde_impl {
             struct_serializer.serialize_field("value", &self.value)?;
             struct_serializer.serialize_field("input", &format!("0x{:x}", self.data))?;
             struct_serializer.serialize_field("gasPrice", &format!("{:#x}", self.gas_price))?;
-            struct_serializer.serialize_field("chainId", &format!("{:#x}", 1))?; // Mainnet as defaut. TODO: check this
+            struct_serializer.serialize_field(
+                "chainId",
+                &format!("{:#x}", derive_legacy_chain_id(self.v).unwrap_or_default()),
+            )?;
             struct_serializer.serialize_field("v", &self.v)?;
             struct_serializer.serialize_field("r", &self.r)?;
             struct_serializer.serialize_field("s", &self.s)?;

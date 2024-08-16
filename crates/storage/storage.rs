@@ -240,7 +240,7 @@ impl Store {
         self.add_block_body(number, block.body)?;
         self.add_block_header(number, header)?;
         self.add_block_number(hash, number)?;
-        Ok(())
+        self.update_latest_block_number(number)
     }
 
     pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {
@@ -252,7 +252,6 @@ impl Store {
 
         // Store genesis block
         self.update_earliest_block_number(genesis_block.header.number)?;
-        self.update_latest_block_number(genesis_block.header.number)?;
         self.add_block(genesis_block)?;
 
         // Store each alloc account

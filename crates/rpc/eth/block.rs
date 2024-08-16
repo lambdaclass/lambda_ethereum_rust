@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::info;
 
-use crate::utils::RpcErr;
+use crate::{types::transaction::RpcTransaction, utils::RpcErr};
 use ethereum_rust_core::{
     types::{
         AccessListEntry, BlockHash, BlockNumber, BlockSerializable, GenericTransaction,
@@ -85,19 +85,18 @@ pub enum BlockTag {
     Pending,
 }
 
-pub(crate) fn resolve_block_number(
-    identifier: &BlockIdentifier,
-    storage: &Store,
-) -> Result<Option<BlockNumber>, StoreError> {
-    match identifier {
-        BlockIdentifier::Number(num) => Ok(Some(*num)),
-        BlockIdentifier::Tag(tag) => match tag {
-            BlockTag::Earliest => storage.get_earliest_block_number(),
-            BlockTag::Finalized => storage.get_finalized_block_number(),
-            BlockTag::Safe => storage.get_safe_block_number(),
-            BlockTag::Latest => storage.get_latest_block_number(),
-            BlockTag::Pending => storage.get_pending_block_number(),
-        },
+impl BlockIdentifier {
+    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
+        match self {
+            BlockIdentifier::Number(num) => Ok(Some(*num)),
+            BlockIdentifier::Tag(tag) => match tag {
+                BlockTag::Earliest => storage.get_earliest_block_number(),
+                BlockTag::Finalized => storage.get_finalized_block_number(),
+                BlockTag::Safe => storage.get_safe_block_number(),
+                BlockTag::Latest => storage.get_latest_block_number(),
+                BlockTag::Pending => storage.get_pending_block_number(),
+            },
+        }
     }
 }
 
@@ -147,9 +146,11 @@ impl GetTransactionByBlockNumberAndIndexRequest {
         if params.len() != 2 {
             return None;
         };
+        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
         Some(GetTransactionByBlockNumberAndIndexRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
-            transaction_index: serde_json::from_value(params[1].clone()).ok()?,
+            transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
+                .ok()?,
         })
     }
 }
@@ -160,9 +161,11 @@ impl GetTransactionByBlockHashAndIndexRequest {
         if params.len() != 2 {
             return None;
         };
+        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
         Some(GetTransactionByBlockHashAndIndexRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
-            transaction_index: serde_json::from_value(params[1].clone()).ok()?,
+            transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
+                .ok()?,
         })
     }
 }
@@ -226,7 +229,7 @@ pub fn get_block_by_number(
     storage: Store,
 ) -> Result<Value, RpcErr> {
     info!("Requested block with number: {}", request.block);
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -268,7 +271,7 @@ pub fn get_block_transaction_count_by_number(
         "Requested transaction count for block with number: {}",
         request.block
     );
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -289,7 +292,7 @@ pub fn get_transaction_by_block_number_and_index(
         "Requested transaction at index: {} of block with number: {}",
         request.transaction_index, request.block,
     );
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -297,11 +300,20 @@ pub fn get_transaction_by_block_number_and_index(
         Some(block_body) => block_body,
         _ => return Ok(Value::Null),
     };
+    let block_header = match storage.get_block_header(block_number)? {
+        Some(block_body) => block_body,
+        _ => return Ok(Value::Null),
+    };
     let tx = match block_body.transactions.get(request.transaction_index) {
         Some(tx) => tx,
         None => return Ok(Value::Null),
     };
-
+    let tx = RpcTransaction::build(
+        tx.clone(),
+        block_number,
+        block_header.compute_block_hash(),
+        request.transaction_index,
+    );
     serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
 }
 
@@ -325,7 +337,12 @@ pub fn get_transaction_by_block_hash_and_index(
         Some(tx) => tx,
         None => return Ok(Value::Null),
     };
-
+    let tx = RpcTransaction::build(
+        tx.clone(),
+        block_number,
+        request.block,
+        request.transaction_index,
+    );
     serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
 }
 
@@ -337,7 +354,7 @@ pub fn get_block_receipts(
         "Requested receipts for block with number: {}",
         request.block
     );
-    let block_number = match resolve_block_number(&request.block, &storage)? {
+    let block_number = match request.block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
@@ -435,7 +452,7 @@ pub fn create_access_list(
 ) -> Result<Value, RpcErr> {
     let block = request.block.clone().unwrap_or_default();
     info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match resolve_block_number(&block, &storage)? {
+    let block_number = match block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };

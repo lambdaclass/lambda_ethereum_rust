@@ -122,9 +122,6 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<(), EvmError
     if state.database().world_state_root() == block.header.state_root {
         // Store Block in database
         state.database().add_block(block.clone())?;
-        state
-            .database()
-            .update_latest_block_number(block_header.number)?;
     } else {
         return Err(EvmError::Custom(
             "State root mismatch after executing block".into(),

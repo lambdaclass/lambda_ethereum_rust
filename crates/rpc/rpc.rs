@@ -21,6 +21,7 @@ use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessRe
 mod admin;
 mod engine;
 mod eth;
+mod types;
 mod utils;
 
 use axum::extract::State;

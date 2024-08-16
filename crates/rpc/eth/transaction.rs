@@ -1,12 +1,10 @@
+use super::block::BlockIdentifier;
+use crate::utils::RpcErr;
 use ethereum_rust_core::{types::GenericTransaction, Bytes};
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::info;
-
-use crate::{eth::block, utils::RpcErr};
-
-use super::block::BlockIdentifier;
 
 pub struct CallRequest {
     transaction: GenericTransaction,
@@ -29,7 +27,7 @@ impl CallRequest {
 pub fn call(request: &CallRequest, storage: Store) -> Result<Value, RpcErr> {
     let block = request.block.clone().unwrap_or_default();
     info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match block::resolve_block_number(&block, &storage)? {
+    let block_number = match block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
     };
