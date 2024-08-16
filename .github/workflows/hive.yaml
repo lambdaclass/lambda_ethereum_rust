@@ -15,7 +15,7 @@ concurrency:
 
 env:
   RUST_VERSION: 1.80.1
-  HIVE_TEST_PATTERN: "/eth_chainId"
+  HIVE_TEST_PATTERN: "/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex"
 
 jobs:
   run-hive:
