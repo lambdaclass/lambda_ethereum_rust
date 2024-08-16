@@ -4,9 +4,6 @@ build:
 lint:
     cargo clippy --all-targets --all-features --workspace -- -D warnings
 
-test-all:
-    cargo test --workspace
-
 test crate='*':
     cargo test -p '{{crate}}'
 
