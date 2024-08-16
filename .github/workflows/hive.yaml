@@ -1,0 +1,46 @@
+# Runs the rpc-compact hive testing suite
+# Only runs the tests for the rpc endpoints specified in the HIVE_TEST_PATTERN env var
+# Please add more rpc endpoints as soon as their tests pass, and eventually remove the env var when they all do
+name: Hive
+on:
+  merge_group:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["*"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  RUST_VERSION: 1.80.1
+  HIVE_TEST_PATTERN: "/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt"
+
+jobs:
+  run-hive:
+    name: Run Hive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Setup just
+        uses: extractions/setup-just@v2
+      
+      - name: Setup Go
+        uses: actions/setup-go@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Download Hive
+        run: just setup-hive
+
+      - name: Run Hive
+        run: just run-hive "${{ env.HIVE_TEST_PATTERN }}"
