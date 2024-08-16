@@ -27,6 +27,11 @@ just build
 ```
 
 ### Test
+Note: To execute EF tests, the test fixtures are required. To download them, run:
+```bash
+just download-vectors
+```
+
 To run the tests from a crate, run:
 ```bash
 just test <crate>
@@ -34,7 +39,7 @@ just test <crate>
 
 Or just run all the tests:
 ```bash
-just test-all
+just test
 ```
 
 ### Run
