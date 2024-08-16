@@ -85,18 +85,6 @@ pub fn new_payload_v3(
             "Invalid blob_versioned_hashes",
         ));
     }
-
-    // Fetch parent block header and validate current header
-    if let Some(parent_header) = storage.get_block_header(block.header.number.saturating_sub(1))? {
-        if !validate_block_header(&block.header, &parent_header) {
-            return Ok(PayloadStatus::invalid_with_hash(
-                parent_header.compute_block_hash(),
-            ));
-        }
-    } else {
-        return Ok(PayloadStatus::syncing());
-    }
-
     // Execute and store the block
     info!("Executing payload with block hash: {block_hash}");
     match add_block(&block, storage.clone()) {
@@ -106,15 +94,12 @@ pub fn new_payload_v3(
                 "Could not reference parent block with parent_hash",
             ))
         }
-
         Err(ChainError::InvalidBlock(error)) => {
             return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
         }
-
         Err(ChainError::EvmError(error)) => {
             return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
         }
-
         Err(ChainError::StoreError(error)) => {
             return Ok(PayloadStatus::invalid_with_err(&error.to_string()))
         }
