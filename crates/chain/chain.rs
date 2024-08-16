@@ -14,19 +14,21 @@ use ethereum_rust_evm::{
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
 
+//TODO: Implement a struct Chain or BlockChain to encapsulate
+//functionality and canonical chain state and config
+
 /// Adds a new block as head of the chain.
 /// Performs pre and post execution validation, and updates the database.
+/// Right now we can only handle blocks that extend the canonical chain.
+/// This is:
+/// - The parent_hash field on the block header is the hash of the head of the canonical chain
+/// - The block's number is the latest block number of the canonical chain+1
 pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
-    //
-    let latest_block_number = storage
-        .get_latest_block_number()
-        .map_err(|e| ChainError::StoreError(e))?;
-    if latest_block_number.is_some_and(|number| block.header.number > number.saturating_add(1)) {
-        return Err(ChainError::NonCanonicalBlock);
-    }
+    //TODO: Eventually we should be able to handle blocks
+    //which are not directly extending the canonical chain
+    extends_canonical_chain(&block, &storage)?;
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(block, &storage)?;
-
     let mut state = evm_state(storage.clone());
 
     // Validate the block pre-execution
@@ -44,13 +46,24 @@ pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
     Ok(())
 }
 
+pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), ChainError> {
+    let latest_block_number = storage
+        .get_latest_block_number()
+        .map_err(|e| ChainError::StoreError(e))?
+        .ok_or(ChainError::StoreError(StoreError::Custom(
+            "Could not find latest valid hash".to_string(),
+        )))?;
+
+    if block.header.number != latest_block_number.saturating_add(1) {
+        Err(ChainError::NonCanonicalBlock)
+    } else {
+        Ok(())
+    }
+}
 /// Stores block and header in the database
 pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
     storage
         .add_block(block.clone())
-        .map_err(|e| ChainError::StoreError(e))?;
-    storage
-        .update_latest_block_number(block.header.number)
         .map_err(|e| ChainError::StoreError(e))?;
     Ok(())
 }

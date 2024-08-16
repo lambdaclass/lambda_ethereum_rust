@@ -92,6 +92,7 @@ pub fn build_store_for_test(test: &TestUnit) -> Store {
     store
         .add_block_number(test.genesis_block_header.hash, block_number)
         .unwrap();
+    store.update_latest_block_number(block_number).unwrap();
     for (address, account) in &test.pre {
         let account: CoreAccount = account.clone().into();
         store
