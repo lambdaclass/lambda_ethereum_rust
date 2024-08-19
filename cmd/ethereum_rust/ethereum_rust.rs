@@ -79,6 +79,8 @@ async fn main() {
     .expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
+    dbg!(&genesis);
+    dbg!(genesis.get_block());
     store
         .add_initial_state(genesis)
         .expect("Failed to create genesis block");

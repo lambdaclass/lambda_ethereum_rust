@@ -24,6 +24,7 @@ pub struct Genesis {
     /// Genesis header values
     pub coinbase: Address,
     pub difficulty: U256,
+    #[serde(default, with = "crate::serde_utils::bytes")]
     pub extra_data: Bytes,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
@@ -120,7 +121,7 @@ impl Genesis {
             gas_limit: self.gas_limit,
             gas_used: 0,
             timestamp: self.timestamp,
-            extra_data: Bytes::new(),
+            extra_data: self.extra_data.clone(),
             prev_randao: self.mix_hash,
             nonce: self.nonce,
             base_fee_per_gas: INITIAL_BASE_FEE,
@@ -315,8 +316,8 @@ mod tests {
 
     #[test]
     fn parse_hive_genesis_file() {
-        let file =
-            File::open("../../test_data/genesis-hive.json").expect("Failed to open genesis file");
+        let file = File::open("../../test_data/hive_genesis_vicente.json")
+            .expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let _genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
@@ -324,8 +325,8 @@ mod tests {
 
     #[test]
     fn read_and_compute_hive_hash() {
-        let file =
-            File::open("../../test_data/genesis-hive.json").expect("Failed to open genesis file");
+        let file = File::open("../../test_data/hive_genesis_vicente.json")
+            .expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");

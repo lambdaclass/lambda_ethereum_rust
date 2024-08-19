@@ -237,7 +237,6 @@ impl Store {
         let header = block.header;
         let number = header.number;
         let hash = header.compute_block_hash();
-        dbg!(hash);
         self.add_block_body(number, block.body)?;
         self.add_block_header(number, header)?;
         self.add_block_number(hash, number)?;
