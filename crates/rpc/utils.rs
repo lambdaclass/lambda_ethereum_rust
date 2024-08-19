@@ -65,6 +65,7 @@ pub struct RpcRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcErrorMetadata {
     pub code: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<String>,
     pub message: String,
 }
