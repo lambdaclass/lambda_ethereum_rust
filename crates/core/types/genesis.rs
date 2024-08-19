@@ -316,8 +316,8 @@ mod tests {
 
     #[test]
     fn parse_hive_genesis_file() {
-        let file = File::open("../../test_data/hive_genesis_vicente.json")
-            .expect("Failed to open genesis file");
+        let file =
+            File::open("../../test_data/genesis-hive.json").expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let _genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
@@ -325,8 +325,8 @@ mod tests {
 
     #[test]
     fn read_and_compute_hive_hash() {
-        let file = File::open("../../test_data/hive_genesis_vicente.json")
-            .expect("Failed to open genesis file");
+        let file =
+            File::open("../../test_data/genesis-hive.json").expect("Failed to open genesis file");
         let reader = BufReader::new(file);
         let genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
