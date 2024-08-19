@@ -102,16 +102,20 @@ pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
 /// parent_header in that case
 fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, ChainError> {
     let parent_hash = block.header.parent_hash;
+    dbg!(parent_hash);
     let parent_number = storage
         .get_block_number(parent_hash)
         .map_err(ChainError::StoreError)?;
+    dbg!(parent_number);
 
     if let Some(parent_number) = parent_number {
+        dbg!(parent_number);
         let parent_header = storage
             .get_block_header(parent_number)
             .map_err(ChainError::StoreError)?;
 
         if let Some(parent_header) = parent_header {
+            dbg!(&parent_header);
             Ok(parent_header)
         } else {
             Err(ChainError::ParentNotFound)

@@ -1,5 +1,5 @@
+use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
-use ethereum_rust_evm::{evm_state, execute_block};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
 use std::{
@@ -86,9 +86,8 @@ async fn main() {
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
-        let mut state = evm_state(store.clone());
         for block in blocks {
-            execute_block(&block, &mut state).expect("Failed to add block to blockchain");
+            add_block(&block, store.clone()).expect("Failed to add block to blockchain");
         }
         info!("Added {} blocks to blockchain", size);
     }
