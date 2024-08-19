@@ -88,7 +88,7 @@ pub fn new_payload_v3(
     }
     // Check that the incoming block extends the current chain
     let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
-    if last_block_number <= block.header.number {
+    if block.header.number <= last_block_number {
         // Check if we already have this block stored
         if storage
             .get_block_number(block_hash)
