@@ -156,7 +156,11 @@ fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
             InvalidBlockError::ExceededMaxBlobNumberPerBlock,
         ));
     }
-    if blob_gas_used != block.header.blob_gas_used.unwrap() {
+    if block
+        .header
+        .blob_gas_used
+        .is_some_and(|header_blob_gas_used| header_blob_gas_used != blob_gas_used)
+    {
         return Err(ChainError::InvalidBlock(
             InvalidBlockError::BlobGasUsedMismatch,
         ));
