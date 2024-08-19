@@ -114,9 +114,7 @@ pub fn new_payload_v3(
         )),
         Err(ChainError::InvalidBlock(_)) => Ok(PayloadStatus::invalid_with_hash(latest_valid_hash)),
         Err(ChainError::EvmError(error)) => Ok(PayloadStatus::invalid_with_err(&error.to_string())),
-        Err(ChainError::StoreError(error)) => {
-            Ok(PayloadStatus::invalid_with_err(&error.to_string()))
-        }
+        Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
         Ok(()) => {
             info!("Block with hash {block_hash} executed succesfully");
             info!("Block with hash {block_hash} added to storage");
