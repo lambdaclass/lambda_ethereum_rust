@@ -62,9 +62,7 @@ pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), Cha
 }
 /// Stores block and header in the database
 pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
-    storage
-        .add_block(block.clone())
-        .map_err(ChainError::StoreError)?;
+    storage.add_block(block).map_err(ChainError::StoreError)?;
     Ok(())
 }
 
