@@ -6,7 +6,7 @@ use ethereum_rust_storage::error::StoreError;
 #[derive(Debug, Error)]
 pub enum ChainError {
     #[error("Invalid Block: {0}")]
-    InvalidBlock(InvalidBlockError),
+    InvalidBlock(#[from] InvalidBlockError),
     #[error("Parent block not found")]
     ParentNotFound,
     //TODO: If a block with block_number greater than latest plus one is received

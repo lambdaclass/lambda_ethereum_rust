@@ -39,9 +39,9 @@ pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
     apply_state_transitions(&mut state)?;
 
     // Check state root matches the one in block header after execution
-    validate_state_root(&block.header, storage.clone())?;
+    validate_state_root(&block.header, &storage)?;
 
-    store_block(storage.clone(), block.clone())?;
+    store_block(storage, block.clone())?;
 
     Ok(())
 }
@@ -66,7 +66,7 @@ pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
 }
 
 /// Performs post-execution checks
-pub fn validate_state_root(block_header: &BlockHeader, storage: Store) -> Result<(), ChainError> {
+pub fn validate_state_root(block_header: &BlockHeader, storage: &Store) -> Result<(), ChainError> {
     // Compare state root
     if storage.world_state_root() == block_header.state_root {
         Ok(())
