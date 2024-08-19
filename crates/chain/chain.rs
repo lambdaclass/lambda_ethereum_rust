@@ -113,7 +113,6 @@ fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, Cha
             .map_err(ChainError::StoreError)?;
 
         if let Some(parent_header) = parent_header {
-            dbg!(&parent_header);
             Ok(parent_header)
         } else {
             Err(ChainError::ParentNotFound)

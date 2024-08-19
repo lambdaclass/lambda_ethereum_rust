@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     // Parses genesis received by kurtosis and checks that the hash matches the next block's parent hash
-    fn read_and_compute_hash() {
+    fn read_and_compute_kurtosis_hash() {
         let file = File::open("../../test_data/genesis-kurtosis.json")
             .expect("Failed to open genesis file");
         let reader = BufReader::new(file);
@@ -320,5 +320,19 @@ mod tests {
         let reader = BufReader::new(file);
         let _genesis: Genesis =
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+    }
+
+    #[test]
+    fn read_and_compute_hive_hash() {
+        let file =
+            File::open("../../test_data/genesis-hive.json").expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        let genesis: Genesis =
+            serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
+        let computed_block_hash = genesis.get_block().header.compute_block_hash();
+        let genesis_block_hash =
+            H256::from_str("0x414c637788e37e9f65ed2c6ee962d32aeea39722ad50ee764e712fabebd69118")
+                .unwrap();
+        assert_eq!(genesis_block_hash, computed_block_hash)
     }
 }

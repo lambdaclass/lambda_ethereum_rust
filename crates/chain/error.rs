@@ -14,9 +14,9 @@ pub enum ChainError {
     #[error("Block number is greater than the latest plus one")]
     NonCanonicalBlock,
     #[error("DB error: {0}")]
-    StoreError(StoreError),
+    StoreError(#[from] StoreError),
     #[error("EVM error: {0}")]
-    EvmError(EvmError),
+    EvmError(#[from] EvmError),
 }
 
 #[derive(Debug, Error)]

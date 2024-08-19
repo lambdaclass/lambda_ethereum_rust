@@ -87,7 +87,7 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            add_block(&block, store.clone()).expect("Failed to add block to blockchain");
+            let _ = dbg!(add_block(&block, store.clone()));
         }
         info!("Added {} blocks to blockchain", size);
     }
@@ -105,7 +105,7 @@ fn read_chain_file(chain_rlp_path: &str) -> Vec<Block> {
 
 fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     let genesis_file = std::fs::File::open(genesis_file_path).expect("Failed to open genesis file");
-    decode::genesis_file(genesis_file).expect("Failed to decode genesis file")
+    dbg!(decode::genesis_file(genesis_file).expect("Failed to decode genesis file"))
 }
 
 fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
