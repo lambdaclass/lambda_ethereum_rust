@@ -78,37 +78,64 @@ kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet
 ## Roadmap
 
 ### Milestone 1: RPC Node
-Add support to participate in a Cancun localnet as a read-only node.
+Add support to follow a post-Merge localnet as a read-only RPC Node.
 
 RPC endpoints
-- `engine_newPayloadV3` (partially)
+- `engine_newPayloadV3` (excl. block building)
+- `eth_blobBaseFee`
+- `eth_blockNumber`
+- `eth_call`
+- `eth_chainId`
+- `eth_createAccessList`
+- `eth_estimateGas`
+- `eth_feeHistory`
+- `eth_getBalance` (at head block)
 - `eth_getBlockByHash`
 - `eth_getBlockByNumber`
-- `eth_blockNumber`
 - `eth_getBlockReceipts`
 - `eth_getBlockTransactionCountByNumber`
+- `eth_getCode` (at head block)
+- `eth_getStorageAt` (at head block)
 - `eth_getTransactionByBlockHashAndIndex`
 - `eth_getTransactionByBlockNumberAndIndex`
+- `eth_getTransactionByHash`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/1
 
 ### Milestone 2: P2P Network
-Implement DevP2P protocol, including RLPx and `eth` capability.
+Implement DevP2P protocol, including RLPx `p2p` and `eth` capabilities.
 
 RPC endpoints
-- `eth_getBalance`
-- `eth_getCode`
-- `eth_getStorageAt`
-- `eth_getProof`
+- `admin_nodeInfo`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 
-### Milestone 3: Syncing
+### Milestone 3: Reorgs
+Add support for block reorgs. Persist the Trie.
+
+RPC endpoints
+- `engine_exchangeCapabilities`
+- `engine_forkchoiceUpdatedV3`
+- `eth_getProof`
+- `eth_getBalance` (at any block)
+- `eth_getStorageAt` (at any block)
+- `eth_getCode` (at head block)
+
+See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/4
+
+### Milestone 4: Syncing
 Support snap sync on public testnets and mainnet.
 
 RPC endpoints
-- `eth_syncing`
 - `engine_forkchoiceUpdatedV3`
 - `engine_newPayloadV3`
+- `eth_syncing`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
+
+### Milestone 5: Block building
+Keep a transaction pool and add ability to propose blocks
+
+RPC endpoints
+- `engine_getPayloadV3`
+- `engine_newPayloadV3` (with block building)
