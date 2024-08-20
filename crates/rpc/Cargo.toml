@@ -16,6 +16,7 @@ tracing-subscriber.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-storage.workspace = true
 ethereum_rust-evm.workspace = true
+ethereum_rust-chain.workspace = true
 hex.workspace = true
 
 [lib]
