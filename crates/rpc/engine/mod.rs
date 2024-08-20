@@ -1,8 +1,9 @@
+use ethereum_rust_chain::error::ChainError;
+use ethereum_rust_chain::{add_block, latest_valid_hash};
 use ethereum_rust_core::{
-    types::{validate_block_header, ExecutionPayloadV3, PayloadStatus},
+    types::{ExecutionPayloadV3, PayloadStatus},
     H256,
 };
-use ethereum_rust_evm::{evm_state, execute_block};
 use ethereum_rust_storage::Store;
 use serde_json::{json, Value};
 use tracing::{info, warn};
@@ -87,7 +88,7 @@ pub fn new_payload_v3(
     }
     // Check that the incoming block extends the current chain
     let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
-    if last_block_number <= block.header.number {
+    if block.header.number <= last_block_number {
         // Check if we already have this block stored
         if storage
             .get_block_number(block_hash)
@@ -102,22 +103,23 @@ pub fn new_payload_v3(
         return Ok(PayloadStatus::syncing());
     }
 
-    // Fetch parent block header and validate current header
-    if let Some(parent_header) = storage.get_block_header(block.header.number.saturating_sub(1))? {
-        if !validate_block_header(&block.header, &parent_header) {
-            return Ok(PayloadStatus::invalid_with_hash(
-                parent_header.compute_block_hash(),
-            ));
-        }
-    } else {
-        return Ok(PayloadStatus::syncing());
-    }
+    let latest_valid_hash = latest_valid_hash(&storage).map_err(|_| RpcErr::Internal)?;
 
     // Execute and store the block
     info!("Executing payload with block hash: {block_hash}");
-    execute_block(&block, &mut evm_state(storage.clone()))?;
-    info!("Block with hash {block_hash} executed succesfully");
-    info!("Block with hash {block_hash} added to storage");
+    match add_block(&block, storage.clone()) {
+        Err(ChainError::NonCanonicalBlock) => Ok(PayloadStatus::syncing()),
+        Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
+            "Could not reference parent block with parent_hash",
+        )),
+        Err(ChainError::InvalidBlock(_)) => Ok(PayloadStatus::invalid_with_hash(latest_valid_hash)),
+        Err(ChainError::EvmError(error)) => Ok(PayloadStatus::invalid_with_err(&error.to_string())),
+        Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
+        Ok(()) => {
+            info!("Block with hash {block_hash} executed succesfully");
+            info!("Block with hash {block_hash} added to storage");
 
-    Ok(PayloadStatus::valid_with_hash(block_hash))
+            Ok(PayloadStatus::valid_with_hash(block_hash))
+        }
+    }
 }

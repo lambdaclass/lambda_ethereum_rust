@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/consensus",
+    "crates/chain",
     "crates/core",
     "crates/net",
     "crates/rpc",
@@ -17,7 +17,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-ethereum_rust-consensus = { path = "./crates/consensus" }
+ethereum_rust-chain= { path = "./crates/chain" }
 ethereum_rust-core = { path = "./crates/core" }
 ethereum_rust-net = { path = "./crates/net" }
 ethereum_rust-rpc = { path = "./crates/rpc" }
