@@ -27,6 +27,11 @@ just build
 ```
 
 ### Test
+Note: To execute EF tests, the test fixtures are required. To download them, run:
+```bash
+just download-vectors
+```
+
 To run the tests from a crate, run:
 ```bash
 just test <crate>
@@ -34,46 +39,40 @@ just test <crate>
 
 Or just run all the tests:
 ```bash
-just test-all
+just test
 ```
 
 ### Run
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client.
+To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a git submodule. Make sure to fetch it like follows:
+
+```bash
+git submodule update --init
+```
+
+Let's now install kurtosis:
+
 ```bash
 # Make sure to have docker installed
 
 # Kurtosis cli
 brew install kurtosis-tech/tap/kurtosis-cli
-
-# Lambdaclass fork of the kurtosis ethereum package.
-git clone https://github.com/lambdaclass/ethereum-package.git
-cd ethereum-package
-
-# We're now working in the ethereum-rust-integration branch.
-git checkout ethereum-rust-integration
 ```
 
-Create a `network_params.yaml` to set up the localnet
-```yaml
-participants:
-  - el_type: geth
-    cl_type: lighthouse
-    count: 2
-  - el_type: ethereumrust
-    cl_type: lighthouse
-    vc_count: 0
-    validator_count: 0
-    count: 1
-```
+To run the localnet:
 
-Run the localnet
 ```bash
 # Make sure we build our docker image with latest changes
 docker build -t ethereum_rust .
 
-# Assuming both repos are in the same directory and we're in the rust_ethereum directory:
-kurtosis run --enclave lambdanet ../ethereum-package --args-file network_params.yaml
+# Ethereum package is included in the repo as a submodule.
+kurtosis run --enclave lambdanet ethereum-package --args-file network_params.yaml
+```
+
+To stop the localnet:
+
+```bash
+kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet
 ```
 
 ## Roadmap

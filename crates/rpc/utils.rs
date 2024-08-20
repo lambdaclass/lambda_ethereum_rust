@@ -3,6 +3,7 @@ use ethereum_rust_storage::error::StoreError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[derive(Debug)]
 pub enum RpcErr {
     MethodNotFound,
     BadParams,

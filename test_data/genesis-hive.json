@@ -92,6 +92,18 @@
       },
       "balance": "0x1",
       "nonce": "0x1"
+    },
+    "c7b99a164efd027a93f147376cc7da7c67c6bbe0": {
+      "balance": "0xc097ce7bc90715b34b9f1000000000"
+    },
+    "d803681e487e6ac18053afc5a6cd813c86ec3e4d": {
+      "balance": "0xc097ce7bc90715b34b9f1000000000"
+    },
+    "e7d13f7aa2a838d24c59b40186a0aca1e21cffcc": {
+      "balance": "0xc097ce7bc90715b34b9f1000000000"
+    },
+    "eda8645ba6948855e3b3cd596bbb07596d59c603": {
+      "balance": "0xc097ce7bc90715b34b9f1000000000"
     }
   }
 }
