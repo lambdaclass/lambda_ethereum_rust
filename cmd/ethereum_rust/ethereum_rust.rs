@@ -4,7 +4,7 @@ use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
 use std::{
     io,
-    net::{SocketAddr, ToSocketAddrs}, str::FromStr,
+    net::{SocketAddr, ToSocketAddrs},
 };
 use tokio::try_join;
 use tracing::{info, warn, Level};

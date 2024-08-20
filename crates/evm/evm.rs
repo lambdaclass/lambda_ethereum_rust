@@ -30,7 +30,9 @@ use revm::{
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
 use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind, GAS_PER_BLOB};
-use revm_primitives::{AccessList as RevmAccessList, AccessListItem as RevmAccessListItem};
+use revm_primitives::{
+    ruint::Uint, AccessList as RevmAccessList, AccessListItem as RevmAccessListItem,
+};
 // Export needed types
 pub use errors::EvmError;
 pub use execution_result::*;
@@ -151,8 +153,13 @@ pub fn execute_tx_from_generic(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let block_env = block_env(header);
+    let mut block_env = block_env(header);
     let tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
+    adjust_base_fee(
+        &mut block_env,
+        tx_env.gas_price,
+        tx_env.max_fee_per_blob_gas,
+    );
     let tx_result = {
         let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
         let mut evm = Evm::builder()
@@ -172,6 +179,19 @@ pub fn execute_tx_from_generic(
         evm.transact_commit().map_err(EvmError::from)?
     };
     Ok(tx_result.into())
+}
+
+fn adjust_base_fee(
+    block_env: &mut BlockEnv,
+    tx_gas_price: Uint<256, 4>,
+    tx_blob_gas_price: Option<Uint<256, 4>>,
+) {
+    if tx_gas_price == RevmU256::from(0) {
+        block_env.basefee = RevmU256::from(0);
+    }
+    if tx_blob_gas_price.is_some_and(|v| v == RevmU256::from(0)) {
+        block_env.blob_excess_gas_and_price = None;
+    }
 }
 
 /// Runs EVM, doesn't perform state transitions, but stores them
@@ -511,7 +531,10 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
     let gas_price = if tx.gas_price != 0 {
         RevmU256::from(tx.gas_price)
     } else {
-        RevmU256::from(min(tx.max_priority_fee_per_gas.unwrap_or(0) + basefee, tx.max_fee_per_gas.unwrap_or(0)))
+        RevmU256::from(min(
+            tx.max_priority_fee_per_gas.unwrap_or(0) + basefee,
+            tx.max_fee_per_gas.unwrap_or(0),
+        ))
     };
     TxEnv {
         caller: RevmAddress(tx.from.0.into()),
