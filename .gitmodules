@@ -1,0 +1,3 @@
+[submodule "ethereum-package"]
+	path = ethereum-package
+	url = https://github.com/lambdaclass/ethereum-package.git
