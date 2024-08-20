@@ -2,6 +2,8 @@ mod db;
 mod errors;
 mod execution_result;
 
+use std::cmp::min;
+
 use db::StoreWrapper;
 
 use ethereum_rust_core::{
@@ -150,15 +152,19 @@ pub fn execute_tx_from_generic(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
-    let tx_env = tx_env_from_generic(tx);
+    let tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
     let tx_result = {
+        let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
             .modify_cfg_env(|env| {
                 env.disable_base_fee = true;
-                env.disable_block_gas_limit = true
+                env.disable_block_gas_limit = true;
+                if let Some(chain_id) = chain_id {
+                    env.chain_id = chain_id
+                }
             })
             .with_spec_id(spec_id)
             .reset_handler()
@@ -204,7 +210,7 @@ pub fn create_access_list(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, AccessList), EvmError> {
-    let mut tx_env = tx_env_from_generic(tx);
+    let mut tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
     let block_env = block_env(header);
     // Run tx with access list inspector
 
@@ -501,11 +507,16 @@ fn tx_env(tx: &Transaction) -> TxEnv {
 }
 
 // Used to estimate gas and create access lists
-fn tx_env_from_generic(tx: &GenericTransaction) -> TxEnv {
+fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
+    let gas_price = if tx.gas_price != 0 {
+        RevmU256::from(tx.gas_price)
+    } else {
+        RevmU256::from(min(tx.max_priority_fee_per_gas.unwrap_or(0) + basefee, tx.max_fee_per_gas.unwrap_or(0)))
+    };
     TxEnv {
         caller: RevmAddress(tx.from.0.into()),
         gas_limit: tx.gas.unwrap_or(u64::MAX), // Ensure tx doesn't fail due to gas limit
-        gas_price: RevmU256::from(tx.gas_price),
+        gas_price,
         transact_to: match tx.to {
             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
             TxKind::Create => RevmTxKind::Create,
