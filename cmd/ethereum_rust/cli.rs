@@ -36,7 +36,7 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("authrpc.jwtsecret")
                 .long("authrpc.jwtsecret")
-                .default_value("jwtsecret")
+                .default_value("tmp/jwt.hex")
                 .value_name("FILENAME")
                 .action(ArgAction::Set),
         )
