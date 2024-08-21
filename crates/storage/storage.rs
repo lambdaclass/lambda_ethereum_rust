@@ -237,10 +237,26 @@ impl Store {
         let header = block.header;
         let number = header.number;
         let hash = header.compute_block_hash();
-        self.add_block_body(number, block.body)?;
+        self.add_block_body(number, block.body.clone())?;
         self.add_block_header(number, header)?;
         self.add_block_number(hash, number)?;
+        self.add_transaction_locations(block.body.transactions, number)?;
         self.update_latest_block_number(number)
+    }
+
+    fn add_transaction_locations(
+        &self,
+        transactions: Vec<Transaction>,
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        for (index, transaction) in transactions.iter().enumerate() {
+            self.add_transaction_location(
+                transaction.compute_hash(),
+                block_number,
+                index as Index,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {
