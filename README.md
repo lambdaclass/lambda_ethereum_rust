@@ -84,9 +84,9 @@ RPC endpoints
 - `engine_newPayloadV3` (excl. block building)
 - `eth_blobBaseFee`
 - `eth_blockNumber`
-- `eth_call`
+- `eth_call` (at head block)
 - `eth_chainId`
-- `eth_createAccessList`
+- `eth_createAccessList`  (at head block)
 - `eth_estimateGas`
 - `eth_feeHistory`
 - `eth_getBalance` (at head block)
@@ -106,7 +106,7 @@ See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/
 Implement DevP2P protocol, including RLPx `p2p` and `eth` capabilities. This will allow us to receive blocks and transactions from other nodes and is a prerequisite for the next milestones.
 
 RPC endpoints
-- `admin_nodeInfo`
+- `admin_nodeInfo`t
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 
@@ -116,10 +116,12 @@ Implement support for block reorganizations (reorgs) and historical state querie
 RPC endpoints
 - `engine_exchangeCapabilities`
 - `engine_forkchoiceUpdatedV3`
-- `eth_getProof`
+- `eth_call` (at any block)
+- `eth_createAccessList`  (at any block)
 - `eth_getBalance` (at any block)
+- `eth_getCode` (at any block)
+- `eth_getProof`
 - `eth_getStorageAt` (at any block)
-- `eth_getCode` (at head block)
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/4
 
