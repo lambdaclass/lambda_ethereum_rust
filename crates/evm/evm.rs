@@ -83,7 +83,7 @@ pub fn execute_tx(
     run_evm(tx_env, block_env, state, spec_id)
 }
 
-// Executes a single GenericTransaction, doesn't perform state transitions
+// Executes a single GenericTransaction, doesn't commit the result or perform state transitions
 pub fn simulate_tx_from_generic(
     tx: &GenericTransaction,
     header: &BlockHeader,
@@ -92,7 +92,7 @@ pub fn simulate_tx_from_generic(
 ) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
     let tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
-    simulate_tx(tx_env, block_env, state, spec_id)
+    run_without_commit(tx_env, block_env, state, spec_id)
 }
 
 fn adjust_base_fee(
@@ -127,7 +127,6 @@ fn run_evm(
                 }
             })
             .with_spec_id(spec_id)
-            .reset_handler()
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
             )
@@ -216,10 +215,11 @@ fn estimate_gas(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    simulate_tx(tx_env, block_env, state, spec_id)
+    run_without_commit(tx_env, block_env, state, spec_id)
 }
 
-fn simulate_tx(
+/// Runs the transaction and returns the result, but does not commit it.
+fn run_without_commit(
     tx_env: TxEnv,
     mut block_env: BlockEnv,
     state: &mut EvmState,
@@ -384,8 +384,6 @@ pub fn beacon_root_contract_call(
         .with_block_env(block_env)
         .with_tx_env(tx_env)
         .with_spec_id(spec_id)
-        .reset_handler()
-        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .build();
 
     let transaction_result = evm.transact()?;
