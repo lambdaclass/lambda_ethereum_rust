@@ -1,6 +1,14 @@
-use std::{future::IntoFuture, net::SocketAddr};
+use std::{
+    future::IntoFuture,
+    net::SocketAddr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use axum::{routing::post, Json, Router};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
     account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
@@ -12,7 +20,9 @@ use eth::{
     },
     client,
 };
-use serde_json::Value;
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
@@ -25,6 +35,14 @@ mod utils;
 
 use axum::extract::State;
 use ethereum_rust_storage::Store;
+
+// JWT claims struct
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    iat: usize,
+    id: Option<String>,
+    clv: Option<String>,
+}
 
 pub async fn start_api(http_addr: SocketAddr, authrpc_addr: SocketAddr, storage: Store) {
     let http_router = Router::new()
@@ -66,10 +84,45 @@ pub async fn handle_authrpc_request(State(storage): State<Store>, body: String) 
     rpc_response(req.id, res)
 }
 
-pub async fn handle_http_request(State(storage): State<Store>, body: String) -> Json<Value> {
-    let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_requests(&req, storage);
-    rpc_response(req.id, res)
+pub async fn handle_http_request(
+    State(storage): State<Store>,
+    TypedHeader(auth_header): TypedHeader<Authorization<Bearer>>,
+    body: String,
+) -> Json<Value> {
+    let token = auth_header.token();
+
+    //Validate the JWT
+    let decoding_key = DecodingKey::from_secret("JWTSECRET".as_ref());
+    match decode::<Claims>(token, &decoding_key, &Validation::new(Algorithm::HS256)) {
+        Ok(token_data) => {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as usize;
+            if (now as isize - token_data.claims.iat as isize).abs() > 60 {
+                return Json(json!({
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32000,
+                        "message": "Invalid iat claim"
+                    },
+                    "id": null
+                }));
+            }
+            // Proceed with the request
+            let req: RpcRequest = serde_json::from_str(&body).unwrap();
+            let res = map_requests(&req, storage);
+            rpc_response(req.id, res)
+        }
+        Err(_) => Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32000,
+                "message": "Invalid or missing token"
+            },
+            "id": null
+        })),
+    }
 }
 
 /// Handle requests that can come from either clients or other users
