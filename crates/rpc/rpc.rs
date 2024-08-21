@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     future::IntoFuture,
     net::SocketAddr,
     time::{SystemTime, UNIX_EPOCH},
@@ -93,7 +94,10 @@ pub async fn handle_http_request(
 
     //Validate the JWT
     let decoding_key = DecodingKey::from_secret("JWTSECRET".as_ref());
-    match decode::<Claims>(token, &decoding_key, &Validation::new(Algorithm::HS256)) {
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = false;
+
+    match decode::<Claims>(token, &decoding_key, &validation) {
         Ok(token_data) => {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
