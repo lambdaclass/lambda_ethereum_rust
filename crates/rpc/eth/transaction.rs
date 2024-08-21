@@ -26,7 +26,7 @@ impl CallRequest {
 
 pub fn call(request: &CallRequest, storage: Store) -> Result<Value, RpcErr> {
     let block = request.block.clone().unwrap_or_default();
-    info!("Requested access list creation for tx on block: {}", block);
+    info!("Requested call on block: {}", block);
     let block_number = match block.resolve_block_number(&storage)? {
         Some(block_number) => block_number,
         _ => return Ok(Value::Null),
@@ -37,7 +37,7 @@ pub fn call(request: &CallRequest, storage: Store) -> Result<Value, RpcErr> {
         _ => return Ok(Value::Null),
     };
     // Run transaction
-    let data = match ethereum_rust_evm::execute_tx_from_generic(
+    let data = match ethereum_rust_evm::simulate_tx_from_generic(
         &request.transaction,
         &header,
         &mut evm_state(storage),

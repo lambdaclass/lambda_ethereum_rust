@@ -84,38 +84,15 @@ pub fn execute_tx(
 }
 
 // Executes a single GenericTransaction, doesn't perform state transitions
-pub fn execute_tx_from_generic(
+pub fn simulate_tx_from_generic(
     tx: &GenericTransaction,
     header: &BlockHeader,
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let mut block_env = block_env(header);
+    let block_env = block_env(header);
     let tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
-    adjust_base_fee(
-        &mut block_env,
-        tx_env.gas_price,
-        tx_env.max_fee_per_blob_gas,
-    );
-    let tx_result = {
-        let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
-        let mut evm = Evm::builder()
-            .with_db(&mut state.0)
-            .with_block_env(block_env)
-            .with_tx_env(tx_env)
-            .modify_cfg_env(|env| {
-                env.disable_base_fee = true;
-                env.disable_block_gas_limit = true;
-                if let Some(chain_id) = chain_id {
-                    env.chain_id = chain_id
-                }
-            })
-            .with_spec_id(spec_id)
-            .reset_handler()
-            .build();
-        evm.transact_commit().map_err(EvmError::from)?
-    };
-    Ok(tx_result.into())
+    simulate_tx(tx_env, block_env, state, spec_id)
 }
 
 fn adjust_base_fee(
@@ -239,19 +216,35 @@ fn estimate_gas(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let tx_result = {
-        let mut evm = Evm::builder()
-            .with_db(&mut state.0)
-            .with_block_env(block_env)
-            .with_tx_env(tx_env)
-            .with_spec_id(spec_id)
-            .modify_cfg_env(|env| {
-                env.disable_base_fee = true;
-                env.disable_block_gas_limit = true
-            })
-            .build();
-        evm.transact().map_err(EvmError::from)?
-    };
+    simulate_tx(tx_env, block_env, state, spec_id)
+}
+
+fn simulate_tx(
+    tx_env: TxEnv,
+    mut block_env: BlockEnv,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    adjust_base_fee(
+        &mut block_env,
+        tx_env.gas_price,
+        tx_env.max_fee_per_blob_gas,
+    );
+    let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
+    let mut evm = Evm::builder()
+        .with_db(&mut state.0)
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .modify_cfg_env(|env| {
+            env.disable_base_fee = true;
+            env.disable_block_gas_limit = true;
+            if let Some(chain_id) = chain_id {
+                env.chain_id = chain_id
+            }
+        })
+        .build();
+    let tx_result = evm.transact().map_err(EvmError::from)?;
     Ok(tx_result.result.into())
 }
 
