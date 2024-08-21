@@ -39,7 +39,7 @@ use axum::extract::State;
 use ethereum_rust_storage::Store;
 
 #[derive(Debug, Clone)]
-pub struct ServiceContext {
+struct ServiceContext {
     storage: Store,
     jwt_secret: Bytes,
 }
@@ -64,7 +64,7 @@ pub async fn start_api(
     };
     let http_router = Router::new()
         .route("/", post(handle_http_request))
-        .with_state(service_context.clone());
+        .with_state(service_context);
     let http_listener = TcpListener::bind(http_addr).await.unwrap();
 
     let authrpc_router = Router::new()
