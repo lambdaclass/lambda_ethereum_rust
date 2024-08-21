@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::info;
 
-use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr};
+use crate::{types::transaction::RpcTransaction, utils::RpcErr};
 use ethereum_rust_core::{
     types::{
         AccessListEntry, BlockHash, BlockNumber, BlockSerializable, GenericTransaction,
