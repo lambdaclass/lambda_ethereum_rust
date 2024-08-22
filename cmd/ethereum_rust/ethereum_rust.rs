@@ -4,6 +4,7 @@ use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
 use hex;
+use rand;
 use std::{
     io,
     net::{SocketAddr, ToSocketAddrs},
@@ -106,10 +107,24 @@ async fn main() {
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
     let file_content =
-        std::fs::read_to_string(jwt_secret_path).expect("Failed to open jwt secret file");
+        std::fs::read_to_string(jwt_secret_path).unwrap_or(write_jwtsecret_file(jwt_secret_path));
     hex::decode(file_content)
         .expect("Failed to decode jwt_secret")
         .into()
+}
+
+fn write_jwtsecret_file(jwt_secret_path: &str) -> String {
+    let secret = generate_jwt_secret();
+    std::fs::write(jwt_secret_path, &secret).expect("Unable to write JWT secret file");
+    secret
+}
+
+fn generate_jwt_secret() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let mut secret = [0u8; 32];
+    rng.fill(&mut secret);
+    hex::encode(secret)
 }
 
 fn read_chain_file(chain_rlp_path: &str) -> Vec<Block> {
