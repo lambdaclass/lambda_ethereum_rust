@@ -1,7 +1,9 @@
+use bytes::Bytes;
 use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
+use hex;
 use std::{
     io,
     net::{SocketAddr, ToSocketAddrs},
@@ -94,11 +96,20 @@ async fn main() {
         }
         info!("Added {} blocks to blockchain", size);
     }
-
-    let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store);
+    let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
+    let rpc_api =
+        ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store, jwt_secret);
     //let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
     try_join!(tokio::spawn(rpc_api) /*, tokio::spawn(networking)*/).unwrap();
+}
+
+fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
+    let file_content =
+        std::fs::read_to_string(jwt_secret_path).expect("Failed to open jwt secret file");
+    hex::decode(file_content)
+        .expect("Failed to decode jwt_secret")
+        .into()
 }
 
 fn read_chain_file(chain_rlp_path: &str) -> Vec<Block> {
