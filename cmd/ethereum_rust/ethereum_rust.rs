@@ -108,16 +108,13 @@ async fn main() {
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
     match File::open(jwt_secret_path) {
-        Ok(file) => {
-            let mut contents = String::new();
-            file.read_to_string(&mut contents);
-            hex::decode(contents).into()
-        }
+        Ok(mut file) => decode::jwtsecret_file(&mut file),
         Err(_) => write_jwtsecret_file(jwt_secret_path),
     }
 }
 
 fn write_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
+    info!("JWT secret not found in the provided path, generating JWT secret");
     let secret = generate_jwt_secret();
     std::fs::write(jwt_secret_path, &secret).expect("Unable to write JWT secret file");
     hex::decode(secret).unwrap().into()
