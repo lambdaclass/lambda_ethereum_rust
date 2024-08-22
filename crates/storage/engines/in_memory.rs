@@ -8,8 +8,6 @@ use std::{collections::HashMap, fmt::Debug};
 
 use super::api::StoreEngine;
 
-use tracing::info;
-
 #[derive(Default)]
 pub struct Store {
     chain_data: ChainData,
@@ -113,7 +111,6 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<(), StoreError> {
-        info!("[Memory] Inserting transaction_hash {transaction_hash} with block_number {block_number} at index {index}");
         self.transaction_locations
             .insert(transaction_hash, (block_number, index));
         Ok(())
@@ -123,10 +120,7 @@ impl StoreEngine for Store {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
-        info!("[Memory] Requested transaction_hash {transaction_hash}.");
-        let location = self.transaction_locations.get(&transaction_hash).copied();
-        info!("[Memory] Found location: {:?}", location);
-        Ok(location)
+        Ok(self.transaction_locations.get(&transaction_hash).copied())
     }
 
     fn add_receipt(

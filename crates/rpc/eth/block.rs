@@ -400,11 +400,14 @@ pub fn get_transaction_by_hash(
             Some(transaction) => transaction,
             _ => return Ok(Value::Null),
         };
-    let (block_number, index) = storage
-        .get_transaction_location(request.transaction_hash)
-        .unwrap()
-        .unwrap();
-    let block_header = storage.get_block_header(block_number).unwrap().unwrap();
+    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash)? {
+        Some(location) => location,
+        _ => return Ok(Value::Null),
+    };
+    let block_header = match storage.get_block_header(block_number)? {
+        Some(header) => header,
+        _ => return Ok(Value::Null),
+    };
     let block_hash = block_header.compute_block_hash();
     let transaction = RpcTransaction::build(transaction, block_number, block_hash, index as usize);
     serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)

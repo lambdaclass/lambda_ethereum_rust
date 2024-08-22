@@ -1018,7 +1018,7 @@ mod tests {
     }
     #[test]
     fn test_compute_hash() {
-        // taken from hive
+        // taken from Hive
         let tx_eip2930 = EIP2930Transaction {
             chain_id: 3503995874084926u64,
             nonce: 7,
