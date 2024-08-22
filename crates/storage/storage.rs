@@ -251,9 +251,11 @@ impl Store {
     ) -> Result<(), StoreError> {
         for (index, transaction) in transactions.iter().enumerate() {
             info!("[Storage] Inserting transaction {:?}", transaction);
-            let _ = self
-                .add_transaction_location(transaction.compute_hash(), block_number, index as Index)
-                .map_err(|e| info!("[Storage] Fail to add transaction. Error: {e}"));
+            let _ = self.add_transaction_location(
+                transaction.compute_hash(),
+                block_number,
+                index as Index,
+            )?;
         }
         Ok(())
     }
