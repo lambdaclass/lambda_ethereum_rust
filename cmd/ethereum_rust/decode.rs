@@ -10,6 +10,9 @@ pub fn jwtsecret_file(file: &mut File) -> Bytes {
     let mut contents = String::new();
     file.read_to_string(&mut contents)
         .expect("Failed to read jwt secret file");
+    if contents[0..2] == *"0x" {
+        contents = contents[2..contents.len()].to_string();
+    }
     hex::decode(contents)
         .expect("Secret should be hex encoded")
         .into()

@@ -22,13 +22,13 @@ use eth::{
     },
     client,
 };
+use hex;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
-
 mod admin;
 mod engine;
 mod eth;
@@ -92,62 +92,78 @@ async fn shutdown_signal() {
         .expect("failed to install Ctrl+C handler");
 }
 
-pub async fn handle_authrpc_request(
+pub async fn handle_http_request(
     State(service_context): State<ServiceContext>,
     body: String,
 ) -> Json<Value> {
     let storage = service_context.storage;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = match map_requests(&req, storage.clone()) {
-        res @ Ok(_) => res,
-        _ => map_internal_requests(&req, storage),
-    };
+    let res = map_requests(&req, storage.clone());
     rpc_response(req.id, res)
 }
 
-pub async fn handle_http_request(
+pub async fn handle_authrpc_request(
     State(service_context): State<ServiceContext>,
-    TypedHeader(auth_header): TypedHeader<Authorization<Bearer>>,
+    auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
-    let storage = service_context.storage;
-    let secret = service_context.jwt_secret;
-    let token = auth_header.token();
+    if let Some(TypedHeader(auth_header)) = auth_header {
+        let storage = service_context.storage;
+        let secret = service_context.jwt_secret;
+        let token = auth_header.token();
+        info!("received auth_header {:?}", auth_header);
+        info!("secret is {}", &hex::encode(secret.clone()));
+        info!("received token: {}", token);
+        //Validate the JWT
+        let decoding_key = DecodingKey::from_secret(&secret);
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_exp = false;
+        validation.set_required_spec_claims(&["iat"]);
+        dbg!(&validation);
 
-    //Validate the JWT
-    let decoding_key = DecodingKey::from_secret(&secret);
-    let mut validation = Validation::new(Algorithm::HS256);
-    validation.validate_exp = false;
+        match decode::<Claims>(token, &decoding_key, &validation) {
+            Ok(token_data) => {
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as usize;
+                if (now as isize - token_data.claims.iat as isize).abs() > 60 {
+                    return Json(json!({
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32000,
+                            "message": "Invalid iat claim"
+                        },
+                        "id": null
+                    }));
+                }
+                // Proceed with the request
+                let req: RpcRequest = serde_json::from_str(&body).unwrap();
+                let res = match map_requests(&req, storage.clone()) {
+                    res @ Ok(_) => res,
+                    _ => map_internal_requests(&req, storage),
+                };
 
-    match decode::<Claims>(token, &decoding_key, &validation) {
-        Ok(token_data) => {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as usize;
-            if (now as isize - token_data.claims.iat as isize).abs() > 60 {
+                rpc_response(req.id, res)
+            }
+            Err(error) => {
+                info!("{}", error);
+                info!("Request body: {}", body);
                 return Json(json!({
                     "jsonrpc": "2.0",
                     "error": {
                         "code": -32000,
-                        "message": "Invalid iat claim"
+                        "message": "Invalid or missing token"
                     },
                     "id": null
                 }));
             }
-            // Proceed with the request
-            let req: RpcRequest = serde_json::from_str(&body).unwrap();
-            let res = map_requests(&req, storage);
-            rpc_response(req.id, res)
         }
-        Err(_) => Json(json!({
-            "jsonrpc": "2.0",
-            "error": {
-                "code": -32000,
-                "message": "Invalid or missing token"
-            },
-            "id": null
-        })),
+    } else {
+        // No Authorization header, return 401 Unauthorized
+        return Json(
+            json!({"jsonrpc": "2.0", "error": {"code": -32000, "message": "Authorization header missing"}, "id": null}),
+        );
     }
 }
 
