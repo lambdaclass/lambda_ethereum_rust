@@ -946,7 +946,7 @@ mod serde_impl {
     pub struct GenericTransaction {
         #[serde(default)]
         pub r#type: TxType,
-        #[serde(with = "crate::serde_utils::u64::hex_str")]
+        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
         pub nonce: u64,
         pub to: TxKind,
         pub from: Address,
