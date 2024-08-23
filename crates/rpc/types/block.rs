@@ -1,6 +1,8 @@
 use super::transaction::RpcTransaction;
 use ethereum_rust_core::{
-    types::{BlockBody, BlockHash, BlockHeader, BlockNumber, Withdrawal},
+    rlp::encode::RLPEncode,
+    serde_utils,
+    types::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Withdrawal},
     H256,
 };
 
@@ -10,6 +12,8 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct RpcBlock {
     hash: H256,
+    #[serde(with = "serde_utils::u64::hex_str")]
+    size: u64,
     #[serde(flatten)]
     header: BlockHeader,
     #[serde(flatten)]
@@ -41,7 +45,13 @@ struct OnlyHashesBlockBody {
 impl RpcBlock {
     pub fn from_block(header: BlockHeader, body: BlockBody, full_transactions: bool) -> RpcBlock {
         let hash = header.compute_block_hash();
-        let body = if full_transactions {
+        let size = Block {
+            header: header.clone(),
+            body: body.clone(),
+        }
+        .encode_to_vec()
+        .len();
+        let body_wrapper = if full_transactions {
             BlockBodyWrapper::Full(FullBlockBody::from_body(body, header.number, hash))
         } else {
             BlockBodyWrapper::OnlyHashes(OnlyHashesBlockBody {
@@ -50,7 +60,13 @@ impl RpcBlock {
                 withdrawals: body.withdrawals.unwrap_or_default(),
             })
         };
-        RpcBlock { hash, header, body }
+
+        RpcBlock {
+            hash,
+            size: size as u64,
+            header,
+            body: body_wrapper,
+        }
     }
 }
 

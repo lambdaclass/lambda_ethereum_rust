@@ -78,6 +78,7 @@ pub struct BlockHeader {
     pub transactions_root: H256,
     pub receipts_root: H256,
     pub logs_bloom: Bloom,
+    #[serde(default)]
     pub difficulty: U256,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub number: BlockNumber,
@@ -91,7 +92,7 @@ pub struct BlockHeader {
     pub extra_data: Bytes,
     #[serde(rename(serialize = "mixHash"))]
     pub prev_randao: H256,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::serde_utils::u64::hex_str_padding")]
     pub nonce: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub base_fee_per_gas: u64,
