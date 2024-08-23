@@ -23,7 +23,7 @@ use eth::{
     client,
 };
 use hex;
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, TokenData, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
@@ -107,64 +107,79 @@ pub async fn handle_authrpc_request(
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
-    if let Some(TypedHeader(auth_header)) = auth_header {
-        let storage = service_context.storage;
-        let secret = service_context.jwt_secret;
-        let token = auth_header.token();
-        info!("received auth_header {:?}", auth_header);
-        info!("secret is {}", &hex::encode(secret.clone()));
-        info!("received token: {}", token);
-        //Validate the JWT
-        let decoding_key = DecodingKey::from_secret(&secret);
-        let mut validation = Validation::new(Algorithm::HS256);
-        validation.validate_exp = false;
-        validation.set_required_spec_claims(&["iat"]);
-        dbg!(&validation);
-
-        match decode::<Claims>(token, &decoding_key, &validation) {
-            Ok(token_data) => {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as usize;
-                if (now as isize - token_data.claims.iat as isize).abs() > 60 {
-                    return Json(json!({
-                        "jsonrpc": "2.0",
-                        "error": {
-                            "code": -32000,
-                            "message": "Invalid iat claim"
-                        },
-                        "id": null
-                    }));
-                }
-                // Proceed with the request
-                let req: RpcRequest = serde_json::from_str(&body).unwrap();
-                let res = match map_requests(&req, storage.clone()) {
-                    res @ Ok(_) => res,
-                    _ => map_internal_requests(&req, storage),
-                };
-
-                rpc_response(req.id, res)
-            }
-            Err(error) => {
-                info!("{}", error);
-                info!("Request body: {}", body);
-                return Json(json!({
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32000,
-                        "message": "Invalid or missing token"
-                    },
-                    "id": null
-                }));
-            }
-        }
-    } else {
-        // No Authorization header, return 401 Unauthorized
+    if auth_header.is_none() {
         return Json(
             json!({"jsonrpc": "2.0", "error": {"code": -32000, "message": "Authorization header missing"}, "id": null}),
         );
     }
+    let TypedHeader(auth_header) = auth_header.unwrap();
+    let storage = service_context.storage;
+    let secret = service_context.jwt_secret;
+    let token = auth_header.token();
+    //Validate the JWT
+    match validate_jwt_authentication(token, secret) {
+        Err(AuthenticationError::InvalidIssuedAtClaim) => {
+            return Json(json!({
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32000,
+                    "message": "Invalid iat claim"
+                },
+                "id": null
+            }))
+        }
+
+        Err(AuthenticationError::TokenDecodingError) => {
+            return Json(json!({
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32000,
+                    "message": "Invalid or missing token"
+                },
+                "id": null
+            }));
+        }
+
+        Ok(()) => {
+            // Proceed with the request
+            let req: RpcRequest = serde_json::from_str(&body).unwrap();
+            let res = match map_requests(&req, storage.clone()) {
+                res @ Ok(_) => res,
+                _ => map_internal_requests(&req, storage),
+            };
+            rpc_response(req.id, res)
+        }
+    }
+}
+enum AuthenticationError {
+    InvalidIssuedAtClaim,
+    TokenDecodingError,
+}
+
+fn validate_jwt_authentication(token: &str, secret: Bytes) -> Result<(), AuthenticationError> {
+    let decoding_key = DecodingKey::from_secret(&secret);
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = false;
+    validation.set_required_spec_claims(&["iat"]);
+    match decode::<Claims>(token, &decoding_key, &validation) {
+        Ok(token_data) => {
+            if invalid_issued_at_claim(token_data) {
+                Err(AuthenticationError::InvalidIssuedAtClaim)
+            } else {
+                Ok(())
+            }
+        }
+        Err(_) => Err(AuthenticationError::TokenDecodingError),
+    }
+}
+
+/// Checks that the "iat" timestamp in the claim is less than 60 seconds from now
+fn invalid_issued_at_claim(token_data: TokenData<Claims>) -> bool {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as usize;
+    (now as isize - token_data.claims.iat as isize).abs() > 60
 }
 
 /// Handle requests that can come from either clients or other users
