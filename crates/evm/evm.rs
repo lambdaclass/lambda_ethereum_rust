@@ -2,6 +2,8 @@ mod db;
 mod errors;
 mod execution_result;
 
+use std::cmp::min;
+
 use db::StoreWrapper;
 
 use ethereum_rust_core::{
@@ -24,7 +26,9 @@ use revm::{
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
 use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind};
-use revm_primitives::{AccessList as RevmAccessList, AccessListItem as RevmAccessListItem};
+use revm_primitives::{
+    ruint::Uint, AccessList as RevmAccessList, AccessListItem as RevmAccessListItem,
+};
 // Export needed types
 pub use errors::EvmError;
 pub use execution_result::*;
@@ -79,6 +83,34 @@ pub fn execute_tx(
     run_evm(tx_env, block_env, state, spec_id)
 }
 
+// Executes a single GenericTransaction, doesn't commit the result or perform state transitions
+pub fn simulate_tx_from_generic(
+    tx: &GenericTransaction,
+    header: &BlockHeader,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    let block_env = block_env(header);
+    let tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
+    run_without_commit(tx_env, block_env, state, spec_id)
+}
+
+/// When basefee tracking is disabled  (ie. env.disable_base_fee = true; env.disable_block_gas_limit = true;)
+/// and no gas prices were specified, lower the basefee to 0 to avoid breaking EVM invariants (basefee < feecap)
+/// See https://github.com/ethereum/go-ethereum/blob/00294e9d28151122e955c7db4344f06724295ec5/core/vm/evm.go#L137
+fn adjust_disabled_base_fee(
+    block_env: &mut BlockEnv,
+    tx_gas_price: Uint<256, 4>,
+    tx_blob_gas_price: Option<Uint<256, 4>>,
+) {
+    if tx_gas_price == RevmU256::from(0) {
+        block_env.basefee = RevmU256::from(0);
+    }
+    if tx_blob_gas_price.is_some_and(|v| v == RevmU256::from(0)) {
+        block_env.blob_excess_gas_and_price = None;
+    }
+}
+
 /// Runs EVM, doesn't perform state transitions, but stores them
 fn run_evm(
     tx_env: TxEnv,
@@ -98,7 +130,6 @@ fn run_evm(
                 }
             })
             .with_spec_id(spec_id)
-            .reset_handler()
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
             )
@@ -115,7 +146,7 @@ pub fn create_access_list(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, AccessList), EvmError> {
-    let mut tx_env = tx_env_from_generic(tx);
+    let mut tx_env = tx_env_from_generic(tx, header.base_fee_per_gas);
     let block_env = block_env(header);
     // Run tx with access list inspector
 
@@ -187,19 +218,36 @@ fn estimate_gas(
     state: &mut EvmState,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
-    let tx_result = {
-        let mut evm = Evm::builder()
-            .with_db(&mut state.0)
-            .with_block_env(block_env)
-            .with_tx_env(tx_env)
-            .with_spec_id(spec_id)
-            .modify_cfg_env(|env| {
-                env.disable_base_fee = true;
-                env.disable_block_gas_limit = true
-            })
-            .build();
-        evm.transact().map_err(EvmError::from)?
-    };
+    run_without_commit(tx_env, block_env, state, spec_id)
+}
+
+/// Runs the transaction and returns the result, but does not commit it.
+fn run_without_commit(
+    tx_env: TxEnv,
+    mut block_env: BlockEnv,
+    state: &mut EvmState,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, EvmError> {
+    adjust_disabled_base_fee(
+        &mut block_env,
+        tx_env.gas_price,
+        tx_env.max_fee_per_blob_gas,
+    );
+    let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
+    let mut evm = Evm::builder()
+        .with_db(&mut state.0)
+        .with_block_env(block_env)
+        .with_tx_env(tx_env)
+        .with_spec_id(spec_id)
+        .modify_cfg_env(|env| {
+            env.disable_base_fee = true;
+            env.disable_block_gas_limit = true;
+            if let Some(chain_id) = chain_id {
+                env.chain_id = chain_id
+            }
+        })
+        .build();
+    let tx_result = evm.transact().map_err(EvmError::from)?;
     Ok(tx_result.result.into())
 }
 
@@ -339,8 +387,6 @@ pub fn beacon_root_contract_call(
         .with_block_env(block_env)
         .with_tx_env(tx_env)
         .with_spec_id(spec_id)
-        .reset_handler()
-        .with_external_context(TracerEip3155::new(Box::new(std::io::stderr())).without_summary())
         .build();
 
     let transaction_result = evm.transact()?;
@@ -412,11 +458,12 @@ fn tx_env(tx: &Transaction) -> TxEnv {
 }
 
 // Used to estimate gas and create access lists
-fn tx_env_from_generic(tx: &GenericTransaction) -> TxEnv {
+fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
+    let gas_price = calculate_gas_price(tx, basefee);
     TxEnv {
         caller: RevmAddress(tx.from.0.into()),
         gas_limit: tx.gas.unwrap_or(u64::MAX), // Ensure tx doesn't fail due to gas limit
-        gas_price: RevmU256::from(tx.gas_price),
+        gas_price,
         transact_to: match tx.to {
             TxKind::Call(address) => RevmTxKind::Call(address.0.into()),
             TxKind::Create => RevmTxKind::Create,
@@ -508,4 +555,19 @@ pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError
             SpecId::MERGE
         },
     )
+}
+
+/// Calculating gas_price according to EIP-1559 rules
+/// See https://github.com/ethereum/go-ethereum/blob/7ee9a6e89f59cee21b5852f5f6ffa2bcfc05a25f/internal/ethapi/transaction_args.go#L430
+fn calculate_gas_price(tx: &GenericTransaction, basefee: u64) -> Uint<256, 4> {
+    if tx.gas_price != 0 {
+        // Legacy gas field was specified, use it
+        RevmU256::from(tx.gas_price)
+    } else {
+        // Backfill the legacy gas price for EVM execution, (zero if max_fee_per_gas is zero)
+        RevmU256::from(min(
+            tx.max_priority_fee_per_gas.unwrap_or(0) + basefee,
+            tx.max_fee_per_gas.unwrap_or(0),
+        ))
+    }
 }
