@@ -3,8 +3,6 @@ use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
-use hex;
-use rand;
 use std::{
     fs::File,
     io,

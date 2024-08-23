@@ -104,26 +104,22 @@ pub async fn handle_authrpc_request(
     let token = auth_header.token();
     //Validate the JWT
     match validate_jwt_authentication(token, secret) {
-        Err(AuthenticationError::InvalidIssuedAtClaim) => {
-            return Json(json!({
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": -32000,
-                    "message": "Invalid iat claim"
-                },
-                "id": null
-            }))
-        }
-        Err(AuthenticationError::TokenDecodingError) => {
-            return Json(json!({
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": -32000,
-                    "message": "Invalid or missing token"
-                },
-                "id": null
-            }));
-        }
+        Err(AuthenticationError::InvalidIssuedAtClaim) => Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32000,
+                "message": "Invalid iat claim"
+            },
+            "id": null
+        })),
+        Err(AuthenticationError::TokenDecodingError) => Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32000,
+                "message": "Invalid or missing token"
+            },
+            "id": null
+        })),
         Ok(()) => {
             // Proceed with the request
             let req: RpcRequest = serde_json::from_str(&body).unwrap();
