@@ -11,6 +11,7 @@ use eth::{
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
     client,
+    transaction::{self, CallRequest},
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -141,6 +142,10 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             block::create_access_list(&request, storage)
         }
         "eth_blockNumber" => block::block_number(storage),
+        "eth_call" => {
+            let request = CallRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            transaction::call(&request, storage)
+        }
         "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
         "engine_newPayloadV3" => {
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
