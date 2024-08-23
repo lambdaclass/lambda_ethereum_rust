@@ -1,6 +1,12 @@
+use crate::authentication::{validate_jwt_authentication, AuthenticationError};
+use bytes::Bytes;
 use std::{future::IntoFuture, net::SocketAddr};
 
 use axum::{routing::post, Json, Router};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
     account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
@@ -15,12 +21,12 @@ use eth::{
         GetTransactionReceiptRequest,
     },
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
-
 mod admin;
+mod authentication;
 mod engine;
 mod eth;
 mod types;
@@ -29,15 +35,30 @@ mod utils;
 use axum::extract::State;
 use ethereum_rust_storage::Store;
 
-pub async fn start_api(http_addr: SocketAddr, authrpc_addr: SocketAddr, storage: Store) {
+#[derive(Debug, Clone)]
+pub struct RpcApiContext {
+    storage: Store,
+    jwt_secret: Bytes,
+}
+
+pub async fn start_api(
+    http_addr: SocketAddr,
+    authrpc_addr: SocketAddr,
+    storage: Store,
+    jwt_secret: Bytes,
+) {
+    let service_context = RpcApiContext {
+        storage: storage.clone(),
+        jwt_secret,
+    };
     let http_router = Router::new()
         .route("/", post(handle_http_request))
-        .with_state(storage.clone());
+        .with_state(service_context.clone());
     let http_listener = TcpListener::bind(http_addr).await.unwrap();
 
     let authrpc_router = Router::new()
         .route("/", post(handle_authrpc_request))
-        .with_state(storage);
+        .with_state(service_context);
     let authrpc_listener = TcpListener::bind(authrpc_addr).await.unwrap();
 
     let authrpc_server = axum::serve(authrpc_listener, authrpc_router)
@@ -60,19 +81,58 @@ async fn shutdown_signal() {
         .expect("failed to install Ctrl+C handler");
 }
 
-pub async fn handle_authrpc_request(State(storage): State<Store>, body: String) -> Json<Value> {
+pub async fn handle_http_request(
+    State(service_context): State<RpcApiContext>,
+    body: String,
+) -> Json<Value> {
+    let storage = service_context.storage;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = match map_requests(&req, storage.clone()) {
-        res @ Ok(_) => res,
-        _ => map_internal_requests(&req, storage),
-    };
+    let res = map_requests(&req, storage.clone());
     rpc_response(req.id, res)
 }
 
-pub async fn handle_http_request(State(storage): State<Store>, body: String) -> Json<Value> {
-    let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_requests(&req, storage);
-    rpc_response(req.id, res)
+pub async fn handle_authrpc_request(
+    State(service_context): State<RpcApiContext>,
+    auth_header: Option<TypedHeader<Authorization<Bearer>>>,
+    body: String,
+) -> Json<Value> {
+    if auth_header.is_none() {
+        return Json(
+            json!({"jsonrpc": "2.0", "error": {"code": -32000, "message": "Authorization header missing"}, "id": null}),
+        );
+    }
+    let TypedHeader(auth_header) = auth_header.unwrap();
+    let storage = service_context.storage;
+    let secret = service_context.jwt_secret;
+    let token = auth_header.token();
+    //Validate the JWT
+    match validate_jwt_authentication(token, secret) {
+        Err(AuthenticationError::InvalidIssuedAtClaim) => Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32000,
+                "message": "Invalid iat claim"
+            },
+            "id": null
+        })),
+        Err(AuthenticationError::TokenDecodingError) => Json(json!({
+            "jsonrpc": "2.0",
+            "error": {
+                "code": -32000,
+                "message": "Invalid or missing token"
+            },
+            "id": null
+        })),
+        Ok(()) => {
+            // Proceed with the request
+            let req: RpcRequest = serde_json::from_str(&body).unwrap();
+            let res = match map_requests(&req, storage.clone()) {
+                res @ Ok(_) => res,
+                _ => map_internal_requests(&req, storage),
+            };
+            rpc_response(req.id, res)
+        }
+    }
 }
 
 /// Handle requests that can come from either clients or other users

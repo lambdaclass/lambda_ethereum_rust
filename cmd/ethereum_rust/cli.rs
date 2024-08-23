@@ -34,6 +34,13 @@ pub fn cli() -> Command {
                 .action(ArgAction::Set),
         )
         .arg(
+            Arg::new("authrpc.jwtsecret")
+                .long("authrpc.jwtsecret")
+                .default_value("jwt.hex")
+                .value_name("JWTSECRET_PATH")
+                .action(ArgAction::Set),
+        )
+        .arg(
             Arg::new("p2p.addr")
                 .long("p2p.addr")
                 .default_value("0.0.0.0")
