@@ -72,9 +72,9 @@ async fn main() {
     let authrpc_socket_addr = parse_socket_addr(authrpc_addr, authrpc_port)
         .expect("Failed to parse authrpc address and port");
 
-    let _udp_socket_addr =
+    let udp_socket_addr =
         parse_socket_addr(udp_addr, udp_port).expect("Failed to parse discovery address and port");
-    let _tcp_socket_addr =
+    let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
     let mut store = match matches.get_one::<String>("datadir") {
@@ -99,9 +99,9 @@ async fn main() {
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
     let rpc_api =
         ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store, jwt_secret);
-    //let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
+    let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
-    try_join!(tokio::spawn(rpc_api) /*, tokio::spawn(networking)*/).unwrap();
+    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {

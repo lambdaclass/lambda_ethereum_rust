@@ -34,7 +34,7 @@ use axum::extract::State;
 use ethereum_rust_storage::Store;
 
 #[derive(Debug, Clone)]
-pub struct ServiceContext {
+pub struct RpcApiContext {
     storage: Store,
     jwt_secret: Bytes,
 }
@@ -45,7 +45,7 @@ pub async fn start_api(
     storage: Store,
     jwt_secret: Bytes,
 ) {
-    let service_context = ServiceContext {
+    let service_context = RpcApiContext {
         storage: storage.clone(),
         jwt_secret,
     };
@@ -80,7 +80,7 @@ async fn shutdown_signal() {
 }
 
 pub async fn handle_http_request(
-    State(service_context): State<ServiceContext>,
+    State(service_context): State<RpcApiContext>,
     body: String,
 ) -> Json<Value> {
     let storage = service_context.storage;
@@ -90,7 +90,7 @@ pub async fn handle_http_request(
 }
 
 pub async fn handle_authrpc_request(
-    State(service_context): State<ServiceContext>,
+    State(service_context): State<RpcApiContext>,
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
