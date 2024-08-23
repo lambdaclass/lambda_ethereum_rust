@@ -73,7 +73,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                 for node in nodes {
                     let peer_data = PeerData::from(*node);
                     table.insert(peer_data);
-                    let node_addr = SocketAddr::new(node.ip, node.udp_port);
+                    let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
                     ping(&udp_socket, udp_addr, node_addr, &signer).await;
                 }
             }
