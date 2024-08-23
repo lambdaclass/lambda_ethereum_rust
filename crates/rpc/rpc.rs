@@ -11,13 +11,15 @@ use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
 use eth::{
     account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
     block::{
-        self, CreateAccessListRequest, GetBlockByHashRequest, GetBlockByNumberRequest,
-        GetBlockReceiptsRequest, GetBlockTransactionCountByNumberRequest,
-        GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
-        GetTransactionByHashRequest, GetTransactionReceiptRequest,
+        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
+        GetBlockTransactionCountByNumberRequest,
     },
     client,
-    transaction::{self, CallRequest},
+    transaction::{
+        self, CallRequest, CreateAccessListRequest, GetTransactionByBlockHashAndIndexRequest,
+        GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
+        GetTransactionReceiptRequest,
+    },
 };
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
@@ -176,12 +178,12 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_getTransactionByBlockNumberAndIndex" => {
             let request = GetTransactionByBlockNumberAndIndexRequest::parse(&req.params)
                 .ok_or(RpcErr::BadParams)?;
-            block::get_transaction_by_block_number_and_index(&request, storage)
+            transaction::get_transaction_by_block_number_and_index(&request, storage)
         }
         "eth_getTransactionByBlockHashAndIndex" => {
             let request = GetTransactionByBlockHashAndIndexRequest::parse(&req.params)
                 .ok_or(RpcErr::BadParams)?;
-            block::get_transaction_by_block_hash_and_index(&request, storage)
+            transaction::get_transaction_by_block_hash_and_index(&request, storage)
         }
         "eth_getBlockReceipts" => {
             let request = GetBlockReceiptsRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
@@ -190,16 +192,16 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         "eth_getTransactionByHash" => {
             let request =
                 GetTransactionByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_transaction_by_hash(&request, storage)
+            transaction::get_transaction_by_hash(&request, storage)
         }
         "eth_getTransactionReceipt" => {
             let request =
                 GetTransactionReceiptRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_transaction_receipt(&request, storage)
+            transaction::get_transaction_receipt(&request, storage)
         }
         "eth_createAccessList" => {
             let request = CreateAccessListRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::create_access_list(&request, storage)
+            transaction::create_access_list(&request, storage)
         }
         "eth_blockNumber" => block::block_number(storage),
         "eth_call" => {
