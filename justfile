@@ -45,4 +45,7 @@ run-hive test-pattern=test-pattern-default: build_image
     cd hive && ./hive --sim "ethereum/rpc-compat" --client ethereumrust --sim.limit "{{test-pattern}}" 
 
 run-hive-debug test-pattern=test-pattern-default: build_image
-    cd hive && ./hive --sim "ethereum/rpc-compat" --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output 
+    cd hive && ./hive --sim "ethereum/rpc-compat" --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output
+
+clean-hive-logs:
+    rm -rf hive/workspace/logs

@@ -6,11 +6,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::info;
 
-use crate::{types::transaction::RpcTransaction, utils::RpcErr};
+use crate::{
+    types::{block::RpcBlock, transaction::RpcTransaction},
+    utils::RpcErr,
+};
 use ethereum_rust_core::{
     types::{
-        AccessListEntry, BlockHash, BlockNumber, BlockSerializable, GenericTransaction,
-        ReceiptWithTxAndBlockInfo,
+        AccessListEntry, BlockHash, BlockNumber, GenericTransaction, ReceiptWithTxAndBlockInfo,
     },
     H256,
 };
@@ -240,7 +242,7 @@ pub fn get_block_by_number(
         // Block not found
         _ => return Ok(Value::Null),
     };
-    let block = BlockSerializable::from_block(header, body, request.hydrated);
+    let block = RpcBlock::from_block(header, body, request.hydrated);
 
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
@@ -258,8 +260,8 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
         // Block not found
         _ => return Ok(Value::Null),
     };
-    let block = BlockSerializable::from_block(header, body, request.hydrated);
-
+    let block = RpcBlock::from_block(header, body, request.hydrated);
+    // let block =
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
 
