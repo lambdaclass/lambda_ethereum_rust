@@ -14,7 +14,7 @@ use ethereum_rust_core::{
     types::{
         AccessListEntry, BlockHash, BlockNumber, GenericTransaction, ReceiptWithTxAndBlockInfo,
     },
-    H256,
+    H256, U256,
 };
 
 pub struct GetBlockByNumberRequest {
@@ -242,7 +242,15 @@ pub fn get_block_by_number(
         // Block not found
         _ => return Ok(Value::Null),
     };
-    let block = RpcBlock::from_block(header, body, request.hydrated);
+    let hash = header.compute_block_hash();
+    let total_difficulty = storage.get_block_total_difficulty(hash)?;
+    let block = RpcBlock::build(
+        header,
+        body,
+        hash,
+        request.hydrated,
+        total_difficulty.unwrap_or(U256::zero()),
+    );
 
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
@@ -260,7 +268,15 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
         // Block not found
         _ => return Ok(Value::Null),
     };
-    let block = RpcBlock::from_block(header, body, request.hydrated);
+    let hash = header.compute_block_hash();
+    let total_difficulty = storage.get_block_total_difficulty(hash)?;
+    let block = RpcBlock::build(
+        header,
+        body,
+        hash,
+        request.hydrated,
+        total_difficulty.unwrap_or(U256::zero()),
+    );
     // let block =
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
