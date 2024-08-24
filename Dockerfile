@@ -17,7 +17,6 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
-
 COPY --from=planner /ethereum_rust/recipe.json recipe.json
 # Build dependencies only, these remained cached
 RUN cargo chef cook --release --recipe-path recipe.json
