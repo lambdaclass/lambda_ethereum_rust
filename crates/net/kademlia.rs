@@ -41,7 +41,7 @@ pub fn bucket_number(node_id_1: H512, node_id_2: H512) -> usize {
     let hash_2 = Keccak256::digest(node_id_2);
     let xor = H256(hash_1.into()) ^ H256(hash_2.into());
     let distance = U256::from_big_endian(xor.as_bytes());
-    distance.bits() - 1
+    distance.bits().saturating_sub(1)
 }
 
 #[derive(Clone, Debug)]

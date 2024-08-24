@@ -263,12 +263,29 @@ impl Store {
         let block_total_difficulty =
             latest_total_difficulty.unwrap_or(U256::zero()) + header.difficulty;
         let hash = header.compute_block_hash();
+        self.add_transaction_locations(&block.body.transactions, number)?;
         self.add_block_body(number, block.body)?;
         self.add_block_header(number, header)?;
         self.add_block_number(hash, number)?;
         self.update_latest_block_number(number)?;
         self.add_block_total_difficulty(hash, block_total_difficulty)?;
         self.update_latest_total_difficulty(block_total_difficulty)
+    }
+
+    fn add_transaction_locations(
+        &self,
+        transactions: &[Transaction],
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        for (index, transaction) in transactions.iter().enumerate() {
+            info!("[Storage] Inserting transaction {:?}", transaction);
+            self.add_transaction_location(
+                transaction.compute_hash(),
+                block_number,
+                index as Index,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {

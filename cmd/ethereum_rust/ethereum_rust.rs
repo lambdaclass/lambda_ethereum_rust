@@ -1,8 +1,10 @@
+use bytes::Bytes;
 use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_storage::{EngineType, Store};
 use std::{
+    fs::File,
     io,
     net::{SocketAddr, ToSocketAddrs},
 };
@@ -34,6 +36,9 @@ async fn main() {
     let authrpc_port = matches
         .get_one::<String>("authrpc.port")
         .expect("authrpc.port is required");
+    let authrpc_jwtsecret = matches
+        .get_one::<String>("authrpc.jwtsecret")
+        .expect("authrpc.jwtsecret is required");
 
     let tcp_addr = matches
         .get_one::<String>("p2p.addr")
@@ -91,11 +96,34 @@ async fn main() {
         }
         info!("Added {} blocks to blockchain", size);
     }
-
-    let rpc_api = ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store);
+    let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
+    let rpc_api =
+        ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store, jwt_secret);
     let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
     try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
+}
+
+fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
+    match File::open(jwt_secret_path) {
+        Ok(mut file) => decode::jwtsecret_file(&mut file),
+        Err(_) => write_jwtsecret_file(jwt_secret_path),
+    }
+}
+
+fn write_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
+    info!("JWT secret not found in the provided path, generating JWT secret");
+    let secret = generate_jwt_secret();
+    std::fs::write(jwt_secret_path, &secret).expect("Unable to write JWT secret file");
+    hex::decode(secret).unwrap().into()
+}
+
+fn generate_jwt_secret() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let mut secret = [0u8; 32];
+    rng.fill(&mut secret);
+    hex::encode(secret)
 }
 
 fn read_chain_file(chain_rlp_path: &str) -> Vec<Block> {
