@@ -4,16 +4,12 @@ use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
-use crate::{
-    types::{block::RpcBlock, transaction::RpcTransaction},
-    utils::RpcErr,
-};
+use crate::{types::block::RpcBlock, utils::RpcErr};
 use ethereum_rust_core::{
-    types::{
-        AccessListEntry, BlockHash, BlockNumber, GenericTransaction, ReceiptWithTxAndBlockInfo,
-    },
-    H256, U256,
+    types::{BlockHash, BlockNumber, ReceiptWithTxAndBlockInfo},
+    U256,
 };
+use ethereum_rust_storage::{error::StoreError, Store};
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
