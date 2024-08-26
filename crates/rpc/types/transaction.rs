@@ -6,7 +6,7 @@ use ethereum_rust_core::{
 use serde::Serialize;
 
 #[allow(unused)]
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcTransaction {
     #[serde(flatten)]
