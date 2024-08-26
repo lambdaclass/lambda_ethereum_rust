@@ -154,6 +154,29 @@ impl Store {
             .get_block_number(block_hash)
     }
 
+    pub fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_block_total_difficulty(block_hash, block_difficulty)
+    }
+
+    pub fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<U256>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_block_total_difficulty(block_hash)
+    }
+
     pub fn add_transaction_location(
         &self,
         transaction_hash: H256,
@@ -236,12 +259,17 @@ impl Store {
         // TODO Maybe add both in a single tx?
         let header = block.header;
         let number = header.number;
+        let latest_total_difficulty = self.get_latest_total_difficulty()?;
+        let block_total_difficulty =
+            latest_total_difficulty.unwrap_or(U256::zero()) + header.difficulty;
         let hash = header.compute_block_hash();
         self.add_transaction_locations(&block.body.transactions, number)?;
         self.add_block_body(number, block.body)?;
         self.add_block_header(number, header)?;
         self.add_block_number(hash, number)?;
-        self.update_latest_block_number(number)
+        self.update_latest_block_number(number)?;
+        self.add_block_total_difficulty(hash, block_total_difficulty)?;
+        self.update_latest_total_difficulty(block_total_difficulty)
     }
 
     fn add_transaction_locations(
@@ -402,9 +430,19 @@ impl Store {
             .unwrap()
             .update_latest_block_number(block_number)
     }
+    pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_latest_total_difficulty(block_difficulty)
+    }
 
     pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_latest_block_number()
+    }
+
+    pub fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        self.engine.lock().unwrap().get_latest_total_difficulty()
     }
 
     pub fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -583,7 +621,7 @@ mod tests {
                 "0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d",
             )
             .unwrap(),
-            receipt_root: H256::from_str(
+            receipts_root: H256::from_str(
                 "0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa",
             )
             .unwrap(),
