@@ -31,8 +31,8 @@ struct ChainData {
     earliest_block_number: Option<BlockNumber>,
     finalized_block_number: Option<BlockNumber>,
     safe_block_number: Option<BlockNumber>,
-    // TODO (#307): Remove TotalDifficulty.
     latest_block_number: Option<BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
     latest_total_difficulty: Option<U256>,
     pending_block_number: Option<BlockNumber>,
     cancun_time: Option<u64>,
