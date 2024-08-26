@@ -14,6 +14,7 @@ pub struct RpcBlock {
     hash: H256,
     #[serde(with = "serde_utils::u64::hex_str")]
     size: u64,
+    // TODO (#307): Remove TotalDifficulty.
     total_difficulty: U256,
     #[serde(flatten)]
     header: BlockHeader,

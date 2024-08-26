@@ -13,6 +13,7 @@ pub struct Store {
     chain_data: ChainData,
     account_infos: HashMap<Address, AccountInfo>,
     block_numbers: HashMap<BlockHash, BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
     block_total_difficulties: HashMap<BlockHash, U256>,
     bodies: HashMap<BlockNumber, BlockBody>,
     headers: HashMap<BlockNumber, BlockHeader>,
@@ -30,6 +31,7 @@ struct ChainData {
     earliest_block_number: Option<BlockNumber>,
     finalized_block_number: Option<BlockNumber>,
     safe_block_number: Option<BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
     latest_block_number: Option<BlockNumber>,
     latest_total_difficulty: Option<U256>,
     pending_block_number: Option<BlockNumber>,

@@ -407,6 +407,7 @@ table!(
     ( BlockNumbers ) BlockHashRLP => BlockNumber
 );
 
+// TODO (#307): Remove TotalDifficulty.
 table!(
     /// Block hash to total difficulties table.
     ( BlockTotalDifficulties ) BlockHashRLP => BlockTotalDifficultyRLP
@@ -515,10 +516,11 @@ pub enum ChainDataIndex {
     FinalizedBlockNumber = 2,
     SafeBlockNumber = 3,
     LatestBlockNumber = 4,
-    LatestTotalDifficulty = 5,
-    PendingBlockNumber = 6,
-    CancunTime = 7,
-    ShanghaiTime = 8,
+    PendingBlockNumber = 5,
+    CancunTime = 6,
+    ShanghaiTime = 7,
+    // TODO (#307): Remove TotalDifficulty.
+    LatestTotalDifficulty = 8,
 }
 
 impl Encodable for ChainDataIndex {

@@ -130,6 +130,7 @@ pub fn get_block_by_number(
         _ => return Ok(Value::Null),
     };
     let hash = header.compute_block_hash();
+    // TODO (#307): Remove TotalDifficulty.
     let total_difficulty = storage.get_block_total_difficulty(hash)?;
     let block = RpcBlock::build(
         header,
@@ -156,6 +157,7 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
         _ => return Ok(Value::Null),
     };
     let hash = header.compute_block_hash();
+    // TODO (#307): Remove TotalDifficulty.
     let total_difficulty = storage.get_block_total_difficulty(hash)?;
     let block = RpcBlock::build(
         header,
@@ -164,7 +166,6 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
         request.hydrated,
         total_difficulty.unwrap_or(U256::zero()),
     );
-    // let block =
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
 

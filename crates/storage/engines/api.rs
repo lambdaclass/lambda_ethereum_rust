@@ -60,6 +60,7 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain block number
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
 
+    // TODO (#307): Remove TotalDifficulty.
     /// Add block total difficulty
     fn add_block_total_difficulty(
         &mut self,
@@ -67,6 +68,7 @@ pub trait StoreEngine: Debug + Send {
         block_total_difficulty: U256,
     ) -> Result<(), StoreError>;
 
+    // TODO (#307): Remove TotalDifficulty.
     /// Obtain block total difficulty
     fn get_block_total_difficulty(&self, block_hash: BlockHash)
         -> Result<Option<U256>, StoreError>;
@@ -228,15 +230,17 @@ pub trait StoreEngine: Debug + Send {
     // Update latest block number
     fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
 
+    // Obtain latest block number
+    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // TODO (#307): Remove TotalDifficulty.
     // Update latest total difficulty
     fn update_latest_total_difficulty(
         &mut self,
         latest_total_difficulty: U256,
     ) -> Result<(), StoreError>;
 
-    // Obtain latest block number
-    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
-
+    // TODO (#307): Remove TotalDifficulty.
     // Obtain latest total difficulty
     fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError>;
 

@@ -20,6 +20,7 @@ pub type AccountCodeRLP = Rlp<Bytes>;
 pub type BlockHashRLP = Rlp<BlockHash>;
 pub type BlockHeaderRLP = Rlp<BlockHeader>;
 pub type BlockBodyRLP = Rlp<BlockBody>;
+// TODO (#307): Remove TotalDifficulty.
 pub type BlockTotalDifficultyRLP = Rlp<U256>;
 
 // Receipt types
