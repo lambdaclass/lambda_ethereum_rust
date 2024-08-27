@@ -1,11 +1,11 @@
-use super::{db::TrieDB, node::NodeHash};
+use super::{db::TrieDB, node::NodeHash, node_ref::NodeRef};
 use crate::error::StoreError;
 
 //pub type WorldStateTrie = PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>;
 
 pub struct Trie {
     /// Root node hash.
-    root: NodeHash,
+    root: NodeRef,
     /// Contains all the nodes and all the node's values
     db: TrieDB,
     hash: (bool, u64),
@@ -14,7 +14,7 @@ pub struct Trie {
 impl Trie {
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            root: NodeHash::default(),
+            root: NodeRef::default(),
             db: TrieDB::init(trie_dir)?,
             hash: (false, 0),
         })

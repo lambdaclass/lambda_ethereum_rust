@@ -54,10 +54,15 @@ impl LeafNode {
             path_branch.offset_add(offset);
 
             let absolute_offset = path_branch.offset();
-            let (branch_node, mut insert_action) = if absolute_offset == 2 * path.as_ref().len() {
-                //BranchNode::new() // TODO: follow
-                todo!()
-            };
+            // let (branch_node, mut insert_action) = if absolute_offset == 2 * path.as_ref().len() {
+            //     let child_ref =
+            // } else {
+            //     // BranchNode::new( {
+            //     //     let mut choices = Default::default();
+            //     //     choices[NibbleSlice::new(&self.path).nth(absolute_offset).unwrap() as usize] =
+
+            //     // })
+            // };
         }
         todo!()
     }

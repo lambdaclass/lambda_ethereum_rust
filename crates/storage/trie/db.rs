@@ -4,22 +4,21 @@ use libmdbx::{
     table_info,
 };
 
-use super::node::{Node, NodeHash};
+use super::{node::Node, node_ref::NodeRef};
 pub struct TrieDB(Database);
 
-pub type NodeHashRLP = Rlp<NodeHash>;
 pub type NodeRLP = Rlp<Node>;
 
 pub type PathRLP = Vec<u8>;
 pub type ValueRLP = Vec<u8>;
 
 table!(
-    /// NodeHash to Nodes table
-    ( Nodes ) NodeHashRLP => NodeRLP
+    /// NodeRef to Node table
+    ( Nodes ) NodeRef => NodeRLP
 );
 
 table!(
-    /// Path to Values table
+    /// Path to Value table
     (Values) PathRLP => ValueRLP
 );
 
@@ -34,20 +33,20 @@ impl TrieDB {
         ))
     }
 
-    pub fn get_node(&self, node_hash: NodeHash) -> Result<Option<Node>, StoreError> {
+    pub fn get_node(&self, node_hash: NodeRef) -> Result<Option<Node>, StoreError> {
         Ok(self.read::<Nodes>(node_hash.into())?.map(|n| n.to()))
     }
 
-    pub fn insert_node(&self, node_hash: NodeHash, node: Node) -> Result<(), StoreError> {
+    pub fn insert_node(&self, node_hash: NodeRef, node: Node) -> Result<(), StoreError> {
         self.write::<Nodes>(node_hash.into(), node.into())
     }
 
-    pub fn remove_node(&self, node_hash: NodeHash) -> Result<(), StoreError> {
+    pub fn remove_node(&self, node_hash: NodeRef) -> Result<(), StoreError> {
         self.remove::<Nodes>(node_hash.into())
     }
 
     /// Returns the removed node if it existed
-    pub fn try_remove_node(&self, node_hash: NodeHash) -> Result<Option<Node>, StoreError> {
+    pub fn try_remove_node(&self, node_hash: NodeRef) -> Result<Option<Node>, StoreError> {
         let node = self.get_node(node_hash)?;
         if node.is_some() {
             self.remove_node(node_hash)?;
