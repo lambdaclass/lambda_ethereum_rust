@@ -19,6 +19,10 @@ impl NodeRef {
     pub const fn is_valid(&self) -> bool {
         self.0 != INVALID_REF
     }
+
+    pub fn next(&self) -> Self {
+        Self(self.0.wrapping_add(1))
+    }
 }
 
 impl Default for NodeRef {

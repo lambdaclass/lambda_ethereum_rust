@@ -16,4 +16,8 @@ impl BranchNode {
             path: Default::default(),
         }
     }
+
+    pub fn update_path(&mut self, new_path: PathRLP) {
+        self.path = new_path
+    }
 }
