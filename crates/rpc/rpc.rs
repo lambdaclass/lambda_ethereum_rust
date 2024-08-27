@@ -214,14 +214,12 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
         }
         "engine_forkchoiceUpdatedV3" => {
             let request = ForkChoiceUpdatedV3::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            Ok(
-                serde_json::to_value(fork_choice::forkchoice_updated_v3(request, storage)?)
-                    .unwrap(),
-            )
+            fork_choice::forkchoice_updated_v3(request, storage)
         }
         "engine_newPayloadV3" => {
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            Ok(serde_json::to_value(payload::new_payload_v3(request, storage)?).unwrap())
+            serde_json::to_value(payload::new_payload_v3(request, storage)?)
+                .map_err(|_| RpcErr::Internal)
         }
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),

@@ -43,7 +43,7 @@ pub fn forkchoice_updated_v3(
 
     storage.update_finalized_block_number(finalized_block_number)?;
     storage.update_safe_block_number(safe_block_number)?;
-    Ok(json!({
+    serde_json::to_value(json!({
         "payloadId": null,
         "payloadStatus": {
             "latestValidHash": null,
@@ -51,4 +51,5 @@ pub fn forkchoice_updated_v3(
             "validationError": null
         }
     }))
+    .map_err(|_| RpcErr::Internal)
 }
