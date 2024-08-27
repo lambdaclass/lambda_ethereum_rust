@@ -1,13 +1,10 @@
-use libmdbx::orm::Database;
 use sha3::Keccak256;
 
 use crate::error::StoreError;
 
-use super::node::NodeHash;
+use super::{node::NodeHash, nodes_db::NodesDB};
 
 //pub type WorldStateTrie = PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>;
-
-pub struct NodesDB(Database);
 
 pub struct TrieDB {
     /// Root node hash.
@@ -23,7 +20,7 @@ impl TrieDB {
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
             root: NodeHash::default(),
-            nodes: init_nodes_db(trie_dir)?,
+            nodes: NodesDB::init(trie_dir)?,
             // values: init_values_db(trie_dir)?,
             hash: (false, 0),
         })
@@ -34,14 +31,6 @@ impl TrieDB {
         // Mark hash as dirty
         self.hash.0 = false;
     }
-}
-
-fn init_nodes_db(trie_dir: &str) -> Result<NodesDB, StoreError> {
-    let tables = [].into_iter().collect();
-    let path = [trie_dir, "/nodes"].concat().try_into().ok();
-    Ok(NodesDB(
-        Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
-    ))
 }
 
 // fn init_values_db(trie_dir: &str) -> Result<Database, StoreError> {
