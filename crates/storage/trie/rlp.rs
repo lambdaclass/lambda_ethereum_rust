@@ -5,7 +5,7 @@ use ethereum_rust_core::rlp::{
     structs::{Decoder, Encoder},
 };
 
-use super::node::{BranchNode, ExtensionNode, LeafNode, Node};
+use super::node::{leaf::LeafNode, BranchNode, ExtensionNode, Node};
 
 enum NodeType {
     Branch = 0,
