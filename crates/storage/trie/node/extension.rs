@@ -1,6 +1,6 @@
 use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
 
-use super::NodeHash;
+use crate::trie::hashing::NodeHash;
 
 pub struct ExtensionNode {
     pub hash: NodeHash,

@@ -1,4 +1,4 @@
-use super::{db::TrieDB, node::NodeHash, node_ref::NodeRef};
+use super::{db::TrieDB, node_ref::NodeRef};
 use crate::error::StoreError;
 
 //pub type WorldStateTrie = PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>;

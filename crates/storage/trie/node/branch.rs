@@ -1,6 +1,4 @@
-use crate::trie::{db::PathRLP, node_ref::NodeRef};
-
-use super::NodeHash;
+use crate::trie::{db::PathRLP, hashing::NodeHash, node_ref::NodeRef};
 
 pub struct BranchNode {
     pub hash: NodeHash,

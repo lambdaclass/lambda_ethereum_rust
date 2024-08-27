@@ -1,4 +1,5 @@
-use crate::{error::StoreError, rlp::Rlp};
+use crate::error::StoreError;
+use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use libmdbx::{
     orm::{table, Database},
     table_info,
@@ -12,8 +13,7 @@ pub struct TrieDB {
     next_node_ref: NodeRef,
 }
 
-pub type NodeRLP = Rlp<Node>;
-
+pub type NodeRLP = Vec<u8>;
 pub type PathRLP = Vec<u8>;
 pub type ValueRLP = Vec<u8>;
 
@@ -40,12 +40,14 @@ impl TrieDB {
     }
 
     pub fn get_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
-        Ok(self.read::<Nodes>(node_ref.into())?.map(|n| n.to()))
+        self.read::<Nodes>(node_ref.into())?
+            .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
+            .transpose()
     }
 
     pub fn insert_node(&mut self, node: Node) -> Result<NodeRef, StoreError> {
         let node_ref = self.next_node_ref;
-        self.write::<Nodes>(node_ref.into(), node.into())?;
+        self.write::<Nodes>(node_ref.into(), node.encode_to_vec())?;
         self.next_node_ref = node_ref.next();
         Ok(node_ref)
     }
@@ -71,8 +73,13 @@ impl TrieDB {
         self.write::<Values>(path, value)
     }
 
-    pub fn remove_value(&self, path: PathRLP) -> Result<(), StoreError> {
-        self.remove::<Values>(path)
+    /// Returns the removed node if it existed
+    pub fn remove_value(&self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+        let value = self.get_value(path.clone())?;
+        if value.is_some() {
+            self.remove::<Values>(path)?;
+        }
+        Ok(value)
     }
 
     // Helper method to write into a libmdx table

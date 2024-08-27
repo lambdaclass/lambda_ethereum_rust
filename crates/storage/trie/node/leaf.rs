@@ -2,12 +2,13 @@ use crate::{
     error::StoreError,
     trie::{
         db::{PathRLP, TrieDB, ValueRLP},
+        hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind},
         nibble::NibbleSlice,
         node::BranchNode,
     },
 };
 
-use super::{ExtensionNode, InsertAction, Node, NodeHash};
+use super::{ExtensionNode, InsertAction, Node};
 
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
@@ -40,8 +41,15 @@ impl LeafNode {
         db: &mut TrieDB,
         path: NibbleSlice,
     ) -> Result<(Node, InsertAction), StoreError> {
-        // Mark hash as dirty
-        self.hash = Default::default();
+        // Possible flow paths:
+        //   leaf { path => value } -> leaf { path => value }
+        //   leaf { path => value } -> branch { 0 => leaf { path => value }, 1 => leaf { path => value } }
+        //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value }, 1 => leaf { path => value } } }
+        //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value } } with_value leaf { path => value } }
+        //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value } } with_value leaf { path => value } } // leafs swapped
+
+        self.hash.mark_as_dirty();
+
         if path.cmp_rest(&self.path) {
             return Ok((
                 Node::Leaf(self.clone()),
@@ -107,4 +115,50 @@ impl LeafNode {
             Ok((final_node, insert_action))
         }
     }
+
+    pub fn remove(
+        self,
+        db: &mut TrieDB,
+        path: NibbleSlice,
+    ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+        Ok(if path.cmp_rest(&self.path) {
+            let value = db.remove_value(self.path.clone())?;
+            (None, value)
+        } else {
+            (Some(self.into()), None)
+        })
+    }
+    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
+        if let Some(hash) = self.hash.extract_ref() {
+            return Ok(hash);
+        }
+        let encoded_value = db
+            .get_value(self.path.clone())?
+            .expect("inconsistent internal tree structure");
+        let encoded_path = &self.path;
+
+        let mut path_slice = NibbleSlice::new(encoded_path);
+        path_slice.offset_add(path_offset);
+
+        Ok(compute_leaf_hash(
+            &self.hash,
+            path_slice,
+            encoded_value.as_ref(),
+        ))
+    }
+}
+
+pub fn compute_leaf_hash<'a>(
+    hash: &'a NodeHash,
+    path: NibbleSlice,
+    value: &[u8],
+) -> NodeHashRef<'a> {
+    let path_len = NodeHasher::path_len(path.len());
+    let value_len = NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
+
+    let mut hasher = NodeHasher::new(hash);
+    hasher.write_list_header(path_len + value_len);
+    hasher.write_path_slice(&path, PathKind::Leaf);
+    hasher.write_bytes(value);
+    hasher.finalize()
 }
