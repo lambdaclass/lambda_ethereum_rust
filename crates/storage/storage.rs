@@ -21,7 +21,7 @@ use tracing::info;
 mod engines;
 pub mod error;
 mod rlp;
-mod trie_db;
+mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {

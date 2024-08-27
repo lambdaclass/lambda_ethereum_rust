@@ -48,7 +48,7 @@ impl RLPEncode for LeafNode {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.hash)
-            .encode_field(&self.value)
+            .encode_field(&self.path)
             .finish()
     }
 }
@@ -88,8 +88,8 @@ impl RLPDecode for LeafNode {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (hash, decoder) = decoder.decode_field("hash")?;
-        let (value, decoder) = decoder.decode_field("value")?;
-        Ok((Self { hash, value }, decoder.finish()?))
+        let (path, decoder) = decoder.decode_field("path")?;
+        Ok((Self { hash, path }, decoder.finish()?))
     }
 }
 

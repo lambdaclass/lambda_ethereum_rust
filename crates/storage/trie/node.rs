@@ -1,4 +1,6 @@
 use ethereum_types::H256;
+
+use super::db::PathRLP;
 pub type NodeHash = H256;
 
 pub enum Node {
@@ -20,5 +22,5 @@ pub struct ExtensionNode {
 
 pub struct LeafNode {
     pub hash: NodeHash,
-    pub value: Vec<u8>, // TODO: Store reference to value in other DB instead
+    pub path: PathRLP,
 }
