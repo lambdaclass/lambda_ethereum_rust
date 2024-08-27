@@ -4,7 +4,7 @@ use std::{
 };
 
 use bootnode::BootNode;
-use discv4::{Endpoint, FindNodeMessage, Message, Packet, PingMessage, PongMessage};
+use discv4::{FindNodeMessage, Message, Packet, PingMessage, PongMessage};
 use ethereum_rust_core::{H256, H512};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
@@ -20,11 +20,13 @@ use tokio::{
     try_join,
 };
 use tracing::{info, warn};
+use types::Endpoint;
 
 pub mod bootnode;
 pub(crate) mod discv4;
 pub(crate) mod kademlia;
 pub mod rlpx;
+pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
 

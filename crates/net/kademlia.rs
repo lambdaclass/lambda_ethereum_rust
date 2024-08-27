@@ -1,4 +1,4 @@
-use crate::discv4::Node;
+use crate::types::Node;
 use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
 use std::net::IpAddr;
