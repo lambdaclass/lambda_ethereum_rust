@@ -19,6 +19,7 @@ use std::sync::{Arc, Mutex};
 use tracing::info;
 
 mod engines;
+mod trie_db;
 pub mod error;
 mod rlp;
 
