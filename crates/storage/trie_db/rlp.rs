@@ -5,7 +5,24 @@ use ethereum_rust_core::rlp::{
     structs::{Decoder, Encoder},
 };
 
-use super::node::{BranchNode, ExtensionNode, LeafNode};
+use super::node::{BranchNode, ExtensionNode, LeafNode, Node};
+
+enum NodeType {
+    Branch = 0,
+    Extension = 1,
+    Leaf = 2,
+}
+
+impl NodeType {
+    fn from_u8(val: u8) -> Option<Self> {
+        match val {
+            0 => Some(Self::Branch),
+            1 => Some(Self::Extension),
+            2 => Some(Self::Leaf),
+            _ => None,
+        }
+    }
+}
 
 impl RLPEncode for BranchNode {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
@@ -73,5 +90,36 @@ impl RLPDecode for LeafNode {
         let (hash, decoder) = decoder.decode_field("hash")?;
         let (value, decoder) = decoder.decode_field("value")?;
         Ok((Self { hash, value }, decoder.finish()?))
+    }
+}
+
+impl RLPEncode for Node {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        let node_type = match self {
+            Node::Branch(_) => NodeType::Branch,
+            Node::Extension(_) => NodeType::Extension,
+            Node::Leaf(_) => NodeType::Leaf,
+        };
+        buf.put_u8(node_type as u8);
+        self.encode(buf)
+    }
+}
+
+impl RLPDecode for Node {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let node_type = rlp.first().ok_or_else(|| RLPDecodeError::InvalidLength)?;
+        let node_type =
+            NodeType::from_u8(*node_type).ok_or_else(|| RLPDecodeError::MalformedData)?;
+        let rlp = &rlp[1..];
+        match node_type {
+            NodeType::Branch => {
+                BranchNode::decode_unfinished(rlp).map(|(node, rem)| (Node::Branch(node), rem))
+            }
+            NodeType::Extension => ExtensionNode::decode_unfinished(rlp)
+                .map(|(node, rem)| (Node::Extension(node), rem)),
+            NodeType::Leaf => {
+                LeafNode::decode_unfinished(rlp).map(|(node, rem)| (Node::Leaf(node), rem))
+            }
+        }
     }
 }
