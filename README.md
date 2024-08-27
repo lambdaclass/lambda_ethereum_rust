@@ -106,18 +106,18 @@ See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/
 Implement DevP2P protocol, including RLPx `p2p` and `eth` capabilities. This will allow us to receive blocks and transactions from other nodes and is a prerequisite for the next milestones.
 
 RPC endpoints
-- `admin_nodeInfo`t
+- `admin_nodeInfo`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 
-### Milestone 3: Reorgs
-Implement support for block reorganizations (reorgs) and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches. We'll develop algorithms for chain reorganizations and enhance the query system to support state lookups at any historical block.
+### Milestone 3: History & Reorgs
+Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches.
 
 RPC endpoints
 - `engine_exchangeCapabilities`
 - `engine_forkchoiceUpdatedV3`
 - `eth_call` (at any block)
-- `eth_createAccessList`  (at any block)
+- `eth_createAccessList` (at any block)
 - `eth_getBalance` (at any block)
 - `eth_getCode` (at any block)
 - `eth_getProof`
