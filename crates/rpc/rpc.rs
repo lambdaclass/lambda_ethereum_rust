@@ -1,5 +1,6 @@
 use crate::authentication::{validate_jwt_authentication, AuthenticationError};
 use bytes::Bytes;
+use ethereum_rust_core::types::ChainConfig;
 use std::{future::IntoFuture, net::SocketAddr};
 
 use axum::{routing::post, Json, Router};
@@ -39,6 +40,7 @@ use ethereum_rust_storage::Store;
 pub struct RpcApiContext {
     storage: Store,
     jwt_secret: Bytes,
+    chain_config: ChainConfig,
 }
 
 pub async fn start_api(
@@ -46,10 +48,12 @@ pub async fn start_api(
     authrpc_addr: SocketAddr,
     storage: Store,
     jwt_secret: Bytes,
+    chain_config: ChainConfig,
 ) {
     let service_context = RpcApiContext {
         storage: storage.clone(),
         jwt_secret,
+        chain_config,
     };
     let http_router = Router::new()
         .route("/", post(handle_http_request))
@@ -86,8 +90,9 @@ pub async fn handle_http_request(
     body: String,
 ) -> Json<Value> {
     let storage = service_context.storage;
+    let chain_config = service_context.chain_config;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_requests(&req, storage.clone());
+    let res = map_requests(&req, storage, chain_config);
     rpc_response(req.id, res)
 }
 
@@ -104,6 +109,7 @@ pub async fn handle_authrpc_request(
     let TypedHeader(auth_header) = auth_header.unwrap();
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
+    let chain_config = service_context.chain_config;
     let token = auth_header.token();
     //Validate the JWT
     match validate_jwt_authentication(token, secret) {
@@ -126,7 +132,7 @@ pub async fn handle_authrpc_request(
         Ok(()) => {
             // Proceed with the request
             let req: RpcRequest = serde_json::from_str(&body).unwrap();
-            let res = match map_requests(&req, storage.clone()) {
+            let res = match map_requests(&req, storage.clone(), chain_config) {
                 res @ Ok(_) => res,
                 _ => map_internal_requests(&req, storage),
             };
@@ -136,7 +142,11 @@ pub async fn handle_authrpc_request(
 }
 
 /// Handle requests that can come from either clients or other users
-pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_requests(
+    req: &RpcRequest,
+    storage: Store,
+    chain_config: ChainConfig,
+) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => {
             let capabilities: ExchangeCapabilitiesRequest = req
@@ -213,7 +223,7 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
             Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
         }
-        "admin_nodeInfo" => admin::node_info(),
+        "admin_nodeInfo" => admin::node_info(&chain_config),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -286,8 +296,9 @@ mod tests {
         storage
             .add_account_info(address, account_info)
             .expect("Failed to write to test DB");
+        let chain_config = example_chain_config();
         // Process request
-        let result = map_requests(&request, storage);
+        let result = map_requests(&request, storage, chain_config);
         let response = rpc_response(request.id, result);
         let expected_response = to_rpc_response_success_value(
             r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[],"gasUsed":"0x5208"}}"#,
@@ -333,8 +344,10 @@ mod tests {
         storage
             .add_account_code(code_hash, code)
             .expect("Failed to write to test DB");
+        let chain_config = example_chain_config();
+
         // Process request
-        let result = map_requests(&request, storage);
+        let result = map_requests(&request, storage, chain_config);
         let response =
             serde_json::from_value::<RpcSuccessResponse>(rpc_response(request.id, result).0)
                 .expect("Request failed");
@@ -348,5 +361,28 @@ mod tests {
             response.result["accessList"],
             expected_response.result["accessList"]
         )
+    }
+
+    fn example_chain_config() -> ChainConfig {
+        ChainConfig {
+            chain_id: U256::from(3151908),
+            homestead_block: Some(0),
+            eip150_block: Some(0),
+            eip155_block: Some(0),
+            eip158_block: Some(0),
+            byzantium_block: Some(0),
+            constantinople_block: Some(0),
+            petersburg_block: Some(0),
+            istanbul_block: Some(0),
+            berlin_block: Some(0),
+            london_block: Some(0),
+            merge_netsplit_block: Some(0),
+            shanghai_time: Some(0),
+            cancun_time: Some(0),
+            prague_time: Some(1718232101),
+            terminal_total_difficulty: Some(U256::from(0)),
+            terminal_total_difficulty_passed: true,
+            ..Default::default()
+        }
     }
 }

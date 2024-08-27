@@ -85,7 +85,7 @@ async fn main() {
 
     let genesis = read_genesis_file(genesis_file_path);
     store
-        .add_initial_state(genesis)
+        .add_initial_state(genesis.clone())
         .expect("Failed to create genesis block");
 
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
@@ -97,8 +97,13 @@ async fn main() {
         info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
-    let rpc_api =
-        ethereum_rust_rpc::start_api(http_socket_addr, authrpc_socket_addr, store, jwt_secret);
+    let rpc_api = ethereum_rust_rpc::start_api(
+        http_socket_addr,
+        authrpc_socket_addr,
+        store,
+        jwt_secret,
+        genesis.config,
+    );
     let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
 
     try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();

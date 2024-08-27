@@ -14,7 +14,7 @@ use super::{
 };
 
 #[allow(unused)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Genesis {
     /// Chain configuration
@@ -38,7 +38,7 @@ pub struct Genesis {
 
 /// Blockchain settings defined per block
 #[allow(unused)]
-#[derive(Debug, Deserialize, Default, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier
@@ -88,7 +88,7 @@ pub struct ChainConfig {
 }
 
 #[allow(unused)]
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
     #[serde(default, with = "crate::serde_utils::bytes")]
     pub code: Bytes,
