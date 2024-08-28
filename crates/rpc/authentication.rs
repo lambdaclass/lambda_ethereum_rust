@@ -26,8 +26,7 @@ pub fn authenticate(
     }
     let TypedHeader(auth_header) = auth_header.unwrap();
     let token = auth_header.token();
-    validate_jwt_authentication(token, secret)
-        .map_err(|auth_err| RpcErr::AuthenticationError(auth_err))
+    validate_jwt_authentication(token, secret).map_err(RpcErr::AuthenticationError)
 }
 
 // JWT claims struct

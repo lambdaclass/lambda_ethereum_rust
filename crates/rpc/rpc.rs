@@ -112,7 +112,7 @@ pub async fn handle_authrpc_request(
     let secret = service_context.jwt_secret;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
     match authenticate(secret, auth_header) {
-        Err(error) => return rpc_response(req.id, Err(error)),
+        Err(error) => rpc_response(req.id, Err(error)),
         Ok(()) => {
             // Proceed with the request
             let res = map_authrpc_requests(&req, storage);
