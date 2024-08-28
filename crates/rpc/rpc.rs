@@ -25,7 +25,9 @@ use eth::{
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tracing::info;
-use utils::{RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcRequest, RpcSuccessResponse};
+use utils::{
+    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcSuccessResponse,
+};
 mod admin;
 mod authentication;
 mod engine;
@@ -97,7 +99,7 @@ pub async fn handle_http_request(
     let chain_config = service_context.chain_config;
     let local_p2p_node = service_context.local_p2p_node;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_requests(&req, storage, chain_config, local_p2p_node);
+    let res = map_http_requests(&req, storage, chain_config, local_p2p_node);
     rpc_response(req.id, res)
 }
 
@@ -136,19 +138,36 @@ pub async fn handle_authrpc_request(
         Ok(()) => {
             // Proceed with the request
             let req: RpcRequest = serde_json::from_str(&body).unwrap();
-            let res = map_internal_requests(&req, storage);
+            let res = map_authrpc_requests(&req, storage);
             rpc_response(req.id, res)
         }
     }
 }
 
 /// Handle requests that can come from either clients or other users
-pub fn map_requests(
+pub fn map_http_requests(
     req: &RpcRequest,
     storage: Store,
     chain_config: ChainConfig,
     local_p2p_node: Node,
 ) -> Result<Value, RpcErr> {
+    match req.namespace() {
+        Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
+        Ok(RpcNamespace::Admin) => map_admin_requests(req, chain_config, local_p2p_node),
+        _ => Err(RpcErr::MethodNotFound),
+    }
+}
+
+/// Handle requests from consensus client
+pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.namespace() {
+        Ok(RpcNamespace::Engine) => map_engine_requests(req, storage),
+        Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
+        _ => Err(RpcErr::MethodNotFound),
+    }
+}
+
+pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "eth_chainId" => client::chain_id(storage),
         "eth_syncing" => client::syncing(),
@@ -210,13 +229,11 @@ pub fn map_requests(
             let request = CallRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             transaction::call(&request, storage)
         }
-        "admin_nodeInfo" => admin::node_info(chain_config, local_p2p_node),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
 
-/// Handle requests from other clients
-pub fn map_internal_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => {
             let capabilities: ExchangeCapabilitiesRequest = req
@@ -233,6 +250,17 @@ pub fn map_internal_requests(req: &RpcRequest, storage: Store) -> Result<Value, 
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
             Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
         }
+        _ => Err(RpcErr::MethodNotFound),
+    }
+}
+
+pub fn map_admin_requests(
+    req: &RpcRequest,
+    chain_config: ChainConfig,
+    local_p2p_node: Node,
+) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "admin_nodeInfo" => admin::node_info(chain_config, local_p2p_node),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -303,7 +331,7 @@ mod tests {
         let chain_config = example_chain_config();
         let local_p2p_node = example_p2p_node();
         // Process request
-        let result = map_requests(&request, storage, chain_config, local_p2p_node);
+        let result = map_http_requests(&request, storage, chain_config, local_p2p_node);
         let response = rpc_response(request.id, result);
         let expected_response = to_rpc_response_success_value(
             r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[],"gasUsed":"0x5208"}}"#,
@@ -352,7 +380,7 @@ mod tests {
         let chain_config = example_chain_config();
         let local_p2p_node = example_p2p_node();
         // Process request
-        let result = map_requests(&request, storage, chain_config, local_p2p_node);
+        let result = map_http_requests(&request, storage, chain_config, local_p2p_node);
         let response =
             serde_json::from_value::<RpcSuccessResponse>(rpc_response(request.id, result).0)
                 .expect("Request failed");

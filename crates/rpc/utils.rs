@@ -55,12 +55,34 @@ impl From<RpcErr> for RpcErrorMetadata {
     }
 }
 
+pub enum RpcNamespace {
+    Engine,
+    Eth,
+    Admin,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcRequest {
     pub id: i32,
     pub jsonrpc: String,
     pub method: String,
     pub params: Option<Vec<Value>>,
+}
+
+impl RpcRequest {
+    pub fn namespace(&self) -> Result<RpcNamespace, RpcErr> {
+        let mut parts = self.method.split('_');
+        if let Some(namespace) = parts.next() {
+            match namespace {
+                "engine" => Ok(RpcNamespace::Engine),
+                "eth" => Ok(RpcNamespace::Eth),
+                "admin" => Ok(RpcNamespace::Admin),
+                _ => Err(RpcErr::MethodNotFound),
+            }
+        } else {
+            Err(RpcErr::MethodNotFound)
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
