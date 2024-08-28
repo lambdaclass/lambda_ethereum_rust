@@ -37,7 +37,7 @@ impl LeafNode {
     }
 
     pub fn insert(
-        &mut self,
+        mut self,
         db: &mut TrieDB,
         path: NibbleSlice,
     ) -> Result<(Node, InsertAction), StoreError> {

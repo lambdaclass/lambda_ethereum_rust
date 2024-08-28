@@ -51,7 +51,7 @@ impl BranchNode {
     }
 
     pub fn insert(
-        &mut self,
+        mut self,
         db: &mut TrieDB,
         mut path: NibbleSlice,
     ) -> Result<(Node, InsertAction), StoreError> {
@@ -68,7 +68,7 @@ impl BranchNode {
                     InsertAction::Insert(child_ref)
                 }
                 choice_ref => {
-                    let mut child_node = db
+                    let child_node = db
                         .remove_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 

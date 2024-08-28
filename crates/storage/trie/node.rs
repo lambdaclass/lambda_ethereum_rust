@@ -71,13 +71,13 @@ impl Node {
     }
 
     fn insert(
-        &mut self,
+        self,
         db: &mut TrieDB,
         path: NibbleSlice,
     ) -> Result<(Node, InsertAction), StoreError> {
         match self {
             Node::Branch(n) => n.insert(db, path),
-            Node::Extension(_) => todo!(),
+            Node::Extension(n) => n.insert(db, path),
             Node::Leaf(n) => n.insert(db, path),
         }
     }
