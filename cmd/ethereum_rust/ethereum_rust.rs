@@ -1,9 +1,15 @@
 use bytes::Bytes;
 use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
+use ethereum_rust_core::H512;
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
+use k256::{
+    ecdsa::SigningKey,
+    elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint},
+    PublicKey,
+};
 use std::{
     fs::File,
     io,
@@ -98,14 +104,29 @@ async fn main() {
         info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
+
+    let signer = SigningKey::random(&mut OsRng);
+    let public_key = PublicKey::from(signer.verifying_key());
+    let encoded = public_key.to_encoded_point(false);
+    let local_node_id = H512::from_slice(&encoded.as_bytes()[1..]);
+
+    let local_p2p_node = Node {
+        ip: udp_socket_addr.ip(),
+        udp_port: udp_socket_addr.port(),
+        tcp_port: tcp_socket_addr.port(),
+        node_id: local_node_id,
+    };
+
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
         store,
         jwt_secret,
         genesis.config,
+        local_p2p_node,
     );
-    let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes);
+    let networking =
+        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
 
     try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }

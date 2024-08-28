@@ -403,6 +403,7 @@ impl RLPEncode for ENRResponseMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use ethereum_rust_core::{H256, H264};
     use std::fmt::Write;
     use std::net::IpAddr;
@@ -604,7 +605,7 @@ mod tests {
         // define optional fields
         let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
         let id = String::from("v4");
-        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let ip = IpAddr::from_str("138.197.51.181").unwrap();
         let secp256k1 =
             H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
                 .unwrap();
@@ -731,7 +732,7 @@ mod tests {
         // define optional fields
         let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
         let id = String::from("v4");
-        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let ip = IpAddr::from_str("138.197.51.181").unwrap();
         let secp256k1 =
             H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
                 .unwrap();

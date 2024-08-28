@@ -8,7 +8,7 @@ use discv4::{FindNodeMessage, Message, Packet, PingMessage, PongMessage};
 use ethereum_rust_core::{H256, H512};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
-    elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint, PublicKey},
+    elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData};
@@ -30,10 +30,14 @@ pub mod types;
 
 const MAX_DISC_PACKET_SIZE: usize = 1280;
 
-pub async fn start_network(udp_addr: SocketAddr, tcp_addr: SocketAddr, bootnodes: Vec<BootNode>) {
+pub async fn start_network(
+    udp_addr: SocketAddr,
+    tcp_addr: SocketAddr,
+    bootnodes: Vec<BootNode>,
+    signer: SigningKey,
+) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
-    let signer = SigningKey::random(&mut OsRng);
 
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
     let server_handle = tokio::spawn(serve_requests(tcp_addr, signer));

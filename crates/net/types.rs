@@ -76,11 +76,12 @@ impl RLPDecode for Node {
     }
 }
 
+/// Reference: [ENR records](https://github.com/ethereum/devp2p/blob/master/enr.md)
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct NodeRecord {
-    signature: H512,
-    seq: u64,
-    id: String,
+    pub signature: H512,
+    pub seq: u64,
+    pub id: String,
     pub pairs: Vec<(Bytes, Bytes)>,
 }
 

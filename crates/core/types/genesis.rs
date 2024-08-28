@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
@@ -38,7 +38,7 @@ pub struct Genesis {
 
 /// Blockchain settings defined per block
 #[allow(unused)]
-#[derive(Clone, Debug, Deserialize, Default, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier

@@ -34,6 +34,7 @@ mod types;
 mod utils;
 
 use axum::extract::State;
+use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::Store;
 
 #[derive(Debug, Clone)]
@@ -41,6 +42,7 @@ pub struct RpcApiContext {
     storage: Store,
     jwt_secret: Bytes,
     chain_config: ChainConfig,
+    local_p2p_node: Node,
 }
 
 pub async fn start_api(
@@ -49,11 +51,13 @@ pub async fn start_api(
     storage: Store,
     jwt_secret: Bytes,
     chain_config: ChainConfig,
+    local_p2p_node: Node,
 ) {
     let service_context = RpcApiContext {
         storage: storage.clone(),
         jwt_secret,
         chain_config,
+        local_p2p_node,
     };
     let http_router = Router::new()
         .route("/", post(handle_http_request))
@@ -91,8 +95,9 @@ pub async fn handle_http_request(
 ) -> Json<Value> {
     let storage = service_context.storage;
     let chain_config = service_context.chain_config;
+    let local_p2p_node = service_context.local_p2p_node;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_requests(&req, storage, chain_config);
+    let res = map_requests(&req, storage, chain_config, local_p2p_node);
     rpc_response(req.id, res)
 }
 
@@ -110,6 +115,7 @@ pub async fn handle_authrpc_request(
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
     let chain_config = service_context.chain_config;
+    let local_p2p_node = service_context.local_p2p_node;
     let token = auth_header.token();
     //Validate the JWT
     match validate_jwt_authentication(token, secret) {
@@ -132,7 +138,7 @@ pub async fn handle_authrpc_request(
         Ok(()) => {
             // Proceed with the request
             let req: RpcRequest = serde_json::from_str(&body).unwrap();
-            let res = match map_requests(&req, storage.clone(), chain_config) {
+            let res = match map_requests(&req, storage.clone(), chain_config, local_p2p_node) {
                 res @ Ok(_) => res,
                 _ => map_internal_requests(&req, storage),
             };
@@ -146,6 +152,7 @@ pub fn map_requests(
     req: &RpcRequest,
     storage: Store,
     chain_config: ChainConfig,
+    local_p2p_node: Node,
 ) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => {
@@ -223,7 +230,7 @@ pub fn map_requests(
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
             Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
         }
-        "admin_nodeInfo" => admin::node_info(&chain_config),
+        "admin_nodeInfo" => admin::node_info(chain_config, local_p2p_node),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -261,7 +268,7 @@ where
 mod tests {
     use ethereum_rust_core::{
         types::{code_hash, AccountInfo, BlockHeader},
-        Address, Bytes, U256,
+        Address, Bytes, H512, U256,
     };
     use ethereum_rust_storage::EngineType;
     use std::str::FromStr;
@@ -297,8 +304,9 @@ mod tests {
             .add_account_info(address, account_info)
             .expect("Failed to write to test DB");
         let chain_config = example_chain_config();
+        let local_p2p_node = example_p2p_node();
         // Process request
-        let result = map_requests(&request, storage, chain_config);
+        let result = map_requests(&request, storage, chain_config, local_p2p_node);
         let response = rpc_response(request.id, result);
         let expected_response = to_rpc_response_success_value(
             r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[],"gasUsed":"0x5208"}}"#,
@@ -345,9 +353,9 @@ mod tests {
             .add_account_code(code_hash, code)
             .expect("Failed to write to test DB");
         let chain_config = example_chain_config();
-
+        let local_p2p_node = example_p2p_node();
         // Process request
-        let result = map_requests(&request, storage, chain_config);
+        let result = map_requests(&request, storage, chain_config, local_p2p_node);
         let response =
             serde_json::from_value::<RpcSuccessResponse>(rpc_response(request.id, result).0)
                 .expect("Request failed");
@@ -361,6 +369,16 @@ mod tests {
             response.result["accessList"],
             expected_response.result["accessList"]
         )
+    }
+
+    fn example_p2p_node() -> Node {
+        let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_1,
+        }
     }
 
     fn example_chain_config() -> ChainConfig {
