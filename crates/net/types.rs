@@ -76,6 +76,16 @@ impl RLPDecode for Node {
     }
 }
 
+impl Node {
+    pub fn enode_url(&self) -> String {
+        let node_id = self.node_id;
+        let node_ip = self.ip;
+        let discovery_port = self.tcp_port;
+        let listener_port = self.udp_port;
+        format!("enode://{node_id}@{node_ip}:{listener_port}?discport={discovery_port}")
+    }
+}
+
 /// Reference: [ENR records](https://github.com/ethereum/devp2p/blob/master/enr.md)
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct NodeRecord {
