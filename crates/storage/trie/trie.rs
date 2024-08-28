@@ -13,7 +13,7 @@ pub struct Trie {
     /// Root node ref.
     root_ref: NodeRef,
     /// Contains all the nodes and all the node's values
-    db: TrieDB,
+    pub(crate) db: TrieDB,
     hash: (bool, Output),
 }
 
