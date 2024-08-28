@@ -119,10 +119,10 @@ async fn main() {
         genesis.config,
         local_p2p_node,
     );
-    let _networking =
+    let networking =
         ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
 
-    try_join!(tokio::spawn(rpc_api) /*, tokio::spawn(networking)*/).unwrap();
+    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
