@@ -78,7 +78,7 @@ impl RLPDecode for Node {
 
 impl Node {
     pub fn enode_url(&self) -> String {
-        let node_id = self.node_id;
+        let node_id = hex::encode(self.node_id);
         let node_ip = self.ip;
         let discovery_port = self.tcp_port;
         let listener_port = self.udp_port;

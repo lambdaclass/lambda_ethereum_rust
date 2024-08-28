@@ -28,7 +28,6 @@ enum Protocol {
     Eth(ChainConfig),
 }
 
-//TODO: pass network config to function
 pub fn node_info(chain_config: ChainConfig, local_node: Node) -> Result<Value, RpcErr> {
     let enode_url = local_node.enode_url();
     let mut protocols = HashMap::new();
@@ -36,7 +35,7 @@ pub fn node_info(chain_config: ChainConfig, local_node: Node) -> Result<Value, R
 
     let node_info = NodeInfo {
         enode: enode_url,
-        id: local_node.node_id.to_string(),
+        id: hex::encode(local_node.node_id),
         name: "ethereum_rust/0.1.0/rust1.80".to_string(),
         ip: local_node.ip.to_string(),
         ports: Ports {
