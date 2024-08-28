@@ -52,15 +52,15 @@ impl TrieDB {
         Ok(node_ref)
     }
 
-    pub fn remove_node(&self, node_ref: NodeRef) -> Result<(), StoreError> {
-        self.remove::<Nodes>(node_ref.into())
+    pub fn update_node(&mut self, node_ref: NodeRef, node: Node) -> Result<(), StoreError> {
+        self.write::<Nodes>(node_ref.into(), node.encode_to_vec())
     }
 
     /// Returns the removed node if it existed
-    pub fn try_remove_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
+    pub fn remove_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
         let node = self.get_node(node_ref)?;
         if node.is_some() {
-            self.remove_node(node_ref)?;
+            self.remove::<Nodes>(node_ref.into())?;
         }
         Ok(node)
     }
@@ -70,6 +70,7 @@ impl TrieDB {
     }
 
     pub fn insert_value(&self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
+        debug_assert!(!path.is_empty()); // Sanity check
         self.write::<Values>(path, value)
     }
 

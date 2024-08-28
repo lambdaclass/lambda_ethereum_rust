@@ -6,7 +6,14 @@ pub use branch::BranchNode;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
-use super::{db::PathRLP, node_ref::NodeRef};
+use crate::error::StoreError;
+
+use super::{
+    db::{PathRLP, TrieDB, ValueRLP},
+    hashing::NodeHashRef,
+    nibble::NibbleSlice,
+    node_ref::NodeRef,
+};
 
 pub enum Node {
     Branch(BranchNode),
@@ -51,5 +58,47 @@ impl Into<Node> for ExtensionNode {
 impl Into<Node> for LeafNode {
     fn into(self) -> Node {
         Node::Leaf(self)
+    }
+}
+
+impl Node {
+    fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+        match self {
+            Node::Branch(n) => n.get(db, path),
+            Node::Extension(_) => todo!(),
+            Node::Leaf(n) => n.get(db, path),
+        }
+    }
+
+    fn insert(
+        &mut self,
+        db: &mut TrieDB,
+        path: NibbleSlice,
+    ) -> Result<(Node, InsertAction), StoreError> {
+        match self {
+            Node::Branch(n) => n.insert(db, path),
+            Node::Extension(_) => todo!(),
+            Node::Leaf(n) => n.insert(db, path),
+        }
+    }
+
+    fn remove(
+        self,
+        db: &mut TrieDB,
+        path: NibbleSlice,
+    ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+        match self {
+            Node::Branch(n) => n.remove(db, path),
+            Node::Extension(_) => todo!(),
+            Node::Leaf(n) => n.remove(db, path),
+        }
+    }
+
+    fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
+        match self {
+            Node::Branch(n) => n.compute_hash(db, path_offset),
+            Node::Extension(_) => todo!(),
+            Node::Leaf(n) => n.compute_hash(db, path_offset),
+        }
     }
 }

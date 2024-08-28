@@ -1,5 +1,5 @@
 use super::nibble::{NibbleSlice, NibbleVec};
-use digest::{Digest, Output};
+use digest::Digest;
 use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
@@ -13,8 +13,9 @@ use std::{
     mem::size_of,
 };
 
+pub type Output = digest::Output<Keccak256>;
 #[derive(Debug)]
-pub struct DelimitedHash(pub Output<Keccak256>, pub usize);
+pub struct DelimitedHash(pub Output, pub usize);
 
 impl AsRef<[u8]> for DelimitedHash {
     fn as_ref(&self) -> &[u8] {
@@ -38,7 +39,7 @@ impl From<NodeHash> for DelimitedHash {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeHash {
     length: Cell<usize>,
-    hash_ref: RefCell<Output<Keccak256>>,
+    hash_ref: RefCell<Output>,
 }
 
 impl NodeHash {
@@ -58,7 +59,7 @@ impl NodeHash {
     }
 
     #[warn(warnings)]
-    pub fn into_inner(self) -> (Output<Keccak256>, usize) {
+    pub fn into_inner(self) -> (Output, usize) {
         (self.hash_ref.into_inner(), self.length.into_inner())
     }
 }
@@ -75,7 +76,7 @@ impl Default for NodeHash {
 #[derive(Debug)]
 pub enum NodeHashRef<'a> {
     Inline(Ref<'a, [u8]>),
-    Hashed(Ref<'a, Output<Keccak256>>),
+    Hashed(Ref<'a, Output>),
 }
 
 impl<'a> AsRef<[u8]> for NodeHashRef<'a> {
@@ -270,7 +271,7 @@ impl RLPDecode for NodeHash {
         let (length, decoder) = decoder.decode_field("length")?;
         let (hash, decoder) = decoder.decode_field::<Vec<u8>>("hash_ref")?;
         let length = Cell::new(length);
-        let hash: &Output<Keccak256> = (hash.as_slice()).into();
+        let hash: &Output = (hash.as_slice()).into();
         let hash_ref = RefCell::new(hash.clone());
         Ok((Self { length, hash_ref }, decoder.finish()?))
     }

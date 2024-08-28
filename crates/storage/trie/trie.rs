@@ -25,7 +25,7 @@ impl Trie {
     pub fn insert(&mut self, k: Vec<u8>, v: Vec<u8>) -> Result<(), StoreError> {
         // Mark hash as dirty
         self.hash.0 = false;
-        if let Some(root_node) = self.db.try_remove_node(self.root)? {
+        if let Some(root_node) = self.db.remove_node(self.root)? {
             // If the tree is not empty, call the root node's insertion logic
         }
         Ok(())
