@@ -242,3 +242,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // TODO: messages after the Hello must be snappy compressed
 }
+
+pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
+    let public_key = PublicKey::from(signer.verifying_key());
+    let encoded = public_key.to_encoded_point(false);
+    H512::from_slice(&encoded.as_bytes()[1..])
+}

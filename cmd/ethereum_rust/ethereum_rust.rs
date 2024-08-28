@@ -1,15 +1,11 @@
 use bytes::Bytes;
 use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
-use ethereum_rust_core::H512;
 use ethereum_rust_net::bootnode::BootNode;
+use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
-use k256::{
-    ecdsa::SigningKey,
-    elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint},
-    PublicKey,
-};
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::{
     fs::File,
     io,
@@ -106,9 +102,7 @@ async fn main() {
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
     let signer = SigningKey::random(&mut OsRng);
-    let public_key = PublicKey::from(signer.verifying_key());
-    let encoded = public_key.to_encoded_point(false);
-    let local_node_id = H512::from_slice(&encoded.as_bytes()[1..]);
+    let local_node_id = node_id_from_signing_key(&signer);
 
     let local_p2p_node = Node {
         ip: udp_socket_addr.ip(),
@@ -125,10 +119,10 @@ async fn main() {
         genesis.config,
         local_p2p_node,
     );
-    let networking =
+    let _networking =
         ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
 
-    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
+    try_join!(tokio::spawn(rpc_api) /*, tokio::spawn(networking)*/).unwrap();
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {

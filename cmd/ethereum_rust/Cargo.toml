@@ -24,7 +24,6 @@ anyhow = "1.0.86"
 rand = "0.8.5"
 k256 = { version = "0.13.3", features = ["ecdh"] }
 
-
 [[bin]]
 name = "ethereum_rust"
 path = "./ethereum_rust.rs"
