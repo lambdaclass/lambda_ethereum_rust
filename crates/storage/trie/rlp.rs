@@ -110,7 +110,11 @@ impl RLPEncode for Node {
             Node::Leaf(_) => NodeType::Leaf,
         };
         buf.put_u8(node_type as u8);
-        self.encode(buf)
+        match self {
+            Node::Branch(n) => n.encode(buf),
+            Node::Extension(n) => n.encode(buf),
+            Node::Leaf(n) => n.encode(buf),
+        }
     }
 }
 

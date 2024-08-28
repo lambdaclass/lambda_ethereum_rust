@@ -7,6 +7,7 @@ use crate::trie::hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind};
 
 use super::{BranchNode, InsertAction, LeafNode, Node};
 
+#[derive(Debug)]
 pub struct ExtensionNode {
     pub hash: NodeHash,
     pub prefix: NibbleVec,

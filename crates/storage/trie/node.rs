@@ -15,6 +15,7 @@ use super::{
     node_ref::NodeRef,
 };
 
+#[derive(Debug)]
 pub enum Node {
     Branch(BranchNode),
     Extension(ExtensionNode),
@@ -65,7 +66,7 @@ impl Node {
     pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         match self {
             Node::Branch(n) => n.get(db, path),
-            Node::Extension(_) => todo!(),
+            Node::Extension(n) => n.get(db, path),
             Node::Leaf(n) => n.get(db, path),
         }
     }
@@ -89,7 +90,7 @@ impl Node {
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         match self {
             Node::Branch(n) => n.remove(db, path),
-            Node::Extension(_) => todo!(),
+            Node::Extension(n) => n.remove(db, path),
             Node::Leaf(n) => n.remove(db, path),
         }
     }
@@ -97,7 +98,7 @@ impl Node {
     pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         match self {
             Node::Branch(n) => n.compute_hash(db, path_offset),
-            Node::Extension(_) => todo!(),
+            Node::Extension(n) => n.compute_hash(db, path_offset),
             Node::Leaf(n) => n.compute_hash(db, path_offset),
         }
     }
