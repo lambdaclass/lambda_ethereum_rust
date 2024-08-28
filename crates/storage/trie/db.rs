@@ -35,7 +35,7 @@ impl TrieDB {
         let path = trie_dir.try_into().ok();
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
-            next_node_ref: NodeRef::default(),
+            next_node_ref: NodeRef::new(0),
         })
     }
 
