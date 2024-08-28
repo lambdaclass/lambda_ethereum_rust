@@ -225,6 +225,7 @@ impl RLPDecode for Ipv6Addr {
 impl RLPDecode for IpAddr {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (ip_bytes, rest) = decode_bytes(rlp)?;
+
         match ip_bytes.len() {
             4 => {
                 let octets: [u8; 4] = ip_bytes

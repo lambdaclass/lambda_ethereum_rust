@@ -19,14 +19,15 @@ pub fn authenticate(
     secret: Bytes,
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
 ) -> Result<(), RpcErr> {
-    if auth_header.is_none() {
-        return Err(RpcErr::AuthenticationError(
+    match auth_header {
+        Some(TypedHeader(auth_header)) => {
+            let token = auth_header.token();
+            validate_jwt_authentication(token, secret).map_err(RpcErr::AuthenticationError)
+        }
+        None => Err(RpcErr::AuthenticationError(
             AuthenticationError::MissingAuthentication,
-        ));
+        )),
     }
-    let TypedHeader(auth_header) = auth_header.unwrap();
-    let token = auth_header.token();
-    validate_jwt_authentication(token, secret).map_err(RpcErr::AuthenticationError)
 }
 
 // JWT claims struct
