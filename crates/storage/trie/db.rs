@@ -83,6 +83,18 @@ impl TrieDB {
         Ok(value)
     }
 
+    /// Returns the current value and then overwrites it with the new one
+    pub fn replace_value(
+        &self,
+        path: PathRLP,
+        new_value: ValueRLP,
+    ) -> Result<Option<ValueRLP>, StoreError> {
+        debug_assert!(!path.is_empty()); // Sanity check
+        let old_value = self.get_value(path.clone())?;
+        self.insert_value(path, new_value)?;
+        Ok(old_value)
+    }
+
     // Helper method to write into a libmdx table
     fn write<T: libmdbx::orm::Table>(
         &self,

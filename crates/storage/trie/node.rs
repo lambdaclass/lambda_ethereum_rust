@@ -62,7 +62,7 @@ impl Into<Node> for LeafNode {
 }
 
 impl Node {
-    fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         match self {
             Node::Branch(n) => n.get(db, path),
             Node::Extension(_) => todo!(),
@@ -70,7 +70,7 @@ impl Node {
         }
     }
 
-    fn insert(
+    pub fn insert(
         self,
         db: &mut TrieDB,
         path: NibbleSlice,
@@ -82,7 +82,7 @@ impl Node {
         }
     }
 
-    fn remove(
+    pub fn remove(
         self,
         db: &mut TrieDB,
         path: NibbleSlice,
@@ -94,7 +94,7 @@ impl Node {
         }
     }
 
-    fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
+    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         match self {
             Node::Branch(n) => n.compute_hash(db, path_offset),
             Node::Extension(_) => todo!(),
