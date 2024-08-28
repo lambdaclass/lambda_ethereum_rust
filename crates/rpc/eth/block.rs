@@ -4,9 +4,10 @@ use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
-use crate::utils::RpcErr;
-use ethereum_rust_core::types::{
-    BlockHash, BlockNumber, BlockSerializable, ReceiptWithTxAndBlockInfo,
+use crate::{types::block::RpcBlock, utils::RpcErr};
+use ethereum_rust_core::{
+    types::{BlockHash, BlockNumber, ReceiptWithTxAndBlockInfo},
+    U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
@@ -128,7 +129,16 @@ pub fn get_block_by_number(
         // Block not found
         _ => return Ok(Value::Null),
     };
-    let block = BlockSerializable::from_block(header, body, request.hydrated);
+    let hash = header.compute_block_hash();
+    // TODO (#307): Remove TotalDifficulty.
+    let total_difficulty = storage.get_block_total_difficulty(hash)?;
+    let block = RpcBlock::build(
+        header,
+        body,
+        hash,
+        request.hydrated,
+        total_difficulty.unwrap_or(U256::zero()),
+    );
 
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
@@ -146,8 +156,16 @@ pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Res
         // Block not found
         _ => return Ok(Value::Null),
     };
-    let block = BlockSerializable::from_block(header, body, request.hydrated);
-
+    let hash = header.compute_block_hash();
+    // TODO (#307): Remove TotalDifficulty.
+    let total_difficulty = storage.get_block_total_difficulty(hash)?;
+    let block = RpcBlock::build(
+        header,
+        body,
+        hash,
+        request.hydrated,
+        total_difficulty.unwrap_or(U256::zero()),
+    );
     serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
 }
 

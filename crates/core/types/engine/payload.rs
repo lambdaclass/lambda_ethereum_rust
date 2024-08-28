@@ -87,7 +87,7 @@ impl ExecutionPayloadV3 {
                 coinbase: self.fee_recipient,
                 state_root: self.state_root,
                 transactions_root: compute_transactions_root(&body.transactions),
-                receipt_root: self.receipts_root,
+                receipts_root: self.receipts_root,
                 logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
                 number: self.block_number,

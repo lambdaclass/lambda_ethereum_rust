@@ -114,7 +114,7 @@ impl Genesis {
             coinbase: self.coinbase,
             state_root: self.compute_state_root(),
             transactions_root: compute_transactions_root(&[]),
-            receipt_root: compute_receipts_root(&[]),
+            receipts_root: compute_receipts_root(&[]),
             logs_bloom: Bloom::zero(),
             difficulty: self.difficulty,
             number: 0,
@@ -279,7 +279,7 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(header.transactions_root, compute_transactions_root(&[]));
-        assert_eq!(header.receipt_root, compute_receipts_root(&[]));
+        assert_eq!(header.receipts_root, compute_receipts_root(&[]));
         assert_eq!(header.logs_bloom, Bloom::default());
         assert_eq!(header.difficulty, U256::from(1));
         assert_eq!(header.gas_limit, 25_000_000);
