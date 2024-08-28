@@ -1,4 +1,4 @@
-use crate::authentication::{validate_jwt_authentication, AuthenticationError};
+use crate::authentication::authenticate;
 use bytes::Bytes;
 use ethereum_rust_core::types::ChainConfig;
 use std::{future::IntoFuture, net::SocketAddr};
@@ -22,7 +22,7 @@ use eth::{
         GetTransactionReceiptRequest,
     },
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{
@@ -108,36 +108,13 @@ pub async fn handle_authrpc_request(
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
-    if auth_header.is_none() {
-        return Json(
-            json!({"jsonrpc": "2.0", "error": {"code": -32000, "message": "Authorization header missing"}, "id": null}),
-        );
-    }
-    let TypedHeader(auth_header) = auth_header.unwrap();
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
-    let token = auth_header.token();
-    //Validate the JWT
-    match validate_jwt_authentication(token, secret) {
-        Err(AuthenticationError::InvalidIssuedAtClaim) => Json(json!({
-            "jsonrpc": "2.0",
-            "error": {
-                "code": -32000,
-                "message": "Invalid iat claim"
-            },
-            "id": null
-        })),
-        Err(AuthenticationError::TokenDecodingError) => Json(json!({
-            "jsonrpc": "2.0",
-            "error": {
-                "code": -32000,
-                "message": "Invalid or missing token"
-            },
-            "id": null
-        })),
+    let req: RpcRequest = serde_json::from_str(&body).unwrap();
+    match authenticate(secret, auth_header) {
+        Err(error) => return rpc_response(req.id, Err(error)),
         Ok(()) => {
             // Proceed with the request
-            let req: RpcRequest = serde_json::from_str(&body).unwrap();
             let res = map_authrpc_requests(&req, storage);
             rpc_response(req.id, res)
         }

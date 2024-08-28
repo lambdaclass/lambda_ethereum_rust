@@ -3,6 +3,8 @@ use ethereum_rust_storage::error::StoreError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::authentication::AuthenticationError;
+
 #[derive(Debug)]
 pub enum RpcErr {
     MethodNotFound,
@@ -11,6 +13,7 @@ pub enum RpcErr {
     Internal,
     Vm,
     Revert { data: String },
+    AuthenticationError(AuthenticationError),
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -50,6 +53,23 @@ impl From<RpcErr> for RpcErrorMetadata {
                     "execution reverted: {}",
                     get_message_from_revert_data(&data)
                 ),
+            },
+            RpcErr::AuthenticationError(auth_error) => match auth_error {
+                AuthenticationError::InvalidIssuedAtClaim => RpcErrorMetadata {
+                    code: -32000,
+                    data: None,
+                    message: "Auth failed: Invalid iat claim".to_string(),
+                },
+                AuthenticationError::TokenDecodingError => RpcErrorMetadata {
+                    code: -32000,
+                    data: None,
+                    message: "Auth failed: Invalid or missing token".to_string(),
+                },
+                AuthenticationError::MissingAuthentication => RpcErrorMetadata {
+                    code: -32000,
+                    data: None,
+                    message: "Auth failed: Missing authentication header".to_string(),
+                },
             },
         }
     }
