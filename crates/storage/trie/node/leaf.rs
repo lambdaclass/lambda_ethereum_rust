@@ -232,11 +232,9 @@ mod test {
     }
 
     fn insert_branch(mut trie: Trie) {
-        dbg!("Hello");
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
-        dbg!("Test Node created");
 
         let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x22])).unwrap();
         let _ = match node {
