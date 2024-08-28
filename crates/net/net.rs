@@ -46,9 +46,7 @@ pub async fn start_network(
 
 async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
-    let public_key = PublicKey::from(signer.verifying_key());
-    let encoded = public_key.to_encoded_point(false);
-    let local_node_id = H512::from_slice(&encoded.as_bytes()[1..]);
+    let local_node_id = node_id_from_signing_key(&signer);
 
     let bootnode = match bootnodes.first() {
         Some(b) => b,
