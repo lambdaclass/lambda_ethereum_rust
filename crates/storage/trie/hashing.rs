@@ -1,4 +1,3 @@
-// TODO: Simplify this module
 use super::nibble::{NibbleSlice, NibbleVec};
 use digest::Digest;
 use ethereum_rust_core::rlp::{
@@ -8,7 +7,11 @@ use ethereum_rust_core::rlp::{
     structs::{Decoder, Encoder},
 };
 use sha3::Keccak256;
-use std::{borrow::Cow, cmp::min, mem::size_of};
+use std::{
+    cell::{Cell, Ref, RefCell},
+    cmp::min,
+    mem::size_of,
+};
 
 pub type Output = digest::Output<Keccak256>;
 #[derive(Debug)]
@@ -35,41 +38,45 @@ impl From<NodeHash> for DelimitedHash {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NodeHash {
-    length: usize,
-    hash: Output,
+    length: Cell<usize>,
+    hash_ref: RefCell<Output>,
 }
 
 impl NodeHash {
     pub fn mark_as_dirty(&mut self) {
-        self.length = 0;
+        self.length.set(0);
     }
 
     pub fn extract_ref(&self) -> Option<NodeHashRef> {
-        match self.length {
+        let length = self.length.get();
+        let hash_ref = self.hash_ref.borrow();
+
+        match length {
             0 => None,
-            32 => Some(NodeHashRef::Hashed(Cow::Borrowed(&self.hash))),
-            l => Some(NodeHashRef::Inline(Cow::Borrowed(&self.hash[..l]))),
+            32 => Some(NodeHashRef::Hashed(hash_ref)),
+            l => Some(NodeHashRef::Inline(Ref::map(hash_ref, |x| &x[..l]))),
         }
     }
 
+    #[warn(warnings)]
     pub fn into_inner(self) -> (Output, usize) {
-        (self.hash, self.length)
+        (self.hash_ref.into_inner(), self.length.into_inner())
     }
 }
 
 impl Default for NodeHash {
     fn default() -> Self {
         Self {
-            length: 0,
-            hash: Default::default(),
+            length: Cell::new(0),
+            hash_ref: Default::default(),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum NodeHashRef<'a> {
-    Inline(Cow<'a, [u8]>),
-    Hashed(Cow<'a, Output>),
+    Inline(Ref<'a, [u8]>),
+    Hashed(Ref<'a, Output>),
 }
 
 impl<'a> AsRef<[u8]> for NodeHashRef<'a> {
@@ -81,18 +88,17 @@ impl<'a> AsRef<[u8]> for NodeHashRef<'a> {
     }
 }
 
-pub struct NodeHasher {
-    parent: NodeHash,
+pub struct NodeHasher<'a> {
+    parent: &'a NodeHash,
     hasher: Option<Keccak256>,
 }
 
-impl<'a> NodeHasher {
-    pub fn new(parent: &NodeHash) -> Self {
+impl<'a> NodeHasher<'a> {
+    pub fn new(parent: &'a NodeHash) -> Self {
+        parent.length.set(0);
+
         Self {
-            parent: NodeHash {
-                length: 0,
-                hash: parent.hash,
-            },
+            parent,
             hasher: None,
         }
     }
@@ -101,16 +107,16 @@ impl<'a> NodeHasher {
         match self.hasher {
             Some(_) => {
                 {
-                    let mut hash = self.parent.hash;
-                    self.push_hash_update(&hash[..self.parent.length]);
-                    self.hasher.take().unwrap().finalize_into(&mut hash);
+                    let mut hash_ref = self.parent.hash_ref.borrow_mut();
+                    self.push_hash_update(&hash_ref[..self.parent.length.get()]);
+                    self.hasher.take().unwrap().finalize_into(&mut hash_ref);
                 }
-                self.parent.length = 32;
-                NodeHashRef::Hashed(Cow::Owned(self.parent.hash))
+                self.parent.length.set(32);
+                NodeHashRef::Hashed(self.parent.hash_ref.borrow())
             }
-            None => {
-                NodeHashRef::Inline(Cow::Owned(self.parent.hash[..self.parent.length].to_vec()))
-            }
+            None => NodeHashRef::Inline(Ref::map(self.parent.hash_ref.borrow(), |x| {
+                &x[..self.parent.length.get()]
+            })),
         }
     }
 
@@ -199,8 +205,8 @@ impl<'a> NodeHasher {
     }
 
     pub fn write_raw(&mut self, value: &[u8]) {
-        let mut length = self.parent.length;
-        let mut hash_ref = self.parent.hash;
+        let mut length = self.parent.length.get();
+        let mut hash_ref = self.parent.hash_ref.borrow_mut();
 
         let mut current_pos = 0;
         while current_pos < value.len() {
@@ -219,7 +225,7 @@ impl<'a> NodeHasher {
             }
         }
 
-        self.parent.length = length;
+        self.parent.length.set(length);
     }
 
     fn push_hash_update(&mut self, data: &[u8]) {
@@ -250,8 +256,8 @@ const fn compute_byte_usage(value: usize) -> usize {
 
 impl RLPEncode for NodeHash {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let length = self.length;
-        let hash = self.hash.to_vec();
+        let length = self.length.get();
+        let hash = self.hash_ref.borrow().to_vec();
         Encoder::new(buf)
             .encode_field(&length)
             .encode_field(&hash)
@@ -264,8 +270,9 @@ impl RLPDecode for NodeHash {
         let decoder = Decoder::new(rlp)?;
         let (length, decoder) = decoder.decode_field("length")?;
         let (hash, decoder) = decoder.decode_field::<Vec<u8>>("hash_ref")?;
+        let length = Cell::new(length);
         let hash: &Output = (hash.as_slice()).into();
-        let hash = hash.clone();
-        Ok((Self { length, hash }, decoder.finish()?))
+        let hash_ref = RefCell::new(hash.clone());
+        Ok((Self { length, hash_ref }, decoder.finish()?))
     }
 }

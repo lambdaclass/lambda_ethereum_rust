@@ -1,5 +1,6 @@
 use super::trie::Trie;
 
+
 pub fn start_trie(trie_dir: &str) -> Trie {
     remove_trie(trie_dir); // In case a trie db was left from a previous test execution
     Trie::new(trie_dir).expect("Failed to create Trie")
@@ -96,6 +97,7 @@ macro_rules! pmt_node {
         }
     };
 }
+
 
 #[macro_export]
 macro_rules! pmt_path {
