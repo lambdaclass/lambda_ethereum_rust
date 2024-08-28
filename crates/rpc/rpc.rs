@@ -114,8 +114,6 @@ pub async fn handle_authrpc_request(
     let TypedHeader(auth_header) = auth_header.unwrap();
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
-    let chain_config = service_context.chain_config;
-    let local_p2p_node = service_context.local_p2p_node;
     let token = auth_header.token();
     //Validate the JWT
     match validate_jwt_authentication(token, secret) {
@@ -138,10 +136,7 @@ pub async fn handle_authrpc_request(
         Ok(()) => {
             // Proceed with the request
             let req: RpcRequest = serde_json::from_str(&body).unwrap();
-            let res = match map_requests(&req, storage.clone(), chain_config, local_p2p_node) {
-                res @ Ok(_) => res,
-                _ => map_internal_requests(&req, storage),
-            };
+            let res = map_internal_requests(&req, storage);
             rpc_response(req.id, res)
         }
     }
@@ -155,16 +150,6 @@ pub fn map_requests(
     local_p2p_node: Node,
 ) -> Result<Value, RpcErr> {
     match req.method.as_str() {
-        "engine_exchangeCapabilities" => {
-            let capabilities: ExchangeCapabilitiesRequest = req
-                .params
-                .as_ref()
-                .ok_or(RpcErr::BadParams)?
-                .first()
-                .ok_or(RpcErr::BadParams)
-                .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
-            engine::exchange_capabilities(&capabilities)
-        }
         "eth_chainId" => client::chain_id(storage),
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => {
@@ -225,19 +210,31 @@ pub fn map_requests(
             let request = CallRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             transaction::call(&request, storage)
         }
-        "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
-        "engine_newPayloadV3" => {
-            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
-        }
         "admin_nodeInfo" => admin::node_info(chain_config, local_p2p_node),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
 
 /// Handle requests from other clients
-pub fn map_internal_requests(_req: &RpcRequest, _storage: Store) -> Result<Value, RpcErr> {
-    Err(RpcErr::MethodNotFound)
+pub fn map_internal_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "engine_exchangeCapabilities" => {
+            let capabilities: ExchangeCapabilitiesRequest = req
+                .params
+                .as_ref()
+                .ok_or(RpcErr::BadParams)?
+                .first()
+                .ok_or(RpcErr::BadParams)
+                .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
+            engine::exchange_capabilities(&capabilities)
+        }
+        "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
+        "engine_newPayloadV3" => {
+            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
+        }
+        _ => Err(RpcErr::MethodNotFound),
+    }
 }
 
 fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
