@@ -76,14 +76,13 @@ impl From<RevmExecutionResult> for ExecutionResult {
 
 impl ExecutionResult {
     pub fn is_success(&self) -> bool {
-        matches!(
-            self,
-            ExecutionResult::Success {
-                reason: _,
-                gas_used: _,
-                gas_refunded: _,
-                output: _
-            }
-        )
+        matches!(self, ExecutionResult::Success { .. })
+    }
+    pub fn gas_used(&self) -> u64 {
+        match self {
+            ExecutionResult::Success { gas_used, .. } => *gas_used,
+            ExecutionResult::Revert { gas_used, .. } => *gas_used,
+            ExecutionResult::Halt { gas_used, .. } => *gas_used,
+        }
     }
 }

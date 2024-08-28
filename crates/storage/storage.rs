@@ -278,7 +278,6 @@ impl Store {
         block_number: BlockNumber,
     ) -> Result<(), StoreError> {
         for (index, transaction) in transactions.iter().enumerate() {
-            info!("[Storage] Inserting transaction {:?}", transaction);
             self.add_transaction_location(
                 transaction.compute_hash(),
                 block_number,

@@ -4,7 +4,7 @@ use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK}
 use error::{ChainError, InvalidBlockError};
 use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
-    BlockHeader, EIP4844Transaction, Transaction,
+    BlockHeader, BlockNumber, EIP4844Transaction, Receipt, Transaction,
 };
 use ethereum_rust_core::H256;
 
@@ -23,25 +23,26 @@ use ethereum_rust_storage::Store;
 /// This is:
 /// - The parent_hash field on the block header is the hash of the head of the canonical chain
 /// - The block's number is the latest block number of the canonical chain+1
-pub fn add_block(block: &Block, storage: Store) -> Result<(), ChainError> {
+pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     //TODO: Eventually we should be able to handle blocks
     //which are not directly extending the canonical chain
-    extends_canonical_chain(block, &storage)?;
+    extends_canonical_chain(block, storage)?;
     // Validate if it can be the new head and find the parent
-    let parent_header = find_parent_header(block, &storage)?;
+    let parent_header = find_parent_header(block, storage)?;
     let mut state = evm_state(storage.clone());
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
 
-    execute_block(block, &mut state)?;
+    let receipts = execute_block(block, &mut state)?;
 
     apply_state_transitions(&mut state)?;
 
     // Check state root matches the one in block header after execution
-    validate_state_root(&block.header, &storage)?;
+    validate_state_root(&block.header, storage)?;
 
     store_block(storage, block.clone())?;
+    store_receipts(storage, receipts, block.header.number)?;
 
     Ok(())
 }
@@ -60,8 +61,19 @@ pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), Cha
     }
 }
 /// Stores block and header in the database
-pub fn store_block(storage: Store, block: Block) -> Result<(), ChainError> {
+pub fn store_block(storage: &Store, block: Block) -> Result<(), ChainError> {
     storage.add_block(block)?;
+    Ok(())
+}
+
+pub fn store_receipts(
+    storage: &Store,
+    receipts: Vec<Receipt>,
+    block_number: BlockNumber,
+) -> Result<(), ChainError> {
+    for (index, receipt) in receipts.into_iter().enumerate() {
+        storage.add_receipt(block_number, index as u64, receipt)?;
+    }
     Ok(())
 }
 

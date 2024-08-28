@@ -211,13 +211,20 @@ pub fn get_block_receipts(
     };
     // Fetch receipt info from block
     let block_info = header.receipt_info();
+    info!("Receipt info: {:?}", block_info);
     // Fetch receipt for each tx in the block and add block and tx info
     let mut receipts = Vec::new();
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
-            Some(receipt) => receipt,
-            _ => return Ok(Value::Null),
+            Some(receipt) => {
+                info!("Adding receipt {:?}", receipt);
+                receipt
+            }
+            _ => {
+                info!("Returning null!");
+                return Ok(Value::Null);
+            }
         };
         let block_info = block_info.clone();
         let tx_info = tx.receipt_info(index);
