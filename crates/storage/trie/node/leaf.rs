@@ -186,11 +186,11 @@ mod test {
 
     #[test]
     fn run_leaf_test_suite() {
-        //run_test(&get_some);
-        //run_test(&get_none);
-        //run_test(&insert_replace);
+        run_test(&get_some);
+        run_test(&get_none);
+        run_test(&insert_replace);
         run_test(&insert_branch);
-        //run_test(&insert_extension_branch);
+        run_test(&insert_extension_branch);
     }
 
     fn get_some(trie: Trie) {
