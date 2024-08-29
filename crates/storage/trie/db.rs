@@ -32,7 +32,7 @@ impl TrieDB {
         let tables = [table_info!(Nodes), table_info!(Values)]
             .into_iter()
             .collect();
-        let path = trie_dir.try_into().ok();
+        let path = Some(trie_dir.into());
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
             next_node_ref: NodeRef::new(0),
