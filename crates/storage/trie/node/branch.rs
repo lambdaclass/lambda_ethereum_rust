@@ -282,7 +282,7 @@ mod test {
         pmt_node,
         trie::{
             test_utils::{remove_trie, start_trie},
-            trie::Trie,
+            Trie,
         },
     };
 

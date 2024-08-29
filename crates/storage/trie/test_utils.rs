@@ -1,4 +1,4 @@
-use super::trie::Trie;
+use super::Trie;
 
 pub fn start_trie(trie_dir: &str) -> Trie {
     remove_trie(trie_dir); // In case a trie db was left from a previous test execution

@@ -167,7 +167,7 @@ pub fn compute_leaf_hash<'a>(
 mod test {
     use super::*;
     use crate::trie::node_ref::NodeRef;
-    use crate::trie::trie::Trie;
+    use crate::trie::Trie;
     use crate::{
         pmt_node,
         trie::test_utils::{remove_trie, start_trie},

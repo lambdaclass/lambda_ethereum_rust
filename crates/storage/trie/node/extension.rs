@@ -197,7 +197,7 @@ mod test {
         trie::{
             nibble::Nibble,
             test_utils::{remove_trie, start_trie},
-            trie::Trie,
+            Trie,
         },
     };
 
