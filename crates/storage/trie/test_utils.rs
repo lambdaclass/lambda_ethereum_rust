@@ -76,7 +76,7 @@ macro_rules! pmt_node {
         $crate::trie::node::ExtensionNode::new(
             prefix,
             {
-                let child_node = pmt_node! { @($nodes, $values)
+                let child_node = pmt_node! { @($trie)
                     $child_type { $( $child_tokens )* }
                     offset offset
                 }.into();
