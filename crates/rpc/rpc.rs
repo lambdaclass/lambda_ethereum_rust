@@ -7,7 +7,11 @@ use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
-use engine::{ExchangeCapabilitiesRequest, NewPayloadV3Request};
+use engine::{
+    fork_choice::{self, ForkChoiceUpdatedV3},
+    payload::{self, NewPayloadV3Request},
+    ExchangeCapabilitiesRequest,
+};
 use eth::{
     account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
     block::{
@@ -208,10 +212,14 @@ pub fn map_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
             let request = CallRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             transaction::call(&request, storage)
         }
-        "engine_forkchoiceUpdatedV3" => engine::forkchoice_updated_v3(),
+        "engine_forkchoiceUpdatedV3" => {
+            let request = ForkChoiceUpdatedV3::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            fork_choice::forkchoice_updated_v3(request, storage)
+        }
         "engine_newPayloadV3" => {
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            Ok(serde_json::to_value(engine::new_payload_v3(request, storage)?).unwrap())
+            serde_json::to_value(payload::new_payload_v3(request, storage)?)
+                .map_err(|_| RpcErr::Internal)
         }
         "admin_nodeInfo" => admin::node_info(),
         _ => Err(RpcErr::MethodNotFound),
