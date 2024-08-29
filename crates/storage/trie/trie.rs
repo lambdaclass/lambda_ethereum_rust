@@ -151,16 +151,16 @@ mod test {
 
     #[test]
     fn run_trie_test_suite() {
-        // run_test(&compute_hash);
-        // run_test(&compute_hash_long);
-        // run_test(&get_insert_words);
-        // run_test(&get_insert_zero);
-        // run_test(&get_insert_a);
-        // run_test(&get_insert_b);
+        run_test(&compute_hash);
+        run_test(&compute_hash_long);
+        run_test(&get_insert_words);
+        run_test(&get_insert_zero);
+        run_test(&get_insert_a);
+        run_test(&get_insert_b);
         run_test(&get_insert_c);
-        // run_test(&get_insert_d);
-        // run_test(&get_insert_e);
-        // run_test(&get_insert_f);
+        run_test(&get_insert_d);
+        run_test(&get_insert_e);
+        run_test(&get_insert_f);
     }
 
     fn compute_hash(mut trie: Trie) {
