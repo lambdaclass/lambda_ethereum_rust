@@ -28,7 +28,7 @@ macro_rules! pmt_node {
                     offset offset
                 }.into();
                 let child_node = $trie.db.insert_node(child_node).unwrap();
-                choices[$choice as usize] = $crate::trie::node_ref::NodeRef::new(child_node);
+                choices[$choice as usize] = child_node;
             )*
             choices
         })
@@ -45,7 +45,7 @@ macro_rules! pmt_node {
             let mut choices = [$crate::trie::node_ref::NodeRef::default(); 16];
             $(
                 choices[$choice as usize] = $trie.db.insert_node(
-                    pmt_node! { @($nodes, $values)
+                    pmt_node! { @($trie)
                         $child_type { $( $child_tokens )* }
                         offset offset
                     }.into()
@@ -53,8 +53,8 @@ macro_rules! pmt_node {
             )*
             choices
         });
-        trie.db.insert_value($path, $value).unwrap();
-        branch_node.update_path($path, $value);
+        $trie.db.insert_value($path, $value).unwrap();
+        branch_node.update_path($path);
         branch_node
     }};
 
