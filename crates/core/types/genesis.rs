@@ -146,8 +146,8 @@ impl Genesis {
             nonce: self.nonce,
             base_fee_per_gas: self.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
             withdrawals_root: Some(compute_withdrawals_root(&[])),
-            blob_gas_used: blob_gas_used,
-            excess_blob_gas: excess_blob_gas,
+            blob_gas_used,
+            excess_blob_gas,
             parent_beacon_block_root: Some(H256::zero()),
         }
     }
