@@ -134,3 +134,194 @@ impl Trie {
         Ok(self.hash.1)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::trie::test_utils::{remove_trie, start_trie};
+
+    use super::*;
+
+    const TRIE_TEST_DIR: &str = "trie-test-db";
+
+    fn run_test(test: &dyn Fn(Trie)) {
+        let trie = start_trie(TRIE_TEST_DIR);
+        test(trie);
+        remove_trie(TRIE_TEST_DIR)
+    }
+
+    #[test]
+    fn run_trie_test_suite() {
+        // run_test(&compute_hash);
+        // run_test(&compute_hash_long);
+        // run_test(&get_insert_words);
+        // run_test(&get_insert_zero);
+        // run_test(&get_insert_a);
+        // run_test(&get_insert_b);
+        run_test(&get_insert_c);
+        // run_test(&get_insert_d);
+        // run_test(&get_insert_e);
+        // run_test(&get_insert_f);
+    }
+
+    fn compute_hash(mut trie: Trie) {
+        trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
+        trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
+
+        assert_eq!(
+            trie.compute_hash().unwrap().as_ref(),
+            hex::decode("f7537e7f4b313c426440b7fface6bff76f51b3eb0d127356efbe6f2b3c891501")
+                .unwrap(),
+        );
+    }
+
+    fn compute_hash_long(mut trie: Trie) {
+        trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
+        trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
+        trie.insert(b"third".to_vec(), b"value".to_vec()).unwrap();
+        trie.insert(b"fourth".to_vec(), b"value".to_vec()).unwrap();
+
+        assert_eq!(
+            trie.compute_hash().unwrap().as_slice(),
+            hex::decode("e2ff76eca34a96b68e6871c74f2a5d9db58e59f82073276866fdd25e560cedea")
+                .unwrap(),
+        );
+    }
+
+    fn get_insert_words(mut trie: Trie) {
+        trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
+        trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
+
+        let first = trie.get(&&b"first"[..].to_vec()).unwrap();
+        assert!(first.is_some());
+        let second = trie.get(&&b"second"[..].to_vec()).unwrap();
+        assert!(second.is_some());
+    }
+
+    fn get_insert_zero(mut trie: Trie) {
+        trie.insert(vec![0x0], b"value".to_vec()).unwrap();
+        let first = trie.get(&&[0x0][..].to_vec()).unwrap();
+        assert!(first.is_some());
+    }
+
+    // shrinks to paths = [[16], [16, 0]], values = [[0], [0]]
+    fn get_insert_a(mut trie: Trie) {
+        trie.insert(vec![16], vec![0]).unwrap();
+        trie.insert(vec![16, 0], vec![0]).unwrap();
+
+        let item = trie.get(&vec![16]).unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![0]);
+
+        let item = trie.get(&vec![16, 0]).unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![0]);
+    }
+
+    // # shrinks to paths = {[1, 0], [0, 0]}
+    fn get_insert_b(mut trie: Trie) {
+        trie.insert(vec![0, 0], vec![0, 0]).unwrap();
+        trie.insert(vec![1, 0], vec![1, 0]).unwrap();
+
+        let item = trie.get(&vec![1, 0]).unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![1, 0]);
+
+        let item = trie.get(&vec![0, 0]).unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![0, 0]);
+    }
+
+    fn get_insert_c(mut trie: Trie) {
+        trie.insert(vec![26, 192, 44, 251], vec![26, 192, 44, 251])
+            .unwrap();
+        trie.insert(
+            vec![195, 132, 220, 124, 112, 201, 70, 128, 235],
+            vec![195, 132, 220, 124, 112, 201, 70, 128, 235],
+        )
+        .unwrap();
+        trie.insert(vec![126, 138, 25, 245, 146], vec![126, 138, 25, 245, 146])
+            .unwrap(); // inserted here
+        trie.insert(
+            vec![129, 176, 66, 2, 150, 151, 180, 60, 124],
+            vec![129, 176, 66, 2, 150, 151, 180, 60, 124],
+        )
+        .unwrap();
+        trie.insert(vec![138, 101, 157], vec![138, 101, 157])
+            .unwrap();
+
+        let item = trie.get(&vec![26, 192, 44, 251]).unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![26, 192, 44, 251]);
+
+        let item = trie
+            .get(&vec![195, 132, 220, 124, 112, 201, 70, 128, 235])
+            .unwrap();
+        assert!(item.is_some());
+        assert_eq!(
+            item.unwrap(),
+            vec![195, 132, 220, 124, 112, 201, 70, 128, 235]
+        );
+
+        let item = trie.get(&vec![126, 138, 25, 245, 146]).unwrap();
+        assert!(item.is_some()); // dis fails
+        assert_eq!(item.unwrap(), vec![126, 138, 25, 245, 146]);
+
+        let item = trie
+            .get(&vec![129, 176, 66, 2, 150, 151, 180, 60, 124])
+            .unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![129, 176, 66, 2, 150, 151, 180, 60, 124]);
+
+        let item = trie.get(&vec![138, 101, 157]).unwrap();
+        assert!(item.is_some());
+        assert_eq!(item.unwrap(), vec![138, 101, 157]);
+    }
+
+    fn get_insert_d(mut trie: Trie) {
+        let vecs = vec![
+            vec![52, 53, 143, 52, 206, 112],
+            vec![14, 183, 34, 39, 113],
+            vec![55, 5],
+            vec![134, 123, 19],
+            vec![0, 59, 240, 89, 83, 167],
+            vec![22, 41],
+            vec![13, 166, 159, 101, 90, 234, 91],
+            vec![31, 180, 161, 122, 115, 51, 37, 61, 101],
+            vec![208, 192, 4, 12, 163, 254, 129, 206, 109],
+        ];
+        for x in &vecs {
+            trie.insert(x.clone(), x.clone()).unwrap();
+        }
+        for x in &vecs {
+            let item = trie.get(x).unwrap();
+            assert!(item.is_some());
+            assert_eq!(item.unwrap(), *x);
+        }
+    }
+
+    fn get_insert_e(mut trie: Trie) {
+        trie.insert(vec![0x00], vec![0x00]).unwrap();
+        trie.insert(vec![0xC8], vec![0xC8]).unwrap();
+        trie.insert(vec![0xC8, 0x00], vec![0xC8, 0x00]).unwrap();
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
+        assert_eq!(trie.get(&vec![0xC8]).unwrap(), Some(vec![0xC8]));
+        assert_eq!(trie.get(&vec![0xC8, 0x00]).unwrap(), Some(vec![0xC8, 0x00]));
+    }
+
+    fn get_insert_f(mut trie: Trie) {
+        trie.insert(vec![0x00], vec![0x00]).unwrap();
+        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert(vec![0x10], vec![0x10]).unwrap();
+        trie.insert(vec![0x19], vec![0x19]).unwrap();
+        trie.insert(vec![0x19, 0x00], vec![0x19, 0x00]).unwrap();
+        trie.insert(vec![0x1A], vec![0x1A]).unwrap();
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
+        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get(&vec![0x10]).unwrap(), Some(vec![0x10]));
+        assert_eq!(trie.get(&vec![0x19]).unwrap(), Some(vec![0x19]));
+        assert_eq!(trie.get(&vec![0x19, 0x00]).unwrap(), Some(vec![0x19, 0x00]));
+        assert_eq!(trie.get(&vec![0x1A]).unwrap(), Some(vec![0x1A]));
+    }
+}

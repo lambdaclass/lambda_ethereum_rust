@@ -253,10 +253,7 @@ mod test {
             } }
         };
 
-        assert_eq!(
-            node.get(&trie.db, NibbleSlice::new(&[0x02])).unwrap(),
-            None,
-        );
+        assert_eq!(node.get(&trie.db, NibbleSlice::new(&[0x02])).unwrap(), None,);
     }
 
     fn insert_passthrough(mut trie: Trie) {
@@ -267,7 +264,9 @@ mod test {
             } }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x02])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x02]))
+            .unwrap();
         let node = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
@@ -286,7 +285,9 @@ mod test {
             } }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x10])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x10]))
+            .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
@@ -304,7 +305,9 @@ mod test {
             } }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x10])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x10]))
+            .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
@@ -322,7 +325,9 @@ mod test {
             } }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x01])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x01]))
+            .unwrap();
         let _ = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
@@ -340,7 +345,9 @@ mod test {
             } }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x01])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x01]))
+            .unwrap();
         let _ = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
@@ -358,7 +365,9 @@ mod test {
             } }
         };
 
-        let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[0x02])).unwrap();
+        let (node, value) = node
+            .remove(&mut trie.db, NibbleSlice::new(&[0x02]))
+            .unwrap();
 
         assert!(matches!(node, Some(Node::Extension(_))));
         assert_eq!(value, None);
@@ -372,7 +381,9 @@ mod test {
             } }
         };
 
-        let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[0x01])).unwrap();
+        let (node, value) = node
+            .remove(&mut trie.db, NibbleSlice::new(&[0x01]))
+            .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
         assert_eq!(value, Some(vec![0x01]));
@@ -389,7 +400,9 @@ mod test {
             } }
         };
 
-        let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[0x00])).unwrap();
+        let (node, value) = node
+            .remove(&mut trie.db, NibbleSlice::new(&[0x00]))
+            .unwrap();
 
         assert!(matches!(node, Some(Node::Extension(_))));
         assert_eq!(value, Some(vec![0x00]));
