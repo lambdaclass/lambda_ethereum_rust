@@ -68,6 +68,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>
         let receipt = Receipt::new(
             transaction.tx_type(),
             result.is_success(),
+            result.gas_used(),
             cumulative_gas_used,
             Bloom::zero(),
             vec![],

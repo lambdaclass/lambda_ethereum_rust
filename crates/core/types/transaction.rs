@@ -1058,10 +1058,18 @@ mod tests {
         // https://github.com/ethereum/go-ethereum/blob/f8aa62353666a6368fb3f1a378bd0a82d1542052/cmd/evm/testdata/1/exp.json#L18
         let tx_type = TxType::Legacy;
         let succeeded = true;
+        let gas_used = 0x5208;
         let cumulative_gas_used = 0x5208;
         let bloom = [0x00; 256];
         let logs = vec![];
-        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom.into(), logs);
+        let receipt = Receipt::new(
+            tx_type,
+            succeeded,
+            gas_used,
+            cumulative_gas_used,
+            bloom.into(),
+            logs,
+        );
 
         let result = compute_receipts_root(&[receipt]);
         let expected_root =

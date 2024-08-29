@@ -13,12 +13,18 @@ pub type Index = u64;
 
 /// Result of a transaction
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+
 pub struct Receipt {
+    #[serde(rename = "type")]
     pub tx_type: TxType,
-    #[serde(with = "crate::serde_utils::bool")]
+    #[serde(with = "crate::serde_utils::bool", rename = "status")]
     pub succeeded: bool,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub gas_used: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub cumulative_gas_used: u64,
+    #[serde(rename = "logsBloom")]
     pub bloom: Bloom,
     pub logs: Vec<Log>,
 }
@@ -27,6 +33,7 @@ impl Receipt {
     pub fn new(
         tx_type: TxType,
         succeeded: bool,
+        gas_used: u64,
         cumulative_gas_used: u64,
         bloom: Bloom,
         logs: Vec<Log>,
@@ -34,6 +41,7 @@ impl Receipt {
         Self {
             tx_type,
             succeeded,
+            gas_used,
             cumulative_gas_used,
             bloom,
             logs,
@@ -79,12 +87,14 @@ impl RLPDecode for Receipt {
         // Decode the remaining fields
         let decoder = Decoder::new(rlp)?;
         let (succeeded, decoder) = decoder.decode_field("succeeded")?;
+        let (gas_used, decoder) = decoder.decode_field("gas_used")?;
         let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
         let (bloom, decoder) = decoder.decode_field("bloom")?;
         let (logs, decoder) = decoder.decode_field("logs")?;
         let receipt = Receipt {
             tx_type,
             succeeded,
+            gas_used,
             cumulative_gas_used,
             bloom,
             logs,
@@ -139,18 +149,18 @@ pub struct ReceiptWithTxAndBlockInfo {
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ReceiptBlockInfo {
     pub block_hash: BlockHash,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub gas_used: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub blob_gas_used: u64,
     pub root: H256, // state root
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReceiptTxInfo {
     pub transaction_hash: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
@@ -173,6 +183,7 @@ mod tests {
             receipt: Receipt {
                 tx_type: TxType::EIP4844,
                 succeeded: true,
+                gas_used: 147,
                 cumulative_gas_used: 147,
                 bloom: Bloom::zero(),
                 logs: vec![Log {
@@ -192,12 +203,11 @@ mod tests {
             block_info: ReceiptBlockInfo {
                 block_hash: BlockHash::zero(),
                 block_number: 3,
-                gas_used: 94,
                 blob_gas_used: 12,
                 root: H256::zero(),
             },
         };
-        let expected = r#"{"tx_type":"0x3","succeeded":"0x1","cumulative_gas_used":"0x93","bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","logs":[{"address":"0x0000000000000000000000000000000000000000","topics":[],"data":"0x73747261776265727279"}],"transaction_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transaction_index":"0x1","from":"0x0000000000000000000000000000000000000000","to":null,"effective_gas_price":"0x9d","blob_gas_price":"0x59","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0x3","gas_used":"0x5e","blob_gas_used":"0xc","root":"0x0000000000000000000000000000000000000000000000000000000000000000"}"#;
+        let expected = r#"{"tx_type":"0x3","succeeded":"0x1","gas_used":"0x93","cumulative_gas_used":"0x93","bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","logs":[{"address":"0x0000000000000000000000000000000000000000","topics":[],"data":"0x73747261776265727279"}],"transaction_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transaction_index":"0x1","from":"0x0000000000000000000000000000000000000000","to":null,"effective_gas_price":"0x9d","blob_gas_price":"0x59","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0x3","blob_gas_used":"0xc","root":"0x0000000000000000000000000000000000000000000000000000000000000000"}"#;
         assert_eq!(serde_json::to_string(&receipt).unwrap(), expected);
     }
 }
