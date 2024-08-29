@@ -114,10 +114,14 @@ pub mod u64 {
         where
             D: Deserializer<'de>,
         {
-            let value = String::deserialize(d)?;
-            u64::from_str_radix(value.trim_start_matches("0x"), 16)
-                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
-                .map(Some)
+            let value = Option::<String>::deserialize(d)?;
+            match value {
+                Some(s) if !s.is_empty() => u64::from_str_radix(s.trim_start_matches("0x"), 16)
+                    .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+                    .map(Some),
+                None => Ok(Some(0)),
+                _ => Ok(Some(0)),
+            }
         }
     }
 

@@ -36,10 +36,14 @@ pub struct Genesis {
     pub timestamp: u64,
     #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
     pub base_fee_per_gas: Option<u64>,
-    #[serde(default, with = "crate::serde_utils::u64::hex_str")]
-    pub blob_gas_used: u64,
-    #[serde(default, with = "crate::serde_utils::u64::hex_str")]
-    pub excess_blob_gas: u64,
+    #[serde(default = "default_u64", with = "crate::serde_utils::u64::hex_str_opt")]
+    pub blob_gas_used: Option<u64>,
+    #[serde(default = "default_u64", with = "crate::serde_utils::u64::hex_str_opt")]
+    pub excess_blob_gas: Option<u64>,
+}
+
+fn default_u64() -> Option<u64> {
+    Some(0)
 }
 
 /// Blockchain settings defined per block
@@ -114,6 +118,16 @@ impl Genesis {
     }
 
     fn get_block_header(&self) -> BlockHeader {
+        let mut blob_gas_used: Option<u64> = None;
+        let mut excess_blob_gas: Option<u64> = None;
+
+        if let Some(cancun_time) = self.config.cancun_time {
+            if cancun_time <= self.timestamp {
+                blob_gas_used = Some(self.blob_gas_used.unwrap_or(0));
+                excess_blob_gas = Some(self.excess_blob_gas.unwrap_or(0));
+            }
+        }
+
         BlockHeader {
             parent_hash: H256::zero(),
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -132,8 +146,8 @@ impl Genesis {
             nonce: self.nonce,
             base_fee_per_gas: self.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
             withdrawals_root: Some(compute_withdrawals_root(&[])),
-            blob_gas_used: Some(self.blob_gas_used),
-            excess_blob_gas: Some(self.excess_blob_gas),
+            blob_gas_used: blob_gas_used,
+            excess_blob_gas: excess_blob_gas,
             parent_beacon_block_root: Some(H256::zero()),
         }
     }
