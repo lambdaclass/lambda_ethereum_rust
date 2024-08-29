@@ -162,6 +162,10 @@ mod test {
         run_test(&get_insert_e);
         run_test(&get_insert_f);
         run_test(&compute_hash_a);
+        run_test(&compute_hash_b);
+        run_test(&compute_hash_c);
+        run_test(&compute_hash_d);
+        run_test(&compute_hash_e);
     }
 
     fn compute_hash(mut trie: Trie) {
@@ -341,6 +345,134 @@ mod test {
             hex::decode("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
                 .unwrap()
                 .as_slice()
+        );
+    }
+
+    fn compute_hash_b(mut trie: Trie) {
+        assert_eq!(
+            trie.compute_hash().unwrap().as_slice(),
+            hex::decode("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+                .unwrap()
+                .as_slice(),
+        );
+    }
+
+    fn compute_hash_c(mut trie: Trie) {
+        trie.insert(
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000045")
+                .unwrap(),
+            hex::decode("22b224a1420a802ab51d326e29fa98e34c4f24ea").unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000046")
+                .unwrap(),
+            hex::decode("67706c2076330000000000000000000000000000000000000000000000000000")
+                .unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("000000000000000000000000697c7b8c961b56f675d570498424ac8de1a918f6")
+                .unwrap(),
+            hex::decode("1234567890").unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("0000000000000000000000007ef9e639e2733cb34e4dfc576d4b23f72db776b2")
+                .unwrap(),
+            hex::decode("4655474156000000000000000000000000000000000000000000000000000000")
+                .unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("000000000000000000000000ec4f34c97e43fbb2816cfd95e388353c7181dab1")
+                .unwrap(),
+            hex::decode("4e616d6552656700000000000000000000000000000000000000000000000000")
+                .unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("4655474156000000000000000000000000000000000000000000000000000000")
+                .unwrap(),
+            hex::decode("7ef9e639e2733cb34e4dfc576d4b23f72db776b2").unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("4e616d6552656700000000000000000000000000000000000000000000000000")
+                .unwrap(),
+            hex::decode("ec4f34c97e43fbb2816cfd95e388353c7181dab1").unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("000000000000000000000000697c7b8c961b56f675d570498424ac8de1a918f6")
+                .unwrap(),
+            hex::decode("6f6f6f6820736f2067726561742c207265616c6c6c793f000000000000000000")
+                .unwrap(),
+        )
+        .unwrap();
+        trie.insert(
+            hex::decode("6f6f6f6820736f2067726561742c207265616c6c6c793f000000000000000000")
+                .unwrap(),
+            hex::decode("697c7b8c961b56f675d570498424ac8de1a918f6").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            trie.compute_hash().unwrap().as_slice(),
+            hex::decode("9f6221ebb8efe7cff60a716ecb886e67dd042014be444669f0159d8e68b42100")
+                .unwrap()
+                .as_slice(),
+        );
+    }
+
+    fn compute_hash_d(mut trie: Trie) {
+        trie.insert(
+            "key1aa".as_bytes().to_vec(),
+            "0123456789012345678901234567890123456789xxx"
+                .as_bytes()
+                .to_vec(),
+        )
+        .unwrap();
+        trie.insert(
+            "key1".as_bytes().to_vec(),
+            "0123456789012345678901234567890123456789Very_Long"
+                .as_bytes()
+                .to_vec(),
+        )
+        .unwrap();
+        trie.insert("key2bb".as_bytes().to_vec(), "aval3".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("key2".as_bytes().to_vec(), "short".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("key3cc".as_bytes().to_vec(), "aval3".as_bytes().to_vec())
+            .unwrap();
+        trie.insert(
+            "key3".as_bytes().to_vec(),
+            "1234567890123456789012345678901".as_bytes().to_vec(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            trie.compute_hash().unwrap().as_slice(),
+            hex::decode("cb65032e2f76c48b82b5c24b3db8f670ce73982869d38cd39a624f23d62a9e89")
+                .unwrap()
+                .as_slice(),
+        );
+    }
+
+    fn compute_hash_e(mut trie: Trie) {
+        trie.insert("abc".as_bytes().to_vec(), "123".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("abcd".as_bytes().to_vec(), "abcd".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("abc".as_bytes().to_vec(), "abc".as_bytes().to_vec())
+            .unwrap();
+
+        assert_eq!(
+            trie.compute_hash().unwrap().as_slice(),
+            hex::decode("7a320748f780ad9ad5b0837302075ce0eeba6c26e3d8562c67ccc0f1b273298a")
+                .unwrap()
+                .as_slice(),
         );
     }
 }
