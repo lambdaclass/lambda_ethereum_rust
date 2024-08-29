@@ -168,7 +168,10 @@ mod test {
     use super::*;
     use crate::trie::node_ref::NodeRef;
     use crate::trie::trie::Trie;
-    use crate::{pmt_node, trie::test_utils::{remove_trie, start_trie}};
+    use crate::{
+        pmt_node,
+        trie::test_utils::{remove_trie, start_trie},
+    };
 
     #[test]
     fn new() {
@@ -191,6 +194,12 @@ mod test {
         run_test(&insert_replace);
         run_test(&insert_branch);
         run_test(&insert_extension_branch);
+        run_test(&insert_extension_branch_value_self);
+        run_test(&insert_extension_branch_value_other);
+        run_test(&remove_self);
+        run_test(&remove_none);
+        run_test(&compute_hash);
+        run_test(&compute_hash_long);
     }
 
     fn get_some(trie: Trie) {
@@ -199,8 +208,7 @@ mod test {
         };
 
         assert_eq!(
-            node.get(&trie.db, NibbleSlice::new(&[0x12]))
-                .unwrap(),
+            node.get(&trie.db, NibbleSlice::new(&[0x12])).unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
     }
@@ -210,9 +218,10 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        assert!(
-            node.get(&trie.db, NibbleSlice::new(&[0x34])).unwrap().is_none()
-        );
+        assert!(node
+            .get(&trie.db, NibbleSlice::new(&[0x34]))
+            .unwrap()
+            .is_none());
     }
 
     fn insert_replace(mut trie: Trie) {
@@ -220,7 +229,9 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x12])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12]))
+            .unwrap();
         let node = match node {
             Node::Leaf(x) => x,
             _ => panic!("expected a leaf node"),
@@ -236,7 +247,9 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x22])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x22]))
+            .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
@@ -251,7 +264,9 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x13])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x13]))
+            .unwrap();
         let _ = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
@@ -261,107 +276,99 @@ mod test {
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
     }
 
-//     #[test]
-//     fn insert_extension_branch_value_self() {
-//
-//         let node = pmt_node! { @(trie)
-//             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
-//         };
+    fn insert_extension_branch_value_self(mut trie: Trie) {
+        let node = pmt_node! { @(trie)
+            leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
+        };
 
-//         let (node, insert_action) =
-//             node.insert(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]));
-//         let _ = match node {
-//             Node::Extension(x) => x,
-//             _ => panic!("expected an extension node"),
-//         };
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]))
+            .unwrap();
+        let _ = match node {
+            Node::Extension(x) => x,
+            _ => panic!("expected an extension node"),
+        };
 
-//         // TODO: Check extension (and children).
-//         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
-//     }
+        // TODO: Check extension (and children).
+        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
+    }
 
-//     #[test]
-//     fn insert_extension_branch_value_other() {
-//
-//         let node = pmt_node! { @(trie)
-//             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
-//         };
+    fn insert_extension_branch_value_other(mut trie: Trie) {
+        let node = pmt_node! { @(trie)
+            leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
+        };
 
-//         let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[0x12]));
-//         let _ = match node {
-//             Node::Extension(x) => x,
-//             _ => panic!("expected an extension node"),
-//         };
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12]))
+            .unwrap();
+        let _ = match node {
+            Node::Extension(x) => x,
+            _ => panic!("expected an extension node"),
+        };
 
-//         // TODO: Check extension (and children).
-//         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(1)));
-//     }
+        // TODO: Check extension (and children).
+        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(1)));
+    }
 
-//     // An insertion that returns branch [value=(x)] -> leaf (y) is not possible because of the path
-//     // restrictions: nibbles come in pairs. If the first nibble is different, the node will be a
-//     // branch but it cannot have a value. If the second nibble is different, then it'll be an
-//     // extension followed by a branch with value and a child.
-//     //
-//     // Because of that, the two tests that would check those cases are neither necessary nor
-//     // possible.
+    // An insertion that returns branch [value=(x)] -> leaf (y) is not possible because of the path
+    // restrictions: nibbles come in pairs. If the first nibble is different, the node will be a
+    // branch but it cannot have a value. If the second nibble is different, then it'll be an
+    // extension followed by a branch with value and a child.
+    //
+    // Because of that, the two tests that would check those cases are neither necessary nor
+    // possible.
 
-//     #[test]
-//     fn remove_self() {
-//
-//         let node = pmt_node! { @(trie)
-//             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
-//         };
+    fn remove_self(mut trie: Trie) {
+        let node = pmt_node! { @(trie)
+            leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
+        };
 
-//         let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]));
+        let (node, value) = node
+            .remove(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]))
+            .unwrap();
 
-//         assert!(node.is_none());
-//         assert_eq!(value, Some(vec![0x12, 0x34, 0x56, 0x78]));
-//     }
+        assert!(node.is_none());
+        assert_eq!(value, Some(vec![0x12, 0x34, 0x56, 0x78]));
+    }
 
-//     #[test]
-//     fn remove_none() {
-//
-//         let node = pmt_node! { @(trie)
-//             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
-//         };
+    fn remove_none(mut trie: Trie) {
+        let node = pmt_node! { @(trie)
+            leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
+        };
 
-//         let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[0x12]));
+        let (node, value) = node
+            .remove(&mut trie.db, NibbleSlice::new(&[0x12]))
+            .unwrap();
 
-//         assert!(node.is_some());
-//         assert_eq!(value, None);
-//     }
+        assert!(node.is_some());
+        assert_eq!(value, None);
+    }
 
-//     #[test]
-//     fn compute_hash() {
-//         let (nodes, mut values) = pmt_state!(Vec<u8>);
+    fn compute_hash(trie: Trie) {
+        let node = pmt_node! { @(trie)
+            leaf { b"key".to_vec() => b"value".to_vec() }
+        };
 
-//         let node = pmt_node! { @(trie)
-//             leaf { b"key".to_vec() => b"value".to_vec() }
-//         };
+        let node_hash_ref = node.compute_hash(&trie.db, 0).unwrap();
+        assert_eq!(
+            node_hash_ref.as_ref(),
+            &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
+        );
+    }
 
-//         let node_hash_ref = node.compute_hash(&nodes, &values, 0);
-//         assert_eq!(
-//             node_hash_ref.as_ref(),
-//             &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
-//         );
-//     }
+    fn compute_hash_long(trie: Trie) {
+        let node = pmt_node! { @(trie)
+            leaf { b"key".to_vec() => b"a comparatively long value".to_vec() }
+        };
 
-//     #[test]
-//     fn compute_hash_long() {
-//         let (nodes, mut values) = pmt_state!(Vec<u8>);
-
-//         let node = pmt_node! { @(trie)
-//             leaf { b"key".to_vec() => b"a comparatively long value".to_vec() }
-//         };
-
-//         let node_hash_ref = node.compute_hash(&nodes, &values, 0);
-//         assert_eq!(
-//             node_hash_ref.as_ref(),
-//             &[
-//                 0xEB, 0x92, 0x75, 0xB3, 0xAE, 0x09, 0x3A, 0x17, 0x75, 0x7C, 0xFB, 0x42, 0xF7, 0xD5,
-//                 0x57, 0xF9, 0xE5, 0x77, 0xBD, 0x5B, 0xEB, 0x86, 0xA8, 0x68, 0x49, 0x91, 0xA6, 0x5B,
-//                 0x87, 0x5F, 0x80, 0x7A,
-//             ],
-//         );
-//     }
+        let node_hash_ref = node.compute_hash(&trie.db, 0).unwrap();
+        assert_eq!(
+            node_hash_ref.as_ref(),
+            &[
+                0xEB, 0x92, 0x75, 0xB3, 0xAE, 0x09, 0x3A, 0x17, 0x75, 0x7C, 0xFB, 0x42, 0xF7, 0xD5,
+                0x57, 0xF9, 0xE5, 0x77, 0xBD, 0x5B, 0xEB, 0x86, 0xA8, 0x68, 0x49, 0x91, 0xA6, 0x5B,
+                0x87, 0x5F, 0x80, 0x7A,
+            ],
+        );
+    }
 }
-
