@@ -161,6 +161,7 @@ mod test {
         run_test(&get_insert_d);
         run_test(&get_insert_e);
         run_test(&get_insert_f);
+        run_test(&compute_hash_a);
     }
 
     fn compute_hash(mut trie: Trie) {
@@ -323,5 +324,23 @@ mod test {
         assert_eq!(trie.get(&vec![0x19]).unwrap(), Some(vec![0x19]));
         assert_eq!(trie.get(&vec![0x19, 0x00]).unwrap(), Some(vec![0x19, 0x00]));
         assert_eq!(trie.get(&vec![0x1A]).unwrap(), Some(vec![0x1A]));
+    }
+
+    fn compute_hash_a(mut trie: Trie) {
+        trie.insert("do".as_bytes().to_vec(), "verb".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("horse".as_bytes().to_vec(), "stallion".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("doge".as_bytes().to_vec(), "coin".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("dog".as_bytes().to_vec(), "puppy".as_bytes().to_vec())
+            .unwrap();
+
+        assert_eq!(
+            trie.compute_hash().unwrap().as_slice(),
+            hex::decode("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
+                .unwrap()
+                .as_slice()
+        );
     }
 }
