@@ -59,12 +59,11 @@ impl BranchNode {
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
 
         self.hash.mark_as_dirty();
-
         let insert_action = match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
                 choice_ref if !choice_ref.is_valid() => {
                     let child_ref = db.insert_node(LeafNode::default().into())?;
-
+                    *choice_ref = child_ref;
                     InsertAction::Insert(child_ref)
                 }
                 choice_ref => {
