@@ -112,6 +112,8 @@ impl BranchNode {
                     let (child_node, old_value) = child_node.remove(db, path)?;
                     if let Some(child_node) = child_node {
                         self.choices[choice_index as usize] = db.insert_node(child_node)?;
+                    } else {
+                        self.choices[choice_index as usize] = NodeRef::default();
                     }
                     old_value
                 } else {
