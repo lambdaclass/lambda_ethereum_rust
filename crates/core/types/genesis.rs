@@ -36,14 +36,10 @@ pub struct Genesis {
     pub timestamp: u64,
     #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
     pub base_fee_per_gas: Option<u64>,
-    #[serde(default = "default_u64", with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
     pub blob_gas_used: Option<u64>,
-    #[serde(default = "default_u64", with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
     pub excess_blob_gas: Option<u64>,
-}
-
-fn default_u64() -> Option<u64> {
-    Some(0)
 }
 
 /// Blockchain settings defined per block
