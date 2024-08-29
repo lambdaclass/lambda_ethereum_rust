@@ -192,12 +192,18 @@ pub fn compute_extension_hash<'a>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{pmt_node, trie::{nibble::Nibble, test_utils::{remove_trie, start_trie}, trie::Trie}};
+    use crate::{
+        pmt_node,
+        trie::{
+            nibble::Nibble,
+            test_utils::{remove_trie, start_trie},
+            trie::Trie,
+        },
+    };
 
     #[test]
     fn new() {
-        let node =
-            ExtensionNode::new(NibbleVec::new(), Default::default());
+        let node = ExtensionNode::new(NibbleVec::new(), Default::default());
 
         assert_eq!(node.prefix.len(), 0);
         assert_eq!(node.child, NodeRef::default());

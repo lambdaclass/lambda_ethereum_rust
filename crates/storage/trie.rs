@@ -4,8 +4,6 @@ mod nibble;
 mod node;
 mod node_ref;
 mod rlp;
-mod trie;
-// #[cfg(test)]
-// mod trietest;
 #[cfg(test)]
 mod test_utils;
+mod trie;
