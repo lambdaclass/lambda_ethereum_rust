@@ -277,8 +277,6 @@ mod test {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-
-        // TODO: Check children.
         assert!(node.prefix.iter().eq([Nibble::V0].into_iter()));
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(3)));
     }
@@ -298,8 +296,6 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-
-        // TODO: Check node and children.
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(3)));
     }
 
@@ -318,8 +314,6 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-
-        // TODO: Check node and children.
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(4)));
     }
 
@@ -338,8 +332,6 @@ mod test {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-
-        // TODO: Check node and children.
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(3)));
     }
 
@@ -358,8 +350,6 @@ mod test {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-
-        // TODO: Check node and children.
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(3)));
     }
 

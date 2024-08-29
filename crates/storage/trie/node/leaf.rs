@@ -254,8 +254,6 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-
-        // TODO: Check branch.
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
     }
 
@@ -271,8 +269,6 @@ mod test {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-
-        // TODO: Check extension (and child branch).
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
     }
 
@@ -288,8 +284,6 @@ mod test {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-
-        // TODO: Check extension (and children).
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
     }
 
@@ -305,8 +299,6 @@ mod test {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-
-        // TODO: Check extension (and children).
         assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(1)));
     }
 
