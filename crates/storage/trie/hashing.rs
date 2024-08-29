@@ -14,18 +14,12 @@ use std::{
 };
 
 pub type Output = digest::Output<Keccak256>;
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DelimitedHash(pub Output, pub usize);
 
 impl AsRef<[u8]> for DelimitedHash {
     fn as_ref(&self) -> &[u8] {
         &self.0[..self.1]
-    }
-}
-
-impl Default for DelimitedHash {
-    fn default() -> Self {
-        Self(Default::default(), 0)
     }
 }
 
@@ -272,7 +266,7 @@ impl RLPDecode for NodeHash {
         let (hash, decoder) = decoder.decode_field::<Vec<u8>>("hash_ref")?;
         let length = Cell::new(length);
         let hash: &Output = (hash.as_slice()).into();
-        let hash_ref = RefCell::new(hash.clone());
+        let hash_ref = RefCell::new(*hash);
         Ok((Self { length, hash_ref }, decoder.finish()?))
     }
 }

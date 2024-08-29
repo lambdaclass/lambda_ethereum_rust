@@ -37,7 +37,7 @@ impl Trie {
             .get_node(self.root_ref)?
             .expect("inconsistent internal tree structure");
 
-        root_node.get(&self.db, NibbleSlice::new(&path))
+        root_node.get(&self.db, NibbleSlice::new(path))
     }
 
     /// Insert a value into the tree.
@@ -196,15 +196,15 @@ mod test {
         trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
-        let first = trie.get(&&b"first"[..].to_vec()).unwrap();
+        let first = trie.get(&b"first"[..].to_vec()).unwrap();
         assert!(first.is_some());
-        let second = trie.get(&&b"second"[..].to_vec()).unwrap();
+        let second = trie.get(&b"second"[..].to_vec()).unwrap();
         assert!(second.is_some());
     }
 
     fn get_insert_zero(mut trie: Trie) {
         trie.insert(vec![0x0], b"value".to_vec()).unwrap();
-        let first = trie.get(&&[0x0][..].to_vec()).unwrap();
+        let first = trie.get(&[0x0][..].to_vec()).unwrap();
         assert!(first.is_some());
     }
 

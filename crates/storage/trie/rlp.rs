@@ -120,9 +120,8 @@ impl RLPEncode for Node {
 
 impl RLPDecode for Node {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let node_type = rlp.first().ok_or_else(|| RLPDecodeError::InvalidLength)?;
-        let node_type =
-            NodeType::from_u8(*node_type).ok_or_else(|| RLPDecodeError::MalformedData)?;
+        let node_type = rlp.first().ok_or(RLPDecodeError::InvalidLength)?;
+        let node_type = NodeType::from_u8(*node_type).ok_or(RLPDecodeError::MalformedData)?;
         let rlp = &rlp[1..];
         match node_type {
             NodeType::Branch => {

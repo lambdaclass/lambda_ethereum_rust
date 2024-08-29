@@ -51,10 +51,10 @@ impl LeafNode {
         self.hash.mark_as_dirty();
 
         if path.cmp_rest(&self.path) {
-            return Ok((
+            Ok((
                 Node::Leaf(self.clone()),
                 InsertAction::Replace(self.path.clone()),
-            ));
+            ))
         } else {
             let offset = path.clone().count_prefix_slice(&{
                 let mut value_path = NibbleSlice::new(&self.path);
@@ -104,7 +104,7 @@ impl LeafNode {
             };
 
             let final_node = if offset != 0 {
-                let branch_ref = db.insert_node(Node::Branch(branch_node.into()))?;
+                let branch_ref = db.insert_node(Node::Branch(branch_node))?;
                 insert_action = insert_action.quantize_self(branch_ref);
 
                 ExtensionNode::new(path.split_to_vec(offset), branch_ref).into()

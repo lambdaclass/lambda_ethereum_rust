@@ -40,27 +40,27 @@ impl TrieDB {
     }
 
     pub fn get_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
-        self.read::<Nodes>(node_ref.into())?
+        self.read::<Nodes>(node_ref)?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
 
     pub fn insert_node(&mut self, node: Node) -> Result<NodeRef, StoreError> {
         let node_ref = self.next_node_ref;
-        self.write::<Nodes>(node_ref.into(), node.encode_to_vec())?;
+        self.write::<Nodes>(node_ref, node.encode_to_vec())?;
         self.next_node_ref = node_ref.next();
         Ok(node_ref)
     }
 
     pub fn update_node(&mut self, node_ref: NodeRef, node: Node) -> Result<(), StoreError> {
-        self.write::<Nodes>(node_ref.into(), node.encode_to_vec())
+        self.write::<Nodes>(node_ref, node.encode_to_vec())
     }
 
     /// Returns the removed node if it existed
     pub fn remove_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
         let node = self.get_node(node_ref)?;
         if node.is_some() {
-            self.remove::<Nodes>(node_ref.into())?;
+            self.remove::<Nodes>(node_ref)?;
         }
         Ok(node)
     }

@@ -44,21 +44,21 @@ impl InsertAction {
     }
 }
 
-impl Into<Node> for BranchNode {
-    fn into(self) -> Node {
-        Node::Branch(self)
+impl From<BranchNode> for Node {
+    fn from(val: BranchNode) -> Self {
+        Node::Branch(val)
     }
 }
 
-impl Into<Node> for ExtensionNode {
-    fn into(self) -> Node {
-        Node::Extension(self)
+impl From<ExtensionNode> for Node {
+    fn from(val: ExtensionNode) -> Self {
+        Node::Extension(val)
     }
 }
 
-impl Into<Node> for LeafNode {
-    fn into(self) -> Node {
-        Node::Leaf(self)
+impl From<LeafNode> for Node {
+    fn from(val: LeafNode) -> Self {
+        Node::Leaf(val)
     }
 }
 
