@@ -11,7 +11,7 @@ use ethereum_rust_core::{
         AccountInfo, Block, BlockHeader, GenericTransaction, Receipt, Transaction, TxKind,
         Withdrawal, GWEI_TO_WEI,
     },
-    Address, BigEndianHash, Bloom, H256, U256,
+    Address, BigEndianHash, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 use lazy_static::lazy_static;
@@ -65,8 +65,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>
             transaction.tx_type(),
             result.is_success(),
             cumulative_gas_used,
-            Bloom::zero(),
-            vec![],
+            result.logs(),
         );
         receipts.push(receipt);
     }

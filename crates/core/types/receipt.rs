@@ -5,7 +5,7 @@ use crate::rlp::{
     structs::{Decoder, Encoder},
 };
 use bytes::Bytes;
-use ethereum_types::{Address, Bloom, H256};
+use ethereum_types::{Address, Bloom, BloomInput, H256};
 use serde::Serialize;
 
 use super::TxType;
@@ -28,21 +28,26 @@ pub struct Receipt {
 }
 
 impl Receipt {
-    pub fn new(
-        tx_type: TxType,
-        succeeded: bool,
-        cumulative_gas_used: u64,
-        bloom: Bloom,
-        logs: Vec<Log>,
-    ) -> Self {
+    pub fn new(tx_type: TxType, succeeded: bool, cumulative_gas_used: u64, logs: Vec<Log>) -> Self {
         Self {
             tx_type,
             succeeded,
             cumulative_gas_used,
-            bloom,
+            bloom: bloom_from(&logs),
             logs,
         }
     }
+}
+
+fn bloom_from(logs: &[Log]) -> Bloom {
+    let mut bloom = Bloom::zero();
+    for log in logs {
+        bloom.accrue(BloomInput::Raw(log.address.as_ref()));
+        for topic in log.topics.iter() {
+            bloom.accrue(BloomInput::Raw(topic.as_ref()));
+        }
+    }
+    bloom
 }
 
 impl RLPEncode for Receipt {

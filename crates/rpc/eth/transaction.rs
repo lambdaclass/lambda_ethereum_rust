@@ -167,6 +167,7 @@ pub fn call(request: &CallRequest, storage: Store) -> Result<Value, RpcErr> {
             reason: _,
             gas_used: _,
             gas_refunded: _,
+            logs: _,
             output,
         } => match output {
             ethereum_rust_evm::Output::Call(bytes) => bytes,
@@ -346,6 +347,7 @@ pub fn create_access_list(
                 reason: _,
                 gas_used,
                 gas_refunded: _,
+                logs: _,
                 output: _,
             },
             access_list,

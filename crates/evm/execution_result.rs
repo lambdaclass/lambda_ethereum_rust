@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use ethereum_rust_core::Address;
+use ethereum_rust_core::{types::Log, H256};
 use revm::primitives::result::Output as RevmOutput;
 use revm::primitives::result::SuccessReason as RevmSuccessReason;
 use revm::primitives::ExecutionResult as RevmExecutionResult;
@@ -10,6 +11,7 @@ pub enum ExecutionResult {
         reason: SuccessReason,
         gas_used: u64,
         gas_refunded: u64,
+        logs: Vec<Log>,
         output: Output,
     },
     /// Reverted by `REVERT` opcode
@@ -43,7 +45,7 @@ impl From<RevmExecutionResult> for ExecutionResult {
                 reason,
                 gas_used,
                 gas_refunded,
-                logs: _,
+                logs,
                 output,
             } => ExecutionResult::Success {
                 reason: match reason {
@@ -54,6 +56,18 @@ impl From<RevmExecutionResult> for ExecutionResult {
                 },
                 gas_used,
                 gas_refunded,
+                logs: logs
+                    .into_iter()
+                    .map(|log| Log {
+                        address: Address::from_slice(log.address.0.as_ref()),
+                        topics: log
+                            .topics()
+                            .iter()
+                            .map(|v| H256::from_slice(v.as_slice()))
+                            .collect(),
+                        data: log.data.data.0,
+                    })
+                    .collect(),
                 output: match output {
                     RevmOutput::Call(bytes) => Output::Call(bytes.0),
                     RevmOutput::Create(bytes, addr) => Output::Create(
@@ -83,6 +97,12 @@ impl ExecutionResult {
             ExecutionResult::Success { gas_used, .. } => *gas_used,
             ExecutionResult::Revert { gas_used, .. } => *gas_used,
             ExecutionResult::Halt { gas_used, .. } => *gas_used,
+        }
+    }
+    pub fn logs(&self) -> Vec<Log> {
+        match self {
+            ExecutionResult::Success { logs, .. } => logs.clone(),
+            _ => vec![],
         }
     }
 }
