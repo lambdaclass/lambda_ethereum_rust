@@ -16,7 +16,7 @@ env:
 
 jobs:
   run-hive:
-    name: Run Hive ${{ matrix.simulation }}
+    name: ${{ matrix.simulation }}
     runs-on: ubuntu-latest
     strategy:
       matrix:

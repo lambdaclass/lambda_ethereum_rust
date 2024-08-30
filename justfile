@@ -32,6 +32,7 @@ clean-vectors:
     rm -rf {{spectest_vectors_dir}}
 
 setup-hive:
+    git submodule update --init
     cd hive && go build .
 
 test-pattern-default := "/"
