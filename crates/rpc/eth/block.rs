@@ -11,6 +11,8 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
+use super::account::BlockIdentifierOrHash;
+
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
     pub hydrated: bool,
@@ -26,7 +28,7 @@ pub struct GetBlockTransactionCountByNumberRequest {
 }
 
 pub struct GetBlockReceiptsRequest {
-    pub block: BlockIdentifier,
+    pub block: BlockIdentifierOrHash,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -195,7 +197,7 @@ pub fn get_block_receipts(
     storage: Store,
 ) -> Result<Value, RpcErr> {
     info!(
-        "Requested receipts for block with number: {}",
+        "Requested receipts for block with number: {:?}",
         request.block
     );
     let block_number = match request.block.resolve_block_number(&storage)? {
@@ -214,6 +216,7 @@ pub fn get_block_receipts(
     info!("Receipt info: {:?}", block_info);
     // Fetch receipt for each tx in the block and add block and tx info
     let mut receipts = Vec::new();
+    let mut last_cumulative_gas_used = 0;
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
@@ -227,12 +230,14 @@ pub fn get_block_receipts(
             }
         };
         let block_info = block_info.clone();
-        let tx_info = tx.receipt_info(index);
+        let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
+        let tx_info = tx.receipt_info(index, gas_used);
         receipts.push(ReceiptWithTxAndBlockInfo {
             receipt,
             tx_info,
             block_info,
-        })
+        });
+        last_cumulative_gas_used += gas_used;
     }
 
     serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)

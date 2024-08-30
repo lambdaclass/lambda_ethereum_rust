@@ -276,8 +276,6 @@ impl BlockHeader {
         ReceiptBlockInfo {
             block_hash: self.compute_block_hash(),
             block_number: self.number,
-            blob_gas_used: self.blob_gas_used.unwrap_or_default(),
-            root: self.state_root,
         }
     }
 }

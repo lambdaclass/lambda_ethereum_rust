@@ -591,15 +591,16 @@ impl Transaction {
         keccak_hash::keccak(self.encode_canonical_to_vec())
     }
 
-    pub fn receipt_info(&self, index: u64) -> ReceiptTxInfo {
-        ReceiptTxInfo {
-            transaction_hash: self.compute_hash(),
-            transaction_index: index,
-            from: self.sender(),
-            to: self.to(),
-            effective_gas_price: self.gas_price(),
-            blob_gas_price: self.max_fee_per_blob_gas().map(|x| x.as_u64()),
-        }
+    pub fn receipt_info(&self, index: u64, gas_used: u64) -> ReceiptTxInfo {
+        ReceiptTxInfo::new(
+            self.compute_hash(),
+            index,
+            self.nonce(),
+            self.sender(),
+            self.to(),
+            gas_used,
+            self.gas_price(),
+        )
     }
 }
 
@@ -1058,18 +1059,10 @@ mod tests {
         // https://github.com/ethereum/go-ethereum/blob/f8aa62353666a6368fb3f1a378bd0a82d1542052/cmd/evm/testdata/1/exp.json#L18
         let tx_type = TxType::Legacy;
         let succeeded = true;
-        let gas_used = 0x5208;
         let cumulative_gas_used = 0x5208;
         let bloom = [0x00; 256];
         let logs = vec![];
-        let receipt = Receipt::new(
-            tx_type,
-            succeeded,
-            gas_used,
-            cumulative_gas_used,
-            bloom.into(),
-            logs,
-        );
+        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom.into(), logs);
 
         let result = compute_receipts_root(&[receipt]);
         let expected_root =

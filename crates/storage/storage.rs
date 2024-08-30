@@ -685,7 +685,6 @@ mod tests {
         let receipt = Receipt {
             tx_type: TxType::EIP2930,
             succeeded: true,
-            gas_used: 1747,
             cumulative_gas_used: 1747,
             bloom: Bloom::random(),
             logs: vec![],

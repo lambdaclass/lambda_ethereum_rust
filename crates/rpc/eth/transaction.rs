@@ -303,7 +303,7 @@ pub fn get_transaction_receipt(
         _ => return Ok(Value::Null),
     };
     let block_info = block_header.receipt_info();
-    let tx_info = tx.receipt_info(index);
+    let tx_info = tx.receipt_info(index, 0);
     let receipt = ReceiptWithTxAndBlockInfo {
         receipt,
         tx_info,

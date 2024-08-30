@@ -6,6 +6,7 @@ use crate::rlp::{
 };
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256};
+use revm::primitives::Address as EvmAddress;
 use serde::Serialize;
 
 use super::{BlockHash, BlockNumber, TxKind, TxType};
@@ -21,8 +22,6 @@ pub struct Receipt {
     #[serde(with = "crate::serde_utils::bool", rename = "status")]
     pub succeeded: bool,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub gas_used: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub cumulative_gas_used: u64,
     #[serde(rename = "logsBloom")]
     pub bloom: Bloom,
@@ -33,7 +32,6 @@ impl Receipt {
     pub fn new(
         tx_type: TxType,
         succeeded: bool,
-        gas_used: u64,
         cumulative_gas_used: u64,
         bloom: Bloom,
         logs: Vec<Log>,
@@ -41,7 +39,6 @@ impl Receipt {
         Self {
             tx_type,
             succeeded,
-            gas_used,
             cumulative_gas_used,
             bloom,
             logs,
@@ -87,14 +84,12 @@ impl RLPDecode for Receipt {
         // Decode the remaining fields
         let decoder = Decoder::new(rlp)?;
         let (succeeded, decoder) = decoder.decode_field("succeeded")?;
-        let (gas_used, decoder) = decoder.decode_field("gas_used")?;
         let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
         let (bloom, decoder) = decoder.decode_field("bloom")?;
         let (logs, decoder) = decoder.decode_field("logs")?;
         let receipt = Receipt {
             tx_type,
             succeeded,
-            gas_used,
             cumulative_gas_used,
             bloom,
             logs,
@@ -154,9 +149,6 @@ pub struct ReceiptBlockInfo {
     pub block_hash: BlockHash,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub blob_gas_used: u64,
-    pub root: H256, // state root
 }
 
 #[derive(Debug, Serialize)]
@@ -166,16 +158,49 @@ pub struct ReceiptTxInfo {
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub transaction_index: u64,
     pub from: Address,
-    pub to: TxKind,
+    pub to: Option<Address>,
+    pub contract_address: Option<Address>,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    pub gas_used: u64,
     #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub effective_gas_price: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
-    pub blob_gas_price: Option<u64>,
+}
+
+impl ReceiptTxInfo {
+    pub fn new(
+        transaction_hash: H256,
+        transaction_index: u64,
+        nonce: u64,
+        from: Address,
+        tx_kind: TxKind,
+        gas_used: u64,
+        effective_gas_price: u64,
+    ) -> ReceiptTxInfo {
+        let (contract_address, to) = match tx_kind {
+            TxKind::Create => (
+                Some(Address::from_slice(
+                    EvmAddress(from.0.into()).create(nonce).0.as_ref(),
+                )),
+                None,
+            ),
+            TxKind::Call(addr) => (None, Some(addr)),
+        };
+        Self {
+            transaction_hash,
+            transaction_index,
+            from,
+            to,
+            contract_address,
+            gas_used,
+            effective_gas_price,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hex_literal::hex;
 
     #[test]
     fn serialize_receipt() {
@@ -183,7 +208,6 @@ mod tests {
             receipt: Receipt {
                 tx_type: TxType::EIP4844,
                 succeeded: true,
-                gas_used: 147,
                 cumulative_gas_used: 147,
                 bloom: Bloom::zero(),
                 logs: vec![Log {
@@ -196,18 +220,19 @@ mod tests {
                 transaction_hash: H256::zero(),
                 transaction_index: 1,
                 from: Address::zero(),
-                to: TxKind::Create,
+                to: Some(Address::from(hex!(
+                    "7435ed30a8b4aeb0877cef0c6e8cffe834eb865f"
+                ))),
+                contract_address: None,
+                gas_used: 147,
                 effective_gas_price: 157,
-                blob_gas_price: Some(89),
             },
             block_info: ReceiptBlockInfo {
                 block_hash: BlockHash::zero(),
                 block_number: 3,
-                blob_gas_used: 12,
-                root: H256::zero(),
             },
         };
-        let expected = r#"{"tx_type":"0x3","succeeded":"0x1","gas_used":"0x93","cumulative_gas_used":"0x93","bloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","logs":[{"address":"0x0000000000000000000000000000000000000000","topics":[],"data":"0x73747261776265727279"}],"transaction_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","transaction_index":"0x1","from":"0x0000000000000000000000000000000000000000","to":null,"effective_gas_price":"0x9d","blob_gas_price":"0x59","block_hash":"0x0000000000000000000000000000000000000000000000000000000000000000","block_number":"0x3","blob_gas_used":"0xc","root":"0x0000000000000000000000000000000000000000000000000000000000000000"}"#;
+        let expected = r#"{"type":"0x3","status":"0x1","cumulativeGasUsed":"0x93","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","logs":[{"address":"0x0000000000000000000000000000000000000000","topics":[],"data":"0x73747261776265727279"}],"transactionHash":"0x0000000000000000000000000000000000000000000000000000000000000000","transactionIndex":"0x1","from":"0x0000000000000000000000000000000000000000","to":"0x7435ed30a8b4aeb0877cef0c6e8cffe834eb865f","contractAddress":null,"gasUsed":"0x93","effectiveGasPrice":"0x9d","blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000","blockNumber":"0x3"}"#;
         assert_eq!(serde_json::to_string(&receipt).unwrap(), expected);
     }
 }

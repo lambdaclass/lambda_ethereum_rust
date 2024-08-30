@@ -25,7 +25,7 @@ use revm::{
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
-use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind};
+pub use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind};
 use revm_primitives::{
     ruint::Uint, AccessList as RevmAccessList, AccessListItem as RevmAccessListItem,
 };
@@ -68,7 +68,6 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>
         let receipt = Receipt::new(
             transaction.tx_type(),
             result.is_success(),
-            result.gas_used(),
             cumulative_gas_used,
             Bloom::zero(),
             vec![],
