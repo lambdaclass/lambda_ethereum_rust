@@ -5,7 +5,7 @@ use serde::Deserialize;
 // Chain config for different forks as defined on https://ethereum.github.io/execution-spec-tests/v3.0.0/consuming_tests/common_types/#fork
 lazy_static! {
     pub static ref MERGE_CONFIG: ChainConfig = ChainConfig {
-        chain_id: U256::one(),
+        chain_id: 1_u64,
         homestead_block: Some(0),
         dao_fork_block: Some(0),
         dao_fork_support: true,

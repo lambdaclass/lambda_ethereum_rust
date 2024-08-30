@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
-use crate::rlp::encode::RLPEncode as _;
+use crate::rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    structs::{Decoder, Encoder},
+};
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
@@ -38,12 +42,11 @@ pub struct Genesis {
 
 /// Blockchain settings defined per block
 #[allow(unused)]
-#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_number")]
-    pub chain_id: U256,
+    pub chain_id: u64,
 
     /// Block numbers for the block where each fork was activated
     /// (None = no fork, 0 = fork is already active)
@@ -186,7 +189,7 @@ mod tests {
         // Check Genesis fields
         // Chain config
         let expected_chain_config = ChainConfig {
-            chain_id: U256::from(3151908),
+            chain_id: 3151908_u64,
             homestead_block: Some(0),
             eip150_block: Some(0),
             eip155_block: Some(0),
