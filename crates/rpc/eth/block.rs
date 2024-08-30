@@ -4,9 +4,15 @@ use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
-use crate::{types::block::RpcBlock, utils::RpcErr};
+use crate::{
+    types::{
+        block::RpcBlock,
+        receipt::{ReceiptBlockInfo, ReceiptTxInfo, ReceiptWithTxAndBlockInfo},
+    },
+    utils::RpcErr,
+};
 use ethereum_rust_core::{
-    types::{BlockHash, BlockNumber, ReceiptWithTxAndBlockInfo},
+    types::{BlockHash, BlockNumber},
     U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -212,7 +218,7 @@ pub fn get_block_receipts(
         _ => return Ok(Value::Null),
     };
     // Fetch receipt info from block
-    let block_info = header.receipt_info();
+    let block_info = ReceiptBlockInfo::from_block_header(header);
     info!("Receipt info: {:?}", block_info);
     // Fetch receipt for each tx in the block and add block and tx info
     let mut receipts = Vec::new();
@@ -231,7 +237,7 @@ pub fn get_block_receipts(
         };
         let block_info = block_info.clone();
         let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
-        let tx_info = tx.receipt_info(index, gas_used);
+        let tx_info = ReceiptTxInfo::from_transaction(tx.clone(), index, gas_used);
         receipts.push(ReceiptWithTxAndBlockInfo {
             receipt,
             tx_info,

@@ -1,7 +1,13 @@
 use super::block::BlockIdentifier;
-use crate::{types::transaction::RpcTransaction, utils::RpcErr};
+use crate::{
+    types::{
+        receipt::{ReceiptBlockInfo, ReceiptTxInfo, ReceiptWithTxAndBlockInfo},
+        transaction::RpcTransaction,
+    },
+    utils::RpcErr,
+};
 use ethereum_rust_core::{
-    types::{AccessListEntry, BlockHash, GenericTransaction, ReceiptWithTxAndBlockInfo},
+    types::{AccessListEntry, BlockHash, GenericTransaction},
     Bytes, H256,
 };
 
@@ -302,8 +308,9 @@ pub fn get_transaction_receipt(
         Some(tx) => tx,
         _ => return Ok(Value::Null),
     };
-    let block_info = block_header.receipt_info();
-    let tx_info = tx.receipt_info(index, 0);
+    let block_info = ReceiptBlockInfo::from_block_header(block_header);
+    // TODO: Set properly.
+    let tx_info = ReceiptTxInfo::from_transaction(tx.clone(), index, 0);
     let receipt = ReceiptWithTxAndBlockInfo {
         receipt,
         tx_info,
