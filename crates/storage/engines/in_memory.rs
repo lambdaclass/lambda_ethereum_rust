@@ -216,7 +216,7 @@ impl StoreEngine for Store {
 
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         // Store cancun timestamp
-        self.chain_data.chain_config = Some(chain_config.clone());
+        self.chain_data.chain_config = Some(*chain_config);
         Ok(())
     }
 

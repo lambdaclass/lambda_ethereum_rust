@@ -18,7 +18,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
-use serde_json::{from_str, to_string};
+use serde_json;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 
@@ -245,9 +245,9 @@ impl StoreEngine for Store {
         match self.read::<ChainData>(ChainDataIndex::ChainConfig)? {
             None => Ok(None),
             Some(bytes) => {
-                let json = dbg!(String::from_utf8(bytes)).map_err(|_| StoreError::DecodeError)?;
+                let json = String::from_utf8(bytes).map_err(|_| StoreError::DecodeError)?;
                 let chain_config: ChainConfig =
-                    dbg!(from_str(&json)).map_err(|_| StoreError::DecodeError)?;
+                    serde_json::from_str(&json).map_err(|_| StoreError::DecodeError)?;
                 Ok(Some(chain_config))
             }
         }

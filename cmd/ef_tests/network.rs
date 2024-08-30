@@ -1,4 +1,4 @@
-use ethereum_rust_core::{types::ChainConfig, U256};
+use ethereum_rust_core::types::ChainConfig;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 
@@ -22,7 +22,7 @@ lazy_static! {
         arrow_glacier_block: Some(0),
         gray_glacier_block: Some(0),
         merge_netsplit_block: Some(0),
-        terminal_total_difficulty: Some(U256::zero()),
+        terminal_total_difficulty: Some(0),
         ..Default::default()
     };
     pub static ref MERGE_TO_SHANGHAI_AT_15K_CONFIG: ChainConfig = ChainConfig {

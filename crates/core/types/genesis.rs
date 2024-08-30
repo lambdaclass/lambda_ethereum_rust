@@ -5,11 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
-use crate::rlp::{
-    decode::RLPDecode,
-    encode::RLPEncode,
-    structs::{Decoder, Encoder},
-};
+use crate::rlp::encode::RLPEncode;
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
@@ -80,11 +76,7 @@ pub struct ChainConfig {
     pub verkle_time: Option<u64>,
 
     /// Amount of total difficulty reached by the network that triggers the consensus upgrade.
-    #[serde(
-        default,
-        deserialize_with = "crate::serde_utils::u256::deser_number_opt"
-    )]
-    pub terminal_total_difficulty: Option<U256>,
+    pub terminal_total_difficulty: Option<u128>,
     /// Network has already passed the terminal total difficult
     #[serde(default)]
     pub terminal_total_difficulty_passed: bool,
@@ -204,7 +196,7 @@ mod tests {
             shanghai_time: Some(0),
             cancun_time: Some(0),
             prague_time: Some(1718232101),
-            terminal_total_difficulty: Some(U256::from(0)),
+            terminal_total_difficulty: Some(0),
             terminal_total_difficulty_passed: true,
             ..Default::default()
         };

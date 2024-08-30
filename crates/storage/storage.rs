@@ -12,7 +12,6 @@ use ethereum_rust_core::types::{
 };
 use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
-use serde_json;
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -951,7 +950,7 @@ mod tests {
             shanghai_time: Some(0),
             cancun_time: Some(0),
             prague_time: Some(1718232101),
-            terminal_total_difficulty: Some(U256::from(0)),
+            terminal_total_difficulty: Some(58750000000000000000000),
             terminal_total_difficulty_passed: true,
             ..Default::default()
         }
