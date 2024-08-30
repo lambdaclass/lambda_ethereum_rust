@@ -7,7 +7,7 @@ use tracing::info;
 use crate::{
     types::{
         block::RpcBlock,
-        receipt::{ReceiptBlockInfo, ReceiptTxInfo, ReceiptWithTxAndBlockInfo},
+        receipt::{RpcReceipt, RpcReceiptBlockInfo, RpcReceiptTxInfo},
     },
     utils::RpcErr,
 };
@@ -203,7 +203,7 @@ pub fn get_block_receipts(
     storage: Store,
 ) -> Result<Value, RpcErr> {
     info!(
-        "Requested receipts for block with number: {:?}",
+        "Requested receipts for block with number: {}",
         request.block
     );
     let block_number = match request.block.resolve_block_number(&storage)? {
@@ -218,27 +218,20 @@ pub fn get_block_receipts(
         _ => return Ok(Value::Null),
     };
     // Fetch receipt info from block
-    let block_info = ReceiptBlockInfo::from_block_header(header);
-    info!("Receipt info: {:?}", block_info);
+    let block_info = RpcReceiptBlockInfo::from_block_header(header);
     // Fetch receipt for each tx in the block and add block and tx info
     let mut receipts = Vec::new();
     let mut last_cumulative_gas_used = 0;
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
-            Some(receipt) => {
-                info!("Adding receipt {:?}", receipt);
-                receipt
-            }
-            _ => {
-                info!("Returning null!");
-                return Ok(Value::Null);
-            }
+            Some(receipt) => receipt,
+            _ => return Ok(Value::Null),
         };
         let block_info = block_info.clone();
         let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
-        let tx_info = ReceiptTxInfo::from_transaction(tx.clone(), index, gas_used);
-        receipts.push(ReceiptWithTxAndBlockInfo {
+        let tx_info = RpcReceiptTxInfo::from_transaction(tx.clone(), index, gas_used);
+        receipts.push(RpcReceipt {
             receipt,
             tx_info,
             block_info,

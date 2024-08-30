@@ -1,7 +1,7 @@
 use super::block::BlockIdentifier;
 use crate::{
     types::{
-        receipt::{ReceiptBlockInfo, ReceiptTxInfo, ReceiptWithTxAndBlockInfo},
+        receipt::{RpcReceipt, RpcReceiptBlockInfo, RpcReceiptTxInfo},
         transaction::RpcTransaction,
     },
     utils::RpcErr,
@@ -308,10 +308,10 @@ pub fn get_transaction_receipt(
         Some(tx) => tx,
         _ => return Ok(Value::Null),
     };
-    let block_info = ReceiptBlockInfo::from_block_header(block_header);
+    let block_info = RpcReceiptBlockInfo::from_block_header(block_header);
     // TODO: Set properly.
-    let tx_info = ReceiptTxInfo::from_transaction(tx.clone(), index, 0);
-    let receipt = ReceiptWithTxAndBlockInfo {
+    let tx_info = RpcReceiptTxInfo::from_transaction(tx.clone(), index, 0);
+    let receipt = RpcReceipt {
         receipt,
         tx_info,
         block_info,

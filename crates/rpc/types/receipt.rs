@@ -7,26 +7,26 @@ use ethereum_rust_evm::RevmAddress;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
-pub struct ReceiptWithTxAndBlockInfo {
+pub struct RpcReceipt {
     #[serde(flatten)]
     pub receipt: Receipt,
     #[serde(flatten)]
-    pub tx_info: ReceiptTxInfo,
+    pub tx_info: RpcReceiptTxInfo,
     #[serde(flatten)]
-    pub block_info: ReceiptBlockInfo,
+    pub block_info: RpcReceiptBlockInfo,
 }
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ReceiptBlockInfo {
+pub struct RpcReceiptBlockInfo {
     pub block_hash: BlockHash,
     #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
 }
 
-impl ReceiptBlockInfo {
+impl RpcReceiptBlockInfo {
     pub fn from_block_header(block_header: BlockHeader) -> Self {
-        ReceiptBlockInfo {
+        RpcReceiptBlockInfo {
             block_hash: block_header.compute_block_hash(),
             block_number: block_header.number,
         }
@@ -35,7 +35,7 @@ impl ReceiptBlockInfo {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReceiptTxInfo {
+pub struct RpcReceiptTxInfo {
     pub transaction_hash: H256,
     #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     pub transaction_index: u64,
@@ -48,7 +48,7 @@ pub struct ReceiptTxInfo {
     pub effective_gas_price: u64,
 }
 
-impl ReceiptTxInfo {
+impl RpcReceiptTxInfo {
     pub fn new(
         transaction_hash: H256,
         transaction_index: u64,
@@ -57,7 +57,7 @@ impl ReceiptTxInfo {
         tx_kind: TxKind,
         gas_used: u64,
         effective_gas_price: u64,
-    ) -> ReceiptTxInfo {
+    ) -> RpcReceiptTxInfo {
         let (contract_address, to) = match tx_kind {
             TxKind::Create => (
                 Some(Address::from_slice(
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn serialize_receipt() {
-        let receipt = ReceiptWithTxAndBlockInfo {
+        let receipt = RpcReceipt {
             receipt: Receipt {
                 tx_type: TxType::EIP4844,
                 succeeded: true,
@@ -114,7 +114,7 @@ mod tests {
                     data: Bytes::from_static(b"strawberry"),
                 }],
             },
-            tx_info: ReceiptTxInfo {
+            tx_info: RpcReceiptTxInfo {
                 transaction_hash: H256::zero(),
                 transaction_index: 1,
                 from: Address::zero(),
@@ -125,7 +125,7 @@ mod tests {
                 gas_used: 147,
                 effective_gas_price: 157,
             },
-            block_info: ReceiptBlockInfo {
+            block_info: RpcReceiptBlockInfo {
                 block_hash: BlockHash::zero(),
                 block_number: 3,
             },
