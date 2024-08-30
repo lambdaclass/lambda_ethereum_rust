@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 tinyvec = "1.6.0"
 ethereum-types = { version = "0.14.1", features = ["serialize"] }
-revm = { version = "10.0.0", features = ["serde", "std", "serde-json", "optional_no_base_fee", "optional_block_gas_limit"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

@@ -36,6 +36,8 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     let receipts = execute_block(block, &mut state)?;
 
+    validate_gas_used(&receipts, &block.header)?;
+
     apply_state_transitions(&mut state)?;
 
     // Check state root matches the one in block header after execution
@@ -145,6 +147,15 @@ pub fn validate_block(
 
     if spec == SpecId::CANCUN {
         verify_blob_gas_usage(block)?
+    }
+    Ok(())
+}
+
+fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result<(), ChainError> {
+    if let Some(last) = receipts.last() {
+        if last.cumulative_gas_used != block_header.gas_used {
+            return Err(ChainError::InvalidBlock(InvalidBlockError::GasUsedMismatch));
+        }
     }
     Ok(())
 }

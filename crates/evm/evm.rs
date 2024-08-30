@@ -25,14 +25,14 @@ use revm::{
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
-pub use revm::primitives::{Address as RevmAddress, TxKind as RevmTxKind};
 use revm_primitives::{
     ruint::Uint, AccessList as RevmAccessList, AccessListItem as RevmAccessListItem,
+    TxKind as RevmTxKind,
 };
 // Export needed types
 pub use errors::EvmError;
 pub use execution_result::*;
-pub use revm::primitives::SpecId;
+pub use revm::primitives::{Address as RevmAddress, SpecId};
 
 type AccessList = Vec<(Address, Vec<H256>)>;
 
@@ -47,11 +47,7 @@ impl EvmState {
     }
 }
 
-//TODO: execute_block should return a result with some kind of execution receipts to validate
-//      against the block header, for example we should be able to know how much gas was used
-//      in the block execution to validate the gas_used field.
-
-/// Executes all transactions in a block, performs the state transition on the database and stores the block in the DB
+/// Executes all transactions in a block and returns their receipts.
 pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
     let block_header = &block.header;
     let spec_id = spec_id(state.database(), block_header.timestamp)?;
