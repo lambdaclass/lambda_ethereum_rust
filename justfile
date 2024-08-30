@@ -32,7 +32,6 @@ clean-vectors:
     rm -rf {{spectest_vectors_dir}}
 
 setup-hive:
-    git clone https://github.com/lambdaclass/hive.git
     cd hive && go build .
 
 test-pattern-default := "/"
@@ -41,11 +40,11 @@ test-pattern-default := "/"
 # The endpoints tested may be limited by supplying a test pattern in the form "/endpoint_1|enpoint_2|..|enpoint_n"
 # For example, to run the testing suites for eth_chainId & eth_blockNumber you should run:
 # `just run-hive "/eth_chainId|eth_blockNumber"`
-run-hive test-pattern=test-pattern-default: build_image
-    cd hive && ./hive --sim "ethereum/rpc-compat" --client ethereumrust --sim.limit "{{test-pattern}}" 
+run-hive simulation test-pattern=test-pattern-default: build_image setup-hive
+    cd hive && ./hive --sim {{simulation}} --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output
 
-run-hive-debug test-pattern=test-pattern-default: build_image
-    cd hive && ./hive --sim "ethereum/rpc-compat" --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output 
+run-hive-debug simulation test-pattern=test-pattern-default: build_image
+    cd hive && ./hive --sim {{simulation}} --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output
 
 clean-hive-logs:
     rm -rf ./hive/workspace/logs

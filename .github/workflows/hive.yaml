@@ -1,6 +1,4 @@
-# Runs the rpc-compact hive testing suite
-# Only runs the tests for the rpc endpoints specified in the HIVE_TEST_PATTERN env var
-# Please add more rpc endpoints as soon as their tests pass, and eventually remove the env var when they all do
+# Runs the specified hive testing suites
 name: Hive
 on:
   merge_group:
@@ -15,12 +13,16 @@ concurrency:
 
 env:
   RUST_VERSION: 1.80.1
-  HIVE_TEST_PATTERN: "/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber"
 
 jobs:
   run-hive:
-    name: Run Hive
+    name: Run Hive ${{ matrix.simulation }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - simulation: rpc-compat
+            run_command: just run-hive ethereum/rpc-compat "/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -32,15 +34,15 @@ jobs:
 
       - name: Setup just
         uses: extractions/setup-just@v2
-      
+
       - name: Setup Go
         uses: actions/setup-go@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Download Hive
         run: just setup-hive
 
-      - name: Run Hive
-        run: just run-hive "${{ env.HIVE_TEST_PATTERN }}"
+      - name: Run Hive Simulation
+        run: ${{ matrix.run_command }}
