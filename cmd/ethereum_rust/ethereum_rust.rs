@@ -116,7 +116,6 @@ async fn main() {
         authrpc_socket_addr,
         store,
         jwt_secret,
-        genesis.config,
         local_p2p_node,
     );
     let networking =
