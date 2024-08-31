@@ -1,11 +1,5 @@
 use super::block::BlockIdentifier;
-use crate::{
-    types::{
-        receipt::{RpcReceipt, RpcReceiptBlockInfo, RpcReceiptTxInfo},
-        transaction::RpcTransaction,
-    },
-    utils::RpcErr,
-};
+use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr};
 use ethereum_rust_core::{
     types::{AccessListEntry, BlockHash, GenericTransaction},
     Bytes, H256,
@@ -297,27 +291,8 @@ pub fn get_transaction_receipt(
         Some(block_body) => block_body,
         _ => return Ok(Value::Null),
     };
-    let receipt = match storage.get_receipt(block_number, index)? {
-        Some(receipt) => receipt,
-        _ => return Ok(Value::Null),
-    };
-    let tx = match index
-        .try_into()
-        .ok()
-        .and_then(|index: usize| block_body.transactions.get(index))
-    {
-        Some(tx) => tx,
-        _ => return Ok(Value::Null),
-    };
-    let block_info = RpcReceiptBlockInfo::from_block_header(block_header);
-    // TODO: Set properly.
-    let tx_info = RpcReceiptTxInfo::from_transaction(tx.clone(), index, 0);
-    let receipt = RpcReceipt {
-        receipt,
-        tx_info,
-        block_info,
-    };
-    serde_json::to_value(&receipt).map_err(|_| RpcErr::Internal)
+    let receipts = block::get_all_block_receipts(block_number, block_header, block_body, &storage)?;
+    serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
 }
 
 pub fn create_access_list(

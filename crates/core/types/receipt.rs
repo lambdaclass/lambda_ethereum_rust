@@ -24,6 +24,7 @@ pub struct Receipt {
     pub cumulative_gas_used: u64,
     #[serde(rename = "logsBloom")]
     pub bloom: Bloom,
+    #[serde(skip_serializing)]
     pub logs: Vec<Log>,
 }
 
@@ -33,13 +34,13 @@ impl Receipt {
             tx_type,
             succeeded,
             cumulative_gas_used,
-            bloom: bloom_from(&logs),
+            bloom: bloom_from_logs(&logs),
             logs,
         }
     }
 }
 
-fn bloom_from(logs: &[Log]) -> Bloom {
+fn bloom_from_logs(logs: &[Log]) -> Bloom {
     let mut bloom = Bloom::zero();
     for log in logs {
         bloom.accrue(BloomInput::Raw(log.address.as_ref()));

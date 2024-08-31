@@ -1,6 +1,6 @@
 use super::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, ELASTICITY_MULTIPLIER, GAS_LIMIT_ADJUSTMENT_FACTOR,
-    GAS_LIMIT_MINIMUM,
+    BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
+    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, MIN_BASE_FEE_PER_BLOB_GAS,
 };
 use crate::{
     rlp::{
@@ -322,6 +322,27 @@ fn check_gas_limit(gas_limit: u64, parent_gas_limit: u64) -> bool {
     gas_limit < parent_gas_limit + max_adjustment_delta
         && gas_limit > parent_gas_limit - max_adjustment_delta
         && gas_limit >= GAS_LIMIT_MINIMUM
+}
+
+// Calculates the base fee per blob gas for the current block based on it's parent excess blob gas
+pub fn calculate_base_fee_per_blob_gas(parent_header: BlockHeader) -> u64 {
+    fake_exponential(
+        MIN_BASE_FEE_PER_BLOB_GAS,
+        parent_header.excess_blob_gas.unwrap_or_default(),
+        BLOB_BASE_FEE_UPDATE_FRACTION,
+    )
+}
+
+fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
+    let mut i = 1;
+    let mut output = 0;
+    let mut numerator_accum = factor * denominator;
+    while numerator_accum > 0 {
+        output += numerator_accum;
+        numerator_accum = numerator_accum * numerator / (denominator * i);
+        i += 1;
+    }
+    output / denominator
 }
 
 // Calculates the base fee for the current block based on its gas_limit and parent's gas and fee

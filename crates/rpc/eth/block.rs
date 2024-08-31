@@ -12,7 +12,7 @@ use crate::{
     utils::RpcErr,
 };
 use ethereum_rust_core::{
-    types::{BlockHash, BlockNumber},
+    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
     U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -217,29 +217,52 @@ pub fn get_block_receipts(
         // Block not found
         _ => return Ok(Value::Null),
     };
+    let receipts = get_all_block_receipts(block_number, header, body, &storage)?;
+
+    serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
+}
+
+pub fn get_all_block_receipts(
+    block_number: BlockNumber,
+    header: BlockHeader,
+    body: BlockBody,
+    storage: &Store,
+) -> Result<Vec<RpcReceipt>, RpcErr> {
+    // Fetch parent header
+    let parent_block_number = match storage.get_block_number(header.parent_hash)? {
+        Some(block_number) => block_number,
+        _ => return Err(RpcErr::Internal),
+    };
+    let parent_header = match storage.get_block_header(parent_block_number)? {
+        Some(header) => header,
+        _ => return Err(RpcErr::Internal),
+    };
+    let blob_gas_price = calculate_base_fee_per_blob_gas(parent_header);
     // Fetch receipt info from block
     let block_info = RpcReceiptBlockInfo::from_block_header(header);
     // Fetch receipt for each tx in the block and add block and tx info
     let mut receipts = Vec::new();
     let mut last_cumulative_gas_used = 0;
+    let mut last_cumulative_cant_logs = 0;
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
             Some(receipt) => receipt,
-            _ => return Ok(Value::Null),
+            _ => return Err(RpcErr::Internal),
         };
-        let block_info = block_info.clone();
         let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
-        let tx_info = RpcReceiptTxInfo::from_transaction(tx.clone(), index, gas_used);
-        receipts.push(RpcReceipt {
-            receipt,
+        let tx_info =
+            RpcReceiptTxInfo::from_transaction(tx.clone(), index, gas_used, blob_gas_price);
+        receipts.push(RpcReceipt::new(
+            receipt.clone(),
             tx_info,
-            block_info,
-        });
+            block_info.clone(),
+            last_cumulative_cant_logs,
+        ));
         last_cumulative_gas_used += gas_used;
+        last_cumulative_cant_logs += receipt.logs.len() as u64;
     }
-
-    serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
+    Ok(receipts)
 }
 
 pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
