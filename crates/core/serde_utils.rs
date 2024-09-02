@@ -17,10 +17,18 @@ pub mod u256 {
     where
         D: Deserializer<'de>,
     {
-        let value = Number::deserialize(d)?.to_string();
-        U256::from_dec_str(&value)
-            .map_err(|e| D::Error::custom(e.to_string()))
-            .map(Some)
+        // Handle the null case explicitly
+        let opt = Option::<Number>::deserialize(d)?;
+        match opt {
+            Some(number) => {
+                // Convert number to string and parse to U256
+                let value = number.to_string();
+                U256::from_dec_str(&value)
+                    .map(Some)
+                    .map_err(|e| D::Error::custom(e.to_string()))
+            }
+            None => Ok(None),
+        }
     }
 
     pub fn deser_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
@@ -51,6 +59,13 @@ pub mod u256 {
         } else {
             U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
         }
+    }
+
+    pub fn serialize_number<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
     }
 }
 

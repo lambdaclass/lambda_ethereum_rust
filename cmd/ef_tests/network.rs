@@ -1,11 +1,11 @@
-use ethereum_rust_core::{types::ChainConfig, U256};
+use ethereum_rust_core::types::ChainConfig;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 
 // Chain config for different forks as defined on https://ethereum.github.io/execution-spec-tests/v3.0.0/consuming_tests/common_types/#fork
 lazy_static! {
     pub static ref MERGE_CONFIG: ChainConfig = ChainConfig {
-        chain_id: U256::one(),
+        chain_id: 1_u64,
         homestead_block: Some(0),
         dao_fork_block: Some(0),
         dao_fork_support: true,
@@ -22,7 +22,7 @@ lazy_static! {
         arrow_glacier_block: Some(0),
         gray_glacier_block: Some(0),
         merge_netsplit_block: Some(0),
-        terminal_total_difficulty: Some(U256::zero()),
+        terminal_total_difficulty: Some(0),
         ..Default::default()
     };
     pub static ref MERGE_TO_SHANGHAI_AT_15K_CONFIG: ChainConfig = ChainConfig {

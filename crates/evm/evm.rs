@@ -125,7 +125,7 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
-        let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
+        let chain_id = state.database().get_chain_id()?;
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
@@ -239,7 +239,7 @@ fn run_without_commit(
         tx_env.gas_price,
         tx_env.max_fee_per_blob_gas,
     );
-    let chain_id = state.database().get_chain_id()?.map(|ci| ci.low_u64());
+    let chain_id = state.database().get_chain_id()?;
     let mut evm = Evm::builder()
         .with_db(&mut state.0)
         .with_block_env(block_env)
