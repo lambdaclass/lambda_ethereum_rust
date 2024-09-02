@@ -1,21 +1,24 @@
 {
   "config": {
-    "berlinBlock": 0,
-    "byzantiumBlock": 0,
-    "cancunTime": 0,
-    "chainId": 1,
-    "constantinopleBlock": 0,
-    "daoForkSupport": true,
+    "ethash": {},
+    "chainId": 3503995874084926,
+    "homesteadBlock": 0,
     "eip150Block": 0,
     "eip155Block": 0,
     "eip158Block": 0,
-    "ethash": {},
-    "homesteadBlock": 0,
-    "istanbulBlock": 0,
-    "londonBlock": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
     "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "muirGlacierBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0,
+    "arrowGlacierBlock": 0,
+    "grayGlacierBlock": 0,
+    "mergeNetsplitBlock": 0,
+    "terminalTotalDifficulty": 131072,
     "shanghaiTime": 0,
-    "terminalTotalDifficulty": 0
+    "cancunTime": 0
   },
   "alloc": {
     "0000000000000000000000000000000000000100": {
