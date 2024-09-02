@@ -112,17 +112,20 @@ pub struct RpcReceiptTxInfo {
 }
 
 impl RpcReceiptTxInfo {
-    pub fn new(
-        transaction_hash: H256,
-        transaction_index: u64,
-        nonce: u64,
-        from: Address,
-        tx_kind: TxKind,
+    pub fn from_transaction(
+        transaction: Transaction,
+        index: u64,
         gas_used: u64,
-        effective_gas_price: u64,
-        blob_gas_price: Option<u64>,
-    ) -> RpcReceiptTxInfo {
-        let (contract_address, to) = match tx_kind {
+        block_blob_gas_price: u64,
+    ) -> Self {
+        let nonce = transaction.nonce();
+        let from = transaction.sender();
+        let blob_gas_price = if transaction.tx_type() == TxType::EIP4844 {
+            Some(block_blob_gas_price)
+        } else {
+            None
+        };
+        let (contract_address, to) = match transaction.to() {
             TxKind::Create => (
                 Some(Address::from_slice(
                     RevmAddress(from.0.into()).create(nonce).0.as_ref(),
@@ -132,38 +135,15 @@ impl RpcReceiptTxInfo {
             TxKind::Call(addr) => (None, Some(addr)),
         };
         Self {
-            transaction_hash,
-            transaction_index,
+            transaction_hash: transaction.compute_hash(),
+            transaction_index: index,
             from,
             to,
             contract_address,
             gas_used,
-            effective_gas_price,
+            effective_gas_price: transaction.gas_price(),
             blob_gas_price,
         }
-    }
-
-    pub fn from_transaction(
-        transaction: Transaction,
-        index: u64,
-        gas_used: u64,
-        block_blob_gas_price: u64,
-    ) -> Self {
-        let blob_gas_price = if transaction.tx_type() == TxType::EIP4844 {
-            Some(block_blob_gas_price)
-        } else {
-            None
-        };
-        Self::new(
-            transaction.compute_hash(),
-            index,
-            transaction.nonce(),
-            transaction.sender(),
-            transaction.to(),
-            gas_used,
-            transaction.gas_price(),
-            blob_gas_price,
-        )
     }
 }
 

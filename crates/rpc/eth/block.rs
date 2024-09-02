@@ -228,6 +228,11 @@ pub fn get_all_block_receipts(
     body: BlockBody,
     storage: &Store,
 ) -> Result<Vec<RpcReceipt>, RpcErr> {
+    let mut receipts = Vec::new();
+    // Check if this is the genesis block
+    if header.parent_hash.is_zero() {
+        return Ok(receipts);
+    }
     // Fetch parent header
     let parent_block_number = match storage.get_block_number(header.parent_hash)? {
         Some(block_number) => block_number,
@@ -241,7 +246,6 @@ pub fn get_all_block_receipts(
     // Fetch receipt info from block
     let block_info = RpcReceiptBlockInfo::from_block_header(header);
     // Fetch receipt for each tx in the block and add block and tx info
-    let mut receipts = Vec::new();
     let mut last_cumulative_gas_used = 0;
     let mut last_cumulative_cant_logs = 0;
     for (index, tx) in body.transactions.iter().enumerate() {
