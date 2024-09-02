@@ -247,7 +247,7 @@ pub fn get_all_block_receipts(
     let block_info = RpcReceiptBlockInfo::from_block_header(header);
     // Fetch receipt for each tx in the block and add block and tx info
     let mut last_cumulative_gas_used = 0;
-    let mut last_cumulative_cant_logs = 0;
+    let mut current_log_index = 0;
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
@@ -257,14 +257,15 @@ pub fn get_all_block_receipts(
         let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
         let tx_info =
             RpcReceiptTxInfo::from_transaction(tx.clone(), index, gas_used, blob_gas_price);
-        receipts.push(RpcReceipt::new(
+        let receipt = RpcReceipt::new(
             receipt.clone(),
             tx_info,
             block_info.clone(),
-            last_cumulative_cant_logs,
-        ));
+            current_log_index,
+        );
         last_cumulative_gas_used += gas_used;
-        last_cumulative_cant_logs += receipt.logs.len() as u64;
+        current_log_index += receipt.logs.len() as u64;
+        receipts.push(receipt);
     }
     Ok(receipts)
 }

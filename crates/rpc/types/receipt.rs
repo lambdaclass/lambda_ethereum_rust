@@ -27,15 +27,7 @@ impl RpcReceipt {
         let mut logs = vec![];
         let mut log_index = init_log_index;
         for log in receipt.logs.clone() {
-            logs.push(RpcLog {
-                log,
-                log_index,
-                removed: false,
-                transaction_hash: tx_info.transaction_hash,
-                transaction_index: tx_info.transaction_index,
-                block_hash: block_info.block_hash,
-                block_number: block_info.block_number,
-            });
+            logs.push(RpcLog::new(log, log_index, &tx_info, &block_info));
             log_index += 1;
         }
         Self {
@@ -63,6 +55,25 @@ pub struct RpcLog {
     pub block_number: BlockNumber,
 }
 
+impl RpcLog {
+    pub fn new(
+        log: Log,
+        log_index: u64,
+        tx_info: &RpcReceiptTxInfo,
+        block_info: &RpcReceiptBlockInfo,
+    ) -> RpcLog {
+        Self {
+            log,
+            log_index,
+            removed: false,
+            transaction_hash: tx_info.transaction_hash,
+            transaction_index: tx_info.transaction_index,
+            block_hash: block_info.block_hash,
+            block_number: block_info.block_number,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcReceiptBlockInfo {
@@ -81,6 +92,7 @@ impl RpcReceiptBlockInfo {
         RpcReceiptBlockInfo {
             block_hash: block_header.compute_block_hash(),
             block_number: block_header.number,
+            // This logic will be removed once #315 is merged.
             blob_gas_used: block_header.blob_gas_used.and_then(|val| {
                 if val == 0 {
                     None
@@ -120,6 +132,9 @@ impl RpcReceiptTxInfo {
     ) -> Self {
         let nonce = transaction.nonce();
         let from = transaction.sender();
+        let transaction_hash = transaction.compute_hash();
+        let effective_gas_price = transaction.gas_price();
+        let transaction_index = index;
         let blob_gas_price = if transaction.tx_type() == TxType::EIP4844 {
             Some(block_blob_gas_price)
         } else {
@@ -127,6 +142,7 @@ impl RpcReceiptTxInfo {
         };
         let (contract_address, to) = match transaction.to() {
             TxKind::Create => (
+                // Calculate contract_address from `sender` and `nonce` fields.
                 Some(Address::from_slice(
                     RevmAddress(from.0.into()).create(nonce).0.as_ref(),
                 )),
@@ -135,13 +151,13 @@ impl RpcReceiptTxInfo {
             TxKind::Call(addr) => (None, Some(addr)),
         };
         Self {
-            transaction_hash: transaction.compute_hash(),
-            transaction_index: index,
+            transaction_hash,
+            transaction_index,
             from,
             to,
             contract_address,
             gas_used,
-            effective_gas_price: transaction.gas_price(),
+            effective_gas_price,
             blob_gas_price,
         }
     }
