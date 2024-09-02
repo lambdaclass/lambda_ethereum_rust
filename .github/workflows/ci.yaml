@@ -33,7 +33,7 @@ jobs:
       - name: Run cargo build
         run: |
           cargo build
-      
+
       - name: Run cargo clippy
         run: |
           cargo clippy --all-targets --all-features --workspace -- -D warnings
@@ -56,7 +56,7 @@ jobs:
 
       - name: Setup just
         uses: extractions/setup-just@v2
-      
+
       - name: Download test vectors
         run: |
           just download-vectors
@@ -69,14 +69,12 @@ jobs:
     name: Build Docker image
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Build Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        load: true # Important for building without pushing
-
-
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true # Important for building without pushing
