@@ -34,6 +34,12 @@ pub struct Genesis {
     pub mix_hash: H256,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_or_dec_str")]
     pub timestamp: u64,
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    pub base_fee_per_gas: Option<u64>,
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    pub blob_gas_used: Option<u64>,
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    pub excess_blob_gas: Option<u64>,
 }
 
 /// Blockchain settings defined per block
@@ -103,6 +109,16 @@ impl Genesis {
     }
 
     fn get_block_header(&self) -> BlockHeader {
+        let mut blob_gas_used: Option<u64> = None;
+        let mut excess_blob_gas: Option<u64> = None;
+
+        if let Some(cancun_time) = self.config.cancun_time {
+            if cancun_time <= self.timestamp {
+                blob_gas_used = Some(self.blob_gas_used.unwrap_or(0));
+                excess_blob_gas = Some(self.excess_blob_gas.unwrap_or(0));
+            }
+        }
+
         BlockHeader {
             parent_hash: H256::zero(),
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -119,10 +135,10 @@ impl Genesis {
             extra_data: self.extra_data.clone(),
             prev_randao: self.mix_hash,
             nonce: self.nonce,
-            base_fee_per_gas: INITIAL_BASE_FEE,
+            base_fee_per_gas: self.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
             withdrawals_root: Some(compute_withdrawals_root(&[])),
-            blob_gas_used: Some(0),
-            excess_blob_gas: Some(0),
+            blob_gas_used,
+            excess_blob_gas,
             parent_beacon_block_root: Some(H256::zero()),
         }
     }
@@ -327,7 +343,7 @@ mod tests {
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
         let computed_block_hash = genesis.get_block().header.compute_block_hash();
         let genesis_block_hash =
-            H256::from_str("0x414c637788e37e9f65ed2c6ee962d32aeea39722ad50ee764e712fabebd69118")
+            H256::from_str("0x30f516e34fc173bb5fc4daddcc7532c4aca10b702c7228f3c806b4df2646fb7e")
                 .unwrap();
         assert_eq!(genesis_block_hash, computed_block_hash)
     }
