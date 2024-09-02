@@ -196,8 +196,11 @@ pub trait StoreEngine: Debug + Send {
     /// Ignores previously stored values if present
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
 
+    /// Returns the stored chain configuration
+    fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError>;
+
     /// Obtain the current chain id
-    fn get_chain_id(&self) -> Result<Option<U256>, StoreError>;
+    fn get_chain_id(&self) -> Result<Option<u64>, StoreError>;
 
     /// Obtain the timestamp at which the cancun fork was activated
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;

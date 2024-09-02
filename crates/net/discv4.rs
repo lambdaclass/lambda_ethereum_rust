@@ -1,5 +1,5 @@
+use crate::types::{Endpoint, Node, NodeRecord};
 use bytes::BufMut;
-use bytes::Bytes;
 use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
@@ -9,9 +9,6 @@ use ethereum_rust_core::rlp::{
 use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::SigningKey;
 use sha3::{Digest, Keccak256};
-use std::net::{IpAddr, SocketAddr};
-
-const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -143,45 +140,6 @@ impl Message {
             Message::ENRRequest(_) => 0x05,
             Message::ENRResponse(_) => 0x06,
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Endpoint {
-    pub ip: IpAddr,
-    pub udp_port: u16,
-    pub tcp_port: u16,
-}
-
-impl Endpoint {
-    pub fn tcp_address(&self) -> Option<SocketAddr> {
-        (self.tcp_port != 0).then_some(SocketAddr::new(self.ip, self.tcp_port))
-    }
-}
-
-impl RLPEncode for Endpoint {
-    fn encode(&self, buf: &mut dyn BufMut) {
-        structs::Encoder::new(buf)
-            .encode_field(&self.ip)
-            .encode_field(&self.udp_port)
-            .encode_field(&self.tcp_port)
-            .finish();
-    }
-}
-
-impl RLPDecode for Endpoint {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
-        let (ip, decoder) = decoder.decode_field("ip")?;
-        let (udp_port, decoder) = decoder.decode_field("udp_port")?;
-        let (tcp_port, decoder) = decoder.decode_field("tcp_port")?;
-        let remaining = decoder.finish()?;
-        let endpoint = Endpoint {
-            ip,
-            udp_port,
-            tcp_port,
-        };
-        Ok((endpoint, remaining))
     }
 }
 
@@ -369,14 +327,6 @@ impl NeighborsMessage {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Node {
-    pub ip: IpAddr,
-    pub udp_port: u16,
-    pub tcp_port: u16,
-    pub node_id: H512,
-}
-
 impl RLPDecode for NeighborsMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
@@ -398,37 +348,10 @@ impl RLPEncode for NeighborsMessage {
     }
 }
 
-impl RLPDecode for Node {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
-        let (ip, decoder) = decoder.decode_field("ip")?;
-        let (udp_port, decoder) = decoder.decode_field("upd_port")?;
-        let (tcp_port, decoder) = decoder.decode_field("tcp_port")?;
-        let (node_id, decoder) = decoder.decode_field("node_id")?;
-        let remaining = decoder.finish_unchecked();
-
-        let node = Node {
-            ip,
-            udp_port,
-            tcp_port,
-            node_id,
-        };
-        Ok((node, remaining))
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct ENRResponseMessage {
     pub request_hash: H256,
     pub node_record: NodeRecord,
-}
-
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct NodeRecord {
-    signature: H512,
-    seq: u64,
-    id: String,
-    pub pairs: Vec<(Bytes, Bytes)>,
 }
 
 impl RLPDecode for ENRResponseMessage {
@@ -442,53 +365,6 @@ impl RLPDecode for ENRResponseMessage {
             node_record,
         };
         Ok((response, remaining))
-    }
-}
-
-impl RLPDecode for NodeRecord {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        if rlp.len() > MAX_NODE_RECORD_ENCODED_SIZE {
-            return Err(RLPDecodeError::InvalidLength);
-        }
-        let decoder = Decoder::new(rlp)?;
-        let (signature, decoder) = decoder.decode_field("signature")?;
-        let (seq, decoder) = decoder.decode_field("seq")?;
-        let (pairs, decoder) = decode_node_record_optional_fields(vec![], decoder);
-
-        // all fields in pairs are optional except for id
-        let id_pair = pairs.iter().find(|(k, _v)| k.eq("id".as_bytes()));
-        if let Some((_key, id)) = id_pair {
-            let node_record = NodeRecord {
-                signature,
-                seq,
-                id: String::decode(id).unwrap(),
-                pairs,
-            };
-            let remaining = decoder.finish()?;
-            Ok((node_record, remaining))
-        } else {
-            Err(RLPDecodeError::Custom(
-                "Invalid node record, 'id' field missing".into(),
-            ))
-        }
-    }
-}
-
-/// The NodeRecord optional fields are encoded as key/value pairs, according to the documentation
-/// <https://github.com/ethereum/devp2p/blob/master/enr.md#record-structure>
-/// This function returns a vector with (key, value) tuples. Both keys and values are stored as Bytes.
-/// Each value is the actual RLP encoding of the field including its prefix so it can be decoded as T::decode(value)
-fn decode_node_record_optional_fields(
-    mut pairs: Vec<(Bytes, Bytes)>,
-    decoder: Decoder,
-) -> (Vec<(Bytes, Bytes)>, Decoder) {
-    let (key, decoder): (Option<Bytes>, Decoder) = decoder.decode_optional_field();
-    if let Some(k) = key {
-        let (value, decoder): (Vec<u8>, Decoder) = decoder.get_encoded_item().unwrap();
-        pairs.push((k, Bytes::from(value)));
-        decode_node_record_optional_fields(pairs, decoder)
-    } else {
-        (pairs, decoder)
     }
 }
 
@@ -524,33 +400,13 @@ impl RLPEncode for ENRResponseMessage {
     }
 }
 
-impl RLPEncode for NodeRecord {
-    fn encode(&self, buf: &mut dyn BufMut) {
-        structs::Encoder::new(buf)
-            .encode_field(&self.signature)
-            .encode_field(&self.seq)
-            .encode_key_value_list::<Bytes>(&self.pairs)
-            .finish();
-    }
-}
-
-impl RLPEncode for Node {
-    fn encode(&self, buf: &mut dyn BufMut) {
-        structs::Encoder::new(buf)
-            .encode_field(&self.ip)
-            .encode_field(&self.udp_port)
-            .encode_field(&self.tcp_port)
-            .encode_field(&self.node_id)
-            .finish();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bytes::Bytes;
     use ethereum_rust_core::{H256, H264};
     use std::fmt::Write;
-    use std::net::Ipv4Addr;
+    use std::net::IpAddr;
     use std::num::ParseIntError;
     use std::str::FromStr;
 
@@ -749,7 +605,7 @@ mod tests {
         // define optional fields
         let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
         let id = String::from("v4");
-        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let ip = IpAddr::from_str("138.197.51.181").unwrap();
         let secp256k1 =
             H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
                 .unwrap();
@@ -876,7 +732,7 @@ mod tests {
         // define optional fields
         let eth: Vec<Vec<u32>> = vec![vec![0x88cf81d9, 0]];
         let id = String::from("v4");
-        let ip = Ipv4Addr::from_str("138.197.51.181").unwrap();
+        let ip = IpAddr::from_str("138.197.51.181").unwrap();
         let secp256k1 =
             H264::from_str("034e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476")
                 .unwrap();

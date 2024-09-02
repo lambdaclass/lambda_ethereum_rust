@@ -373,7 +373,11 @@ impl Store {
         self.engine.lock().unwrap().set_chain_config(chain_config)
     }
 
-    pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
+    pub fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError> {
+        self.engine.lock().unwrap().get_chain_config()
+    }
+
+    pub fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
         self.engine.lock().unwrap().get_chain_id()
     }
 
@@ -545,11 +549,12 @@ mod tests {
         run_test(&test_store_account_storage, engine_type);
         run_test(&test_remove_account_storage, engine_type);
         run_test(&test_increment_balance, engine_type);
-        run_test(&test_store_chain_config, engine_type);
+        run_test(&test_get_chain_id_cancun_time, engine_type);
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_account_info_iter, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
         run_test(&test_account_storage_iter, engine_type);
+        run_test(&test_chain_config_storage, engine_type)
     }
 
     fn test_store_account(store: Store) {
@@ -792,8 +797,8 @@ mod tests {
         assert_eq!(stored_account_info.balance, 75.into());
     }
 
-    fn test_store_chain_config(store: Store) {
-        let chain_id = U256::from_dec_str("46").unwrap();
+    fn test_get_chain_id_cancun_time(store: Store) {
+        let chain_id = 46_u64;
         let cancun_time = 12;
         let chain_config = ChainConfig {
             chain_id,
@@ -919,5 +924,35 @@ mod tests {
         let account_storage_iter = store.account_storage_iter(address).unwrap();
         let account_storage_from_iter = HashMap::from_iter(account_storage_iter);
         assert_eq!(account_storage, account_storage_from_iter)
+    }
+
+    fn test_chain_config_storage(store: Store) {
+        let chain_config = example_chain_config();
+        store.set_chain_config(&chain_config).unwrap();
+        let retrieved_chain_config = store.get_chain_config().unwrap().unwrap();
+        assert_eq!(chain_config, retrieved_chain_config);
+    }
+
+    fn example_chain_config() -> ChainConfig {
+        ChainConfig {
+            chain_id: 3151908_u64,
+            homestead_block: Some(0),
+            eip150_block: Some(0),
+            eip155_block: Some(0),
+            eip158_block: Some(0),
+            byzantium_block: Some(0),
+            constantinople_block: Some(0),
+            petersburg_block: Some(0),
+            istanbul_block: Some(0),
+            berlin_block: Some(0),
+            london_block: Some(0),
+            merge_netsplit_block: Some(0),
+            shanghai_time: Some(0),
+            cancun_time: Some(0),
+            prague_time: Some(1718232101),
+            terminal_total_difficulty: Some(58750000000000000000000),
+            terminal_total_difficulty_passed: true,
+            ..Default::default()
+        }
     }
 }
