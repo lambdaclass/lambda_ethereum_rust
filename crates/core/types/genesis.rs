@@ -1,11 +1,11 @@
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
-use crate::rlp::encode::RLPEncode as _;
+use crate::rlp::encode::RLPEncode;
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
@@ -14,7 +14,7 @@ use super::{
 };
 
 #[allow(unused)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Genesis {
     /// Chain configuration
@@ -44,12 +44,11 @@ pub struct Genesis {
 
 /// Blockchain settings defined per block
 #[allow(unused)]
-#[derive(Debug, Deserialize, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_number")]
-    pub chain_id: U256,
+    pub chain_id: u64,
 
     /// Block numbers for the block where each fork was activated
     /// (None = no fork, 0 = fork is already active)
@@ -83,18 +82,14 @@ pub struct ChainConfig {
     pub verkle_time: Option<u64>,
 
     /// Amount of total difficulty reached by the network that triggers the consensus upgrade.
-    #[serde(
-        default,
-        deserialize_with = "crate::serde_utils::u256::deser_number_opt"
-    )]
-    pub terminal_total_difficulty: Option<U256>,
+    pub terminal_total_difficulty: Option<u128>,
     /// Network has already passed the terminal total difficult
     #[serde(default)]
     pub terminal_total_difficulty_passed: bool,
 }
 
 #[allow(unused)]
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
     #[serde(default, with = "crate::serde_utils::bytes")]
     pub code: Bytes,
@@ -202,7 +197,7 @@ mod tests {
         // Check Genesis fields
         // Chain config
         let expected_chain_config = ChainConfig {
-            chain_id: U256::from(3151908),
+            chain_id: 3151908_u64,
             homestead_block: Some(0),
             eip150_block: Some(0),
             eip155_block: Some(0),
@@ -217,7 +212,7 @@ mod tests {
             shanghai_time: Some(0),
             cancun_time: Some(0),
             prague_time: Some(1718232101),
-            terminal_total_difficulty: Some(U256::from(0)),
+            terminal_total_difficulty: Some(0),
             terminal_total_difficulty_passed: true,
             ..Default::default()
         };

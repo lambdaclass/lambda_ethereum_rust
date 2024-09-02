@@ -18,6 +18,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
+use serde_json;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 
@@ -230,28 +231,33 @@ impl StoreEngine for Store {
         self.remove::<AccountStorages>(address.into())
     }
 
+    /// Stores the chain config serialized as json
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
-        // Store cancun timestamp
-        if let Some(cancun_time) = chain_config.cancun_time {
-            self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())?;
-        };
-        // Store shanghai timestamp
-        if let Some(shanghai_time) = chain_config.shanghai_time {
-            self.write::<ChainData>(ChainDataIndex::ShanghaiTime, shanghai_time.encode_to_vec())?;
-        };
-        // Store chain id
         self.write::<ChainData>(
-            ChainDataIndex::ChainId,
-            chain_config.chain_id.encode_to_vec(),
+            ChainDataIndex::ChainConfig,
+            serde_json::to_string(chain_config)
+                .map_err(|_| StoreError::DecodeError)?
+                .into_bytes(),
         )
     }
 
-    fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
-        match self.read::<ChainData>(ChainDataIndex::ChainId)? {
+    fn get_chain_config(&self) -> std::result::Result<Option<ChainConfig>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::ChainConfig)? {
             None => Ok(None),
-            Some(ref rlp) => RLPDecode::decode(rlp)
-                .map(Some)
-                .map_err(|_| StoreError::DecodeError),
+            Some(bytes) => {
+                let json = String::from_utf8(bytes).map_err(|_| StoreError::DecodeError)?;
+                let chain_config: ChainConfig =
+                    serde_json::from_str(&json).map_err(|_| StoreError::DecodeError)?;
+                Ok(Some(chain_config))
+            }
+        }
+    }
+
+    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
+        if let Some(chain_config) = dbg!(self.get_chain_config()?) {
+            Ok(Some(chain_config.chain_id))
+        } else {
+            Ok(None)
         }
     }
 
@@ -271,20 +277,18 @@ impl StoreEngine for Store {
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        match self.read::<ChainData>(ChainDataIndex::CancunTime)? {
-            None => Ok(None),
-            Some(ref rlp) => RLPDecode::decode(rlp)
-                .map(Some)
-                .map_err(|_| StoreError::DecodeError),
+        if let Some(chain_config) = self.get_chain_config()? {
+            Ok(chain_config.cancun_time)
+        } else {
+            Ok(None)
         }
     }
 
     fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        match self.read::<ChainData>(ChainDataIndex::ShanghaiTime)? {
-            None => Ok(None),
-            Some(ref rlp) => RLPDecode::decode(rlp)
-                .map(Some)
-                .map_err(|_| StoreError::DecodeError),
+        if let Some(chain_config) = self.get_chain_config()? {
+            Ok(chain_config.shanghai_time)
+        } else {
+            Ok(None)
         }
     }
 
@@ -511,16 +515,14 @@ impl From<AccountStorageValueBytes> for U256 {
 /// Represents the key for each unique value of the chain data stored in the db
 // (TODO: Remove this comment once full) Will store chain-specific data such as chain id and latest finalized/pending/safe block number
 pub enum ChainDataIndex {
-    ChainId = 0,
+    ChainConfig = 0,
     EarliestBlockNumber = 1,
     FinalizedBlockNumber = 2,
     SafeBlockNumber = 3,
     LatestBlockNumber = 4,
     PendingBlockNumber = 5,
-    CancunTime = 6,
-    ShanghaiTime = 7,
     // TODO (#307): Remove TotalDifficulty.
-    LatestTotalDifficulty = 8,
+    LatestTotalDifficulty = 6,
 }
 
 impl Encodable for ChainDataIndex {
