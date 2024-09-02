@@ -27,7 +27,7 @@ pub struct Store {
 
 #[derive(Default)]
 struct ChainData {
-    chain_id: Option<U256>,
+    chain_config: Option<ChainConfig>,
     earliest_block_number: Option<BlockNumber>,
     finalized_block_number: Option<BlockNumber>,
     safe_block_number: Option<BlockNumber>,
@@ -35,8 +35,6 @@ struct ChainData {
     // TODO (#307): Remove TotalDifficulty.
     latest_total_difficulty: Option<U256>,
     pending_block_number: Option<BlockNumber>,
-    cancun_time: Option<u64>,
-    shanghai_time: Option<u64>,
 }
 
 impl Store {
@@ -218,24 +216,36 @@ impl StoreEngine for Store {
 
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         // Store cancun timestamp
-        self.chain_data.cancun_time = chain_config.cancun_time;
-        // Store shanghai timestamp
-        self.chain_data.shanghai_time = chain_config.shanghai_time;
-        // Store chain id
-        self.chain_data.chain_id.replace(chain_config.chain_id);
+        self.chain_data.chain_config = Some(*chain_config);
         Ok(())
     }
 
-    fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
-        Ok(self.chain_data.chain_id)
+    fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError> {
+        Ok(self.chain_data.chain_config)
+    }
+
+    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
+        if let Some(chain_config) = self.chain_data.chain_config {
+            Ok(Some(chain_config.chain_id))
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        Ok(self.chain_data.cancun_time)
+        if let Some(chain_config) = self.chain_data.chain_config {
+            Ok(chain_config.cancun_time)
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        Ok(self.chain_data.shanghai_time)
+        if let Some(chain_config) = self.chain_data.chain_config {
+            Ok(chain_config.shanghai_time)
+        } else {
+            Ok(None)
+        }
     }
 
     fn update_earliest_block_number(
