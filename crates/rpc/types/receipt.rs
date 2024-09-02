@@ -92,7 +92,6 @@ impl RpcReceiptBlockInfo {
         RpcReceiptBlockInfo {
             block_hash: block_header.compute_block_hash(),
             block_number: block_header.number,
-            // This logic will be removed once #315 is merged.
             blob_gas_used: block_header.blob_gas_used.and_then(|val| {
                 if val == 0 {
                     None
