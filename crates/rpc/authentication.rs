@@ -1,11 +1,33 @@
+use crate::RpcErr;
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use bytes::Bytes;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, TokenData, Validation};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[derive(Debug)]
 pub enum AuthenticationError {
     InvalidIssuedAtClaim,
     TokenDecodingError,
+    MissingAuthentication,
+}
+
+pub fn authenticate(
+    secret: Bytes,
+    auth_header: Option<TypedHeader<Authorization<Bearer>>>,
+) -> Result<(), RpcErr> {
+    match auth_header {
+        Some(TypedHeader(auth_header)) => {
+            let token = auth_header.token();
+            validate_jwt_authentication(token, secret).map_err(RpcErr::AuthenticationError)
+        }
+        None => Err(RpcErr::AuthenticationError(
+            AuthenticationError::MissingAuthentication,
+        )),
+    }
 }
 
 // JWT claims struct
