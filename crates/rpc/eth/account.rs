@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::fmt::Display;
 use tracing::info;
 
-use crate::utils::RpcErr;
+use crate::{eth::block::BlockTag, utils::RpcErr};
 use ethereum_rust_core::{types::BlockNumber, Address, BigEndianHash, H256};
 
 use super::block::BlockIdentifier;
@@ -15,6 +15,15 @@ use serde::Deserialize;
 pub enum BlockIdentifierOrHash {
     Identifier(BlockIdentifier),
     Hash(BlockHash),
+}
+
+impl PartialEq<BlockTag> for BlockIdentifierOrHash {
+    fn eq(&self, other: &BlockTag) -> bool {
+        matches!(
+            self,
+            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(other))
+        )
+    }
 }
 
 impl BlockIdentifierOrHash {
@@ -88,6 +97,12 @@ pub fn get_balance(request: &GetBalanceRequest, storage: Store) -> Result<Value,
         "Requested balance of account {} at block {}",
         request.address, request.block
     );
+
+    // TODO: implement historical querying
+    if request.block != BlockTag::Latest {
+        return Err(RpcErr::Internal);
+    }
+
     let account = storage.get_account_info(request.address)?;
     let balance = account.map(|acc| acc.balance).unwrap_or_default();
 
@@ -99,6 +114,12 @@ pub fn get_code(request: &GetCodeRequest, storage: Store) -> Result<Value, RpcEr
         "Requested code of account {} at block {}",
         request.address, request.block
     );
+
+    // TODO: implement historical querying
+    if request.block != BlockTag::Latest {
+        return Err(RpcErr::Internal);
+    }
+
     let code = storage
         .get_code_by_account_address(request.address)?
         .unwrap_or_default();
@@ -111,6 +132,12 @@ pub fn get_storage_at(request: &GetStorageAtRequest, storage: Store) -> Result<V
         "Requested storage sot {} of account {} at block {}",
         request.storage_slot, request.address, request.block
     );
+
+    // TODO: implement historical querying
+    if request.block != BlockTag::Latest {
+        return Err(RpcErr::Internal);
+    }
+
     let storage_value = storage
         .get_storage_at(request.address, request.storage_slot)?
         .unwrap_or_default();
