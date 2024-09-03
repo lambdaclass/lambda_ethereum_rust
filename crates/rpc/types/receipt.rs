@@ -1,6 +1,7 @@
 use ethereum_rust_core::{
+    serde_utils,
     types::{BlockHash, BlockHeader, BlockNumber, Log, Receipt, Transaction, TxKind, TxType},
-    Address, H256,
+    Address, Bloom, Bytes, H256,
 };
 use ethereum_rust_evm::RevmAddress;
 
@@ -9,7 +10,7 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct RpcReceipt {
     #[serde(flatten)]
-    pub receipt: Receipt,
+    pub receipt: RpcReceiptInfo,
     pub logs: Vec<RpcLog>,
     #[serde(flatten)]
     pub tx_info: RpcReceiptTxInfo,
@@ -31,7 +32,7 @@ impl RpcReceipt {
             log_index += 1;
         }
         Self {
-            receipt,
+            receipt: receipt.into(),
             logs,
             tx_info,
             block_info,
@@ -41,17 +42,40 @@ impl RpcReceipt {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RpcReceiptInfo {
+    #[serde(rename = "type")]
+    pub tx_type: TxType,
+    #[serde(with = "serde_utils::bool")]
+    pub status: bool,
+    #[serde(with = "serde_utils::u64::hex_str")]
+    pub cumulative_gas_used: u64,
+    pub logs_bloom: Bloom,
+}
+
+impl From<Receipt> for RpcReceiptInfo {
+    fn from(receipt: Receipt) -> Self {
+        Self {
+            tx_type: receipt.tx_type,
+            status: receipt.succeeded,
+            cumulative_gas_used: receipt.cumulative_gas_used,
+            logs_bloom: receipt.bloom,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RpcLog {
     #[serde(flatten)]
-    pub log: Log,
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    pub log: RpcLogInfo,
+    #[serde(with = "serde_utils::u64::hex_str")]
     pub log_index: u64,
     pub removed: bool,
     pub transaction_hash: H256,
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     pub transaction_index: u64,
     pub block_hash: BlockHash,
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
 }
 
@@ -63,7 +87,7 @@ impl RpcLog {
         block_info: &RpcReceiptBlockInfo,
     ) -> RpcLog {
         Self {
-            log,
+            log: log.into(),
             log_index,
             removed: false,
             transaction_hash: tx_info.transaction_hash,
@@ -74,15 +98,34 @@ impl RpcLog {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcLogInfo {
+    pub address: Address,
+    pub topics: Vec<H256>,
+    #[serde(with = "serde_utils::bytes")]
+    pub data: Bytes,
+}
+
+impl From<Log> for RpcLogInfo {
+    fn from(log: Log) -> Self {
+        Self {
+            address: log.address,
+            topics: log.topics,
+            data: log.data,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcReceiptBlockInfo {
     pub block_hash: BlockHash,
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        with = "ethereum_rust_core::serde_utils::u64::hex_str_opt"
+        with = "serde_utils::u64::hex_str_opt"
     )]
     pub blob_gas_used: Option<u64>,
 }

@@ -6,25 +6,17 @@ use crate::rlp::{
 };
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, BloomInput, H256};
-use serde::Serialize;
 
 use super::TxType;
 pub type Index = u64;
 
 /// Result of a transaction
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Receipt {
-    #[serde(rename = "type")]
     pub tx_type: TxType,
-    #[serde(with = "crate::serde_utils::bool", rename = "status")]
     pub succeeded: bool,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub cumulative_gas_used: u64,
-    #[serde(rename = "logsBloom")]
     pub bloom: Bloom,
-    #[serde(skip_serializing)]
     pub logs: Vec<Log>,
 }
 
@@ -104,11 +96,10 @@ impl RLPDecode for Receipt {
 }
 
 /// Data record produced during the execution of a transaction.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Log {
     pub address: Address,
     pub topics: Vec<H256>,
-    #[serde(with = "crate::serde_utils::bytes")]
     pub data: Bytes,
 }
 
