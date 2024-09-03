@@ -13,7 +13,7 @@ use self::{
     db::{PathRLP, TrieDB, ValueRLP},
     hashing::{NodeHashRef, Output},
     nibble::NibbleSlice,
-    node::{InsertAction, LeafNode, Node},
+    node::{InsertAction, LeafNode},
     node_ref::NodeRef,
 };
 use crate::error::StoreError;
@@ -69,24 +69,7 @@ impl Trie {
             match insert_action.quantize_self(self.root_ref) {
                 InsertAction::Insert(node_ref) => {
                     self.db.insert_value(path.clone(), value)?;
-                    let node = match self
-                        .db
-                        .get_node(node_ref)? // [WARNING] get_mut
-                        .expect("inconsistent internal tree structure")
-                    {
-                        Node::Leaf(mut leaf_node) => {
-                            leaf_node.update_path(path);
-                            leaf_node.into()
-                        }
-                        Node::Branch(mut branch_node) => {
-                            branch_node.update_path(path);
-                            branch_node.into()
-                        }
-                        _ => panic!("inconsistent internal tree structure"),
-                    };
-                    // TODO: Add update_node_path method that ensures that the path was empty to make sure we are not overwriting nodes
-                    self.db.update_node(node_ref, node)?;
-
+                    self.db.update_node_path(node_ref, path)?;
                     Ok(None)
                 }
                 InsertAction::Replace(path) => self.db.replace_value(path, value),
@@ -344,11 +327,17 @@ mod test {
     }
 
     fn get_insert_remove_a(mut trie: Trie) {
-        trie.insert("do".as_bytes().to_vec(), "verb".as_bytes().to_vec()).unwrap();
-        trie.insert("horse".as_bytes().to_vec(), "stallion".as_bytes().to_vec()).unwrap();
-        trie.insert("doge".as_bytes().to_vec(), "coin".as_bytes().to_vec()).unwrap();
+        trie.insert("do".as_bytes().to_vec(), "verb".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("horse".as_bytes().to_vec(), "stallion".as_bytes().to_vec())
+            .unwrap();
+        trie.insert("doge".as_bytes().to_vec(), "coin".as_bytes().to_vec())
+            .unwrap();
         trie.remove("horse".as_bytes().to_vec()).unwrap();
-        assert_eq!(trie.get(&"do".as_bytes().to_vec()).unwrap(), Some("verb".as_bytes().to_vec()));
+        assert_eq!(
+            trie.get(&"do".as_bytes().to_vec()).unwrap(),
+            Some("verb".as_bytes().to_vec())
+        );
     }
 
     fn get_insert_remove_b(mut trie: Trie) {

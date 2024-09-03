@@ -102,6 +102,29 @@ impl Node {
             Node::Leaf(n) => n.compute_hash(db, path_offset),
         }
     }
+
+    /// Updates node path ONLY if it is empty, fails otherwise
+    pub(crate) fn try_update_path(&mut self, new_path: PathRLP) -> Result<(), StoreError> {
+        const OVERWITE_ATTEMPT_ERROR: &str = "Attempted to overwrite trie value";
+        match self {
+            Node::Branch(node) => {
+                if node.path.is_empty() {
+                    node.update_path(new_path);
+                } else {
+                    return Err(StoreError::Custom(OVERWITE_ATTEMPT_ERROR.to_owned()));
+                }
+            }
+            Node::Leaf(node) => {
+                if node.path.is_empty() {
+                    node.update_path(new_path);
+                } else {
+                    return Err(StoreError::Custom(OVERWITE_ATTEMPT_ERROR.to_owned()));
+                }
+            }
+            _ => panic!("inconsistent internal tree structure"),
+        }
+        Ok(())
+    }
 }
 
 impl Node {

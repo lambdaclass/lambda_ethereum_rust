@@ -58,6 +58,20 @@ impl TrieDB {
         self.write::<Nodes>(node_ref.into(), node.encode_to_vec())
     }
 
+    /// Updates a node's path only if it was previously empty
+    pub fn update_node_path(
+        &mut self,
+        node_ref: NodeRef,
+        new_path: PathRLP,
+    ) -> Result<(), StoreError> {
+        if let Some(mut node) = self.get_node(node_ref)? {
+            node.try_update_path(new_path)?;
+            println!("Update Node Path: {} : {}", *node_ref, node.info());
+            self.write::<Nodes>(node_ref.into(), node.encode_to_vec())?;
+        }
+        Ok(())
+    }
+
     /// Returns the removed node if it existed
     pub fn remove_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
         let node = self.get_node(node_ref)?;
