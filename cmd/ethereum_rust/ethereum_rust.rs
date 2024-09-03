@@ -95,7 +95,7 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            let _ = add_block(&block, store.clone());
+            let _ = add_block(&block, &store);
         }
         info!("Added {} blocks to blockchain", size);
     }
