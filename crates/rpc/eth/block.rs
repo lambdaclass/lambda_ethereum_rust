@@ -234,7 +234,7 @@ pub fn get_all_block_receipts(
     if header.parent_hash.is_zero() {
         return Ok(receipts);
     }
-    let parent_header = match find_parent_header(&block.header, storage) {
+    let parent_header = match find_parent_header(&header, storage) {
         Ok(header) => header,
         _ => return Err(RpcErr::Internal),
     };
