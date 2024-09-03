@@ -49,6 +49,17 @@ pub struct RpcApiContext {
     local_p2p_node: Node,
 }
 
+trait RpcHandler: Sized {
+    fn parse(params: &Option<Vec<Value>>) -> Option<Self>;
+
+    fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+        let request = Self::parse(&req.params).ok_or(RpcErr::BadParams)?;
+        request.handle(storage)
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr>;
+}
+
 pub async fn start_api(
     http_addr: SocketAddr,
     authrpc_addr: SocketAddr,
@@ -146,14 +157,8 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
     match req.method.as_str() {
         "eth_chainId" => client::chain_id(storage),
         "eth_syncing" => client::syncing(),
-        "eth_getBlockByNumber" => {
-            let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_by_number(&request, storage)
-        }
-        "eth_getBlockByHash" => {
-            let request = GetBlockByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_by_hash(&request, storage)
-        }
+        "eth_getBlockByNumber" => GetBlockByNumberRequest::call(req, storage),
+        "eth_getBlockByHash" => GetBlockByHashRequest::call(req, storage),
         "eth_getBalance" => {
             let request = GetBalanceRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             account::get_balance(&request, storage)
@@ -167,15 +172,9 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
             account::get_storage_at(&request, storage)
         }
         "eth_getBlockTransactionCountByNumber" => {
-            let request =
-                GetBlockTransactionCountRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_transaction_count(&request, storage)
+            GetBlockTransactionCountRequest::call(req, storage)
         }
-        "eth_getBlockTransactionCountByHash" => {
-            let request =
-                GetBlockTransactionCountRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_transaction_count(&request, storage)
-        }
+        "eth_getBlockTransactionCountByHash" => GetBlockTransactionCountRequest::call(req, storage),
         "eth_getTransactionByBlockNumberAndIndex" => {
             let request = GetTransactionByBlockNumberAndIndexRequest::parse(&req.params)
                 .ok_or(RpcErr::BadParams)?;
@@ -186,10 +185,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
                 .ok_or(RpcErr::BadParams)?;
             transaction::get_transaction_by_block_hash_and_index(&request, storage)
         }
-        "eth_getBlockReceipts" => {
-            let request = GetBlockReceiptsRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_receipts(&request, storage)
-        }
+        "eth_getBlockReceipts" => GetBlockReceiptsRequest::call(req, storage),
         "eth_getTransactionByHash" => {
             let request =
                 GetTransactionByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
