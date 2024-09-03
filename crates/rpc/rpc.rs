@@ -142,14 +142,22 @@ pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, R
     }
 }
 
+trait RpcHandler: Sized {
+    fn parse(params: &Option<Vec<Value>>) -> Option<Self>;
+
+    fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+        let request = Self::parse(&req.params).ok_or(RpcErr::BadParams)?;
+        request.handle(storage)
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr>;
+}
+
 pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "eth_chainId" => client::chain_id(storage),
         "eth_syncing" => client::syncing(),
-        "eth_getBlockByNumber" => {
-            let request = GetBlockByNumberRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            block::get_block_by_number(&request, storage)
-        }
+        "eth_getBlockByNumber" => GetBlockByNumberRequest::call(&req, storage),
         "eth_getBlockByHash" => {
             let request = GetBlockByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
             block::get_block_by_hash(&request, storage)
