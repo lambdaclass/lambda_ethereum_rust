@@ -19,10 +19,10 @@ pub enum BlockIdentifierOrHash {
 
 impl PartialEq<BlockTag> for BlockIdentifierOrHash {
     fn eq(&self, other: &BlockTag) -> bool {
-        matches!(
-            self,
-            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(other))
-        )
+        match self {
+            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(tag)) => tag == other,
+            _ => false,
+        }
     }
 }
 
