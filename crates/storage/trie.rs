@@ -56,9 +56,11 @@ impl Trie {
         path: PathRLP,
         value: ValueRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
+        println!("[INSERT]: {:?}", path);
         // Mark hash as dirty
         self.hash.0 = false;
-        if let Some(root_node) = self.db.remove_node(self.root_ref)? {
+        // [Note]: Original impl would remove
+        if let Some(root_node) = self.db.get_node(self.root_ref)? {
             // If the tree is not empty, call the root node's insertion logic
             let (root_node, insert_action) =
                 root_node.insert(&mut self.db, NibbleSlice::new(&path))?;
@@ -82,6 +84,7 @@ impl Trie {
                         }
                         _ => panic!("inconsistent internal tree structure"),
                     };
+                    // TODO: Add update_node_path method that ensures that the path was empty to make sure we are not overwriting nodes
                     self.db.update_node(node_ref, node)?;
 
                     Ok(None)
@@ -99,6 +102,7 @@ impl Trie {
 
     /// Remove a value from the tree.
     pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+        println!("[REMOVE]: {:?}", path);
         if !self.root_ref.is_valid() {
             return Ok(None);
         }
