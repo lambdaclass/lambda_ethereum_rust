@@ -136,9 +136,10 @@ impl ExtensionNode {
                         self.child = db.insert_node(branch_node.into())?;
                         self.into()
                     }
-                    Node::Extension(extension_node) => {
+                    Node::Extension(mut extension_node) => {
                         self.prefix.extend(&extension_node.prefix);
-                        self.into()
+                        extension_node.prefix = self.prefix;
+                        extension_node.into()
                     }
                     Node::Leaf(leaf_node) => leaf_node.into(),
                 }),
