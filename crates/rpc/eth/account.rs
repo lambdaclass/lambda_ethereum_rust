@@ -13,8 +13,8 @@ use serde::Deserialize;
 #[derive(Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum BlockIdentifierOrHash {
-    Identifier(BlockIdentifier),
     Hash(BlockHash),
+    Identifier(BlockIdentifier),
 }
 
 impl BlockIdentifierOrHash {

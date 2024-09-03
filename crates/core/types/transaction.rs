@@ -13,8 +13,6 @@ use crate::rlp::{
     structs::{Decoder, Encoder},
 };
 
-use super::ReceiptTxInfo;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum Transaction {
@@ -590,17 +588,6 @@ impl Transaction {
     pub fn compute_hash(&self) -> H256 {
         keccak_hash::keccak(self.encode_canonical_to_vec())
     }
-
-    pub fn receipt_info(&self, index: u64) -> ReceiptTxInfo {
-        ReceiptTxInfo {
-            transaction_hash: self.compute_hash(),
-            transaction_index: index,
-            from: self.sender(),
-            to: self.to(),
-            effective_gas_price: self.gas_price(),
-            blob_gas_price: self.max_fee_per_blob_gas().map(|x| x.as_u64()),
-        }
-    }
 }
 
 fn recover_address(
@@ -1059,9 +1046,8 @@ mod tests {
         let tx_type = TxType::Legacy;
         let succeeded = true;
         let cumulative_gas_used = 0x5208;
-        let bloom = [0x00; 256];
         let logs = vec![];
-        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, bloom.into(), logs);
+        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, logs);
 
         let result = compute_receipts_root(&[receipt]);
         let expected_root =
