@@ -1,5 +1,5 @@
 use super::block::BlockIdentifier;
-use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr};
+use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr, RpcHandler};
 use ethereum_rust_core::{
     types::{AccessListEntry, BlockHash, GenericTransaction},
     Bytes, H256,
@@ -51,8 +51,8 @@ pub struct AccessListResult {
     gas_used: u64,
 }
 
-impl CallRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<CallRequest> {
+impl RpcHandler for CallRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<CallRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -62,12 +62,54 @@ impl CallRequest {
             block: serde_json::from_value(params[1].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        let block = self.block.clone().unwrap_or_default();
+        info!("Requested call on block: {}", block);
+        let block_number = match block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = match storage.get_block_header(block_number)? {
+            Some(header) => header,
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        // Run transaction
+        let data = match ethereum_rust_evm::simulate_tx_from_generic(
+            &self.transaction,
+            &header,
+            &mut evm_state(storage),
+            SpecId::CANCUN,
+        )? {
+            ExecutionResult::Success {
+                reason: _,
+                gas_used: _,
+                gas_refunded: _,
+                logs: _,
+                output,
+            } => match output {
+                ethereum_rust_evm::Output::Call(bytes) => bytes,
+                ethereum_rust_evm::Output::Create(bytes, _) => bytes,
+            },
+            ExecutionResult::Revert {
+                gas_used: _,
+                output,
+            } => {
+                return Err(RpcErr::Revert {
+                    data: format!("0x{:#x}", output),
+                });
+            }
+            ExecutionResult::Halt {
+                reason: _,
+                gas_used: _,
+            } => Bytes::new(),
+        };
+        serde_json::to_value(format!("0x{:#x}", data)).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetTransactionByBlockNumberAndIndexRequest {
-    pub fn parse(
-        params: &Option<Vec<Value>>,
-    ) -> Option<GetTransactionByBlockNumberAndIndexRequest> {
+impl RpcHandler for GetTransactionByBlockNumberAndIndexRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockNumberAndIndexRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -79,10 +121,40 @@ impl GetTransactionByBlockNumberAndIndexRequest {
                 .ok()?,
         })
     }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested transaction at index: {} of block with number: {}",
+            self.transaction_index, self.block,
+        );
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let block_body = match storage.get_block_body(block_number)? {
+            Some(block_body) => block_body,
+            _ => return Ok(Value::Null),
+        };
+        let block_header = match storage.get_block_header(block_number)? {
+            Some(block_body) => block_body,
+            _ => return Ok(Value::Null),
+        };
+        let tx = match block_body.transactions.get(self.transaction_index) {
+            Some(tx) => tx,
+            None => return Ok(Value::Null),
+        };
+        let tx = RpcTransaction::build(
+            tx.clone(),
+            block_number,
+            block_header.compute_block_hash(),
+            self.transaction_index,
+        );
+        serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetTransactionByBlockHashAndIndexRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockHashAndIndexRequest> {
+impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockHashAndIndexRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -94,10 +166,31 @@ impl GetTransactionByBlockHashAndIndexRequest {
                 .ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested transaction at index: {} of block with hash: {}",
+            self.transaction_index, self.block,
+        );
+        let block_number = match storage.get_block_number(self.block)? {
+            Some(number) => number,
+            _ => return Ok(Value::Null),
+        };
+        let block_body = match storage.get_block_body(block_number)? {
+            Some(block_body) => block_body,
+            _ => return Ok(Value::Null),
+        };
+        let tx = match block_body.transactions.get(self.transaction_index) {
+            Some(tx) => tx,
+            None => return Ok(Value::Null),
+        };
+        let tx =
+            RpcTransaction::build(tx.clone(), block_number, self.block, self.transaction_index);
+        serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetTransactionByHashRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByHashRequest> {
+impl RpcHandler for GetTransactionByHashRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByHashRequest> {
         let params = params.as_ref()?;
         if params.len() != 1 {
             return None;
@@ -106,10 +199,30 @@ impl GetTransactionByHashRequest {
             transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested transaction with hash: {}", self.transaction_hash,);
+        let transaction: ethereum_rust_core::types::Transaction =
+            match storage.get_transaction_by_hash(self.transaction_hash)? {
+                Some(transaction) => transaction,
+                _ => return Ok(Value::Null),
+            };
+        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
+            Some(location) => location,
+            _ => return Ok(Value::Null),
+        };
+        let block_header = match storage.get_block_header(block_number)? {
+            Some(header) => header,
+            _ => return Ok(Value::Null),
+        };
+        let block_hash = block_header.compute_block_hash();
+        let transaction =
+            RpcTransaction::build(transaction, block_number, block_hash, index as usize);
+        serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetTransactionReceiptRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionReceiptRequest> {
+impl RpcHandler for GetTransactionReceiptRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionReceiptRequest> {
         let params = params.as_ref()?;
         if params.len() != 1 {
             return None;
@@ -118,10 +231,31 @@ impl GetTransactionReceiptRequest {
             transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested receipt for transaction {}",
+            self.transaction_hash,
+        );
+        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
+            Some(location) => location,
+            _ => return Ok(Value::Null),
+        };
+        let block_header = match storage.get_block_header(block_number)? {
+            Some(block_header) => block_header,
+            _ => return Ok(Value::Null),
+        };
+        let block_body = match storage.get_block_body(block_number)? {
+            Some(block_body) => block_body,
+            _ => return Ok(Value::Null),
+        };
+        let receipts =
+            block::get_all_block_receipts(block_number, block_header, block_body, &storage)?;
+        serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl CreateAccessListRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<CreateAccessListRequest> {
+impl RpcHandler for CreateAccessListRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<CreateAccessListRequest> {
         let params = params.as_ref()?;
         if params.len() > 2 {
             return None;
@@ -136,223 +270,62 @@ impl CreateAccessListRequest {
             block,
         })
     }
-}
-
-pub fn call(request: &CallRequest, storage: Store) -> Result<Value, RpcErr> {
-    let block = request.block.clone().unwrap_or_default();
-    info!("Requested call on block: {}", block);
-    let block_number = match block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let header = match storage.get_block_header(block_number)? {
-        Some(header) => header,
-        // Block not found
-        _ => return Ok(Value::Null),
-    };
-    // Run transaction
-    let data = match ethereum_rust_evm::simulate_tx_from_generic(
-        &request.transaction,
-        &header,
-        &mut evm_state(storage),
-        SpecId::CANCUN,
-    )? {
-        ExecutionResult::Success {
-            reason: _,
-            gas_used: _,
-            gas_refunded: _,
-            logs: _,
-            output,
-        } => match output {
-            ethereum_rust_evm::Output::Call(bytes) => bytes,
-            ethereum_rust_evm::Output::Create(bytes, _) => bytes,
-        },
-        ExecutionResult::Revert {
-            gas_used: _,
-            output,
-        } => {
-            return Err(RpcErr::Revert {
-                data: format!("0x{:#x}", output),
-            });
-        }
-        ExecutionResult::Halt {
-            reason: _,
-            gas_used: _,
-        } => Bytes::new(),
-    };
-    serde_json::to_value(format!("0x{:#x}", data)).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_by_block_number_and_index(
-    request: &GetTransactionByBlockNumberAndIndexRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction at index: {} of block with number: {}",
-        request.transaction_index, request.block,
-    );
-    let block_number = match request.block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let block_header = match storage.get_block_header(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let tx = match block_body.transactions.get(request.transaction_index) {
-        Some(tx) => tx,
-        None => return Ok(Value::Null),
-    };
-    let tx = RpcTransaction::build(
-        tx.clone(),
-        block_number,
-        block_header.compute_block_hash(),
-        request.transaction_index,
-    );
-    serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_by_block_hash_and_index(
-    request: &GetTransactionByBlockHashAndIndexRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction at index: {} of block with hash: {}",
-        request.transaction_index, request.block,
-    );
-    let block_number = match storage.get_block_number(request.block)? {
-        Some(number) => number,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let tx = match block_body.transactions.get(request.transaction_index) {
-        Some(tx) => tx,
-        None => return Ok(Value::Null),
-    };
-    let tx = RpcTransaction::build(
-        tx.clone(),
-        block_number,
-        request.block,
-        request.transaction_index,
-    );
-    serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_by_hash(
-    request: &GetTransactionByHashRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction with hash: {}",
-        request.transaction_hash,
-    );
-    let transaction: ethereum_rust_core::types::Transaction =
-        match storage.get_transaction_by_hash(request.transaction_hash)? {
-            Some(transaction) => transaction,
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        let block = self.block.clone().unwrap_or_default();
+        info!("Requested access list creation for tx on block: {}", block);
+        let block_number = match block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
             _ => return Ok(Value::Null),
         };
-    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash)? {
-        Some(location) => location,
-        _ => return Ok(Value::Null),
-    };
-    let block_header = match storage.get_block_header(block_number)? {
-        Some(header) => header,
-        _ => return Ok(Value::Null),
-    };
-    let block_hash = block_header.compute_block_hash();
-    let transaction = RpcTransaction::build(transaction, block_number, block_hash, index as usize);
-    serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_receipt(
-    request: &GetTransactionReceiptRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested receipt for transaction {}",
-        request.transaction_hash,
-    );
-    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash)? {
-        Some(location) => location,
-        _ => return Ok(Value::Null),
-    };
-    let block_header = match storage.get_block_header(block_number)? {
-        Some(block_header) => block_header,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let receipts = block::get_all_block_receipts(block_number, block_header, block_body, &storage)?;
-    serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
-}
-
-pub fn create_access_list(
-    request: &CreateAccessListRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    let block = request.block.clone().unwrap_or_default();
-    info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let header = match storage.get_block_header(block_number)? {
-        Some(header) => header,
-        // Block not found
-        _ => return Ok(Value::Null),
-    };
-    // Run transaction and obtain access list
-    let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
-        &request.transaction,
-        &header,
-        &mut evm_state(storage),
-        SpecId::CANCUN,
-    )? {
-        (
-            ExecutionResult::Success {
-                reason: _,
+        let header = match storage.get_block_header(block_number)? {
+            Some(header) => header,
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        // Run transaction and obtain access list
+        let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
+            &self.transaction,
+            &header,
+            &mut evm_state(storage),
+            SpecId::CANCUN,
+        )? {
+            (
+                ExecutionResult::Success {
+                    reason: _,
+                    gas_used,
+                    gas_refunded: _,
+                    logs: _,
+                    output: _,
+                },
+                access_list,
+            ) => (gas_used, access_list, None),
+            (
+                ExecutionResult::Revert {
+                    gas_used,
+                    output: _,
+                },
+                access_list,
+            ) => (
                 gas_used,
-                gas_refunded: _,
-                logs: _,
-                output: _,
-            },
-            access_list,
-        ) => (gas_used, access_list, None),
-        (
-            ExecutionResult::Revert {
-                gas_used,
-                output: _,
-            },
-            access_list,
-        ) => (
+                access_list,
+                Some("Transaction Reverted".to_string()),
+            ),
+            (ExecutionResult::Halt { reason, gas_used }, access_list) => {
+                (gas_used, access_list, Some(reason))
+            }
+        };
+        let result = AccessListResult {
+            access_list: access_list
+                .into_iter()
+                .map(|(address, storage_keys)| AccessListEntry {
+                    address,
+                    storage_keys,
+                })
+                .collect(),
+            error,
             gas_used,
-            access_list,
-            Some("Transaction Reverted".to_string()),
-        ),
-        (ExecutionResult::Halt { reason, gas_used }, access_list) => {
-            (gas_used, access_list, Some(reason))
-        }
-    };
-    let result = AccessListResult {
-        access_list: access_list
-            .into_iter()
-            .map(|(address, storage_keys)| AccessListEntry {
-                address,
-                storage_keys,
-            })
-            .collect(),
-        error,
-        gas_used,
-    };
+        };
 
-    serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+    }
 }

@@ -13,14 +13,14 @@ use engine::{
     ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{self, GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
+    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
         GetBlockTransactionCountRequest,
     },
     client,
     transaction::{
-        self, CallRequest, CreateAccessListRequest, GetTransactionByBlockHashAndIndexRequest,
+        CallRequest, CreateAccessListRequest, GetTransactionByBlockHashAndIndexRequest,
         GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
         GetTransactionReceiptRequest,
     },
@@ -159,52 +159,25 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_syncing" => client::syncing(),
         "eth_getBlockByNumber" => GetBlockByNumberRequest::call(req, storage),
         "eth_getBlockByHash" => GetBlockByHashRequest::call(req, storage),
-        "eth_getBalance" => {
-            let request = GetBalanceRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            account::get_balance(&request, storage)
-        }
-        "eth_getCode" => {
-            let request = GetCodeRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            account::get_code(&request, storage)
-        }
-        "eth_getStorageAt" => {
-            let request = GetStorageAtRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            account::get_storage_at(&request, storage)
-        }
+        "eth_getBalance" => GetBalanceRequest::call(req, storage),
+        "eth_getCode" => GetCodeRequest::call(req, storage),
+        "eth_getStorageAt" => GetStorageAtRequest::call(req, storage),
         "eth_getBlockTransactionCountByNumber" => {
             GetBlockTransactionCountRequest::call(req, storage)
         }
         "eth_getBlockTransactionCountByHash" => GetBlockTransactionCountRequest::call(req, storage),
         "eth_getTransactionByBlockNumberAndIndex" => {
-            let request = GetTransactionByBlockNumberAndIndexRequest::parse(&req.params)
-                .ok_or(RpcErr::BadParams)?;
-            transaction::get_transaction_by_block_number_and_index(&request, storage)
+            GetTransactionByBlockNumberAndIndexRequest::call(req, storage)
         }
         "eth_getTransactionByBlockHashAndIndex" => {
-            let request = GetTransactionByBlockHashAndIndexRequest::parse(&req.params)
-                .ok_or(RpcErr::BadParams)?;
-            transaction::get_transaction_by_block_hash_and_index(&request, storage)
+            GetTransactionByBlockHashAndIndexRequest::call(req, storage)
         }
         "eth_getBlockReceipts" => GetBlockReceiptsRequest::call(req, storage),
-        "eth_getTransactionByHash" => {
-            let request =
-                GetTransactionByHashRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            transaction::get_transaction_by_hash(&request, storage)
-        }
-        "eth_getTransactionReceipt" => {
-            let request =
-                GetTransactionReceiptRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            transaction::get_transaction_receipt(&request, storage)
-        }
-        "eth_createAccessList" => {
-            let request = CreateAccessListRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            transaction::create_access_list(&request, storage)
-        }
+        "eth_getTransactionByHash" => GetTransactionByHashRequest::call(req, storage),
+        "eth_getTransactionReceipt" => GetTransactionReceiptRequest::call(req, storage),
+        "eth_createAccessList" => CreateAccessListRequest::call(req, storage),
         "eth_blockNumber" => block::block_number(storage),
-        "eth_call" => {
-            let request = CallRequest::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            transaction::call(&request, storage)
-        }
+        "eth_call" => CallRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
