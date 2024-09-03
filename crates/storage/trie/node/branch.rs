@@ -68,7 +68,8 @@ impl BranchNode {
                 }
                 choice_ref => {
                     let child_node = db
-                        .remove_node(*choice_ref)?
+                        // [Note]: Original impl would remove
+                        .get_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 
                     let (child_node, insert_action) = child_node.insert(db, path)?;
