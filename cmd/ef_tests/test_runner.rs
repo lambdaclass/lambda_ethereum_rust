@@ -37,7 +37,7 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
         // Attempt to add the block as the head of the chain
-        let chain_result = add_block(block, store.clone());
+        let chain_result = add_block(block, &store);
         match chain_result {
             Err(error) => {
                 assert!(
