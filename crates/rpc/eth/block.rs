@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use ethereum_rust_chain::find_parent_header;
 use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
@@ -233,13 +234,8 @@ pub fn get_all_block_receipts(
     if header.parent_hash.is_zero() {
         return Ok(receipts);
     }
-    // Fetch parent header
-    let parent_block_number = match storage.get_block_number(header.parent_hash)? {
-        Some(block_number) => block_number,
-        _ => return Err(RpcErr::Internal),
-    };
-    let parent_header = match storage.get_block_header(parent_block_number)? {
-        Some(header) => header,
+    let parent_header = match find_parent_header(&block.header, storage) {
+        Ok(header) => header,
         _ => return Err(RpcErr::Internal),
     };
     let blob_gas_price = calculate_base_fee_per_blob_gas(parent_header);

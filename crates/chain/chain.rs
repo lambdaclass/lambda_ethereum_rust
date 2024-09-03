@@ -28,7 +28,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     //which are not directly extending the canonical chain
     extends_canonical_chain(block, storage)?;
     // Validate if it can be the new head and find the parent
-    let parent_header = find_parent_header(block, storage)?;
+    let parent_header = find_parent_header(&block.header, storage)?;
     let mut state = evm_state(storage.clone());
 
     // Validate the block pre-execution
@@ -105,8 +105,11 @@ pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
 
 /// Validates if the provided block could be the new head of the chain, and returns the
 /// parent_header in that case
-fn find_parent_header(block: &Block, storage: &Store) -> Result<BlockHeader, ChainError> {
-    let parent_hash = block.header.parent_hash;
+pub fn find_parent_header(
+    block_header: &BlockHeader,
+    storage: &Store,
+) -> Result<BlockHeader, ChainError> {
+    let parent_hash = block_header.parent_hash;
     let parent_number = storage.get_block_number(parent_hash)?;
 
     if let Some(parent_number) = parent_number {
