@@ -170,6 +170,8 @@ mod test {
         run_test(&get_insert_d);
         run_test(&get_insert_e);
         run_test(&get_insert_f);
+        run_test(&get_insert_remove_a);
+        run_test(&get_insert_remove_b);
         run_test(&compute_hash_a);
         run_test(&compute_hash_b);
         run_test(&compute_hash_c);
@@ -217,7 +219,6 @@ mod test {
         assert!(first.is_some());
     }
 
-    // shrinks to paths = [[16], [16, 0]], values = [[0], [0]]
     fn get_insert_a(mut trie: Trie) {
         trie.insert(vec![16], vec![0]).unwrap();
         trie.insert(vec![16, 0], vec![0]).unwrap();
@@ -231,7 +232,6 @@ mod test {
         assert_eq!(item.unwrap(), vec![0]);
     }
 
-    // # shrinks to paths = {[1, 0], [0, 0]}
     fn get_insert_b(mut trie: Trie) {
         trie.insert(vec![0, 0], vec![0, 0]).unwrap();
         trie.insert(vec![1, 0], vec![1, 0]).unwrap();
@@ -254,7 +254,7 @@ mod test {
         )
         .unwrap();
         trie.insert(vec![126, 138, 25, 245, 146], vec![126, 138, 25, 245, 146])
-            .unwrap(); // inserted here
+            .unwrap();
         trie.insert(
             vec![129, 176, 66, 2, 150, 151, 180, 60, 124],
             vec![129, 176, 66, 2, 150, 151, 180, 60, 124],
@@ -277,7 +277,7 @@ mod test {
         );
 
         let item = trie.get(&vec![126, 138, 25, 245, 146]).unwrap();
-        assert!(item.is_some()); // dis fails
+        assert!(item.is_some());
         assert_eq!(item.unwrap(), vec![126, 138, 25, 245, 146]);
 
         let item = trie
@@ -337,6 +337,24 @@ mod test {
         assert_eq!(trie.get(&vec![0x19]).unwrap(), Some(vec![0x19]));
         assert_eq!(trie.get(&vec![0x19, 0x00]).unwrap(), Some(vec![0x19, 0x00]));
         assert_eq!(trie.get(&vec![0x1A]).unwrap(), Some(vec![0x1A]));
+    }
+
+    fn get_insert_remove_a(mut trie: Trie) {
+        trie.insert("do".as_bytes().to_vec(), "verb".as_bytes().to_vec()).unwrap();
+        trie.insert("horse".as_bytes().to_vec(), "stallion".as_bytes().to_vec()).unwrap();
+        trie.insert("doge".as_bytes().to_vec(), "coin".as_bytes().to_vec()).unwrap();
+        trie.remove("horse".as_bytes().to_vec()).unwrap();
+        assert_eq!(trie.get(&"do".as_bytes().to_vec()).unwrap(), Some("verb".as_bytes().to_vec()));
+    }
+
+    fn get_insert_remove_b(mut trie: Trie) {
+        trie.insert(vec![185], vec![185]).unwrap();
+        trie.insert(vec![185, 0], vec![185, 0]).unwrap();
+        trie.insert(vec![185, 1], vec![185, 1]).unwrap();
+        trie.remove(vec![185, 1]).unwrap();
+        assert_eq!(trie.get(&vec![185, 0]).unwrap(), Some(vec![185, 0]));
+        assert_eq!(trie.get(&vec![185]).unwrap(), Some(vec![185]));
+        assert!(trie.get(&vec![185, 1]).unwrap().is_none());
     }
 
     fn compute_hash_a(mut trie: Trie) {
@@ -485,4 +503,3 @@ mod test {
         );
     }
 }
-
