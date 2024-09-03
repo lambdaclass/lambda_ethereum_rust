@@ -55,8 +55,9 @@ impl ExtensionNode {
         self.hash.mark_as_dirty();
 
         if path.skip_prefix(&self.prefix) {
+            // [Note]: Original impl would remove
             let child_node = db
-                .remove_node(self.child)?
+                .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
 
             let (child_node, insert_action) = child_node.insert(db, path)?;
