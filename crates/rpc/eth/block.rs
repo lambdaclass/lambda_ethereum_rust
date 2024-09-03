@@ -243,6 +243,25 @@ pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
     }
 }
 
+pub fn get_blob_base_fee(storage: &Store) -> Result<Value, RpcErr> {
+    info!("Requested blob gas price");
+    match storage.get_latest_block_number() {
+        Ok(Some(block_number)) => {
+            let header = match storage.get_block_header(block_number)? {
+                Some(header) => header,
+                _ => return Err(RpcErr::Internal),
+            };
+            let parent_header = match find_parent_header(&header, storage) {
+                Ok(header) => header,
+                _ => return Err(RpcErr::Internal),
+            };
+            let blob_base_fee = calculate_base_fee_per_blob_gas(parent_header);
+            serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
+        }
+        _ => Err(RpcErr::Internal),
+    }
+}
+
 impl Display for BlockIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
