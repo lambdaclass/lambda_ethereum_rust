@@ -14,9 +14,9 @@ use ethereum_rust_core::{
 };
 use k256::PublicKey;
 use sha3::{Digest, Keccak256};
+use snap::raw::{max_compress_len, Encoder as SnappyEncoder};
 use std::pin::pin;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use snap::raw::{max_compress_len, Encoder as SnappyEncoder};
 
 const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)]; //, ("eth", 68), ("snap", 1)];
 
