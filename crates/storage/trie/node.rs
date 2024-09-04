@@ -12,7 +12,6 @@ use super::{
     db::{PathRLP, TrieDB, ValueRLP},
     hashing::NodeHashRef,
     nibble::NibbleSlice,
-    node_ref::NodeRef,
 };
 
 #[derive(Debug)]
@@ -20,31 +19,6 @@ pub enum Node {
     Branch(BranchNode),
     Extension(ExtensionNode),
     Leaf(LeafNode),
-}
-
-/// Returned by .insert() to update the values' storage.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum InsertAction {
-    /// An insertion is required. The argument points to a node.
-    Insert(NodeRef),
-    /// A replacement is required. The argument points to a value.
-    Replace(PathRLP),
-
-    /// Special insert where its node_ref is not known.
-    InsertSelf,
-
-    /// Do nothing
-    NoOp,
-}
-
-impl InsertAction {
-    /// Replace `Self::InsertSelf` with `Self::Insert(node_ref)`.
-    pub fn quantize_self(&self, node_ref: NodeRef) -> Self {
-        match self {
-            Self::InsertSelf => Self::Insert(node_ref),
-            _ => self.clone(),
-        }
-    }
 }
 
 impl From<BranchNode> for Node {
@@ -74,12 +48,13 @@ impl Node {
         }
     }
 
+    /// Inserts a value into the subtree that has this node as its root and returns the new root of the subtree
     pub fn insert(
         self,
         db: &mut TrieDB,
         path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<(Node, InsertAction), StoreError> {
+    ) -> Result<Node, StoreError> {
         match self {
             Node::Branch(n) => n.insert(db, path, value),
             Node::Extension(n) => n.insert(db, path, value),

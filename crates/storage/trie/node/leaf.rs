@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-use super::{ExtensionNode, InsertAction, Node};
+use super::{ExtensionNode, Node};
 
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
@@ -52,7 +52,7 @@ impl LeafNode {
         db: &mut TrieDB,
         path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<(Node, InsertAction), StoreError> {
+    ) -> Result<Node, StoreError> {
         // Possible flow paths:
         //   leaf { path => value } -> leaf { path => value }
         //   leaf { path => value } -> branch { 0 => leaf { path => value }, 1 => leaf { path => value } }
@@ -62,7 +62,7 @@ impl LeafNode {
         self.hash.mark_as_dirty();
         if path.cmp_rest(&self.path) {
             self.value = value;
-            Ok((self.clone().into(), InsertAction::NoOp))
+            Ok(self.clone().into())
         } else {
             let offset = path.clone().count_prefix_slice(&{
                 let mut value_path = NibbleSlice::new(&self.path);
@@ -116,7 +116,7 @@ impl LeafNode {
                 branch_node.into()
             };
 
-            Ok((final_node, InsertAction::NoOp))
+            Ok(final_node)
         }
     }
 
@@ -233,8 +233,8 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x12]), vec![])
+        let node = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12]), vec![0x13])
             .unwrap();
         let node = match node {
             Node::Leaf(x) => x,
@@ -242,8 +242,8 @@ mod test {
         };
 
         assert_eq!(node.path, vec![0x12]);
+        assert_eq!(node.value, vec![0x13]);
         assert!(node.hash.extract_ref().is_none());
-        assert_eq!(insert_action, InsertAction::Replace(vec![0x12]));
     }
 
     fn insert_branch(mut trie: Trie) {
@@ -251,14 +251,18 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x22]), vec![])
+        let node = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x22]), vec![0x23])
             .unwrap();
-        let _ = match node {
+        let node = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
+        assert!(node
+            .choices
+            .iter()
+            .find(|x| x == &&NodeRef::new(0))
+            .is_some());
     }
 
     fn insert_extension_branch(mut trie: Trie) {
@@ -266,14 +270,14 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node
+        let node = node
             .insert(&mut trie.db, NibbleSlice::new(&[0x13]), vec![])
             .unwrap();
-        let _ = match node {
+        let node = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
+        assert_eq!(node.child, NodeRef::new(0));
     }
 
     fn insert_extension_branch_value_self(mut trie: Trie) {
@@ -281,14 +285,14 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node
+        let node = node
             .insert(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]), vec![])
             .unwrap();
-        let _ = match node {
+        let node = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(0)));
+        assert_eq!(node.child, NodeRef::new(0));
     }
 
     fn insert_extension_branch_value_other(mut trie: Trie) {
@@ -296,14 +300,14 @@ mod test {
             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        let (node, insert_action) = node
+        let node = node
             .insert(&mut trie.db, NibbleSlice::new(&[0x12]), vec![])
             .unwrap();
-        let _ = match node {
+        let node = match node {
             Node::Extension(x) => x,
             _ => panic!("expected an extension node"),
         };
-        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(1)));
+        assert_eq!(node.child, NodeRef::new(1));
     }
 
     // An insertion that returns branch [value=(x)] -> leaf (y) is not possible because of the path

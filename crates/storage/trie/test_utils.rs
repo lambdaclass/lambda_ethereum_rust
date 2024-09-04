@@ -91,8 +91,8 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {
         {
-            $trie.db.insert_value($path.clone(), $value).unwrap();
-            $crate::trie::node::LeafNode::new($path)
+            $trie.db.insert_value($path.clone(), $value.clone()).unwrap();
+            $crate::trie::node::LeafNode::new_v2($path, $value)
         }
     };
 }

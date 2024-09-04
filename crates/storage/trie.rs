@@ -13,7 +13,7 @@ use self::{
     db::{PathRLP, TrieDB, ValueRLP},
     hashing::{NodeHashRef, Output},
     nibble::NibbleSlice,
-    node::{InsertAction, LeafNode},
+    node::LeafNode,
     node_ref::NodeRef,
 };
 use crate::error::StoreError;
@@ -51,11 +51,7 @@ impl Trie {
 
     /// Insert a value into the tree.
     /// TODO: Make inputs T: RLPEncode (we will ignore generics for now)
-    pub fn insert(
-        &mut self,
-        path: PathRLP,
-        value: ValueRLP,
-    ) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
         println!("[INSERT]: {:?}: {:?}", path, value);
         // TODO: Remove
         self.db.insert_value(path.clone(), value.clone())?;
@@ -64,25 +60,14 @@ impl Trie {
         // [Note]: Original impl would remove
         if let Some(root_node) = self.db.get_node(self.root_ref)? {
             // If the tree is not empty, call the root node's insertion logic
-            let (root_node, insert_action) =
+            let root_node =
                 root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
             self.root_ref = self.db.insert_node(root_node)?;
-
-            match insert_action.quantize_self(self.root_ref) {
-                InsertAction::Insert(node_ref) => {
-                    self.db.insert_value(path.clone(), value.clone())?;
-                    self.db.update_node(node_ref, path, value)?;
-                    Ok(None)
-                }
-                InsertAction::Replace(path) => self.db.replace_value(path, value),
-                InsertAction::NoOp => Ok(None),
-                _ => unreachable!(),
-            }
         } else {
             // If the tree is empty, just add a leaf.
             self.root_ref = self.db.insert_node(LeafNode::new_v2(path, value).into())?;
-            Ok(None)
         }
+        Ok(())
     }
 
     /// Remove a value from the tree.

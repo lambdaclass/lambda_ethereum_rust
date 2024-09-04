@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-use super::{ExtensionNode, InsertAction, LeafNode, Node};
+use super::{ExtensionNode, LeafNode, Node};
 
 #[derive(Debug, Clone)]
 pub struct BranchNode {
@@ -71,7 +71,7 @@ impl BranchNode {
         db: &mut TrieDB,
         mut path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<(Node, InsertAction), StoreError> {
+    ) -> Result<Node, StoreError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
 
@@ -89,23 +89,18 @@ impl BranchNode {
                         .get_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 
-                    let (child_node, _insert_action) =
-                        child_node.insert(db, path.clone(), value.clone())?;
-                    // TODO: value should be written by child.insert
+                    let child_node = child_node.insert(db, path.clone(), value.clone())?;
                     *choice_ref = db.insert_node(child_node)?;
                 }
             },
             None => {
                 if !self.path.is_empty() {
-                    //InsertAction::Replace(self.path.clone())
                     self.update(path.data(), value);
-                } else {
-                    //InsertAction::InsertSelf
                 }
             }
         };
 
-        Ok((self.clone().into(), InsertAction::NoOp))
+        Ok(self.clone().into())
     }
 
     pub fn remove(
@@ -402,14 +397,14 @@ mod test {
             }
         };
 
-        let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[]), vec![])
+        let node = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x2]), vec![0x3])
             .unwrap();
-        let _ = match node {
+        let _: BranchNode = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert_eq!(insert_action, InsertAction::InsertSelf);
+        // TODO
     }
 
     fn insert_choice(mut trie: Trie) {
@@ -420,14 +415,14 @@ mod test {
             }
         };
 
-        let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x20]), vec![])
+        let node = node
+            .insert(&mut trie.db, NibbleSlice::new(&[0x20]), vec![0x21])
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert_eq!(insert_action, InsertAction::Insert(NodeRef::new(2)));
+        // TODO
     }
 
     fn insert_passthrough(mut trie: Trie) {
@@ -439,7 +434,7 @@ mod test {
         };
 
         // The extension node is ignored since it's irrelevant in this test.
-        let (node, insert_action) = node
+        let node = node
             .insert(
                 &mut trie.db,
                 {
@@ -447,14 +442,14 @@ mod test {
                     nibble_slice.offset_add(2);
                     nibble_slice
                 },
-                vec![],
+                vec![0x1],
             )
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert_eq!(insert_action, InsertAction::InsertSelf);
+        // TODO
     }
 
     fn remove_choice_into_inner(mut trie: Trie) {
