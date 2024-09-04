@@ -74,21 +74,19 @@ impl LeafNode {
             path_branch.offset_add(offset);
 
             let absolute_offset = path_branch.offset();
-            let (branch_node, mut insert_action) = if absolute_offset == 2 * path.as_ref().len() {
+            let branch_node = if absolute_offset == 2 * path.as_ref().len() {
                 let mut choices = [Default::default(); 16];
                 // TODO: Dedicated method.
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] = db.insert_node(self.clone().into())?;
 
-                let branch_node = BranchNode::new_v2(choices, path.data(), value.clone());
-
-                (branch_node, InsertAction::NoOp)
+                BranchNode::new_v2(choices, path.data(), value.clone())
             } else if absolute_offset == 2 * self.path.len() {
                 let new_leaf = LeafNode::new_v2(path.data(), value.clone());
 
                 let child_ref = db.insert_node(new_leaf.into())?;
-                let branch_node = BranchNode::new_v2(
+                BranchNode::new_v2(
                     {
                         let mut choices = [Default::default(); 16];
                         choices[path_branch.next().unwrap() as usize] = child_ref;
@@ -96,36 +94,29 @@ impl LeafNode {
                     },
                     self.path.clone(),
                     self.value,
-                );
-
-                (branch_node, InsertAction::NoOp)
+                )
             } else {
                 let new_leaf = LeafNode::new_v2(path.data(), value.clone());
 
                 let child_ref = db.insert_node(new_leaf.into())?;
-                (
-                    BranchNode::new({
-                        let mut choices = [Default::default(); 16];
-                        choices[NibbleSlice::new(self.path.as_ref())
-                            .nth(absolute_offset)
-                            .unwrap() as usize] = db.insert_node(self.clone().into())?;
-                        choices[path_branch.next().unwrap() as usize] = child_ref;
-                        choices
-                    }),
-                    InsertAction::NoOp,
-                )
+                BranchNode::new({
+                    let mut choices = [Default::default(); 16];
+                    choices[NibbleSlice::new(self.path.as_ref())
+                        .nth(absolute_offset)
+                        .unwrap() as usize] = db.insert_node(self.clone().into())?;
+                    choices[path_branch.next().unwrap() as usize] = child_ref;
+                    choices
+                })
             };
 
             let final_node = if offset != 0 {
                 let branch_ref = db.insert_node(Node::Branch(branch_node))?;
-                insert_action = insert_action.quantize_self(branch_ref);
-
                 ExtensionNode::new(path.split_to_vec(offset), branch_ref).into()
             } else {
                 branch_node.into()
             };
 
-            Ok(dbg!((final_node, insert_action)))
+            Ok((final_node, InsertAction::NoOp))
         }
     }
 
