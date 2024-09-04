@@ -18,15 +18,7 @@ pub struct LeafNode {
 }
 
 impl LeafNode {
-    pub fn new(path: PathRLP) -> Self {
-        Self {
-            hash: Default::default(),
-            path,
-            value: Default::default(),
-        }
-    }
-    // TODO: move to new
-    pub fn new_v2(path: PathRLP, value: ValueRLP) -> Self {
+    pub fn new(path: PathRLP, value: ValueRLP) -> Self {
         Self {
             hash: Default::default(),
             path,
@@ -81,12 +73,12 @@ impl LeafNode {
                     .nth(absolute_offset)
                     .unwrap() as usize] = db.insert_node(self.clone().into())?;
 
-                BranchNode::new_v2(choices, path.data(), value.clone())
+                BranchNode::new_with_value(choices, path.data(), value.clone())
             } else if absolute_offset == 2 * self.path.len() {
-                let new_leaf = LeafNode::new_v2(path.data(), value.clone());
+                let new_leaf = LeafNode::new(path.data(), value.clone());
 
                 let child_ref = db.insert_node(new_leaf.into())?;
-                BranchNode::new_v2(
+                BranchNode::new_with_value(
                     {
                         let mut choices = [Default::default(); 16];
                         choices[path_branch.next().unwrap() as usize] = child_ref;
@@ -96,7 +88,7 @@ impl LeafNode {
                     self.value,
                 )
             } else {
-                let new_leaf = LeafNode::new_v2(path.data(), value.clone());
+                let new_leaf = LeafNode::new(path.data(), value.clone());
 
                 let child_ref = db.insert_node(new_leaf.into())?;
                 BranchNode::new({
@@ -178,8 +170,9 @@ mod test {
 
     #[test]
     fn new() {
-        let node = LeafNode::new(Default::default());
+        let node = LeafNode::new(Default::default(), Default::default());
         assert_eq!(node.path, PathRLP::default());
+        assert_eq!(node.value, PathRLP::default());
     }
 
     const LEAF_TEST_DIR: &str = "leaf-test-db";

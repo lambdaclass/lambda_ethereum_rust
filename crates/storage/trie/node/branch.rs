@@ -27,8 +27,8 @@ impl BranchNode {
             value: Default::default(),
         }
     }
-    // TODO: move to new
-    pub fn new_v2(choices: [NodeRef; 16], path: PathRLP, value: ValueRLP) -> Self {
+
+    pub fn new_with_value(choices: [NodeRef; 16], path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
             hash: Default::default(),
@@ -79,7 +79,7 @@ impl BranchNode {
         match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
                 choice_ref if !choice_ref.is_valid() => {
-                    let new_leaf = LeafNode::new_v2(path.data(), value);
+                    let new_leaf = LeafNode::new(path.data(), value);
                     let child_ref = db.insert_node(new_leaf.into())?;
                     *choice_ref = child_ref;
                 }
@@ -199,7 +199,7 @@ impl BranchNode {
 
         let new_node = match (child_ref, !self.path.is_empty()) {
             (Some(_), true) => Some(self.into()),
-            (None, true) => Some(LeafNode::new(self.path).into()),
+            (None, true) => Some(LeafNode::new(self.path, self.value).into()),
             (Some(x), false) => Some(
                 db.get_node(*x)?
                     .expect("inconsistent internal tree structure"),

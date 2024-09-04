@@ -84,11 +84,11 @@ impl ExtensionNode {
             let mut choices = [Default::default(); 16];
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
-                let new_leaf = LeafNode::new_v2(path.data(), value);
+                let new_leaf = LeafNode::new(path.data(), value);
                 choices[c as usize] = db.insert_node(new_leaf.into())?;
                 BranchNode::new(choices)
             } else {
-                BranchNode::new_v2(choices, path.data(), value)
+                BranchNode::new_with_value(choices, path.data(), value)
             };
 
             // Prefix left node (if any, child is branch_node).
