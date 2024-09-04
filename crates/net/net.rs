@@ -165,22 +165,26 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     udp_addr.set_port(tcp_addr.port() + 1);
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
 
+    info!("Serving requests");
+
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_tcp_addr = "127.0.0.1:54139";
-    let str_udp_addr = "127.0.0.1:50073";
+    let str_tcp_addr = "127.0.0.1:30307";
+    let str_udp_addr = "127.0.0.1:30307";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
     let (msg, sig_bytes, endpoint) = loop {
+        info!("Sending ping");
         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
+        info!("Ping sent");
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        info!("Received {read} bytes from {from}");
+        info!("RLPx - Received {read} bytes from {from}");
         let packet = Packet::decode(&buf[..read]).unwrap();
-        info!("Message: {:?}", packet);
+        info!("RLPx - Message: {:?}", packet);
 
         match packet.get_message() {
             Message::Pong(pong) => {
@@ -194,6 +198,8 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
             }
         };
     };
+
+    info!("Exited loop");
 
     let digest = Keccak256::digest(msg);
     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
@@ -210,11 +216,15 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         .tcp_address()
         .unwrap_or(str_tcp_addr.parse().unwrap());
 
+    info!("About to establish stream connection: {tcp_addr}");
+
     let mut stream = TcpSocket::new_v4()
         .unwrap()
         .connect(tcp_addr)
         .await
         .unwrap();
+
+    info!("Established stream connection");
 
     stream.write_all(&auth_message).await.unwrap();
     info!("Sent auth message correctly!");
@@ -234,11 +244,11 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
         .send_hello(&PublicKey::from(signer.verifying_key()), &mut stream)
         .await;
 
-    let _conn = pending_conn.receive_hello(&mut stream).await;
+    let mut conn = pending_conn.receive_hello(&mut stream).await;
 
     info!("Completed Hello roundtrip!");
 
-    // TODO: messages after the Hello must be snappy compressed
+    conn.send_ping(&mut stream).await;
 }
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
