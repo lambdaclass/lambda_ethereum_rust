@@ -76,12 +76,12 @@ impl BranchNode {
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
 
         self.hash.mark_as_dirty();
-        let insert_action = match path.next() {
+        match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
                 choice_ref if !choice_ref.is_valid() => {
-                    let child_ref = db.insert_node(LeafNode::default().into())?;
+                    let new_leaf = LeafNode::new_v2(path.data(), value);
+                    let child_ref = db.insert_node(new_leaf.into())?;
                     *choice_ref = child_ref;
-                    InsertAction::Insert(child_ref)
                 }
                 choice_ref => {
                     let child_node = db
@@ -89,22 +89,23 @@ impl BranchNode {
                         .get_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 
-                    let (child_node, insert_action) = child_node.insert(db, path, value)?;
+                    let (child_node, _insert_action) =
+                        child_node.insert(db, path.clone(), value.clone())?;
+                    // TODO: value should be written by child.insert
                     *choice_ref = db.insert_node(child_node)?;
-
-                    insert_action.quantize_self(*choice_ref)
                 }
             },
             None => {
                 if !self.path.is_empty() {
-                    InsertAction::Replace(self.path.clone())
+                    //InsertAction::Replace(self.path.clone())
+                    self.update(path.data(), value);
                 } else {
-                    InsertAction::InsertSelf
+                    //InsertAction::InsertSelf
                 }
             }
         };
 
-        Ok((self.clone().into(), insert_action))
+        Ok((self.clone().into(), InsertAction::NoOp))
     }
 
     pub fn remove(

@@ -56,7 +56,7 @@ impl Trie {
         path: PathRLP,
         value: ValueRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
-        println!("[INSERT]: {:?}", path);
+        println!("[INSERT]: {:?}: {:?}", path, value);
         // TODO: Remove
         self.db.insert_value(path.clone(), value.clone())?;
         // Mark hash as dirty

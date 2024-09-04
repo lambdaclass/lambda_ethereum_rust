@@ -63,8 +63,7 @@ impl ExtensionNode {
 
             let (child_node, insert_action) = child_node.insert(db, path, value)?;
             self.child = db.insert_node(child_node)?;
-
-            let insert_action = insert_action.quantize_self(self.child);
+            debug_assert_eq!(insert_action, InsertAction::NoOp);
             Ok((self.into(), insert_action))
         } else {
             let offset = path.clone().count_prefix_vec(&self.prefix);
@@ -82,17 +81,16 @@ impl ExtensionNode {
             };
 
             // Branch node (child is prefix right or self.child_ref).
-            let mut insert_node_ref = None;
-            let branch_node = BranchNode::new({
-                let mut choices = [Default::default(); 16];
-                choices[choice as usize] = right_prefix_node;
-                if let Some(c) = path.next() {
-                    choices[c as usize] =
-                        db.insert_node(LeafNode::new(Default::default()).into())?;
-                    insert_node_ref = Some(choices[c as usize]);
-                }
-                choices
-            });
+            //let mut insert_node_ref = None;
+            let mut choices = [Default::default(); 16];
+            choices[choice as usize] = right_prefix_node;
+            let branch_node = if let Some(c) = path.next() {
+                let new_leaf = LeafNode::new_v2(path.data(), value);
+                choices[c as usize] = db.insert_node(new_leaf.into())?;
+                BranchNode::new(choices)
+            } else {
+                BranchNode::new_v2(choices, path.data(), value)
+            };
 
             // Prefix left node (if any, child is branch_node).
             match left_prefix {
@@ -101,13 +99,10 @@ impl ExtensionNode {
 
                     Ok((
                         ExtensionNode::new(left_prefix, branch_ref).into(),
-                        InsertAction::Insert(insert_node_ref.unwrap_or(branch_ref)),
+                        InsertAction::NoOp,
                     ))
                 }
-                None => match insert_node_ref {
-                    Some(child_ref) => Ok((branch_node.into(), InsertAction::Insert(child_ref))),
-                    None => Ok((branch_node.into(), InsertAction::InsertSelf)),
-                },
+                None => Ok((branch_node.into(), InsertAction::NoOp)),
             }
         }
     }
