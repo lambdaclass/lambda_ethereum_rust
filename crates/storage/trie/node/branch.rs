@@ -162,6 +162,10 @@ impl BranchNode {
                 })
             });
 
+        if value.is_some() {
+            self.hash.mark_as_dirty();
+        }
+
         let child_ref = match choice_count {
             Ok(Some((choice_index, child_ref))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();
@@ -180,10 +184,10 @@ impl BranchNode {
                         )?;
                     }
                     Node::Extension(mut extension_node) => {
+                        debug_assert!(self.path.is_empty()); // Sanity check
                         extension_node.prefix.prepend(choice_index);
-                        // As this node was changed we need to update it on the DB
-                        // We need to not do this
-                        db.update_node_bis(*child_ref, extension_node.into())?;
+                        // Return node here so we don't have to update it in the DB and then fetch it
+                        return Ok((Some(extension_node.into()), value));
                     }
                     _ => {}
                 }
@@ -193,15 +197,11 @@ impl BranchNode {
             _ => None,
         };
 
-        if value.is_some() {
-            self.hash.mark_as_dirty();
-        }
-
         let new_node = match (child_ref, !self.path.is_empty()) {
             (Some(_), true) => Some(self.into()),
             (None, true) => Some(LeafNode::new(self.path).into()),
             (Some(x), false) => Some(
-                db.remove_node(*x)?
+                db.get_node(*x)?
                     .expect("inconsistent internal tree structure"),
             ),
             (None, false) => Some(self.into()),
