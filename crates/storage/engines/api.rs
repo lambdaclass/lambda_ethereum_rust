@@ -117,6 +117,14 @@ pub trait StoreEngine: Debug + Send {
         self.get_account_code(code_hash)
     }
 
+    /// Obtain account nonce via account address
+    fn get_nonce_by_account_address(&self, address: Address) -> Result<Option<u64>, StoreError> {
+        let nonce = self
+            .get_account_info(address)?
+            .map(|acc_info| acc_info.nonce);
+        Ok(nonce)
+    }
+
     fn get_transaction_by_hash(
         &self,
         transaction_hash: H256,
