@@ -122,12 +122,11 @@ impl LeafNode {
 
     pub fn remove(
         self,
-        db: &mut TrieDB,
+        _db: &mut TrieDB,
         path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         Ok(if path.cmp_rest(&self.path) {
-            let value = db.remove_value(self.path.clone())?;
-            (None, value)
+            (None, Some(self.value))
         } else {
             (Some(self.into()), None)
         })

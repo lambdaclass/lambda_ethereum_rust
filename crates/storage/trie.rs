@@ -79,7 +79,7 @@ impl Trie {
 
         let root_node = self
             .db
-            .remove_node(self.root_ref)?
+            .get_node(self.root_ref)?
             .expect("inconsistent internal tree structure");
         let (root_node, old_value) = root_node.remove(&mut self.db, NibbleSlice::new(&path))?;
         self.root_ref = match root_node {

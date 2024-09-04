@@ -115,7 +115,8 @@ impl ExtensionNode {
 
         if path.skip_prefix(&self.prefix) {
             let child_node = db
-                .remove_node(self.child)?
+                //[NOTE] reference impl would remove
+                .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
 
             let (child_node, old_value) = child_node.remove(db, path)?;

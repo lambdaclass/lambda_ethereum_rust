@@ -120,7 +120,8 @@ impl BranchNode {
             Some(choice_index) => {
                 if self.choices[choice_index as usize].is_valid() {
                     let child_node = db
-                        .remove_node(self.choices[choice_index as usize])?
+                        // [NOTE] Reference impl would remove
+                        .get_node(self.choices[choice_index as usize])?
                         .expect("inconsistent internal tree structure");
                     let (child_node, old_value) = child_node.remove(db, path)?;
                     if let Some(child_node) = child_node {
@@ -135,9 +136,11 @@ impl BranchNode {
             }
             None => {
                 if !self.path.is_empty() {
-                    let value = db.remove_value(self.path.clone())?;
+                    let value = self.value;
                     self.path = Default::default();
-                    value
+                    self.value = Default::default();
+
+                    (!value.is_empty()).then_some(value)
                 } else {
                     None
                 }
@@ -179,6 +182,7 @@ impl BranchNode {
                     Node::Extension(mut extension_node) => {
                         extension_node.prefix.prepend(choice_index);
                         // As this node was changed we need to update it on the DB
+                        // We need to not do this
                         db.update_node_bis(*child_ref, extension_node.into())?;
                     }
                     _ => {}
