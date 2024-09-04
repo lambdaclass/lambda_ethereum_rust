@@ -80,8 +80,7 @@ impl Trie {
             }
         } else {
             // If the tree is empty, just add a leaf.
-            self.db.insert_value(path.clone(), value)?;
-            self.root_ref = self.db.insert_node(LeafNode::new(path).into())?;
+            self.root_ref = self.db.insert_node(LeafNode::new_v2(path, value).into())?;
             Ok(None)
         }
     }
@@ -206,7 +205,7 @@ mod test {
     fn get_insert_zero(mut trie: Trie) {
         trie.insert(vec![0x0], b"value".to_vec()).unwrap();
         let first = trie.get(&[0x0][..].to_vec()).unwrap();
-        assert!(first.is_some());
+        assert_eq!(first, Some(b"value".to_vec()));
     }
 
     fn get_insert_a(mut trie: Trie) {
