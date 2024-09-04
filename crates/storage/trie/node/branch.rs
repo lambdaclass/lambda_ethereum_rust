@@ -15,6 +15,7 @@ pub struct BranchNode {
     pub hash: NodeHash,
     pub choices: [NodeRef; 16],
     pub path: PathRLP,
+    pub value: ValueRLP,
 }
 
 impl BranchNode {
@@ -23,11 +24,26 @@ impl BranchNode {
             choices,
             hash: Default::default(),
             path: Default::default(),
+            value: Default::default(),
+        }
+    }
+    // TODO: move to new
+    pub fn new_v2(choices: [NodeRef; 16], path: PathRLP, value: ValueRLP) -> Self {
+        Self {
+            choices,
+            hash: Default::default(),
+            path,
+            value,
         }
     }
 
     pub fn update_path(&mut self, new_path: PathRLP) {
         self.path = new_path
+    }
+
+    pub fn update(&mut self, new_path: PathRLP, new_value: ValueRLP) {
+        self.path = new_path;
+        self.value = new_value;
     }
 
     pub fn get(&self, db: &TrieDB, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
@@ -54,6 +70,7 @@ impl BranchNode {
         mut self,
         db: &mut TrieDB,
         mut path: NibbleSlice,
+        value: ValueRLP,
     ) -> Result<(Node, InsertAction), StoreError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
@@ -72,7 +89,7 @@ impl BranchNode {
                         .get_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 
-                    let (child_node, insert_action) = child_node.insert(db, path)?;
+                    let (child_node, insert_action) = child_node.insert(db, path, value)?;
                     *choice_ref = db.insert_node(child_node)?;
 
                     insert_action.quantize_self(*choice_ref)
@@ -166,7 +183,7 @@ impl BranchNode {
                     Node::Extension(mut extension_node) => {
                         extension_node.prefix.prepend(choice_index);
                         // As this node was changed we need to update it on the DB
-                        db.update_node(*child_ref, extension_node.into())?;
+                        db.update_node_bis(*child_ref, extension_node.into())?;
                     }
                     _ => {}
                 }
@@ -384,7 +401,9 @@ mod test {
             }
         };
 
-        let (node, insert_action) = node.insert(&mut trie.db, NibbleSlice::new(&[])).unwrap();
+        let (node, insert_action) = node
+            .insert(&mut trie.db, NibbleSlice::new(&[]), vec![])
+            .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
@@ -401,7 +420,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x20]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x20]), vec![])
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
@@ -420,11 +439,15 @@ mod test {
 
         // The extension node is ignored since it's irrelevant in this test.
         let (node, insert_action) = node
-            .insert(&mut trie.db, {
-                let mut nibble_slice = NibbleSlice::new(&[0x00]);
-                nibble_slice.offset_add(2);
-                nibble_slice
-            })
+            .insert(
+                &mut trie.db,
+                {
+                    let mut nibble_slice = NibbleSlice::new(&[0x00]);
+                    nibble_slice.offset_add(2);
+                    nibble_slice
+                },
+                vec![],
+            )
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,

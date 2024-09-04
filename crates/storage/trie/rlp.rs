@@ -31,6 +31,7 @@ impl RLPEncode for BranchNode {
             .encode_field(&self.hash)
             .encode_field(&self.choices.to_vec())
             .encode_field(&self.path)
+            .encode_field(&self.value)
             .finish()
     }
 }
@@ -50,6 +51,7 @@ impl RLPEncode for LeafNode {
         Encoder::new(buf)
             .encode_field(&self.hash)
             .encode_field(&self.path)
+            .encode_field(&self.value)
             .finish()
     }
 }
@@ -65,11 +67,13 @@ impl RLPDecode for BranchNode {
             .try_into()
             .map_err(|_| RLPDecodeError::Custom(CHOICES_LEN_ERROR_MSG.to_string()))?;
         let (path, decoder) = decoder.decode_field("path")?;
+        let (value, decoder) = decoder.decode_field("value")?;
         Ok((
             Self {
                 hash,
                 choices,
                 path,
+                value,
             },
             decoder.finish()?,
         ))
@@ -98,7 +102,8 @@ impl RLPDecode for LeafNode {
         let decoder = Decoder::new(rlp)?;
         let (hash, decoder) = decoder.decode_field("hash")?;
         let (path, decoder) = decoder.decode_field("path")?;
-        Ok((Self { hash, path }, decoder.finish()?))
+        let (value, decoder) = decoder.decode_field("value")?;
+        Ok((Self { hash, path, value }, decoder.finish()?))
     }
 }
 

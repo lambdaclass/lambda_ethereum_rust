@@ -53,19 +53,20 @@ impl TrieDB {
         Ok(node_ref)
     }
 
-    pub fn update_node(&mut self, node_ref: NodeRef, node: Node) -> Result<(), StoreError> {
+    pub fn update_node_bis(&mut self, node_ref: NodeRef, node: Node) -> Result<(), StoreError> {
         println!("Update Node: {} : {}", *node_ref, node.info());
         self.write::<Nodes>(node_ref.into(), node.encode_to_vec())
     }
 
-    /// Updates a node's path only if it was previously empty
-    pub fn update_node_path(
+    /// Updates a node's path & value only if they were previously empty
+    pub fn update_node(
         &mut self,
         node_ref: NodeRef,
         new_path: PathRLP,
+        new_value: PathRLP,
     ) -> Result<(), StoreError> {
         if let Some(mut node) = self.get_node(node_ref)? {
-            node.try_update_path(new_path)?;
+            node.try_update(new_path, new_value)?;
             println!("Update Node Path: {} : {}", *node_ref, node.info());
             self.write::<Nodes>(node_ref.into(), node.encode_to_vec())?;
         }
@@ -91,7 +92,7 @@ impl TrieDB {
     }
 
     pub fn insert_value(&self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
-        debug_assert!(!path.is_empty()); // Sanity check
+        //debug_assert!(!path.is_empty()); // Sanity check
         self.write::<Values>(path, value)
     }
 

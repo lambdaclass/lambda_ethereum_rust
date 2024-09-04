@@ -14,6 +14,7 @@ use super::{ExtensionNode, InsertAction, Node};
 pub struct LeafNode {
     pub hash: NodeHash,
     pub path: PathRLP,
+    pub value: ValueRLP,
 }
 
 impl LeafNode {
@@ -21,11 +22,21 @@ impl LeafNode {
         Self {
             hash: Default::default(),
             path,
+            value: Default::default(),
+        }
+    }
+    // TODO: move to new
+    pub fn new_v2(path: PathRLP, value: ValueRLP) -> Self {
+        Self {
+            hash: Default::default(),
+            path,
+            value,
         }
     }
 
-    pub fn update_path(&mut self, new_path: PathRLP) {
-        self.path = new_path
+    pub fn update(&mut self, new_path: PathRLP, new_value: ValueRLP) {
+        self.path = new_path;
+        self.value = new_value;
     }
 
     pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
@@ -40,6 +51,7 @@ impl LeafNode {
         mut self,
         db: &mut TrieDB,
         path: NibbleSlice,
+        value: ValueRLP,
     ) -> Result<(Node, InsertAction), StoreError> {
         // Possible flow paths:
         //   leaf { path => value } -> leaf { path => value }
@@ -47,14 +59,10 @@ impl LeafNode {
         //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value }, 1 => leaf { path => value } } }
         //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value } } with_value leaf { path => value } }
         //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value } } with_value leaf { path => value } } // leafs swapped
-
         self.hash.mark_as_dirty();
-
         if path.cmp_rest(&self.path) {
-            Ok((
-                Node::Leaf(self.clone()),
-                InsertAction::Replace(self.path.clone()),
-            ))
+            self.value = value;
+            Ok((self.clone().into(), InsertAction::NoOp))
         } else {
             let offset = path.clone().count_prefix_slice(&{
                 let mut value_path = NibbleSlice::new(&self.path);
@@ -67,29 +75,34 @@ impl LeafNode {
 
             let absolute_offset = path_branch.offset();
             let (branch_node, mut insert_action) = if absolute_offset == 2 * path.as_ref().len() {
-                (
-                    BranchNode::new({
-                        let mut choices = [Default::default(); 16];
-                        // TODO: Dedicated method.
-                        choices[NibbleSlice::new(self.path.as_ref())
-                            .nth(absolute_offset)
-                            .unwrap() as usize] = db.insert_node(self.clone().into())?;
-                        choices
-                    }),
-                    InsertAction::InsertSelf,
-                )
-            } else if absolute_offset == 2 * self.path.len() {
-                let child_ref = db.insert_node(LeafNode::default().into())?;
-                let mut branch_node = BranchNode::new({
-                    let mut choices = [Default::default(); 16];
-                    choices[path_branch.next().unwrap() as usize] = child_ref;
-                    choices
-                });
-                branch_node.update_path(self.path.clone());
+                let mut choices = [Default::default(); 16];
+                // TODO: Dedicated method.
+                choices[NibbleSlice::new(self.path.as_ref())
+                    .nth(absolute_offset)
+                    .unwrap() as usize] = db.insert_node(self.clone().into())?;
 
-                (branch_node, InsertAction::Insert(child_ref))
+                let branch_node = BranchNode::new_v2(choices, path.data(), value.clone());
+
+                (branch_node, InsertAction::NoOp)
+            } else if absolute_offset == 2 * self.path.len() {
+                let new_leaf = LeafNode::new_v2(path.data(), value.clone());
+
+                let child_ref = db.insert_node(new_leaf.into())?;
+                let branch_node = BranchNode::new_v2(
+                    {
+                        let mut choices = [Default::default(); 16];
+                        choices[path_branch.next().unwrap() as usize] = child_ref;
+                        choices
+                    },
+                    self.path.clone(),
+                    self.value,
+                );
+
+                (branch_node, InsertAction::NoOp)
             } else {
-                let child_ref = db.insert_node(LeafNode::default().into())?;
+                let new_leaf = LeafNode::new_v2(path.data(), value.clone());
+
+                let child_ref = db.insert_node(new_leaf.into())?;
                 (
                     BranchNode::new({
                         let mut choices = [Default::default(); 16];
@@ -99,7 +112,7 @@ impl LeafNode {
                         choices[path_branch.next().unwrap() as usize] = child_ref;
                         choices
                     }),
-                    InsertAction::Insert(child_ref),
+                    InsertAction::NoOp,
                 )
             };
 
@@ -112,7 +125,7 @@ impl LeafNode {
                 branch_node.into()
             };
 
-            Ok((final_node, insert_action))
+            Ok(dbg!((final_node, insert_action)))
         }
     }
 
@@ -230,7 +243,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x12]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12]), vec![])
             .unwrap();
         let node = match node {
             Node::Leaf(x) => x,
@@ -248,7 +261,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x22]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x22]), vec![])
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
@@ -263,7 +276,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x13]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x13]), vec![])
             .unwrap();
         let _ = match node {
             Node::Extension(x) => x,
@@ -278,7 +291,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]), vec![])
             .unwrap();
         let _ = match node {
             Node::Extension(x) => x,
@@ -293,7 +306,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x12]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x12]), vec![])
             .unwrap();
         let _ = match node {
             Node::Extension(x) => x,

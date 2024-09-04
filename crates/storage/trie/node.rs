@@ -32,6 +32,9 @@ pub(crate) enum InsertAction {
 
     /// Special insert where its node_ref is not known.
     InsertSelf,
+
+    /// Do nothing
+    NoOp,
 }
 
 impl InsertAction {
@@ -75,11 +78,12 @@ impl Node {
         self,
         db: &mut TrieDB,
         path: NibbleSlice,
+        value: ValueRLP,
     ) -> Result<(Node, InsertAction), StoreError> {
         match self {
-            Node::Branch(n) => n.insert(db, path),
-            Node::Extension(n) => n.insert(db, path),
-            Node::Leaf(n) => n.insert(db, path),
+            Node::Branch(n) => n.insert(db, path, value),
+            Node::Extension(n) => n.insert(db, path, value),
+            Node::Leaf(n) => n.insert(db, path, value),
         }
     }
 
@@ -103,20 +107,24 @@ impl Node {
         }
     }
 
-    /// Updates node path ONLY if it is empty, fails otherwise
-    pub(crate) fn try_update_path(&mut self, new_path: PathRLP) -> Result<(), StoreError> {
+    /// Updates node path & value ONLY if they are empty, fails otherwise
+    pub(crate) fn try_update(
+        &mut self,
+        new_path: PathRLP,
+        new_value: ValueRLP,
+    ) -> Result<(), StoreError> {
         const OVERWITE_ATTEMPT_ERROR: &str = "Attempted to overwrite trie value";
         match self {
             Node::Branch(node) => {
-                if node.path.is_empty() {
-                    node.update_path(new_path);
+                if node.path.is_empty() && node.value.is_empty() {
+                    node.update(new_path, new_value);
                 } else {
                     return Err(StoreError::Custom(OVERWITE_ATTEMPT_ERROR.to_owned()));
                 }
             }
             Node::Leaf(node) => {
-                if node.path.is_empty() {
-                    node.update_path(new_path);
+                if node.path.is_empty() && node.value.is_empty() {
+                    node.update(new_path, new_value);
                 } else {
                     return Err(StoreError::Custom(OVERWITE_ATTEMPT_ERROR.to_owned()));
                 }
@@ -136,12 +144,12 @@ impl Node {
                     .iter()
                     .filter(|nr| nr.is_valid())
                     .collect::<Vec<_>>();
-                format!("Node::Branch(choices: {choices:?}, path: {:?}", n.path)
+                format!("Node::Branch(choices: {choices:?}, path: {:?}, value: {:?})", n.path, n.value)
             }
             Node::Extension(n) => {
                 format!("Node::Extension(child: {}, prefix {:?}", *n.child, n.prefix)
             }
-            Node::Leaf(n) => format!("Node::Leaf(path: {:?}", n.path),
+            Node::Leaf(n) => format!("Node::Leaf(path: {:?}, value: {:?})", n.path, n.value),
         }
     }
 }

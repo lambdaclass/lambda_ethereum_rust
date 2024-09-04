@@ -57,22 +57,25 @@ impl Trie {
         value: ValueRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
         println!("[INSERT]: {:?}", path);
+        // TODO: Remove
+        self.db.insert_value(path.clone(), value.clone())?;
         // Mark hash as dirty
         self.hash.0 = false;
         // [Note]: Original impl would remove
         if let Some(root_node) = self.db.get_node(self.root_ref)? {
             // If the tree is not empty, call the root node's insertion logic
             let (root_node, insert_action) =
-                root_node.insert(&mut self.db, NibbleSlice::new(&path))?;
+                root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
             self.root_ref = self.db.insert_node(root_node)?;
 
             match insert_action.quantize_self(self.root_ref) {
                 InsertAction::Insert(node_ref) => {
-                    self.db.insert_value(path.clone(), value)?;
-                    self.db.update_node_path(node_ref, path)?;
+                    self.db.insert_value(path.clone(), value.clone())?;
+                    self.db.update_node(node_ref, path, value)?;
                     Ok(None)
                 }
                 InsertAction::Replace(path) => self.db.replace_value(path, value),
+                InsertAction::NoOp => Ok(None),
                 _ => unreachable!(),
             }
         } else {

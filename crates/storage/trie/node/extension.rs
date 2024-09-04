@@ -40,6 +40,7 @@ impl ExtensionNode {
         mut self,
         db: &mut TrieDB,
         mut path: NibbleSlice,
+        value: ValueRLP,
     ) -> Result<(Node, InsertAction), StoreError> {
         // Possible flow paths (there are duplicates between different prefix lengths):
         //   extension { [0], child } -> branch { 0 => child } with_value !
@@ -60,7 +61,7 @@ impl ExtensionNode {
                 .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
 
-            let (child_node, insert_action) = child_node.insert(db, path)?;
+            let (child_node, insert_action) = child_node.insert(db, path, value)?;
             self.child = db.insert_node(child_node)?;
 
             let insert_action = insert_action.quantize_self(self.child);
@@ -273,7 +274,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x02]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x02]), vec![])
             .unwrap();
         let node = match node {
             Node::Extension(x) => x,
@@ -292,7 +293,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x10]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x10]), vec![])
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
@@ -310,7 +311,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x10]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x10]), vec![])
             .unwrap();
         let _ = match node {
             Node::Branch(x) => x,
@@ -328,7 +329,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x01]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x01]), vec![])
             .unwrap();
         let _ = match node {
             Node::Extension(x) => x,
@@ -346,7 +347,7 @@ mod test {
         };
 
         let (node, insert_action) = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x01]))
+            .insert(&mut trie.db, NibbleSlice::new(&[0x01]), vec![])
             .unwrap();
         let _ = match node {
             Node::Extension(x) => x,

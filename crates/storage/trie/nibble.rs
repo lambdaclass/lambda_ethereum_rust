@@ -86,6 +86,10 @@ impl<'a> NibbleSlice<'a> {
         self.offset
     }
 
+    pub fn data(&self) -> super::db::PathRLP {
+        self.data.to_vec()
+    }
+
     pub fn split_to_vec(&self, offset: usize) -> NibbleVec {
         NibbleVec {
             data: SmallVec::from_slice(
