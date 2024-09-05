@@ -180,10 +180,7 @@ mod test {
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
-        assert!(node
-            .get(NibbleSlice::new(&[0x34]))
-            .unwrap()
-            .is_none());
+        assert!(node.get(NibbleSlice::new(&[0x34])).unwrap().is_none());
     }
 
     #[test]

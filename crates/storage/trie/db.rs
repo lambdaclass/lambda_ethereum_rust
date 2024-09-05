@@ -1,5 +1,6 @@
 use crate::error::StoreError;
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
+use ethereum_types::H256;
 use libmdbx::{
     orm::{table, Database},
     table_info,
@@ -14,15 +15,24 @@ pub struct TrieDB {
 }
 
 pub type NodeRLP = Vec<u8>;
+pub type NodeHashRLP = [u8; 32];
 
 table!(
     /// NodeRef to Node table
     ( Nodes ) NodeRef => NodeRLP
 );
 
+table!(
+    /// NodeHash to NodeRef table
+    /// Stores root nodes which's hashes have been computed by `compute_hash`
+    ( RootNodes ) NodeHashRLP => NodeRef
+);
+
 impl TrieDB {
     pub fn init(trie_dir: &str) -> Result<TrieDB, StoreError> {
-        let tables = [table_info!(Nodes)].into_iter().collect();
+        let tables = [table_info!(Nodes), table_info!(RootNodes)]
+            .into_iter()
+            .collect();
         let path = Some(trie_dir.into());
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
@@ -42,6 +52,14 @@ impl TrieDB {
         self.write::<Nodes>(node_ref, node.encode_to_vec())?;
         self.next_node_ref = node_ref.next();
         Ok(node_ref)
+    }
+
+    pub fn get_root_ref(&self, hash: H256) -> Result<Option<NodeRef>, StoreError> {
+        Ok(self.read::<RootNodes>(hash.0)?.map(|n| n.into()))
+    }
+
+    pub fn insert_root_ref(&mut self, hash: H256, node_ref: NodeRef) -> Result<(), StoreError> {
+        self.write::<RootNodes>(hash.0, node_ref)
     }
 
     // Helper method to write into a libmdx table

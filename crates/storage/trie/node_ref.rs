@@ -2,7 +2,7 @@
 use std::ops::Deref;
 
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
-use libmdbx::orm::Encodable;
+use libmdbx::{orm::Decodable, orm::Encodable};
 
 const INVALID_REF: usize = usize::MAX;
 
@@ -44,6 +44,15 @@ impl Encodable for NodeRef {
 
     fn encode(self) -> Self::Encoded {
         self.0.to_be_bytes()
+    }
+}
+
+impl Decodable for NodeRef {
+    fn decode(data_val: &[u8]) -> anyhow::Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(Self(usize::from_be_bytes(data_val.try_into()?)))
     }
 }
 
