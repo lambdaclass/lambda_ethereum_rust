@@ -583,6 +583,46 @@ mod test {
 
     }
 
+    #[test]
+    fn revert() {
+        let mut trie = Trie::new_temp();
+        trie.insert(vec![0x00], vec![0x00]).unwrap();
+        trie.insert(vec![0x01], vec![0x01]).unwrap();
+
+        let root = trie.compute_hash().unwrap();
+
+        trie.insert(vec![0x00], vec![0x02]).unwrap();
+        trie.insert(vec![0x01], vec![0x03]).unwrap();
+
+        assert!(trie.set_root(root).unwrap());
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
+        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
+
+    }
+
+    #[test]
+    fn revert_with_removals() {
+        let mut trie = Trie::new_temp();
+        trie.insert(vec![0x00], vec![0x00]).unwrap();
+        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert(vec![0x02], vec![0x02]).unwrap();
+
+        let root = trie.compute_hash().unwrap();
+
+        trie.insert(vec![0x00], vec![0x04]).unwrap();
+        trie.remove(vec![0x01]).unwrap();
+        trie.insert(vec![0x02], vec![0x05]).unwrap();
+        trie.remove(vec![0x00]).unwrap();
+
+        assert!(trie.set_root(root).unwrap());
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
+        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x02]));
+
+    }
+
     // Proptests
     proptest! {
         #[test]
