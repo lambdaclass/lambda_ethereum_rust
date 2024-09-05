@@ -1,24 +1,21 @@
-use crate::rlpx::utils::pubkey2id;
 use aes::{
     cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
     Aes256Enc,
 };
 use bytes::Bytes;
 use ethereum_rust_core::{
-    rlp::{
-        decode::RLPDecode,
-        encode::RLPEncode,
-        structs::{Decoder, Encoder},
-    },
+    rlp::{decode::RLPDecode, encode::RLPEncode, structs::Decoder},
     H128, H256, H512,
 };
-use k256::PublicKey;
 use sha3::{Digest, Keccak256};
 use snap::raw::{max_compress_len, Encoder as SnappyEncoder};
 use std::pin::pin;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)]; //, ("eth", 68), ("snap", 1)];
+use super::p2p::Message;
+
+// pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
+pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
@@ -29,27 +26,10 @@ pub(crate) struct RLPxConnection {
     // ...capabilities information
 }
 
-impl RLPxConnection {
-    pub async fn send_ping<S: AsyncWrite>(&mut self, stream: S) {
-        // Ping message
-        // msg_data is empty: []
-        let msg_id = 2_u8;
-        let msg_data: Vec<u8> = vec![];
-
+impl<'a> RLPxConnection {
+    pub async fn send<S: AsyncWrite>(&mut self, message: Message<'a>, stream: S) {
         let mut frame_data = vec![];
-        msg_id.encode(&mut frame_data);
-
-        let mut data = vec![];
-        msg_data.encode(&mut data);
-
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(data.len()) + 1];
-
-        let compressed_size = snappy_encoder.compress(&data, &mut msg_data).unwrap();
-
-        msg_data.truncate(compressed_size);
-        frame_data.append(&mut msg_data);
-
+        build_frame(message, &mut frame_data);
         write_frame(frame_data, stream, &mut self.state).await;
     }
 }
@@ -59,30 +39,14 @@ pub(crate) struct RLPxConnectionPending {
     state: RLPxState,
 }
 
-impl RLPxConnectionPending {
+impl<'a> RLPxConnectionPending {
     pub fn new(state: RLPxState) -> Self {
         Self { state }
     }
 
-    pub async fn send_hello<S: AsyncWrite>(&mut self, node_pk: &PublicKey, stream: S) {
-        // Hello message
-        // [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeKey: B_64, ...]
-        let msg_id = 0_u8;
-        let protocol_version = 5_u8;
-        let client_id = "Ethereum(++)/1.0.0";
-        let capabilities = SUPPORTED_CAPABILITIES.to_vec();
-        let listen_port = 0_u8; // This one is ignored
-        let node_id = pubkey2id(node_pk);
+    pub async fn send<S: AsyncWrite>(&mut self, message: Message<'a>, stream: S) {
         let mut frame_data = vec![];
-        msg_id.encode(&mut frame_data);
-        Encoder::new(&mut frame_data)
-            .encode_field(&protocol_version)
-            .encode_field(&client_id)
-            .encode_field(&capabilities)
-            .encode_field(&listen_port)
-            .encode_field(&node_id)
-            .finish();
-
+        build_frame(message, &mut frame_data);
         write_frame(frame_data, stream, &mut self.state).await;
     }
 
@@ -185,6 +149,28 @@ impl RLPxConnectionPending {
         let _padding = decoder.finish_unchecked();
 
         RLPxConnection { state }
+    }
+}
+
+fn build_frame(message: Message, frame_buffer: &mut Vec<u8>) {
+    message.msg_id().encode(frame_buffer);
+    let mut raw_data = message.msg_data();
+
+    if message.is_compressed() {
+        let mut encoded_data = vec![];
+        raw_data.encode(&mut encoded_data);
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+        frame_buffer.append(&mut msg_data);
+    } else {
+        frame_buffer.append(&mut raw_data);
     }
 }
 

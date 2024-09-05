@@ -13,6 +13,7 @@ use k256::{
 };
 use kademlia::{KademliaTable, PeerData};
 use rlpx::handshake::RLPxLocalClient;
+use rlpx::{connection::SUPPORTED_CAPABILITIES, p2p::Message as RLPxMessage};
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -230,15 +231,18 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let mut pending_conn = client.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
-    pending_conn
-        .send_hello(&PublicKey::from(signer.verifying_key()), &mut stream)
-        .await;
+    let hello_msg = RLPxMessage::Hello(
+        SUPPORTED_CAPABILITIES.to_vec(),
+        PublicKey::from(signer.verifying_key()),
+    );
+
+    pending_conn.send(hello_msg, &mut stream).await;
 
     let mut conn = pending_conn.receive_hello(&mut stream).await;
 
     info!("Completed Hello roundtrip!");
 
-    conn.send_ping(&mut stream).await;
+    conn.send(RLPxMessage::Ping(), &mut stream).await;
 }
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
