@@ -251,7 +251,7 @@ impl BranchNode {
         Ok(compute_branch_hash::<DelimitedHash>(
             &self.hash,
             &children,
-            encoded_value.as_deref(),
+            encoded_value,
         ))
     }
 }

@@ -8,7 +8,7 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, PathRLP, ValueRLP};
+use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
 
 #[derive(Debug)]
 pub enum Node {
@@ -66,7 +66,7 @@ impl Node {
         match self {
             Node::Branch(n) => n.remove(db, path),
             Node::Extension(n) => n.remove(db, path),
-            Node::Leaf(n) => n.remove(db, path),
+            Node::Leaf(n) => n.remove(path),
         }
     }
 
@@ -76,33 +76,6 @@ impl Node {
             Node::Extension(n) => n.compute_hash(db, path_offset),
             Node::Leaf(n) => n.compute_hash(path_offset),
         }
-    }
-
-    /// Updates node path & value ONLY if they are empty, fails otherwise
-    pub(crate) fn try_update(
-        &mut self,
-        new_path: PathRLP,
-        new_value: ValueRLP,
-    ) -> Result<(), StoreError> {
-        const OVERWITE_ATTEMPT_ERROR: &str = "Attempted to overwrite trie value";
-        match self {
-            Node::Branch(node) => {
-                if node.path.is_empty() && node.value.is_empty() {
-                    node.update(new_path, new_value);
-                } else {
-                    return Err(StoreError::Custom(OVERWITE_ATTEMPT_ERROR.to_owned()));
-                }
-            }
-            Node::Leaf(node) => {
-                if node.path.is_empty() && node.value.is_empty() {
-                    node.update(new_path, new_value);
-                } else {
-                    return Err(StoreError::Custom(OVERWITE_ATTEMPT_ERROR.to_owned()));
-                }
-            }
-            _ => panic!("inconsistent internal tree structure"),
-        }
-        Ok(())
     }
 }
 

@@ -113,11 +113,7 @@ impl LeafNode {
         }
     }
 
-    pub fn remove(
-        self,
-        _db: &mut TrieDB,
-        path: NibbleSlice,
-    ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+    pub fn remove(self, path: NibbleSlice) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         Ok(if path.cmp_rest(&self.path) {
             (None, Some(self.value))
         } else {
@@ -191,8 +187,6 @@ mod test {
         run_test(&insert_extension_branch);
         run_test(&insert_extension_branch_value_self);
         run_test(&insert_extension_branch_value_other);
-        run_test(&remove_self);
-        run_test(&remove_none);
     }
 
     fn get_some(trie: Trie) {
@@ -250,8 +244,7 @@ mod test {
         assert!(node
             .choices
             .iter()
-            .find(|x| x == &&NodeRef::new(0))
-            .is_some());
+            .any(|x| &x == &&NodeRef::new(0)));
     }
 
     fn insert_extension_branch(mut trie: Trie) {
@@ -307,27 +300,20 @@ mod test {
     // Because of that, the two tests that would check those cases are neither necessary nor
     // possible.
 
-    fn remove_self(mut trie: Trie) {
-        let node = pmt_node! { @(trie)
-            leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
-        };
-
-        let (node, value) = node
-            .remove(&mut trie.db, NibbleSlice::new(&[0x12, 0x34]))
-            .unwrap();
+    #[test]
+    fn remove_self() {
+        let node = LeafNode::new(vec![0x12, 0x34], vec![0x12, 0x34, 0x56, 0x78]);
+        let (node, value) = node.remove(NibbleSlice::new(&[0x12, 0x34])).unwrap();
 
         assert!(node.is_none());
         assert_eq!(value, Some(vec![0x12, 0x34, 0x56, 0x78]));
     }
 
-    fn remove_none(mut trie: Trie) {
-        let node = pmt_node! { @(trie)
-            leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
-        };
+    #[test]
+    fn remove_none() {
+        let node = LeafNode::new(vec![0x12, 0x34], vec![0x12, 0x34, 0x56, 0x78]);
 
-        let (node, value) = node
-            .remove(&mut trie.db, NibbleSlice::new(&[0x12]))
-            .unwrap();
+        let (node, value) = node.remove(NibbleSlice::new(&[0x12])).unwrap();
 
         assert!(node.is_some());
         assert_eq!(value, None);

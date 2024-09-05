@@ -294,8 +294,7 @@ mod test {
         assert!(node
             .choices
             .iter()
-            .find(|x| x == &&NodeRef::new(3))
-            .is_some());
+            .any(|x| &x == &&NodeRef::new(3)));
     }
 
     fn insert_branch_extension(mut trie: Trie) {
@@ -316,8 +315,7 @@ mod test {
         assert!(node
             .choices
             .iter()
-            .find(|x| x == &&NodeRef::new(4))
-            .is_some());
+            .any(|x| &x == &&NodeRef::new(4)));
     }
 
     fn insert_extension_branch(mut trie: Trie) {
