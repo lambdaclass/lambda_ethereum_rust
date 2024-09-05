@@ -610,8 +610,11 @@ mod test {
 
         assert!(trie.set_root(root).unwrap());
 
+        trie.insert(vec![0x02], vec![0x04]).unwrap();
+
         assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
         assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x04]));
     }
 
     #[test]
@@ -630,9 +633,11 @@ mod test {
 
         assert!(trie.set_root(root).unwrap());
 
+        trie.remove(vec![0x02]).unwrap();
+
         assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
         assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x02]));
+        assert_eq!(trie.get(&vec![0x02]).unwrap(), None);
     }
 
     // Proptests
