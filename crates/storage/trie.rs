@@ -119,7 +119,7 @@ impl Trie {
     /// Retrieve a value from the tree given its path from the subtree originating from the given root
     /// Please use a root_hash calculated using `compute_hash`
     /// This function is used to access historical data,
-    pub fn get_with_root(
+    pub fn get_from_root(
         &self,
         root_hash: H256,
         path: &PathRLP,
@@ -129,7 +129,7 @@ impl Trie {
             Some(root_ref) if root_ref.is_valid() => {
                 let root_node = self
                     .db
-                    .get_node(self.root_ref)?
+                    .get_node(root_ref)?
                     .expect("inconsistent internal tree structure");
 
                 root_node.get(&self.db, NibbleSlice::new(path))
@@ -538,6 +538,25 @@ mod test {
                 .unwrap()
                 .as_slice(),
         );
+    }
+
+    #[test]
+    fn get_old_state() {
+        let mut trie = Trie::new_temp();
+        trie.insert(vec![0x00], vec![0x00]).unwrap();
+        trie.insert(vec![0x01], vec![0x01]).unwrap();
+
+        let root = trie.compute_hash().unwrap();
+
+        trie.insert(vec![0x00], vec![0x02]).unwrap();
+        trie.insert(vec![0x01], vec![0x03]).unwrap();
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x02]));
+        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x03]));
+
+        assert_eq!(trie.get_from_root(root, &vec![0x00]).unwrap(), Some(vec![0x00]));
+        assert_eq!(trie.get_from_root(root, &vec![0x01]).unwrap(), Some(vec![0x01]));
+
     }
 
     // Proptests
