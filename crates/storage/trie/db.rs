@@ -9,8 +9,6 @@ use libmdbx::{
 use super::{node::Node, node_ref::NodeRef};
 pub struct TrieDB {
     db: Database,
-    // TODO: This replaces the use of Slab in the reference impl
-    // Check if we can find a better way to solve the problem of tracking nodes without using hashes
     next_node_ref: NodeRef,
 }
 
