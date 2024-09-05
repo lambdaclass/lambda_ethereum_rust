@@ -132,6 +132,7 @@ impl Trie {
 #[cfg(test)]
 mod test {
     use super::*;
+    use proptest::{collection::{btree_set, vec}, prelude::*, proptest};
 
     #[test]
     fn compute_hash() {
@@ -496,4 +497,51 @@ mod test {
                 .as_slice(),
         );
     }
+
+    // Proptests
+    proptest! {
+        #[test]
+        fn proptest_get_insert(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+
+            for val in data.iter(){
+                trie.insert(val.clone(), val.clone()).unwrap();
+            }
+
+            for val in data.iter() {
+                let item = trie.get(val).unwrap();
+                prop_assert!(item.is_some());
+                prop_assert_eq!(&item.unwrap(), val);
+            }
+        }
+
+        #[test]
+        fn proptest_get_insert_with_removals(mut data in vec((vec(any::<u8>(), 5..100), any::<bool>()), 1..100)) {
+            let mut trie = Trie::new_temp();
+            // Remove duplicate values with different expected status
+            data.sort_by_key(|(val, _)| val.clone());
+            data.dedup_by_key(|(val, _)| val.clone());
+            // Insertions
+            for (val, _) in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for (val, should_remove) in data.iter() {
+                if *should_remove {
+                    let removed = trie.remove(val.clone()).unwrap();
+                    prop_assert_eq!(removed, Some(val.clone()));
+                }
+            }
+            // Check trie values
+            for (val, removed) in data.iter() {
+                let item = trie.get(val).unwrap();
+                if !removed {
+                    prop_assert_eq!(item, Some(val.clone()));
+                } else {
+                    prop_assert!(item.is_none());
+                }
+            }
+        }
+    }
+
 }
