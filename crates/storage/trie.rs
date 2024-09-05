@@ -7,6 +7,7 @@ mod rlp;
 #[cfg(test)]
 mod test_utils;
 
+use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
@@ -110,7 +111,7 @@ impl Trie {
             );
             hash
         } else {
-            H256::from_slice(Keccak256::new().chain_update([0x80]).finalize().as_slice())
+            H256::from_slice(Keccak256::new().chain_update([RLP_NULL]).finalize().as_slice())
         };
         self.db.insert_root_ref(root_hash, self.root_ref)?;
         Ok(root_hash)
@@ -554,9 +555,14 @@ mod test {
         assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x02]));
         assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x03]));
 
-        assert_eq!(trie.get_from_root(root, &vec![0x00]).unwrap(), Some(vec![0x00]));
-        assert_eq!(trie.get_from_root(root, &vec![0x01]).unwrap(), Some(vec![0x01]));
-
+        assert_eq!(
+            trie.get_from_root(root, &vec![0x00]).unwrap(),
+            Some(vec![0x00])
+        );
+        assert_eq!(
+            trie.get_from_root(root, &vec![0x01]).unwrap(),
+            Some(vec![0x01])
+        );
     }
 
     #[test]
@@ -577,10 +583,18 @@ mod test {
         assert_eq!(trie.get(&vec![0x01]).unwrap(), None);
         assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x05]));
 
-        assert_eq!(trie.get_from_root(root, &vec![0x00]).unwrap(), Some(vec![0x00]));
-        assert_eq!(trie.get_from_root(root, &vec![0x01]).unwrap(), Some(vec![0x01]));
-        assert_eq!(trie.get_from_root(root, &vec![0x02]).unwrap(), Some(vec![0x02]));
-
+        assert_eq!(
+            trie.get_from_root(root, &vec![0x00]).unwrap(),
+            Some(vec![0x00])
+        );
+        assert_eq!(
+            trie.get_from_root(root, &vec![0x01]).unwrap(),
+            Some(vec![0x01])
+        );
+        assert_eq!(
+            trie.get_from_root(root, &vec![0x02]).unwrap(),
+            Some(vec![0x02])
+        );
     }
 
     #[test]
@@ -598,7 +612,6 @@ mod test {
 
         assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
         assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
-
     }
 
     #[test]
@@ -620,7 +633,6 @@ mod test {
         assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
         assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
         assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x02]));
-
     }
 
     // Proptests
