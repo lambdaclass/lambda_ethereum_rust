@@ -38,10 +38,6 @@ impl BranchNode {
         }
     }
 
-    pub fn update_path(&mut self, new_path: PathRLP) {
-        self.path = new_path
-    }
-
     pub fn update(&mut self, new_path: PathRLP, new_value: ValueRLP) {
         self.path = new_path;
         self.value = new_value;
