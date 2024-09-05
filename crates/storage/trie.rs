@@ -553,6 +553,38 @@ mod test {
         }
 
         #[test]
+        // The previous test needs to sort the input values in order to get rid of duplicate entries, leading to ordered insertions
+        // This check has a fixed way of determining wether a value should be removed but doesn't require ordered insertions
+        fn proptest_get_insert_with_removals_unsorted(data in btree_set(vec(any::<u8>(), 5..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            // Remove all values that have an odd first value
+            let remove = |value: &Vec<u8>| -> bool {
+                value.first().is_some_and(|v| v % 2 != 0)
+            };
+            // Insertions
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for val in data.iter() {
+                if remove(&val) {
+                    let removed = trie.remove(val.clone()).unwrap();
+                    prop_assert_eq!(removed, Some(val.clone()));
+                }
+            }
+            // Check trie values
+            for val in data.iter() {
+                let item = trie.get(val).unwrap();
+                if !remove(&val) {
+                    prop_assert_eq!(item, Some(val.clone()));
+                } else {
+                    prop_assert!(item.is_none());
+                }
+            }
+        }
+
+
+        #[test]
         fn proptest_compare_hash(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
             let mut trie = Trie::new_temp();
             let mut cita_trie = cita_trie();
@@ -591,6 +623,35 @@ mod test {
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
+
+        #[test]
+        // The previous test needs to sort the input values in order to get rid of duplicate entries, leading to ordered insertions
+        // This check has a fixed way of determining wether a value should be removed but doesn't require ordered insertions
+        fn proptest_compare_hash_with_removals_unsorted(data in btree_set(vec(any::<u8>(), 5..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+            // Remove all values that have an odd first value
+            let remove = |value: &Vec<u8>| -> bool {
+                value.first().is_some_and(|v| v % 2 != 0)
+            };
+            // Insertions
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for val in data.iter() {
+                if remove(&val) {
+                    trie.remove(val.clone()).unwrap();
+                    cita_trie.remove(val).unwrap();
+                }
+            }
+            // Compare hashes
+            let hash = trie.compute_hash().unwrap().to_vec();
+            let cita_hash = cita_trie.root().unwrap();
+            prop_assert_eq!(hash, cita_hash);
+        }
+
     }
 
     fn cita_trie() -> CitaTrie<CitaMemoryDB, HasherKeccak> {
