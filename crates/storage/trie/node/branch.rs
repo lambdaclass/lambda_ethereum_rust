@@ -95,9 +95,7 @@ impl BranchNode {
                 }
             },
             None => {
-                if !self.path.is_empty() {
-                    self.update(path.data(), value);
-                }
+                self.update(path.data(), value);
             }
         };
 
@@ -297,13 +295,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        pmt_node,
-        trie::{
-            test_utils::{remove_trie, start_trie},
-            Trie,
-        },
-    };
+    use crate::{pmt_node, trie::Trie};
 
     #[test]
     fn new() {
@@ -339,33 +331,9 @@ mod test {
         );
     }
 
-    const BRANCH_TEST_DIR: &str = "branch-test-db";
-
-    fn run_test(test: &dyn Fn(Trie)) {
-        let trie = start_trie(BRANCH_TEST_DIR);
-        test(trie);
-        remove_trie(BRANCH_TEST_DIR)
-    }
-
     #[test]
-    fn run_branch_test_suite() {
-        run_test(&get_some);
-        run_test(&get_none);
-        run_test(&insert_self);
-        run_test(&insert_choice);
-        run_test(&insert_passthrough);
-        run_test(&remove_choice);
-        run_test(&remove_choice_into_inner);
-        run_test(&remove_choice_into_value);
-        run_test(&remove_value);
-        run_test(&remove_value_into_inner);
-        run_test(&compute_hash_all_choices);
-        run_test(&compute_hash_all_choices_with_value);
-        run_test(&compute_hash_one_choice_with_value);
-        run_test(&compute_hash_two_choices);
-    }
-
-    fn get_some(mut trie: Trie) {
+    fn get_some() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -383,7 +351,9 @@ mod test {
         );
     }
 
-    fn get_none(mut trie: Trie) {
+    #[test]
+    fn get_none() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -394,7 +364,29 @@ mod test {
         assert_eq!(node.get(&trie.db, NibbleSlice::new(&[0x20])).unwrap(), None,);
     }
 
-    fn insert_self(mut trie: Trie) {
+    #[test]
+    fn insert_self() {
+        let mut trie = Trie::new_temp();
+        let node = pmt_node! { @(trie)
+            branch {
+                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
+                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
+            }
+        };
+        let path = NibbleSlice::new(&[0x2]);
+        let value = vec![0x3];
+
+        let node = node
+            .insert(&mut trie.db, path.clone(), value.clone())
+            .unwrap();
+
+        assert!(matches!(node, Node::Branch(_)));
+        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+    }
+
+    #[test]
+    fn insert_choice() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -402,35 +394,20 @@ mod test {
             }
         };
 
-        let node = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x2]), vec![0x3])
-            .unwrap();
-        let _: BranchNode = match node {
-            Node::Branch(x) => x,
-            _ => panic!("expected a branch node"),
-        };
-        // TODO
-    }
-
-    fn insert_choice(mut trie: Trie) {
-        let node = pmt_node! { @(trie)
-            branch {
-                0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
-                1 => leaf { vec![0x10] => vec![0x34, 0x56, 0x78, 0x9A] },
-            }
-        };
+        let path = NibbleSlice::new(&[0x20]);
+        let value = vec![0x21];
 
         let node = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x20]), vec![0x21])
+            .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
-        let _ = match node {
-            Node::Branch(x) => x,
-            _ => panic!("expected a branch node"),
-        };
-        // TODO
+
+        assert!(matches!(node, Node::Branch(_)));
+        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
     }
 
-    fn insert_passthrough(mut trie: Trie) {
+    #[test]
+    fn insert_passthrough() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -439,25 +416,28 @@ mod test {
         };
 
         // The extension node is ignored since it's irrelevant in this test.
-        let node = node
-            .insert(
-                &mut trie.db,
-                {
-                    let mut nibble_slice = NibbleSlice::new(&[0x00]);
-                    nibble_slice.offset_add(2);
-                    nibble_slice
-                },
-                vec![0x1],
-            )
+        let mut path = NibbleSlice::new(&[0x00]);
+        path.offset_add(2);
+        let value = vec![0x1];
+
+        let new_node = node
+            .clone()
+            .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
-        let _ = match node {
+
+        let new_node = match new_node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        // TODO
+
+        assert_eq!(new_node.choices, node.choices);
+        assert_eq!(new_node.path, path.data());
+        assert_eq!(new_node.value, value);
     }
 
-    fn remove_choice_into_inner(mut trie: Trie) {
+    #[test]
+    fn remove_choice_into_inner() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -473,7 +453,9 @@ mod test {
         assert_eq!(value, Some(vec![0x00]));
     }
 
-    fn remove_choice(mut trie: Trie) {
+    #[test]
+    fn remove_choice() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -490,7 +472,9 @@ mod test {
         assert_eq!(value, Some(vec![0x00]));
     }
 
-    fn remove_choice_into_value(mut trie: Trie) {
+    #[test]
+    fn remove_choice_into_value() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -505,7 +489,9 @@ mod test {
         assert_eq!(value, Some(vec![0x00]));
     }
 
-    fn remove_value_into_inner(mut trie: Trie) {
+    #[test]
+    fn remove_value_into_inner() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -518,7 +504,9 @@ mod test {
         assert_eq!(value, Some(vec![0xFF]));
     }
 
-    fn remove_value(mut trie: Trie) {
+    #[test]
+    fn remove_value() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -532,7 +520,9 @@ mod test {
         assert_eq!(value, Some(vec![0xFF]));
     }
 
-    fn compute_hash_two_choices(mut trie: Trie) {
+    #[test]
+    fn compute_hash_two_choices() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -549,7 +539,9 @@ mod test {
         );
     }
 
-    fn compute_hash_all_choices(mut trie: Trie) {
+    #[test]
+    fn compute_hash_all_choices() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },
@@ -581,7 +573,9 @@ mod test {
         );
     }
 
-    fn compute_hash_one_choice_with_value(mut trie: Trie) {
+    #[test]
+    fn compute_hash_one_choice_with_value() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -598,7 +592,9 @@ mod test {
         );
     }
 
-    fn compute_hash_all_choices_with_value(mut trie: Trie) {
+    #[test]
+    fn compute_hash_all_choices_with_value() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },

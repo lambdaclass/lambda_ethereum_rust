@@ -246,10 +246,8 @@ mod test {
         let node = node
             .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
-        let node = match node {
-            Node::Extension(x) => x,
-            _ => panic!("expected an extension node"),
-        };
+
+        assert!(matches!(node, Node::Extension(_)));
         assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
     }
 
@@ -267,10 +265,7 @@ mod test {
             .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
 
-        let node = match node {
-            Node::Extension(x) => x,
-            _ => panic!("expected an extension node"),
-        };
+        assert!(matches!(node, Node::Extension(_)));
         assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
     }
 
@@ -288,10 +283,7 @@ mod test {
             .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
 
-        let node = match node {
-            Node::Extension(x) => x,
-            _ => panic!("expected an extension node"),
-        };
+        assert!(matches!(node, Node::Extension(_)));
         assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
     }
 
