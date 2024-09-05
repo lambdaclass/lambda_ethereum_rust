@@ -27,7 +27,7 @@ impl LeafNode {
         }
     }
 
-    pub fn get(&self, _db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         if path.cmp_rest(&self.path) {
             Ok(Some(self.value.clone()))
         } else {
@@ -164,26 +164,24 @@ mod test {
 
     #[test]
     fn get_some() {
-        let trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
         assert_eq!(
-            node.get(&trie.db, NibbleSlice::new(&[0x12])).unwrap(),
+            node.get(NibbleSlice::new(&[0x12])).unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
     }
 
     #[test]
     fn get_none() {
-        let trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
 
         assert!(node
-            .get(&trie.db, NibbleSlice::new(&[0x34]))
+            .get(NibbleSlice::new(&[0x34]))
             .unwrap()
             .is_none());
     }
@@ -224,8 +222,8 @@ mod test {
             _ => panic!("expected a branch node"),
         };
         // New branch should contain the first node
-        assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(0)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert!(node.choices.iter().any(|x| x == &NodeRef::new(0)));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -243,7 +241,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -261,7 +259,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -279,7 +277,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     // An insertion that returns branch [value=(x)] -> leaf (y) is not possible because of the path

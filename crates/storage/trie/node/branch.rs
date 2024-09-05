@@ -377,7 +377,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Branch(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -398,7 +398,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Branch(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]

@@ -40,7 +40,7 @@ impl Node {
         match self {
             Node::Branch(n) => n.get(db, path),
             Node::Extension(n) => n.get(db, path),
-            Node::Leaf(n) => n.get(db, path),
+            Node::Leaf(n) => n.get(path),
         }
     }
 

@@ -271,7 +271,7 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(3)));
+        assert!(node.choices.iter().any(|x| x == &NodeRef::new(3)));
     }
 
     #[test]
@@ -291,7 +291,7 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(4)));
+        assert!(node.choices.iter().any(|x| x == &NodeRef::new(4)));
     }
 
     #[test]
@@ -312,7 +312,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -333,7 +333,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
     }
 
     #[test]
