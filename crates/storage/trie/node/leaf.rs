@@ -1,10 +1,11 @@
 use crate::{
     error::StoreError,
     trie::{
-        db::{PathRLP, TrieDB, ValueRLP},
+        db::TrieDB,
         hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind},
         nibble::NibbleSlice,
         node::BranchNode,
+        PathRLP, ValueRLP,
     },
 };
 
@@ -31,9 +32,9 @@ impl LeafNode {
         self.value = new_value;
     }
 
-    pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, _db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         if path.cmp_rest(&self.path) {
-            db.get_value(self.path.clone())
+            Ok(Some(self.value.clone()))
         } else {
             Ok(None)
         }
@@ -123,13 +124,11 @@ impl LeafNode {
             (Some(self.into()), None)
         })
     }
-    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
+    pub fn compute_hash(&self, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         if let Some(hash) = self.hash.extract_ref() {
             return Ok(hash);
         }
-        let encoded_value = db
-            .get_value(self.path.clone())?
-            .expect("inconsistent internal tree structure");
+        let encoded_value = &self.value;
         let encoded_path = &self.path;
 
         let mut path_slice = NibbleSlice::new(encoded_path);
@@ -194,8 +193,6 @@ mod test {
         run_test(&insert_extension_branch_value_other);
         run_test(&remove_self);
         run_test(&remove_none);
-        run_test(&compute_hash);
-        run_test(&compute_hash_long);
     }
 
     fn get_some(trie: Trie) {
@@ -336,24 +333,22 @@ mod test {
         assert_eq!(value, None);
     }
 
-    fn compute_hash(trie: Trie) {
-        let node = pmt_node! { @(trie)
-            leaf { b"key".to_vec() => b"value".to_vec() }
-        };
+    #[test]
+    fn compute_hash() {
+        let node = LeafNode::new(b"key".to_vec(), b"value".to_vec());
 
-        let node_hash_ref = node.compute_hash(&trie.db, 0).unwrap();
+        let node_hash_ref = node.compute_hash(0).unwrap();
         assert_eq!(
             node_hash_ref.as_ref(),
             &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
         );
     }
 
-    fn compute_hash_long(trie: Trie) {
-        let node = pmt_node! { @(trie)
-            leaf { b"key".to_vec() => b"a comparatively long value".to_vec() }
-        };
+    #[test]
+    fn compute_hash_long() {
+        let node = LeafNode::new(b"key".to_vec(), b"a comparatively long value".to_vec());
 
-        let node_hash_ref = node.compute_hash(&trie.db, 0).unwrap();
+        let node_hash_ref = node.compute_hash(0).unwrap();
         assert_eq!(
             node_hash_ref.as_ref(),
             &[

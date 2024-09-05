@@ -10,13 +10,16 @@ mod test_utils;
 use sha3::{Digest, Keccak256};
 
 use self::{
-    db::{PathRLP, TrieDB, ValueRLP},
+    db::TrieDB,
     hashing::{NodeHashRef, Output},
     nibble::NibbleSlice,
     node::LeafNode,
     node_ref::NodeRef,
 };
 use crate::error::StoreError;
+
+pub type PathRLP = Vec<u8>;
+pub type ValueRLP = Vec<u8>;
 
 pub struct Trie {
     /// Root node ref.
@@ -53,8 +56,6 @@ impl Trie {
     /// TODO: Make inputs T: RLPEncode (we will ignore generics for now)
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
         println!("[INSERT]: {:?}: {:?}", path, value);
-        // TODO: Remove
-        self.db.insert_value(path.clone(), value.clone())?;
         // Mark hash as dirty
         self.hash.0 = false;
         // [Note]: Original impl would remove
@@ -65,7 +66,7 @@ impl Trie {
             self.root_ref = self.db.insert_node(root_node)?;
         } else {
             // If the tree is empty, just add a leaf.
-            self.root_ref = self.db.insert_node(LeafNode::new_v2(path, value).into())?;
+            self.root_ref = self.db.insert_node(LeafNode::new(path, value).into())?;
         }
         Ok(())
     }

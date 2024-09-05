@@ -86,7 +86,7 @@ impl<'a> NibbleSlice<'a> {
         self.offset
     }
 
-    pub fn data(&self) -> super::db::PathRLP {
+    pub fn data(&self) -> super::PathRLP {
         self.data.to_vec()
     }
 

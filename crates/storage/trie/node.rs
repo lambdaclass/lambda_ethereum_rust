@@ -8,11 +8,7 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{
-    db::{PathRLP, TrieDB, ValueRLP},
-    hashing::NodeHashRef,
-    nibble::NibbleSlice,
-};
+use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, PathRLP, ValueRLP};
 
 #[derive(Debug)]
 pub enum Node {
@@ -78,7 +74,7 @@ impl Node {
         match self {
             Node::Branch(n) => n.compute_hash(db, path_offset),
             Node::Extension(n) => n.compute_hash(db, path_offset),
-            Node::Leaf(n) => n.compute_hash(db, path_offset),
+            Node::Leaf(n) => n.compute_hash(path_offset),
         }
     }
 

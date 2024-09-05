@@ -1,10 +1,11 @@
 use crate::{
     error::StoreError,
     trie::{
-        db::{PathRLP, TrieDB, ValueRLP},
+        db::TrieDB,
         hashing::{DelimitedHash, NodeHash, NodeHashRef, NodeHasher, Output},
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_ref::NodeRef,
+        PathRLP, ValueRLP,
     },
 };
 
@@ -62,7 +63,7 @@ impl BranchNode {
             }
         } else {
             // Return internal value if present.
-            db.get_value(self.path.clone())
+            Ok((!self.value.is_empty()).then_some(self.value.clone()))
         }
     }
 
@@ -245,7 +246,7 @@ impl BranchNode {
             .try_into()
             .unwrap();
 
-        let encoded_value = db.get_value(self.path.clone())?;
+        let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
 
         Ok(compute_branch_hash::<DelimitedHash>(
             &self.hash,

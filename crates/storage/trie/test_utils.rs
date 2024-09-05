@@ -39,7 +39,7 @@ macro_rules! pmt_node {
         with_leaf { $path:expr => $value:expr }
         $( offset $offset:expr )?
     ) => {{
-        let mut branch_node = $crate::trie::node::BranchNode::new({
+        $crate::trie::node::BranchNode::new_with_value({
             #[allow(unused_variables)]
             let offset = true $( ^ $offset )?;
             let mut choices = [$crate::trie::node_ref::NodeRef::default(); 16];
@@ -52,10 +52,7 @@ macro_rules! pmt_node {
                 ).unwrap();
             )*
             choices
-        });
-        $trie.db.insert_value($path, $value).unwrap();
-        branch_node.update_path($path);
-        branch_node
+        }, $path, $value)
     }};
 
     (
@@ -91,8 +88,7 @@ macro_rules! pmt_node {
         $( offset $offset:expr )?
     ) => {
         {
-            $trie.db.insert_value($path.clone(), $value.clone()).unwrap();
-            $crate::trie::node::LeafNode::new_v2($path, $value)
+            $crate::trie::node::LeafNode::new($path, $value)
         }
     };
 }

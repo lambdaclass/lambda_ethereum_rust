@@ -5,7 +5,7 @@ use libmdbx::{
     table_info,
 };
 
-use super::{node::Node, node_ref::NodeRef};
+use super::{node::Node, node_ref::NodeRef, PathRLP};
 pub struct TrieDB {
     db: Database,
     // TODO: This replaces the use of Slab in the reference impl
@@ -14,24 +14,15 @@ pub struct TrieDB {
 }
 
 pub type NodeRLP = Vec<u8>;
-pub type PathRLP = Vec<u8>;
-pub type ValueRLP = Vec<u8>;
 
 table!(
     /// NodeRef to Node table
     ( Nodes ) NodeRef => NodeRLP
 );
 
-table!(
-    /// Path to Value table
-    (Values) PathRLP => ValueRLP
-);
-
 impl TrieDB {
     pub fn init(trie_dir: &str) -> Result<TrieDB, StoreError> {
-        let tables = [table_info!(Nodes), table_info!(Values)]
-            .into_iter()
-            .collect();
+        let tables = [table_info!(Nodes)].into_iter().collect();
         let path = Some(trie_dir.into());
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
@@ -85,36 +76,6 @@ impl TrieDB {
             self.remove::<Nodes>(node_ref)?;
         }
         Ok(node)
-    }
-
-    pub fn get_value(&self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
-        self.read::<Values>(path)
-    }
-
-    pub fn insert_value(&self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
-        //debug_assert!(!path.is_empty()); // Sanity check
-        self.write::<Values>(path, value)
-    }
-
-    /// Returns the removed node if it existed
-    pub fn remove_value(&self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
-        let value = self.get_value(path.clone())?;
-        if value.is_some() {
-            self.remove::<Values>(path)?;
-        }
-        Ok(value)
-    }
-
-    /// Returns the current value and then overwrites it with the new one
-    pub fn replace_value(
-        &self,
-        path: PathRLP,
-        new_value: ValueRLP,
-    ) -> Result<Option<ValueRLP>, StoreError> {
-        debug_assert!(!path.is_empty()); // Sanity check
-        let old_value = self.get_value(path.clone())?;
-        self.insert_value(path, new_value)?;
-        Ok(old_value)
     }
 
     // Helper method to write into a libmdx table

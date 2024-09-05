@@ -1,6 +1,7 @@
 use crate::error::StoreError;
-use crate::trie::db::{TrieDB, ValueRLP};
+use crate::trie::db::TrieDB;
 use crate::trie::nibble::NibbleSlice;
+use crate::trie::ValueRLP;
 use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
 
 use crate::trie::hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind};
