@@ -42,7 +42,7 @@ test-pattern-default := "/"
 # For example, to run the rpc-compat suites for eth_chainId & eth_blockNumber you should run:
 # `just run-hive ethereum/rpc-compat "/eth_chainId|eth_blockNumber"`
 run-hive simulation test-pattern=test-pattern-default: build_image setup-hive
-    cd hive && ./hive --sim {{simulation}} --client ethereumrust --sim.limit "{{test-pattern}}"
+    cd hive && ./hive --sim {{simulation}} --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output
 
 run-hive-debug simulation test-pattern=test-pattern-default: build_image
     cd hive && ./hive --sim {{simulation}} --client ethereumrust --sim.limit "{{test-pattern}}" --docker.output
