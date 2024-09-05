@@ -29,15 +29,32 @@ table!(
 );
 
 impl TrieDB {
+    /// Opens a DB created by a previous execution or creates a new one if it doesn't exist
     pub fn init(trie_dir: &str) -> Result<TrieDB, StoreError> {
+        TrieDB::open(trie_dir).or_else(|_| TrieDB::create(trie_dir))
+    }
+
+    /// Creates a new clean DB
+    pub fn create(trie_dir: &str) -> Result<TrieDB, StoreError> {
         let tables = [table_info!(Nodes), table_info!(RootNodes)]
             .into_iter()
             .collect();
         let path = Some(trie_dir.into());
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
-            next_node_ref: NodeRef::new(0), // TODO: persist this
+            next_node_ref: NodeRef::new(0),
         })
+    }
+
+    /// Opens a DB created by a previous execution
+    pub fn open(trie_dir: &str) -> Result<TrieDB, StoreError> {
+        let tables = [table_info!(Nodes), table_info!(RootNodes)]
+            .into_iter()
+            .collect();
+        let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
+        let next_node_ref = last_node_ref(&db)?.map(|nr| nr.next()).unwrap_or_default();
+
+        Ok(TrieDB { db, next_node_ref })
     }
 
     pub fn get_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
@@ -55,7 +72,7 @@ impl TrieDB {
     }
 
     pub fn get_root_ref(&self, hash: H256) -> Result<Option<NodeRef>, StoreError> {
-        Ok(self.read::<RootNodes>(hash.0)?)
+        self.read::<RootNodes>(hash.0)
     }
 
     pub fn insert_root_ref(&mut self, hash: H256, node_ref: NodeRef) -> Result<(), StoreError> {
@@ -86,10 +103,23 @@ impl TrieDB {
     #[cfg(test)]
     // Creates a temporary DB
     pub fn init_temp() -> Self {
-        let tables = [table_info!(Nodes)].into_iter().collect();
+        let tables = [table_info!(Nodes), table_info!(RootNodes)]
+            .into_iter()
+            .collect();
         TrieDB {
             db: Database::create(None, &tables).expect("Failed to create temp DB"),
             next_node_ref: NodeRef::new(0),
         }
     }
+}
+
+/// Returns the reference to the last node stored in the database
+/// Used when opening a previous execution's database
+fn last_node_ref(db: &Database) -> Result<Option<NodeRef>, StoreError> {
+    let txn = db.begin_read().map_err(StoreError::LibmdbxError)?;
+    let mut cursor = txn.cursor::<Nodes>().map_err(StoreError::LibmdbxError)?;
+    Ok(cursor
+        .last()
+        .map_err(StoreError::LibmdbxError)?
+        .map(|(node_ref, _)| node_ref))
 }

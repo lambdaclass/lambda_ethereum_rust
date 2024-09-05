@@ -20,8 +20,14 @@ impl NodeRef {
         self.0 != INVALID_REF
     }
 
+    // TODO: check if it is safe to overwrite very old nodes or if we should use a bigger type for node references
     pub fn next(&self) -> Self {
-        Self(self.0.wrapping_add(1))
+        let next = self.0.saturating_add(1);
+        if self.is_valid() {
+            Self(next)
+        } else {
+            panic!("Trie node limit reached")
+        }
     }
 }
 
