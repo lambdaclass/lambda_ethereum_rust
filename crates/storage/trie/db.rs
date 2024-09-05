@@ -26,7 +26,7 @@ impl TrieDB {
         let path = Some(trie_dir.into());
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
-            next_node_ref: NodeRef::new(0),
+            next_node_ref: NodeRef::new(0), // TODO: persist this
         })
     }
 
@@ -63,5 +63,15 @@ impl TrieDB {
     fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
+    }
+
+    #[cfg(test)]
+    // Creates a temporary DB
+    pub fn init_temp() -> Self {
+        let tables = [table_info!(Nodes)].into_iter().collect();
+        TrieDB {
+            db: Database::create(None, &tables).expect("Failed to create temp DB"),
+            next_node_ref: NodeRef::new(0),
+        }
     }
 }

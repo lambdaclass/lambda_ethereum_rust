@@ -117,44 +117,25 @@ impl Trie {
         }
         Ok(self.hash.1)
     }
+
+    #[cfg(test)]
+    /// Creates a new trie based on a temporary DB
+    pub fn new_temp() -> Self {
+        Self {
+            root_ref: NodeRef::default(),
+            db: TrieDB::init_temp(),
+            hash: (false, Default::default()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::trie::test_utils::{remove_trie, start_trie};
-
     use super::*;
 
-    const TRIE_TEST_DIR: &str = "trie-test-db";
-
-    fn run_test(test: &dyn Fn(Trie)) {
-        let trie = start_trie(TRIE_TEST_DIR);
-        test(trie);
-        remove_trie(TRIE_TEST_DIR)
-    }
-
     #[test]
-    fn run_trie_test_suite() {
-        run_test(&compute_hash);
-        run_test(&compute_hash_long);
-        run_test(&get_insert_words);
-        run_test(&get_insert_zero);
-        run_test(&get_insert_a);
-        run_test(&get_insert_b);
-        run_test(&get_insert_c);
-        run_test(&get_insert_d);
-        run_test(&get_insert_e);
-        run_test(&get_insert_f);
-        run_test(&get_insert_remove_a);
-        run_test(&get_insert_remove_b);
-        run_test(&compute_hash_a);
-        run_test(&compute_hash_b);
-        run_test(&compute_hash_c);
-        run_test(&compute_hash_d);
-        run_test(&compute_hash_e);
-    }
-
-    fn compute_hash(mut trie: Trie) {
+    fn compute_hash() {
+        let mut trie = Trie::new_temp();
         trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
@@ -165,7 +146,9 @@ mod test {
         );
     }
 
-    fn compute_hash_long(mut trie: Trie) {
+    #[test]
+    fn compute_hash_long() {
+        let mut trie = Trie::new_temp();
         trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"third".to_vec(), b"value".to_vec()).unwrap();
@@ -178,7 +161,9 @@ mod test {
         );
     }
 
-    fn get_insert_words(mut trie: Trie) {
+    #[test]
+    fn get_insert_words() {
+        let mut trie = Trie::new_temp();
         trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
@@ -188,13 +173,17 @@ mod test {
         assert!(second.is_some());
     }
 
-    fn get_insert_zero(mut trie: Trie) {
+    #[test]
+    fn get_insert_zero() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0x0], b"value".to_vec()).unwrap();
         let first = trie.get(&[0x0][..].to_vec()).unwrap();
         assert_eq!(first, Some(b"value".to_vec()));
     }
 
-    fn get_insert_a(mut trie: Trie) {
+    #[test]
+    fn get_insert_a() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![16], vec![0]).unwrap();
         trie.insert(vec![16, 0], vec![0]).unwrap();
 
@@ -207,7 +196,9 @@ mod test {
         assert_eq!(item.unwrap(), vec![0]);
     }
 
-    fn get_insert_b(mut trie: Trie) {
+    #[test]
+    fn get_insert_b() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0, 0], vec![0, 0]).unwrap();
         trie.insert(vec![1, 0], vec![1, 0]).unwrap();
 
@@ -220,7 +211,9 @@ mod test {
         assert_eq!(item.unwrap(), vec![0, 0]);
     }
 
-    fn get_insert_c(mut trie: Trie) {
+    #[test]
+    fn get_insert_c() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![26, 192, 44, 251], vec![26, 192, 44, 251])
             .unwrap();
         trie.insert(
@@ -266,7 +259,9 @@ mod test {
         assert_eq!(item.unwrap(), vec![138, 101, 157]);
     }
 
-    fn get_insert_d(mut trie: Trie) {
+    #[test]
+    fn get_insert_d() {
+        let mut trie = Trie::new_temp();
         let vecs = vec![
             vec![52, 53, 143, 52, 206, 112],
             vec![14, 183, 34, 39, 113],
@@ -288,7 +283,9 @@ mod test {
         }
     }
 
-    fn get_insert_e(mut trie: Trie) {
+    #[test]
+    fn get_insert_e() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0x00], vec![0x00]).unwrap();
         trie.insert(vec![0xC8], vec![0xC8]).unwrap();
         trie.insert(vec![0xC8, 0x00], vec![0xC8, 0x00]).unwrap();
@@ -298,7 +295,9 @@ mod test {
         assert_eq!(trie.get(&vec![0xC8, 0x00]).unwrap(), Some(vec![0xC8, 0x00]));
     }
 
-    fn get_insert_f(mut trie: Trie) {
+    #[test]
+    fn get_insert_f() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0x00], vec![0x00]).unwrap();
         trie.insert(vec![0x01], vec![0x01]).unwrap();
         trie.insert(vec![0x10], vec![0x10]).unwrap();
@@ -314,7 +313,9 @@ mod test {
         assert_eq!(trie.get(&vec![0x1A]).unwrap(), Some(vec![0x1A]));
     }
 
-    fn get_insert_remove_a(mut trie: Trie) {
+    #[test]
+    fn get_insert_remove_a() {
+        let mut trie = Trie::new_temp();
         trie.insert("do".as_bytes().to_vec(), "verb".as_bytes().to_vec())
             .unwrap();
         trie.insert("horse".as_bytes().to_vec(), "stallion".as_bytes().to_vec())
@@ -328,7 +329,9 @@ mod test {
         );
     }
 
-    fn get_insert_remove_b(mut trie: Trie) {
+    #[test]
+    fn get_insert_remove_b() {
+        let mut trie = Trie::new_temp();
         trie.insert(vec![185], vec![185]).unwrap();
         trie.insert(vec![185, 0], vec![185, 0]).unwrap();
         trie.insert(vec![185, 1], vec![185, 1]).unwrap();
@@ -338,7 +341,9 @@ mod test {
         assert!(trie.get(&vec![185, 1]).unwrap().is_none());
     }
 
-    fn compute_hash_a(mut trie: Trie) {
+    #[test]
+    fn compute_hash_a() {
+        let mut trie = Trie::new_temp();
         trie.insert("do".as_bytes().to_vec(), "verb".as_bytes().to_vec())
             .unwrap();
         trie.insert("horse".as_bytes().to_vec(), "stallion".as_bytes().to_vec())
@@ -356,7 +361,9 @@ mod test {
         );
     }
 
-    fn compute_hash_b(mut trie: Trie) {
+    #[test]
+    fn compute_hash_b() {
+        let mut trie = Trie::new_temp();
         assert_eq!(
             trie.compute_hash().unwrap().as_slice(),
             hex::decode("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
@@ -365,7 +372,9 @@ mod test {
         );
     }
 
-    fn compute_hash_c(mut trie: Trie) {
+    #[test]
+    fn compute_hash_c() {
+        let mut trie = Trie::new_temp();
         trie.insert(
             hex::decode("0000000000000000000000000000000000000000000000000000000000000045")
                 .unwrap(),
@@ -433,7 +442,9 @@ mod test {
         );
     }
 
-    fn compute_hash_d(mut trie: Trie) {
+    #[test]
+    fn compute_hash_d() {
+        let mut trie = Trie::new_temp();
         trie.insert(
             "key1aa".as_bytes().to_vec(),
             "0123456789012345678901234567890123456789xxx"
@@ -468,7 +479,9 @@ mod test {
         );
     }
 
-    fn compute_hash_e(mut trie: Trie) {
+    #[test]
+    fn compute_hash_e() {
+        let mut trie = Trie::new_temp();
         trie.insert("abc".as_bytes().to_vec(), "123".as_bytes().to_vec())
             .unwrap();
         trie.insert("abcd".as_bytes().to_vec(), "abcd".as_bytes().to_vec())
