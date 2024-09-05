@@ -22,7 +22,7 @@ pub type ValueRLP = Vec<u8>;
 pub struct Trie {
     /// Root node ref.
     root_ref: NodeRef,
-    /// Contains all the nodes and all the node's values
+    /// Contains the trie's nodes & old root hashes
     pub(crate) db: TrieDB,
     // Contains the root hash if the current root node has been hashed
     hash: Option<H256>,
