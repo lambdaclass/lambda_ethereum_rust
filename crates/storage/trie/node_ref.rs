@@ -1,4 +1,3 @@
-// TODO: check where we should place this code
 use std::ops::Deref;
 
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
@@ -20,7 +19,7 @@ impl NodeRef {
         self.0 != INVALID_REF
     }
 
-    // TODO: check if it is safe to overwrite very old nodes or if we should use a bigger type for node references
+    // TODO: check if we should use a bigger type for node references
     pub fn next(&self) -> Self {
         let next = self.0.saturating_add(1);
         if self.is_valid() {

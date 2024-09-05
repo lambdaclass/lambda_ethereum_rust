@@ -28,7 +28,6 @@ pub struct Trie {
     hash: Option<H256>,
 }
 
-// TODO: Hashes are not currenlty being updated nor saved, we should either fix it so that hashes are saved or remove the useless hash fields from nodes
 impl Trie {
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
