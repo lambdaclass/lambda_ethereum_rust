@@ -3,6 +3,9 @@
 /// Gas consumption of a single data blob (== blob byte size).
 pub const GAS_PER_BLOB: u64 = 1 << 17;
 
+/// Target gas consumption for data blobs per block.
+pub const TARGET_BLOB_GAS_PER_BLOCK: u64 = 393216;
+
 /// Target number of the blob per block.
 pub const TARGET_BLOB_NUMBER_PER_BLOCK: u64 = 3;
 

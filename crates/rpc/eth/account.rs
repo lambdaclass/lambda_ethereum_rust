@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::fmt::Display;
 use tracing::info;
 
-use crate::{eth::block::BlockTag, utils::RpcErr};
+use crate::{eth::block::BlockTag, utils::RpcErr, RpcHandler};
 use ethereum_rust_core::{types::BlockNumber, Address, BigEndianHash, H256};
 
 use super::block::BlockIdentifier;
@@ -13,8 +13,8 @@ use serde::Deserialize;
 #[derive(Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum BlockIdentifierOrHash {
-    Identifier(BlockIdentifier),
     Hash(BlockHash),
+    Identifier(BlockIdentifier),
 }
 
 impl PartialEq<BlockTag> for BlockIdentifierOrHash {
@@ -52,8 +52,8 @@ pub struct GetStorageAtRequest {
     pub block: BlockIdentifierOrHash,
 }
 
-impl GetBalanceRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBalanceRequest> {
+impl RpcHandler for GetBalanceRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetBalanceRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -63,10 +63,26 @@ impl GetBalanceRequest {
             block: serde_json::from_value(params[1].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested balance of account {} at block {}",
+            self.address, self.block
+        );
+
+        // TODO: implement historical querying
+        if self.block != BlockTag::Latest {
+            return Err(RpcErr::Internal);
+        }
+
+        let account = storage.get_account_info(self.address)?;
+        let balance = account.map(|acc| acc.balance).unwrap_or_default();
+
+        serde_json::to_value(format!("{:#x}", balance)).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetCodeRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetCodeRequest> {
+impl RpcHandler for GetCodeRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetCodeRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -76,10 +92,27 @@ impl GetCodeRequest {
             block: serde_json::from_value(params[1].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested code of account {} at block {}",
+            self.address, self.block
+        );
+
+        // TODO: implement historical querying
+        if self.block != BlockTag::Latest {
+            return Err(RpcErr::Internal);
+        }
+
+        let code = storage
+            .get_code_by_account_address(self.address)?
+            .unwrap_or_default();
+
+        serde_json::to_value(format!("0x{:x}", code)).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetStorageAtRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetStorageAtRequest> {
+impl RpcHandler for GetStorageAtRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetStorageAtRequest> {
         let params = params.as_ref()?;
         if params.len() != 3 {
             return None;
@@ -90,60 +123,23 @@ impl GetStorageAtRequest {
             block: serde_json::from_value(params[2].clone()).ok()?,
         })
     }
-}
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested storage sot {} of account {} at block {}",
+            self.storage_slot, self.address, self.block
+        );
 
-pub fn get_balance(request: &GetBalanceRequest, storage: Store) -> Result<Value, RpcErr> {
-    info!(
-        "Requested balance of account {} at block {}",
-        request.address, request.block
-    );
+        // TODO: implement historical querying
+        if self.block != BlockTag::Latest {
+            return Err(RpcErr::Internal);
+        }
 
-    // TODO: implement historical querying
-    if request.block != BlockTag::Latest {
-        return Err(RpcErr::Internal);
+        let storage_value = storage
+            .get_storage_at(self.address, self.storage_slot)?
+            .unwrap_or_default();
+        let storage_value = H256::from_uint(&storage_value);
+        serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)
     }
-
-    let account = storage.get_account_info(request.address)?;
-    let balance = account.map(|acc| acc.balance).unwrap_or_default();
-
-    serde_json::to_value(format!("{:#x}", balance)).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_code(request: &GetCodeRequest, storage: Store) -> Result<Value, RpcErr> {
-    info!(
-        "Requested code of account {} at block {}",
-        request.address, request.block
-    );
-
-    // TODO: implement historical querying
-    if request.block != BlockTag::Latest {
-        return Err(RpcErr::Internal);
-    }
-
-    let code = storage
-        .get_code_by_account_address(request.address)?
-        .unwrap_or_default();
-
-    serde_json::to_value(format!("0x{:x}", code)).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_storage_at(request: &GetStorageAtRequest, storage: Store) -> Result<Value, RpcErr> {
-    info!(
-        "Requested storage sot {} of account {} at block {}",
-        request.storage_slot, request.address, request.block
-    );
-
-    // TODO: implement historical querying
-    if request.block != BlockTag::Latest {
-        return Err(RpcErr::Internal);
-    }
-
-    let storage_value = storage
-        .get_storage_at(request.address, request.storage_slot)?
-        .unwrap_or_default();
-    let storage_value = H256::from_uint(&storage_value);
-
-    serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)
 }
 
 impl Display for BlockIdentifierOrHash {

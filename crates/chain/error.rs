@@ -29,6 +29,8 @@ pub enum InvalidBlockError {
     ExceededMaxBlobGasPerBlock,
     #[error("Exceeded MAX_BLOB_NUMBER_PER_BLOCK")]
     ExceededMaxBlobNumberPerBlock,
-    #[error("blob gas used doesn't match value in header")]
+    #[error("Gas used doesn't match value in header")]
+    GasUsedMismatch,
+    #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
 }
