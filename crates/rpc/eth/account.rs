@@ -34,6 +34,19 @@ impl BlockIdentifierOrHash {
             BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(*block_hash),
         }
     }
+
+    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
+        if self == &BlockTag::Latest {
+            return Ok(true);
+        }
+
+        let result = self.resolve_block_number(storage)?;
+        let latest = storage.get_latest_block_number()?;
+        match (result, latest) {
+            (Some(result), Some(latest)) => Ok(result == latest),
+            _ => Ok(false),
+        }
+    }
 }
 
 pub struct GetBalanceRequest {
@@ -70,7 +83,8 @@ impl RpcHandler for GetBalanceRequest {
         );
 
         // TODO: implement historical querying
-        if self.block != BlockTag::Latest {
+        let is_latest = self.block.is_latest(&storage)?;
+        if !is_latest {
             return Err(RpcErr::Internal);
         }
 
@@ -99,7 +113,8 @@ impl RpcHandler for GetCodeRequest {
         );
 
         // TODO: implement historical querying
-        if self.block != BlockTag::Latest {
+        let is_latest = self.block.is_latest(&storage)?;
+        if !is_latest {
             return Err(RpcErr::Internal);
         }
 
@@ -130,7 +145,8 @@ impl RpcHandler for GetStorageAtRequest {
         );
 
         // TODO: implement historical querying
-        if self.block != BlockTag::Latest {
+        let is_latest = self.block.is_latest(&storage)?;
+        if !is_latest {
             return Err(RpcErr::Internal);
         }
 
