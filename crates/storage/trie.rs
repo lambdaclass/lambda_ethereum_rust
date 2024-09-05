@@ -116,6 +116,41 @@ impl Trie {
         Ok(root_hash)
     }
 
+    /// Retrieve a value from the tree given its path from the subtree originating from the given root
+    /// Please use a root_hash calculated using `compute_hash`
+    /// This function is used to access historical data,
+    pub fn get_with_root(
+        &self,
+        root_hash: H256,
+        path: &PathRLP,
+    ) -> Result<Option<ValueRLP>, StoreError> {
+        let root_ref = self.db.get_root_ref(root_hash)?;
+        match root_ref {
+            Some(root_ref) if root_ref.is_valid() => {
+                let root_node = self
+                    .db
+                    .get_node(self.root_ref)?
+                    .expect("inconsistent internal tree structure");
+
+                root_node.get(&self.db, NibbleSlice::new(path))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Sets the root of the trie to the one which's hash corresponds to the one received
+    /// Returns true if the root was updated succesfully or false if the new root cannot be located
+    /// For this method to work properly, please use a root hash that has been calculated using `compute_hash`
+    pub fn set_root(&mut self, root_hash: H256) -> Result<bool, StoreError> {
+        if let Some(root_ref) = self.db.get_root_ref(root_hash)? {
+            self.root_ref = root_ref;
+            self.hash = Some(root_hash);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     #[cfg(test)]
     /// Creates a new trie based on a temporary DB
     pub fn new_temp() -> Self {
