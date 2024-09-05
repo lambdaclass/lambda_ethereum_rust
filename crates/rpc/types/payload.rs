@@ -1,15 +1,16 @@
-use crate::{rlp::error::RLPDecodeError, serde_utils};
 use bytes::Bytes;
-use ethereum_types::{Address, Bloom};
-use keccak_hash::H256;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{
-    compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader,
-    Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+use ethereum_rust_core::{
+    rlp::error::RLPDecodeError,
+    serde_utils,
+    types::{
+        compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
+        BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+    },
+    Address, Bloom, H256,
 };
 
-#[allow(unused)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadV3 {
@@ -19,28 +20,27 @@ pub struct ExecutionPayloadV3 {
     receipts_root: H256,
     logs_bloom: Bloom,
     prev_randao: H256,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     block_number: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     gas_limit: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     gas_used: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     timestamp: u64,
-    #[serde(with = "crate::serde_utils::bytes")]
+    #[serde(with = "serde_utils::bytes")]
     extra_data: Bytes,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     base_fee_per_gas: u64,
     pub block_hash: H256,
     transactions: Vec<EncodedTransaction>,
     withdrawals: Vec<Withdrawal>,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     blob_gas_used: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "serde_utils::u64::hex_str")]
     excess_blob_gas: u64,
 }
 
-#[allow(unused)]
 #[derive(Debug)]
 pub struct EncodedTransaction(pub Bytes);
 
@@ -55,7 +55,6 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
     }
 }
 
-#[allow(unused)]
 impl EncodedTransaction {
     /// Based on [EIP-2718]
     /// Transactions can be encoded in the following formats:
@@ -66,7 +65,6 @@ impl EncodedTransaction {
     }
 }
 
-#[allow(unused)]
 impl ExecutionPayloadV3 {
     /// Converts an `ExecutionPayloadV3` into a block (aka a BlockHeader and BlockBody)
     /// using the parentBeaconBlockRoot received along with the payload in the rpc call `engine_newPayloadV3`
@@ -87,7 +85,7 @@ impl ExecutionPayloadV3 {
                 coinbase: self.fee_recipient,
                 state_root: self.state_root,
                 transactions_root: compute_transactions_root(&body.transactions),
-                receipt_root: self.receipts_root,
+                receipts_root: self.receipts_root,
                 logs_bloom: self.logs_bloom,
                 difficulty: 0.into(),
                 number: self.block_number,
@@ -110,7 +108,6 @@ impl ExecutionPayloadV3 {
     }
 }
 
-#[allow(unused)]
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PayloadStatus {

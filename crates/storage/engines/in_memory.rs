@@ -13,6 +13,8 @@ pub struct Store {
     chain_data: ChainData,
     account_infos: HashMap<Address, AccountInfo>,
     block_numbers: HashMap<BlockHash, BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
+    block_total_difficulties: HashMap<BlockHash, U256>,
     bodies: HashMap<BlockNumber, BlockBody>,
     headers: HashMap<BlockNumber, BlockHeader>,
     // Maps code hashes to code
@@ -25,14 +27,14 @@ pub struct Store {
 
 #[derive(Default)]
 struct ChainData {
-    chain_id: Option<U256>,
+    chain_config: Option<ChainConfig>,
     earliest_block_number: Option<BlockNumber>,
     finalized_block_number: Option<BlockNumber>,
     safe_block_number: Option<BlockNumber>,
     latest_block_number: Option<BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
+    latest_total_difficulty: Option<U256>,
     pending_block_number: Option<BlockNumber>,
-    cancun_time: Option<u64>,
-    shanghai_time: Option<u64>,
 }
 
 impl Store {
@@ -103,6 +105,23 @@ impl StoreEngine for Store {
 
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.block_numbers.get(&block_hash).copied())
+    }
+
+    fn add_block_total_difficulty(
+        &mut self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.block_total_difficulties
+            .insert(block_hash, block_total_difficulty);
+        Ok(())
+    }
+
+    fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<U256>, StoreError> {
+        Ok(self.block_total_difficulties.get(&block_hash).copied())
     }
 
     fn add_transaction_location(
@@ -197,24 +216,36 @@ impl StoreEngine for Store {
 
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         // Store cancun timestamp
-        self.chain_data.cancun_time = chain_config.cancun_time;
-        // Store shanghai timestamp
-        self.chain_data.shanghai_time = chain_config.shanghai_time;
-        // Store chain id
-        self.chain_data.chain_id.replace(chain_config.chain_id);
+        self.chain_data.chain_config = Some(*chain_config);
         Ok(())
     }
 
-    fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
-        Ok(self.chain_data.chain_id)
+    fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError> {
+        Ok(self.chain_data.chain_config)
+    }
+
+    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
+        if let Some(chain_config) = self.chain_data.chain_config {
+            Ok(Some(chain_config.chain_id))
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        Ok(self.chain_data.cancun_time)
+        if let Some(chain_config) = self.chain_data.chain_config {
+            Ok(chain_config.cancun_time)
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        Ok(self.chain_data.shanghai_time)
+        if let Some(chain_config) = self.chain_data.chain_config {
+            Ok(chain_config.shanghai_time)
+        } else {
+            Ok(None)
+        }
     }
 
     fn update_earliest_block_number(
@@ -254,9 +285,22 @@ impl StoreEngine for Store {
         self.chain_data.latest_block_number.replace(block_number);
         Ok(())
     }
+    fn update_latest_total_difficulty(
+        &mut self,
+        latest_total_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.chain_data
+            .latest_total_difficulty
+            .replace(latest_total_difficulty);
+        Ok(())
+    }
 
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.chain_data.latest_block_number)
+    }
+
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        Ok(self.chain_data.latest_total_difficulty)
     }
 
     fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {

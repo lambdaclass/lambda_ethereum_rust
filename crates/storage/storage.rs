@@ -155,6 +155,29 @@ impl Store {
             .get_block_number(block_hash)
     }
 
+    pub fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .add_block_total_difficulty(block_hash, block_difficulty)
+    }
+
+    pub fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<U256>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_block_total_difficulty(block_hash)
+    }
+
     pub fn add_transaction_location(
         &self,
         transaction_hash: H256,
@@ -237,11 +260,32 @@ impl Store {
         // TODO Maybe add both in a single tx?
         let header = block.header;
         let number = header.number;
+        let latest_total_difficulty = self.get_latest_total_difficulty()?;
+        let block_total_difficulty =
+            latest_total_difficulty.unwrap_or(U256::zero()) + header.difficulty;
         let hash = header.compute_block_hash();
+        self.add_transaction_locations(&block.body.transactions, number)?;
         self.add_block_body(number, block.body)?;
         self.add_block_header(number, header)?;
         self.add_block_number(hash, number)?;
-        self.update_latest_block_number(number)
+        self.update_latest_block_number(number)?;
+        self.add_block_total_difficulty(hash, block_total_difficulty)?;
+        self.update_latest_total_difficulty(block_total_difficulty)
+    }
+
+    fn add_transaction_locations(
+        &self,
+        transactions: &[Transaction],
+        block_number: BlockNumber,
+    ) -> Result<(), StoreError> {
+        for (index, transaction) in transactions.iter().enumerate() {
+            self.add_transaction_location(
+                transaction.compute_hash(),
+                block_number,
+                index as Index,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {
@@ -329,7 +373,11 @@ impl Store {
         self.engine.lock().unwrap().set_chain_config(chain_config)
     }
 
-    pub fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
+    pub fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError> {
+        self.engine.lock().unwrap().get_chain_config()
+    }
+
+    pub fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
         self.engine.lock().unwrap().get_chain_id()
     }
 
@@ -386,9 +434,19 @@ impl Store {
             .unwrap()
             .update_latest_block_number(block_number)
     }
+    pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .update_latest_total_difficulty(block_difficulty)
+    }
 
     pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_latest_block_number()
+    }
+
+    pub fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        self.engine.lock().unwrap().get_latest_total_difficulty()
     }
 
     pub fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -491,11 +549,12 @@ mod tests {
         run_test(&test_store_account_storage, engine_type);
         run_test(&test_remove_account_storage, engine_type);
         run_test(&test_increment_balance, engine_type);
-        run_test(&test_store_chain_config, engine_type);
+        run_test(&test_get_chain_id_cancun_time, engine_type);
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_account_info_iter, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
         run_test(&test_account_storage_iter, engine_type);
+        run_test(&test_chain_config_storage, engine_type)
     }
 
     fn test_store_account(store: Store) {
@@ -567,7 +626,7 @@ mod tests {
                 "0x578602b2b7e3a3291c3eefca3a08bc13c0d194f9845a39b6f3bcf843d9fed79d",
             )
             .unwrap(),
-            receipt_root: H256::from_str(
+            receipts_root: H256::from_str(
                 "0x035d56bac3f47246c5eed0e6642ca40dc262f9144b582f058bc23ded72aa72fa",
             )
             .unwrap(),
@@ -738,8 +797,8 @@ mod tests {
         assert_eq!(stored_account_info.balance, 75.into());
     }
 
-    fn test_store_chain_config(store: Store) {
-        let chain_id = U256::from_dec_str("46").unwrap();
+    fn test_get_chain_id_cancun_time(store: Store) {
+        let chain_id = 46_u64;
         let cancun_time = 12;
         let chain_config = ChainConfig {
             chain_id,
@@ -865,5 +924,35 @@ mod tests {
         let account_storage_iter = store.account_storage_iter(address).unwrap();
         let account_storage_from_iter = HashMap::from_iter(account_storage_iter);
         assert_eq!(account_storage, account_storage_from_iter)
+    }
+
+    fn test_chain_config_storage(store: Store) {
+        let chain_config = example_chain_config();
+        store.set_chain_config(&chain_config).unwrap();
+        let retrieved_chain_config = store.get_chain_config().unwrap().unwrap();
+        assert_eq!(chain_config, retrieved_chain_config);
+    }
+
+    fn example_chain_config() -> ChainConfig {
+        ChainConfig {
+            chain_id: 3151908_u64,
+            homestead_block: Some(0),
+            eip150_block: Some(0),
+            eip155_block: Some(0),
+            eip158_block: Some(0),
+            byzantium_block: Some(0),
+            constantinople_block: Some(0),
+            petersburg_block: Some(0),
+            istanbul_block: Some(0),
+            berlin_block: Some(0),
+            london_block: Some(0),
+            merge_netsplit_block: Some(0),
+            shanghai_time: Some(0),
+            cancun_time: Some(0),
+            prague_time: Some(1718232101),
+            terminal_total_difficulty: Some(58750000000000000000000),
+            terminal_total_difficulty_passed: true,
+            ..Default::default()
+        }
     }
 }

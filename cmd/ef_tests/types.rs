@@ -192,7 +192,7 @@ impl From<Header> for BlockHeader {
             coinbase: val.coinbase,
             state_root: val.state_root,
             transactions_root: val.transactions_trie,
-            receipt_root: val.receipt_trie,
+            receipts_root: val.receipt_trie,
             logs_bloom: val.bloom,
             difficulty: val.difficulty,
             number: val.number.as_u64(),

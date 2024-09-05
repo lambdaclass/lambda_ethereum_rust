@@ -17,10 +17,18 @@ pub mod u256 {
     where
         D: Deserializer<'de>,
     {
-        let value = Number::deserialize(d)?.to_string();
-        U256::from_dec_str(&value)
-            .map_err(|e| D::Error::custom(e.to_string()))
-            .map(Some)
+        // Handle the null case explicitly
+        let opt = Option::<Number>::deserialize(d)?;
+        match opt {
+            Some(number) => {
+                // Convert number to string and parse to U256
+                let value = number.to_string();
+                U256::from_dec_str(&value)
+                    .map(Some)
+                    .map_err(|e| D::Error::custom(e.to_string()))
+            }
+            None => Ok(None),
+        }
     }
 
     pub fn deser_dec_str<'de, D>(d: D) -> Result<U256, D::Error>
@@ -52,6 +60,13 @@ pub mod u256 {
             U256::from_dec_str(&value).map_err(|e| D::Error::custom(e.to_string()))
         }
     }
+
+    pub fn serialize_number<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
 }
 
 pub mod u64 {
@@ -77,6 +92,26 @@ pub mod u64 {
             serializer.serialize_str(&format!("{:#x}", value))
         }
     }
+    pub mod hex_str_padding {
+        use super::*;
+
+        pub fn deserialize<'de, D>(d: D) -> Result<u64, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = String::deserialize(d)?;
+            let res = u64::from_str_radix(value.trim_start_matches("0x"), 16)
+                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"));
+            res
+        }
+
+        pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(&format!("{:#018x}", value))
+        }
+    }
 
     pub mod hex_str_opt {
         use serde::Serialize;
@@ -94,10 +129,13 @@ pub mod u64 {
         where
             D: Deserializer<'de>,
         {
-            let value = String::deserialize(d)?;
-            u64::from_str_radix(value.trim_start_matches("0x"), 16)
-                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
-                .map(Some)
+            let value = Option::<String>::deserialize(d)?;
+            match value {
+                Some(s) if !s.is_empty() => u64::from_str_radix(s.trim_start_matches("0x"), 16)
+                    .map_err(|_| D::Error::custom("Failed to deserialize u64 value"))
+                    .map(Some),
+                _ => Ok(None),
+            }
         }
     }
 

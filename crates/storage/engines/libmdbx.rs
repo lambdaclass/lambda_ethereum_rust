@@ -2,7 +2,7 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
-    BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
+    BlockHeaderRLP, BlockTotalDifficultyRLP, ReceiptRLP, TransactionHashRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
@@ -18,6 +18,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
+use serde_json;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 
@@ -141,6 +142,22 @@ impl StoreEngine for Store {
     ) -> std::result::Result<Option<BlockNumber>, StoreError> {
         self.read::<BlockNumbers>(block_hash.into())
     }
+    fn add_block_total_difficulty(
+        &mut self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<BlockTotalDifficulties>(block_hash.into(), block_total_difficulty.into())
+    }
+
+    fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<U256>, StoreError> {
+        Ok(self
+            .read::<BlockTotalDifficulties>(block_hash.into())?
+            .map(|b| b.to()))
+    }
 
     fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.write::<AccountCodes>(code_hash.into(), code.into())
@@ -214,28 +231,33 @@ impl StoreEngine for Store {
         self.remove::<AccountStorages>(address.into())
     }
 
+    /// Stores the chain config serialized as json
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
-        // Store cancun timestamp
-        if let Some(cancun_time) = chain_config.cancun_time {
-            self.write::<ChainData>(ChainDataIndex::CancunTime, cancun_time.encode_to_vec())?;
-        };
-        // Store shanghai timestamp
-        if let Some(shanghai_time) = chain_config.shanghai_time {
-            self.write::<ChainData>(ChainDataIndex::ShanghaiTime, shanghai_time.encode_to_vec())?;
-        };
-        // Store chain id
         self.write::<ChainData>(
-            ChainDataIndex::ChainId,
-            chain_config.chain_id.encode_to_vec(),
+            ChainDataIndex::ChainConfig,
+            serde_json::to_string(chain_config)
+                .map_err(|_| StoreError::DecodeError)?
+                .into_bytes(),
         )
     }
 
-    fn get_chain_id(&self) -> Result<Option<U256>, StoreError> {
-        match self.read::<ChainData>(ChainDataIndex::ChainId)? {
+    fn get_chain_config(&self) -> std::result::Result<Option<ChainConfig>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::ChainConfig)? {
             None => Ok(None),
-            Some(ref rlp) => RLPDecode::decode(rlp)
-                .map(Some)
-                .map_err(|_| StoreError::DecodeError),
+            Some(bytes) => {
+                let json = String::from_utf8(bytes).map_err(|_| StoreError::DecodeError)?;
+                let chain_config: ChainConfig =
+                    serde_json::from_str(&json).map_err(|_| StoreError::DecodeError)?;
+                Ok(Some(chain_config))
+            }
+        }
+    }
+
+    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
+        if let Some(chain_config) = dbg!(self.get_chain_config()?) {
+            Ok(Some(chain_config.chain_id))
+        } else {
+            Ok(None)
         }
     }
 
@@ -255,20 +277,18 @@ impl StoreEngine for Store {
     }
 
     fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        match self.read::<ChainData>(ChainDataIndex::CancunTime)? {
-            None => Ok(None),
-            Some(ref rlp) => RLPDecode::decode(rlp)
-                .map(Some)
-                .map_err(|_| StoreError::DecodeError),
+        if let Some(chain_config) = self.get_chain_config()? {
+            Ok(chain_config.cancun_time)
+        } else {
+            Ok(None)
         }
     }
 
     fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        match self.read::<ChainData>(ChainDataIndex::ShanghaiTime)? {
-            None => Ok(None),
-            Some(ref rlp) => RLPDecode::decode(rlp)
-                .map(Some)
-                .map_err(|_| StoreError::DecodeError),
+        if let Some(chain_config) = self.get_chain_config()? {
+            Ok(chain_config.shanghai_time)
+        } else {
+            Ok(None)
         }
     }
 
@@ -342,6 +362,25 @@ impl StoreEngine for Store {
         }
     }
 
+    fn update_latest_total_difficulty(
+        &mut self,
+        latest_total_difficulty: U256,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::LatestTotalDifficulty,
+            latest_total_difficulty.encode_to_vec(),
+        )
+    }
+
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::LatestTotalDifficulty)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
     fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::PendingBlockNumber,
@@ -370,6 +409,12 @@ impl Debug for Store {
 table!(
     /// Block hash to number table.
     ( BlockNumbers ) BlockHashRLP => BlockNumber
+);
+
+// TODO (#307): Remove TotalDifficulty.
+table!(
+    /// Block hash to total difficulties table.
+    ( BlockTotalDifficulties ) BlockHashRLP => BlockTotalDifficultyRLP
 );
 
 table!(
@@ -470,14 +515,14 @@ impl From<AccountStorageValueBytes> for U256 {
 /// Represents the key for each unique value of the chain data stored in the db
 // (TODO: Remove this comment once full) Will store chain-specific data such as chain id and latest finalized/pending/safe block number
 pub enum ChainDataIndex {
-    ChainId = 0,
+    ChainConfig = 0,
     EarliestBlockNumber = 1,
     FinalizedBlockNumber = 2,
     SafeBlockNumber = 3,
     LatestBlockNumber = 4,
     PendingBlockNumber = 5,
-    CancunTime = 6,
-    ShanghaiTime = 7,
+    // TODO (#307): Remove TotalDifficulty.
+    LatestTotalDifficulty = 6,
 }
 
 impl Encodable for ChainDataIndex {
@@ -493,6 +538,8 @@ impl Encodable for ChainDataIndex {
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     let tables = [
         table_info!(BlockNumbers),
+        // TODO (#307): Remove TotalDifficulty.
+        table_info!(BlockTotalDifficulties),
         table_info!(Headers),
         table_info!(Bodies),
         table_info!(AccountInfos),

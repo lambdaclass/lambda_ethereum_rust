@@ -1,19 +1,25 @@
 use std::fmt::Display;
 
-use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
-use ethereum_rust_storage::{error::StoreError, Store};
-use serde::{Deserialize, Serialize};
+use ethereum_rust_chain::find_parent_header;
+use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
-use crate::{types::transaction::RpcTransaction, utils::RpcErr};
-use ethereum_rust_core::{
+use crate::{
     types::{
-        AccessListEntry, BlockHash, BlockNumber, BlockSerializable, GenericTransaction,
-        ReceiptWithTxAndBlockInfo,
+        block::RpcBlock,
+        receipt::{RpcReceipt, RpcReceiptBlockInfo, RpcReceiptTxInfo},
     },
-    H256,
+    utils::RpcErr,
+    RpcHandler,
 };
+use ethereum_rust_core::{
+    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
+    U256,
+};
+use ethereum_rust_storage::{error::StoreError, Store};
+
+use super::account::BlockIdentifierOrHash;
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
@@ -25,45 +31,12 @@ pub struct GetBlockByHashRequest {
     pub hydrated: bool,
 }
 
-pub struct GetBlockTransactionCountByNumberRequest {
-    pub block: BlockIdentifier,
-}
-
-pub struct GetTransactionByBlockNumberAndIndexRequest {
-    pub block: BlockIdentifier,
-    pub transaction_index: usize,
-}
-
-pub struct GetTransactionByBlockHashAndIndexRequest {
-    pub block: BlockHash,
-    pub transaction_index: usize,
+pub struct GetBlockTransactionCountRequest {
+    pub block: BlockIdentifierOrHash,
 }
 
 pub struct GetBlockReceiptsRequest {
-    pub block: BlockIdentifier,
-}
-
-pub struct GetTransactionByHashRequest {
-    pub transaction_hash: H256,
-}
-
-pub struct GetTransactionReceiptRequest {
-    pub transaction_hash: H256,
-}
-
-pub struct CreateAccessListRequest {
-    pub transaction: GenericTransaction,
-    pub block: Option<BlockIdentifier>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AccessListResult {
-    access_list: Vec<AccessListEntry>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
-    gas_used: u64,
+    pub block: BlockIdentifierOrHash,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -100,8 +73,8 @@ impl BlockIdentifier {
     }
 }
 
-impl GetBlockByNumberRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockByNumberRequest> {
+impl RpcHandler for GetBlockByNumberRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockByNumberRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -111,10 +84,36 @@ impl GetBlockByNumberRequest {
             hydrated: serde_json::from_value(params[1].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested block with number: {}", self.block);
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = storage.get_block_header(block_number)?;
+        let body = storage.get_block_body(block_number)?;
+        let (header, body) = match (header, body) {
+            (Some(header), Some(body)) => (header, body),
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        let hash = header.compute_block_hash();
+        // TODO (#307): Remove TotalDifficulty.
+        let total_difficulty = storage.get_block_total_difficulty(hash)?;
+        let block = RpcBlock::build(
+            header,
+            body,
+            hash,
+            self.hydrated,
+            total_difficulty.unwrap_or(U256::zero()),
+        );
+
+        serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetBlockByHashRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockByHashRequest> {
+impl RpcHandler for GetBlockByHashRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockByHashRequest> {
         let params = params.as_ref()?;
         if params.len() != 2 {
             return None;
@@ -124,54 +123,65 @@ impl GetBlockByHashRequest {
             hydrated: serde_json::from_value(params[1].clone()).ok()?,
         })
     }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested block with hash: {}", self.block);
+        let block_number = match storage.get_block_number(self.block)? {
+            Some(number) => number,
+            _ => return Ok(Value::Null),
+        };
+        let header = storage.get_block_header(block_number)?;
+        let body = storage.get_block_body(block_number)?;
+        let (header, body) = match (header, body) {
+            (Some(header), Some(body)) => (header, body),
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        let hash = header.compute_block_hash();
+        // TODO (#307): Remove TotalDifficulty.
+        let total_difficulty = storage.get_block_total_difficulty(hash)?;
+        let block = RpcBlock::build(
+            header,
+            body,
+            hash,
+            self.hydrated,
+            total_difficulty.unwrap_or(U256::zero()),
+        );
+        serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+    }
 }
 
-impl GetBlockTransactionCountByNumberRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockTransactionCountByNumberRequest> {
+impl RpcHandler for GetBlockTransactionCountRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockTransactionCountRequest> {
         let params = params.as_ref()?;
         if params.len() != 1 {
             return None;
         };
-        Some(GetBlockTransactionCountByNumberRequest {
+        Some(GetBlockTransactionCountRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
         })
     }
-}
 
-impl GetTransactionByBlockNumberAndIndexRequest {
-    pub fn parse(
-        params: &Option<Vec<Value>>,
-    ) -> Option<GetTransactionByBlockNumberAndIndexRequest> {
-        let params = params.as_ref()?;
-        if params.len() != 2 {
-            return None;
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested transaction count for block with number: {}",
+            self.block
+        );
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
         };
-        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
-        Some(GetTransactionByBlockNumberAndIndexRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
-            transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
-                .ok()?,
-        })
-    }
-}
-
-impl GetTransactionByBlockHashAndIndexRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockHashAndIndexRequest> {
-        let params = params.as_ref()?;
-        if params.len() != 2 {
-            return None;
+        let block_body = match storage.get_block_body(block_number)? {
+            Some(block_body) => block_body,
+            _ => return Ok(Value::Null),
         };
-        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
-        Some(GetTransactionByBlockHashAndIndexRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
-            transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
-                .ok()?,
-        })
+        let transaction_count = block_body.transactions.len();
+
+        serde_json::to_value(format!("{:#x}", transaction_count)).map_err(|_| RpcErr::Internal)
     }
 }
 
-impl GetBlockReceiptsRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockReceiptsRequest> {
+impl RpcHandler for GetBlockReceiptsRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockReceiptsRequest> {
         let params = params.as_ref()?;
         if params.len() != 1 {
             return None;
@@ -180,331 +190,67 @@ impl GetBlockReceiptsRequest {
             block: serde_json::from_value(params[0].clone()).ok()?,
         })
     }
-}
 
-impl GetTransactionByHashRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByHashRequest> {
-        let params = params.as_ref()?;
-        if params.len() != 1 {
-            return None;
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested receipts for block with number: {}", self.block);
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
         };
-        Some(GetTransactionByHashRequest {
-            transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
-        })
+        let header = storage.get_block_header(block_number)?;
+        let body = storage.get_block_body(block_number)?;
+        let (header, body) = match (header, body) {
+            (Some(header), Some(body)) => (header, body),
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        let receipts = get_all_block_receipts(block_number, header, body, &storage)?;
+
+        serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
     }
 }
 
-impl GetTransactionReceiptRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionReceiptRequest> {
-        let params = params.as_ref()?;
-        if params.len() != 1 {
-            return None;
-        };
-        Some(GetTransactionReceiptRequest {
-            transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
-        })
-    }
-}
-
-impl CreateAccessListRequest {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<CreateAccessListRequest> {
-        let params = params.as_ref()?;
-        if params.len() > 2 {
-            return None;
-        };
-        let block = match params.get(1) {
-            // Differentiate between missing and bad block param
-            Some(value) => Some(serde_json::from_value(value.clone()).ok()?),
-            None => None,
-        };
-        Some(CreateAccessListRequest {
-            transaction: serde_json::from_value(params.first()?.clone()).ok()?,
-            block,
-        })
-    }
-}
-
-pub fn get_block_by_number(
-    request: &GetBlockByNumberRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!("Requested block with number: {}", request.block);
-    let block_number = match request.block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let header = storage.get_block_header(block_number)?;
-    let body = storage.get_block_body(block_number)?;
-    let (header, body) = match (header, body) {
-        (Some(header), Some(body)) => (header, body),
-        // Block not found
-        _ => return Ok(Value::Null),
-    };
-    let block = BlockSerializable::from_block(header, body, request.hydrated);
-
-    serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_block_by_hash(request: &GetBlockByHashRequest, storage: Store) -> Result<Value, RpcErr> {
-    info!("Requested block with hash: {}", request.block);
-    let block_number = match storage.get_block_number(request.block)? {
-        Some(number) => number,
-        _ => return Ok(Value::Null),
-    };
-    let header = storage.get_block_header(block_number)?;
-    let body = storage.get_block_body(block_number)?;
-    let (header, body) = match (header, body) {
-        (Some(header), Some(body)) => (header, body),
-        // Block not found
-        _ => return Ok(Value::Null),
-    };
-    let block = BlockSerializable::from_block(header, body, request.hydrated);
-
-    serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_block_transaction_count_by_number(
-    request: &GetBlockTransactionCountByNumberRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction count for block with number: {}",
-        request.block
-    );
-    let block_number = match request.block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let transaction_count = block_body.transactions.len();
-
-    serde_json::to_value(format!("{:#x}", transaction_count)).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_by_block_number_and_index(
-    request: &GetTransactionByBlockNumberAndIndexRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction at index: {} of block with number: {}",
-        request.transaction_index, request.block,
-    );
-    let block_number = match request.block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let block_header = match storage.get_block_header(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let tx = match block_body.transactions.get(request.transaction_index) {
-        Some(tx) => tx,
-        None => return Ok(Value::Null),
-    };
-    let tx = RpcTransaction::build(
-        tx.clone(),
-        block_number,
-        block_header.compute_block_hash(),
-        request.transaction_index,
-    );
-    serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_by_block_hash_and_index(
-    request: &GetTransactionByBlockHashAndIndexRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction at index: {} of block with hash: {}",
-        request.transaction_index, request.block,
-    );
-    let block_number = match storage.get_block_number(request.block)? {
-        Some(number) => number,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let tx = match block_body.transactions.get(request.transaction_index) {
-        Some(tx) => tx,
-        None => return Ok(Value::Null),
-    };
-    let tx = RpcTransaction::build(
-        tx.clone(),
-        block_number,
-        request.block,
-        request.transaction_index,
-    );
-    serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_block_receipts(
-    request: &GetBlockReceiptsRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested receipts for block with number: {}",
-        request.block
-    );
-    let block_number = match request.block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let header = storage.get_block_header(block_number)?;
-    let body = storage.get_block_body(block_number)?;
-    let (header, body) = match (header, body) {
-        (Some(header), Some(body)) => (header, body),
-        // Block not found
-        _ => return Ok(Value::Null),
-    };
-    // Fetch receipt info from block
-    let block_info = header.receipt_info();
-    // Fetch receipt for each tx in the block and add block and tx info
+pub fn get_all_block_receipts(
+    block_number: BlockNumber,
+    header: BlockHeader,
+    body: BlockBody,
+    storage: &Store,
+) -> Result<Vec<RpcReceipt>, RpcErr> {
     let mut receipts = Vec::new();
+    // Check if this is the genesis block
+    if header.parent_hash.is_zero() {
+        return Ok(receipts);
+    }
+    let parent_header = match find_parent_header(&header, storage) {
+        Ok(header) => header,
+        _ => return Err(RpcErr::Internal),
+    };
+    let blob_gas_price = calculate_base_fee_per_blob_gas(parent_header);
+    // Fetch receipt info from block
+    let block_info = RpcReceiptBlockInfo::from_block_header(header);
+    // Fetch receipt for each tx in the block and add block and tx info
+    let mut last_cumulative_gas_used = 0;
+    let mut current_log_index = 0;
     for (index, tx) in body.transactions.iter().enumerate() {
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
             Some(receipt) => receipt,
-            _ => return Ok(Value::Null),
+            _ => return Err(RpcErr::Internal),
         };
-        let block_info = block_info.clone();
-        let tx_info = tx.receipt_info(index);
-        receipts.push(ReceiptWithTxAndBlockInfo {
-            receipt,
+        let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
+        let tx_info =
+            RpcReceiptTxInfo::from_transaction(tx.clone(), index, gas_used, blob_gas_price);
+        let receipt = RpcReceipt::new(
+            receipt.clone(),
             tx_info,
-            block_info,
-        })
+            block_info.clone(),
+            current_log_index,
+        );
+        last_cumulative_gas_used += gas_used;
+        current_log_index += receipt.logs.len() as u64;
+        receipts.push(receipt);
     }
-
-    serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_by_hash(
-    request: &GetTransactionByHashRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested transaction with hash: {}",
-        request.transaction_hash,
-    );
-    let transaction: ethereum_rust_core::types::Transaction =
-        match storage.get_transaction_by_hash(request.transaction_hash)? {
-            Some(transaction) => transaction,
-            _ => return Ok(Value::Null),
-        };
-
-    serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
-}
-
-pub fn get_transaction_receipt(
-    request: &GetTransactionReceiptRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!(
-        "Requested receipt for transaction {}",
-        request.transaction_hash,
-    );
-    let (block_number, index) = match storage.get_transaction_location(request.transaction_hash)? {
-        Some(location) => location,
-        _ => return Ok(Value::Null),
-    };
-    let block_header = match storage.get_block_header(block_number)? {
-        Some(block_header) => block_header,
-        _ => return Ok(Value::Null),
-    };
-    let block_body = match storage.get_block_body(block_number)? {
-        Some(block_body) => block_body,
-        _ => return Ok(Value::Null),
-    };
-    let receipt = match storage.get_receipt(block_number, index)? {
-        Some(receipt) => receipt,
-        _ => return Ok(Value::Null),
-    };
-    let tx = match index
-        .try_into()
-        .ok()
-        .and_then(|index: usize| block_body.transactions.get(index))
-    {
-        Some(tx) => tx,
-        _ => return Ok(Value::Null),
-    };
-    let block_info = block_header.receipt_info();
-    let tx_info = tx.receipt_info(index);
-    let receipt = ReceiptWithTxAndBlockInfo {
-        receipt,
-        tx_info,
-        block_info,
-    };
-    serde_json::to_value(&receipt).map_err(|_| RpcErr::Internal)
-}
-
-pub fn create_access_list(
-    request: &CreateAccessListRequest,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    let block = request.block.clone().unwrap_or_default();
-    info!("Requested access list creation for tx on block: {}", block);
-    let block_number = match block.resolve_block_number(&storage)? {
-        Some(block_number) => block_number,
-        _ => return Ok(Value::Null),
-    };
-    let header = match storage.get_block_header(block_number)? {
-        Some(header) => header,
-        // Block not found
-        _ => return Ok(Value::Null),
-    };
-    // Run transaction and obtain access list
-    let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
-        &request.transaction,
-        &header,
-        &mut evm_state(storage),
-        SpecId::CANCUN,
-    )? {
-        (
-            ExecutionResult::Success {
-                reason: _,
-                gas_used,
-                gas_refunded: _,
-                output: _,
-            },
-            access_list,
-        ) => (gas_used, access_list, None),
-        (
-            ExecutionResult::Revert {
-                gas_used,
-                output: _,
-            },
-            access_list,
-        ) => (
-            gas_used,
-            access_list,
-            Some("Transaction Reverted".to_string()),
-        ),
-        (ExecutionResult::Halt { reason, gas_used }, access_list) => {
-            (gas_used, access_list, Some(reason))
-        }
-    };
-    let result = AccessListResult {
-        access_list: access_list
-            .into_iter()
-            .map(|(address, storage_keys)| AccessListEntry {
-                address,
-                storage_keys,
-            })
-            .collect(),
-        error,
-        gas_used,
-    };
-
-    serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+    Ok(receipts)
 }
 
 pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
@@ -512,6 +258,25 @@ pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
     match storage.get_latest_block_number() {
         Ok(Some(block_number)) => {
             serde_json::to_value(format!("{:#x}", block_number)).map_err(|_| RpcErr::Internal)
+        }
+        _ => Err(RpcErr::Internal),
+    }
+}
+
+pub fn get_blob_base_fee(storage: &Store) -> Result<Value, RpcErr> {
+    info!("Requested blob gas price");
+    match storage.get_latest_block_number() {
+        Ok(Some(block_number)) => {
+            let header = match storage.get_block_header(block_number)? {
+                Some(header) => header,
+                _ => return Err(RpcErr::Internal),
+            };
+            let parent_header = match find_parent_header(&header, storage) {
+                Ok(header) => header,
+                _ => return Err(RpcErr::Internal),
+            };
+            let blob_base_fee = calculate_base_fee_per_blob_gas(parent_header);
+            serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
         }
         _ => Err(RpcErr::Internal),
     }

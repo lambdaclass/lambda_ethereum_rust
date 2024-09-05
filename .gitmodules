@@ -1,3 +1,6 @@
 [submodule "ethereum-package"]
 	path = ethereum-package
 	url = https://github.com/lambdaclass/ethereum-package.git
+[submodule "hive"]
+	path = hive
+	url = https://github.com/lambdaclass/hive.git

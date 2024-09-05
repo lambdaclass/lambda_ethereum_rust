@@ -1,11 +1,11 @@
 use bytes::Bytes;
 use ethereum_types::{Address, Bloom, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
-use crate::rlp::encode::RLPEncode as _;
+use crate::rlp::encode::RLPEncode;
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
@@ -14,7 +14,7 @@ use super::{
 };
 
 #[allow(unused)]
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Genesis {
     /// Chain configuration
@@ -34,16 +34,21 @@ pub struct Genesis {
     pub mix_hash: H256,
     #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_or_dec_str")]
     pub timestamp: u64,
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    pub base_fee_per_gas: Option<u64>,
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    pub blob_gas_used: Option<u64>,
+    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    pub excess_blob_gas: Option<u64>,
 }
 
 /// Blockchain settings defined per block
 #[allow(unused)]
-#[derive(Debug, Deserialize, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainConfig {
     /// Current chain identifier
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_number")]
-    pub chain_id: U256,
+    pub chain_id: u64,
 
     /// Block numbers for the block where each fork was activated
     /// (None = no fork, 0 = fork is already active)
@@ -77,18 +82,14 @@ pub struct ChainConfig {
     pub verkle_time: Option<u64>,
 
     /// Amount of total difficulty reached by the network that triggers the consensus upgrade.
-    #[serde(
-        default,
-        deserialize_with = "crate::serde_utils::u256::deser_number_opt"
-    )]
-    pub terminal_total_difficulty: Option<U256>,
+    pub terminal_total_difficulty: Option<u128>,
     /// Network has already passed the terminal total difficult
     #[serde(default)]
     pub terminal_total_difficulty_passed: bool,
 }
 
 #[allow(unused)]
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
     #[serde(default, with = "crate::serde_utils::bytes")]
     pub code: Bytes,
@@ -108,13 +109,23 @@ impl Genesis {
     }
 
     fn get_block_header(&self) -> BlockHeader {
+        let mut blob_gas_used: Option<u64> = None;
+        let mut excess_blob_gas: Option<u64> = None;
+
+        if let Some(cancun_time) = self.config.cancun_time {
+            if cancun_time <= self.timestamp {
+                blob_gas_used = Some(self.blob_gas_used.unwrap_or(0));
+                excess_blob_gas = Some(self.excess_blob_gas.unwrap_or(0));
+            }
+        }
+
         BlockHeader {
             parent_hash: H256::zero(),
             ommers_hash: *DEFAULT_OMMERS_HASH,
             coinbase: self.coinbase,
             state_root: self.compute_state_root(),
             transactions_root: compute_transactions_root(&[]),
-            receipt_root: compute_receipts_root(&[]),
+            receipts_root: compute_receipts_root(&[]),
             logs_bloom: Bloom::zero(),
             difficulty: self.difficulty,
             number: 0,
@@ -124,10 +135,10 @@ impl Genesis {
             extra_data: self.extra_data.clone(),
             prev_randao: self.mix_hash,
             nonce: self.nonce,
-            base_fee_per_gas: INITIAL_BASE_FEE,
+            base_fee_per_gas: self.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
             withdrawals_root: Some(compute_withdrawals_root(&[])),
-            blob_gas_used: Some(0),
-            excess_blob_gas: Some(0),
+            blob_gas_used,
+            excess_blob_gas,
             parent_beacon_block_root: Some(H256::zero()),
         }
     }
@@ -186,7 +197,7 @@ mod tests {
         // Check Genesis fields
         // Chain config
         let expected_chain_config = ChainConfig {
-            chain_id: U256::from(3151908),
+            chain_id: 3151908_u64,
             homestead_block: Some(0),
             eip150_block: Some(0),
             eip155_block: Some(0),
@@ -201,7 +212,7 @@ mod tests {
             shanghai_time: Some(0),
             cancun_time: Some(0),
             prague_time: Some(1718232101),
-            terminal_total_difficulty: Some(U256::from(0)),
+            terminal_total_difficulty: Some(0),
             terminal_total_difficulty_passed: true,
             ..Default::default()
         };
@@ -279,7 +290,7 @@ mod tests {
                 .unwrap()
         );
         assert_eq!(header.transactions_root, compute_transactions_root(&[]));
-        assert_eq!(header.receipt_root, compute_receipts_root(&[]));
+        assert_eq!(header.receipts_root, compute_receipts_root(&[]));
         assert_eq!(header.logs_bloom, Bloom::default());
         assert_eq!(header.difficulty, U256::from(1));
         assert_eq!(header.gas_limit, 25_000_000);
@@ -332,7 +343,7 @@ mod tests {
             serde_json::from_reader(reader).expect("Failed to deserialize genesis file");
         let computed_block_hash = genesis.get_block().header.compute_block_hash();
         let genesis_block_hash =
-            H256::from_str("0x414c637788e37e9f65ed2c6ee962d32aeea39722ad50ee764e712fabebd69118")
+            H256::from_str("0x30f516e34fc173bb5fc4daddcc7532c4aca10b702c7228f3c806b4df2646fb7e")
                 .unwrap();
         assert_eq!(genesis_block_hash, computed_block_hash)
     }
