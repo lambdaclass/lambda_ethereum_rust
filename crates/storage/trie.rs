@@ -7,6 +7,7 @@ mod rlp;
 #[cfg(test)]
 mod test_utils;
 
+use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
 use self::{
@@ -29,6 +30,7 @@ pub struct Trie {
     hash: (bool, Output),
 }
 
+// TODO: Hashes are not currenlty being updated nor saved, we should either fix it so that hashes are saved or remove the useless hash fields from nodes
 impl Trie {
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
@@ -92,7 +94,7 @@ impl Trie {
     }
 
     /// Return the root hash of the tree (or recompute if needed).
-    pub fn compute_hash(&mut self) -> Result<Output, StoreError> {
+    pub fn compute_hash(&mut self) -> Result<H256, StoreError> {
         if !self.hash.0 {
             if self.root_ref.is_valid() {
                 let root_node = self
@@ -115,7 +117,7 @@ impl Trie {
             }
             self.hash.0 = true;
         }
-        Ok(self.hash.1)
+        Ok(H256::from_slice(self.hash.1.as_slice()))
     }
 
     #[cfg(test)]
@@ -165,7 +167,7 @@ mod test {
         trie.insert(b"fourth".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().as_slice(),
+            trie.compute_hash().unwrap().0.to_vec(),
             hex::decode("e2ff76eca34a96b68e6871c74f2a5d9db58e59f82073276866fdd25e560cedea")
                 .unwrap(),
         );
@@ -364,7 +366,7 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().as_slice(),
+            trie.compute_hash().unwrap().0.as_slice(),
             hex::decode("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
                 .unwrap()
                 .as_slice()
@@ -375,7 +377,7 @@ mod test {
     fn compute_hash_b() {
         let mut trie = Trie::new_temp();
         assert_eq!(
-            trie.compute_hash().unwrap().as_slice(),
+            trie.compute_hash().unwrap().0.as_slice(),
             hex::decode("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
                 .unwrap()
                 .as_slice(),
@@ -445,7 +447,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().as_slice(),
+            trie.compute_hash().unwrap().0.as_slice(),
             hex::decode("9f6221ebb8efe7cff60a716ecb886e67dd042014be444669f0159d8e68b42100")
                 .unwrap()
                 .as_slice(),
@@ -482,7 +484,7 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().as_slice(),
+            trie.compute_hash().unwrap().0.as_slice(),
             hex::decode("cb65032e2f76c48b82b5c24b3db8f670ce73982869d38cd39a624f23d62a9e89")
                 .unwrap()
                 .as_slice(),
@@ -500,7 +502,7 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().as_slice(),
+            trie.compute_hash().unwrap().0.as_slice(),
             hex::decode("7a320748f780ad9ad5b0837302075ce0eeba6c26e3d8562c67ccc0f1b273298a")
                 .unwrap()
                 .as_slice(),
@@ -594,7 +596,7 @@ mod test {
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
             }
 
-            let hash = trie.compute_hash().unwrap().to_vec();
+            let hash = trie.compute_hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -619,7 +621,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.compute_hash().unwrap().to_vec();
+            let hash = trie.compute_hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -647,7 +649,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.compute_hash().unwrap().to_vec();
+            let hash = trie.compute_hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
