@@ -40,6 +40,10 @@ pub struct CreateAccessListRequest {
     pub transaction: GenericTransaction,
     pub block: Option<BlockIdentifier>,
 }
+pub struct EstimateGasRequest {
+    pub transaction: GenericTransaction,
+    pub block: Option<BlockIdentifier>,
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -328,4 +332,77 @@ impl RpcHandler for CreateAccessListRequest {
 
         serde_json::to_value(result).map_err(|_| RpcErr::Internal)
     }
+}
+
+impl RpcHandler for EstimateGasRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<EstimateGasRequest> {
+        let params = params.as_ref()?;
+        if params.len() > 2 {
+            return None;
+        };
+        let block = match params.get(1) {
+            // Differentiate between missing and bad block param
+            Some(value) => Some(serde_json::from_value(value.clone()).ok()?),
+            None => None,
+        };
+        Some(EstimateGasRequest {
+            transaction: serde_json::from_value(params.first()?.clone()).ok()?,
+            block,
+        })
+    }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        let block = self.block.clone().unwrap_or_default();
+        info!("Requested call on block: {}", block);
+        let block_number = match block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = match storage.get_block_header(block_number)? {
+            Some(header) => header,
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        // Run transaction
+        match ethereum_rust_evm::simulate_tx_from_generic(
+            &self.transaction,
+            &header,
+            &mut evm_state(storage),
+            SpecId::CANCUN,
+        )? {
+            ExecutionResult::Revert {
+                gas_used: _,
+                output,
+            } => {
+                return Err(RpcErr::Revert {
+                    data: format!("0x{:#x}", output),
+                });
+            }
+            default => {
+                let gas_used = default.gas_used();
+                return serde_json::to_value(format!("{:#x}", gas_used))
+                    .map_err(|_| RpcErr::Internal);
+            }
+        }
+    }
+    //     let block = self.block.clone().unwrap_or_default();
+    //     info!("Requested estimate gas for tx on block: {}", block);
+    //     let block_number = match block.resolve_block_number(&storage)? {
+    //         Some(block_number) => block_number,
+    //         _ => return Ok(Value::Null),
+    //     };
+    //     let header = match storage.get_block_header(block_number)? {
+    //         Some(header) => header,
+    //         // Block not found
+    //         _ => return Ok(Value::Null),
+    //     };
+    //     let result = ethereum_rust_evm::simulate_tx_from_generic(
+    //         &self.transaction,
+    //         &header,
+    //         &mut evm_state(storage),
+    //         SpecId::CANCUN,
+    //     )?;
+    //     let gas_used = result.gas_used();
+
+    //     serde_json::to_value(format!("{:#x}", gas_used)).map_err(|_| RpcErr::Internal)
+    // }
 }
