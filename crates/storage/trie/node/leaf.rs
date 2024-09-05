@@ -27,11 +27,6 @@ impl LeafNode {
         }
     }
 
-    pub fn update(&mut self, new_path: PathRLP, new_value: ValueRLP) {
-        self.path = new_path;
-        self.value = new_value;
-    }
-
     pub fn get(&self, _db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         if path.cmp_rest(&self.path) {
             Ok(Some(self.value.clone()))

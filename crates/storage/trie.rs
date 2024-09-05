@@ -567,7 +567,7 @@ mod test {
             }
             // Removals
             for val in data.iter() {
-                if remove(&val) {
+                if remove(val) {
                     let removed = trie.remove(val.clone()).unwrap();
                     prop_assert_eq!(removed, Some(val.clone()));
                 }
@@ -575,7 +575,7 @@ mod test {
             // Check trie values
             for val in data.iter() {
                 let item = trie.get(val).unwrap();
-                if !remove(&val) {
+                if !remove(val) {
                     prop_assert_eq!(item, Some(val.clone()));
                 } else {
                     prop_assert!(item.is_none());
@@ -615,7 +615,7 @@ mod test {
             for (val, should_remove) in data.iter() {
                 if *should_remove {
                     trie.remove(val.clone()).unwrap();
-                    cita_trie.remove(&val).unwrap();
+                    cita_trie.remove(val).unwrap();
                 }
             }
             // Compare hashes
@@ -641,7 +641,7 @@ mod test {
             }
             // Removals
             for val in data.iter() {
-                if remove(&val) {
+                if remove(val) {
                     trie.remove(val.clone()).unwrap();
                     cita_trie.remove(val).unwrap();
                 }
