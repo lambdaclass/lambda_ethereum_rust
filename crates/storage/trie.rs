@@ -559,6 +559,30 @@ mod test {
 
     }
 
+    #[test]
+    fn get_old_state_with_removals() {
+        let mut trie = Trie::new_temp();
+        trie.insert(vec![0x00], vec![0x00]).unwrap();
+        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert(vec![0x02], vec![0x02]).unwrap();
+
+        let root = trie.compute_hash().unwrap();
+
+        trie.insert(vec![0x00], vec![0x04]).unwrap();
+        trie.remove(vec![0x01]).unwrap();
+        trie.insert(vec![0x02], vec![0x05]).unwrap();
+        trie.remove(vec![0x00]).unwrap();
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), None);
+        assert_eq!(trie.get(&vec![0x01]).unwrap(), None);
+        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x05]));
+
+        assert_eq!(trie.get_from_root(root, &vec![0x00]).unwrap(), Some(vec![0x00]));
+        assert_eq!(trie.get_from_root(root, &vec![0x01]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get_from_root(root, &vec![0x02]).unwrap(), Some(vec![0x02]));
+
+    }
+
     // Proptests
     proptest! {
         #[test]
