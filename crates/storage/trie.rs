@@ -131,8 +131,17 @@ impl Trie {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use super::*;
-    use proptest::{collection::{btree_set, vec}, prelude::*, proptest};
+    // Rename imports to avoid potential name clashes
+    use cita_trie::{MemoryDB as CitaMemoryDB, PatriciaTrie as CitaTrie, Trie as CitaTrieTrait};
+    use hasher::HasherKeccak;
+    use proptest::{
+        collection::{btree_set, vec},
+        prelude::*,
+        proptest,
+    };
 
     #[test]
     fn compute_hash() {
@@ -542,6 +551,52 @@ mod test {
                 }
             }
         }
+
+        #[test]
+        fn proptest_compare_hash(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+
+            for val in data.iter(){
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+
+            let hash = trie.compute_hash().unwrap().to_vec();
+            let cita_hash = cita_trie.root().unwrap();
+            prop_assert_eq!(hash, cita_hash);
+        }
+
+        #[test]
+        fn proptest_compare_hash_with_removals(mut data in vec((vec(any::<u8>(), 5..100), any::<bool>()), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+            // Remove duplicate values with different expected status
+            data.sort_by_key(|(val, _)| val.clone());
+            data.dedup_by_key(|(val, _)| val.clone());
+            // Insertions
+            for (val, _) in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for (val, should_remove) in data.iter() {
+                if *should_remove {
+                    trie.remove(val.clone()).unwrap();
+                    cita_trie.remove(&val).unwrap();
+                }
+            }
+            // Compare hashes
+            let hash = trie.compute_hash().unwrap().to_vec();
+            let cita_hash = cita_trie.root().unwrap();
+            prop_assert_eq!(hash, cita_hash);
+        }
     }
 
+    fn cita_trie() -> CitaTrie<CitaMemoryDB, HasherKeccak> {
+        let memdb = Arc::new(CitaMemoryDB::new(true));
+        let hasher = Arc::new(HasherKeccak::new());
+
+        CitaTrie::new(Arc::clone(&memdb), Arc::clone(&hasher))
+    }
 }

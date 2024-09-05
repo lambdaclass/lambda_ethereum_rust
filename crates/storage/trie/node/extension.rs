@@ -291,10 +291,7 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert!(node
-            .choices
-            .iter()
-            .any(|x| &x == &&NodeRef::new(3)));
+        assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(3)));
     }
 
     fn insert_branch_extension(mut trie: Trie) {
@@ -312,10 +309,7 @@ mod test {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert!(node
-            .choices
-            .iter()
-            .any(|x| &x == &&NodeRef::new(4)));
+        assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(4)));
     }
 
     fn insert_extension_branch(mut trie: Trie) {
