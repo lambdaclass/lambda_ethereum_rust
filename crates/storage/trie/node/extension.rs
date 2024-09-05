@@ -190,11 +190,7 @@ mod test {
     use super::*;
     use crate::{
         pmt_node,
-        trie::{
-            nibble::Nibble,
-            test_utils::{remove_trie, start_trie},
-            Trie,
-        },
+        trie::{nibble::Nibble, Trie},
     };
 
     #[test]
@@ -205,31 +201,9 @@ mod test {
         assert_eq!(node.child, NodeRef::default());
     }
 
-    const BRANCH_TEST_DIR: &str = "extension-test-db";
-
-    fn run_test(test: &dyn Fn(Trie)) {
-        let trie = start_trie(BRANCH_TEST_DIR);
-        test(trie);
-        remove_trie(BRANCH_TEST_DIR)
-    }
-
     #[test]
-    fn run_extension_test_suite() {
-        run_test(&get_some);
-        run_test(&get_none);
-        run_test(&insert_branch);
-        run_test(&insert_branch_extension);
-        run_test(&insert_extension_branch);
-        run_test(&insert_extension_branch_extension);
-        run_test(&insert_passthrough);
-        run_test(&remove_none);
-        run_test(&remove_into_extension);
-        run_test(&remove_into_leaf);
-        run_test(&compute_hash);
-        run_test(&compute_hash_long);
-    }
-
-    fn get_some(mut trie: Trie) {
+    fn get_some() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -247,7 +221,9 @@ mod test {
         );
     }
 
-    fn get_none(mut trie: Trie) {
+    #[test]
+    fn get_none() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -258,7 +234,9 @@ mod test {
         assert_eq!(node.get(&trie.db, NibbleSlice::new(&[0x02])).unwrap(), None,);
     }
 
-    fn insert_passthrough(mut trie: Trie) {
+    #[test]
+    fn insert_passthrough() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -276,7 +254,9 @@ mod test {
         assert!(node.prefix.iter().eq([Nibble::V0].into_iter()));
     }
 
-    fn insert_branch(mut trie: Trie) {
+    #[test]
+    fn insert_branch() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -294,7 +274,9 @@ mod test {
         assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(3)));
     }
 
-    fn insert_branch_extension(mut trie: Trie) {
+    #[test]
+    fn insert_branch_extension() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -312,7 +294,9 @@ mod test {
         assert!(node.choices.iter().any(|x| &x == &&NodeRef::new(4)));
     }
 
-    fn insert_extension_branch(mut trie: Trie) {
+    #[test]
+    fn insert_extension_branch() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -320,17 +304,20 @@ mod test {
             } }
         };
 
+        let path = NibbleSlice::new(&[0x01]);
+        let value = vec![0x02];
+
         let node = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x01]), vec![0x01])
+            .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
-        let _ = match node {
-            Node::Extension(x) => x,
-            _ => panic!("expected an extension node"),
-        };
-        // TODO
+
+        assert!(matches!(node, Node::Extension(_)));
+        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
     }
 
-    fn insert_extension_branch_extension(mut trie: Trie) {
+    #[test]
+    fn insert_extension_branch_extension() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -338,17 +325,20 @@ mod test {
             } }
         };
 
+        let path = NibbleSlice::new(&[0x01]);
+        let value = vec![0x04];
+
         let node = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x01]), vec![])
+            .insert(&mut trie.db, path.clone(), value.clone())
             .unwrap();
-        let _ = match node {
-            Node::Extension(x) => x,
-            _ => panic!("expected an extension node"),
-        };
-        // TODO
+
+        assert!(matches!(node, Node::Extension(_)));
+        assert_eq!(node.get(&mut trie.db, path).unwrap(), Some(value));
     }
 
-    fn remove_none(mut trie: Trie) {
+    #[test]
+    fn remove_none() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -364,7 +354,9 @@ mod test {
         assert_eq!(value, None);
     }
 
-    fn remove_into_leaf(mut trie: Trie) {
+    #[test]
+    fn remove_into_leaf() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -380,7 +372,9 @@ mod test {
         assert_eq!(value, Some(vec![0x01]));
     }
 
-    fn remove_into_extension(mut trie: Trie) {
+    #[test]
+    fn remove_into_extension() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -399,7 +393,9 @@ mod test {
         assert_eq!(value, Some(vec![0x00]));
     }
 
-    fn compute_hash(mut trie: Trie) {
+    #[test]
+    fn compute_hash() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34] },
@@ -418,7 +414,9 @@ mod test {
         );
     }
 
-    fn compute_hash_long(mut trie: Trie) {
+    #[test]
+    fn compute_hash_long() {
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78, 0x9A] },
