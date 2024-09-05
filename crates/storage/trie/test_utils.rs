@@ -1,16 +1,3 @@
-use super::Trie;
-
-pub fn start_trie(trie_dir: &str) -> Trie {
-    remove_trie(trie_dir); // In case a trie db was left from a previous test execution
-    Trie::new(trie_dir).expect("Failed to create Trie")
-}
-
-pub fn remove_trie(trie_dir: &str) {
-    if std::path::Path::new(trie_dir).exists() {
-        std::fs::remove_dir_all(trie_dir).expect("Failed to clean test db dir");
-    }
-}
-
 #[macro_export]
 macro_rules! pmt_node {
     (
@@ -91,16 +78,4 @@ macro_rules! pmt_node {
             $crate::trie::node::LeafNode::new($path, $value)
         }
     };
-}
-
-#[macro_export]
-macro_rules! pmt_path {
-    ( $path:literal ) => {{
-        assert!($path.len() % 2 == 1);
-        $path
-            .as_bytes()
-            .chunks(2)
-            .map(|bytes| u8::from_str_radix(std::str::from_utf8(bytes).unwrap(), 16).unwrap())
-            .collect::<Vec<u8>>()
-    }};
 }
