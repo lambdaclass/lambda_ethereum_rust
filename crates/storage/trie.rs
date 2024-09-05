@@ -11,11 +11,7 @@ use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
 use self::{
-    db::TrieDB,
-    hashing::{NodeHashRef, Output},
-    nibble::NibbleSlice,
-    node::LeafNode,
-    node_ref::NodeRef,
+    db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, node::LeafNode, node_ref::NodeRef,
 };
 use crate::error::StoreError;
 
@@ -27,7 +23,8 @@ pub struct Trie {
     root_ref: NodeRef,
     /// Contains all the nodes and all the node's values
     pub(crate) db: TrieDB,
-    hash: (bool, Output),
+    // Contains the root hash if the current root node has been hashed
+    hash: Option<H256>,
 }
 
 // TODO: Hashes are not currenlty being updated nor saved, we should either fix it so that hashes are saved or remove the useless hash fields from nodes
@@ -36,7 +33,7 @@ impl Trie {
         Ok(Self {
             root_ref: NodeRef::default(),
             db: TrieDB::init(trie_dir)?,
-            hash: (false, Default::default()),
+            hash: None,
         })
     }
 
@@ -59,7 +56,7 @@ impl Trie {
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
         println!("[INSERT]: {:?}: {:?}", path, value);
         // Mark hash as dirty
-        self.hash.0 = false;
+        self.hash = None;
         // [Note]: Original impl would remove
         if let Some(root_node) = self.db.get_node(self.root_ref)? {
             // If the tree is not empty, call the root node's insertion logic
@@ -79,6 +76,7 @@ impl Trie {
         if !self.root_ref.is_valid() {
             return Ok(None);
         }
+        self.hash = None;
 
         let root_node = self
             .db
@@ -95,29 +93,27 @@ impl Trie {
 
     /// Return the root hash of the tree (or recompute if needed).
     pub fn compute_hash(&mut self) -> Result<H256, StoreError> {
-        if !self.hash.0 {
-            if self.root_ref.is_valid() {
-                let root_node = self
-                    .db
-                    .get_node(self.root_ref)?
-                    .expect("inconsistent internal tree structure");
-
-                match root_node.compute_hash(&self.db, 0)? {
-                    NodeHashRef::Inline(x) => {
-                        Keccak256::new()
-                            .chain_update(&*x)
-                            .finalize_into(&mut self.hash.1);
-                    }
-                    NodeHashRef::Hashed(x) => self.hash.1.copy_from_slice(&x.clone()),
-                };
-            } else {
-                Keccak256::new()
-                    .chain_update([0x80])
-                    .finalize_into(&mut self.hash.1);
-            }
-            self.hash.0 = true;
+        if let Some(hash) = self.hash {
+            return Ok(hash);
         }
-        Ok(H256::from_slice(self.hash.1.as_slice()))
+        let root_hash = if self.root_ref.is_valid() {
+            let root_node = self
+                .db
+                .get_node(self.root_ref)?
+                .expect("inconsistent internal tree structure");
+            let hash = H256::from_slice(
+                match root_node.compute_hash(&self.db, 0)? {
+                    NodeHashRef::Inline(x) => Keccak256::new().chain_update(&*x).finalize(),
+                    NodeHashRef::Hashed(x) => *x,
+                }
+                .as_slice(),
+            );
+            hash
+        } else {
+            H256::from_slice(Keccak256::new().chain_update([0x80]).finalize().as_slice())
+        };
+        self.db.insert_root_ref(root_hash, self.root_ref)?;
+        Ok(root_hash)
     }
 
     #[cfg(test)]
@@ -126,7 +122,7 @@ impl Trie {
         Self {
             root_ref: NodeRef::default(),
             db: TrieDB::init_temp(),
-            hash: (false, Default::default()),
+            hash: None,
         }
     }
 }
@@ -652,6 +648,21 @@ mod test {
             let hash = trie.compute_hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
+        }
+
+        #[test]
+        fn proptest_compare_hash_between_inserts(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+
+            for val in data.iter(){
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+                let hash = trie.compute_hash().unwrap().0.to_vec();
+                let cita_hash = cita_trie.root().unwrap();
+                prop_assert_eq!(hash, cita_hash);
+            }
+
         }
 
     }

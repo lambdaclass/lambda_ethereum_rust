@@ -55,7 +55,7 @@ impl TrieDB {
     }
 
     pub fn get_root_ref(&self, hash: H256) -> Result<Option<NodeRef>, StoreError> {
-        Ok(self.read::<RootNodes>(hash.0)?.map(|n| n.into()))
+        Ok(self.read::<RootNodes>(hash.0)?)
     }
 
     pub fn insert_root_ref(&mut self, hash: H256, node_ref: NodeRef) -> Result<(), StoreError> {
