@@ -131,7 +131,7 @@ impl BranchNode {
                 Branch { [childA, childB, ... ], None, None } ->   Branch { [childA, childB, ... ], None, None }
         */
 
-        // Remove value
+        // Step 1: Remove value
 
         let path_offset = path.offset();
         // Check if the value is located in a child subtrie
@@ -169,9 +169,9 @@ impl BranchNode {
             }
         };
 
-        // Restructure self
+        // Step 2: Restructure self
 
-        // Check if self one has one child left
+        // Check if self only has one child left
 
         // An `Err(_)` means more than one choice. `Ok(Some(_))` and `Ok(None)` mean a single and no
         // choices respectively.
