@@ -121,33 +121,41 @@ impl ExtensionNode {
         db: &mut TrieDB,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
-        // Possible flow paths:
-        //   - extension { a, branch { ... } } -> extension { a, branch { ... }}
-        //   - extension { a, branch { ... } } -> extension { a + b, branch { ... }}
-        //   - extension { a, branch { ... } } -> leaf { ... }
+        /* Possible flow paths:
+            Extension { prefix, child } -> Extension { prefix, child } (no removal)
+            Extension { prefix, child } -> None (If child.remove = None)
+            Extension { prefix, child } -> Extension { prefix, ChildBranch } (if child.remove = Branch)
+            Extension { prefix, child } -> ChildExtension { SelfPrefix+ChildPrefix, ChildExtensionChild } (if child.remove = Extension)
+            Extension { prefix, child } -> ChildLeaf (if child.remove = Leaf)
+        */
 
+        // Check if the value is part of the child subtrie according to the prefix
         if path.skip_prefix(&self.prefix) {
             let child_node = db
-                //[NOTE] reference impl would remove
                 .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
-
+            // Remove value from child subtrie
             let (child_node, old_value) = child_node.remove(db, path)?;
             if old_value.is_some() {
                 self.hash.mark_as_dirty();
             }
+            // Restructure node based on removal
             let node = match child_node {
+                // If there is no subtrie remove the node
                 None => None,
                 Some(node) => Some(match node {
+                    // If it is a branch node set it as self's child
                     Node::Branch(branch_node) => {
                         self.child = db.insert_node(branch_node.into())?;
                         self.into()
                     }
+                    // If it is an extension replace self with it after updating its prefix
                     Node::Extension(mut extension_node) => {
                         self.prefix.extend(&extension_node.prefix);
                         extension_node.prefix = self.prefix;
                         extension_node.into()
                     }
+                    // If it is a leaf node replace self with it
                     Node::Leaf(leaf_node) => leaf_node.into(),
                 }),
             };
@@ -158,6 +166,7 @@ impl ExtensionNode {
         }
     }
 
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         if let Some(hash) = self.hash.extract_ref() {
             return Ok(hash);
@@ -176,7 +185,8 @@ impl ExtensionNode {
     }
 }
 
-pub fn compute_extension_hash<'a>(
+/// Helper function to compute the hash of an extension node
+fn compute_extension_hash<'a>(
     hash: &'a NodeHash,
     prefix: &NibbleVec,
     child_hash_ref: NodeHashRef,
