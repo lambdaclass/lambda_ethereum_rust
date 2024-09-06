@@ -16,11 +16,14 @@ use self::{
 };
 use crate::error::StoreError;
 
+/// RLP-encoded trie path
 pub type PathRLP = Vec<u8>;
+// RLP-encoded trie value
 pub type ValueRLP = Vec<u8>;
 
+/// Libmdx-based Merkle Patricia Trie
 pub struct Trie {
-    /// Root node ref.
+    /// Reference to the current root node
     root_ref: NodeRef,
     /// Contains the trie's nodes & old root hashes
     pub(crate) db: TrieDB,
@@ -29,16 +32,17 @@ pub struct Trie {
 }
 
 impl Trie {
+    /// Creates a new Trie based on either a previous execution's DB (if `trie_dir` contains a DB) or a clean DB
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
+        let (db, root_ref) = TrieDB::init(trie_dir)?;
         Ok(Self {
-            root_ref: NodeRef::default(),
-            db: TrieDB::init(trie_dir)?,
+            root_ref: root_ref.unwrap_or_default(),
+            db,
             hash: None,
         })
     }
 
-    /// Retrieve a value from the tree given its path.
-    /// TODO: Make inputs T: RLPEncode (we will ignore generics for now)
+    /// Retrieve a value from the trie given its path.
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
         if !self.root_ref.is_valid() {
             return Ok(None);
@@ -110,7 +114,12 @@ impl Trie {
             );
             hash
         } else {
-            H256::from_slice(Keccak256::new().chain_update([RLP_NULL]).finalize().as_slice())
+            H256::from_slice(
+                Keccak256::new()
+                    .chain_update([RLP_NULL])
+                    .finalize()
+                    .as_slice(),
+            )
         };
         self.db.insert_root_ref(root_hash, self.root_ref)?;
         Ok(root_hash)

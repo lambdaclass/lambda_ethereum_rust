@@ -28,8 +28,8 @@ table!(
 
 impl TrieDB {
     /// Opens a DB created by a previous execution or creates a new one if it doesn't exist
-    pub fn init(trie_dir: &str) -> Result<TrieDB, StoreError> {
-        TrieDB::open(trie_dir).or_else(|_| TrieDB::create(trie_dir))
+    pub fn init(trie_dir: &str) -> Result<(TrieDB, Option<NodeRef>), StoreError> {
+        TrieDB::open(trie_dir).or_else(|_| TrieDB::create(trie_dir).map(|db| (db, None)))
     }
 
     /// Creates a new clean DB
@@ -45,14 +45,15 @@ impl TrieDB {
     }
 
     /// Opens a DB created by a previous execution
-    pub fn open(trie_dir: &str) -> Result<TrieDB, StoreError> {
+    /// Also returns root node reference if available
+    pub fn open(trie_dir: &str) -> Result<(TrieDB, Option<NodeRef>), StoreError> {
         let tables = [table_info!(Nodes), table_info!(RootNodes)]
             .into_iter()
             .collect();
         let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
-        let next_node_ref = last_node_ref(&db)?.map(|nr| nr.next()).unwrap_or_default();
-
-        Ok(TrieDB { db, next_node_ref })
+        let last_node_ref = last_node_ref(&db)?;
+        let next_node_ref = last_node_ref.map(|nr| nr.next()).unwrap_or_default();
+        Ok((TrieDB { db, next_node_ref }, last_node_ref))
     }
 
     pub fn get_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
