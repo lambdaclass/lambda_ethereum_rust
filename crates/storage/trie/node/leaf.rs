@@ -47,9 +47,9 @@ impl LeafNode {
     ) -> Result<Node, StoreError> {
         /* Possible flow paths:
             Leaf { SelfPath, SelfValue } -> Leaf { SelfPath, Value }
-            Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value}, Self, ... ], None, None}
+            Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
             Leaf { SelfPath, SelfValue } -> Extension { Branch { [Self,...] Path, Value } }
-            Leaf { SelfPath, SelfValue } -> Extension { Branch { [ Leaf { Path, Value} , ... ], SelfPath, SelfValue} }
+            Leaf { SelfPath, SelfValue } -> Extension { Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue} }
         */
         self.hash.mark_as_dirty();
         // If the path matches the stored path, update the value and return self
@@ -79,7 +79,7 @@ impl LeafNode {
             } else if absolute_offset == 2 * self.path.len() {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf as a child and store self's path and value
-                // Branch { [ Leaf { Path, Value} , ... ], SelfPath, SelfValue}
+                // Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue}
                 let new_leaf = LeafNode::new(path.data(), value.clone());
                 let mut choices = [Default::default(); 16];
                 choices[path_branch.next().unwrap() as usize] = db.insert_node(new_leaf.into())?;
@@ -88,7 +88,7 @@ impl LeafNode {
             } else {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf and self as children
-                // Branch { [ Leaf { Path, Value}, Self, ... ], None, None}
+                // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value.clone());
                 let child_ref = db.insert_node(new_leaf.into())?;
                 let mut choices = [Default::default(); 16];
@@ -112,6 +112,7 @@ impl LeafNode {
         }
     }
 
+    /// Removes own value if the path matches own path and returns self and the value if it was removed
     pub fn remove(self, path: NibbleSlice) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         Ok(if path.cmp_rest(&self.path) {
             (None, Some(self.value))
@@ -119,6 +120,8 @@ impl LeafNode {
             (Some(self.into()), None)
         })
     }
+
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         if let Some(hash) = self.hash.extract_ref() {
             return Ok(hash);
@@ -137,7 +140,8 @@ impl LeafNode {
     }
 }
 
-pub fn compute_leaf_hash<'a>(
+/// Helper method to compute the hash of a leaf node
+fn compute_leaf_hash<'a>(
     hash: &'a NodeHash,
     path: NibbleSlice,
     value: &[u8],
