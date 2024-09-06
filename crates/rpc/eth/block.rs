@@ -13,9 +13,8 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::{
-    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
-    U256,
+use ethereum_rust_core::types::{
+    calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
@@ -47,7 +46,7 @@ pub enum BlockIdentifier {
     Tag(BlockTag),
 }
 
-#[derive(Deserialize, Default, Clone, Debug)]
+#[derive(Deserialize, Default, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum BlockTag {
     Earliest,
@@ -98,15 +97,7 @@ impl RpcHandler for GetBlockByNumberRequest {
             _ => return Ok(Value::Null),
         };
         let hash = header.compute_block_hash();
-        // TODO (#307): Remove TotalDifficulty.
-        let total_difficulty = storage.get_block_total_difficulty(hash)?;
-        let block = RpcBlock::build(
-            header,
-            body,
-            hash,
-            self.hydrated,
-            total_difficulty.unwrap_or(U256::zero()),
-        );
+        let block = RpcBlock::build(header, body, hash, self.hydrated);
 
         serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
     }
@@ -137,15 +128,7 @@ impl RpcHandler for GetBlockByHashRequest {
             _ => return Ok(Value::Null),
         };
         let hash = header.compute_block_hash();
-        // TODO (#307): Remove TotalDifficulty.
-        let total_difficulty = storage.get_block_total_difficulty(hash)?;
-        let block = RpcBlock::build(
-            header,
-            body,
-            hash,
-            self.hydrated,
-            total_difficulty.unwrap_or(U256::zero()),
-        );
+        let block = RpcBlock::build(header, body, hash, self.hydrated);
         serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
     }
 }
