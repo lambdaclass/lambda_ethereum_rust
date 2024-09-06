@@ -6,13 +6,20 @@ use libmdbx::{
     table_info,
 };
 
+/// Libmdx database representing trie state
+/// It contains two tables, one mapping node references to rlp encoded nodes, and another one mapping node hashes to node references
+/// All nodes are stored in the DB and no node is ever removed
+/// Only node hahses for root nodes computed with `Trie::compute_hash` are stored
+/// Contains the next node reference to be used when storing a new node
 use super::{node::Node, node_ref::NodeRef};
 pub struct TrieDB {
     db: Database,
     next_node_ref: NodeRef,
 }
 
+/// RLP-encoded trie node
 pub type NodeRLP = Vec<u8>;
+/// RLP-encoded node hash
 pub type NodeHashRLP = [u8; 32];
 
 table!(
@@ -47,21 +54,25 @@ impl TrieDB {
     /// Opens a DB created by a previous execution
     /// Also returns root node reference if available
     pub fn open(trie_dir: &str) -> Result<(TrieDB, Option<NodeRef>), StoreError> {
+        // Open DB
         let tables = [table_info!(Nodes), table_info!(RootNodes)]
             .into_iter()
             .collect();
         let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
+        // Set the next node reference based on the last stored node
         let last_node_ref = last_node_ref(&db)?;
         let next_node_ref = last_node_ref.map(|nr| nr.next()).unwrap_or_default();
         Ok((TrieDB { db, next_node_ref }, last_node_ref))
     }
 
+    /// Retrieves a node based on its reference
     pub fn get_node(&self, node_ref: NodeRef) -> Result<Option<Node>, StoreError> {
         self.read::<Nodes>(node_ref)?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
 
+    /// Inserts a node and returns its reference
     pub fn insert_node(&mut self, node: Node) -> Result<NodeRef, StoreError> {
         let node_ref = self.next_node_ref;
         println!("Insert Node: {} : {}", *node_ref, node.info());
@@ -70,15 +81,18 @@ impl TrieDB {
         Ok(node_ref)
     }
 
+    /// Retrieves a node reference based on the hash of the referenced node
+    /// Will only work if the hash was computed using `Trie::compute_hash`
     pub fn get_root_ref(&self, hash: H256) -> Result<Option<NodeRef>, StoreError> {
         self.read::<RootNodes>(hash.0)
     }
 
+    /// Inserts a node reference by its node's hash
     pub fn insert_root_ref(&mut self, hash: H256, node_ref: NodeRef) -> Result<(), StoreError> {
         self.write::<RootNodes>(hash.0, node_ref)
     }
 
-    // Helper method to write into a libmdx table
+    /// Helper method to write into a libmdx table
     fn write<T: libmdbx::orm::Table>(
         &self,
         key: T::Key,
@@ -93,14 +107,14 @@ impl TrieDB {
         txn.commit().map_err(StoreError::LibmdbxError)
     }
 
-    // Helper method to read from a libmdx table
+    /// Helper method to read from a libmdx table
     fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
 
     #[cfg(test)]
-    // Creates a temporary DB
+    /// Creates a temporary DB, for testing purposes only
     pub fn init_temp() -> Self {
         let tables = [table_info!(Nodes), table_info!(RootNodes)]
             .into_iter()
