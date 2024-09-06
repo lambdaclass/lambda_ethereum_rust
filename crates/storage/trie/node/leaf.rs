@@ -47,9 +47,9 @@ impl LeafNode {
     ) -> Result<Node, StoreError> {
         /* Possible flow paths:
             Leaf { SelfPath, SelfValue } -> Leaf { SelfPath, Value }
-            Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
             Leaf { SelfPath, SelfValue } -> Extension { Branch { [Self,...] Path, Value } }
             Leaf { SelfPath, SelfValue } -> Extension { Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue} }
+            Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
         */
         self.hash.mark_as_dirty();
         // If the path matches the stored path, update the value and return self
@@ -141,11 +141,7 @@ impl LeafNode {
 }
 
 /// Helper method to compute the hash of a leaf node
-fn compute_leaf_hash<'a>(
-    hash: &'a NodeHash,
-    path: NibbleSlice,
-    value: &[u8],
-) -> NodeHashRef<'a> {
+fn compute_leaf_hash<'a>(hash: &'a NodeHash, path: NibbleSlice, value: &[u8]) -> NodeHashRef<'a> {
     let path_len = NodeHasher::path_len(path.len());
     let value_len = NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
 

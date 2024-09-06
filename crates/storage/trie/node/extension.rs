@@ -8,6 +8,8 @@ use crate::trie::hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind};
 
 use super::{BranchNode, LeafNode, Node};
 
+/// Extension Node of an an Ethereum Compatible Patricia Merkle Trie
+/// Contains the node's prefix and a reference to its child node, doesn't store any value
 #[derive(Debug)]
 pub struct ExtensionNode {
     pub hash: NodeHash,
@@ -16,6 +18,7 @@ pub struct ExtensionNode {
 }
 
 impl ExtensionNode {
+    /// Creates a new extension node given its child reference and prefix
     pub(crate) fn new(prefix: NibbleVec, child: NodeRef) -> Self {
         Self {
             prefix,
@@ -23,6 +26,8 @@ impl ExtensionNode {
             hash: Default::default(),
         }
     }
+
+    /// Retrieves a value from the subtrie originating from this node given its path
     pub fn get(&self, db: &TrieDB, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         // If the path is prefixed by this node's prefix, delegate to its child.
         // Otherwise, no value is present.
@@ -37,27 +42,27 @@ impl ExtensionNode {
         }
     }
 
+    /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         mut self,
         db: &mut TrieDB,
         mut path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
-        // Possible flow paths (there are duplicates between different prefix lengths):
-        //   extension { [0], child } -> branch { 0 => child } with_value !
-        //   extension { [0], child } -> extension { [0], child }
-        //   extension { [0, 1], child } -> branch { 0 => extension { [1], child } } with_value !
-        //   extension { [0, 1], child } -> extension { [0], branch { 1 => child } with_value ! }
-        //   extension { [0, 1], child } -> extension { [0, 1], child }
-        //   extension { [0, 1, 2], child } -> branch { 0 => extension { [1, 2], child } } with_value !
-        //   extension { [0, 1, 2], child } -> extension { [0], branch { 1 => extension { [2], child } } with_value ! }
-        //   extension { [0, 1, 2], child } -> extension { [0, 1], branch { 2 => child } with_value ! }
-        //   extension { [0, 1, 2], child } -> extension { [0, 1, 2], child }
+        /* Possible flow paths (there are duplicates between different prefix lengths):
+            Extension { prefix, child } -> Extension { prefix , child' } (insert into child)
+            Extension { prefixL+C+prefixR, child } -> Extension { prefixL, Branch { [ Extension { prefixR, child }, ..], Path, Value} } (if path fully traversed)
+            Extension { prefixL+C+prefixR, child } -> Extension { prefixL, Branch { [ Extension { prefixR, child }, Leaf { Path, Value }..] None, None} } (if path not fully traversed)
+            Extension { prefixL+C+None, child } -> Extension { prefixL, Branch { [child, ... ], Path, Value} } (if path fully traversed)
+            Extension { prefixL+C+None, child } -> Extension { prefixL, Branch { [child, ... ], Leaf { Path, Value }, ... }, None, None } (if path not fully traversed)
+            Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , ..], Path, Value} (if path fully traversed)
+            Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , Leaf { Path, Value } , ... ], None, None} (if path not fully traversed)
+        */
 
         self.hash.mark_as_dirty();
 
         if path.skip_prefix(&self.prefix) {
-            // [Note]: Original impl would remove
+            // Insert into child node
             let child_node = db
                 .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
@@ -69,19 +74,24 @@ impl ExtensionNode {
         } else {
             let offset = path.clone().count_prefix_vec(&self.prefix);
             path.offset_add(offset);
+            // Split prefix into left_prefix and right_prefix
             let (left_prefix, choice, right_prefix) = self.prefix.split_extract_at(offset);
 
             let left_prefix = (!left_prefix.is_empty()).then_some(left_prefix);
             let right_prefix = (!right_prefix.is_empty()).then_some(right_prefix);
 
-            // Prefix right node (if any, child is self.child_ref).
+            // Create right prefix node:
+            // If there is a right prefix the node will be Extension { prefixR, Self.child }
+            // If there is no right prefix the node will be Self.child
             let right_prefix_node = if let Some(right_prefix) = right_prefix {
                 db.insert_node(ExtensionNode::new(right_prefix, self.child).into())?
             } else {
                 self.child
             };
 
-            // Branch node (child is prefix right or self.child_ref).
+            // Create a branch node:
+            // If the path hasn't been traversed: Branch { [ RPrefixNode, Leaf { Path, Value }, ... ], None, None }
+            // If the path has been fully traversed: Branch { [ RPrefixNode, ... ], Path, Value }
             let mut choices = [Default::default(); 16];
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
@@ -92,7 +102,9 @@ impl ExtensionNode {
                 BranchNode::new_with_value(choices, path.data(), value)
             };
 
-            // Prefix left node (if any, child is branch_node).
+            // Create a final node, then return it:
+            // If there is a left_prefix: Extension { left_prefix , Branch }
+            // If there is no left_prefix: Branch
             match left_prefix {
                 Some(left_prefix) => {
                     let branch_ref = db.insert_node(branch_node.into())?;
