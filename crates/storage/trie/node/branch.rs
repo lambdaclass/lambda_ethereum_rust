@@ -182,7 +182,6 @@ impl BranchNode {
             self.hash.mark_as_dirty();
         }
 
-
         let child_ref = match choice_count {
             Ok(Some((choice_index, child_ref))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();

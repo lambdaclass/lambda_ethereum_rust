@@ -10,7 +10,8 @@ use crate::{
 };
 
 use super::{ExtensionNode, Node};
-
+/// Leaf Node of an an Ethereum Compatible Patricia Merkle Trie
+/// Contains the node's hash, value & path
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
     pub hash: NodeHash,
@@ -19,6 +20,7 @@ pub struct LeafNode {
 }
 
 impl LeafNode {
+    /// Creates a new branch and stores the given (path, value) pair
     pub fn new(path: PathRLP, value: ValueRLP) -> Self {
         Self {
             hash: Default::default(),
@@ -27,6 +29,7 @@ impl LeafNode {
         }
     }
 
+    /// Returns the stored value if the given path matches the stored path
     pub fn get(&self, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         if path.cmp_rest(&self.path) {
             Ok(Some(self.value.clone()))
@@ -35,19 +38,21 @@ impl LeafNode {
         }
     }
 
+    /// Stores the received value and returns the new root of the subtrie previously consisting of self
     pub fn insert(
         mut self,
         db: &mut TrieDB,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
-        // Possible flow paths:
-        //   leaf { path => value } -> leaf { path => value }
-        //   leaf { path => value } -> branch { 0 => leaf { path => value }, 1 => leaf { path => value } }
-        //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value }, 1 => leaf { path => value } } }
-        //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value } } with_value leaf { path => value } }
-        //   leaf { path => value } -> extension { [0], branch { 0 => leaf { path => value } } with_value leaf { path => value } } // leafs swapped
+        /* Possible flow paths:
+            Leaf { SelfPath, SelfValue } -> Leaf { SelfPath, Value }
+            Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value}, Self, ... ], None, None}
+            Leaf { SelfPath, SelfValue } -> Extension { Branch { [Self,...] Path, Value } }
+            Leaf { SelfPath, SelfValue } -> Extension { Branch { [ Leaf { Path, Value} , ... ], SelfPath, SelfValue} }
+        */
         self.hash.mark_as_dirty();
+        // If the path matches the stored path, update the value and return self
         if path.cmp_rest(&self.path) {
             self.value = value;
             Ok(self.clone().into())
@@ -63,41 +68,40 @@ impl LeafNode {
 
             let absolute_offset = path_branch.offset();
             let branch_node = if absolute_offset == 2 * path.as_ref().len() {
+                // Create a branch node with self as a child and store the value in the branch node
+                // Branch { [Self,...] Path, Value }
                 let mut choices = [Default::default(); 16];
-                // TODO: Dedicated method.
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] = db.insert_node(self.clone().into())?;
 
                 BranchNode::new_with_value(choices, path.data(), value.clone())
             } else if absolute_offset == 2 * self.path.len() {
+                // Create a new leaf node and store the path and value in it
+                // Create a new branch node with the leaf as a child and store self's path and value
+                // Branch { [ Leaf { Path, Value} , ... ], SelfPath, SelfValue}
                 let new_leaf = LeafNode::new(path.data(), value.clone());
+                let mut choices = [Default::default(); 16];
+                choices[path_branch.next().unwrap() as usize] = db.insert_node(new_leaf.into())?;
 
-                let child_ref = db.insert_node(new_leaf.into())?;
-                BranchNode::new_with_value(
-                    {
-                        let mut choices = [Default::default(); 16];
-                        choices[path_branch.next().unwrap() as usize] = child_ref;
-                        choices
-                    },
-                    self.path.clone(),
-                    self.value,
-                )
+                BranchNode::new_with_value(choices, self.path.clone(), self.value)
             } else {
+                // Create a new leaf node and store the path and value in it
+                // Create a new branch node with the leaf and self as children
+                // Branch { [ Leaf { Path, Value}, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value.clone());
-
                 let child_ref = db.insert_node(new_leaf.into())?;
-                BranchNode::new({
-                    let mut choices = [Default::default(); 16];
-                    choices[NibbleSlice::new(self.path.as_ref())
-                        .nth(absolute_offset)
-                        .unwrap() as usize] = db.insert_node(self.clone().into())?;
-                    choices[path_branch.next().unwrap() as usize] = child_ref;
-                    choices
-                })
+                let mut choices = [Default::default(); 16];
+                choices[NibbleSlice::new(self.path.as_ref())
+                    .nth(absolute_offset)
+                    .unwrap() as usize] = db.insert_node(self.clone().into())?;
+                choices[path_branch.next().unwrap() as usize] = child_ref;
+                BranchNode::new(choices)
             };
 
             let final_node = if offset != 0 {
+                // Create an extension node with the branch node as child
+                // Extension { BranchNode }
                 let branch_ref = db.insert_node(Node::Branch(branch_node))?;
                 ExtensionNode::new(path.split_to_vec(offset), branch_ref).into()
             } else {
