@@ -13,7 +13,7 @@ use engine::{
     ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest},
+    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
         GetBlockTransactionCountRequest,
@@ -179,6 +179,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_blockNumber" => block::block_number(storage),
         "eth_call" => CallRequest::call(req, storage),
         "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
+        "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
