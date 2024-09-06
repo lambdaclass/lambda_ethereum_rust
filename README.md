@@ -81,13 +81,9 @@ kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet
 Add support to follow a post-Merge localnet as a read-only RPC Node. This first milestone will only support a canonical chain (every incoming block has to be the child of the current head). 
 
 RPC endpoints
-- `debug_getRawBlock`
-- `debug_getRawHeader`
-- `debug_getRawReceipts`
-- `debug_getRawTransaction`
 - `engine_newPayloadV3` (excl. block building) ✅
-- `eth_blobBaseFee`
-- `eth_blockNumber` ✅
+- `eth_blobBaseFee` ✅
+- `eth_blockNumber` ✅ 
 - `eth_call` (at head block) ✅
 - `eth_chainId` ✅
 - `eth_createAccessList` (at head block) ✅
@@ -103,7 +99,7 @@ RPC endpoints
 - `eth_getTransactionByBlockHashAndIndex` ✅
 - `eth_getTransactionByBlockNumberAndIndex` ✅
 - `eth_getTransactionByHash` ✅
-- `eth_getTransactionCount`
+- `eth_getTransactionCount` ✅
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/1
 

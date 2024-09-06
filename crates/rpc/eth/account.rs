@@ -65,6 +65,11 @@ pub struct GetStorageAtRequest {
     pub block: BlockIdentifierOrHash,
 }
 
+pub struct GetTransactionCountRequest {
+    pub address: Address,
+    pub block: BlockIdentifierOrHash,
+}
+
 impl RpcHandler for GetBalanceRequest {
     fn parse(params: &Option<Vec<Value>>) -> Option<GetBalanceRequest> {
         let params = params.as_ref()?;
@@ -155,6 +160,37 @@ impl RpcHandler for GetStorageAtRequest {
             .unwrap_or_default();
         let storage_value = H256::from_uint(&storage_value);
         serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetTransactionCountRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionCountRequest> {
+        let params = params.as_ref()?;
+        if params.len() != 2 {
+            return None;
+        };
+        Some(GetTransactionCountRequest {
+            address: serde_json::from_value(params[0].clone()).ok()?,
+            block: serde_json::from_value(params[1].clone()).ok()?,
+        })
+    }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested nonce of account {} at block {}",
+            self.address, self.block
+        );
+
+        // TODO: implement historical querying
+        let is_latest = self.block.is_latest(&storage)?;
+        if !is_latest {
+            return Err(RpcErr::Internal);
+        }
+
+        let nonce = storage
+            .get_nonce_by_account_address(self.address)?
+            .unwrap_or_default();
+
+        serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)
     }
 }
 
