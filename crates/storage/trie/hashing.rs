@@ -1,3 +1,4 @@
+/// This module contains structs and functions used to compute node hashes
 use super::nibble::{NibbleSlice, NibbleVec};
 use digest::Digest;
 use ethereum_rust_core::rlp::{
