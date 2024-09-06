@@ -75,7 +75,6 @@ impl TrieDB {
     /// Inserts a node and returns its reference
     pub fn insert_node(&mut self, node: Node) -> Result<NodeRef, StoreError> {
         let node_ref = self.next_node_ref;
-        println!("Insert Node: {} : {}", *node_ref, node.info());
         self.write::<Nodes>(node_ref, node.encode_to_vec())?;
         self.next_node_ref = node_ref.next();
         Ok(node_ref)
