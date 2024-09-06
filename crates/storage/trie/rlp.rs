@@ -1,3 +1,4 @@
+// Contains RLP encoding and decoding implementations for Trie Nodes
 use ethereum_rust_core::rlp::{
     decode::RLPDecode,
     encode::RLPEncode,

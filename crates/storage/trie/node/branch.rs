@@ -11,6 +11,8 @@ use crate::{
 
 use super::{ExtensionNode, LeafNode, Node};
 
+/// Branch Node of an an Ethereum Compatible Patricia Merkle Trie
+/// Contains the node's hash, value, path, and the references of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
     pub hash: NodeHash,
@@ -20,6 +22,7 @@ pub struct BranchNode {
 }
 
 impl BranchNode {
+    /// Creates a new branch node given its children, without any stored value
     pub fn new(choices: [NodeRef; 16]) -> Self {
         Self {
             choices,
@@ -29,6 +32,7 @@ impl BranchNode {
         }
     }
 
+    /// Creates a new branch node given its children and stores the given (path, value) pair
     pub fn new_with_value(choices: [NodeRef; 16], path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
@@ -38,11 +42,13 @@ impl BranchNode {
         }
     }
 
+    /// Updates the node's path and value
     pub fn update(&mut self, new_path: PathRLP, new_value: ValueRLP) {
         self.path = new_path;
         self.value = new_value;
     }
 
+    /// Retrieves a value from the subtrie originating from this node given its path
     pub fn get(&self, db: &TrieDB, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
@@ -63,6 +69,7 @@ impl BranchNode {
         }
     }
 
+    /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         mut self,
         db: &mut TrieDB,
@@ -71,18 +78,18 @@ impl BranchNode {
     ) -> Result<Node, StoreError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
-
         self.hash.mark_as_dirty();
         match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
+                // Create new child (leaf node)
                 choice_ref if !choice_ref.is_valid() => {
                     let new_leaf = LeafNode::new(path.data(), value);
                     let child_ref = db.insert_node(new_leaf.into())?;
                     *choice_ref = child_ref;
                 }
+                // Insert into existing child and then update it
                 choice_ref => {
                     let child_node = db
-                        // [Note]: Original impl would remove
                         .get_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 
@@ -91,6 +98,7 @@ impl BranchNode {
                 }
             },
             None => {
+                // Insert into self
                 self.update(path.data(), value);
             }
         };
@@ -98,6 +106,8 @@ impl BranchNode {
         Ok(self.clone().into())
     }
 
+    /// Removes a value from the subtrie originating from this node given its path
+    /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
     pub fn remove(
         mut self,
         db: &mut TrieDB,
@@ -110,18 +120,23 @@ impl BranchNode {
         //   branch { 1 choice } with value -> leaf/extension { ... }
         //   branch { 2+ choices } with value -> branch { ... }
 
+        // Remove value
+
         let path_offset = path.offset();
+        // Check if the value is located in a child subtrie
         let value = match path.next() {
             Some(choice_index) => {
                 if self.choices[choice_index as usize].is_valid() {
                     let child_node = db
-                        // [NOTE] Reference impl would remove
                         .get_node(self.choices[choice_index as usize])?
                         .expect("inconsistent internal tree structure");
+                    // Remove value from child node
                     let (child_node, old_value) = child_node.remove(db, path)?;
                     if let Some(child_node) = child_node {
+                        // Update child node
                         self.choices[choice_index as usize] = db.insert_node(child_node)?;
                     } else {
+                        // Remove child reference if the child subtrie was removed in the process
                         self.choices[choice_index as usize] = NodeRef::default();
                     }
                     old_value
@@ -130,6 +145,7 @@ impl BranchNode {
                 }
             }
             None => {
+                // Remove own value (if it has one) and return it
                 if !self.path.is_empty() {
                     let value = self.value;
                     self.path = Default::default();
@@ -142,8 +158,14 @@ impl BranchNode {
             }
         };
 
+        // Restructure self
+
+        // Check if self one has one child left
+
         // An `Err(_)` means more than one choice. `Ok(Some(_))` and `Ok(None)` mean a single and no
         // choices respectively.
+        // If there is only one child choice_count will contain the choice index and the reference of the child node
+        // TODO: check if we can make this code simpler/ more evident
         let choice_count = self
             .choices
             .iter_mut()
@@ -161,6 +183,7 @@ impl BranchNode {
             self.hash.mark_as_dirty();
         }
 
+
         let child_ref = match choice_count {
             Ok(Some((choice_index, child_ref))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();
@@ -169,6 +192,8 @@ impl BranchNode {
                     .expect("inconsistent internal tree structure");
 
                 match child_node {
+                    // Replace child with extension node leading to child
+                    // TODO: Does this make sense if we are not going to replace self? Maybe we can return the child directly like in the extension case
                     Node::Branch(_) => {
                         *child_ref = db.insert_node(
                             ExtensionNode::new(
@@ -178,6 +203,7 @@ impl BranchNode {
                             .into(),
                         )?;
                     }
+                    // Replace self with the child extension node
                     Node::Extension(mut extension_node) => {
                         debug_assert!(self.path.is_empty()); // Sanity check
                         extension_node.prefix.prepend(choice_index);
@@ -193,12 +219,16 @@ impl BranchNode {
         };
 
         let new_node = match (child_ref, !self.path.is_empty()) {
+            // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
+            // If this node still has a value but no longer has children, convert it into a leaf node
             (None, true) => Some(LeafNode::new(self.path, self.value).into()),
+            // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
                 db.get_node(*x)?
                     .expect("inconsistent internal tree structure"),
             ),
+            // Return this node
             (None, false) => Some(self.into()),
         };
 
