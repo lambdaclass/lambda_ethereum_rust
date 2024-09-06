@@ -31,6 +31,7 @@ libmdbx = ["dep:libmdbx"]
 
 [dev-dependencies]
 hex.workspace = true
+hex-literal.workspace = true
 proptest = "1.0.0"
 tempdir = "0.3.7"
 cita_trie = "4.0.0" # used for proptest comparisons
