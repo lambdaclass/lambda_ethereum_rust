@@ -58,6 +58,7 @@ pub struct GetCodeRequest {
     pub address: Address,
     pub block: BlockIdentifierOrHash,
 }
+
 pub struct GetStorageAtRequest {
     pub address: Address,
     pub storage_slot: H256,
@@ -180,7 +181,8 @@ impl RpcHandler for GetTransactionCountRequest {
         );
 
         // TODO: implement historical querying
-        if self.block != BlockTag::Latest {
+        let is_latest = self.block.is_latest(&storage)?;
+        if !is_latest {
             return Err(RpcErr::Internal);
         }
 
