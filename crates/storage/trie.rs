@@ -21,7 +21,7 @@ pub type PathRLP = Vec<u8>;
 // RLP-encoded trie value
 pub type ValueRLP = Vec<u8>;
 
-/// Libmdx-based Merkle Patricia Trie
+/// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 pub struct Trie {
     /// Reference to the current root node
     root_ref: NodeRef,

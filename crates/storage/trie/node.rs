@@ -10,6 +10,7 @@ use crate::error::StoreError;
 
 use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
 
+/// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug)]
 pub enum Node {
     Branch(BranchNode),
@@ -36,6 +37,7 @@ impl From<LeafNode> for Node {
 }
 
 impl Node {
+    /// Retrieves a value from the subtrie originating from this node given its path
     pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         match self {
             Node::Branch(n) => n.get(db, path),
@@ -44,7 +46,7 @@ impl Node {
         }
     }
 
-    /// Inserts a value into the subtree that has this node as its root and returns the new root of the subtree
+    /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         self,
         db: &mut TrieDB,
@@ -58,6 +60,8 @@ impl Node {
         }
     }
 
+    /// Removes a value from the subtrie originating from this node given its path
+    /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
     pub fn remove(
         self,
         db: &mut TrieDB,
@@ -70,6 +74,7 @@ impl Node {
         }
     }
 
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         match self {
             Node::Branch(n) => n.compute_hash(db, path_offset),
@@ -79,6 +84,7 @@ impl Node {
     }
 }
 
+// TODO: remove
 impl Node {
     pub fn info(&self) -> String {
         match self {
