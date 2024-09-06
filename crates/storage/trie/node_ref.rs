@@ -3,22 +3,30 @@ use std::ops::Deref;
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError};
 use libmdbx::{orm::Decodable, orm::Encodable};
 
+/// Default value for a NodeReference, indicating that the referenced node does not yet exist
 const INVALID_REF: usize = usize::MAX;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(transparent)]
+/// Struct representing a reference to a trie node
+/// Used to store and fetch nodes from the DB
+/// Each reference is unique
 pub struct NodeRef(usize);
 
 impl NodeRef {
+    /// Creates a new reference from an integer value
     pub fn new(value: usize) -> Self {
         assert_ne!(value, INVALID_REF);
         Self(value)
     }
 
+    /// Returns true if the reference is a valid
     pub const fn is_valid(&self) -> bool {
         self.0 != INVALID_REF
     }
 
+    /// Returns the next node reference based on the current one
+    /// This ensures that each reference is unique as long as they are created based on this method
     // TODO: check if we should use a bigger type for node references
     pub fn next(&self) -> Self {
         let next = self.0.saturating_add(1);
