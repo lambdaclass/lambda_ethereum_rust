@@ -165,7 +165,6 @@ impl BranchNode {
         // An `Err(_)` means more than one choice. `Ok(Some(_))` and `Ok(None)` mean a single and no
         // choices respectively.
         // If there is only one child choice_count will contain the choice index and the reference of the child node
-        // TODO: check if we can make this code simpler/ more evident
         let choice_count = self
             .choices
             .iter_mut()
@@ -193,7 +192,7 @@ impl BranchNode {
 
                 match child_node {
                     // Replace child with extension node leading to child
-                    // TODO: Does this make sense if we are not going to replace self? Maybe we can return the child directly like in the extension case
+                    // The extension node will then replace this (self) node (if self has no value)
                     Node::Branch(_) => {
                         *child_ref = db.insert_node(
                             ExtensionNode::new(
@@ -203,7 +202,7 @@ impl BranchNode {
                             .into(),
                         )?;
                     }
-                    // Replace self with the child extension node
+                    // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
                         debug_assert!(self.path.is_empty()); // Sanity check
                         extension_node.prefix.prepend(choice_index);
@@ -235,6 +234,7 @@ impl BranchNode {
         Ok((new_node, value))
     }
 
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
         if let Some(hash) = self.hash.extract_ref() {
             return Ok(hash);
@@ -280,7 +280,8 @@ impl BranchNode {
     }
 }
 
-pub fn compute_branch_hash<'a, T>(
+/// Helper method to compute the hash of a branch node
+fn compute_branch_hash<'a, T>(
     hash: &'a NodeHash,
     choices: &[T; 16],
     value: Option<&[u8]>,
