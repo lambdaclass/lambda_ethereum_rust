@@ -6,6 +6,7 @@ use ethereum_rust_core::rlp::{
 };
 use smallvec::SmallVec;
 
+/// Struct representing a half-byte
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Nibble {
     V0 = 0,
@@ -64,6 +65,8 @@ impl From<Nibble> for usize {
     }
 }
 
+/// A slice of half-bytes (represented as a slice of bytes) with an offset
+/// When used as a path, the offset indicates how much of the path has been traversed
 #[derive(Clone, Debug)]
 pub struct NibbleSlice<'a> {
     data: &'a [u8],
@@ -71,6 +74,7 @@ pub struct NibbleSlice<'a> {
 }
 
 impl<'a> NibbleSlice<'a> {
+    /// Creates a new NibbleSlice form a slice of bytes
     pub const fn new(inner: &'a [u8]) -> Self {
         Self {
             data: inner,
@@ -78,6 +82,7 @@ impl<'a> NibbleSlice<'a> {
         }
     }
 
+    /// Returns the amount of half-bytes in the slice, taking into account the current offset
     pub const fn len(&self) -> usize {
         2 * self.data.len() - self.offset
     }
@@ -86,10 +91,13 @@ impl<'a> NibbleSlice<'a> {
         self.offset
     }
 
+    /// Returns the full original path, ignoring the current offset
     pub fn data(&self) -> super::PathRLP {
         self.data.to_vec()
     }
 
+    /// Splits the slice into a vec at the given offset
+    // TODO: Improve doc (help wanted)
     pub fn split_to_vec(&self, offset: usize) -> NibbleVec {
         NibbleVec {
             data: SmallVec::from_slice(
@@ -100,6 +108,7 @@ impl<'a> NibbleSlice<'a> {
         }
     }
 
+    /// Advance the current offset by a given amount
     pub fn offset_add(&mut self, delta: usize) {
         self.offset += delta;
     }
@@ -184,6 +193,7 @@ impl<'a> NibbleSlice<'a> {
         self_slice == othr_slice
     }
 
+    /// Compares self to a NibbleVec and returns the shared nibble count (amount of nibbles that are equal, starting from self's offset)
     pub fn count_prefix_vec(&mut self, other: &NibbleVec) -> usize {
         if other.data.is_empty() {
             return 0;
@@ -234,6 +244,8 @@ impl<'a> NibbleSlice<'a> {
         eq_count
     }
 
+    /// Compares self to another NibbleSlice and returns the shared nibble count (amount of nibbles that are equal, starting the common offser)
+    /// Both slices should have the same offset
     pub fn count_prefix_slice(&self, other: &NibbleSlice) -> usize {
         // Check offset (and therefore alignment implicitly).
         assert_eq!(self.offset, other.offset);
@@ -290,6 +302,7 @@ impl<'a> Iterator for NibbleSlice<'a> {
     }
 }
 
+/// A vector of nibbles, represented as a byte array, with flags indicating wether the first or last bytes represent only half a byte
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct NibbleVec {
     data: SmallVec<[u8; 111]>,
@@ -300,6 +313,7 @@ pub struct NibbleVec {
 
 impl NibbleVec {
     #[cfg(test)]
+    /// Creates a new, empty NibbleVec
     pub fn new() -> Self {
         NibbleVec {
             data: Default::default(),
@@ -309,6 +323,7 @@ impl NibbleVec {
     }
 
     #[cfg(test)]
+    /// Create a NibbleVec from an iterator of nibbles
     pub fn from_nibbles(
         data_iter: impl Iterator<Item = Nibble>,
         starts_with_half_byte: bool,
@@ -339,6 +354,7 @@ impl NibbleVec {
         }
     }
 
+    /// Create a NibbleVec from a single nibble
     pub fn from_single(nibble: Nibble, is_right_half: bool) -> Self {
         Self {
             data: SmallVec::from_elem(
@@ -354,14 +370,17 @@ impl NibbleVec {
         }
     }
 
+    /// Returns true if the NibbleVec is empty
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
+    /// Returns the amount of nibbles (half-bytes) in the NibbleVec
     pub fn len(&self) -> usize {
         2 * self.data.len() - self.first_is_half as usize - self.last_is_half as usize
     }
 
+    /// Returns an iterator over the NibbleVec
     pub const fn iter(&self) -> NibbleVecIter {
         NibbleVecIter {
             inner: self,
@@ -369,6 +388,8 @@ impl NibbleVec {
         }
     }
 
+    /// Splits the NibbleVec at a given offset, returning the nibble at the specified offset
+    ///  and the NibbleVecs containing the nibbles before and after the speficic nibble
     pub fn split_extract_at(self, index: usize) -> (NibbleVec, Nibble, NibbleVec) {
         let offset = (index + 1 + self.first_is_half as usize) >> 1;
         let mut left_vec = NibbleVec {
@@ -406,6 +427,7 @@ impl NibbleVec {
         (left_vec, value, right_vec)
     }
 
+    /// Inserts a nibble at the start of the NibbleVec
     pub fn prepend(&mut self, nibble: Nibble) {
         if self.first_is_half {
             self.data[0] = (self.data[0] & 0x0F) | ((nibble as u8) << 4);
@@ -415,6 +437,7 @@ impl NibbleVec {
         self.first_is_half = !self.first_is_half;
     }
 
+    /// Extends self with another NibbleVec
     pub fn extend(&mut self, other: &Self) {
         // Ensure alignment.
         assert_eq!(self.last_is_half, other.first_is_half);
@@ -434,6 +457,7 @@ impl NibbleVec {
         });
     }
 
+    /// Resets self to default (full clear) if there are no nibbles represented by self
     pub(crate) fn normalize(&mut self) {
         if self.data.is_empty() || (self.data.len() == 1 && self.first_is_half && self.last_is_half)
         {
@@ -445,6 +469,7 @@ impl NibbleVec {
 }
 
 #[derive(Clone)]
+/// An iterator of nibbles (half-bytes)
 pub struct NibbleVecIter<'a> {
     inner: &'a NibbleVec,
     pos: usize,
