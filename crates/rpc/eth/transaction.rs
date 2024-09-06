@@ -372,37 +372,13 @@ impl RpcHandler for EstimateGasRequest {
             ExecutionResult::Revert {
                 gas_used: _,
                 output,
-            } => {
-                return Err(RpcErr::Revert {
-                    data: format!("0x{:#x}", output),
-                });
-            }
+            } => Err(RpcErr::Revert {
+                data: format!("0x{:#x}", output),
+            }),
             default => {
                 let gas_used = default.gas_used();
-                return serde_json::to_value(format!("{:#x}", gas_used))
-                    .map_err(|_| RpcErr::Internal);
+                serde_json::to_value(format!("{:#x}", gas_used)).map_err(|_| RpcErr::Internal)
             }
         }
     }
-    //     let block = self.block.clone().unwrap_or_default();
-    //     info!("Requested estimate gas for tx on block: {}", block);
-    //     let block_number = match block.resolve_block_number(&storage)? {
-    //         Some(block_number) => block_number,
-    //         _ => return Ok(Value::Null),
-    //     };
-    //     let header = match storage.get_block_header(block_number)? {
-    //         Some(header) => header,
-    //         // Block not found
-    //         _ => return Ok(Value::Null),
-    //     };
-    //     let result = ethereum_rust_evm::simulate_tx_from_generic(
-    //         &self.transaction,
-    //         &header,
-    //         &mut evm_state(storage),
-    //         SpecId::CANCUN,
-    //     )?;
-    //     let gas_used = result.gas_used();
-
-    //     serde_json::to_value(format!("{:#x}", gas_used)).map_err(|_| RpcErr::Internal)
-    // }
 }

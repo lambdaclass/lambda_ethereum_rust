@@ -179,7 +179,6 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_blockNumber" => block::block_number(storage),
         "eth_call" => CallRequest::call(req, storage),
         "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
-        // "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
