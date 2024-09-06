@@ -215,14 +215,20 @@ mod test {
     #[test]
     fn get_insert_words() {
         let mut trie = Trie::new_temp();
-        trie.insert(b"first".to_vec(), b"value_a".to_vec()).unwrap();
-        trie.insert(b"second".to_vec(), b"value_b".to_vec())
-            .unwrap();
+        let first_path = b"first".to_vec();
+        let first_value = b"value_a".to_vec();
+        let second_path = b"second".to_vec();
+        let second_value = b"value_b".to_vec();
+        // Check that the values dont exist before inserting
+        assert!(trie.get(&first_path).unwrap().is_none());
+        assert!(trie.get(&second_path).unwrap().is_none());
+        // Insert values
+        trie.insert(first_path.clone(), first_value.clone()).unwrap();
+        trie.insert(second_path.clone(), second_value.clone()).unwrap();
+        // Check values
+        assert_eq!(trie.get(&first_path).unwrap(), Some(first_value));
+        assert_eq!(trie.get(&second_path).unwrap(), Some(second_value));
 
-        let first = trie.get(&b"first"[..].to_vec()).unwrap();
-        assert_eq!(first, Some(b"value_a".to_vec()));
-        let second = trie.get(&b"second"[..].to_vec()).unwrap();
-        assert_eq!(second, Some(b"value_b".to_vec()));
     }
 
     #[test]
