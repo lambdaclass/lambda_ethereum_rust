@@ -42,7 +42,7 @@ impl Trie {
         })
     }
 
-    /// Retrieve a value from the trie given its path.
+    /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
         if !self.root_ref.is_valid() {
             return Ok(None);
@@ -55,26 +55,24 @@ impl Trie {
         root_node.get(&self.db, NibbleSlice::new(path))
     }
 
-    /// Insert a value into the tree.
-    /// TODO: Make inputs T: RLPEncode (we will ignore generics for now)
+    /// Insert an RLP-encoded value into the trie.
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
         println!("[INSERT]: {:?}: {:?}", path, value);
-        // Mark hash as dirty
         self.hash = None;
-        // [Note]: Original impl would remove
         if let Some(root_node) = self.db.get_node(self.root_ref)? {
-            // If the tree is not empty, call the root node's insertion logic
+            // If the trie is not empty, call the root node's insertion logic
             let root_node =
                 root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
             self.root_ref = self.db.insert_node(root_node)?;
         } else {
-            // If the tree is empty, just add a leaf.
+            // If the trie is empty, just add a leaf.
             self.root_ref = self.db.insert_node(LeafNode::new(path, value).into())?;
         }
         Ok(())
     }
 
-    /// Remove a value from the tree.
+    /// Remove a value from the trie given its RLP-encoded path.
+    /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
     pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
         println!("[REMOVE]: {:?}", path);
         if !self.root_ref.is_valid() {
@@ -95,7 +93,8 @@ impl Trie {
         Ok(old_value)
     }
 
-    /// Return the root hash of the tree (or recompute if needed).
+    /// Return the hash of the trie's root node (or recompute if needed).
+    /// Returns keccak(RLP_NULL) if the trie is empty
     pub fn compute_hash(&mut self) -> Result<H256, StoreError> {
         if let Some(hash) = self.hash {
             return Ok(hash);
@@ -125,9 +124,9 @@ impl Trie {
         Ok(root_hash)
     }
 
-    /// Retrieve a value from the tree given its path from the subtree originating from the given root
+    /// Retrieve a value from the trie given its path from the subtrie originating from the given root
     /// Please use a root_hash calculated using `compute_hash`
-    /// This function is used to access historical data,
+    /// This function is used to access historical data
     pub fn get_from_root(
         &self,
         root_hash: H256,
