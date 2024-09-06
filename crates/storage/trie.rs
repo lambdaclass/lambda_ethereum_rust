@@ -184,6 +184,7 @@ mod test {
         prelude::*,
         proptest,
     };
+    use tempdir::TempDir;
 
     #[test]
     fn compute_hash() {
@@ -646,6 +647,29 @@ mod test {
         assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
         assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
         assert_eq!(trie.get(&vec![0x02]).unwrap(), None);
+    }
+
+    #[test]
+    fn resume_trie() {
+        const TRIE_DIR: &str = "trie-db-resume-trie-test";
+        let trie_dir = TempDir::new(TRIE_DIR).expect("Failed to create temp dir");
+        let trie_dir = trie_dir.path().to_str().unwrap();
+
+        // Create new trie from clean DB
+        let mut trie = Trie::new(trie_dir).unwrap();
+
+        trie.insert(vec![0x00], vec![0x01]).unwrap();
+        trie.insert(vec![0x01], vec![0x02]).unwrap();
+        trie.insert(vec![0x02], vec![0x04]).unwrap();
+
+        drop(trie); // Release DB
+
+        // Create a new trie based on the previous trie's DB
+        let trie = Trie::new(trie_dir).unwrap();
+
+        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x02]));
+        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x04]));
     }
 
     // Proptests
