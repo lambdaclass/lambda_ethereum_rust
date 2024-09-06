@@ -113,12 +113,23 @@ impl BranchNode {
         db: &mut TrieDB,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
-        // Possible flow paths:
-        //   branch { 2 choices } -> leaf/extension { ... }
-        //   branch { 3+ choices } -> branch { ... }
-        //   branch { 1 choice } with value -> leaf { ... }
-        //   branch { 1 choice } with value -> leaf/extension { ... }
-        //   branch { 2+ choices } with value -> branch { ... }
+        /* Possible flow paths:
+            Step 1: Removal
+                Branch { [ ... ], Path, Value } -> Branch { [...], None, None } (remove from self)
+                Branch { [ childA, ... ], Path, Value } -> Branch { [childA', ... ], Path, Value } (remove from child)
+
+            Step 2: Restructure
+                [0 children]
+                Branch { [], Path, Value } -> Leaf { Path, Value } (no children, with value)
+                Branch { [], None, None } -> Branch { [], None, None } (no children, no value)
+                [1 child]
+                Branch { [ ExtensionChild], _ , _ } -> Extension { ChoiceIndex+ExtensionChildPrefx, ExtensionChildChild }
+                Branch { [ BranchChild ], None, None } -> Extension { ChoiceIndex, BranchChild }
+                Branch { [ LeafChild], None, None } -> LeafChild
+                Branch { [LeafChild], Path, Value } -> Branch { [ LeafChild ], Path, Value }
+                [+1 children]
+                Branch { [childA, childB, ... ], None, None } ->   Branch { [childA, childB, ... ], None, None }
+        */
 
         // Remove value
 
