@@ -22,6 +22,7 @@ hmac = "0.12.1"
 aes = "0.8.4"
 ctr = "0.9.2"
 rand = "0.8.5"
+snap = "1.1.1"
 
 [dev-dependencies]
 hex-literal = "0.4.1"
