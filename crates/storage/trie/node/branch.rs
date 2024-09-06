@@ -201,8 +201,8 @@ impl BranchNode {
                     .expect("inconsistent internal tree structure");
 
                 match child_node {
-                    // Replace child with extension node leading to child
-                    // The extension node will then replace this (self) node (if self has no value)
+                    // Replace the child node  with an extension node leading to it
+                    // The extension node will then replace self if self has no value
                     Node::Branch(_) => {
                         *child_ref = db.insert_node(
                             ExtensionNode::new(
