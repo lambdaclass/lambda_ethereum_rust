@@ -202,6 +202,16 @@ impl Store {
             .unwrap()
             .get_code_by_account_address(address)
     }
+    pub fn get_nonce_by_account_address(
+        &self,
+        address: Address,
+    ) -> Result<Option<u64>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_nonce_by_account_address(address)
+    }
 
     pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
         self.engine.lock().unwrap().add_account(address, account)
