@@ -72,7 +72,7 @@ impl ExtensionNode {
 
             Ok(self.into())
         } else {
-            let offset = path.count_prefix_vec(&self.prefix);
+            let offset = path.clone().count_prefix_vec(&self.prefix);
             path.offset_add(offset);
             // Split prefix into left_prefix and right_prefix
             let (left_prefix, choice, right_prefix) = self.prefix.split_extract_at(offset);
