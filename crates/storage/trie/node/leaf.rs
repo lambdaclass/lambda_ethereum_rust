@@ -20,7 +20,7 @@ pub struct LeafNode {
 }
 
 impl LeafNode {
-    /// Creates a new branch and stores the given (path, value) pair
+    /// Creates a new leaf node and stores the given (path, value) pair
     pub fn new(path: PathRLP, value: ValueRLP) -> Self {
         Self {
             hash: Default::default(),
