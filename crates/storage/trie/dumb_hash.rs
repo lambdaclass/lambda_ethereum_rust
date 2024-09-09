@@ -3,7 +3,7 @@ use std::cmp::min;
 use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
-use super::{hashing::Output, nibble::NibbleSlice};
+use super::{hashing::Output, nibble::{NibbleSlice, NibbleVec}};
 
 #[derive(Default)]
 pub struct HashBuilder {
@@ -88,6 +88,30 @@ impl HashBuilder {
             iter
         } else {
             value.clone()
+        };
+
+        let i2 = nibble_iter.clone().skip(1).step_by(2);
+        if nibble_count > 1 {
+            self.write_len(0x80, 0xB7, (nibble_count >> 1) + 1);
+        }
+        self.write_raw(&[flag]);
+        for (a, b) in nibble_iter.step_by(2).zip(i2) {
+            self.write_raw(&[((a as u8) << 4) | (b as u8)]);
+        }
+    }
+
+    pub fn write_path_vec(&mut self, value: &NibbleVec, kind: PathKind) {
+        let mut flag = kind.into_flag();
+
+        // TODO: Do not use iterators.
+        let nibble_count = value.len();
+        let nibble_iter = if nibble_count & 0x01 != 0 {
+            let mut iter = value.iter();
+            flag |= 0x10;
+            flag |= iter.next().unwrap() as u8;
+            iter
+        } else {
+            value.iter()
         };
 
         let i2 = nibble_iter.clone().skip(1).step_by(2);

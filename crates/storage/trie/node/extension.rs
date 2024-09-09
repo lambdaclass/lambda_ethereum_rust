@@ -1,5 +1,6 @@
 use crate::error::StoreError;
 use crate::trie::db::TrieDB;
+use crate::trie::dumb_hash::{self, DumbNodeHash, HashBuilder};
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::ValueRLP;
 use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
@@ -182,6 +183,27 @@ impl ExtensionNode {
             &self.prefix,
             child_hash_ref,
         ))
+    }
+
+    pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
+        let child_node = db
+        .get_node(self.child).unwrap()
+        .expect("inconsistent internal tree structure");
+        let child_hash = child_node.dumb_hash(db, path_offset + self.prefix.len());
+        let prefix_len = NodeHasher::path_len(self.prefix.len());
+        let child_len = match child_hash {
+        DumbNodeHash::Inline(ref x) => x.len(),
+        DumbNodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
+        };
+
+        let mut hasher = HashBuilder::new();
+        hasher.write_list_header(prefix_len + child_len);
+        hasher.write_path_vec(&self.prefix, dumb_hash::PathKind::Extension);
+        match child_hash {
+            DumbNodeHash::Inline( x) => hasher.write_raw(&x),
+            DumbNodeHash::Hashed(x) => hasher.write_bytes(&x.0),
+        }
+        hasher.finalize()
     }
 }
 
@@ -425,7 +447,7 @@ mod test {
             } }
         };
 
-        let node_hash_ref = node.compute_hash(&trie.db, 0).unwrap();
+        let node_hash_ref = node.dumb_hash(&trie.db, 0);
         assert_eq!(
             node_hash_ref.as_ref(),
             &[
