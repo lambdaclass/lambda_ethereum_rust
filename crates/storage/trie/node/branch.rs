@@ -93,7 +93,7 @@ impl BranchNode {
                         .get_node(*choice_ref)?
                         .expect("inconsistent internal tree structure");
 
-                    let child_node = child_node.insert(db, path.clone(), value.clone())?;
+                    let child_node = child_node.insert(db, path, value)?;
                     *choice_ref = db.insert_node(child_node)?;
                 }
             },
@@ -103,7 +103,7 @@ impl BranchNode {
             }
         };
 
-        Ok(self.clone().into())
+        Ok(self.into())
     }
 
     /// Removes a value from the subtrie originating from this node given its path
