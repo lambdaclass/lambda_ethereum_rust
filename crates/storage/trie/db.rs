@@ -6,7 +6,7 @@ use libmdbx::{
     table_info,
 };
 
-/// Libmdx database representing trie state
+/// Libmbdx database representing trie state
 /// It contains two tables, one mapping node references to rlp encoded nodes, and another one mapping node hashes to node references
 /// All nodes are stored in the DB and no node is ever removed
 /// Only node hahses for root nodes computed with `Trie::compute_hash` are stored
@@ -91,7 +91,7 @@ impl TrieDB {
         self.write::<RootNodes>(hash.0, node_ref)
     }
 
-    /// Helper method to write into a libmdx table
+    /// Helper method to write into a libmdbx table
     fn write<T: libmdbx::orm::Table>(
         &self,
         key: T::Key,
@@ -106,7 +106,7 @@ impl TrieDB {
         txn.commit().map_err(StoreError::LibmdbxError)
     }
 
-    /// Helper method to read from a libmdx table
+    /// Helper method to read from a libmdbx table
     fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
