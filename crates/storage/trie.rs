@@ -8,6 +8,7 @@ mod rlp;
 #[cfg(test)]
 mod test_utils;
 
+use dumb_hash::DumbNodeHash;
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
@@ -104,14 +105,7 @@ impl Trie {
                 .db
                 .get_node(self.root_ref)?
                 .expect("inconsistent internal tree structure");
-            let hash = H256::from_slice(
-                match root_node.compute_hash(&self.db, 0)? {
-                    NodeHashRef::Inline(x) => Keccak256::new().chain_update(&*x).finalize(),
-                    NodeHashRef::Hashed(x) => *x,
-                }
-                .as_slice(),
-            );
-            hash
+            root_node.dumb_hash(&self.db, 0).finalize()
         } else {
             H256::from_slice(
                 Keccak256::new()

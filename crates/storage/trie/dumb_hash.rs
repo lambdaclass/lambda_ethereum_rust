@@ -177,3 +177,14 @@ impl<'a> AsRef<[u8]> for DumbNodeHash {
         }
     }
 }
+
+impl DumbNodeHash {
+    /// Returns the finalized hash
+    /// NOTE: This will hash smaller nodes
+    pub fn finalize(self) -> H256 {
+        match self {
+            DumbNodeHash::Inline(x) => H256::from_slice(Keccak256::new().chain_update(&*x).finalize().as_slice()),
+            DumbNodeHash::Hashed(x) => x,
+        }
+    }
+}
