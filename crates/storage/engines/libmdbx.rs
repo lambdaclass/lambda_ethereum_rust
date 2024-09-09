@@ -371,6 +371,8 @@ impl StoreEngine for Store {
         let cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
         // let iter = cursor.walk_range(from..to).into_iter();
         let recs: Vec<Log> = cursor
+            // TODO:
+            // Use the given range by parameter
             .walk(Some(from))
             .filter_map(|res| res.ok())
             .flat_map(|((_, _), receipt)| receipt.to().logs)
