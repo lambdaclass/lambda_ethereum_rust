@@ -70,6 +70,9 @@ impl BlockIdentifier {
             },
         }
     }
+    pub fn latest() -> BlockIdentifier {
+        BlockIdentifier::Tag(BlockTag::Latest)
+    }
 }
 
 impl RpcHandler for GetBlockByNumberRequest {

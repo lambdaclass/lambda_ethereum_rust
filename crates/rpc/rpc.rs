@@ -13,17 +13,14 @@ use engine::{
     ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
-    block::{
+    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest}, block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
         GetBlockTransactionCountRequest,
-    },
-    client,
-    transaction::{
+    }, client, logs::LogsRequest, transaction::{
         CallRequest, CreateAccessListRequest, GetTransactionByBlockHashAndIndexRequest,
         GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
         GetTransactionReceiptRequest,
-    },
+    }
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -180,6 +177,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_call" => CallRequest::call(req, storage),
         "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
+        "eth_getLogs" => LogsRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
