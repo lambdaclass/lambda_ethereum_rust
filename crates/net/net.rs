@@ -232,17 +232,28 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     info!("Completed handshake!");
 
     let hello_msg = RLPxMessage::Hello(
-        SUPPORTED_CAPABILITIES.to_vec(),
+        SUPPORTED_CAPABILITIES
+            .into_iter()
+            .map(|(name, version)| (name.to_string(), version))
+            .collect(),
         PublicKey::from(signer.verifying_key()),
     );
 
     pending_conn.send(hello_msg, &mut stream).await;
 
-    let mut conn = pending_conn.receive_hello(&mut stream).await;
+    // Receive Hello message
+    let mut conn = pending_conn.receive(&mut stream).await;
 
     info!("Completed Hello roundtrip!");
 
+    // Send Ping
     conn.send(RLPxMessage::Ping(), &mut stream).await;
+
+    // Receive three messages
+    // TODO implement listen loop instead
+    conn.receive(&mut stream).await;
+    conn.receive(&mut stream).await;
+    conn.receive(&mut stream).await;
 }
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
