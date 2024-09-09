@@ -9,7 +9,7 @@ use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Log, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -360,6 +360,22 @@ impl StoreEngine for Store {
                 .map(Some)
                 .map_err(|_| StoreError::DecodeError),
         }
+    }
+    fn get_logs_in_range(
+        &self,
+        from: BlockNumber,
+        to: BlockNumber,
+    ) -> std::prelude::v1::Result<Vec<Log>, StoreError> {
+        // Read storage from mdbx
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
+        // let iter = cursor.walk_range(from..to).into_iter();
+        let recs: Vec<Log> = cursor
+            .walk(Some(from))
+            .filter_map(|res| res.ok())
+            .flat_map(|((_, _), receipt)| receipt.to().logs)
+            .collect();
+        Ok(recs)
     }
 }
 
