@@ -20,3 +20,7 @@ Cargo.lock
 .DS_Store
 
 cmd/ef_tests/vectors
+
+# Repos checked out by make target
+hive/
+ethereum-package/
