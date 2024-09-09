@@ -238,7 +238,7 @@ impl StoreEngine for Store {
     }
 
     fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = dbg!(self.get_chain_config()?) {
+        if let Some(chain_config) = self.get_chain_config()? {
             Ok(Some(chain_config.chain_id))
         } else {
             Ok(None)

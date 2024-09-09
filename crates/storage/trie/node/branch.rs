@@ -2,6 +2,7 @@ use crate::{
     error::StoreError,
     trie::{
         db::TrieDB,
+        dumb_hash::{DumbNodeHash, HashBuilder},
         hashing::{DelimitedHash, NodeHash, NodeHashRef, NodeHasher, Output},
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_ref::NodeRef,
@@ -287,6 +288,59 @@ impl BranchNode {
             &children,
             encoded_value,
         ))
+    }
+
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
+    pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
+        let hash_choice = |node_ref: NodeRef| -> (Vec<u8>, usize) {
+            if node_ref.is_valid() {
+                let child_node = db
+                    .get_node(node_ref)
+                    .unwrap()
+                    .expect("inconsistent internal tree structure");
+                let hash = child_node.dumb_hash(db, path_offset + 1);
+                match hash {
+                    DumbNodeHash::Hashed(x) => (x.as_bytes().to_vec(), 32),
+                    DumbNodeHash::Inline(x) => (x.clone(), x.len()),
+                }
+            } else {
+                (Vec::new(), 0)
+            }
+        };
+        let children = self
+            .choices
+            .iter()
+            .map(|node_ref| hash_choice(*node_ref))
+            .collect::<Vec<_>>();
+        let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
+        /// Here starts compute_branch_hash
+        let mut children_len: usize = children
+            .iter()
+            .map(|x| match x {
+                (_, 0) => 1,
+                (x, 32) => HashBuilder::bytes_len(32, x[0]),
+                (_, y) => *y,
+            })
+            .sum();
+        if let Some(value) = encoded_value {
+            children_len +=
+                HashBuilder::bytes_len(value.len(), value.first().copied().unwrap_or_default());
+        } else {
+            children_len += 1;
+        }
+
+        let mut hasher = HashBuilder::new();
+        hasher.write_list_header(children_len);
+        children.iter().for_each(|(x, len)| match len {
+            0 => hasher.write_bytes(&[]),
+            32 => hasher.write_bytes(x),
+            _ => hasher.write_raw(x),
+        });
+        match encoded_value {
+            Some(value) => hasher.write_bytes(value),
+            None => hasher.write_bytes(&[]),
+        }
+        hasher.finalize()
     }
 }
 
