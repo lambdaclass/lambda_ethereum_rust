@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{info, warn};
 
-use crate::utils::RpcErr;
+use crate::{utils::RpcErr, RpcHandler};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,8 +34,8 @@ impl std::fmt::Display for ExchangeTransitionConfigV1Req {
     }
 }
 
-impl ExchangeTransitionConfigV1Req {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<ExchangeTransitionConfigV1Req> {
+impl RpcHandler for ExchangeTransitionConfigV1Req {
+    fn parse(params: &Option<Vec<Value>>) -> Option<ExchangeTransitionConfigV1Req> {
         let params = params.as_ref()?;
         if params.len() != 1 {
             return None;
@@ -50,34 +50,29 @@ impl ExchangeTransitionConfigV1Req {
             },
         })
     }
-}
 
-/// Deprecated endpoint used before the merge, though still needed for certain hive tests
-/// ExchangeTransitionConfigurationV1 checks the given configuration against the configuration of the node.
-pub fn exchange_transition_config_v1(
-    req: ExchangeTransitionConfigV1Req,
-    storage: Store,
-) -> Result<Value, RpcErr> {
-    info!("Received new engine request: {req}");
-    let payload = req.payload;
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Received new engine request: {self}");
+        let payload = &self.payload;
 
-    let chain_config = storage.get_chain_config()?.ok_or(RpcErr::Internal)?;
-    let terminal_total_difficulty = chain_config.terminal_total_difficulty;
+        let chain_config = storage.get_chain_config()?.ok_or(RpcErr::Internal)?;
+        let terminal_total_difficulty = chain_config.terminal_total_difficulty;
 
-    if terminal_total_difficulty.unwrap_or_default() != payload.terminal_total_difficulty {
-        warn!(
-            "Invalid terminal total difficulty configured: execution {:?} consensus {}",
-            terminal_total_difficulty, payload.terminal_total_difficulty
-        );
-    };
+        if terminal_total_difficulty.unwrap_or_default() != payload.terminal_total_difficulty {
+            warn!(
+                "Invalid terminal total difficulty configured: execution {:?} consensus {}",
+                terminal_total_difficulty, payload.terminal_total_difficulty
+            );
+        };
 
-    let block = storage.get_block_header(payload.terminal_block_number)?;
-    let terminal_block_hash = block.map_or(H256::zero(), |block| block.compute_block_hash());
+        let block = storage.get_block_header(payload.terminal_block_number)?;
+        let terminal_block_hash = block.map_or(H256::zero(), |block| block.compute_block_hash());
 
-    serde_json::to_value(ExchangeTransitionConfigPayload {
-        terminal_block_hash,
-        terminal_block_number: payload.terminal_block_number,
-        terminal_total_difficulty: terminal_total_difficulty.unwrap_or_default(),
-    })
-    .map_err(|_| RpcErr::Internal)
+        serde_json::to_value(ExchangeTransitionConfigPayload {
+            terminal_block_hash,
+            terminal_block_number: payload.terminal_block_number,
+            terminal_total_difficulty: terminal_total_difficulty.unwrap_or_default(),
+        })
+        .map_err(|_| RpcErr::Internal)
+    }
 }

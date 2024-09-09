@@ -8,7 +8,7 @@ use axum_extra::{
     TypedHeader,
 };
 use engine::{
-    exchange_transition_config::{self, ExchangeTransitionConfigV1Req},
+    exchange_transition_config::ExchangeTransitionConfigV1Req,
     fork_choice::{self, ForkChoiceUpdatedV3},
     payload::{self, NewPayloadV3Request},
     ExchangeCapabilitiesRequest,
@@ -208,9 +208,7 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
                 .map_err(|_| RpcErr::Internal)
         }
         "engine_exchangeTransitionConfigurationV1" => {
-            let request =
-                ExchangeTransitionConfigV1Req::parse(&req.params).ok_or(RpcErr::BadParams)?;
-            exchange_transition_config::exchange_transition_config_v1(request, storage)
+            ExchangeTransitionConfigV1Req::call(req, storage)
         }
         _ => Err(RpcErr::MethodNotFound),
     }
