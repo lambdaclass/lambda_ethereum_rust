@@ -79,6 +79,7 @@ pub enum RpcNamespace {
     Engine,
     Eth,
     Admin,
+    Debug,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -97,6 +98,7 @@ impl RpcRequest {
                 "engine" => Ok(RpcNamespace::Engine),
                 "eth" => Ok(RpcNamespace::Eth),
                 "admin" => Ok(RpcNamespace::Admin),
+                "debug" => Ok(RpcNamespace::Debug),
                 _ => Err(RpcErr::MethodNotFound),
             }
         } else {

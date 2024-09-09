@@ -16,7 +16,7 @@ use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest,
+        GetBlockTransactionCountRequest, GetRawBlock,
     },
     client,
     transaction::{
@@ -140,6 +140,7 @@ pub fn map_http_requests(
     match req.namespace() {
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
+        Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -149,6 +150,7 @@ pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, R
     match req.namespace() {
         Ok(RpcNamespace::Engine) => map_engine_requests(req, storage),
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
+        Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -217,6 +219,13 @@ pub fn map_admin_requests(
 ) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "admin_nodeInfo" => admin::node_info(storage, local_p2p_node),
+        _ => Err(RpcErr::MethodNotFound),
+    }
+}
+
+pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "debug_getRawBlock" => GetRawBlock::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
