@@ -8,7 +8,7 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
+use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, node_ref::NodeRef, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug)]
@@ -81,5 +81,10 @@ impl Node {
             Node::Extension(n) => n.compute_hash(db, path_offset),
             Node::Leaf(n) => n.compute_hash(path_offset),
         }
+    }
+
+    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeRef, StoreError> {
+        let hash = self.compute_hash(db, path_offset).unwrap().finalize();
+        db.insert_node(self, hash)
     }
 }

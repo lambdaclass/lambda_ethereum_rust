@@ -9,6 +9,7 @@ mod test_utils;
 
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
+use node::Node;
 use sha3::{Digest, Keccak256};
 
 use self::{
@@ -63,10 +64,11 @@ impl Trie {
             // If the trie is not empty, call the root node's insertion logic
             let root_node =
                 root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
-            self.root_ref = self.db.insert_node(root_node)?;
+            self.root_ref = root_node.insert_self(0, &mut self.db)?
         } else {
             // If the trie is empty, just add a leaf.
-            self.root_ref = self.db.insert_node(LeafNode::new(path, value).into())?;
+            self.root_ref =
+                Node::from(LeafNode::new(path.clone(), value)).insert_self(0, &mut self.db)?
         }
         Ok(())
     }
@@ -85,7 +87,7 @@ impl Trie {
             .expect("inconsistent internal tree structure");
         let (root_node, old_value) = root_node.remove(&mut self.db, NibbleSlice::new(&path))?;
         self.root_ref = match root_node {
-            Some(root_node) => self.db.insert_node(root_node)?,
+            Some(root_node) => root_node.insert_self(0, &mut self.db)?,
             None => Default::default(),
         };
 

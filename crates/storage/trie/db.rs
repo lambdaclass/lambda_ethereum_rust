@@ -28,6 +28,11 @@ table!(
 );
 
 table!(
+    /// NodeRef to Node table
+    ( NodesByHash ) NodeHashRLP => NodeRLP
+);
+
+table!(
     /// NodeHash to NodeRef table
     /// Stores root nodes which's hashes have been computed by `compute_hash`
     ( RootNodes ) NodeHashRLP => NodeRef
@@ -41,9 +46,13 @@ impl TrieDB {
 
     /// Creates a new clean DB
     pub fn create(trie_dir: &str) -> Result<TrieDB, StoreError> {
-        let tables = [table_info!(Nodes), table_info!(RootNodes)]
-            .into_iter()
-            .collect();
+        let tables = [
+            table_info!(Nodes),
+            table_info!(RootNodes),
+            table_info!(NodesByHash),
+        ]
+        .into_iter()
+        .collect();
         let path = Some(trie_dir.into());
         Ok(TrieDB {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
@@ -55,9 +64,13 @@ impl TrieDB {
     /// Also returns root node reference if available
     pub fn open(trie_dir: &str) -> Result<(TrieDB, Option<NodeRef>), StoreError> {
         // Open DB
-        let tables = [table_info!(Nodes), table_info!(RootNodes)]
-            .into_iter()
-            .collect();
+        let tables = [
+            table_info!(Nodes),
+            table_info!(RootNodes),
+            table_info!(NodesByHash),
+        ]
+        .into_iter()
+        .collect();
         let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
         // Set the next node reference based on the last stored node
         let last_node_ref = last_node_ref(&db)?;
@@ -73,9 +86,10 @@ impl TrieDB {
     }
 
     /// Inserts a node and returns its reference
-    pub fn insert_node(&mut self, node: Node) -> Result<NodeRef, StoreError> {
+    pub fn insert_node(&mut self, node: Node, hash: H256) -> Result<NodeRef, StoreError> {
         let node_ref = self.next_node_ref;
         self.write::<Nodes>(node_ref, node.encode_to_vec())?;
+        self.write::<NodesByHash>(hash.0, node.encode_to_vec())?;
         self.next_node_ref = node_ref.next();
         Ok(node_ref)
     }
@@ -115,9 +129,13 @@ impl TrieDB {
     #[cfg(test)]
     /// Creates a temporary DB, for testing purposes only
     pub fn init_temp() -> Self {
-        let tables = [table_info!(Nodes), table_info!(RootNodes)]
-            .into_iter()
-            .collect();
+        let tables = [
+            table_info!(Nodes),
+            table_info!(RootNodes),
+            table_info!(NodesByHash),
+        ]
+        .into_iter()
+        .collect();
         TrieDB {
             db: Database::create(None, &tables).expect("Failed to create temp DB"),
             next_node_ref: NodeRef::new(0),

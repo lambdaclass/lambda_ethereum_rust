@@ -7,6 +7,7 @@ use ethereum_rust_core::rlp::{
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
+use ethereum_types::H256;
 use sha3::Keccak256;
 use std::{
     cell::{Cell, Ref, RefCell},
@@ -80,6 +81,18 @@ impl<'a> AsRef<[u8]> for NodeHashRef<'a> {
             NodeHashRef::Inline(x) => x,
             NodeHashRef::Hashed(x) => x,
         }
+    }
+}
+
+impl NodeHashRef<'_> {
+    pub fn finalize(self) -> H256 {
+        H256::from_slice(
+            match self {
+                NodeHashRef::Inline(x) => Keccak256::new().chain_update(&*x).finalize(),
+                NodeHashRef::Hashed(x) => *x,
+            }
+            .as_slice(),
+        )
     }
 }
 
