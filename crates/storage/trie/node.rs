@@ -89,6 +89,12 @@ impl Node {
 
     pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeRef, StoreError> {
         let hash = self.dumb_hash(db, path_offset).finalize();
+        dbg!(&self);
+        dbg!(hash);
+        /// Hash is working propperly
+        /// NEXT STEPS:
+        /// Remove NodeRef & store by hash instead
+        /// REMEMBER: Store small nodes as inline (or ban them), maybe we should encode DumbNodeHash
         db.insert_node(self, hash)
     }
 
