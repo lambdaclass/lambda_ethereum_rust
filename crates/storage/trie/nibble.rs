@@ -244,7 +244,7 @@ impl<'a> NibbleSlice<'a> {
         eq_count
     }
 
-    /// Compares self to another NibbleSlice and returns the shared nibble count (amount of nibbles that are equal, starting the common offser)
+    /// Compares self to another NibbleSlice and returns the shared nibble count (amount of nibbles that are equal, starting the common offset)
     /// Both slices should have the same offset
     pub fn count_prefix_slice(&self, other: &NibbleSlice) -> usize {
         // Check offset (and therefore alignment implicitly).
