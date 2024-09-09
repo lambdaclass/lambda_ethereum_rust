@@ -9,7 +9,9 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, dumb_hash::DumbNodeHash, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
+use super::{
+    db::TrieDB, dumb_hash::DumbNodeHash, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP,
+};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug)]
@@ -86,7 +88,7 @@ impl Node {
 
     pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
         match self {
-            Node::Branch(n) => DumbNodeHash::Hashed(H256::zero()),
+            Node::Branch(n) => n.dumb_hash(db, path_offset),
             Node::Extension(n) => DumbNodeHash::Hashed(H256::zero()),
             Node::Leaf(n) => n.dumb_hash(path_offset),
         }

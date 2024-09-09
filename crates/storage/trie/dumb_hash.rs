@@ -15,12 +15,14 @@ pub struct HashBuilder {
 
 pub enum DumbNodeHash {
     Hashed(H256),
-    Inline(Vec<u8>)
+    Inline(Vec<u8>),
 }
 
 impl HashBuilder {
     pub fn new() -> Self {
-        Self { ..Default::default()}
+        Self {
+            ..Default::default()
+        }
     }
 
     pub const fn path_len(value_len: usize) -> usize {
@@ -128,8 +130,6 @@ const fn compute_byte_usage(value: usize) -> usize {
     (bits_used.saturating_sub(1) >> 3) + 1
 }
 
-
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PathKind {
     Extension,
@@ -153,6 +153,3 @@ impl<'a> AsRef<[u8]> for DumbNodeHash {
         }
     }
 }
-
-
-

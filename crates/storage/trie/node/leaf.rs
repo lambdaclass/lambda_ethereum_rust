@@ -3,7 +3,12 @@ use ethereum_types::H256;
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB, dumb_hash::{self, DumbNodeHash, HashBuilder}, hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind}, nibble::NibbleSlice, node::BranchNode, PathRLP, ValueRLP
+        db::TrieDB,
+        dumb_hash::{self, DumbNodeHash, HashBuilder},
+        hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind},
+        nibble::NibbleSlice,
+        node::BranchNode,
+        PathRLP, ValueRLP,
     },
 };
 
@@ -145,7 +150,10 @@ impl LeafNode {
         path.offset_add(offset);
 
         let path_len = HashBuilder::path_len(path.len());
-        let value_len = HashBuilder::bytes_len(encoded_value.len(), encoded_value.first().copied().unwrap_or_default());
+        let value_len = HashBuilder::bytes_len(
+            encoded_value.len(),
+            encoded_value.first().copied().unwrap_or_default(),
+        );
 
         let mut hasher = HashBuilder::new();
         hasher.write_list_header(path_len + value_len);
