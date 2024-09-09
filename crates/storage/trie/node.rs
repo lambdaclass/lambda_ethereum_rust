@@ -100,26 +100,3 @@ impl Node {
         }
     }
 }
-
-// TODO: remove
-impl Node {
-    pub fn info(&self) -> String {
-        match self {
-            Node::Branch(n) => {
-                let choices = n
-                    .choices
-                    .iter()
-                    .filter(|nr| nr.is_valid())
-                    .collect::<Vec<_>>();
-                format!(
-                    "Node::Branch(choices: {choices:?}, path: {:?}, value: {:?})",
-                    n.path, n.value
-                )
-            }
-            Node::Extension(n) => {
-                format!("Node::Extension(child: {}, prefix {:?}", *n.child, n.prefix)
-            }
-            Node::Leaf(n) => format!("Node::Leaf(path: {:?}, value: {:?})", n.path, n.value),
-        }
-    }
-}
