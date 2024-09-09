@@ -55,9 +55,9 @@ impl LeafNode {
         // If the path matches the stored path, update the value and return self
         if path.cmp_rest(&self.path) {
             self.value = value;
-            Ok(self.clone().into())
+            Ok(self.into())
         } else {
-            let offset = path.clone().count_prefix_slice(&{
+            let offset = path.count_prefix_slice(&{
                 let mut value_path = NibbleSlice::new(&self.path);
                 value_path.offset_add(path.offset());
                 value_path
@@ -75,12 +75,12 @@ impl LeafNode {
                     .nth(absolute_offset)
                     .unwrap() as usize] = db.insert_node(self.clone().into())?;
 
-                BranchNode::new_with_value(choices, path.data(), value.clone())
+                BranchNode::new_with_value(choices, path.data(), value)
             } else if absolute_offset == 2 * self.path.len() {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf as a child and store self's path and value
                 // Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue}
-                let new_leaf = LeafNode::new(path.data(), value.clone());
+                let new_leaf = LeafNode::new(path.data(), value);
                 let mut choices = [Default::default(); 16];
                 choices[path_branch.next().unwrap() as usize] = db.insert_node(new_leaf.into())?;
 
@@ -89,7 +89,7 @@ impl LeafNode {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
-                let new_leaf = LeafNode::new(path.data(), value.clone());
+                let new_leaf = LeafNode::new(path.data(), value);
                 let child_ref = db.insert_node(new_leaf.into())?;
                 let mut choices = [Default::default(); 16];
                 choices[NibbleSlice::new(self.path.as_ref())
