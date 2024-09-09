@@ -113,7 +113,7 @@ impl<'a> NibbleSlice<'a> {
         self.offset += delta;
     }
 
-    /// If `prefix` is a prefix of itself (with the correct nibble alignment), move the offset after
+    /// If `prefix` is a prefix of self (with the correct nibble alignment), move the offset after
     /// the prefix and return true, otherwise return false.
     ///
     /// Unaligned comparations are bugs (panic).
