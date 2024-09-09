@@ -6,6 +6,7 @@ mod node_ref;
 mod rlp;
 #[cfg(test)]
 mod test_utils;
+mod dumb_hash;
 
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;

@@ -1,11 +1,9 @@
+use ethereum_types::H256;
+
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
-        hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind},
-        nibble::NibbleSlice,
-        node::BranchNode,
-        PathRLP, ValueRLP,
+        db::TrieDB, dumb_hash::{self, DumbNodeHash, HashBuilder}, hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind}, nibble::NibbleSlice, node::BranchNode, PathRLP, ValueRLP
     },
 };
 
@@ -137,6 +135,23 @@ impl LeafNode {
             path_slice,
             encoded_value.as_ref(),
         ))
+    }
+
+    pub fn dumb_hash(&self, offset: usize) -> DumbNodeHash {
+        let encoded_value = &self.value;
+        let encoded_path = &self.path;
+
+        let mut path = NibbleSlice::new(encoded_path);
+        path.offset_add(offset);
+
+        let path_len = HashBuilder::path_len(path.len());
+        let value_len = HashBuilder::bytes_len(encoded_value.len(), encoded_value.first().copied().unwrap_or_default());
+
+        let mut hasher = HashBuilder::new();
+        hasher.write_list_header(path_len + value_len);
+        hasher.write_path_slice(&path, dumb_hash::PathKind::Leaf);
+        hasher.write_bytes(&encoded_value);
+        hasher.finalize()
     }
 }
 
@@ -311,8 +326,7 @@ mod test {
     #[test]
     fn compute_hash() {
         let node = LeafNode::new(b"key".to_vec(), b"value".to_vec());
-
-        let node_hash_ref = node.compute_hash(0).unwrap();
+        let node_hash_ref = node.dumb_hash(0);
         assert_eq!(
             node_hash_ref.as_ref(),
             &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
@@ -323,7 +337,7 @@ mod test {
     fn compute_hash_long() {
         let node = LeafNode::new(b"key".to_vec(), b"a comparatively long value".to_vec());
 
-        let node_hash_ref = node.compute_hash(0).unwrap();
+        let node_hash_ref = node.dumb_hash(0);
         assert_eq!(
             node_hash_ref.as_ref(),
             &[

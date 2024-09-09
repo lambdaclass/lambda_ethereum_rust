@@ -3,12 +3,13 @@ mod extension;
 mod leaf;
 
 pub use branch::BranchNode;
+use ethereum_types::H256;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
+use super::{db::TrieDB, dumb_hash::DumbNodeHash, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug)]
@@ -80,6 +81,14 @@ impl Node {
             Node::Branch(n) => n.compute_hash(db, path_offset),
             Node::Extension(n) => n.compute_hash(db, path_offset),
             Node::Leaf(n) => n.compute_hash(path_offset),
+        }
+    }
+
+    pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
+        match self {
+            Node::Branch(n) => DumbNodeHash::Hashed(H256::zero()),
+            Node::Extension(n) => DumbNodeHash::Hashed(H256::zero()),
+            Node::Leaf(n) => n.dumb_hash(path_offset),
         }
     }
 }
