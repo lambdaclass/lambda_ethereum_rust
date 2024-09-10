@@ -146,8 +146,8 @@ impl Trie {
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root
     /// Please use a root_hash calculated using `compute_hash`
     /// This function is used to access historical data
-    /// WARNING: Won't work if the root is too small (as it wont be stored by its hash)
-    /// (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
+    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
+    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
     pub fn get_from_root(
         &self,
         root_hash: H256,
@@ -163,6 +163,8 @@ impl Trie {
     /// Sets the root of the trie to the one which's hash corresponds to the one received
     /// Doesn't check that the root_hash is valid within the trie
     /// Please use a root hash that has been calculated using `compute_hash`
+    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
+    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
     pub fn set_root(&mut self, root_hash: H256) {
         self.root = (root_hash != *EMPTY_TRIE_HASH).then_some(root_hash.into());
     }
@@ -548,43 +550,43 @@ mod test {
     #[test]
     fn revert() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert([0;32].to_vec(), [0;32].to_vec()).unwrap();
+        trie.insert([1;32].to_vec(), [1;32].to_vec()).unwrap();
 
         let root = trie.compute_hash();
 
-        trie.insert(vec![0x00], vec![0x02]).unwrap();
-        trie.insert(vec![0x01], vec![0x03]).unwrap();
+        trie.insert([0;32].to_vec(), [2;32].to_vec()).unwrap();
+        trie.insert([1;32].to_vec(), [3;32].to_vec()).unwrap();
 
         trie.set_root(root);
 
-        trie.insert(vec![0x02], vec![0x04]).unwrap();
+        trie.insert([2;32].to_vec(), [4;32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x04]));
+        assert_eq!(trie.get(&[0;32].to_vec()).unwrap(), Some([0;32].to_vec()));
+        assert_eq!(trie.get(&[1;32].to_vec()).unwrap(), Some([1;32].to_vec()));
+        assert_eq!(trie.get(&[2;32].to_vec()).unwrap(), Some([4;32].to_vec()));
     }
 
     #[test]
     fn revert_with_removals() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x02]).unwrap();
+        trie.insert([0;32].to_vec(), [0;32].to_vec()).unwrap();
+        trie.insert([1;32].to_vec(), [1;32].to_vec()).unwrap();
+        trie.insert([2;32].to_vec(), [2;32].to_vec()).unwrap();
 
         let root = trie.compute_hash();
 
-        trie.insert(vec![0x00], vec![0x04]).unwrap();
-        trie.remove(vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x05]).unwrap();
-        trie.remove(vec![0x00]).unwrap();
+        trie.insert([0;32].to_vec(), [4;32].to_vec()).unwrap();
+        trie.remove([1;32].to_vec()).unwrap();
+        trie.insert([2;32].to_vec(), [5;32].to_vec()).unwrap();
+        trie.remove([0;32].to_vec()).unwrap();
 
         trie.set_root(root);
 
-        trie.remove(vec![0x02]).unwrap();
+        trie.remove([2;32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get(&[0;32].to_vec()).unwrap(), Some([0;32].to_vec()));
+        assert_eq!(trie.get(&[1;32].to_vec()).unwrap(), Some([1;32].to_vec()));
         assert_eq!(trie.get(&vec![0x02]).unwrap(), None);
     }
 
@@ -597,9 +599,9 @@ mod test {
         // Create new trie from clean DB
         let mut trie = Trie::new(trie_dir).unwrap();
 
-        trie.insert(vec![0x00], vec![0x01]).unwrap();
-        trie.insert(vec![0x01], vec![0x02]).unwrap();
-        trie.insert(vec![0x02], vec![0x04]).unwrap();
+        trie.insert([0;32].to_vec(), [1;32].to_vec()).unwrap();
+        trie.insert([1;32].to_vec(), [2;32].to_vec()).unwrap();
+        trie.insert([2;32].to_vec(), [4;32].to_vec()).unwrap();
 
         // Save current root
         let root = trie.compute_hash();
@@ -609,9 +611,9 @@ mod test {
         // Create a new trie based on the previous trie's DB
         let trie = Trie::open(trie_dir, root).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x01]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x02]));
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x04]));
+        assert_eq!(trie.get(&[0;32].to_vec()).unwrap(), Some([1;32].to_vec()));
+        assert_eq!(trie.get(&[1;32].to_vec()).unwrap(), Some([2;32].to_vec()));
+        assert_eq!(trie.get(&[2;32].to_vec()).unwrap(), Some([4;32].to_vec()));
     }
 
     // Proptests
