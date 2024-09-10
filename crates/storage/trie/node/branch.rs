@@ -1,5 +1,3 @@
-use std::array;
-
 use crate::{
     error::StoreError,
     trie::{

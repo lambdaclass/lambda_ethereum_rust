@@ -23,31 +23,31 @@ We believe this approach is the best way to build a client that is both fast and
 
 To build the main executable and its crates, run:
 ```bash
-just build
+make build
 ```
 
 ### Test
 Note: To execute EF tests, the test fixtures are required. To download them, run:
 ```bash
-just download-vectors
+make download-vectors
 ```
 
 To run the tests from a crate, run:
 ```bash
-just test <crate>
+make test CRATE=<crate>
 ```
 
 Or just run all the tests:
 ```bash
-just test
+make test
 ```
 
 ### Run
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a git submodule. Make sure to fetch it like follows:
+To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `just` target. Make sure to fetch it like follows:
 
 ```bash
-git submodule update --init
+just checkout-ethereum-package
 ```
 
 Let's now install kurtosis:
@@ -65,7 +65,7 @@ To run the localnet:
 # Make sure we build our docker image with latest changes
 docker build -t ethereum_rust .
 
-# Ethereum package is included in the repo as a submodule.
+# Ethereum package is included in the repo as a just target.
 kurtosis run --enclave lambdanet ethereum-package --args-file network_params.yaml
 ```
 
