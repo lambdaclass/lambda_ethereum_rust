@@ -9,9 +9,7 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{
-    db::TrieDB, node_hash::NodeHash, nibble::NibbleSlice, node_ref::NodeRef, ValueRLP,
-};
+use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, node_ref::NodeRef, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug)]
@@ -77,11 +75,7 @@ impl Node {
         }
     }
 
-    pub fn insert_self(
-        self,
-        path_offset: usize,
-        db: &mut TrieDB,
-    ) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
         match self {
             Node::Branch(n) => n.insert_self(db),
             Node::Extension(n) => n.insert_self(db),

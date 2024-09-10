@@ -4,8 +4,8 @@ use crate::{
     error::StoreError,
     trie::{
         db::TrieDB,
-        node_hash::{NodeHash, NodeHasher},
         nibble::{Nibble, NibbleSlice, NibbleVec},
+        node_hash::{NodeHash, NodeHasher},
         node_ref::NodeRef,
         PathRLP, ValueRLP,
     },
@@ -17,7 +17,8 @@ use super::{ExtensionNode, LeafNode, Node};
 /// Contains the node's hash, value, path, and the hash of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
-    pub choices: [NodeHash; 16],
+    // TODO: check if switching to hashmap is a better solution
+    pub choices: Box<[NodeHash; 16]>,
     pub path: PathRLP,
     pub value: ValueRLP,
 }
@@ -44,7 +45,7 @@ impl BranchNode {
     ];
 
     /// Creates a new branch node given its children, without any stored value
-    pub fn new(choices: [NodeHash; 16]) -> Self {
+    pub fn new(choices: Box<[NodeHash; 16]>) -> Self {
         Self {
             choices,
             path: Default::default(),
@@ -53,7 +54,7 @@ impl BranchNode {
     }
 
     /// Creates a new branch node given its children and stores the given (path, value) pair
-    pub fn new_with_value(choices: [NodeHash; 16], path: PathRLP, value: ValueRLP) -> Self {
+    pub fn new_with_value(choices: Box<[NodeHash; 16]>, path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
             path,
@@ -270,11 +271,7 @@ impl BranchNode {
                 (Vec::new(), 0)
             }
         };
-        let children = self
-            .choices
-            .iter()
-            .map(hash_choice)
-            .collect::<Vec<_>>();
+        let children = self.choices.iter().map(hash_choice).collect::<Vec<_>>();
         let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
         /// Here starts compute_branch_hash
         let mut children_len: usize = children
@@ -329,11 +326,11 @@ mod test {
             choices[2] = NodeHash::Hashed(H256([2; 32]));
             choices[5] = NodeHash::Hashed(H256([5; 32]));
 
-            choices
+            Box::new(choices)
         });
 
         assert_eq!(
-            node.choices,
+            *node.choices,
             [
                 Default::default(),
                 Default::default(),

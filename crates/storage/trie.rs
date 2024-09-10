@@ -1,16 +1,16 @@
 mod db;
-mod node_hash;
 mod nibble;
 mod node;
+mod node_hash;
 mod node_ref;
 mod rlp;
 #[cfg(test)]
 mod test_utils;
 
-use node_hash::NodeHash;
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
+use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
 use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode, node_ref::NodeRef};

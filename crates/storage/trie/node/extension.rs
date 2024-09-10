@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use crate::trie::db::TrieDB;
-use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
 use crate::trie::nibble::NibbleSlice;
+use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
 use crate::trie::ValueRLP;
 use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
 
@@ -92,9 +92,9 @@ impl ExtensionNode {
             let branch_node = if let Some(c) = path.next() {
                 let new_leaf = LeafNode::new(path.data(), value);
                 choices[c as usize] = Node::from(new_leaf).insert_self(child_offset, db)?;
-                BranchNode::new(choices)
+                BranchNode::new(Box::new(choices))
             } else {
-                BranchNode::new_with_value(choices, path.data(), value)
+                BranchNode::new_with_value(Box::new(choices), path.data(), value)
             };
 
             // Create a final node, then return it:
@@ -413,7 +413,7 @@ mod test {
         let mut choices = BranchNode::EMPTY_CHOICES;
         choices[0] = leaf_node_a.dumb_hash(3);
         choices[1] = leaf_node_b.dumb_hash(3);
-        let branch_node = BranchNode::new(choices);
+        let branch_node = BranchNode::new(Box::new(choices));
         let node = ExtensionNode::new(
             NibbleVec::from_nibbles([Nibble::V0, Nibble::V0].into_iter(), false),
             branch_node.dumb_hash(),
@@ -445,7 +445,7 @@ mod test {
         let mut choices = BranchNode::EMPTY_CHOICES;
         choices[0] = leaf_node_a.dumb_hash(3);
         choices[1] = leaf_node_b.dumb_hash(3);
-        let branch_node = BranchNode::new(choices);
+        let branch_node = BranchNode::new(Box::new(choices));
         let node = ExtensionNode::new(
             NibbleVec::from_nibbles([Nibble::V0, Nibble::V0].into_iter(), false),
             branch_node.dumb_hash(),
