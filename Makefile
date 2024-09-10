@@ -26,7 +26,7 @@ SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
 SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
 
 $(SPECTEST_ARTIFACT):
-	rm tests_*.tar.gz # Delete older versions
+	rm -f tests_*.tar.gz # Delete older versions
 	curl -L -o $(SPECTEST_ARTIFACT) "https://github.com/ethereum/execution-spec-tests/releases/download/$(SPECTEST_VERSION)/fixtures_stable.tar.gz"
 
 $(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
