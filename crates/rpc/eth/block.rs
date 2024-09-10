@@ -13,14 +13,13 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::types::{
-    calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber,
+use ethereum_rust_core::{
+    rlp::encode::RLPEncode,
+    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
 use super::account::BlockIdentifierOrHash;
-
-use ethereum_rust_storage::rlp::BlockHeaderRLP;
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
@@ -227,13 +226,12 @@ impl RpcHandler for GetRawHeaderRequest {
             Some(block_number) => block_number,
             _ => return Ok(Value::Null),
         };
-        let header = storage.get_block_header(block_number)?.unwrap();
+        let header = storage
+            .get_block_header(block_number)?
+            .ok_or(RpcErr::BadParams)?;
 
-        let r: BlockHeaderRLP = header.into();
-
-        let a = hex::encode(r.0);
-        // let a = serde_json::to_value(&r.0).map_err(|_| RpcErr::Internal)?;
-        Ok(Value::String(format!("0x{a}")))
+        let str_encoded = format!("0x{}", hex::encode(header.encode_to_vec()));
+        Ok(Value::String(str_encoded))
     }
 }
 
