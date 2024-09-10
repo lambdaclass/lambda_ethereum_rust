@@ -1,4 +1,5 @@
 use ethereum_rust_core::{serde_utils, H256};
+use ethereum_rust_evm::{spec_id, SpecId};
 use ethereum_rust_storage::Store;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,8 +17,7 @@ pub struct ExchangeTransitionConfigPayload {
     terminal_block_number: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct ExchangeTransitionConfigV1Req {
     payload: ExchangeTransitionConfigPayload,
 }
@@ -54,6 +54,14 @@ impl RpcHandler for ExchangeTransitionConfigV1Req {
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Received new engine request: {self}");
         let payload = &self.payload;
+        let block = storage.get_block_header(payload.terminal_block_number)?;
+        let spec = spec_id(&storage, block.as_ref().map_or(0, |b| b.timestamp))?;
+
+        if matches!(spec, SpecId::CANCUN) {
+            return Err(RpcErr::Deprecation(
+                "This endpoint has been deprecated starting from the Cancun upgrade.".to_string(),
+            ));
+        }
 
         let chain_config = storage.get_chain_config()?.ok_or(RpcErr::Internal)?;
         let terminal_total_difficulty = chain_config.terminal_total_difficulty;
@@ -65,7 +73,6 @@ impl RpcHandler for ExchangeTransitionConfigV1Req {
             );
         };
 
-        let block = storage.get_block_header(payload.terminal_block_number)?;
         let terminal_block_hash = block.map_or(H256::zero(), |block| block.compute_block_hash());
 
         serde_json::to_value(ExchangeTransitionConfigPayload {
