@@ -7,11 +7,10 @@ use ethereum_rust_core::{
     H128, H256,
 };
 use sha3::{Digest, Keccak256};
-use snap::raw::{max_compress_len, Encoder as SnappyEncoder};
 use std::pin::pin;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use super::p2p::Message;
+use super::message as rlpx;
 
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
@@ -25,17 +24,17 @@ pub(crate) struct RLPxConnection {
     // ...capabilities information
 }
 
-impl<'a> RLPxConnection {
-    pub async fn send<S: AsyncWrite>(&mut self, message: Message, stream: S) {
-        let mut frame_data = vec![];
-        build_frame(message, &mut frame_data);
-        write_frame(frame_data, stream, &mut self.state).await;
+impl RLPxConnection {
+    pub async fn send<S: AsyncWrite>(&mut self, message: rlpx::Message, stream: S) {
+        let mut frame_buffer = vec![];
+        message.encode(&mut frame_buffer);
+        write_frame(frame_buffer, stream, &mut self.state).await;
     }
 
-    pub async fn receive<S: AsyncRead>(&mut self, stream: S) -> Message {
+    pub async fn receive<S: AsyncRead>(&mut self, stream: S) -> rlpx::Message {
         let frame_data = read_frame(stream, &mut self.state).await;
         let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
-        Message::decode(msg_id, msg_data).unwrap()
+        rlpx::Message::decode(msg_id, msg_data).unwrap()
     }
 }
 
@@ -44,45 +43,23 @@ pub(crate) struct RLPxConnectionPending {
     state: RLPxState,
 }
 
-impl<'a> RLPxConnectionPending {
+impl RLPxConnectionPending {
     pub fn new(state: RLPxState) -> Self {
         Self { state }
     }
 
-    pub async fn send<S: AsyncWrite>(&mut self, message: Message, stream: S) {
-        let mut frame_data = vec![];
-        build_frame(message, &mut frame_data);
-        write_frame(frame_data, stream, &mut self.state).await;
+    pub async fn send<S: AsyncWrite>(&mut self, message: rlpx::Message, stream: S) {
+        let mut frame_buffer = vec![];
+        message.encode(&mut frame_buffer);
+        write_frame(frame_buffer, stream, &mut self.state).await;
     }
 
     pub async fn receive<S: AsyncRead>(self, stream: S) -> RLPxConnection {
         let Self { mut state } = self;
         let frame_data = read_frame(stream, &mut state).await;
         let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
-        Message::decode(msg_id, msg_data).unwrap();
+        rlpx::Message::decode(msg_id, msg_data).unwrap();
         RLPxConnection { state }
-    }
-}
-
-fn build_frame(message: Message, frame_buffer: &mut Vec<u8>) {
-    message.msg_id().encode(frame_buffer);
-    let mut raw_data = message.msg_data();
-
-    if message.is_compressed() {
-        let mut encoded_data = vec![];
-        raw_data.encode(&mut encoded_data);
-
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .unwrap();
-
-        msg_data.truncate(compressed_size);
-        frame_buffer.append(&mut msg_data);
-    } else {
-        frame_buffer.append(&mut raw_data);
     }
 }
 
