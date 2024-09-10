@@ -4,7 +4,6 @@ use crate::{
         db::TrieDB,
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_hash::{NodeHash, NodeHasher},
-        node_ref::NodeRef,
         PathRLP, ValueRLP,
     },
 };

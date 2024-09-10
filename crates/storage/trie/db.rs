@@ -9,7 +9,7 @@ use libmdbx::{
 /// Libmbdx database representing the trie state
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
-use super::{node::Node, node_hash::NodeHash, node_ref::NodeRef};
+use super::{node::Node, node_hash::NodeHash};
 pub struct TrieDB {
     db: Database,
 }

@@ -1,9 +1,9 @@
 use crate::error::StoreError;
 use crate::trie::db::TrieDB;
 use crate::trie::nibble::NibbleSlice;
+use crate::trie::nibble::NibbleVec;
 use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
 use crate::trie::ValueRLP;
-use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
 
 use super::{BranchNode, LeafNode, Node};
 
@@ -102,8 +102,8 @@ impl ExtensionNode {
             // If there is no left_prefix: Branch
             match left_prefix {
                 Some(left_prefix) => {
-                    let branch_ref = branch_node.insert_self(db)?;
-                    Ok(ExtensionNode::new(left_prefix, branch_ref).into())
+                    let branch_hash = branch_node.insert_self(db)?;
+                    Ok(ExtensionNode::new(left_prefix, branch_hash).into())
                 }
                 None => Ok(branch_node.into()),
             }

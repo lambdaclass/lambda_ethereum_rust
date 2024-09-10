@@ -2,7 +2,6 @@ mod db;
 mod nibble;
 mod node;
 mod node_hash;
-mod node_ref;
 mod rlp;
 #[cfg(test)]
 mod test_utils;
@@ -13,7 +12,7 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode, node_ref::NodeRef};
+use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode};
 use crate::error::StoreError;
 
 use lazy_static::lazy_static;

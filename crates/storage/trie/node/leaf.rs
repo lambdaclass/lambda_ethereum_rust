@@ -101,8 +101,8 @@ impl LeafNode {
             let final_node = if offset != 0 {
                 // Create an extension node with the branch node as child
                 // Extension { BranchNode }
-                let branch_ref = branch_node.insert_self(db)?;
-                ExtensionNode::new(path.split_to_vec(offset), branch_ref).into()
+                let branch_hash = branch_node.insert_self(db)?;
+                ExtensionNode::new(path.split_to_vec(offset), branch_hash).into()
             } else {
                 branch_node.into()
             };
@@ -153,7 +153,6 @@ impl LeafNode {
 mod test {
     use super::*;
     use crate::pmt_node;
-    use crate::trie::node_ref::NodeRef;
     use crate::trie::Trie;
 
     #[test]
