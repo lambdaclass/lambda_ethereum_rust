@@ -27,7 +27,7 @@ pub type ReceiptRLP = Rlp<Receipt>;
 pub type TransactionHashRLP = Rlp<H256>;
 
 #[derive(Clone)]
-pub struct Rlp<T>(Vec<u8>, PhantomData<T>);
+pub struct Rlp<T>(pub Vec<u8>, PhantomData<T>);
 
 impl<T: RLPEncode> From<T> for Rlp<T> {
     fn from(value: T) -> Self {

@@ -20,10 +20,7 @@ use tracing::info;
 
 mod engines;
 pub mod error;
-mod rlp;
-/// TODO: Remove this allow once the trie is integrated into the codebase
-#[allow(unused)]
-mod trie;
+pub mod rlp;
 
 #[derive(Debug, Clone)]
 pub struct Store {
