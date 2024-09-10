@@ -44,10 +44,10 @@ just test
 
 ### Run
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a git submodule. Make sure to fetch it like follows:
+To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `just` target. Make sure to fetch it like follows:
 
 ```bash
-git submodule update --init
+just checkout-ethereum-package
 ```
 
 Let's now install kurtosis:
@@ -65,7 +65,7 @@ To run the localnet:
 # Make sure we build our docker image with latest changes
 docker build -t ethereum_rust .
 
-# Ethereum package is included in the repo as a submodule.
+# Ethereum package is included in the repo as a just target.
 kurtosis run --enclave lambdanet ethereum-package --args-file network_params.yaml
 ```
 
