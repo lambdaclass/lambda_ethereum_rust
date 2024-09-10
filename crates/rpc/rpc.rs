@@ -17,7 +17,7 @@ use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest,
+        GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest, GetRawReceipts,
     },
     client,
     transaction::{
@@ -191,6 +191,7 @@ pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rpc
         "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
         "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
         "debug_getRawTransaction" => GetRawTransaction::call(req, storage),
+        "debug_getRawReceipts" => GetRawReceipts::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }

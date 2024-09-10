@@ -1,4 +1,5 @@
 use ethereum_rust_core::{
+    rlp::{encode::RLPEncode, structs::Encoder},
     serde_utils,
     types::{BlockHash, BlockHeader, BlockNumber, Log, Receipt, Transaction, TxKind, TxType},
     Address, Bloom, Bytes, H256,
@@ -18,6 +19,20 @@ pub struct RpcReceipt {
     pub block_info: RpcReceiptBlockInfo,
 }
 
+impl RLPEncode for RpcReceipt {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        if !matches!(self.receipt.tx_type, TxType::Legacy) {
+            buf.put_u8(self.receipt.tx_type as u8);
+        }
+        Encoder::new(buf)
+            .encode_field(&(self.receipt.status as u8))
+            .encode_field(&self.receipt.cumulative_gas_used)
+            .encode_field(&self.receipt.logs_bloom)
+            .encode_field(&self.logs)
+            .finish();
+    }
+}
+
 impl RpcReceipt {
     pub fn new(
         receipt: Receipt,
@@ -25,7 +40,7 @@ impl RpcReceipt {
         block_info: RpcReceiptBlockInfo,
         init_log_index: u64,
     ) -> Self {
-        let mut logs = vec![];
+        let mut logs: Vec<RpcLog> = vec![];
         let mut log_index = init_log_index;
         for log in receipt.logs.clone() {
             logs.push(RpcLog::new(log, log_index, &tx_info, &block_info));
@@ -45,8 +60,7 @@ impl RpcReceipt {
 pub struct RpcReceiptInfo {
     #[serde(rename = "type")]
     pub tx_type: TxType,
-    #[serde(with = "serde_utils::bool")]
-    pub status: bool,
+    pub status: u8,
     #[serde(with = "serde_utils::u64::hex_str")]
     pub cumulative_gas_used: u64,
     pub logs_bloom: Bloom,
@@ -56,10 +70,20 @@ impl From<Receipt> for RpcReceiptInfo {
     fn from(receipt: Receipt) -> Self {
         Self {
             tx_type: receipt.tx_type,
-            status: receipt.succeeded,
+            status: receipt.succeeded as u8,
             cumulative_gas_used: receipt.cumulative_gas_used,
             logs_bloom: receipt.bloom,
         }
+    }
+}
+
+impl RLPEncode for RpcReceiptInfo {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.status)
+            .encode_field(&self.cumulative_gas_used)
+            .encode_field(&self.logs_bloom)
+            .finish();
     }
 }
 
@@ -77,6 +101,12 @@ pub struct RpcLog {
     pub block_hash: BlockHash,
     #[serde(with = "serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
+}
+
+impl RLPEncode for RpcLog {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf).encode_field(&self.log).finish();
+    }
 }
 
 impl RpcLog {
@@ -107,6 +137,16 @@ pub struct RpcLogInfo {
     pub data: Bytes,
 }
 
+impl RLPEncode for RpcLogInfo {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.address)
+            .encode_field(&self.topics)
+            .encode_field(&self.data)
+            .finish();
+    }
+}
+
 impl From<Log> for RpcLogInfo {
     fn from(log: Log) -> Self {
         Self {
@@ -128,6 +168,16 @@ pub struct RpcReceiptBlockInfo {
         with = "serde_utils::u64::hex_str_opt"
     )]
     pub blob_gas_used: Option<u64>,
+}
+
+impl RLPEncode for RpcReceiptBlockInfo {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.block_hash)
+            .encode_field(&self.block_number)
+            .encode_optional_field(&self.blob_gas_used)
+            .finish();
+    }
 }
 
 impl RpcReceiptBlockInfo {
@@ -163,6 +213,21 @@ pub struct RpcReceiptTxInfo {
         with = "ethereum_rust_core::serde_utils::u64::hex_str_opt"
     )]
     pub blob_gas_price: Option<u64>,
+}
+
+impl RLPEncode for RpcReceiptTxInfo {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.transaction_hash)
+            .encode_field(&self.transaction_index)
+            .encode_field(&self.from)
+            .encode_optional_field(&self.to)
+            .encode_optional_field(&self.contract_address)
+            .encode_field(&self.gas_used)
+            .encode_field(&self.effective_gas_price)
+            .encode_optional_field(&self.blob_gas_price)
+            .finish();
+    }
 }
 
 impl RpcReceiptTxInfo {
