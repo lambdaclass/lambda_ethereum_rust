@@ -78,7 +78,7 @@ impl NodeHasher {
 
             if length == 32 {
                 self.no_inline = true;
-                self.hasher.update(&hash);
+                self.hasher.update(hash);
                 length = 0;
             }
         }
@@ -226,18 +226,18 @@ impl From<H256> for NodeHash {
     }
 }
 
-impl Into<Vec<u8>> for NodeHash {
-    fn into(self) -> Vec<u8> {
-        match self {
+impl From<NodeHash> for Vec<u8> {
+    fn from(val: NodeHash) -> Self {
+        match val {
             NodeHash::Hashed(x) => x.0.to_vec(),
             NodeHash::Inline(x) => x,
         }
     }
 }
 
-impl Into<Vec<u8>> for &NodeHash {
-    fn into(self) -> Vec<u8> {
-        match self {
+impl From<&NodeHash> for Vec<u8> {
+    fn from(val: &NodeHash) -> Self {
+        match val {
             NodeHash::Hashed(x) => x.0.to_vec(),
             NodeHash::Inline(x) => x.clone(),
         }

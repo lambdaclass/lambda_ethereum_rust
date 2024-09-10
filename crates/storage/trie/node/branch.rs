@@ -273,7 +273,7 @@ impl BranchNode {
         let children = self
             .choices
             .iter()
-            .map(|node_hash| hash_choice(node_hash))
+            .map(hash_choice)
             .collect::<Vec<_>>();
         let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
         /// Here starts compute_branch_hash

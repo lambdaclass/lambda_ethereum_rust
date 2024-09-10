@@ -132,7 +132,7 @@ impl LeafNode {
         let mut hasher = NodeHasher::new();
         hasher.write_list_header(path_len + value_len);
         hasher.write_path_slice(&path, PathKind::Leaf);
-        hasher.write_bytes(&encoded_value);
+        hasher.write_bytes(encoded_value);
         hasher.finalize()
     }
 

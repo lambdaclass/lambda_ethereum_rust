@@ -169,7 +169,7 @@ impl ExtensionNode {
         hasher.write_list_header(prefix_len + child_len);
         hasher.write_path_vec(&self.prefix, PathKind::Extension);
         match child_hash {
-            NodeHash::Inline(x) => hasher.write_raw(&x),
+            NodeHash::Inline(x) => hasher.write_raw(x),
             NodeHash::Hashed(x) => hasher.write_bytes(&x.0),
         }
         hasher.finalize()
