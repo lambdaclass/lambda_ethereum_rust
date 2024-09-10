@@ -58,9 +58,9 @@ impl ExtensionNode {
             let child_node = db
                 .get_node(self.child)?
                 .expect("inconsistent internal tree structure");
-
-            let child_node = child_node.insert(db, path.clone(), value)?;
-            self.child = child_node.insert_self(path.offset(), db)?;
+            let child_node = child_node.insert(db, path.clone(), value.clone())?;
+            // Child node will never be a leaf, so the path_offset is not used
+            self.child = child_node.insert_self(0, db)?;
 
             Ok(self.into())
         } else {
