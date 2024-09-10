@@ -15,7 +15,9 @@ use crate::{
 };
 use ethereum_rust_core::{
     rlp::encode::RLPEncode,
-    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
+    types::{
+        calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    },
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
@@ -100,12 +102,10 @@ impl RpcHandler for GetBlockByNumberRequest {
             // Block not found
             _ => return Ok(Value::Null),
         };
-        let mut buf = vec![];
-        header.encode(&mut buf);
         let hash = header.compute_block_hash();
-        // let block = RpcBlock::build(header, body, hash, self.hydrated);
+        let block = RpcBlock::build(header, body, hash, self.hydrated);
 
-        serde_json::to_value(&buf).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
     }
 }
 
@@ -222,9 +222,13 @@ impl RpcHandler for GetRawBlock {
             (Some(header), Some(body)) => (header, body),
             _ => return Ok(Value::Null),
         };
-        let hash = header.compute_block_hash();
-        let block = RpcBlock::build(header, body, hash, true);
-        serde_json::to_value(block).map_err(|_| RpcErr::Internal)
+        let block = Block {
+            header: header.clone(),
+            body: body.clone(),
+        }
+        .encode_to_vec();
+
+        serde_json::to_value(format!("0x{}", &hex::encode(block))).map_err(|_| RpcErr::Internal)
     }
 }
 
