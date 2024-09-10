@@ -25,12 +25,14 @@ SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
 SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
 
-$(SPECTEST_VECTORS_DIR):
+$(SPECTEST_ARTIFACT):
+	rm tests_*.tar.gz # Delete older versions
 	curl -L -o $(SPECTEST_ARTIFACT) "https://github.com/ethereum/execution-spec-tests/releases/download/$(SPECTEST_VERSION)/fixtures_stable.tar.gz"
+
+$(SPECTEST_VECTORS_DIR): $(SPECTEST_ARTIFACT)
 	mkdir -p $(SPECTEST_VECTORS_DIR) tmp
 	tar -xzf $(SPECTEST_ARTIFACT) -C tmp
 	mv tmp/fixtures/blockchain_tests/* $(SPECTEST_VECTORS_DIR)
-	rm -rf tmp $(SPECTEST_ARTIFACT)
 
 download-vectors: $(SPECTEST_VECTORS_DIR)
 
