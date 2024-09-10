@@ -73,10 +73,10 @@ impl ExtensionNode {
 
             Ok(self.into())
         } else {
-            // Offset used when computing the hash of the new child
-            let child_offset = path.offset() + self.prefix.len();
             let offset = path.clone().count_prefix_vec(&self.prefix);
             path.offset_add(offset);
+            // Offset used when computing the hash of the new child
+            let child_offset = path.offset() + 1;
             // Split prefix into left_prefix and right_prefix
             let (left_prefix, choice, right_prefix) = self.prefix.split_extract_at(offset);
 
