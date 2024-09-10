@@ -83,11 +83,11 @@ impl Node {
         }
     }
 
-    pub fn dumb_hash(&self, path_offset: usize) -> NodeHash {
+    pub fn compute_hash(&self, path_offset: usize) -> NodeHash {
         match self {
-            Node::Branch(n) => n.dumb_hash(),
-            Node::Extension(n) => n.dumb_hash(),
-            Node::Leaf(n) => n.dumb_hash(path_offset),
+            Node::Branch(n) => n.compute_hash(),
+            Node::Extension(n) => n.compute_hash(),
+            Node::Leaf(n) => n.compute_hash(path_offset),
         }
     }
 }

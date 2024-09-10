@@ -120,7 +120,7 @@ impl LeafNode {
         })
     }
 
-    pub fn dumb_hash(&self, offset: usize) -> NodeHash {
+    pub fn compute_hash(&self, offset: usize) -> NodeHash {
         let encoded_value = &self.value;
         let encoded_path = &self.path;
 
@@ -143,7 +143,7 @@ impl LeafNode {
     /// Inserts the node into the DB and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
     pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
-        let hash = self.dumb_hash(path_offset);
+        let hash = self.compute_hash(path_offset);
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)
     }
@@ -305,7 +305,7 @@ mod test {
     #[test]
     fn compute_hash() {
         let node = LeafNode::new(b"key".to_vec(), b"value".to_vec());
-        let node_hash_ref = node.dumb_hash(0);
+        let node_hash_ref = node.compute_hash(0);
         assert_eq!(
             node_hash_ref.as_ref(),
             &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
@@ -316,7 +316,7 @@ mod test {
     fn compute_hash_long() {
         let node = LeafNode::new(b"key".to_vec(), b"a comparatively long value".to_vec());
 
-        let node_hash_ref = node.dumb_hash(0);
+        let node_hash_ref = node.compute_hash(0);
         assert_eq!(
             node_hash_ref.as_ref(),
             &[

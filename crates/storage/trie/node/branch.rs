@@ -260,7 +260,7 @@ impl BranchNode {
     }
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn dumb_hash(&self) -> NodeHash {
+    pub fn compute_hash(&self) -> NodeHash {
         let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
             if node_hash.is_valid() {
                 match node_hash {
@@ -305,7 +305,7 @@ impl BranchNode {
 
     /// Inserts the node into the DB and returns its hash
     pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
-        let hash = self.dumb_hash();
+        let hash = self.compute_hash();
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)
     }
@@ -552,7 +552,7 @@ mod test {
         };
 
         assert_eq!(
-            node.dumb_hash().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0xD5, 0x80, 0x80, 0xC2, 0x30, 0x20, 0x80, 0xC2, 0x30, 0x40, 0x80, 0x80, 0x80, 0x80,
                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
@@ -585,7 +585,7 @@ mod test {
         };
 
         assert_eq!(
-            node.dumb_hash().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0x0A, 0x3C, 0x06, 0x2D, 0x4A, 0xE3, 0x61, 0xEC, 0xC4, 0x82, 0x07, 0xB3, 0x2A, 0xDB,
                 0x6A, 0x3A, 0x3F, 0x3E, 0x98, 0x33, 0xC8, 0x9C, 0x9A, 0x71, 0x66, 0x3F, 0x4E, 0xB5,
@@ -605,7 +605,7 @@ mod test {
         };
 
         assert_eq!(
-            node.dumb_hash().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0xD5, 0x80, 0x80, 0xC2, 0x30, 0x20, 0x80, 0xC2, 0x30, 0x40, 0x80, 0x80, 0x80, 0x80,
                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01,
@@ -638,7 +638,7 @@ mod test {
         };
 
         assert_eq!(
-            node.dumb_hash().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0x2A, 0x85, 0x67, 0xC5, 0x63, 0x4A, 0x87, 0xBA, 0x19, 0x6F, 0x2C, 0x65, 0x15, 0x16,
                 0x66, 0x37, 0xE0, 0x9A, 0x34, 0xE6, 0xC9, 0xB0, 0x4D, 0xA5, 0x6F, 0xC4, 0x70, 0x4E,
