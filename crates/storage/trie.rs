@@ -78,6 +78,7 @@ impl Trie {
 
     /// Insert an RLP-encoded value into the trie.
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
+        println!("[INSERT]: {:?}: {:?}", path, value);
         let root = self.root.take();
         if let Some(root_node) = root
             .map(|root| self.db.get_node(root))
@@ -99,6 +100,7 @@ impl Trie {
     /// Remove a value from the trie given its RLP-encoded path.
     /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
     pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+        println!("[REMOVE]: {:?}", path);
         let root = self.root.take();
         if let Some(root) = root {
             let root_node = self
@@ -217,13 +219,12 @@ mod test {
         assert!(trie.get(&first_path).unwrap().is_none());
         assert!(trie.get(&second_path).unwrap().is_none());
         // Insert values
-        trie.insert(first_path.clone(), first_value.clone())
-            .unwrap();
-        trie.insert(second_path.clone(), second_value.clone())
-            .unwrap();
+        trie.insert(first_path.clone(), first_value.clone()).unwrap();
+        trie.insert(second_path.clone(), second_value.clone()).unwrap();
         // Check values
         assert_eq!(trie.get(&first_path).unwrap(), Some(first_value));
         assert_eq!(trie.get(&second_path).unwrap(), Some(second_value));
+
     }
 
     #[test]

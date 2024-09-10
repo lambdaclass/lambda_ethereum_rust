@@ -1,4 +1,4 @@
-use std::{cmp::min, default};
+use std::{cmp::min, default, fmt::{Display, Pointer}};
 
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
@@ -284,5 +284,14 @@ impl RLPDecode for DumbNodeHash {
         (hash, rest) = RLPDecode::decode_unfinished(rlp)?;
         let hash = DumbNodeHash::from(hash);
         Ok((hash, rest))
+    }
+}
+
+impl Display for DumbNodeHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DumbNodeHash::Hashed(hash) => hash.fmt(f),
+            DumbNodeHash::Inline(x) => format!("Inline: {:?}", x).fmt(f),
+        }
     }
 }

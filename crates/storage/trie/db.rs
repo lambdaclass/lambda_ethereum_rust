@@ -69,6 +69,7 @@ impl TrieDB {
 
     /// Inserts a node and returns its reference
     pub fn insert_node(&mut self, node: Node, hash: DumbNodeHash) -> Result<(), StoreError> {
+        println!("Insert Node: {} : {}", hash, node.info());
         self.write::<Nodes>(hash, node.encode_to_vec())
     }
 
