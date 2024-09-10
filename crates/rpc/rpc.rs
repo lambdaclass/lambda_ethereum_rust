@@ -21,9 +21,9 @@ use eth::{
     },
     client,
     transaction::{
-        CallRequest, CreateAccessListRequest, GetTransactionByBlockHashAndIndexRequest,
-        GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
-        GetTransactionReceiptRequest,
+        CallRequest, CreateAccessListRequest, GetRawTransaction,
+        GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
+        GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
 };
 use serde_json::Value;
@@ -190,6 +190,7 @@ pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rpc
     match req.method.as_str() {
         "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
         "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
+        "debug_getRawTransaction" => GetRawTransaction::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }

@@ -1,6 +1,7 @@
 use super::block::BlockIdentifier;
 use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr, RpcHandler};
 use ethereum_rust_core::{
+    rlp::encode::RLPEncode,
     types::{AccessListEntry, BlockHash, GenericTransaction},
     Bytes, H256,
 };
@@ -39,6 +40,10 @@ pub struct GetTransactionReceiptRequest {
 pub struct CreateAccessListRequest {
     pub transaction: GenericTransaction,
     pub block: Option<BlockIdentifier>,
+}
+
+pub struct GetRawTransaction {
+    pub transaction_hash: H256,
 }
 
 #[derive(Serialize)]
@@ -331,5 +336,35 @@ impl RpcHandler for CreateAccessListRequest {
         };
 
         serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetRawTransaction {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+
+        let transaction_str: String = serde_json::from_value(params[0].clone())?;
+        if !transaction_str.starts_with("0x") {
+            return Err(RpcErr::BadHexFormat);
+        }
+
+        Ok(GetRawTransaction {
+            transaction_hash: serde_json::from_value(params[0].clone())?,
+        })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        let tx = storage.get_transaction_by_hash(self.transaction_hash)?;
+
+        let tx = match tx {
+            Some(tx) => tx,
+            _ => return Ok(Value::Null),
+        };
+
+        serde_json::to_value(format!("0x{}", &hex::encode(tx.encode_to_vec())))
+            .map_err(|_| RpcErr::Internal)
     }
 }
