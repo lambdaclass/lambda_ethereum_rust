@@ -121,31 +121,42 @@ impl Trie {
     /// Returns keccak(RLP_NULL) if the trie is empty
     /// TODO: Rename
     pub fn compute_hash(&mut self) -> H256 {
-        self.root
+        let hash1 = self
+            .root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH)
+            .unwrap_or(*EMPTY_TRIE_HASH);
+        if let Some(root_node) = self
+            .db
+            .get_node(self.root.clone().unwrap_or_default())
+            .unwrap()
+        {
+            let hash = H256::from_slice(
+                match root_node.compute_hash(&self.db, 0).unwrap() {
+                    NodeHashRef::Inline(x) => Keccak256::new().chain_update(&*x).finalize(),
+                    NodeHashRef::Hashed(x) => *x,
+                }
+                .as_slice(),
+            );
+            assert_eq!(hash1, hash);
+        }
+        hash1
     }
 
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root
     /// Please use a root_hash calculated using `compute_hash`
     /// This function is used to access historical data
+    /// WARNING: Won't work if the root is too small (as it wont be stored by its hash)
+    /// (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
     pub fn get_from_root(
         &self,
         root_hash: H256,
         path: &PathRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
-        let root_ref = self.db.get_root_ref(root_hash)?;
-        match root_ref {
-            Some(root_ref) if root_ref.is_valid() => {
-                let root_node = self
-                    .db
-                    .get_node(root_hash.into())?
-                    .expect("inconsistent internal tree structure");
-
-                root_node.get(&self.db, NibbleSlice::new(path))
-            }
-            _ => Ok(None),
+        if let Some(root_node) = self.db.get_node(root_hash.into())? {
+            root_node.get(&self.db, NibbleSlice::new(path))
+        } else {
+            Ok(None)
         }
     }
 
@@ -481,56 +492,56 @@ mod test {
     #[test]
     fn get_old_state() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
         let root = trie.compute_hash();
 
-        trie.insert(vec![0x00], vec![0x02]).unwrap();
-        trie.insert(vec![0x01], vec![0x03]).unwrap();
+        trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x02]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x03]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([3; 32].to_vec()));
 
         assert_eq!(
-            trie.get_from_root(root, &vec![0x00]).unwrap(),
-            Some(vec![0x00])
+            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
+            Some([0; 32].to_vec())
         );
         assert_eq!(
-            trie.get_from_root(root, &vec![0x01]).unwrap(),
-            Some(vec![0x01])
+            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
+            Some([1; 32].to_vec())
         );
     }
 
     #[test]
     fn get_old_state_with_removals() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x02]).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
         let root = trie.compute_hash();
 
-        trie.insert(vec![0x00], vec![0x04]).unwrap();
-        trie.remove(vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x05]).unwrap();
-        trie.remove(vec![0x00]).unwrap();
+        trie.insert([0; 32].to_vec(), vec![0x04]).unwrap();
+        trie.remove([1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), vec![0x05]).unwrap();
+        trie.remove([0; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), None);
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), None);
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x05]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), None);
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), None);
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some(vec![0x05]));
 
         assert_eq!(
-            trie.get_from_root(root, &vec![0x00]).unwrap(),
-            Some(vec![0x00])
+            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
+            Some([0; 32].to_vec())
         );
         assert_eq!(
-            trie.get_from_root(root, &vec![0x01]).unwrap(),
-            Some(vec![0x01])
+            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
+            Some([1; 32].to_vec())
         );
         assert_eq!(
-            trie.get_from_root(root, &vec![0x02]).unwrap(),
-            Some(vec![0x02])
+            trie.get_from_root(root, &[2; 32].to_vec()).unwrap(),
+            Some([2; 32].to_vec())
         );
     }
 
