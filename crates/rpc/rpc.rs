@@ -292,6 +292,9 @@ mod tests {
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage
+            .set_chain_config(&example_chain_config())
+            .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
         storage
@@ -324,6 +327,9 @@ mod tests {
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage
+            .set_chain_config(&example_chain_config())
+            .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
         storage
