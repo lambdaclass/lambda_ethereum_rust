@@ -6,7 +6,7 @@ use libmdbx::{
     table_info,
 };
 
-/// Libmbdx database representing trie state
+/// Libmbdx database representing the trie state
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
 use super::{dumb_hash::DumbNodeHash, node::Node, node_ref::NodeRef};
