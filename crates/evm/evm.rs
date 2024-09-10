@@ -541,11 +541,13 @@ fn access_list_inspector(
 /// WARNING: Assumes at least Merge fork is active
 pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
     let chain_config = store.get_chain_config()?;
-    match chain_config.get_fork(block_timestamp) {
-        ForkId::Cancun => return Ok(SpecId::CANCUN),
-        ForkId::Shanghai => return Ok(SpecId::SHANGHAI),
-        ForkId::Paris => return Ok(SpecId::MERGE),
-    }
+    let spec = match chain_config.get_fork(block_timestamp) {
+        ForkId::Cancun => SpecId::CANCUN,
+        ForkId::Shanghai => SpecId::SHANGHAI,
+        ForkId::Paris => SpecId::MERGE,
+    };
+
+    Ok(spec)
 }
 
 /// Calculating gas_price according to EIP-1559 rules
