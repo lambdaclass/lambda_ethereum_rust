@@ -203,14 +203,6 @@ impl StoreEngine for Store {
         Ok(self.chain_data.chain_config.unwrap())
     }
 
-    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = self.chain_data.chain_config {
-            Ok(Some(chain_config.chain_id))
-        } else {
-            Ok(None)
-        }
-    }
-
     fn update_earliest_block_number(
         &mut self,
         block_number: BlockNumber,

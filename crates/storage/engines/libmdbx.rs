@@ -237,11 +237,6 @@ impl StoreEngine for Store {
         }
     }
 
-    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        let chain_config = self.get_chain_config()?;
-        Ok(Some(chain_config.chain_id))
-    }
-
     fn account_storage_iter(
         &mut self,
         address: Address,

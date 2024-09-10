@@ -186,9 +186,6 @@ pub trait StoreEngine: Debug + Send {
     /// Returns the stored chain configuration
     fn get_chain_config(&self) -> Result<ChainConfig, StoreError>;
 
-    /// Obtain the current chain id
-    fn get_chain_id(&self) -> Result<Option<u64>, StoreError>;
-
     // Update earliest block number
     fn update_earliest_block_number(&mut self, block_number: BlockNumber)
         -> Result<(), StoreError>;

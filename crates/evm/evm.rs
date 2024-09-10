@@ -125,16 +125,12 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
-        let chain_id = state.database().get_chain_id()?;
+        let chain_spec = state.database().get_chain_config()?;
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
-            .modify_cfg_env(|cfg| {
-                if let Some(chain_id) = chain_id {
-                    cfg.chain_id = chain_id
-                }
-            })
+            .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
             .with_spec_id(spec_id)
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),

@@ -348,10 +348,6 @@ impl Store {
         self.engine.lock().unwrap().get_chain_config()
     }
 
-    pub fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        self.engine.lock().unwrap().get_chain_id()
-    }
-
     pub fn update_earliest_block_number(
         &self,
         block_number: BlockNumber,
