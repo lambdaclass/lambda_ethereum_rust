@@ -8,6 +8,7 @@ use axum_extra::{
     TypedHeader,
 };
 use engine::{
+    exchange_transition_config::ExchangeTransitionConfigV1Req,
     fork_choice::{self, ForkChoiceUpdatedV3},
     payload::{self, NewPayloadV3Request},
     ExchangeCapabilitiesRequest,
@@ -205,6 +206,9 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
             let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
             serde_json::to_value(payload::new_payload_v3(request, storage)?)
                 .map_err(|_| RpcErr::Internal)
+        }
+        "engine_exchangeTransitionConfigurationV1" => {
+            ExchangeTransitionConfigV1Req::call(req, storage)
         }
         _ => Err(RpcErr::MethodNotFound),
     }
