@@ -366,18 +366,36 @@ impl StoreEngine for Store {
         from: BlockNumber,
         to: BlockNumber,
     ) -> std::prelude::v1::Result<Vec<Log>, StoreError> {
-        // Read storage from mdbx
+        let mut err_found = false;
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         let cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
         // let iter = cursor.walk_range(from..to).into_iter();
-        let recs: Vec<Log> = cursor
+        let db_iter = cursor
             // TODO:
             // Use the given range by parameter
             .walk(Some(from))
-            .filter_map(|res| res.ok())
-            .flat_map(|((_, _), receipt)| receipt.to().logs)
-            .collect();
-        Ok(recs)
+            // Take receipts until we reach an error (and keep it to report it)
+            // or until we reach the 'to' upper bound.
+            .take_while(|res| match res {
+                Ok(((block_num, _), receipt)) if *block_num <= to => true,
+                Ok(_) => false,
+                Err(_) if !err_found => {
+                    err_found = true;
+                    false
+                }
+                _ => false,
+            })
+            // Decode receipt if Ok, else ignore
+            .map(|db_result| db_result.map(|((_, _), encoded_receipt)| encoded_receipt.to()));
+        // Decode receipts
+        let receipts: Result<Vec<Receipt>> = db_iter.collect();
+        match receipts {
+            Ok(receipts) => Ok(receipts
+                .into_iter()
+                .flat_map(|receipt| receipt.logs)
+                .collect()),
+            Err(db_err) => Err(StoreError::LibmdbxError(db_err).into()),
+        }
     }
 }
 
