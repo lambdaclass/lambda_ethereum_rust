@@ -23,23 +23,23 @@ We believe this approach is the best way to build a client that is both fast and
 
 To build the main executable and its crates, run:
 ```bash
-just build
+make build
 ```
 
 ### Test
 Note: To execute EF tests, the test fixtures are required. To download them, run:
 ```bash
-just download-vectors
+make download-vectors
 ```
 
 To run the tests from a crate, run:
 ```bash
-just test <crate>
+make test CRATE=<crate>
 ```
 
 Or just run all the tests:
 ```bash
-just test
+make test
 ```
 
 ### Run

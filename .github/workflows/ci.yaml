@@ -54,16 +54,13 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
-      - name: Setup just
-        uses: extractions/setup-just@v2
-
       - name: Download test vectors
         run: |
-          just download-vectors
+          make download-vectors
 
       - name: Run tests
         run: |
-          just test
+          make test
 
   docker-build:
     name: Build Docker image
