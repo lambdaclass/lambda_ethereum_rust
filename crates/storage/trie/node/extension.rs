@@ -87,8 +87,8 @@ impl ExtensionNode {
             // If there is a right prefix the node will be Extension { prefixR, Self.child }
             // If there is no right prefix the node will be Self.child
             let right_prefix_node = if let Some(right_prefix) = right_prefix {
-                let extension_node: Node = ExtensionNode::new(right_prefix, self.child).into();
-                extension_node.insert_self(child_offset, db)?
+                let extension_node = ExtensionNode::new(right_prefix, self.child);
+                extension_node.insert_self(db)?
             } else {
                 self.child
             };
@@ -111,8 +111,7 @@ impl ExtensionNode {
             // If there is no left_prefix: Branch
             match left_prefix {
                 Some(left_prefix) => {
-                    let branch_ref = Node::from(branch_node).insert_self(child_offset, db)?;
-
+                    let branch_ref = branch_node.insert_self(db)?;
                     Ok(ExtensionNode::new(left_prefix, branch_ref).into())
                 }
                 None => Ok(branch_node.into()),
@@ -204,6 +203,13 @@ impl ExtensionNode {
             DumbNodeHash::Hashed(x) => hasher.write_bytes(&x.0),
         }
         hasher.finalize()
+    }
+
+    /// Inserts the node into the DB and returns its hash
+    pub fn insert_self(self, db: &mut TrieDB) -> Result<DumbNodeHash, StoreError> {
+        let hash = self.dumb_hash();
+        db.insert_node(self.into(), hash.clone())?;
+        Ok(hash)
     }
 }
 

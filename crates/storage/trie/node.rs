@@ -92,13 +92,11 @@ impl Node {
         path_offset: usize,
         db: &mut TrieDB,
     ) -> Result<DumbNodeHash, StoreError> {
-        let hash = self.dumb_hash(path_offset);
-        /// Hash is working propperly
-        /// NEXT STEPS:
-        /// Remove NodeRef & store by hash instead
-        /// REMEMBER: Store small nodes as inline (or ban them), maybe we should encode DumbNodeHash
-        db.insert_node(self, hash.clone())?;
-        Ok(hash)
+        match self {
+            Node::Branch(n) => n.insert_self(db),
+            Node::Extension(n) => n.insert_self(db),
+            Node::Leaf(n) => n.insert_self(path_offset, db),
+        }
     }
 
     pub fn dumb_hash(&self, path_offset: usize) -> DumbNodeHash {

@@ -70,14 +70,15 @@ impl LeafNode {
             path_branch.offset_add(offset);
 
             let absolute_offset = path_branch.offset();
+            // The offset that will be used when computing the hash of newly created leaf nodes
+            let leaf_offset = absolute_offset + 1;
             let branch_node = if absolute_offset == 2 * path.as_ref().len() {
                 // Create a branch node with self as a child and store the value in the branch node
                 // Branch { [Self,...] Path, Value }
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
-                    .unwrap() as usize] =
-                    Node::from(self.clone()).insert_self(absolute_offset + 1, db)?;
+                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, db)?;
 
                 BranchNode::new_with_value(choices, path.data(), value)
             } else if absolute_offset == 2 * self.path.len() {
@@ -87,7 +88,7 @@ impl LeafNode {
                 let new_leaf = LeafNode::new(path.data(), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[path_branch.next().unwrap() as usize] =
-                    Node::from(new_leaf).insert_self(absolute_offset + 1, db)?;
+                    new_leaf.insert_self(leaf_offset, db)?;
 
                 BranchNode::new_with_value(choices, self.path, self.value)
             } else {
@@ -95,12 +96,11 @@ impl LeafNode {
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value);
-                let child_ref = Node::from(new_leaf).insert_self(absolute_offset + 1, db)?;
+                let child_ref = new_leaf.insert_self(leaf_offset, db)?;
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
-                    .unwrap() as usize] =
-                    Node::from(self.clone()).insert_self(absolute_offset + 1, db)?;
+                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, db)?;
                 choices[path_branch.next().unwrap() as usize] = child_ref;
                 BranchNode::new(choices)
             };
@@ -108,7 +108,7 @@ impl LeafNode {
             let final_node = if offset != 0 {
                 // Create an extension node with the branch node as child
                 // Extension { BranchNode }
-                let branch_ref = Node::from(branch_node).insert_self(absolute_offset + 1, db)?;
+                let branch_ref = branch_node.insert_self(db)?;
                 ExtensionNode::new(path.split_to_vec(offset), branch_ref).into()
             } else {
                 branch_node.into()
@@ -163,6 +163,18 @@ impl LeafNode {
         hasher.write_path_slice(&path, dumb_hash::PathKind::Leaf);
         hasher.write_bytes(&encoded_value);
         hasher.finalize()
+    }
+
+    /// Inserts the node into the DB and returns its hash
+    /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
+    pub fn insert_self(
+        self,
+        path_offset: usize,
+        db: &mut TrieDB,
+    ) -> Result<DumbNodeHash, StoreError> {
+        let hash = self.dumb_hash(path_offset);
+        db.insert_node(self.into(), hash.clone())?;
+        Ok(hash)
     }
 }
 

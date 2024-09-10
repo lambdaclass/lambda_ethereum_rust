@@ -359,6 +359,13 @@ impl BranchNode {
         }
         hasher.finalize()
     }
+
+    /// Inserts the node into the DB and returns its hash
+    pub fn insert_self(self, db: &mut TrieDB) -> Result<DumbNodeHash, StoreError> {
+        let hash = self.dumb_hash();
+        db.insert_node(self.into(), hash.clone())?;
+        Ok(hash)
+    }
 }
 
 /// Helper method to compute the hash of a branch node
