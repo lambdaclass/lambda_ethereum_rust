@@ -165,6 +165,31 @@ pub mod u64 {
     }
 }
 
+pub mod u128 {
+    use super::*;
+
+    pub mod hex_str {
+        use super::*;
+
+        pub fn deserialize<'de, D>(d: D) -> Result<u128, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = String::deserialize(d)?;
+            let res = u128::from_str_radix(value.trim_start_matches("0x"), 32)
+                .map_err(|_| D::Error::custom("Failed to deserialize u128 value"));
+            res
+        }
+
+        pub fn serialize<S>(value: &u128, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(&format!("{:#x}", value))
+        }
+    }
+}
+
 /// Serializes to and deserializes from 0x prefixed hex string
 pub mod bytes {
     use ::bytes::Bytes;
