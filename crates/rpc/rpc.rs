@@ -1,5 +1,6 @@
 use crate::authentication::authenticate;
 use bytes::Bytes;
+use debug_rpc::GetRawBlock;
 use std::{future::IntoFuture, net::SocketAddr};
 
 use axum::{routing::post, Json, Router};
@@ -16,7 +17,7 @@ use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawBlock,
+        GetBlockTransactionCountRequest,
     },
     client,
     transaction::{
@@ -33,6 +34,7 @@ use utils::{
 };
 mod admin;
 mod authentication;
+mod debug_rpc;
 mod engine;
 mod eth;
 mod types;
