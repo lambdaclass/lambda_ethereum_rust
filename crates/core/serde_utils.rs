@@ -80,6 +80,11 @@ pub mod u64 {
             D: Deserializer<'de>,
         {
             let value = String::deserialize(d)?;
+
+            if !value.starts_with("0x") {
+                return Err(D::Error::custom("Failed to deserialize u64 value"));
+            };
+
             let res = u64::from_str_radix(value.trim_start_matches("0x"), 16)
                 .map_err(|_| D::Error::custom("Failed to deserialize u64 value"));
             res
