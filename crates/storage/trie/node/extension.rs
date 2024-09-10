@@ -73,7 +73,8 @@ impl ExtensionNode {
 
             Ok(self.into())
         } else {
-            let original_path = path.clone();
+            // Offset used when computing the hash of the new child
+            let child_offset = path.offset() + self.prefix.len();
             let offset = path.clone().count_prefix_vec(&self.prefix);
             path.offset_add(offset);
             // Split prefix into left_prefix and right_prefix
@@ -87,7 +88,7 @@ impl ExtensionNode {
             // If there is no right prefix the node will be Self.child
             let right_prefix_node = if let Some(right_prefix) = right_prefix {
                 let extension_node: Node = ExtensionNode::new(right_prefix, self.child).into();
-                extension_node.insert_self(original_path.offset(), db)?
+                extension_node.insert_self(child_offset, db)?
             } else {
                 self.child
             };
@@ -100,7 +101,7 @@ impl ExtensionNode {
             let branch_node = if let Some(c) = path.next() {
                 let new_leaf = LeafNode::new(path.data(), value);
                 choices[c as usize] =
-                    Node::from(new_leaf).insert_self(original_path.offset(), db)?;
+                    Node::from(new_leaf).insert_self(child_offset, db)?;
                 BranchNode::new(choices)
             } else {
                 BranchNode::new_with_value(choices, path.data(), value)
@@ -112,7 +113,7 @@ impl ExtensionNode {
             match left_prefix {
                 Some(left_prefix) => {
                     let branch_ref =
-                        Node::from(branch_node).insert_self(original_path.offset(), db)?;
+                        Node::from(branch_node).insert_self(child_offset, db)?;
 
                     Ok(ExtensionNode::new(left_prefix, branch_ref).into())
                 }

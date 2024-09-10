@@ -95,7 +95,7 @@ impl LeafNode {
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value);
-                let child_ref = Node::from(new_leaf).insert_self(absolute_offset, db)?;
+                let child_ref = Node::from(new_leaf).insert_self(absolute_offset + 1, db)?;
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
