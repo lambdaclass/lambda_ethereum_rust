@@ -549,43 +549,43 @@ mod test {
     #[test]
     fn revert() {
         let mut trie = Trie::new_temp();
-        trie.insert([0;32].to_vec(), [0;32].to_vec()).unwrap();
-        trie.insert([1;32].to_vec(), [1;32].to_vec()).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
         let root = trie.compute_hash();
 
-        trie.insert([0;32].to_vec(), [2;32].to_vec()).unwrap();
-        trie.insert([1;32].to_vec(), [3;32].to_vec()).unwrap();
+        trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
 
         trie.set_root(root);
 
-        trie.insert([2;32].to_vec(), [4;32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&[0;32].to_vec()).unwrap(), Some([0;32].to_vec()));
-        assert_eq!(trie.get(&[1;32].to_vec()).unwrap(), Some([1;32].to_vec()));
-        assert_eq!(trie.get(&[2;32].to_vec()).unwrap(), Some([4;32].to_vec()));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some([4; 32].to_vec()));
     }
 
     #[test]
     fn revert_with_removals() {
         let mut trie = Trie::new_temp();
-        trie.insert([0;32].to_vec(), [0;32].to_vec()).unwrap();
-        trie.insert([1;32].to_vec(), [1;32].to_vec()).unwrap();
-        trie.insert([2;32].to_vec(), [2;32].to_vec()).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
         let root = trie.compute_hash();
 
-        trie.insert([0;32].to_vec(), [4;32].to_vec()).unwrap();
-        trie.remove([1;32].to_vec()).unwrap();
-        trie.insert([2;32].to_vec(), [5;32].to_vec()).unwrap();
-        trie.remove([0;32].to_vec()).unwrap();
+        trie.insert([0; 32].to_vec(), [4; 32].to_vec()).unwrap();
+        trie.remove([1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [5; 32].to_vec()).unwrap();
+        trie.remove([0; 32].to_vec()).unwrap();
 
         trie.set_root(root);
 
-        trie.remove([2;32].to_vec()).unwrap();
+        trie.remove([2; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&[0;32].to_vec()).unwrap(), Some([0;32].to_vec()));
-        assert_eq!(trie.get(&[1;32].to_vec()).unwrap(), Some([1;32].to_vec()));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
         assert_eq!(trie.get(&vec![0x02]).unwrap(), None);
     }
 
@@ -598,9 +598,9 @@ mod test {
         // Create new trie from clean DB
         let mut trie = Trie::new(trie_dir).unwrap();
 
-        trie.insert([0;32].to_vec(), [1;32].to_vec()).unwrap();
-        trie.insert([1;32].to_vec(), [2;32].to_vec()).unwrap();
-        trie.insert([2;32].to_vec(), [4;32].to_vec()).unwrap();
+        trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [2; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
         // Save current root
         let root = trie.compute_hash();
@@ -610,9 +610,9 @@ mod test {
         // Create a new trie based on the previous trie's DB
         let trie = Trie::open(trie_dir, root).unwrap();
 
-        assert_eq!(trie.get(&[0;32].to_vec()).unwrap(), Some([1;32].to_vec()));
-        assert_eq!(trie.get(&[1;32].to_vec()).unwrap(), Some([2;32].to_vec()));
-        assert_eq!(trie.get(&[2;32].to_vec()).unwrap(), Some([4;32].to_vec()));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some([4; 32].to_vec()));
     }
 
     // Proptests

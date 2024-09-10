@@ -100,8 +100,7 @@ impl ExtensionNode {
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
                 let new_leaf = LeafNode::new(path.data(), value);
-                choices[c as usize] =
-                    Node::from(new_leaf).insert_self(child_offset, db)?;
+                choices[c as usize] = Node::from(new_leaf).insert_self(child_offset, db)?;
                 BranchNode::new(choices)
             } else {
                 BranchNode::new_with_value(choices, path.data(), value)
@@ -112,8 +111,7 @@ impl ExtensionNode {
             // If there is no left_prefix: Branch
             match left_prefix {
                 Some(left_prefix) => {
-                    let branch_ref =
-                        Node::from(branch_node).insert_self(child_offset, db)?;
+                    let branch_ref = Node::from(branch_node).insert_self(child_offset, db)?;
 
                     Ok(ExtensionNode::new(left_prefix, branch_ref).into())
                 }
@@ -190,12 +188,8 @@ impl ExtensionNode {
         ))
     }
 
-    pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
-        let child_node = db
-            .get_node(self.child.clone())
-            .unwrap()
-            .expect("inconsistent internal tree structure");
-        let child_hash = child_node.dumb_hash(db, path_offset + self.prefix.len());
+    pub fn dumb_hash(&self) -> DumbNodeHash {
+        let child_hash = &self.child;
         let prefix_len = NodeHasher::path_len(self.prefix.len());
         let child_len = match child_hash {
             DumbNodeHash::Inline(ref x) => x.len(),

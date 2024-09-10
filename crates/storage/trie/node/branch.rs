@@ -233,7 +233,7 @@ impl BranchNode {
                             child_hash.clone(),
                         )
                         .into();
-                        *child_hash = extension_node.insert_self(path.offset(), db)?
+                        *child_hash = extension_node.insert_self(path.offset() + 15, db)?
                     }
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
@@ -313,7 +313,7 @@ impl BranchNode {
     }
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
+    pub fn dumb_hash(&self) -> DumbNodeHash {
         let hash_choice = |node_hash: &DumbNodeHash| -> (Vec<u8>, usize) {
             if node_hash.is_valid() {
                 match node_hash {

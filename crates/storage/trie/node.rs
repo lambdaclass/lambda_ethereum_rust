@@ -80,7 +80,6 @@ impl Node {
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
-        dbg!("EVIL");
         match self {
             Node::Branch(n) => n.compute_hash(db, path_offset),
             Node::Extension(n) => n.compute_hash(db, path_offset),
@@ -93,7 +92,7 @@ impl Node {
         path_offset: usize,
         db: &mut TrieDB,
     ) -> Result<DumbNodeHash, StoreError> {
-        let hash = self.dumb_hash(db, path_offset);
+        let hash = self.dumb_hash(path_offset);
         /// Hash is working propperly
         /// NEXT STEPS:
         /// Remove NodeRef & store by hash instead
@@ -102,10 +101,10 @@ impl Node {
         Ok(hash)
     }
 
-    pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
+    pub fn dumb_hash(&self, path_offset: usize) -> DumbNodeHash {
         match self {
-            Node::Branch(n) => n.dumb_hash(db, path_offset),
-            Node::Extension(n) => n.dumb_hash(db, path_offset),
+            Node::Branch(n) => n.dumb_hash(),
+            Node::Extension(n) => n.dumb_hash(),
             Node::Leaf(n) => n.dumb_hash(path_offset),
         }
     }
