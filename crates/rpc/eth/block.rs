@@ -269,11 +269,7 @@ impl RpcHandler for GetRawBlockRequest {
             (Some(header), Some(body)) => (header, body),
             _ => return Ok(Value::Null),
         };
-        let block = Block {
-            header: header.clone(),
-            body: body.clone(),
-        }
-        .encode_to_vec();
+        let block = Block { header, body }.encode_to_vec();
 
         serde_json::to_value(format!("0x{}", &hex::encode(block))).map_err(|_| RpcErr::Internal)
     }
