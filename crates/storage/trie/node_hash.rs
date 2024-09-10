@@ -10,7 +10,7 @@ type Output = digest::Output<Keccak256>;
 use super::nibble::{NibbleSlice, NibbleVec};
 
 #[derive(Default)]
-pub struct HashBuilder {
+pub struct NodeHasher {
     hash: Output,
     len: usize,
     hasher: Keccak256,
@@ -19,12 +19,12 @@ pub struct HashBuilder {
 
 /// TODO: check wether making this `Copy` can make the code less verbose at a reasonable performance cost
 #[derive(Debug, Clone, PartialEq)]
-pub enum DumbNodeHash {
+pub enum NodeHash {
     Hashed(H256),
     Inline(Vec<u8>),
 }
 
-impl HashBuilder {
+impl NodeHasher {
     pub fn new() -> Self {
         Self {
             ..Default::default()
@@ -74,7 +74,8 @@ impl HashBuilder {
             length += copy_len;
 
             if length == 32 {
-                self.push_hash_update(&hash);
+                self.no_inline = true;
+                self.hasher.update(&hash);
                 length = 0;
             }
         }
@@ -139,18 +140,13 @@ impl HashBuilder {
         }
     }
 
-    fn push_hash_update(&mut self, data: &[u8]) {
-        self.no_inline = true;
-        self.hasher.update(data)
-    }
-
-    pub fn finalize(mut self) -> DumbNodeHash {
+    pub fn finalize(mut self) -> NodeHash {
         if self.no_inline {
             let hash = self.hash;
-            self.push_hash_update(&hash[..self.len]);
-            DumbNodeHash::Hashed(H256::from_slice(self.hasher.finalize().as_slice()))
+            self.hasher.update(&hash[..self.len]);
+            NodeHash::Hashed(H256::from_slice(self.hasher.finalize().as_slice()))
         } else {
-            DumbNodeHash::Inline(self.hash[..self.len].to_vec())
+            NodeHash::Inline(self.hash[..self.len].to_vec())
         }
     }
 }
@@ -175,24 +171,24 @@ impl PathKind {
     }
 }
 
-impl<'a> AsRef<[u8]> for DumbNodeHash {
+impl<'a> AsRef<[u8]> for NodeHash {
     fn as_ref(&self) -> &[u8] {
         match self {
-            DumbNodeHash::Inline(x) => x.as_ref(),
-            DumbNodeHash::Hashed(x) => x.as_bytes(),
+            NodeHash::Inline(x) => x.as_ref(),
+            NodeHash::Hashed(x) => x.as_bytes(),
         }
     }
 }
 
-impl DumbNodeHash {
+impl NodeHash {
     /// Returns the finalized hash
     /// NOTE: This will hash smaller nodes, only use to get the final root hash, not for intermediate node hashes
     pub fn finalize(self) -> H256 {
         match self {
-            DumbNodeHash::Inline(x) => {
+            NodeHash::Inline(x) => {
                 H256::from_slice(Keccak256::new().chain_update(&*x).finalize().as_slice())
             }
-            DumbNodeHash::Hashed(x) => x,
+            NodeHash::Hashed(x) => x,
         }
     }
 
@@ -201,7 +197,7 @@ impl DumbNodeHash {
     /// Aka if it has a default value instead of being a product of hash computation
     pub fn is_valid(&self) -> bool {
         match self {
-            DumbNodeHash::Inline(v) if v.is_empty() => false,
+            NodeHash::Inline(v) if v.is_empty() => false,
             _ => true,
         }
     }
@@ -212,40 +208,40 @@ impl DumbNodeHash {
     }
 }
 
-impl From<Vec<u8>> for DumbNodeHash {
+impl From<Vec<u8>> for NodeHash {
     fn from(value: Vec<u8>) -> Self {
         match value.len() {
-            32 => DumbNodeHash::Hashed(H256::from_slice(&value)),
-            _ => DumbNodeHash::Inline(value),
+            32 => NodeHash::Hashed(H256::from_slice(&value)),
+            _ => NodeHash::Inline(value),
         }
     }
 }
 
-impl From<H256> for DumbNodeHash {
+impl From<H256> for NodeHash {
     fn from(value: H256) -> Self {
-        DumbNodeHash::Hashed(value)
+        NodeHash::Hashed(value)
     }
 }
 
-impl Into<Vec<u8>> for DumbNodeHash {
+impl Into<Vec<u8>> for NodeHash {
     fn into(self) -> Vec<u8> {
         match self {
-            DumbNodeHash::Hashed(x) => x.0.to_vec(),
-            DumbNodeHash::Inline(x) => x,
+            NodeHash::Hashed(x) => x.0.to_vec(),
+            NodeHash::Inline(x) => x,
         }
     }
 }
 
-impl Into<Vec<u8>> for &DumbNodeHash {
+impl Into<Vec<u8>> for &NodeHash {
     fn into(self) -> Vec<u8> {
         match self {
-            DumbNodeHash::Hashed(x) => x.0.to_vec(),
-            DumbNodeHash::Inline(x) => x.clone(),
+            NodeHash::Hashed(x) => x.0.to_vec(),
+            NodeHash::Inline(x) => x.clone(),
         }
     }
 }
 
-impl Encodable for DumbNodeHash {
+impl Encodable for NodeHash {
     type Encoded = Vec<u8>;
 
     fn encode(self) -> Self::Encoded {
@@ -253,35 +249,35 @@ impl Encodable for DumbNodeHash {
     }
 }
 
-impl Decodable for DumbNodeHash {
+impl Decodable for NodeHash {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(match b.len() {
-            32 => DumbNodeHash::Hashed(H256::from_slice(b)),
-            _ => DumbNodeHash::Inline(b.into()),
+            32 => NodeHash::Hashed(H256::from_slice(b)),
+            _ => NodeHash::Inline(b.into()),
         })
     }
 }
 
-impl Default for DumbNodeHash {
+impl Default for NodeHash {
     fn default() -> Self {
-        DumbNodeHash::Inline(Vec::new())
+        NodeHash::Inline(Vec::new())
     }
 }
 
 // Encoded as Vec<u8>
-impl RLPEncode for DumbNodeHash {
+impl RLPEncode for NodeHash {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         RLPEncode::encode(&Into::<Vec<u8>>::into(self), buf)
     }
 }
 
-impl RLPDecode for DumbNodeHash {
+impl RLPDecode for NodeHash {
     fn decode_unfinished(
         rlp: &[u8],
     ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
         let (mut hash, mut rest): (Vec<u8>, &[u8]);
         (hash, rest) = RLPDecode::decode_unfinished(rlp)?;
-        let hash = DumbNodeHash::from(hash);
+        let hash = NodeHash::from(hash);
         Ok((hash, rest))
     }
 }

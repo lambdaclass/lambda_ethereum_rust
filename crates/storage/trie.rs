@@ -1,5 +1,5 @@
 mod db;
-mod dumb_hash;
+mod node_hash;
 mod nibble;
 mod node;
 mod node_ref;
@@ -7,7 +7,7 @@ mod rlp;
 #[cfg(test)]
 mod test_utils;
 
-use dumb_hash::DumbNodeHash;
+use node_hash::NodeHash;
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
@@ -37,7 +37,7 @@ pub type ValueRLP = Vec<u8>;
 /// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
 pub struct Trie {
     /// Hash of the current node
-    root: Option<DumbNodeHash>,
+    root: Option<NodeHash>,
     /// Contains the trie's nodes
     pub(crate) db: TrieDB,
 }

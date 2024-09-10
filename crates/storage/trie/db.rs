@@ -9,7 +9,7 @@ use libmdbx::{
 /// Libmbdx database representing the trie state
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
-use super::{dumb_hash::DumbNodeHash, node::Node, node_ref::NodeRef};
+use super::{node_hash::NodeHash, node::Node, node_ref::NodeRef};
 pub struct TrieDB {
     db: Database,
 }
@@ -21,7 +21,7 @@ pub type NodeHashRLP = [u8; 32];
 
 table!(
     /// NodeHash to Node table
-    ( Nodes ) DumbNodeHash => NodeRLP
+    ( Nodes ) NodeHash => NodeRLP
 );
 
 impl TrieDB {
@@ -49,14 +49,14 @@ impl TrieDB {
     }
 
     /// Retrieves a node based on its reference
-    pub fn get_node(&self, hash: DumbNodeHash) -> Result<Option<Node>, StoreError> {
+    pub fn get_node(&self, hash: NodeHash) -> Result<Option<Node>, StoreError> {
         self.read::<Nodes>(hash)?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
 
     /// Inserts a node and returns its reference
-    pub fn insert_node(&mut self, node: Node, hash: DumbNodeHash) -> Result<(), StoreError> {
+    pub fn insert_node(&mut self, node: Node, hash: NodeHash) -> Result<(), StoreError> {
         self.write::<Nodes>(hash, node.encode_to_vec())
     }
 

@@ -10,7 +10,7 @@ pub use leaf::LeafNode;
 use crate::error::StoreError;
 
 use super::{
-    db::TrieDB, dumb_hash::DumbNodeHash, nibble::NibbleSlice, node_ref::NodeRef, ValueRLP,
+    db::TrieDB, node_hash::NodeHash, nibble::NibbleSlice, node_ref::NodeRef, ValueRLP,
 };
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
@@ -81,7 +81,7 @@ impl Node {
         self,
         path_offset: usize,
         db: &mut TrieDB,
-    ) -> Result<DumbNodeHash, StoreError> {
+    ) -> Result<NodeHash, StoreError> {
         match self {
             Node::Branch(n) => n.insert_self(db),
             Node::Extension(n) => n.insert_self(db),
@@ -89,7 +89,7 @@ impl Node {
         }
     }
 
-    pub fn dumb_hash(&self, path_offset: usize) -> DumbNodeHash {
+    pub fn dumb_hash(&self, path_offset: usize) -> NodeHash {
         match self {
             Node::Branch(n) => n.dumb_hash(),
             Node::Extension(n) => n.dumb_hash(),

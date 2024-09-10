@@ -3,11 +3,7 @@ use ethereum_types::H256;
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
-        dumb_hash::{self, DumbNodeHash, HashBuilder},
-        nibble::NibbleSlice,
-        node::BranchNode,
-        PathRLP, ValueRLP,
+        db::TrieDB, nibble::NibbleSlice, node::BranchNode, node_hash::{NodeHash, NodeHasher, PathKind}, PathRLP, ValueRLP
     },
 };
 
@@ -120,22 +116,22 @@ impl LeafNode {
         })
     }
 
-    pub fn dumb_hash(&self, offset: usize) -> DumbNodeHash {
+    pub fn dumb_hash(&self, offset: usize) -> NodeHash {
         let encoded_value = &self.value;
         let encoded_path = &self.path;
 
         let mut path = NibbleSlice::new(encoded_path);
         path.offset_add(offset);
 
-        let path_len = HashBuilder::path_len(path.len());
-        let value_len = HashBuilder::bytes_len(
+        let path_len = NodeHasher::path_len(path.len());
+        let value_len = NodeHasher::bytes_len(
             encoded_value.len(),
             encoded_value.first().copied().unwrap_or_default(),
         );
 
-        let mut hasher = HashBuilder::new();
+        let mut hasher = NodeHasher::new();
         hasher.write_list_header(path_len + value_len);
-        hasher.write_path_slice(&path, dumb_hash::PathKind::Leaf);
+        hasher.write_path_slice(&path, PathKind::Leaf);
         hasher.write_bytes(&encoded_value);
         hasher.finalize()
     }
@@ -146,7 +142,7 @@ impl LeafNode {
         self,
         path_offset: usize,
         db: &mut TrieDB,
-    ) -> Result<DumbNodeHash, StoreError> {
+    ) -> Result<NodeHash, StoreError> {
         let hash = self.dumb_hash(path_offset);
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)

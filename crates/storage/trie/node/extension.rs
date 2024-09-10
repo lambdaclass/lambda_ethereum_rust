@@ -1,6 +1,6 @@
 use crate::error::StoreError;
 use crate::trie::db::TrieDB;
-use crate::trie::dumb_hash::{self, DumbNodeHash, HashBuilder};
+use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::ValueRLP;
 use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
@@ -12,12 +12,12 @@ use super::{BranchNode, LeafNode, Node};
 #[derive(Debug)]
 pub struct ExtensionNode {
     pub prefix: NibbleVec,
-    pub child: DumbNodeHash,
+    pub child: NodeHash,
 }
 
 impl ExtensionNode {
     /// Creates a new extension node given its child reference and prefix
-    pub(crate) fn new(prefix: NibbleVec, child: DumbNodeHash) -> Self {
+    pub(crate) fn new(prefix: NibbleVec, child: NodeHash) -> Self {
         Self { prefix, child }
     }
 
@@ -157,26 +157,26 @@ impl ExtensionNode {
         }
     }
 
-    pub fn dumb_hash(&self) -> DumbNodeHash {
+    pub fn dumb_hash(&self) -> NodeHash {
         let child_hash = &self.child;
-        let prefix_len = HashBuilder::path_len(self.prefix.len());
+        let prefix_len = NodeHasher::path_len(self.prefix.len());
         let child_len = match child_hash {
-            DumbNodeHash::Inline(ref x) => x.len(),
-            DumbNodeHash::Hashed(x) => HashBuilder::bytes_len(32, x[0]),
+            NodeHash::Inline(ref x) => x.len(),
+            NodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
         };
 
-        let mut hasher = HashBuilder::new();
+        let mut hasher = NodeHasher::new();
         hasher.write_list_header(prefix_len + child_len);
-        hasher.write_path_vec(&self.prefix, dumb_hash::PathKind::Extension);
+        hasher.write_path_vec(&self.prefix, PathKind::Extension);
         match child_hash {
-            DumbNodeHash::Inline(x) => hasher.write_raw(&x),
-            DumbNodeHash::Hashed(x) => hasher.write_bytes(&x.0),
+            NodeHash::Inline(x) => hasher.write_raw(&x),
+            NodeHash::Hashed(x) => hasher.write_bytes(&x.0),
         }
         hasher.finalize()
     }
 
     /// Inserts the node into the DB and returns its hash
-    pub fn insert_self(self, db: &mut TrieDB) -> Result<DumbNodeHash, StoreError> {
+    pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
         let hash = self.dumb_hash();
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)

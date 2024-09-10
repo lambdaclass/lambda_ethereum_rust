@@ -4,7 +4,7 @@ use crate::{
     error::StoreError,
     trie::{
         db::TrieDB,
-        dumb_hash::{DumbNodeHash, HashBuilder},
+        node_hash::{NodeHash, NodeHasher},
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_ref::NodeRef,
         PathRLP, ValueRLP,
@@ -17,34 +17,34 @@ use super::{ExtensionNode, LeafNode, Node};
 /// Contains the node's hash, value, path, and the hash of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
-    pub choices: [DumbNodeHash; 16],
+    pub choices: [NodeHash; 16],
     pub path: PathRLP,
     pub value: ValueRLP,
 }
 
 impl BranchNode {
     /// Empty choice array for more convenient node-building
-    pub const EMPTY_CHOICES: [DumbNodeHash; 16] = [
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
-        DumbNodeHash::const_default(),
+    pub const EMPTY_CHOICES: [NodeHash; 16] = [
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
     ];
 
     /// Creates a new branch node given its children, without any stored value
-    pub fn new(choices: [DumbNodeHash; 16]) -> Self {
+    pub fn new(choices: [NodeHash; 16]) -> Self {
         Self {
             choices,
             path: Default::default(),
@@ -53,7 +53,7 @@ impl BranchNode {
     }
 
     /// Creates a new branch node given its children and stores the given (path, value) pair
-    pub fn new_with_value(choices: [DumbNodeHash; 16], path: PathRLP, value: ValueRLP) -> Self {
+    pub fn new_with_value(choices: [NodeHash; 16], path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
             path,
@@ -167,7 +167,7 @@ impl BranchNode {
                             child_node.insert_self(path.offset(), db)?;
                     } else {
                         // Remove child reference if the child subtrie was removed in the process
-                        self.choices[choice_index as usize] = DumbNodeHash::default();
+                        self.choices[choice_index as usize] = NodeHash::default();
                     }
                     old_value
                 } else {
@@ -259,12 +259,12 @@ impl BranchNode {
     }
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn dumb_hash(&self) -> DumbNodeHash {
-        let hash_choice = |node_hash: &DumbNodeHash| -> (Vec<u8>, usize) {
+    pub fn dumb_hash(&self) -> NodeHash {
+        let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
             if node_hash.is_valid() {
                 match node_hash {
-                    DumbNodeHash::Hashed(x) => (x.as_bytes().to_vec(), 32),
-                    DumbNodeHash::Inline(x) => (x.clone(), x.len()),
+                    NodeHash::Hashed(x) => (x.as_bytes().to_vec(), 32),
+                    NodeHash::Inline(x) => (x.clone(), x.len()),
                 }
             } else {
                 (Vec::new(), 0)
@@ -281,18 +281,18 @@ impl BranchNode {
             .iter()
             .map(|x| match x {
                 (_, 0) => 1,
-                (x, 32) => HashBuilder::bytes_len(32, x[0]),
+                (x, 32) => NodeHasher::bytes_len(32, x[0]),
                 (_, y) => *y,
             })
             .sum();
         if let Some(value) = encoded_value {
             children_len +=
-                HashBuilder::bytes_len(value.len(), value.first().copied().unwrap_or_default());
+                NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
         } else {
             children_len += 1;
         }
 
-        let mut hasher = HashBuilder::new();
+        let mut hasher = NodeHasher::new();
         hasher.write_list_header(children_len);
         children.iter().for_each(|(x, len)| match len {
             0 => hasher.write_bytes(&[]),
@@ -307,7 +307,7 @@ impl BranchNode {
     }
 
     /// Inserts the node into the DB and returns its hash
-    pub fn insert_self(self, db: &mut TrieDB) -> Result<DumbNodeHash, StoreError> {
+    pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
         let hash = self.dumb_hash();
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)
@@ -326,8 +326,8 @@ mod test {
         let node = BranchNode::new({
             let mut choices = BranchNode::EMPTY_CHOICES;
 
-            choices[2] = DumbNodeHash::Hashed(H256([2; 32]));
-            choices[5] = DumbNodeHash::Hashed(H256([5; 32]));
+            choices[2] = NodeHash::Hashed(H256([2; 32]));
+            choices[5] = NodeHash::Hashed(H256([5; 32]));
 
             choices
         });
@@ -337,10 +337,10 @@ mod test {
             [
                 Default::default(),
                 Default::default(),
-                DumbNodeHash::Hashed(H256([2; 32])),
+                NodeHash::Hashed(H256([2; 32])),
                 Default::default(),
                 Default::default(),
-                DumbNodeHash::Hashed(H256([5; 32])),
+                NodeHash::Hashed(H256([5; 32])),
                 Default::default(),
                 Default::default(),
                 Default::default(),
