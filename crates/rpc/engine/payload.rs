@@ -1,5 +1,6 @@
 use ethereum_rust_chain::error::ChainError;
 use ethereum_rust_chain::{add_block, latest_valid_hash};
+use ethereum_rust_core::types::ForkId;
 use ethereum_rust_core::H256;
 use ethereum_rust_storage::Store;
 use serde_json::Value;
@@ -45,9 +46,9 @@ pub fn new_payload_v3(
     // Payload Validation
 
     // Check timestamp does not fall within the time frame of the Cancun fork
-    match storage.get_cancun_time()? {
-        Some(cancun_time) if block.header.timestamp > cancun_time => {}
-        _ => return Err(RpcErr::UnsuportedFork),
+    let chain_config = storage.get_chain_config()?;
+    if chain_config.get_fork(block.header.timestamp) < ForkId::Cancun {
+        return Err(RpcErr::UnsuportedFork);
     }
 
     // Check that block_hash is valid

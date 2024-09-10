@@ -8,7 +8,7 @@ use db::StoreWrapper;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHeader, GenericTransaction, Receipt, Transaction, TxKind,
+        AccountInfo, Block, BlockHeader, ForkId, GenericTransaction, Receipt, Transaction, TxKind,
         Withdrawal, GWEI_TO_WEI,
     },
     Address, BigEndianHash, H256, U256,
@@ -546,21 +546,12 @@ fn access_list_inspector(
 /// Returns the spec id according to the block timestamp and the stored chain config
 /// WARNING: Assumes at least Merge fork is active
 pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
-    Ok(
-        if store
-            .get_cancun_time()?
-            .is_some_and(|t| t <= block_timestamp)
-        {
-            SpecId::CANCUN
-        } else if store
-            .get_shanghai_time()?
-            .is_some_and(|t| t <= block_timestamp)
-        {
-            SpecId::SHANGHAI
-        } else {
-            SpecId::MERGE
-        },
-    )
+    let chain_config = store.get_chain_config()?;
+    match chain_config.get_fork(block_timestamp) {
+        ForkId::Cancun => return Ok(SpecId::CANCUN),
+        ForkId::Shanghai => return Ok(SpecId::SHANGHAI),
+        ForkId::Paris => return Ok(SpecId::MERGE),
+    }
 }
 
 /// Calculating gas_price according to EIP-1559 rules

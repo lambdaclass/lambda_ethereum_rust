@@ -184,16 +184,10 @@ pub trait StoreEngine: Debug + Send {
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
 
     /// Returns the stored chain configuration
-    fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError>;
+    fn get_chain_config(&self) -> Result<ChainConfig, StoreError>;
 
     /// Obtain the current chain id
     fn get_chain_id(&self) -> Result<Option<u64>, StoreError>;
-
-    /// Obtain the timestamp at which the cancun fork was activated
-    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError>;
-
-    /// Obtain the timestamp at which the shanghai fork was activated
-    fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError>;
 
     // Update earliest block number
     fn update_earliest_block_number(&mut self, block_number: BlockNumber)
