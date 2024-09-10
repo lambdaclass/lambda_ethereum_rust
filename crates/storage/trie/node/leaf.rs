@@ -5,7 +5,6 @@ use crate::{
     trie::{
         db::TrieDB,
         dumb_hash::{self, DumbNodeHash, HashBuilder},
-        hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind},
         nibble::NibbleSlice,
         node::BranchNode,
         PathRLP, ValueRLP,
@@ -17,7 +16,6 @@ use super::{ExtensionNode, Node};
 /// Contains the node's hash, value & path
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
-    pub hash: NodeHash,
     pub path: PathRLP,
     pub value: ValueRLP,
 }
@@ -25,11 +23,7 @@ pub struct LeafNode {
 impl LeafNode {
     /// Creates a new leaf node and stores the given (path, value) pair
     pub fn new(path: PathRLP, value: ValueRLP) -> Self {
-        Self {
-            hash: Default::default(),
-            path,
-            value,
-        }
+        Self { path, value }
     }
 
     /// Returns the stored value if the given path matches the stored path
@@ -54,7 +48,6 @@ impl LeafNode {
             Leaf { SelfPath, SelfValue } -> Extension { Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue} }
             Leaf { SelfPath, SelfValue } -> Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
         */
-        self.hash.mark_as_dirty();
         // If the path matches the stored path, update the value and return self
         if path.cmp_rest(&self.path) {
             self.value = value;
@@ -127,24 +120,6 @@ impl LeafNode {
         })
     }
 
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, path_offset: usize) -> Result<NodeHashRef, StoreError> {
-        if let Some(hash) = self.hash.extract_ref() {
-            return Ok(hash);
-        }
-        let encoded_value = &self.value;
-        let encoded_path = &self.path;
-
-        let mut path_slice = NibbleSlice::new(encoded_path);
-        path_slice.offset_add(path_offset);
-
-        Ok(compute_leaf_hash(
-            &self.hash,
-            path_slice,
-            encoded_value.as_ref(),
-        ))
-    }
-
     pub fn dumb_hash(&self, offset: usize) -> DumbNodeHash {
         let encoded_value = &self.value;
         let encoded_path = &self.path;
@@ -176,18 +151,6 @@ impl LeafNode {
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)
     }
-}
-
-/// Helper method to compute the hash of a leaf node
-fn compute_leaf_hash<'a>(hash: &'a NodeHash, path: NibbleSlice, value: &[u8]) -> NodeHashRef<'a> {
-    let path_len = NodeHasher::path_len(path.len());
-    let value_len = NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
-
-    let mut hasher = NodeHasher::new(hash);
-    hasher.write_list_header(path_len + value_len);
-    hasher.write_path_slice(&path, PathKind::Leaf);
-    hasher.write_bytes(value);
-    hasher.finalize()
 }
 
 #[cfg(test)]

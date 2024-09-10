@@ -5,7 +5,6 @@ use crate::{
     trie::{
         db::TrieDB,
         dumb_hash::{DumbNodeHash, HashBuilder},
-        hashing::{DelimitedHash, NodeHash, NodeHashRef, NodeHasher, Output},
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_ref::NodeRef,
         PathRLP, ValueRLP,
@@ -18,7 +17,6 @@ use super::{ExtensionNode, LeafNode, Node};
 /// Contains the node's hash, value, path, and the hash of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
-    pub hash: NodeHash,
     pub choices: [DumbNodeHash; 16],
     pub path: PathRLP,
     pub value: ValueRLP,
@@ -49,7 +47,6 @@ impl BranchNode {
     pub fn new(choices: [DumbNodeHash; 16]) -> Self {
         Self {
             choices,
-            hash: Default::default(),
             path: Default::default(),
             value: Default::default(),
         }
@@ -59,7 +56,6 @@ impl BranchNode {
     pub fn new_with_value(choices: [DumbNodeHash; 16], path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
-            hash: Default::default(),
             path,
             value,
         }
@@ -101,7 +97,6 @@ impl BranchNode {
     ) -> Result<Node, StoreError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
-        self.hash.mark_as_dirty();
         match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
@@ -213,10 +208,6 @@ impl BranchNode {
                 })
             });
 
-        if value.is_some() {
-            self.hash.mark_as_dirty();
-        }
-
         let child_hash = match choice_count {
             Ok(Some((choice_index, child_hash))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();
@@ -265,51 +256,6 @@ impl BranchNode {
         };
 
         Ok((new_node, value))
-    }
-
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
-        if let Some(hash) = self.hash.extract_ref() {
-            return Ok(hash);
-        };
-        let hash_choice = |node_hash: &DumbNodeHash| -> Result<DelimitedHash, StoreError> {
-            if node_hash.is_valid() {
-                let child_node = db
-                    .get_node(node_hash.clone())?
-                    .expect("inconsistent internal tree structure");
-
-                let mut target = Output::default();
-                let target_len = match child_node.compute_hash(db, path_offset + 1)? {
-                    NodeHashRef::Inline(x) => {
-                        target[..x.len()].copy_from_slice(&x);
-                        x.len()
-                    }
-                    NodeHashRef::Hashed(x) => {
-                        target.copy_from_slice(&x);
-                        x.len()
-                    }
-                };
-
-                Ok(DelimitedHash(target, target_len))
-            } else {
-                Ok(DelimitedHash(Output::default(), 0))
-            }
-        };
-        let children = self
-            .choices
-            .iter()
-            .map(|node_hash| hash_choice(node_hash))
-            .collect::<Result<Vec<_>, _>>()?
-            .try_into()
-            .unwrap();
-
-        let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
-
-        Ok(compute_branch_hash::<DelimitedHash>(
-            &self.hash,
-            &children,
-            encoded_value,
-        ))
     }
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
@@ -366,45 +312,6 @@ impl BranchNode {
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)
     }
-}
-
-/// Helper method to compute the hash of a branch node
-fn compute_branch_hash<'a, T>(
-    hash: &'a NodeHash,
-    choices: &[T; 16],
-    value: Option<&[u8]>,
-) -> NodeHashRef<'a>
-where
-    T: AsRef<[u8]>,
-{
-    let mut children_len: usize = choices
-        .iter()
-        .map(|x| match x.as_ref().len() {
-            0 => 1,
-            32 => NodeHasher::bytes_len(32, x.as_ref()[0]),
-            x => x,
-        })
-        .sum();
-
-    if let Some(value) = value {
-        children_len +=
-            NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
-    } else {
-        children_len += 1;
-    }
-
-    let mut hasher = NodeHasher::new(hash);
-    hasher.write_list_header(children_len);
-    choices.iter().for_each(|x| match x.as_ref().len() {
-        0 => hasher.write_bytes(&[]),
-        32 => hasher.write_bytes(x.as_ref()),
-        _ => hasher.write_raw(x.as_ref()),
-    });
-    match value {
-        Some(value) => hasher.write_bytes(value),
-        None => hasher.write_bytes(&[]),
-    }
-    hasher.finalize()
 }
 
 #[cfg(test)]

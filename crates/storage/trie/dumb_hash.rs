@@ -5,10 +5,9 @@ use ethereum_types::H256;
 use libmdbx::orm::{Decodable, Encodable};
 use sha3::{Digest, Keccak256};
 
-use super::{
-    hashing::Output,
-    nibble::{NibbleSlice, NibbleVec},
-};
+type Output = digest::Output<Keccak256>;
+
+use super::nibble::{NibbleSlice, NibbleVec};
 
 #[derive(Default)]
 pub struct HashBuilder {

@@ -1,6 +1,5 @@
 mod db;
 mod dumb_hash;
-mod hashing;
 mod nibble;
 mod node;
 mod node_ref;
@@ -14,9 +13,7 @@ use ethereum_types::H256;
 use node::Node;
 use sha3::{Digest, Keccak256};
 
-use self::{
-    db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, node::LeafNode, node_ref::NodeRef,
-};
+use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode, node_ref::NodeRef};
 use crate::error::StoreError;
 
 use lazy_static::lazy_static;
@@ -119,26 +116,10 @@ impl Trie {
     /// Returns keccak(RLP_NULL) if the trie is empty
     /// TODO: Rename
     pub fn compute_hash(&mut self) -> H256 {
-        let hash1 = self
-            .root
+        self.root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH);
-        if let Some(root_node) = self
-            .db
-            .get_node(self.root.clone().unwrap_or_default())
-            .unwrap()
-        {
-            let hash = H256::from_slice(
-                match root_node.compute_hash(&self.db, 0).unwrap() {
-                    NodeHashRef::Inline(x) => Keccak256::new().chain_update(&*x).finalize(),
-                    NodeHashRef::Hashed(x) => *x,
-                }
-                .as_slice(),
-            );
-            assert_eq!(hash1, hash);
-        }
-        hash1
+            .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root

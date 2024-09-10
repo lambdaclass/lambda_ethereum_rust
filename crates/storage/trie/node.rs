@@ -10,8 +10,7 @@ pub use leaf::LeafNode;
 use crate::error::StoreError;
 
 use super::{
-    db::TrieDB, dumb_hash::DumbNodeHash, hashing::NodeHashRef, nibble::NibbleSlice,
-    node_ref::NodeRef, ValueRLP,
+    db::TrieDB, dumb_hash::DumbNodeHash, nibble::NibbleSlice, node_ref::NodeRef, ValueRLP,
 };
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
@@ -75,15 +74,6 @@ impl Node {
             Node::Branch(n) => n.remove(db, path),
             Node::Extension(n) => n.remove(db, path),
             Node::Leaf(n) => n.remove(path),
-        }
-    }
-
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
-        match self {
-            Node::Branch(n) => n.compute_hash(db, path_offset),
-            Node::Extension(n) => n.compute_hash(db, path_offset),
-            Node::Leaf(n) => n.compute_hash(path_offset),
         }
     }
 

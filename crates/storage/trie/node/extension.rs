@@ -5,15 +5,12 @@ use crate::trie::nibble::NibbleSlice;
 use crate::trie::ValueRLP;
 use crate::trie::{nibble::NibbleVec, node_ref::NodeRef};
 
-use crate::trie::hashing::{NodeHash, NodeHashRef, NodeHasher, PathKind};
-
 use super::{BranchNode, LeafNode, Node};
 
 /// Extension Node of an an Ethereum Compatible Patricia Merkle Trie
 /// Contains the node's prefix and a reference to its child node, doesn't store any value
 #[derive(Debug)]
 pub struct ExtensionNode {
-    pub hash: NodeHash,
     pub prefix: NibbleVec,
     pub child: DumbNodeHash,
 }
@@ -21,11 +18,7 @@ pub struct ExtensionNode {
 impl ExtensionNode {
     /// Creates a new extension node given its child reference and prefix
     pub(crate) fn new(prefix: NibbleVec, child: DumbNodeHash) -> Self {
-        Self {
-            prefix,
-            child,
-            hash: Default::default(),
-        }
+        Self { prefix, child }
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
@@ -59,8 +52,6 @@ impl ExtensionNode {
             Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , ..], Path, Value} (if path fully traversed)
             Extension { None+C+prefixR } -> Branch { [ Extension { prefixR, child } , Leaf { Path, Value } , ... ], None, None} (if path not fully traversed)
         */
-
-        self.hash.mark_as_dirty();
 
         if path.skip_prefix(&self.prefix) {
             // Insert into child node
@@ -139,9 +130,6 @@ impl ExtensionNode {
                 .expect("inconsistent internal tree structure");
             // Remove value from child subtrie
             let (child_node, old_value) = child_node.remove(db, path.clone())?;
-            if old_value.is_some() {
-                self.hash.mark_as_dirty();
-            }
             // Restructure node based on removal
             let node = match child_node {
                 // If there is no subtrie remove the node
@@ -169,30 +157,12 @@ impl ExtensionNode {
         }
     }
 
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
-        if let Some(hash) = self.hash.extract_ref() {
-            return Ok(hash);
-        };
-        let child_node = db
-            .get_node(self.child.clone())?
-            .expect("inconsistent internal tree structure");
-
-        let child_hash_ref = child_node.compute_hash(db, path_offset + self.prefix.len())?;
-
-        Ok(compute_extension_hash(
-            &self.hash,
-            &self.prefix,
-            child_hash_ref,
-        ))
-    }
-
     pub fn dumb_hash(&self) -> DumbNodeHash {
         let child_hash = &self.child;
-        let prefix_len = NodeHasher::path_len(self.prefix.len());
+        let prefix_len = HashBuilder::path_len(self.prefix.len());
         let child_len = match child_hash {
             DumbNodeHash::Inline(ref x) => x.len(),
-            DumbNodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
+            DumbNodeHash::Hashed(x) => HashBuilder::bytes_len(32, x[0]),
         };
 
         let mut hasher = HashBuilder::new();
@@ -211,28 +181,6 @@ impl ExtensionNode {
         db.insert_node(self.into(), hash.clone())?;
         Ok(hash)
     }
-}
-
-/// Helper function to compute the hash of an extension node
-fn compute_extension_hash<'a>(
-    hash: &'a NodeHash,
-    prefix: &NibbleVec,
-    child_hash_ref: NodeHashRef,
-) -> NodeHashRef<'a> {
-    let prefix_len = NodeHasher::path_len(prefix.len());
-    let child_len = match &child_hash_ref {
-        NodeHashRef::Inline(x) => x.len(),
-        NodeHashRef::Hashed(x) => NodeHasher::bytes_len(x.len(), x[0]),
-    };
-
-    let mut hasher = NodeHasher::new(hash);
-    hasher.write_list_header(prefix_len + child_len);
-    hasher.write_path_vec(prefix, PathKind::Extension);
-    match child_hash_ref {
-        NodeHashRef::Inline(x) => hasher.write_raw(&x),
-        NodeHashRef::Hashed(x) => hasher.write_bytes(&x),
-    }
-    hasher.finalize()
 }
 
 #[cfg(test)]
