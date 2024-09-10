@@ -199,10 +199,7 @@ impl NodeHash {
     /// The hash will only be considered invalid if it is empty
     /// Aka if it has a default value instead of being a product of hash computation
     pub fn is_valid(&self) -> bool {
-        match self {
-            NodeHash::Inline(v) if v.is_empty() => false,
-            _ => true,
-        }
+        !matches!(self, NodeHash::Inline(v) if v.is_empty())
     }
 
     /// Const version of `Default` trait impl
