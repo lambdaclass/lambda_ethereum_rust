@@ -8,7 +8,7 @@ use crate::trie::ValueRLP;
 use super::{BranchNode, LeafNode, Node};
 
 /// Extension Node of an an Ethereum Compatible Patricia Merkle Trie
-/// Contains the node's prefix and a reference to its child node, doesn't store any value
+/// Contains the node's prefix and a its child node hash, doesn't store any value
 #[derive(Debug)]
 pub struct ExtensionNode {
     pub prefix: NibbleVec,
@@ -16,7 +16,7 @@ pub struct ExtensionNode {
 }
 
 impl ExtensionNode {
-    /// Creates a new extension node given its child reference and prefix
+    /// Creates a new extension node given its child hash and prefix
     pub(crate) fn new(prefix: NibbleVec, child: NodeHash) -> Self {
         Self { prefix, child }
     }

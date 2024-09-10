@@ -40,7 +40,6 @@ impl TrieDB {
     }
 
     /// Opens a DB created by a previous execution
-    /// Also returns root node reference if available
     pub fn open(trie_dir: &str) -> Result<TrieDB, StoreError> {
         // Open DB
         let tables = [table_info!(Nodes)].into_iter().collect();
@@ -48,14 +47,14 @@ impl TrieDB {
         Ok(TrieDB { db })
     }
 
-    /// Retrieves a node based on its reference
+    /// Retrieves a node based on its hash
     pub fn get_node(&self, hash: NodeHash) -> Result<Option<Node>, StoreError> {
         self.read::<Nodes>(hash)?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
 
-    /// Inserts a node and returns its reference
+    /// Inserts a node and returns its hash
     pub fn insert_node(&mut self, node: Node, hash: NodeHash) -> Result<(), StoreError> {
         self.write::<Nodes>(hash, node.encode_to_vec())
     }

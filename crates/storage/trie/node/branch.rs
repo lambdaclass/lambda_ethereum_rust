@@ -164,7 +164,7 @@ impl BranchNode {
                         self.choices[choice_index as usize] =
                             child_node.insert_self(path.offset(), db)?;
                     } else {
-                        // Remove child reference if the child subtrie was removed in the process
+                        // Remove child hash if the child subtrie was removed in the process
                         self.choices[choice_index as usize] = NodeHash::default();
                     }
                     old_value
@@ -192,7 +192,7 @@ impl BranchNode {
 
         // An `Err(_)` means more than one choice. `Ok(Some(_))` and `Ok(None)` mean a single and no
         // choices respectively.
-        // If there is only one child choice_count will contain the choice index and the reference of the child node
+        // If there is only one child choice_count will contain the choice index and the hash of the child node
         let choice_count = self
             .choices
             .iter_mut()

@@ -89,12 +89,12 @@ impl LeafNode {
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value);
-                let child_ref = new_leaf.insert_self(leaf_offset, db)?;
+                let child_hash = new_leaf.insert_self(leaf_offset, db)?;
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] = self.clone().insert_self(leaf_offset, db)?;
-                choices[path_branch.next().unwrap() as usize] = child_ref;
+                choices[path_branch.next().unwrap() as usize] = child_hash;
                 BranchNode::new(Box::new(choices))
             };
 
