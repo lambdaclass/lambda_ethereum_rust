@@ -25,7 +25,6 @@ pub struct BranchNode {
 }
 
 impl BranchNode {
-
     /// Empty choice array for more convenient node-building
     pub const EMPTY_CHOICES: [DumbNodeHash; 16] = [
         DumbNodeHash::const_default(),
@@ -413,8 +412,8 @@ mod test {
         let node = BranchNode::new({
             let mut choices = BranchNode::EMPTY_CHOICES;
 
-            choices[2] = DumbNodeHash::Hashed(H256([2;32]));
-            choices[5] = DumbNodeHash::Hashed(H256([5;32]));
+            choices[2] = DumbNodeHash::Hashed(H256([2; 32]));
+            choices[5] = DumbNodeHash::Hashed(H256([5; 32]));
 
             choices
         });
@@ -424,10 +423,10 @@ mod test {
             [
                 Default::default(),
                 Default::default(),
-                DumbNodeHash::Hashed(H256([2;32])),
+                DumbNodeHash::Hashed(H256([2; 32])),
                 Default::default(),
                 Default::default(),
-                DumbNodeHash::Hashed(H256([5;32])),
+                DumbNodeHash::Hashed(H256([5; 32])),
                 Default::default(),
                 Default::default(),
                 Default::default(),

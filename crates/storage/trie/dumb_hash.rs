@@ -18,7 +18,7 @@ pub struct HashBuilder {
     no_inline: bool,
 }
 
-/// TODO: check wether making this `Copy`` can make the code less verbose at a reasonable performance cost
+/// TODO: check wether making this `Copy` can make the code less verbose at a reasonable performance cost
 #[derive(Debug, Clone, PartialEq)]
 pub enum DumbNodeHash {
     Hashed(H256),
@@ -203,7 +203,7 @@ impl DumbNodeHash {
     pub fn is_valid(&self) -> bool {
         match self {
             DumbNodeHash::Inline(v) if v.is_empty() => false,
-            _ => true
+            _ => true,
         }
     }
 
@@ -277,7 +277,12 @@ impl RLPEncode for DumbNodeHash {
 }
 
 impl RLPDecode for DumbNodeHash {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
-        todo!()
+    fn decode_unfinished(
+        rlp: &[u8],
+    ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
+        let (mut hash, mut rest): (Vec<u8>, &[u8]);
+        (hash, rest) = RLPDecode::decode_unfinished(rlp)?;
+        let hash = DumbNodeHash::from(hash);
+        Ok((hash, rest))
     }
 }
