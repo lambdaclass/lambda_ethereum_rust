@@ -1,7 +1,11 @@
 use serde_json::Value;
 use tracing::info;
 
-use crate::{eth::block::BlockIdentifier, utils::RpcErr, RpcHandler};
+use crate::{
+    eth::block::BlockIdentifier,
+    utils::{RpcErr, RpcRequest},
+    RpcHandler,
+};
 use ethereum_rust_core::{rlp::encode::RLPEncode, types::Block};
 use ethereum_rust_storage::Store;
 
@@ -18,6 +22,11 @@ impl RpcHandler for GetRawBlock {
         Some(GetRawBlock {
             block: serde_json::from_value(params[0].clone()).ok()?,
         })
+    }
+
+    fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+        let request = Self::parse(&req.params).ok_or(RpcErr::InvalidParams)?;
+        request.handle(storage)
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {

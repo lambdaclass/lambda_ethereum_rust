@@ -8,7 +8,8 @@ use crate::authentication::AuthenticationError;
 #[derive(Debug)]
 pub enum RpcErr {
     MethodNotFound,
-    BadParams,
+    InvalidRequest,
+    InvalidParams,
     UnsuportedFork,
     Internal,
     Vm,
@@ -24,7 +25,12 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: "Method not found".to_string(),
             },
-            RpcErr::BadParams => RpcErrorMetadata {
+            RpcErr::InvalidRequest => RpcErrorMetadata {
+                code: -32000,
+                data: None,
+                message: "Invalid request".to_string(),
+            },
+            RpcErr::InvalidParams => RpcErrorMetadata {
                 code: -32602,
                 data: None,
                 message: "Invalid params".to_string(),

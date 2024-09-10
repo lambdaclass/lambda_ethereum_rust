@@ -56,7 +56,7 @@ trait RpcHandler: Sized {
     fn parse(params: &Option<Vec<Value>>) -> Option<Self>;
 
     fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
-        let request = Self::parse(&req.params).ok_or(RpcErr::BadParams)?;
+        let request = Self::parse(&req.params).ok_or(RpcErr::InvalidRequest)?;
         request.handle(storage)
     }
 
@@ -195,19 +195,21 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
             let capabilities: ExchangeCapabilitiesRequest = req
                 .params
                 .as_ref()
-                .ok_or(RpcErr::BadParams)?
+                .ok_or(RpcErr::InvalidParams)?
                 .first()
-                .ok_or(RpcErr::BadParams)
-                .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
+                .ok_or(RpcErr::InvalidParams)
+                .and_then(|v| {
+                    serde_json::from_value(v.clone()).map_err(|_| RpcErr::InvalidParams)
+                })?;
             engine::exchange_capabilities(&capabilities)
         }
 
         "engine_forkchoiceUpdatedV3" => {
-            let request = ForkChoiceUpdatedV3::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            let request = ForkChoiceUpdatedV3::parse(&req.params).ok_or(RpcErr::InvalidParams)?;
             fork_choice::forkchoice_updated_v3(request, storage)
         }
         "engine_newPayloadV3" => {
-            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::InvalidParams)?;
             serde_json::to_value(payload::new_payload_v3(request, storage)?)
                 .map_err(|_| RpcErr::Internal)
         }
