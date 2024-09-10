@@ -44,10 +44,10 @@ just test
 
 ### Run
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a git submodule. Make sure to fetch it like follows:
+To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `just` target. Make sure to fetch it like follows:
 
 ```bash
-git submodule update --init
+just checkout-ethereum-package
 ```
 
 Let's now install kurtosis:
@@ -65,7 +65,7 @@ To run the localnet:
 # Make sure we build our docker image with latest changes
 docker build -t ethereum_rust .
 
-# Ethereum package is included in the repo as a submodule.
+# Ethereum package is included in the repo as a just target.
 kurtosis run --enclave lambdanet ethereum-package --args-file network_params.yaml
 ```
 
@@ -81,32 +81,35 @@ kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet
 Add support to follow a post-Merge localnet as a read-only RPC Node. This first milestone will only support a canonical chain (every incoming block has to be the child of the current head). 
 
 RPC endpoints
-- `engine_newPayloadV3` (excl. block building)
-- `eth_blobBaseFee`
-- `eth_blockNumber`
-- `eth_call` (at head block)
-- `eth_chainId`
-- `eth_createAccessList`  (at head block)
+- `engine_newPayloadV3` (excl. block building) ✅
+- `eth_blobBaseFee` ✅
+- `eth_blockNumber` ✅ 
+- `eth_call` (at head block) ✅
+- `eth_chainId` ✅
+- `eth_createAccessList` (at head block) ✅
 - `eth_estimateGas`
 - `eth_feeHistory`
-- `eth_getBalance` (at head block)
-- `eth_getBlockByHash`
-- `eth_getBlockByNumber`
-- `eth_getBlockReceipts`
-- `eth_getBlockTransactionCountByNumber`
-- `eth_getCode` (at head block)
-- `eth_getStorageAt` (at head block)
-- `eth_getTransactionByBlockHashAndIndex`
-- `eth_getTransactionByBlockNumberAndIndex`
-- `eth_getTransactionByHash`
+- `eth_getBalance` (at head block) ✅
+- `eth_getBlockByHash` ✅
+- `eth_getBlockByNumber` ✅
+- `eth_getBlockReceipts` ✅
+- `eth_getBlockTransactionCountByNumber` ✅
+- `eth_getCode` (at head block) ✅
+- `eth_getStorageAt` (at head block) ✅
+- `eth_getTransactionByBlockHashAndIndex` ✅
+- `eth_getTransactionByBlockNumberAndIndex` ✅
+- `eth_getTransactionByHash` ✅
+- `eth_getTransactionCount` ✅
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/1
 
 ### Milestone 2: P2P Network
-Implement DevP2P protocol, including RLPx `p2p` and `eth` capabilities. This will allow us to receive blocks and transactions from other nodes and is a prerequisite for the next milestones.
+Implement DevP2P protocol, including RLPx `p2p` and `eth` capabilities. This will allow us to receive and send blocks and transactions from other nodes and is a prerequisite for the next milestones.
 
 RPC endpoints
-- `admin_nodeInfo`
+- `admin_nodeInfo` ✅
+- `eth_sendTransaction`
+- `eth_sendRawTransaction`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 

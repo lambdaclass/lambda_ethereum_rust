@@ -16,13 +16,17 @@ env:
 
 jobs:
   run-hive:
-    name: ${{ matrix.simulation }}
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - simulation: rpc-compat
-            run_command: just run-hive ethereum/rpc-compat "/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber|eth_createAccessList|eth_getBlockTransactionCountByNumber|eth_getBlockTransactionCountByHash|eth_getBlockReceipts|eth_getTransactionReceipt|eth_blobGasPrice"
+            name: "Rpc Compat tests"
+            run_command: just run-hive ethereum/rpc-compat "/eth_chainId|eth_getTransactionByBlockHashAndIndex|eth_getTransactionByBlockNumberAndIndex|eth_getCode|eth_getStorageAt|eth_call|eth_getTransactionByHash|eth_getBlockByHash|eth_getBlockByNumber|eth_createAccessList|eth_getBlockTransactionCountByNumber|eth_getBlockTransactionCountByHash|eth_getBlockReceipts|eth_getTransactionReceipt|eth_blobGasPrice|eth_blockNumber|ethGetTransactionCount"
+          - simulation: rpc-engine
+            name: "Engine Auth tests"
+            run_command: just run-hive ethereum/engine "/engine-auth"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

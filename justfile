@@ -9,6 +9,7 @@ test crate='*':
 
 clean:  clean-vectors
     cargo clean
+    rm -rf ethereum-package
     rm -rf hive
 
 run_image: build_image
@@ -31,9 +32,23 @@ download-vectors: clean-vectors
 clean-vectors:
     rm -rf {{spectest_vectors_dir}}
 
+ethereum-package-revision := "c7952d75d72159d03aec423b46797df2ded11f99"
+# Shallow clones can't specify a single revision, but at least we avoid working
+# the whole history by making it shallow since a given date (one day before our
+# target revision).
+ethereum-package-shallow-since := "2024-08-23"
+checkout-ethereum-package:
+    [ -d ethereum-package ] || git clone --single-branch --branch ethereum-rust-integration --shallow-since={{ethereum-package-shallow-since}} https://github.com/lambdaclass/ethereum-package
+    cd ethereum-package && git checkout {{ethereum-package-revision}}
+
+hive-revision := "9bff4bbf4439336bd037a444560516dd49ff1c40"
+# Shallow clones can't specify a single revision, but at least we avoid working
+# the whole history by making it shallow since a given date (one day before our
+# target revision).
+hive-shallow-since := "2024-09-02"
 setup-hive:
-    git submodule update --init hive
-    cd hive && go build .
+    [ -d hive ] || git clone --single-branch --branch master --shallow-since={{hive-shallow-since}} https://github.com/lambdaclass/hive
+    cd hive && git checkout {{hive-revision}} && go build .
 
 test-pattern-default := "/"
 
