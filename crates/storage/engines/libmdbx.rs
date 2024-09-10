@@ -25,7 +25,6 @@ use std::path::Path;
 pub struct Store {
     db: Database,
 }
-
 impl Store {
     pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
@@ -378,24 +377,22 @@ impl StoreEngine for Store {
             // or until we reach the 'to' upper bound.
             .take_while(|res| match res {
                 Ok(((block_num, _), receipt)) if *block_num <= to => true,
-                Ok(_) => false,
                 Err(_) if !err_found => {
                     err_found = true;
-                    false
+                    true
                 }
                 _ => false,
-            })
-            // Decode receipt if Ok, else ignore
-            .map(|db_result| db_result.map(|((_, _), encoded_receipt)| encoded_receipt.to()));
-        // Decode receipts
-        let receipts: Result<Vec<Receipt>> = db_iter.collect();
-        match receipts {
-            Ok(receipts) => Ok(receipts
-                .into_iter()
-                .flat_map(|receipt| receipt.logs)
-                .collect()),
-            Err(db_err) => Err(StoreError::LibmdbxError(db_err).into()),
-        }
+            });
+        // Fetched encoded receipts from db, or bail-out if an
+        // error was found.
+        let encoded_receipts = db_iter
+            .collect::<Result<Vec<_>>>()
+            .map_err(|db_err| StoreError::LibmdbxError(db_err))?;
+        // Decode receipts, fetch their logs and return
+        Ok(encoded_receipts
+            .into_iter()
+            .flat_map(|(_, encoded_rec)| encoded_rec.to().logs)
+            .collect())
     }
 }
 
