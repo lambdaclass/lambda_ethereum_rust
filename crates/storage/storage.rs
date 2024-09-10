@@ -20,7 +20,7 @@ use tracing::info;
 
 mod engines;
 pub mod error;
-mod rlp;
+pub mod rlp;
 
 #[derive(Debug, Clone)]
 pub struct Store {
