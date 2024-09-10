@@ -174,7 +174,7 @@ impl PathKind {
     }
 }
 
-impl<'a> AsRef<[u8]> for NodeHash {
+impl AsRef<[u8]> for NodeHash {
     fn as_ref(&self) -> &[u8] {
         match self {
             NodeHash::Inline(x) => x.as_ref(),
