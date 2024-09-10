@@ -10,7 +10,6 @@ pub enum RpcErr {
     MethodNotFound,
     BadParams,
     UnsuportedFork,
-    Deprecation(String),
     Internal,
     Vm,
     Revert { data: String },
@@ -29,11 +28,6 @@ impl From<RpcErr> for RpcErrorMetadata {
                 code: -32000,
                 data: None,
                 message: "Invalid params".to_string(),
-            },
-            RpcErr::Deprecation(message) => RpcErrorMetadata {
-                code: -32000,
-                data: None,
-                message: format!("Deprecation notice: {}", message).to_string(),
             },
             RpcErr::UnsuportedFork => RpcErrorMetadata {
                 code: -38005,
