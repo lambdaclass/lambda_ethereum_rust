@@ -29,6 +29,15 @@ impl RpcHandler for LogsRequest {
         }
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        todo!()
+        let Ok(Some(from)) = self.from.resolve_block_number(&storage) else {
+            return Err(RpcErr::BadParams);
+        };
+        let Ok(Some(to)) = self.to.resolve_block_number(&storage) else {
+            return Err(RpcErr::BadParams);
+        };
+        let logs = storage
+            .get_logs_in_range(to, from)
+            .map_err(|_| RpcErr::Internal)?;
+        serde_json::to_value(logs).map_err(|_| RpcErr::Internal)
     }
 }

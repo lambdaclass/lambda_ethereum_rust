@@ -8,7 +8,7 @@ use engines::api::StoreEngine;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, Index, Receipt, Transaction,
+    ChainConfig, Genesis, Index, Log, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
@@ -465,6 +465,14 @@ impl Store {
             trie.insert(k, v);
         }
         trie
+    }
+
+    pub fn get_logs_in_range(
+        &self,
+        from: BlockNumber,
+        to: BlockNumber,
+    ) -> Result<Vec<Log>, StoreError> {
+        self.engine.lock().unwrap().get_logs_in_range(from, to)
     }
 }
 
