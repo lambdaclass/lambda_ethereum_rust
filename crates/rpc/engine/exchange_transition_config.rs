@@ -40,15 +40,9 @@ impl RpcHandler for ExchangeTransitionConfigV1Req {
         if params.len() != 1 {
             return None;
         };
-        let params: ExchangeTransitionConfigPayload =
+        let payload: ExchangeTransitionConfigPayload =
             serde_json::from_value(params[0].clone()).unwrap();
-        Some(ExchangeTransitionConfigV1Req {
-            payload: ExchangeTransitionConfigPayload {
-                terminal_total_difficulty: params.terminal_total_difficulty,
-                terminal_block_hash: params.terminal_block_hash,
-                terminal_block_number: params.terminal_block_number,
-            },
-        })
+        Some(ExchangeTransitionConfigV1Req { payload })
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
