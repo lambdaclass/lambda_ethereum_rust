@@ -1,9 +1,14 @@
 use std::cmp::min;
 
+use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_types::H256;
+use libmdbx::orm::{Decodable, Encodable};
 use sha3::{Digest, Keccak256};
 
-use super::{hashing::Output, nibble::{NibbleSlice, NibbleVec}};
+use super::{
+    hashing::Output,
+    nibble::{NibbleSlice, NibbleVec},
+};
 
 #[derive(Default)]
 pub struct HashBuilder {
@@ -13,6 +18,7 @@ pub struct HashBuilder {
     no_inline: bool,
 }
 
+#[derive(Debug, Clone)]
 pub enum DumbNodeHash {
     Hashed(H256),
     Inline(Vec<u8>),
@@ -180,11 +186,54 @@ impl<'a> AsRef<[u8]> for DumbNodeHash {
 
 impl DumbNodeHash {
     /// Returns the finalized hash
-    /// NOTE: This will hash smaller nodes
+    /// NOTE: This will hash smaller nodes, only use to get the final root hash, not for intermediate node hashes
     pub fn finalize(self) -> H256 {
         match self {
-            DumbNodeHash::Inline(x) => H256::from_slice(Keccak256::new().chain_update(&*x).finalize().as_slice()),
+            DumbNodeHash::Inline(x) => {
+                H256::from_slice(Keccak256::new().chain_update(&*x).finalize().as_slice())
+            }
             DumbNodeHash::Hashed(x) => x,
         }
+    }
+}
+
+impl From<Vec<u8>> for DumbNodeHash {
+    fn from(value: Vec<u8>) -> Self {
+        match value.len() {
+            32 => DumbNodeHash::Hashed(H256::from_slice(&value)),
+            _ => DumbNodeHash::Inline(value),
+        }
+    }
+}
+
+impl From<H256> for DumbNodeHash {
+    fn from(value: H256) -> Self {
+        DumbNodeHash::Hashed(value)
+    }
+}
+
+impl Into<Vec<u8>> for DumbNodeHash {
+    fn into(self) -> Vec<u8> {
+        match self {
+            DumbNodeHash::Hashed(x) => x.0.to_vec(),
+            DumbNodeHash::Inline(x) => x,
+        }
+    }
+}
+
+impl Encodable for DumbNodeHash {
+    type Encoded = Vec<u8>;
+
+    fn encode(self) -> Self::Encoded {
+        self.into()
+    }
+}
+
+impl Decodable for DumbNodeHash {
+    fn decode(b: &[u8]) -> anyhow::Result<Self> {
+        Ok(match b.len() {
+            32 => DumbNodeHash::Hashed(H256::from_slice(b)),
+            _ => DumbNodeHash::Inline(b.into()),
+        })
     }
 }

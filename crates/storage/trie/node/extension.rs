@@ -99,7 +99,8 @@ impl ExtensionNode {
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
                 let new_leaf = LeafNode::new(path.data(), value);
-                choices[c as usize] = Node::from(new_leaf).insert_self(original_path.offset(), db)?;
+                choices[c as usize] =
+                    Node::from(new_leaf).insert_self(original_path.offset(), db)?;
                 BranchNode::new(choices)
             } else {
                 BranchNode::new_with_value(choices, path.data(), value)
@@ -110,7 +111,8 @@ impl ExtensionNode {
             // If there is no left_prefix: Branch
             match left_prefix {
                 Some(left_prefix) => {
-                    let branch_ref = Node::from(branch_node).insert_self(original_path.offset(), db)?;
+                    let branch_ref =
+                        Node::from(branch_node).insert_self(original_path.offset(), db)?;
 
                     Ok(ExtensionNode::new(left_prefix, branch_ref).into())
                 }
@@ -189,20 +191,21 @@ impl ExtensionNode {
 
     pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
         let child_node = db
-        .get_node(self.child).unwrap()
-        .expect("inconsistent internal tree structure");
+            .get_node(self.child)
+            .unwrap()
+            .expect("inconsistent internal tree structure");
         let child_hash = child_node.dumb_hash(db, path_offset + self.prefix.len());
         let prefix_len = NodeHasher::path_len(self.prefix.len());
         let child_len = match child_hash {
-        DumbNodeHash::Inline(ref x) => x.len(),
-        DumbNodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
+            DumbNodeHash::Inline(ref x) => x.len(),
+            DumbNodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
         };
 
         let mut hasher = HashBuilder::new();
         hasher.write_list_header(prefix_len + child_len);
         hasher.write_path_vec(&self.prefix, dumb_hash::PathKind::Extension);
         match child_hash {
-            DumbNodeHash::Inline( x) => hasher.write_raw(&x),
+            DumbNodeHash::Inline(x) => hasher.write_raw(&x),
             DumbNodeHash::Hashed(x) => hasher.write_bytes(&x.0),
         }
         hasher.finalize()

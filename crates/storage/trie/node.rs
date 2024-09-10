@@ -10,7 +10,8 @@ pub use leaf::LeafNode;
 use crate::error::StoreError;
 
 use super::{
-    db::TrieDB, dumb_hash::DumbNodeHash, hashing::NodeHashRef, nibble::NibbleSlice, node_ref::NodeRef, ValueRLP
+    db::TrieDB, dumb_hash::DumbNodeHash, hashing::NodeHashRef, nibble::NibbleSlice,
+    node_ref::NodeRef, ValueRLP,
 };
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
@@ -87,15 +88,18 @@ impl Node {
         }
     }
 
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeRef, StoreError> {
-        let hash = self.dumb_hash(db, path_offset).finalize();
-        dbg!(&self);
-        dbg!(hash);
+    pub fn insert_self(
+        self,
+        path_offset: usize,
+        db: &mut TrieDB,
+    ) -> Result<DumbNodeHash, StoreError> {
+        let hash = self.dumb_hash(db, path_offset);
         /// Hash is working propperly
         /// NEXT STEPS:
         /// Remove NodeRef & store by hash instead
         /// REMEMBER: Store small nodes as inline (or ban them), maybe we should encode DumbNodeHash
-        db.insert_node(self, hash)
+        db.insert_node(self, hash.clone())?;
+        Ok(hash)
     }
 
     pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
