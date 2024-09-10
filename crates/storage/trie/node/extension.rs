@@ -15,12 +15,12 @@ use super::{BranchNode, LeafNode, Node};
 pub struct ExtensionNode {
     pub hash: NodeHash,
     pub prefix: NibbleVec,
-    pub child: NodeRef,
+    pub child: DumbNodeHash,
 }
 
 impl ExtensionNode {
     /// Creates a new extension node given its child reference and prefix
-    pub(crate) fn new(prefix: NibbleVec, child: NodeRef) -> Self {
+    pub(crate) fn new(prefix: NibbleVec, child: DumbNodeHash) -> Self {
         Self {
             prefix,
             child,
@@ -34,7 +34,7 @@ impl ExtensionNode {
         // Otherwise, no value is present.
         if path.skip_prefix(&self.prefix) {
             let child_node = db
-                .get_node(self.child)?
+                .get_node(self.child.clone())?
                 .expect("inconsistent internal tree structure");
 
             child_node.get(db, path)
@@ -95,7 +95,7 @@ impl ExtensionNode {
             // Create a branch node:
             // If the path hasn't been traversed: Branch { [ RPrefixNode, Leaf { Path, Value }, ... ], None, None }
             // If the path has been fully traversed: Branch { [ RPrefixNode, ... ], Path, Value }
-            let mut choices = [Default::default(); 16];
+            let mut choices = BranchNode::EMPTY_CHOICES;
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
                 let new_leaf = LeafNode::new(path.data(), value);
@@ -177,7 +177,7 @@ impl ExtensionNode {
             return Ok(hash);
         };
         let child_node = db
-            .get_node(self.child)?
+            .get_node(self.child.clone())?
             .expect("inconsistent internal tree structure");
 
         let child_hash_ref = child_node.compute_hash(db, path_offset + self.prefix.len())?;
@@ -191,7 +191,7 @@ impl ExtensionNode {
 
     pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
         let child_node = db
-            .get_node(self.child)
+            .get_node(self.child.clone())
             .unwrap()
             .expect("inconsistent internal tree structure");
         let child_hash = child_node.dumb_hash(db, path_offset + self.prefix.len());
@@ -247,7 +247,7 @@ mod test {
         let node = ExtensionNode::new(NibbleVec::new(), Default::default());
 
         assert_eq!(node.prefix.len(), 0);
-        assert_eq!(node.child, NodeRef::default());
+        assert_eq!(node.child, Default::default());
     }
 
     //     #[test]

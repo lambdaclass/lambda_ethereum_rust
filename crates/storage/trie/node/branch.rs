@@ -1,3 +1,5 @@
+use std::array;
+
 use crate::{
     error::StoreError,
     trie::{
@@ -13,18 +15,39 @@ use crate::{
 use super::{ExtensionNode, LeafNode, Node};
 
 /// Branch Node of an an Ethereum Compatible Patricia Merkle Trie
-/// Contains the node's hash, value, path, and the references of its children nodes
+/// Contains the node's hash, value, path, and the hash of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
     pub hash: NodeHash,
-    pub choices: [NodeRef; 16],
+    pub choices: [DumbNodeHash; 16],
     pub path: PathRLP,
     pub value: ValueRLP,
 }
 
 impl BranchNode {
+
+    /// Empty choice array for more convenient node-building
+    pub const EMPTY_CHOICES: [DumbNodeHash; 16] = [
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+        DumbNodeHash::const_default(),
+    ];
+
     /// Creates a new branch node given its children, without any stored value
-    pub fn new(choices: [NodeRef; 16]) -> Self {
+    pub fn new(choices: [DumbNodeHash; 16]) -> Self {
         Self {
             choices,
             hash: Default::default(),
@@ -34,7 +57,7 @@ impl BranchNode {
     }
 
     /// Creates a new branch node given its children and stores the given (path, value) pair
-    pub fn new_with_value(choices: [NodeRef; 16], path: PathRLP, value: ValueRLP) -> Self {
+    pub fn new_with_value(choices: [DumbNodeHash; 16], path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
             hash: Default::default(),
@@ -55,10 +78,10 @@ impl BranchNode {
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next().map(usize::from) {
             // Delegate to children if present
-            let child_ref = self.choices[choice];
-            if child_ref.is_valid() {
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
                 let child_node = db
-                    .get_node(child_ref)?
+                    .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
                 child_node.get(db, path)
             } else {
@@ -83,19 +106,19 @@ impl BranchNode {
         match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
-                choice_ref if !choice_ref.is_valid() => {
+                choice_hash if !choice_hash.is_valid() => {
                     let new_leaf = LeafNode::new(path.data(), value);
-                    let child_ref = Node::from(new_leaf).insert_self(path.offset(), db)?;
-                    *choice_ref = child_ref;
+                    let child_hash = Node::from(new_leaf).insert_self(path.offset(), db)?;
+                    *choice_hash = child_hash;
                 }
                 // Insert into existing child and then update it
-                choice_ref => {
+                choice_hash => {
                     let child_node = db
-                        .get_node(*choice_ref)?
+                        .get_node(choice_hash.clone())?
                         .expect("inconsistent internal tree structure");
 
                     let child_node = child_node.insert(db, path.clone(), value)?;
-                    *choice_ref = child_node.insert_self(path.offset(), db)?;
+                    *choice_hash = child_node.insert_self(path.offset(), db)?;
                 }
             },
             None => {
@@ -140,7 +163,7 @@ impl BranchNode {
             Some(choice_index) => {
                 if self.choices[choice_index as usize].is_valid() {
                     let child_node = db
-                        .get_node(self.choices[choice_index as usize])?
+                        .get_node(self.choices[choice_index as usize].clone())?
                         .expect("inconsistent internal tree structure");
                     // Remove value from child node
                     let (child_node, old_value) = child_node.remove(db, path.clone())?;
@@ -150,7 +173,7 @@ impl BranchNode {
                             child_node.insert_self(path.offset(), db)?;
                     } else {
                         // Remove child reference if the child subtrie was removed in the process
-                        self.choices[choice_index as usize] = NodeRef::default();
+                        self.choices[choice_index as usize] = DumbNodeHash::default();
                     }
                     old_value
                 } else {
@@ -195,11 +218,11 @@ impl BranchNode {
             self.hash.mark_as_dirty();
         }
 
-        let child_ref = match choice_count {
-            Ok(Some((choice_index, child_ref))) => {
+        let child_hash = match choice_count {
+            Ok(Some((choice_index, child_hash))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();
                 let child_node = db
-                    .get_node(*child_ref)?
+                    .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
 
                 match child_node {
@@ -208,10 +231,10 @@ impl BranchNode {
                     Node::Branch(_) => {
                         let extension_node: Node = ExtensionNode::new(
                             NibbleVec::from_single(choice_index, path_offset % 2 != 0),
-                            *child_ref,
+                            child_hash.clone(),
                         )
                         .into();
-                        *child_ref = extension_node.insert_self(path.offset(), db)?
+                        *child_hash = extension_node.insert_self(path.offset(), db)?
                     }
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
@@ -223,19 +246,19 @@ impl BranchNode {
                     _ => {}
                 }
 
-                Some(child_ref)
+                Some(child_hash)
             }
             _ => None,
         };
 
-        let new_node = match (child_ref, !self.path.is_empty()) {
+        let new_node = match (child_hash, !self.path.is_empty()) {
             // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
             // If this node still has a value but no longer has children, convert it into a leaf node
             (None, true) => Some(LeafNode::new(self.path, self.value).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
-                db.get_node(*x)?
+                db.get_node(x.clone())?
                     .expect("inconsistent internal tree structure"),
             ),
             // Return this node
@@ -250,10 +273,10 @@ impl BranchNode {
         if let Some(hash) = self.hash.extract_ref() {
             return Ok(hash);
         };
-        let hash_choice = |node_ref: NodeRef| -> Result<DelimitedHash, StoreError> {
-            if node_ref.is_valid() {
+        let hash_choice = |node_hash: &DumbNodeHash| -> Result<DelimitedHash, StoreError> {
+            if node_hash.is_valid() {
                 let child_node = db
-                    .get_node(node_ref)?
+                    .get_node(node_hash.clone())?
                     .expect("inconsistent internal tree structure");
 
                 let mut target = Output::default();
@@ -276,7 +299,7 @@ impl BranchNode {
         let children = self
             .choices
             .iter()
-            .map(|node_ref| hash_choice(*node_ref))
+            .map(|node_hash| hash_choice(node_hash))
             .collect::<Result<Vec<_>, _>>()?
             .try_into()
             .unwrap();
@@ -292,14 +315,9 @@ impl BranchNode {
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn dumb_hash(&self, db: &TrieDB, path_offset: usize) -> DumbNodeHash {
-        let hash_choice = |node_ref: NodeRef| -> (Vec<u8>, usize) {
-            if node_ref.is_valid() {
-                let child_node = db
-                    .get_node(node_ref)
-                    .unwrap()
-                    .expect("inconsistent internal tree structure");
-                let hash = child_node.dumb_hash(db, path_offset + 1);
-                match hash {
+        let hash_choice = |node_hash: &DumbNodeHash| -> (Vec<u8>, usize) {
+            if node_hash.is_valid() {
+                match node_hash {
                     DumbNodeHash::Hashed(x) => (x.as_bytes().to_vec(), 32),
                     DumbNodeHash::Inline(x) => (x.clone(), x.len()),
                 }
@@ -310,7 +328,7 @@ impl BranchNode {
         let children = self
             .choices
             .iter()
-            .map(|node_ref| hash_choice(*node_ref))
+            .map(|node_hash| hash_choice(node_hash))
             .collect::<Vec<_>>();
         let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
         /// Here starts compute_branch_hash
@@ -385,16 +403,18 @@ where
 
 #[cfg(test)]
 mod test {
+    use ethereum_types::H256;
+
     use super::*;
     use crate::trie::Trie;
 
     #[test]
     fn new() {
         let node = BranchNode::new({
-            let mut choices = [Default::default(); 16];
+            let mut choices = BranchNode::EMPTY_CHOICES;
 
-            choices[2] = NodeRef::new(2);
-            choices[5] = NodeRef::new(5);
+            choices[2] = DumbNodeHash::Hashed(H256([2;32]));
+            choices[5] = DumbNodeHash::Hashed(H256([5;32]));
 
             choices
         });
@@ -404,10 +424,10 @@ mod test {
             [
                 Default::default(),
                 Default::default(),
-                NodeRef::new(2),
+                DumbNodeHash::Hashed(H256([2;32])),
                 Default::default(),
                 Default::default(),
-                NodeRef::new(5),
+                DumbNodeHash::Hashed(H256([5;32])),
                 Default::default(),
                 Default::default(),
                 Default::default(),

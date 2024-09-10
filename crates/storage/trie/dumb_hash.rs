@@ -1,6 +1,6 @@
-use std::cmp::min;
+use std::{cmp::min, default};
 
-use ethereum_rust_core::rlp::encode::RLPEncode;
+use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
 use libmdbx::orm::{Decodable, Encodable};
 use sha3::{Digest, Keccak256};
@@ -18,7 +18,8 @@ pub struct HashBuilder {
     no_inline: bool,
 }
 
-#[derive(Debug, Clone)]
+/// TODO: check wether making this `Copy`` can make the code less verbose at a reasonable performance cost
+#[derive(Debug, Clone, PartialEq)]
 pub enum DumbNodeHash {
     Hashed(H256),
     Inline(Vec<u8>),
@@ -195,6 +196,21 @@ impl DumbNodeHash {
             DumbNodeHash::Hashed(x) => x,
         }
     }
+
+    /// Returns true if the hash is valid
+    /// The hash will only be considered invalid if it is empty
+    /// Aka if it has a default value instead of being a product of hash computation
+    pub fn is_valid(&self) -> bool {
+        match self {
+            DumbNodeHash::Inline(v) if v.is_empty() => false,
+            _ => true
+        }
+    }
+
+    /// Const version of `Default` trait impl
+    pub const fn const_default() -> Self {
+        Self::Inline(vec![])
+    }
 }
 
 impl From<Vec<u8>> for DumbNodeHash {
@@ -221,6 +237,15 @@ impl Into<Vec<u8>> for DumbNodeHash {
     }
 }
 
+impl Into<Vec<u8>> for &DumbNodeHash {
+    fn into(self) -> Vec<u8> {
+        match self {
+            DumbNodeHash::Hashed(x) => x.0.to_vec(),
+            DumbNodeHash::Inline(x) => x.clone(),
+        }
+    }
+}
+
 impl Encodable for DumbNodeHash {
     type Encoded = Vec<u8>;
 
@@ -235,5 +260,24 @@ impl Decodable for DumbNodeHash {
             32 => DumbNodeHash::Hashed(H256::from_slice(b)),
             _ => DumbNodeHash::Inline(b.into()),
         })
+    }
+}
+
+impl Default for DumbNodeHash {
+    fn default() -> Self {
+        DumbNodeHash::Inline(Vec::new())
+    }
+}
+
+// Encoded as Vec<u8>
+impl RLPEncode for DumbNodeHash {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        RLPEncode::encode(&Into::<Vec<u8>>::into(self), buf)
+    }
+}
+
+impl RLPDecode for DumbNodeHash {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
+        todo!()
     }
 }

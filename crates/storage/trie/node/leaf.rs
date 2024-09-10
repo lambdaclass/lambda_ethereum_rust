@@ -73,7 +73,7 @@ impl LeafNode {
             let branch_node = if absolute_offset == 2 * path.as_ref().len() {
                 // Create a branch node with self as a child and store the value in the branch node
                 // Branch { [Self,...] Path, Value }
-                let mut choices = [Default::default(); 16];
+                let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] =
@@ -85,7 +85,7 @@ impl LeafNode {
                 // Create a new branch node with the leaf as a child and store self's path and value
                 // Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue}
                 let new_leaf = LeafNode::new(path.data(), value);
-                let mut choices = [Default::default(); 16];
+                let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[path_branch.next().unwrap() as usize] =
                     Node::from(new_leaf).insert_self(path.offset(), db)?;
 
@@ -96,7 +96,7 @@ impl LeafNode {
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value);
                 let child_ref = Node::from(new_leaf).insert_self(path.offset(), db)?;
-                let mut choices = [Default::default(); 16];
+                let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] =
