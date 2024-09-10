@@ -235,7 +235,7 @@ fn run_without_commit(
         tx_env.gas_price,
         tx_env.max_fee_per_blob_gas,
     );
-    let chain_id = state.database().get_chain_id()?;
+    let chain_config = state.database().get_chain_config()?;
     let mut evm = Evm::builder()
         .with_db(&mut state.0)
         .with_block_env(block_env)
@@ -244,9 +244,7 @@ fn run_without_commit(
         .modify_cfg_env(|env| {
             env.disable_base_fee = true;
             env.disable_block_gas_limit = true;
-            if let Some(chain_id) = chain_id {
-                env.chain_id = chain_id
-            }
+            env.chain_id = chain_config.chain_id;
         })
         .build();
     let tx_result = evm.transact().map_err(EvmError::from)?;
