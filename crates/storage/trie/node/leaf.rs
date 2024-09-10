@@ -77,7 +77,7 @@ impl LeafNode {
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] =
-                    Node::from(self.clone()).insert_self(path.offset(), db)?;
+                    Node::from(self.clone()).insert_self(absolute_offset + 1, db)?;
 
                 BranchNode::new_with_value(choices, path.data(), value)
             } else if absolute_offset == 2 * self.path.len() {
@@ -87,7 +87,7 @@ impl LeafNode {
                 let new_leaf = LeafNode::new(path.data(), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[path_branch.next().unwrap() as usize] =
-                    Node::from(new_leaf).insert_self(path.offset(), db)?;
+                    Node::from(new_leaf).insert_self(absolute_offset + 1, db)?;
 
                 BranchNode::new_with_value(choices, self.path, self.value)
             } else {
@@ -95,12 +95,12 @@ impl LeafNode {
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value);
-                let child_ref = Node::from(new_leaf).insert_self(path.offset(), db)?;
+                let child_ref = Node::from(new_leaf).insert_self(absolute_offset + 1, db)?;
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
                     .unwrap() as usize] =
-                    Node::from(self.clone()).insert_self(path.offset(), db)?;
+                    Node::from(self.clone()).insert_self(absolute_offset + 1, db)?;
                 choices[path_branch.next().unwrap() as usize] = child_ref;
                 BranchNode::new(choices)
             };
@@ -108,7 +108,7 @@ impl LeafNode {
             let final_node = if offset != 0 {
                 // Create an extension node with the branch node as child
                 // Extension { BranchNode }
-                let branch_ref = Node::from(branch_node).insert_self(path.offset(), db)?;
+                let branch_ref = Node::from(branch_node).insert_self(absolute_offset + 1, db)?;
                 ExtensionNode::new(path.split_to_vec(offset), branch_ref).into()
             } else {
                 branch_node.into()
