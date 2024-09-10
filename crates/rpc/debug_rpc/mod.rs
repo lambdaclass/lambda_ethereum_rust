@@ -1,12 +1,12 @@
 use serde_json::Value;
 use tracing::info;
 
-use crate::{eth::account::BlockIdentifierOrHash, utils::RpcErr, RpcHandler};
+use crate::{eth::block::BlockIdentifier, utils::RpcErr, RpcHandler};
 use ethereum_rust_core::{rlp::encode::RLPEncode, types::Block};
 use ethereum_rust_storage::Store;
 
 pub struct GetRawBlock {
-    pub block: BlockIdentifierOrHash,
+    pub block: BlockIdentifier,
 }
 
 impl RpcHandler for GetRawBlock {
