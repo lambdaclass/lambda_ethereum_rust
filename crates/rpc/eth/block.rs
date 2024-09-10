@@ -15,7 +15,9 @@ use crate::{
 };
 use ethereum_rust_core::{
     rlp::encode::RLPEncode,
-    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
+    types::{
+        calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    },
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
@@ -40,6 +42,10 @@ pub struct GetBlockReceiptsRequest {
 }
 
 pub struct GetRawHeaderRequest {
+    pub block: BlockIdentifier,
+}
+
+pub struct GetRawBlockRequest {
     pub block: BlockIdentifier,
 }
 
@@ -232,6 +238,44 @@ impl RpcHandler for GetRawHeaderRequest {
 
         let str_encoded = format!("0x{}", hex::encode(header.encode_to_vec()));
         Ok(Value::String(str_encoded))
+    }
+}
+
+impl RpcHandler for GetRawBlockRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetRawBlockRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+
+        let block_str: String = serde_json::from_value(params[0].clone())?;
+        if !block_str.starts_with("0x") {
+            return Err(RpcErr::BadHexFormat);
+        }
+
+        let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
+        Ok(GetRawBlockRequest { block })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested raw block: {}", self.block);
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = storage.get_block_header(block_number)?;
+        let body = storage.get_block_body(block_number)?;
+        let (header, body) = match (header, body) {
+            (Some(header), Some(body)) => (header, body),
+            _ => return Ok(Value::Null),
+        };
+        let block = Block {
+            header: header.clone(),
+            body: body.clone(),
+        }
+        .encode_to_vec();
+
+        serde_json::to_value(format!("0x{}", &hex::encode(block))).map_err(|_| RpcErr::Internal)
     }
 }
 
