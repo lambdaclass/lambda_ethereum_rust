@@ -97,7 +97,7 @@ impl RpcHandler for GetStorageAtRequest {
         Ok(GetStorageAtRequest {
             address: serde_json::from_value(params[0].clone())?,
             storage_slot: serde_json::from_value(params[1].clone())?,
-            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
+            block: BlockIdentifierOrHash::parse(params[2].clone(), 2)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
