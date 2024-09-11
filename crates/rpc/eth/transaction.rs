@@ -348,7 +348,7 @@ impl RpcHandler for GetRawTransaction {
 
         let transaction_str: String = serde_json::from_value(params[0].clone())?;
         if !transaction_str.starts_with("0x") {
-            return Err(RpcErr::BadHexFormat);
+            return Err(RpcErr::BadHexFormat(0));
         }
 
         Ok(GetRawTransaction {

@@ -258,7 +258,7 @@ impl RpcHandler for GetRawBlockRequest {
 
         if let BlockIdentifier::Number(_) = block {
             if !block_str.starts_with("0x") {
-                return Err(RpcErr::BadHexFormat);
+                return Err(RpcErr::BadHexFormat(0));
             }
         }
 
@@ -295,7 +295,7 @@ impl RpcHandler for GetRawReceipts {
 
         if let BlockIdentifier::Number(_) = block {
             if !block_str.starts_with("0x") {
-                return Err(RpcErr::BadHexFormat);
+                return Err(RpcErr::BadHexFormat(0));
             }
         }
 
