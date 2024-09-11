@@ -90,7 +90,7 @@ impl TrieState {
             Node::Branch(n) => {
                 for child in n.choices.iter() {
                     if child.is_valid() {
-                        self.commit_node(&child)?;
+                        self.commit_node(child)?;
                     }
                 }
             }
