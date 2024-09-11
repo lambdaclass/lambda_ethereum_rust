@@ -116,13 +116,14 @@ impl Trie {
     /// Returns keccak(RLP_NULL) if the trie is empty
     /// Also commits changes to the DB
     pub fn hash(&mut self) -> Result<H256, StoreError> {
-        let root = self
+        if let Some(ref root) = self.root {
+            self.state.commit(root)?;
+        }
+        Ok(self
             .root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH);
-        self.state.commit(&root.into())?;
-        Ok(root)
+            .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root
