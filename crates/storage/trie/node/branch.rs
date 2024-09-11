@@ -104,7 +104,7 @@ impl BranchNode {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
                     let new_leaf = LeafNode::new(path.data(), value);
-                    let child_hash = Node::from(new_leaf).insert_self(path.offset(), state)?;
+                    let child_hash = new_leaf.insert_self(path.offset(), state)?;
                     *choice_hash = child_hash;
                 }
                 // Insert into existing child and then update it
@@ -221,12 +221,11 @@ impl BranchNode {
                     // Replace the child node  with an extension node leading to it
                     // The extension node will then replace self if self has no value
                     Node::Branch(_) => {
-                        let extension_node: Node = ExtensionNode::new(
+                        let extension_node = ExtensionNode::new(
                             NibbleVec::from_single(choice_index, path_offset % 2 != 0),
                             child_hash.clone(),
-                        )
-                        .into();
-                        *child_hash = extension_node.insert_self(path.offset() + 15, state)?
+                        );
+                        *child_hash = extension_node.insert_self(state)?
                     }
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
