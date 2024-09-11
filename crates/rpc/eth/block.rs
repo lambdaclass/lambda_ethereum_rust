@@ -253,12 +253,15 @@ impl RpcHandler for GetRawBlockRequest {
             return Err(RpcErr::BadParams);
         };
 
+        let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
         let block_str: String = serde_json::from_value(params[0].clone())?;
-        if !block_str.starts_with("0x") {
-            return Err(RpcErr::BadHexFormat);
+
+        if let BlockIdentifier::Number(_) = block {
+            if !block_str.starts_with("0x") {
+                return Err(RpcErr::BadHexFormat);
+            }
         }
 
-        let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
         Ok(GetRawBlockRequest { block })
     }
 
@@ -287,9 +290,13 @@ impl RpcHandler for GetRawReceipts {
             return Err(RpcErr::BadParams);
         };
 
+        let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
         let block_str: String = serde_json::from_value(params[0].clone())?;
-        if !block_str.starts_with("0x") {
-            return Err(RpcErr::BadHexFormat);
+
+        if let BlockIdentifier::Number(_) = block {
+            if !block_str.starts_with("0x") {
+                return Err(RpcErr::BadHexFormat);
+            }
         }
 
         let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
