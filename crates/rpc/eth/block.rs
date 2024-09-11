@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use ethereum_rust_chain::find_parent_header;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use tracing::info;
 
@@ -38,10 +38,8 @@ pub struct GetBlockReceiptsRequest {
     pub block: BlockIdentifierOrHash,
 }
 
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
+#[derive(Clone, Debug)]
 pub enum BlockIdentifier {
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
     Number(BlockNumber),
     Tag(BlockTag),
 }
@@ -69,6 +67,28 @@ impl BlockIdentifier {
                 BlockTag::Pending => storage.get_pending_block_number(),
             },
         }
+    }
+
+    pub fn parse(serde_value: Value) -> Result<Self, RpcErr> {
+        // Check if it is a BlockTag
+        if let Ok(tag) = serde_json::from_value::<BlockTag>(serde_value.clone()) {
+            return Ok(BlockIdentifier::Tag(tag))
+        };
+        // Parse BlockNumber
+        let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
+            return Err(RpcErr::BadParams)
+        };
+        // Check that the BlockNumber is 0x prefixed
+        let Some(hex_str) = hex_str.strip_prefix("Ox") else {
+            //return Err(RpcErr::BadHexFormat(0))
+            return Err(RpcErr::BadParams) // TODO: pull changes
+        };
+        // Parse hex string
+        let Ok(block_number) = u64::from_str_radix(hex_str, 16) else {
+            //return Err(RpcErr::BadHexFormat(0))
+            return Err(RpcErr::BadParams) // TODO: pull changes
+        };
+        Ok(BlockIdentifier::Number(block_number))
     }
 }
 

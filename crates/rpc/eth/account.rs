@@ -8,10 +8,8 @@ use ethereum_rust_core::{types::BlockNumber, Address, BigEndianHash, H256};
 
 use super::block::BlockIdentifier;
 use ethereum_rust_core::types::BlockHash;
-use serde::Deserialize;
 
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
+#[derive(Clone, Debug)]
 pub enum BlockIdentifierOrHash {
     Hash(BlockHash),
     Identifier(BlockIdentifier),
