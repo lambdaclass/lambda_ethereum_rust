@@ -17,7 +17,7 @@ use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest,
+        GetBlockTransactionCountRequest, GetRawHeaderRequest,
     },
     client,
     transaction::{
@@ -51,10 +51,10 @@ pub struct RpcApiContext {
 }
 
 trait RpcHandler: Sized {
-    fn parse(params: &Option<Vec<Value>>) -> Option<Self>;
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr>;
 
     fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
-        let request = Self::parse(&req.params).ok_or(RpcErr::BadParams)?;
+        let request = Self::parse(&req.params)?;
         request.handle(storage)
     }
 
@@ -141,6 +141,7 @@ pub fn map_http_requests(
     match req.namespace() {
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
+        Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -185,6 +186,13 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
     }
 }
 
+pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
+        _ => Err(RpcErr::MethodNotFound),
+    }
+}
+
 pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => {
@@ -199,11 +207,11 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
         }
 
         "engine_forkchoiceUpdatedV3" => {
-            let request = ForkChoiceUpdatedV3::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            let request = ForkChoiceUpdatedV3::parse(&req.params)?;
             fork_choice::forkchoice_updated_v3(request, storage)
         }
         "engine_newPayloadV3" => {
-            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            let request = NewPayloadV3Request::parse(&req.params)?;
             serde_json::to_value(payload::new_payload_v3(request, storage)?)
                 .map_err(|_| RpcErr::Internal)
         }
