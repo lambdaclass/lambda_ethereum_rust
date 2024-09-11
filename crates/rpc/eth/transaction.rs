@@ -1,5 +1,9 @@
-use super::block::BlockIdentifier;
-use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr, RpcHandler};
+use crate::{
+    eth::block,
+    types::{block_identifier::BlockIdentifier, transaction::RpcTransaction},
+    utils::RpcErr,
+    RpcHandler,
+};
 use ethereum_rust_core::{
     types::{AccessListEntry, BlockHash, BlockHeader, GenericTransaction, TxKind},
     H256, U256,

@@ -1,66 +1,10 @@
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 use serde_json::Value;
-use std::{fmt::Display, str::FromStr};
 use tracing::info;
 
-use crate::{eth::block::BlockTag, utils::RpcErr, RpcHandler};
-use ethereum_rust_core::{types::BlockNumber, Address, BigEndianHash, H256};
-
-use super::block::BlockIdentifier;
-use ethereum_rust_core::types::BlockHash;
-
-#[derive(Clone, Debug)]
-pub enum BlockIdentifierOrHash {
-    Hash(BlockHash),
-    Identifier(BlockIdentifier),
-}
-
-impl PartialEq<BlockTag> for BlockIdentifierOrHash {
-    fn eq(&self, other: &BlockTag) -> bool {
-        match self {
-            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(tag)) => tag == other,
-            _ => false,
-        }
-    }
-}
-
-impl BlockIdentifierOrHash {
-    #[allow(unused)]
-    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
-            BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(*block_hash),
-        }
-    }
-
-    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
-        if self == &BlockTag::Latest {
-            return Ok(true);
-        }
-
-        let result = self.resolve_block_number(storage)?;
-        let latest = storage.get_latest_block_number()?;
-        match (result, latest) {
-            (Some(result), Some(latest)) => Ok(result == latest),
-            _ => Ok(false),
-        }
-    }
-
-    pub fn parse(serde_value: Value, arg_index: u64) -> Result<BlockIdentifierOrHash, RpcErr> {
-        // Parse as BlockIdentifier
-        if let Ok(block_identifier) = BlockIdentifier::parse(serde_value.clone(), arg_index) {
-            return Ok(BlockIdentifierOrHash::Identifier(block_identifier));
-        };
-        // Parse as BlockHash
-        let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
-            return Err(RpcErr::BadParams);
-        };
-        let Ok(block_hash) = H256::from_str(&hex_str) else {
-            return Err(RpcErr::BadHexFormat(arg_index));
-        };
-        Ok(BlockIdentifierOrHash::Hash(block_hash))
-    }
-}
+use crate::types::block_identifier::BlockIdentifierOrHash;
+use crate::{utils::RpcErr, RpcHandler};
+use ethereum_rust_core::{Address, BigEndianHash, H256};
 
 pub struct GetBalanceRequest {
     pub address: Address,
@@ -204,14 +148,5 @@ impl RpcHandler for GetTransactionCountRequest {
             .unwrap_or_default();
 
         serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)
-    }
-}
-
-impl Display for BlockIdentifierOrHash {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlockIdentifierOrHash::Identifier(id) => id.fmt(f),
-            BlockIdentifierOrHash::Hash(hash) => hash.fmt(f),
-        }
     }
 }
