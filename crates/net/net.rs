@@ -71,7 +71,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
             Message::Ping(_) => {
                 let ping_hash = packet.get_hash();
                 pong(&udp_socket, from, ping_hash, &signer).await;
-                find_node(&udp_socket, from, &signer).await;
+                ping(&udp_socket, udp_addr, from, &signer).await;
             }
             Message::Neighbors(neighbors_msg) => {
                 let nodes = &neighbors_msg.nodes;
@@ -141,7 +141,7 @@ async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey)
 async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: &SigningKey) {
     let mut buf = Vec::new();
 
-    let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
+    let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
