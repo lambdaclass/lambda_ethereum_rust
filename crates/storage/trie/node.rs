@@ -81,21 +81,20 @@ impl Node {
 
     pub fn insert_self(
         self,
-        path_offset: usize,
         state: &mut TrieState,
     ) -> Result<NodeHash, StoreError> {
         match self {
             Node::Branch(n) => n.insert_self(state),
             Node::Extension(n) => n.insert_self(state),
-            Node::Leaf(n) => n.insert_self(path_offset, state),
+            Node::Leaf(n) => n.insert_self(state),
         }
     }
 
-    pub fn compute_hash(&self, path_offset: usize) -> NodeHash {
+    pub fn compute_hash(&self) -> NodeHash {
         match self {
             Node::Branch(n) => n.compute_hash(),
             Node::Extension(n) => n.compute_hash(),
-            Node::Leaf(n) => n.compute_hash(path_offset),
+            Node::Leaf(n) => n.compute_hash(),
         }
     }
 }

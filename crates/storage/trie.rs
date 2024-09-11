@@ -83,11 +83,11 @@ impl Trie {
             // If the trie is not empty, call the root node's insertion logic
             let root_node =
                 root_node.insert(&mut self.state, NibbleSlice::new(&path), value.clone())?;
-            self.root = Some(root_node.insert_self(0, &mut self.state)?)
+            self.root = Some(root_node.insert_self(&mut self.state)?)
         } else {
             // If the trie is empty, just add a leaf.
-            let new_leaf = Node::from(LeafNode::new(path.clone(), value));
-            self.root = Some(new_leaf.insert_self(0, &mut self.state)?)
+            let new_leaf = Node::from(LeafNode::new(path.clone(), 0, value));
+            self.root = Some(new_leaf.insert_self(&mut self.state)?)
         }
         Ok(())
     }
@@ -104,7 +104,7 @@ impl Trie {
             let (root_node, old_value) =
                 root_node.remove(&mut self.state, NibbleSlice::new(&path))?;
             self.root = root_node
-                .map(|root| root.insert_self(0, &mut self.state))
+                .map(|root| root.insert_self(&mut self.state))
                 .transpose()?;
             Ok(old_value)
         } else {

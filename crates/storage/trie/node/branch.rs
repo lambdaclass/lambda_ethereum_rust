@@ -103,8 +103,8 @@ impl BranchNode {
             Some(choice) => match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
-                    let new_leaf = LeafNode::new(path.data(), value);
-                    let child_hash = new_leaf.insert_self(path.offset(), state)?;
+                    let new_leaf = LeafNode::new(path.data(),path.offset(), value);
+                    let child_hash = new_leaf.insert_self( state)?;
                     *choice_hash = child_hash;
                 }
                 // Insert into existing child and then update it
@@ -114,7 +114,7 @@ impl BranchNode {
                         .expect("inconsistent internal tree structure");
 
                     let child_node = child_node.insert(state, path.clone(), value)?;
-                    *choice_hash = child_node.insert_self(path.offset(), state)?;
+                    *choice_hash = child_node.insert_self( state)?;
                 }
             },
             None => {
@@ -166,7 +166,7 @@ impl BranchNode {
                     if let Some(child_node) = child_node {
                         // Update child node
                         self.choices[choice_index as usize] =
-                            child_node.insert_self(path.offset(), state)?;
+                            child_node.insert_self(state)?;
                     } else {
                         // Remove child hash if the child subtrie was removed in the process
                         self.choices[choice_index as usize] = NodeHash::default();
@@ -246,7 +246,8 @@ impl BranchNode {
             // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
             // If this node still has a value but no longer has children, convert it into a leaf node
-            (None, true) => Some(LeafNode::new(self.path, self.value).into()),
+            // I CANNOT KNOW WHAT THE OFFSET WILL BE
+            (None, true) => Some(LeafNode::new(self.path, ??? , self.value,).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
                 state

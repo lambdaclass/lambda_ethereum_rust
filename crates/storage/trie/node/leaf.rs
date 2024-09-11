@@ -17,13 +17,16 @@ use super::{ExtensionNode, Node};
 #[derive(Debug, Clone, Default)]
 pub struct LeafNode {
     pub path: PathRLP,
+    // How much of the path has been traversed till this node is reached
+    // starting from the current root
+    pub path_offset: usize,
     pub value: ValueRLP,
 }
 
 impl LeafNode {
     /// Creates a new leaf node and stores the given (path, value) pair
-    pub fn new(path: PathRLP, value: ValueRLP) -> Self {
-        Self { path, value }
+    pub fn new(path: PathRLP, path_offset: usize, value: ValueRLP) -> Self {
+        Self { path, value, path_offset }
     }
 
     /// Returns the stored value if the given path matches the stored path
@@ -71,29 +74,29 @@ impl LeafNode {
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
-                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
+                    .unwrap() as usize] = self.clone().insert_self(state)?;
 
                 BranchNode::new_with_value(Box::new(choices), path.data(), value)
             } else if absolute_offset == 2 * self.path.len() {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf as a child and store self's path and value
                 // Branch { [ Leaf { Path, Value } , ... ], SelfPath, SelfValue}
-                let new_leaf = LeafNode::new(path.data(), value);
+                let new_leaf = LeafNode::new(path.data(), leaf_offset, value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[path_branch.next().unwrap() as usize] =
-                    new_leaf.insert_self(leaf_offset, state)?;
+                    new_leaf.insert_self(state)?;
 
                 BranchNode::new_with_value(Box::new(choices), self.path, self.value)
             } else {
                 // Create a new leaf node and store the path and value in it
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
-                let new_leaf = LeafNode::new(path.data(), value);
-                let child_hash = new_leaf.insert_self(leaf_offset, state)?;
+                let new_leaf = LeafNode::new(path.data(), leaf_offset, value);
+                let child_hash = new_leaf.insert_self(state)?;
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
-                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
+                    .unwrap() as usize] = self.clone().insert_self(state)?;
                 choices[path_branch.next().unwrap() as usize] = child_hash;
                 BranchNode::new(Box::new(choices))
             };
@@ -120,12 +123,12 @@ impl LeafNode {
         })
     }
 
-    pub fn compute_hash(&self, offset: usize) -> NodeHash {
+    pub fn compute_hash(&self) -> NodeHash {
         let encoded_value = &self.value;
         let encoded_path = &self.path;
 
         let mut path = NibbleSlice::new(encoded_path);
-        path.offset_add(offset);
+        path.offset_add(self.path_offset);
 
         let path_len = NodeHasher::path_len(path.len());
         let value_len = NodeHasher::bytes_len(
@@ -144,10 +147,9 @@ impl LeafNode {
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
     pub fn insert_self(
         self,
-        path_offset: usize,
         state: &mut TrieState,
     ) -> Result<NodeHash, StoreError> {
-        let hash = self.compute_hash(path_offset);
+        let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
@@ -161,7 +163,7 @@ mod test {
 
     #[test]
     fn new() {
-        let node = LeafNode::new(Default::default(), Default::default());
+        let node = LeafNode::new(Default::default(), Default::default(), Default::default());
         assert_eq!(node.path, PathRLP::default());
         assert_eq!(node.value, PathRLP::default());
     }
@@ -288,7 +290,7 @@ mod test {
 
     #[test]
     fn remove_self() {
-        let node = LeafNode::new(vec![0x12, 0x34], vec![0x12, 0x34, 0x56, 0x78]);
+        let node = LeafNode::new(vec![0x12, 0x34], 0,vec![0x12, 0x34, 0x56, 0x78], );
         let (node, value) = node.remove(NibbleSlice::new(&[0x12, 0x34])).unwrap();
 
         assert!(node.is_none());
@@ -297,7 +299,7 @@ mod test {
 
     #[test]
     fn remove_none() {
-        let node = LeafNode::new(vec![0x12, 0x34], vec![0x12, 0x34, 0x56, 0x78]);
+        let node = LeafNode::new(vec![0x12, 0x34], 0,vec![0x12, 0x34, 0x56, 0x78], );
 
         let (node, value) = node.remove(NibbleSlice::new(&[0x12])).unwrap();
 
@@ -307,8 +309,8 @@ mod test {
 
     #[test]
     fn compute_hash() {
-        let node = LeafNode::new(b"key".to_vec(), b"value".to_vec());
-        let node_hash_ref = node.compute_hash(0);
+        let node = LeafNode::new(b"key".to_vec(), 0,b"value".to_vec());
+        let node_hash_ref = node.compute_hash();
         assert_eq!(
             node_hash_ref.as_ref(),
             &[0xCB, 0x84, 0x20, 0x6B, 0x65, 0x79, 0x85, 0x76, 0x61, 0x6C, 0x75, 0x65],
@@ -317,9 +319,9 @@ mod test {
 
     #[test]
     fn compute_hash_long() {
-        let node = LeafNode::new(b"key".to_vec(), b"a comparatively long value".to_vec());
+        let node = LeafNode::new(b"key".to_vec(), 0,b"a comparatively long value".to_vec());
 
-        let node_hash_ref = node.compute_hash(0);
+        let node_hash_ref = node.compute_hash();
         assert_eq!(
             node_hash_ref.as_ref(),
             &[

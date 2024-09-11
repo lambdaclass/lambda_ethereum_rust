@@ -64,7 +64,7 @@ impl ExtensionNode {
                 .expect("inconsistent internal tree structure");
             let child_node = child_node.insert(state, path.clone(), value.clone())?;
             // Child node will never be a leaf, so the path_offset is not used
-            self.child = child_node.insert_self(0, state)?;
+            self.child = child_node.insert_self(state)?;
 
             Ok(self.into())
         } else {
@@ -94,8 +94,8 @@ impl ExtensionNode {
             let mut choices = BranchNode::EMPTY_CHOICES;
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
-                let new_leaf = LeafNode::new(path.data(), value);
-                choices[c as usize] = new_leaf.insert_self(child_offset, state)?;
+                let new_leaf = LeafNode::new(path.data(), child_offset, value);
+                choices[c as usize] = new_leaf.insert_self(state)?;
                 BranchNode::new(Box::new(choices))
             } else {
                 BranchNode::new_with_value(Box::new(choices), path.data(), value)
@@ -415,11 +415,11 @@ mod test {
             }
         }
         */
-        let leaf_node_a = LeafNode::new(vec![0x00, 0x00], vec![0x12, 0x34]);
-        let leaf_node_b = LeafNode::new(vec![0x00, 0x10], vec![0x56, 0x78]);
+        let leaf_node_a = LeafNode::new(vec![0x00, 0x00], 3, vec![0x12, 0x34]);
+        let leaf_node_b = LeafNode::new(vec![0x00, 0x10], 3, vec![0x56, 0x78]);
         let mut choices = BranchNode::EMPTY_CHOICES;
-        choices[0] = leaf_node_a.compute_hash(3);
-        choices[1] = leaf_node_b.compute_hash(3);
+        choices[0] = leaf_node_a.compute_hash();
+        choices[1] = leaf_node_b.compute_hash();
         let branch_node = BranchNode::new(Box::new(choices));
         let node = ExtensionNode::new(
             NibbleVec::from_nibbles([Nibble::V0, Nibble::V0].into_iter(), false),
@@ -447,11 +447,11 @@ mod test {
             }
         }
         */
-        let leaf_node_a = LeafNode::new(vec![0x00, 0x00], vec![0x12, 0x34, 0x56, 0x78, 0x9A]);
-        let leaf_node_b = LeafNode::new(vec![0x00, 0x10], vec![0x34, 0x56, 0x78, 0x9A, 0xBC]);
+        let leaf_node_a = LeafNode::new(vec![0x00, 0x00], 3, vec![0x12, 0x34, 0x56, 0x78, 0x9A]);
+        let leaf_node_b = LeafNode::new(vec![0x00, 0x10], 3, vec![0x34, 0x56, 0x78, 0x9A, 0xBC]);
         let mut choices = BranchNode::EMPTY_CHOICES;
-        choices[0] = leaf_node_a.compute_hash(3);
-        choices[1] = leaf_node_b.compute_hash(3);
+        choices[0] = leaf_node_a.compute_hash();
+        choices[1] = leaf_node_b.compute_hash();
         let branch_node = BranchNode::new(Box::new(choices));
         let node = ExtensionNode::new(
             NibbleVec::from_nibbles([Nibble::V0, Nibble::V0].into_iter(), false),
