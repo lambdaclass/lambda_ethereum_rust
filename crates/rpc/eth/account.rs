@@ -1,6 +1,6 @@
 use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 use tracing::info;
 
 use crate::{eth::block::BlockTag, utils::RpcErr, RpcHandler};
@@ -45,6 +45,21 @@ impl BlockIdentifierOrHash {
             _ => Ok(false),
         }
     }
+
+    pub fn parse(serde_value: Value, arg_index: u64) -> Result<BlockIdentifierOrHash, RpcErr> {
+        // Parse as BlockIdentifier
+        if let Ok(block_identifier) = BlockIdentifier::parse(serde_value.clone(), arg_index) {
+            return Ok(BlockIdentifierOrHash::Identifier(block_identifier));
+        };
+        // Parse as BlockHash
+        let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
+            return Err(RpcErr::BadParams);
+        };
+        let Ok(block_hash) = H256::from_str(&hex_str) else {
+            return Err(RpcErr::BadHexFormat(arg_index));
+        };
+        Ok(BlockIdentifierOrHash::Hash(block_hash))
+    }
 }
 
 pub struct GetBalanceRequest {
@@ -69,14 +84,14 @@ pub struct GetTransactionCountRequest {
 }
 
 impl RpcHandler for GetBalanceRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBalanceRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBalanceRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBalanceRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetBalanceRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -99,14 +114,14 @@ impl RpcHandler for GetBalanceRequest {
 }
 
 impl RpcHandler for GetCodeRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetCodeRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetCodeRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetCodeRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetCodeRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -130,15 +145,15 @@ impl RpcHandler for GetCodeRequest {
 }
 
 impl RpcHandler for GetStorageAtRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetStorageAtRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetStorageAtRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 3 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetStorageAtRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            storage_slot: serde_json::from_value(params[1].clone()).ok()?,
-            block: serde_json::from_value(params[2].clone()).ok()?,
+        Ok(GetStorageAtRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            storage_slot: serde_json::from_value(params[1].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -162,14 +177,14 @@ impl RpcHandler for GetStorageAtRequest {
 }
 
 impl RpcHandler for GetTransactionCountRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionCountRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetTransactionCountRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetTransactionCountRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetTransactionCountRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {

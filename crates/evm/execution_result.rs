@@ -105,4 +105,21 @@ impl ExecutionResult {
             _ => vec![],
         }
     }
+    pub fn gas_refunded(&self) -> u64 {
+        match self {
+            ExecutionResult::Success { gas_refunded, .. } => *gas_refunded,
+            _ => 0,
+        }
+    }
+
+    pub fn output(&self) -> Bytes {
+        match self {
+            ExecutionResult::Success { output, .. } => match output {
+                Output::Call(bytes) => bytes.clone(),
+                Output::Create(bytes, _) => bytes.clone(),
+            },
+            ExecutionResult::Revert { output, .. } => output.clone(),
+            ExecutionResult::Halt { .. } => Bytes::new(),
+        }
+    }
 }

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use ethereum_rust_chain::find_parent_header;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
@@ -13,8 +13,9 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::types::{
-    calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber,
+use ethereum_rust_core::{
+    rlp::encode::RLPEncode,
+    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
@@ -36,6 +37,11 @@ pub struct GetBlockTransactionCountRequest {
 
 pub struct GetBlockReceiptsRequest {
     pub block: BlockIdentifierOrHash,
+}
+
+#[derive(Clone, Debug)]
+pub struct GetRawHeaderRequest {
+    pub block: BlockIdentifier,
 }
 
 #[derive(Clone, Debug)]
@@ -69,38 +75,43 @@ impl BlockIdentifier {
         }
     }
 
-    pub fn parse(serde_value: Value) -> Result<Self, RpcErr> {
+    pub fn parse(serde_value: Value, arg_index: u64) -> Result<Self, RpcErr> {
         // Check if it is a BlockTag
         if let Ok(tag) = serde_json::from_value::<BlockTag>(serde_value.clone()) {
-            return Ok(BlockIdentifier::Tag(tag))
+            return Ok(BlockIdentifier::Tag(tag));
         };
         // Parse BlockNumber
         let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
-            return Err(RpcErr::BadParams)
+            return Err(RpcErr::BadParams);
         };
         // Check that the BlockNumber is 0x prefixed
         let Some(hex_str) = hex_str.strip_prefix("Ox") else {
-            //return Err(RpcErr::BadHexFormat(0))
-            return Err(RpcErr::BadParams) // TODO: pull changes
+            return Err(RpcErr::BadHexFormat(arg_index));
         };
         // Parse hex string
         let Ok(block_number) = u64::from_str_radix(hex_str, 16) else {
-            //return Err(RpcErr::BadHexFormat(0))
-            return Err(RpcErr::BadParams) // TODO: pull changes
+            return Err(RpcErr::BadHexFormat(arg_index));
         };
         Ok(BlockIdentifier::Number(block_number))
+    }
+
+    pub fn resolve_block_header(&self, storage: &Store) -> Result<Option<BlockHeader>, StoreError> {
+        match self.resolve_block_number(storage)? {
+            Some(block_number) => storage.get_block_header(block_number),
+            _ => Ok(None),
+        }
     }
 }
 
 impl RpcHandler for GetBlockByNumberRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockByNumberRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBlockByNumberRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBlockByNumberRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
-            hydrated: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetBlockByNumberRequest {
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
+            hydrated: serde_json::from_value(params[1].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -124,14 +135,14 @@ impl RpcHandler for GetBlockByNumberRequest {
 }
 
 impl RpcHandler for GetBlockByHashRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockByHashRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBlockByHashRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBlockByHashRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
-            hydrated: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetBlockByHashRequest {
+            block: serde_json::from_value(params[0].clone())?,
+            hydrated: serde_json::from_value(params[1].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -154,13 +165,13 @@ impl RpcHandler for GetBlockByHashRequest {
 }
 
 impl RpcHandler for GetBlockTransactionCountRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockTransactionCountRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBlockTransactionCountRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 1 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBlockTransactionCountRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
+        Ok(GetBlockTransactionCountRequest {
+            block: BlockIdentifierOrHash::parse(params[0].clone(), 0)?,
         })
     }
 
@@ -184,13 +195,13 @@ impl RpcHandler for GetBlockTransactionCountRequest {
 }
 
 impl RpcHandler for GetBlockReceiptsRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBlockReceiptsRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBlockReceiptsRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 1 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBlockReceiptsRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
+        Ok(GetBlockReceiptsRequest {
+            block: BlockIdentifierOrHash::parse(params[0].clone(), 0)?,
         })
     }
 
@@ -210,6 +221,35 @@ impl RpcHandler for GetBlockReceiptsRequest {
         let receipts = get_all_block_receipts(block_number, header, body, &storage)?;
 
         serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetRawHeaderRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetRawHeaderRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+        Ok(GetRawHeaderRequest {
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
+        })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "Requested raw header for block with identifier: {}",
+            self.block
+        );
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = storage
+            .get_block_header(block_number)?
+            .ok_or(RpcErr::BadParams)?;
+
+        let str_encoded = format!("0x{}", hex::encode(header.encode_to_vec()));
+        Ok(Value::String(str_encoded))
     }
 }
 

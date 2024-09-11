@@ -17,15 +17,15 @@ pub struct NewPayloadV3Request {
 }
 
 impl NewPayloadV3Request {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<NewPayloadV3Request> {
-        let params = params.as_ref()?;
+    pub fn parse(params: &Option<Vec<Value>>) -> Result<NewPayloadV3Request, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 3 {
-            return None;
+            return Err(RpcErr::BadParams);
         }
-        Some(NewPayloadV3Request {
-            payload: serde_json::from_value(params[0].clone()).ok()?,
-            expected_blob_versioned_hashes: serde_json::from_value(params[1].clone()).ok()?,
-            parent_beacon_block_root: serde_json::from_value(params[2].clone()).ok()?,
+        Ok(NewPayloadV3Request {
+            payload: serde_json::from_value(params[0].clone())?,
+            expected_blob_versioned_hashes: serde_json::from_value(params[1].clone())?,
+            parent_beacon_block_root: serde_json::from_value(params[2].clone())?,
         })
     }
 }
