@@ -170,7 +170,7 @@ pub fn create_access_list(
                     .collect(),
             )
         }));
-        estimate_gas(tx_env, block_env, state, spec_id)?
+        run_without_commit(tx_env, block_env, state, spec_id)?
     } else {
         execution_result
     };
@@ -215,16 +215,6 @@ fn create_access_list_inner(
 
     let access_list = access_list_inspector.into_access_list();
     Ok((tx_result.result.into(), access_list))
-}
-
-/// Runs the transaction and returns the estimated gas
-fn estimate_gas(
-    tx_env: TxEnv,
-    block_env: BlockEnv,
-    state: &mut EvmState,
-    spec_id: SpecId,
-) -> Result<ExecutionResult, EvmError> {
-    run_without_commit(tx_env, block_env, state, spec_id)
 }
 
 /// Runs the transaction and returns the result, but does not commit it.

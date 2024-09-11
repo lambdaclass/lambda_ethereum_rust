@@ -75,6 +75,12 @@ impl BlockIdentifier {
             },
         }
     }
+    pub fn resolve_block_header(&self, storage: &Store) -> Result<Option<BlockHeader>, StoreError> {
+        match self.resolve_block_number(storage)? {
+            Some(block_number) => storage.get_block_header(block_number),
+            _ => Ok(None),
+        }
+    }
 }
 
 impl RpcHandler for GetBlockByNumberRequest {
