@@ -431,14 +431,10 @@ fn simulate_tx(
         ExecutionResult::Revert {
             gas_used: _,
             output,
-        } => {
-            return Err(RpcErr::Revert {
-                data: format!("0x{:#x}", output),
-            });
-        }
-        ExecutionResult::Halt { reason, gas_used } => {
-            return Err(RpcErr::Halt { reason, gas_used });
-        }
+        } => Err(RpcErr::Revert {
+            data: format!("0x{:#x}", output),
+        }),
+        ExecutionResult::Halt { reason, gas_used } => Err(RpcErr::Halt { reason, gas_used }),
         success => Ok(success),
     }
 }
