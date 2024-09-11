@@ -299,7 +299,6 @@ impl RpcHandler for GetRawReceipts {
             }
         }
 
-        let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
         Ok(GetRawReceipts { block })
     }
 
