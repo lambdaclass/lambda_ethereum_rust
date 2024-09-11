@@ -79,10 +79,12 @@ impl TrieState {
 
     // Writes a node and its children into the DB
     fn commit_node(&mut self, node_hash: &NodeHash) -> Result<(), StoreError> {
-        let node = self
-            .cache
-            .remove(node_hash)
-            .expect("inconsistent internal tree structure");
+        let node = if let Some(node) = self.cache.remove(node_hash) {
+            node
+        } else {
+            // If the node is not in the cache then it means it is already stored in the DB
+            return Ok(());
+        };
         // Commit children (if any)
         match &node {
             Node::Branch(n) => {
