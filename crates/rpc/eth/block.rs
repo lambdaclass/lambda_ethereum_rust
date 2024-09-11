@@ -85,7 +85,7 @@ impl BlockIdentifier {
             return Err(RpcErr::BadParams);
         };
         // Check that the BlockNumber is 0x prefixed
-        let Some(hex_str) = hex_str.strip_prefix("Ox") else {
+        let Some(hex_str) = hex_str.strip_prefix("0x") else {
             return Err(RpcErr::BadHexFormat(arg_index));
         };
         // Parse hex string
