@@ -9,7 +9,7 @@ use crate::authentication::AuthenticationError;
 pub enum RpcErr {
     MethodNotFound,
     BadParams,
-    BadHexFormat,
+    BadHexFormat(u64),
     UnsuportedFork,
     Internal,
     Vm,
@@ -35,10 +35,10 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: "Unsupported fork".to_string(),
             },
-            RpcErr::BadHexFormat => RpcErrorMetadata {
+            RpcErr::BadHexFormat(arg_number) => RpcErrorMetadata {
                 code: -32602,
                 data: None,
-                message: "invalid argument 0: hex string without 0x prefix".to_string(),
+                message: format!("invalid argument {arg_number} : hex string without 0x prefix"),
             },
             RpcErr::Internal => RpcErrorMetadata {
                 code: -32603,
