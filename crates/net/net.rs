@@ -62,9 +62,16 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let mut table = KademliaTable::new(local_node_id);
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        let packet = Packet::decode(&buf[..read]).unwrap();
-        let msg = packet.get_message();
         info!("Received {read} bytes from {from}");
+
+        let packet = Packet::decode(&buf[..read]);
+        if packet.is_err() {
+            warn!("Could not decode packet: {:?}", packet.err().unwrap());
+            continue;
+        }
+        let packet = packet.unwrap();
+
+        let msg = packet.get_message();
         info!("Message: {:?}", msg);
 
         match msg {
