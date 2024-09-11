@@ -1,3 +1,4 @@
+use ethereum_rust_core::rlp::error::RLPDecodeError;
 use thiserror::Error;
 
 // TODO improve errors
@@ -10,4 +11,6 @@ pub enum StoreError {
     LibmdbxError(anyhow::Error),
     #[error("{0}")]
     Custom(String),
+    #[error(transparent)]
+    RLPDecode(#[from] RLPDecodeError),
 }

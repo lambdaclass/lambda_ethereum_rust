@@ -33,7 +33,7 @@ impl Store {
         })
     }
 
-    // Helper method to write into a libmdx table
+    // Helper method to write into a libmdbx table
     fn write<T: libmdbx::orm::Table>(
         &self,
         key: T::Key,
@@ -48,13 +48,13 @@ impl Store {
         txn.commit().map_err(StoreError::LibmdbxError)
     }
 
-    // Helper method to read from a libmdx table
+    // Helper method to read from a libmdbx table
     fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
 
-    // Helper method to remove an entry from a libmdx table
+    // Helper method to remove an entry from a libmdbx table
     fn remove<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<(), StoreError> {
         let txn = self
             .db
