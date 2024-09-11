@@ -56,7 +56,8 @@ impl From<RpcErr> for RpcErrorMetadata {
                 ),
             },
             RpcErr::Halt { reason, gas_used } => RpcErrorMetadata {
-                // Just copy the `Revert` error code, as I haven't found an example of this one yet.
+                // Just copy the `Revert` error code.
+                // Haven't found an example of this one yet.
                 code: 3,
                 data: None,
                 message: format!("execution halted: reason={}, gas_used={}", reason, gas_used),
