@@ -210,7 +210,7 @@ impl RpcHandler for GetRawHeaderRequest {
 
         if let BlockIdentifier::Number(_) = block {
             if !block_str.starts_with("0x") {
-                return Err(RpcErr::BadHexFormat);
+                return Err(RpcErr::BadHexFormat(0));
             }
         }
 
