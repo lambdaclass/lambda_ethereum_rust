@@ -3,7 +3,7 @@ use ethereum_types::H256;
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
+        db::TrieState,
         nibble::NibbleSlice,
         node::BranchNode,
         node_hash::{NodeHash, NodeHasher, PathKind},
@@ -38,7 +38,7 @@ impl LeafNode {
     /// Stores the received value and returns the new root of the subtrie previously consisting of self
     pub fn insert(
         mut self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -142,9 +142,9 @@ impl LeafNode {
 
     /// Inserts the node into the DB and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, path_offset: usize, db: &mut TrieState) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash(path_offset);
-        db.insert_node(self.into(), hash.clone())?;
+        db.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
 }

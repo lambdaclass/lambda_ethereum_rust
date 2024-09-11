@@ -12,7 +12,7 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode};
+use self::{db::TrieState, nibble::NibbleSlice, node::LeafNode};
 use crate::error::StoreError;
 
 use lazy_static::lazy_static;
@@ -38,14 +38,14 @@ pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
     /// Contains the trie's nodes
-    pub(crate) db: TrieDB,
+    pub(crate) db: TrieState,
 }
 
 impl Trie {
     /// Creates a new Trie from a clean DB
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            db: TrieDB::create(trie_dir)?,
+            db: TrieState::create(trie_dir)?,
             root: None,
         })
     }
@@ -54,7 +54,7 @@ impl Trie {
     pub fn open(trie_dir: &str, root: H256) -> Result<Self, StoreError> {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
         Ok(Self {
-            db: TrieDB::create(trie_dir)?,
+            db: TrieState::create(trie_dir)?,
             root,
         })
     }
@@ -150,7 +150,7 @@ impl Trie {
     /// Creates a new trie based on a temporary DB
     pub fn new_temp() -> Self {
         Self {
-            db: TrieDB::init_temp(),
+            db: TrieState::init_temp(),
             root: None,
         }
     }

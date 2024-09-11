@@ -9,10 +9,10 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, ValueRLP};
+use super::{db::TrieState, nibble::NibbleSlice, node_hash::NodeHash, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Node {
     Branch(BranchNode),
     Extension(ExtensionNode),
@@ -39,7 +39,7 @@ impl From<LeafNode> for Node {
 
 impl Node {
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, db: &TrieState, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         match self {
             Node::Branch(n) => n.get(db, path),
             Node::Extension(n) => n.get(db, path),
@@ -50,7 +50,7 @@ impl Node {
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -65,7 +65,7 @@ impl Node {
     /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
     pub fn remove(
         self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         match self {
@@ -75,7 +75,7 @@ impl Node {
         }
     }
 
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, path_offset: usize, db: &mut TrieState) -> Result<NodeHash, StoreError> {
         match self {
             Node::Branch(n) => n.insert_self(db),
             Node::Extension(n) => n.insert_self(db),

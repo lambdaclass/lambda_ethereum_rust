@@ -1,7 +1,7 @@
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
+        db::TrieState,
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_hash::{NodeHash, NodeHasher},
         PathRLP, ValueRLP,
@@ -66,7 +66,7 @@ impl BranchNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieDB, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, db: &TrieState, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next().map(usize::from) {
@@ -89,7 +89,7 @@ impl BranchNode {
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         mut self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         mut path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -126,7 +126,7 @@ impl BranchNode {
     /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
     pub fn remove(
         mut self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         /* Possible flow paths:
@@ -301,9 +301,9 @@ impl BranchNode {
     }
 
     /// Inserts the node into the DB and returns its hash
-    pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, db: &mut TrieState) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash();
-        db.insert_node(self.into(), hash.clone())?;
+        db.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
 }

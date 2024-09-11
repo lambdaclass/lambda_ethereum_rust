@@ -1,5 +1,5 @@
 use crate::error::StoreError;
-use crate::trie::db::TrieDB;
+use crate::trie::db::TrieState;
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::nibble::NibbleVec;
 use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
@@ -9,7 +9,7 @@ use super::{BranchNode, LeafNode, Node};
 
 /// Extension Node of an an Ethereum Compatible Patricia Merkle Trie
 /// Contains the node's prefix and a its child node hash, doesn't store any value
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExtensionNode {
     pub prefix: NibbleVec,
     pub child: NodeHash,
@@ -22,7 +22,7 @@ impl ExtensionNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieDB, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, db: &TrieState, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
         // If the path is prefixed by this node's prefix, delegate to its child.
         // Otherwise, no value is present.
         if path.skip_prefix(&self.prefix) {
@@ -39,7 +39,7 @@ impl ExtensionNode {
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         mut self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         mut path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -112,7 +112,7 @@ impl ExtensionNode {
 
     pub fn remove(
         mut self,
-        db: &mut TrieDB,
+        db: &mut TrieState,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         /* Possible flow paths:
@@ -176,9 +176,9 @@ impl ExtensionNode {
     }
 
     /// Inserts the node into the DB and returns its hash
-    pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, db: &mut TrieState) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash();
-        db.insert_node(self.into(), hash.clone())?;
+        db.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
 }

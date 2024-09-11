@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::error::StoreError;
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
@@ -10,8 +12,9 @@ use libmdbx::{
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
 use super::{node::Node, node_hash::NodeHash};
-pub struct TrieDB {
+pub struct TrieState {
     db: Database,
+    cache: HashMap<NodeHash, Node>
 }
 
 /// RLP-encoded trie node
@@ -24,39 +27,43 @@ table!(
     ( Nodes ) NodeHash => NodeRLP
 );
 
-impl TrieDB {
+impl TrieState {
     /// Opens a DB created by a previous execution or creates a new one if it doesn't exist
-    pub fn init(trie_dir: &str) -> Result<TrieDB, StoreError> {
-        TrieDB::open(trie_dir).or_else(|_| TrieDB::create(trie_dir))
+    pub fn init(trie_dir: &str) -> Result<TrieState, StoreError> {
+        TrieState::open(trie_dir).or_else(|_| TrieState::create(trie_dir))
     }
 
     /// Creates a new clean DB
-    pub fn create(trie_dir: &str) -> Result<TrieDB, StoreError> {
+    pub fn create(trie_dir: &str) -> Result<TrieState, StoreError> {
         let tables = [table_info!(Nodes)].into_iter().collect();
         let path = Some(trie_dir.into());
-        Ok(TrieDB {
+        Ok(TrieState {
             db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
+            cache: Default::default(),
         })
     }
 
     /// Opens a DB created by a previous execution
-    pub fn open(trie_dir: &str) -> Result<TrieDB, StoreError> {
+    pub fn open(trie_dir: &str) -> Result<TrieState, StoreError> {
         // Open DB
         let tables = [table_info!(Nodes)].into_iter().collect();
         let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
-        Ok(TrieDB { db })
+        Ok(TrieState { db, cache: Default::default(), })
     }
 
     /// Retrieves a node based on its hash
     pub fn get_node(&self, hash: NodeHash) -> Result<Option<Node>, StoreError> {
+        if let Some(node) = self.cache.get(&hash) {
+            return Ok(Some(node.clone()))
+        };
         self.read::<Nodes>(hash)?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
 
-    /// Inserts a node and returns its hash
-    pub fn insert_node(&mut self, node: Node, hash: NodeHash) -> Result<(), StoreError> {
-        self.write::<Nodes>(hash, node.encode_to_vec())
+    /// Inserts a node
+    pub fn insert_node(&mut self, node: Node, hash: NodeHash) {
+        self.cache.insert(hash, node);
     }
 
     /// Helper method to write into a libmdbx table
@@ -84,8 +91,9 @@ impl TrieDB {
     /// Creates a temporary DB, for testing purposes only
     pub fn init_temp() -> Self {
         let tables = [table_info!(Nodes)].into_iter().collect();
-        TrieDB {
+        TrieState {
             db: Database::create(None, &tables).expect("Failed to create temp DB"),
+            cache: Default::default(),
         }
     }
 }
