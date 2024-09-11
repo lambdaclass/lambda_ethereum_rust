@@ -22,7 +22,11 @@ impl ExtensionNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieState, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(
+        &self,
+        db: &TrieState,
+        mut path: NibbleSlice,
+    ) -> Result<Option<ValueRLP>, StoreError> {
         // If the path is prefixed by this node's prefix, delegate to its child.
         // Otherwise, no value is present.
         if path.skip_prefix(&self.prefix) {

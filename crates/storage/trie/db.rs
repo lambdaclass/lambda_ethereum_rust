@@ -14,7 +14,7 @@ use libmdbx::{
 use super::{node::Node, node_hash::NodeHash};
 pub struct TrieState {
     db: Database,
-    cache: HashMap<NodeHash, Node>
+    cache: HashMap<NodeHash, Node>,
 }
 
 /// RLP-encoded trie node
@@ -48,13 +48,16 @@ impl TrieState {
         // Open DB
         let tables = [table_info!(Nodes)].into_iter().collect();
         let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
-        Ok(TrieState { db, cache: Default::default(), })
+        Ok(TrieState {
+            db,
+            cache: Default::default(),
+        })
     }
 
     /// Retrieves a node based on its hash
     pub fn get_node(&self, hash: NodeHash) -> Result<Option<Node>, StoreError> {
         if let Some(node) = self.cache.get(&hash) {
-            return Ok(Some(node.clone()))
+            return Ok(Some(node.clone()));
         };
         self.read::<Nodes>(hash)?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
@@ -64,6 +67,36 @@ impl TrieState {
     /// Inserts a node
     pub fn insert_node(&mut self, node: Node, hash: NodeHash) {
         self.cache.insert(hash, node);
+    }
+
+    /// Commits cache changes to DB and wipes it
+    /// Only writes nodes that follow the root's canonical trie
+    pub fn commit(&mut self, root: &NodeHash) -> Result<(), StoreError> {
+        self.commit_node(root)?;
+        self.cache.clear();
+        Ok(())
+    }
+
+    // Writes a node and its children into the DB
+    fn commit_node(&mut self, node_hash: &NodeHash) -> Result<(), StoreError> {
+        let node = self
+            .cache
+            .remove(node_hash)
+            .expect("inconsistent internal tree structure");
+        // Commit children (if any)
+        match &node {
+            Node::Branch(n) => {
+                for child in n.choices.iter() {
+                    if child.is_valid() {
+                        self.commit_node(&child)?;
+                    }
+                }
+            }
+            Node::Extension(n) => self.commit_node(&n.child)?,
+            Node::Leaf(_) => {}
+        }
+        // Commit self
+        self.write::<Nodes>(node_hash.clone(), node.encode_to_vec())
     }
 
     /// Helper method to write into a libmdbx table

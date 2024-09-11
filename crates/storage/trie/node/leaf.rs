@@ -142,7 +142,11 @@ impl LeafNode {
 
     /// Inserts the node into the DB and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieState) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(
+        self,
+        path_offset: usize,
+        db: &mut TrieState,
+    ) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash(path_offset);
         db.insert_node(self.into(), hash.clone());
         Ok(hash)

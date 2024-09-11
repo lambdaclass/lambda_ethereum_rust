@@ -75,7 +75,11 @@ impl Node {
         }
     }
 
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieState) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(
+        self,
+        path_offset: usize,
+        db: &mut TrieState,
+    ) -> Result<NodeHash, StoreError> {
         match self {
             Node::Branch(n) => n.insert_self(db),
             Node::Extension(n) => n.insert_self(db),

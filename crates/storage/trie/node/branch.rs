@@ -66,7 +66,11 @@ impl BranchNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieState, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(
+        &self,
+        db: &TrieState,
+        mut path: NibbleSlice,
+    ) -> Result<Option<ValueRLP>, StoreError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next().map(usize::from) {
