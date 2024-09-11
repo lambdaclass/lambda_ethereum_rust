@@ -1,8 +1,8 @@
-mod db;
 mod nibble;
 mod node;
 mod node_hash;
 mod rlp;
+mod state;
 #[cfg(test)]
 mod test_utils;
 
@@ -12,7 +12,7 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{db::TrieState, nibble::NibbleSlice, node::LeafNode};
+use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
 use lazy_static::lazy_static;
@@ -38,14 +38,14 @@ pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
     /// Contains the trie's nodes
-    pub(crate) db: TrieState,
+    pub(crate) state: TrieState,
 }
 
 impl Trie {
     /// Creates a new Trie from a clean DB
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            db: TrieState::create(trie_dir)?,
+            state: TrieState::create(trie_dir)?,
             root: None,
         })
     }
@@ -54,7 +54,7 @@ impl Trie {
     pub fn open(trie_dir: &str, root: H256) -> Result<Self, StoreError> {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
         Ok(Self {
-            db: TrieState::create(trie_dir)?,
+            state: TrieState::create(trie_dir)?,
             root,
         })
     }
@@ -63,10 +63,10 @@ impl Trie {
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
         if let Some(root) = &self.root {
             let root_node = self
-                .db
+                .state
                 .get_node(root.clone())?
                 .expect("inconsistent internal tree structure");
-            root_node.get(&self.db, NibbleSlice::new(path))
+            root_node.get(&self.state, NibbleSlice::new(path))
         } else {
             Ok(None)
         }
@@ -76,18 +76,18 @@ impl Trie {
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
         let root = self.root.take();
         if let Some(root_node) = root
-            .map(|root| self.db.get_node(root))
+            .map(|root| self.state.get_node(root))
             .transpose()?
             .flatten()
         {
             // If the trie is not empty, call the root node's insertion logic
             let root_node =
-                root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
-            self.root = Some(root_node.insert_self(0, &mut self.db)?)
+                root_node.insert(&mut self.state, NibbleSlice::new(&path), value.clone())?;
+            self.root = Some(root_node.insert_self(0, &mut self.state)?)
         } else {
             // If the trie is empty, just add a leaf.
             let new_leaf = Node::from(LeafNode::new(path.clone(), value));
-            self.root = Some(new_leaf.insert_self(0, &mut self.db)?)
+            self.root = Some(new_leaf.insert_self(0, &mut self.state)?)
         }
         Ok(())
     }
@@ -98,12 +98,13 @@ impl Trie {
         let root = self.root.take();
         if let Some(root) = root {
             let root_node = self
-                .db
+                .state
                 .get_node(root)?
                 .expect("inconsistent internal tree structure");
-            let (root_node, old_value) = root_node.remove(&mut self.db, NibbleSlice::new(&path))?;
+            let (root_node, old_value) =
+                root_node.remove(&mut self.state, NibbleSlice::new(&path))?;
             self.root = root_node
-                .map(|root| root.insert_self(0, &mut self.db))
+                .map(|root| root.insert_self(0, &mut self.state))
                 .transpose()?;
             Ok(old_value)
         } else {
@@ -115,11 +116,12 @@ impl Trie {
     /// Returns keccak(RLP_NULL) if the trie is empty
     /// Also commits changes to the DB
     pub fn hash(&mut self) -> Result<H256, StoreError> {
-        let root = self.root
+        let root = self
+            .root
             .as_ref()
             .map(|root| root.clone().finalize())
             .unwrap_or(*EMPTY_TRIE_HASH);
-        self.db.commit(&root.into())?;
+        self.state.commit(&root.into())?;
         Ok(root)
     }
 
@@ -133,8 +135,8 @@ impl Trie {
         root_hash: H256,
         path: &PathRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
-        if let Some(root_node) = self.db.get_node(root_hash.into())? {
-            root_node.get(&self.db, NibbleSlice::new(path))
+        if let Some(root_node) = self.state.get_node(root_hash.into())? {
+            root_node.get(&self.state, NibbleSlice::new(path))
         } else {
             Ok(None)
         }
@@ -153,7 +155,7 @@ impl Trie {
     /// Creates a new trie based on a temporary DB
     pub fn new_temp() -> Self {
         Self {
-            db: TrieState::init_temp(),
+            state: TrieState::init_temp(),
             root: None,
         }
     }
