@@ -75,7 +75,16 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         info!("Message: {:?}", msg);
 
         match msg {
-            Message::Ping(_) => {
+            Message::Ping(msg) => {
+                if (msg.expiration as i64)
+                    < SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64
+                {
+                    warn!("Ignoring ping as it is expired.");
+                    continue;
+                }
                 let ping_hash = packet.get_hash();
                 pong(&udp_socket, from, ping_hash, &signer).await;
                 ping(&udp_socket, udp_addr, from, &signer).await;
