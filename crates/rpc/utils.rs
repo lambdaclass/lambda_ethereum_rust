@@ -9,6 +9,7 @@ use crate::authentication::AuthenticationError;
 pub enum RpcErr {
     MethodNotFound,
     BadParams,
+    BadHexFormat(u64),
     UnsuportedFork,
     Internal,
     Vm,
@@ -34,6 +35,11 @@ impl From<RpcErr> for RpcErrorMetadata {
                 code: -38005,
                 data: None,
                 message: "Unsupported fork".to_string(),
+            },
+            RpcErr::BadHexFormat(arg_number) => RpcErrorMetadata {
+                code: -32602,
+                data: None,
+                message: format!("invalid argument {arg_number} : hex string without 0x prefix"),
             },
             RpcErr::Internal => RpcErrorMetadata {
                 code: -32603,
@@ -83,10 +89,17 @@ impl From<RpcErr> for RpcErrorMetadata {
     }
 }
 
+impl From<serde_json::Error> for RpcErr {
+    fn from(_: serde_json::Error) -> Self {
+        Self::BadParams
+    }
+}
+
 pub enum RpcNamespace {
     Engine,
     Eth,
     Admin,
+    Debug,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -105,6 +118,7 @@ impl RpcRequest {
                 "engine" => Ok(RpcNamespace::Engine),
                 "eth" => Ok(RpcNamespace::Eth),
                 "admin" => Ok(RpcNamespace::Admin),
+                "debug" => Ok(RpcNamespace::Debug),
                 _ => Err(RpcErr::MethodNotFound),
             }
         } else {

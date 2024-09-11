@@ -71,14 +71,14 @@ pub struct GetTransactionCountRequest {
 }
 
 impl RpcHandler for GetBalanceRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBalanceRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBalanceRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBalanceRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetBalanceRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: serde_json::from_value(params[1].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -101,14 +101,14 @@ impl RpcHandler for GetBalanceRequest {
 }
 
 impl RpcHandler for GetCodeRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetCodeRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetCodeRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetCodeRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetCodeRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: serde_json::from_value(params[1].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -132,15 +132,15 @@ impl RpcHandler for GetCodeRequest {
 }
 
 impl RpcHandler for GetStorageAtRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetStorageAtRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetStorageAtRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 3 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetStorageAtRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            storage_slot: serde_json::from_value(params[1].clone()).ok()?,
-            block: serde_json::from_value(params[2].clone()).ok()?,
+        Ok(GetStorageAtRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            storage_slot: serde_json::from_value(params[1].clone())?,
+            block: serde_json::from_value(params[2].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -164,14 +164,14 @@ impl RpcHandler for GetStorageAtRequest {
 }
 
 impl RpcHandler for GetTransactionCountRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionCountRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetTransactionCountRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetTransactionCountRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetTransactionCountRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: serde_json::from_value(params[1].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
