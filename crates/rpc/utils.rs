@@ -13,6 +13,7 @@ pub enum RpcErr {
     Internal,
     Vm,
     Revert { data: String },
+    Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
 }
 
@@ -53,6 +54,12 @@ impl From<RpcErr> for RpcErrorMetadata {
                     "execution reverted: {}",
                     get_message_from_revert_data(&data)
                 ),
+            },
+            RpcErr::Halt { reason, gas_used } => RpcErrorMetadata {
+                // Just copy the `Revert` error code, as I haven't found an example of this one yet.
+                code: 3,
+                data: None,
+                message: format!("execution halted: reason={}, gas_used={}", reason, gas_used),
             },
             RpcErr::AuthenticationError(auth_error) => match auth_error {
                 AuthenticationError::InvalidIssuedAtClaim => RpcErrorMetadata {
