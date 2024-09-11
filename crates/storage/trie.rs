@@ -113,11 +113,14 @@ impl Trie {
 
     /// Return the hash of the trie's root node.
     /// Returns keccak(RLP_NULL) if the trie is empty
-    pub fn hash(&mut self) -> H256 {
-        self.root
+    /// Also commits changes to the DB
+    pub fn hash(&mut self) -> Result<H256, StoreError> {
+        let root = self.root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH)
+            .unwrap_or(*EMPTY_TRIE_HASH);
+        self.db.commit(&root.into())?;
+        Ok(root)
     }
 
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root
@@ -179,7 +182,7 @@ mod test {
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().as_ref(),
+            trie.hash().unwrap().as_ref(),
             hex!("f7537e7f4b313c426440b7fface6bff76f51b3eb0d127356efbe6f2b3c891501")
         );
     }
@@ -193,7 +196,7 @@ mod test {
         trie.insert(b"fourth".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().0.to_vec(),
+            trie.hash().unwrap().0.to_vec(),
             hex!("e2ff76eca34a96b68e6871c74f2a5d9db58e59f82073276866fdd25e560cedea")
         );
     }
@@ -358,7 +361,7 @@ mod test {
         trie.insert(b"dog".to_vec(), b"puppy".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84").as_slice()
         );
     }
@@ -367,7 +370,7 @@ mod test {
     fn compute_hash_b() {
         let mut trie = Trie::new_temp();
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").as_slice(),
         );
     }
@@ -419,7 +422,7 @@ mod test {
         }
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("9f6221ebb8efe7cff60a716ecb886e67dd042014be444669f0159d8e68b42100").as_slice(),
         );
     }
@@ -451,7 +454,7 @@ mod test {
         }
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("cb65032e2f76c48b82b5c24b3db8f670ce73982869d38cd39a624f23d62a9e89").as_slice(),
         );
     }
@@ -464,7 +467,7 @@ mod test {
         trie.insert(b"abc".to_vec(), b"abc".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("7a320748f780ad9ad5b0837302075ce0eeba6c26e3d8562c67ccc0f1b273298a").as_slice(),
         );
     }
@@ -475,7 +478,7 @@ mod test {
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
@@ -500,7 +503,7 @@ mod test {
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), vec![0x04]).unwrap();
         trie.remove([1; 32].to_vec()).unwrap();
@@ -531,7 +534,7 @@ mod test {
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
@@ -552,7 +555,7 @@ mod test {
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), [4; 32].to_vec()).unwrap();
         trie.remove([1; 32].to_vec()).unwrap();
@@ -582,7 +585,7 @@ mod test {
         trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
         // Save current root
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         drop(trie); // Release DB
 
@@ -681,7 +684,7 @@ mod test {
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
             }
 
-            let hash = trie.hash().0.to_vec();
+            let hash = trie.hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -706,7 +709,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.hash().0.to_vec();
+            let hash = trie.hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -734,7 +737,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.hash().0.to_vec();
+            let hash = trie.hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -747,7 +750,7 @@ mod test {
             for val in data.iter(){
                 trie.insert(val.clone(), val.clone()).unwrap();
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
-                let hash = trie.hash().0.to_vec();
+                let hash = trie.hash().unwrap().0.to_vec();
                 let cita_hash = cita_trie.root().unwrap();
                 prop_assert_eq!(hash, cita_hash);
             }

@@ -69,7 +69,7 @@ impl TrieState {
         self.cache.insert(hash, node);
     }
 
-    /// Commits cache changes to DB and wipes it
+    /// Commits cache changes to DB and clears it
     /// Only writes nodes that follow the root's canonical trie
     pub fn commit(&mut self, root: &NodeHash) -> Result<(), StoreError> {
         self.commit_node(root)?;
