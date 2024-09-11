@@ -91,7 +91,7 @@ impl ExtensionNode {
             choices[choice as usize] = right_prefix_node;
             let branch_node = if let Some(c) = path.next() {
                 let new_leaf = LeafNode::new(path.data(), value);
-                choices[c as usize] = Node::from(new_leaf).insert_self(child_offset, db)?;
+                choices[c as usize] = new_leaf.insert_self(child_offset, db)?;
                 BranchNode::new(Box::new(choices))
             } else {
                 BranchNode::new_with_value(Box::new(choices), path.data(), value)
@@ -136,8 +136,8 @@ impl ExtensionNode {
                 None => None,
                 Some(node) => Some(match node {
                     // If it is a branch node set it as self's child
-                    branch_node @ Node::Branch(_) => {
-                        self.child = branch_node.insert_self(path.offset(), db)?;
+                    Node::Branch(branch_node) => {
+                        self.child = branch_node.insert_self(db)?;
                         self.into()
                     }
                     // If it is an extension replace self with it after updating its prefix
