@@ -118,7 +118,7 @@ fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
     );
     assert_eq!(
         test_state_root,
-        db.clone().world_state_root(),
+        db.clone().world_state_root().unwrap(),
         "Mismatched genesis state root for world state trie, test: {test_key}"
     );
 }
@@ -184,7 +184,7 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
     let db_state_root = last_block.unwrap().state_root;
     assert_eq!(
         db_state_root,
-        db.clone().world_state_root(),
+        db.clone().world_state_root().unwrap(),
         "Mismatched state root for world state trie, test: {test_key}"
     );
 }

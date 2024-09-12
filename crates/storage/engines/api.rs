@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    Receipt, Transaction,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
@@ -153,22 +153,6 @@ pub trait StoreEngine: Debug + Send {
         &mut self,
         address: Address,
     ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError>;
-
-    /// Stores account in db (including info, code & storage)
-    fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
-        self.add_account_info(address, account.info.clone())?;
-        self.add_account_code(account.info.code_hash, account.code)?;
-        for (storage_key, storage_value) in account.storage {
-            self.add_storage_at(address, storage_key, storage_value)?;
-        }
-        Ok(())
-    }
-
-    /// Removes account info and storage
-    fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
-        self.remove_account_info(address)?;
-        self.remove_account_storage(address)
-    }
 
     /// Increments the balance of an account by a given amount (if it exists)
     fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {

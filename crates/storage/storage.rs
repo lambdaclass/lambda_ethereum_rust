@@ -5,6 +5,7 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
@@ -12,6 +13,7 @@ use ethereum_rust_core::types::{
 };
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -38,6 +40,36 @@ pub enum EngineType {
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
+}
+
+#[derive(Default)]
+pub struct AccountUpdate {
+    pub address: Address,
+    pub removed: bool,
+    pub info: Option<AccountInfo>,
+    pub code: Option<Bytes>,
+    pub added_storage: HashMap<H256, U256>,
+    // Matches TODO in code
+    // removed_storage_keys: Vec<H256>,
+}
+
+impl AccountUpdate {
+    /// Creates new empty update for the given account
+    pub fn new(address: Address) -> AccountUpdate {
+        AccountUpdate {
+            address,
+            ..Default::default()
+        }
+    }
+
+    /// Creates new update representing an account removal
+    pub fn removed(address: Address) -> AccountUpdate {
+        AccountUpdate {
+            address,
+            removed: true,
+            ..Default::default()
+        }
+    }
 }
 
 impl Store {
@@ -218,12 +250,52 @@ impl Store {
             .get_nonce_by_account_address(address)
     }
 
+    pub fn apply_account_updates(
+        &self,
+        account_updates: &[AccountUpdate],
+    ) -> Result<(), StoreError> {
+        for update in account_updates.into_iter() {
+            if update.removed {
+                // Remove account from trie
+                self.remove_account(update.address)?;
+            } else {
+                // Add or update AccountState in the trie
+                let hashed_address = hash_address(&update.address);
+                // Fetch current state or create a new state to be inserted
+                let mut account_state =
+                    match self.world_state.lock().unwrap().get(&hashed_address)? {
+                        Some(encoded_state) => AccountState::decode(&encoded_state)?,
+                        None => AccountState::default(),
+                    };
+                if let Some(info) = &update.info {
+                    account_state.nonce = info.nonce;
+                    account_state.balance = info.balance;
+                    account_state.code_hash = info.code_hash;
+                    // Store updated code in DB
+                    if let Some(code) = &update.code {
+                        self.add_account_code(info.code_hash, code.clone())?;
+                    }
+                    // Store the added storage in the account's storage trie and compute its root
+                    // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into the DB table and compute the root
+                    if !update.added_storage.is_empty() {
+                        for (storage_key, storage_value) in &update.added_storage {
+                            self.add_storage_at(update.address, *storage_key, *storage_value)?;
+                        }
+                    }
+                    account_state.storage_root = ethereum_rust_core::types::compute_storage_root(
+                        &self.account_storage_iter(update.address)?.collect(),
+                    );
+                }
+                self.world_state
+                    .lock()
+                    .unwrap()
+                    .insert(hashed_address, account_state.encode_to_vec())?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
-        // Legacy code compatibility, TODO(TrieIntegration): remove
-        self.engine
-            .lock()
-            .unwrap()
-            .add_account(address, account.clone())?;
         // Store account code (as this won't be stored in the trie)
         self.add_account_code(account.info.code_hash, account.code)?;
         // Store the accounts storage in the storage trie and compute its root
@@ -239,9 +311,7 @@ impl Store {
             storage_root,
             code_hash: account.info.code_hash,
         };
-        let hashed_address = Keccak256::new_with_prefix(address.to_fixed_bytes())
-            .finalize()
-            .to_vec();
+        let hashed_address = hash_address(&address);
         self.world_state
             .lock()
             .unwrap()
@@ -365,7 +435,9 @@ impl Store {
     }
 
     pub fn remove_account(&self, address: Address) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().remove_account(address)
+        let hashed_address = hash_address(&address);
+        self.world_state.lock().unwrap().remove(hashed_address)?;
+        Ok(())
     }
 
     pub fn account_infos_iter(
@@ -455,7 +527,12 @@ impl Store {
     pub fn world_state_root(&self) -> Result<H256, StoreError> {
         self.world_state.lock().unwrap().hash()
     }
+}
 
+fn hash_address(address: &Address) -> Vec<u8> {
+    Keccak256::new_with_prefix(address.to_fixed_bytes())
+        .finalize()
+        .to_vec()
 }
 
 #[cfg(test)]

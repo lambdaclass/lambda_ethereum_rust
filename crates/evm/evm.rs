@@ -2,10 +2,8 @@ mod db;
 mod errors;
 mod execution_result;
 
-use std::{cmp::min, collections::HashMap};
-
-use bytes::Bytes;
 use db::StoreWrapper;
+use std::cmp::min;
 
 use ethereum_rust_core::{
     types::{
@@ -14,7 +12,7 @@ use ethereum_rust_core::{
     },
     Address, BigEndianHash, H256, U256,
 };
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{error::StoreError, AccountUpdate, Store};
 use lazy_static::lazy_static;
 use revm::{
     db::states::bundle_state::BundleRetention,
@@ -242,30 +240,6 @@ fn run_without_commit(
     Ok(tx_result.result.into())
 }
 
-#[derive(Default)]
-// TODO(TrieIntegration): Move to module in storage
-pub struct AccountUpdate {
-    address: Address,
-    removed: bool,
-    info: Option<AccountInfo>,
-    code: Option<Bytes>,
-    added_storage: HashMap<H256, U256>,
-    // Matches TODO in code
-    // removed_storage_keys: Vec<H256>,
-}
-
-impl AccountUpdate {
-    /// Creates new empty update for the given account
-    fn new(address: Address) -> AccountUpdate {
-        AccountUpdate { address,..Default::default()}
-    }
-
-    /// Creates new update representing an account removal
-    fn removed(address: Address) -> AccountUpdate {
-        AccountUpdate { address, removed: true, ..Default::default()}
-    }
-}
-
 /// Merges transitions stored when executing transactions and returns the resulting account updates
 /// Doesn't update the DB
 pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
@@ -323,7 +297,7 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
                 // }
                 account_update.added_storage.insert(
                     H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
-                U256::from_little_endian(slot.present_value().as_le_slice())
+                    U256::from_little_endian(slot.present_value().as_le_slice()),
                 );
             }
         }
