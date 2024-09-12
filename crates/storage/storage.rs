@@ -31,6 +31,7 @@ pub struct Store {
     engine: Arc<Mutex<dyn StoreEngine>>,
     // Stores `AccountState`s by `Address`
     world_state: Arc<Mutex<Trie>>,
+    // storage_tries: Arc<Mutex<HashMap<Address, Trie>> ?
 }
 
 #[allow(dead_code)]
