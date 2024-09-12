@@ -1,4 +1,4 @@
-use crate::error::StoreError;
+use crate::{error::StoreError, storage_trie::StorageTrieBackend, world_state_trie::WorldStateTrieBackend};
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
@@ -36,6 +36,26 @@ struct ChainData {
 impl Store {
     pub fn new() -> Result<Self, StoreError> {
         Ok(Self::default())
+    }
+}
+
+impl WorldStateTrieBackend for Store {
+    fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, StoreError> {
+        todo!()
+    }
+
+    fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StoreError> {
+        todo!()
+    }
+}
+
+impl StorageTrieBackend for Store {
+    fn get(&self, address: Address, key: Vec<u8>) -> Result<Option<Vec<u8>>, StoreError> {
+        todo!()
+    }
+
+    fn put(&self, address: Address, key: Vec<u8>, value: Vec<u8>) -> Result<(), StoreError> {
+        todo!()
     }
 }
 

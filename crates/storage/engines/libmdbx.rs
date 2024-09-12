@@ -4,6 +4,8 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
     BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
 };
+use crate::storage_trie::StorageTrieBackend;
+use crate::world_state_trie::WorldStateTrieBackend;
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
@@ -63,6 +65,26 @@ impl Store {
         txn.delete::<T>(key, None)
             .map_err(StoreError::LibmdbxError)?;
         txn.commit().map_err(StoreError::LibmdbxError)
+    }
+}
+
+impl WorldStateTrieBackend for Store {
+    fn get(&self, key: Vec<u8>) -> std::result::Result<Option<Vec<u8>>, StoreError> {
+        self.read::<WorldStateNodes>(key)
+    }
+
+    fn put(&self, key: Vec<u8>, value: Vec<u8>) -> std::result::Result<(), StoreError> {
+        self.write::<WorldStateNodes>(key, value)
+    }
+}
+
+impl StorageTrieBackend for Store {
+    fn get(&self, address: Address, key: Vec<u8>) -> std::result::Result<Option<Vec<u8>>, StoreError> {
+        todo!()
+    }
+
+    fn put(&self, address: Address, key: Vec<u8>, value: Vec<u8>) -> std::result::Result<(), StoreError> {
+        todo!()
     }
 }
 
@@ -336,6 +358,69 @@ impl StoreEngine for Store {
                 .map(Some)
                 .map_err(|_| StoreError::DecodeError),
         }
+    }
+    
+    fn get_code_by_account_address(&self, address: Address) -> std::result::Result<Option<Bytes>, StoreError> {
+        let code_hash = match self.get_account_info(address)? {
+            Some(acc_info) => acc_info.code_hash,
+            None => return Ok(None),
+        };
+        self.get_account_code(code_hash)
+    }
+    
+    fn get_nonce_by_account_address(&self, address: Address) -> std::result::Result<Option<u64>, StoreError> {
+        let nonce = self
+            .get_account_info(address)?
+            .map(|acc_info| acc_info.nonce);
+        Ok(nonce)
+    }
+    
+    fn get_transaction_by_hash(
+        &self,
+        transaction_hash: H256,
+    ) -> std::result::Result<Option<ethereum_rust_core::types::Transaction>, StoreError> {
+        let (block_number, index) = match self.get_transaction_location(transaction_hash)? {
+            Some(locations) => locations,
+            None => return Ok(None),
+        };
+        let block_body = match self.get_block_body(block_number)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(index
+            .try_into()
+            .ok()
+            .and_then(|index: usize| block_body.transactions.get(index).cloned()))
+    }
+    
+    fn add_account(&mut self, address: Address, account: ethereum_rust_core::types::Account) -> std::result::Result<(), StoreError> {
+        self.add_account_info(address, account.info.clone())?;
+        self.add_account_code(account.info.code_hash, account.code)?;
+        for (storage_key, storage_value) in account.storage {
+            self.add_storage_at(address, storage_key, storage_value)?;
+        }
+        Ok(())
+    }
+    
+    fn remove_account(&mut self, address: Address) -> std::result::Result<(), StoreError> {
+        self.remove_account_info(address)?;
+        self.remove_account_storage(address)
+    }
+    
+    fn increment_balance(&mut self, address: Address, amount: U256) -> std::result::Result<(), StoreError> {
+        if let Some(mut account_info) = self.get_account_info(address)? {
+            account_info.balance = account_info.balance.saturating_add(amount);
+            self.add_account_info(address, account_info)?;
+        } else {
+            self.add_account_info(
+                address,
+                AccountInfo {
+                    balance: amount,
+                    ..Default::default()
+                },
+            )?;
+        }
+        Ok(())
     }
 }
 

@@ -6,8 +6,13 @@ use crate::trie::{Trie, TrieDB};
 use crate::Store;
 
 pub struct WorldStateTrieDB {
-    db: Arc<Mutex<dyn TrieDB>>,
+    db: Arc<Mutex<dyn WorldStateTrieBackend>>,
 
+}
+
+pub trait WorldStateTrieBackend {
+    fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, StoreError>;
+    fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StoreError>;
 }
 
 impl TrieDB for WorldStateTrieDB {
