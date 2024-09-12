@@ -2,8 +2,9 @@ mod db;
 mod errors;
 mod execution_result;
 
-use std::cmp::min;
+use std::{cmp::min, collections::HashMap};
 
+use bytes::Bytes;
 use db::StoreWrapper;
 
 use ethereum_rust_core::{
@@ -241,11 +242,37 @@ fn run_without_commit(
     Ok(tx_result.result.into())
 }
 
-// Merges transitions stored when executing transactions and applies the resulting changes to the DB
-pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
+#[derive(Default)]
+// TODO(TrieIntegration): Move to module in storage
+pub struct AccountUpdate {
+    address: Address,
+    removed: bool,
+    info: Option<AccountInfo>,
+    code: Option<Bytes>,
+    added_storage: HashMap<H256, U256>,
+    // Matches TODO in code
+    // removed_storage_keys: Vec<H256>,
+}
+
+impl AccountUpdate {
+    /// Creates new empty update for the given account
+    fn new(address: Address) -> AccountUpdate {
+        AccountUpdate { address,..Default::default()}
+    }
+
+    /// Creates new update representing an account removal
+    fn removed(address: Address) -> AccountUpdate {
+        AccountUpdate { address, removed: true, ..Default::default()}
+    }
+}
+
+/// Merges transitions stored when executing transactions and returns the resulting account updates
+/// Doesn't update the DB
+pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
     state.0.merge_transitions(BundleRetention::PlainState);
     let bundle = state.0.take_bundle();
     // Update accounts
+    let mut account_updates = Vec::new();
     for (address, account) in bundle.state() {
         if account.status.is_not_modified() {
             continue;
@@ -253,7 +280,9 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         let address = Address::from_slice(address.0.as_slice());
         // Remove account from DB if destroyed
         if account.status.was_destroyed() {
-            state.database().remove_account(address)?;
+            account_updates.push(AccountUpdate::removed(address))
+            // TODO: we should be able to continue here but check it just in case
+            // continue;
         }
 
         // If account is empty, do not add to the database
@@ -265,6 +294,7 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
         }
 
         // Apply account changes to DB
+        let mut account_update = AccountUpdate::new(address);
         // If the account was changed then both original and current info will be present in the bundle account
         if account.is_info_changed() {
             // Update account info in DB
@@ -275,14 +305,11 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
                     balance: U256::from_little_endian(new_acc_info.balance.as_le_slice()),
                     nonce: new_acc_info.nonce,
                 };
-                state.database().add_account_info(address, account_info)?;
-
+                account_update.info = Some(account_info);
                 if account.is_contract_changed() {
                     // Update code in db
                     if let Some(code) = new_acc_info.code {
-                        state
-                            .database()
-                            .add_account_code(code_hash, code.original_bytes().clone().0)?;
+                        account_update.code = Some(code.original_bytes().clone().0);
                     }
                 }
             }
@@ -292,17 +319,17 @@ pub fn apply_state_transitions(state: &mut EvmState) -> Result<(), StoreError> {
             if slot.is_changed() {
                 // TODO check if we need to remove the value from our db when value is zero
                 // if slot.present_value().is_zero() {
-                //     state.database().remove_account_storage(address)
+                //     account_update.removed_keys.push(H256::from_uint(&U256::from_little_endian(key.as_le_slice())))
                 // }
-                state.database().add_storage_at(
-                    address,
+                account_update.added_storage.insert(
                     H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
-                    U256::from_little_endian(slot.present_value().as_le_slice()),
-                )?;
+                U256::from_little_endian(slot.present_value().as_le_slice())
+                );
             }
         }
+        account_updates.push(account_update)
     }
-    Ok(())
+    account_updates
 }
 
 /// Processes a block's withdrawals, updating the account balances in the state

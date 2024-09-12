@@ -9,7 +9,7 @@ use ethereum_rust_core::types::{
 use ethereum_rust_core::H256;
 
 use ethereum_rust_evm::{
-    apply_state_transitions, evm_state, execute_block, spec_id, EvmState, SpecId,
+    get_state_transitions, evm_state, execute_block, spec_id, EvmState, SpecId,
 };
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
@@ -38,7 +38,8 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     validate_gas_used(&receipts, &block.header)?;
 
-    apply_state_transitions(&mut state)?;
+    let account_updates = get_state_transitions(state);
+    state.database().apply_account_updates(&account_updates);
 
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, storage)?;
@@ -82,7 +83,7 @@ pub fn store_receipts(
 /// Performs post-execution checks
 pub fn validate_state_root(block_header: &BlockHeader, storage: &Store) -> Result<(), ChainError> {
     // Compare state root
-    if storage.world_state_root() == block_header.state_root {
+    if storage.world_state_root()? == block_header.state_root {
         Ok(())
     } else {
         Err(ChainError::InvalidBlock(

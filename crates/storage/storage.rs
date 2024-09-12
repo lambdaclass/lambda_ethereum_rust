@@ -11,9 +11,7 @@ use ethereum_rust_core::types::{
     ChainConfig, Genesis, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
-use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::{Digest as _, Keccak256};
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -183,7 +181,7 @@ impl Store {
     }
 
     // TODO(TrieIntegration): Make private
-    pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+    fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine
             .clone()
             .lock()
@@ -452,46 +450,17 @@ impl Store {
         self.engine.lock().unwrap().get_pending_block_number()
     }
 
-    /// Returns the root hash of the merkle tree.
-    /// Version 1: computes the trie fully from scratch
-    ///   TODO:
-    ///     Version 2: Keeps trie in memory
-    ///     Version 3: Persists trie in db
-    pub fn world_state_root(&self) -> H256 {
-        // build trie from state
-        let mut trie = self.build_trie_from_state();
-
-        // compute hash from in memory world_state trie
-        //let &root = self.world_state.compute_hash();
-
-        let &root = trie.compute_hash();
-        H256(root.into())
+    /// Returns the root hash of the world state trie.
+    /// Also commits account changes since last call to the DB
+    pub fn world_state_root(&self) -> Result<H256, StoreError> {
+        self.world_state.lock().unwrap().hash()
     }
 
-    fn build_trie_from_state(&self) -> PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256> {
-        let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-        for (address, account) in self.account_infos_iter().unwrap() {
-            // Key: Keccak(address)
-            let k = Keccak256::new_with_prefix(address.to_fixed_bytes())
-                .finalize()
-                .to_vec();
-
-            let storage: HashMap<H256, U256> = self
-                .account_storage_iter(address)
-                .unwrap_or_else(|_| panic!("Failed to retrieve storage for {address}"))
-                .collect();
-            // Value: account
-            let mut v = Vec::new();
-            AccountState::from_info_and_storage(&account, &storage).encode(&mut v);
-            trie.insert(k, v);
-        }
-        trie
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, str::FromStr};
+    use std::{collections::HashMap, fs, str::FromStr};
 
     use bytes::Bytes;
     use ethereum_rust_core::{
@@ -876,7 +845,7 @@ mod tests {
                 )
                 .unwrap();
         }
-        store.world_state_root();
+        store.world_state_root().unwrap();
     }
 
     fn test_account_storage_iter(store: Store) {
