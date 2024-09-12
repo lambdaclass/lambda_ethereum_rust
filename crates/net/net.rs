@@ -14,7 +14,7 @@ use k256::{
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
-use kademlia::{KademliaTable, PeerData};
+use kademlia::KademliaTable;
 use rlpx::handshake::RLPxLocalClient;
 use rlpx::{connection::SUPPORTED_CAPABILITIES, p2p::Message as RLPxMessage};
 use sha3::{Digest, Keccak256};
@@ -24,7 +24,7 @@ use tokio::{
     try_join,
 };
 use tracing::{info, warn};
-use types::Endpoint;
+use types::{Endpoint, Node};
 
 pub mod bootnode;
 pub(crate) mod discv4;
@@ -52,6 +52,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
+    // TODO implement this right
     match bootnodes.first() {
         Some(b) => ping(&udp_socket, udp_addr, b.socket_address, &signer).await,
         None => {}
@@ -91,7 +92,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     }
                     node.last_ping = time_now_unix();
                 } else {
-                    table.insert_peer(PeerData {
+                    table.insert_node(Node {
                         ip: from.ip(),
                         udp_port: from.port(),
                         tcp_port: 0,
@@ -112,7 +113,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                         return;
                     }
                     if node.last_ping_hash.unwrap() == packet.get_hash() {
-                        table.insert_peer(node.peer);
+                        table.insert_node(node.node);
                     } else {
                         warn!("Discarding pong as the hash did not match the corresponding ping");
                     }
@@ -125,6 +126,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     warn!("Ignoring find node msg as it is expired.");
                     continue;
                 };
+                let node = table.get_by_node_id(packet.get_node_id());
             }
             Message::Neighbors(neighbors_msg) => {
                 if is_expired(neighbors_msg.expiration) {
@@ -133,8 +135,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                 };
                 let nodes = &neighbors_msg.nodes;
                 for node in nodes {
-                    let peer_data = PeerData::from(*node);
-                    table.insert_peer(peer_data);
+                    table.insert_node(*node);
                     let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
                     ping(&udp_socket, udp_addr, node_addr, &signer).await;
                 }

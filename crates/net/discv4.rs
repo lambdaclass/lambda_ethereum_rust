@@ -65,6 +65,7 @@ impl Packet {
             return Err(PacketDecodeErr::InvalidSize);
         };
 
+        // todo add tests for the pub key recover!
         let hash = H256::from_slice(&encoded_packet[..hash_len]);
         let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
         let packet_type = encoded_packet[hash_len + signature_len];
@@ -109,6 +110,7 @@ impl Packet {
         &self.message
     }
 
+    #[allow(unused)]
     pub fn get_signature(&self) -> H520 {
         self.signature
     }
