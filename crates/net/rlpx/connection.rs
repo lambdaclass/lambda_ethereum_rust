@@ -2,17 +2,15 @@ use aes::{
     cipher::{BlockEncrypt, KeyInit, KeyIvInit, StreamCipher},
     Aes256Enc,
 };
-use bytes::Bytes;
 use ethereum_rust_core::{
-    rlp::{decode::RLPDecode, encode::RLPEncode, structs::Decoder},
-    H128, H256, H512,
+    rlp::{decode::RLPDecode, encode::RLPEncode},
+    H128, H256,
 };
 use sha3::{Digest, Keccak256};
-use snap::raw::{max_compress_len, Encoder as SnappyEncoder};
 use std::pin::pin;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use super::p2p::Message;
+use super::message as rlpx;
 
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
@@ -26,11 +24,17 @@ pub(crate) struct RLPxConnection {
     // ...capabilities information
 }
 
-impl<'a> RLPxConnection {
-    pub async fn send<S: AsyncWrite>(&mut self, message: Message<'a>, stream: S) {
-        let mut frame_data = vec![];
-        build_frame(message, &mut frame_data);
-        write_frame(frame_data, stream, &mut self.state).await;
+impl RLPxConnection {
+    pub async fn send<S: AsyncWrite>(&mut self, message: rlpx::Message, stream: S) {
+        let mut frame_buffer = vec![];
+        message.encode(&mut frame_buffer);
+        write_frame(frame_buffer, stream, &mut self.state).await;
+    }
+
+    pub async fn receive<S: AsyncRead>(&mut self, stream: S) -> rlpx::Message {
+        let frame_data = read_frame(stream, &mut self.state).await;
+        let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
+        rlpx::Message::decode(msg_id, msg_data).unwrap()
     }
 }
 
@@ -39,138 +43,27 @@ pub(crate) struct RLPxConnectionPending {
     state: RLPxState,
 }
 
-impl<'a> RLPxConnectionPending {
+impl RLPxConnectionPending {
     pub fn new(state: RLPxState) -> Self {
         Self { state }
     }
 
-    pub async fn send<S: AsyncWrite>(&mut self, message: Message<'a>, stream: S) {
-        let mut frame_data = vec![];
-        build_frame(message, &mut frame_data);
-        write_frame(frame_data, stream, &mut self.state).await;
+    pub async fn send<S: AsyncWrite>(&mut self, message: rlpx::Message, stream: S) {
+        let mut frame_buffer = vec![];
+        message.encode(&mut frame_buffer);
+        write_frame(frame_buffer, stream, &mut self.state).await;
     }
 
-    pub async fn receive_hello<S: AsyncRead>(self, stream: S) -> RLPxConnection {
-        let mut stream = pin!(stream);
-
+    pub async fn receive<S: AsyncRead>(self, stream: S) -> RLPxConnection {
         let Self { mut state } = self;
-
-        let ingress_aes = &mut state.ingress_aes;
-        let ingress_mac = &mut state.ingress_mac;
-
-        let mac_aes_cipher = Aes256Enc::new_from_slice(&state.mac_key.0).unwrap();
-
-        // Receive the hello message's frame header
-        let mut frame_header = [0; 32];
-        stream.read_exact(&mut frame_header).await.unwrap();
-        // Both are padded to the block's size (16 bytes)
-        let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
-
-        // Validate MAC header
-        // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
-        let header_mac_seed = {
-            let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
-            let mut seed = mac_digest.into();
-            mac_aes_cipher.encrypt_block(&mut seed);
-            (H128(seed.into()) ^ H128(header_ciphertext.try_into().unwrap())).0
-        };
-
-        // ingress-mac = keccak256.update(ingress-mac, header-mac-seed)
-        ingress_mac.update(header_mac_seed);
-
-        // header-mac = keccak256.digest(egress-mac)[:16]
-        let expected_header_mac = H128(ingress_mac.clone().finalize()[..16].try_into().unwrap());
-
-        assert_eq!(header_mac, expected_header_mac.0);
-
-        let header_text = header_ciphertext;
-        ingress_aes.apply_keystream(header_text);
-
-        // header-data = [capability-id, context-id]
-        // Both are unused, and always zero
-        assert_eq!(&header_text[3..6], &(0_u8, 0_u8).encode_to_vec());
-
-        let frame_size: usize =
-            u32::from_be_bytes([0, header_text[0], header_text[1], header_text[2]])
-                .try_into()
-                .unwrap();
-        // Receive the hello message
-        let padded_size = frame_size.next_multiple_of(16);
-        let mut frame_data = vec![0; padded_size + 16];
-        stream.read_exact(&mut frame_data).await.unwrap();
-        let (frame_ciphertext, frame_mac) = frame_data.split_at_mut(padded_size);
-
-        // check MAC
-        #[allow(clippy::needless_borrows_for_generic_args)]
-        ingress_mac.update(&frame_ciphertext);
-        let frame_mac_seed = {
-            let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
-            let mut seed = mac_digest.into();
-            mac_aes_cipher.encrypt_block(&mut seed);
-            (H128(seed.into()) ^ H128(mac_digest)).0
-        };
-        ingress_mac.update(frame_mac_seed);
-        let expected_frame_mac: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
-
-        assert_eq!(frame_mac, expected_frame_mac);
-
-        // decrypt frame
-        ingress_aes.apply_keystream(frame_ciphertext);
-
-        let (frame_data, _padding) = frame_ciphertext.split_at(frame_size);
-
-        let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(frame_data).unwrap();
-
-        // Hello has an ID of 0x00
-        assert_eq!(msg_id, 0);
-
-        // decode hello message: [protocolVersion: P, clientId: B, capabilities, listenPort: P, nodeId: B_64, ...]
-        let decoder = Decoder::new(msg_data).unwrap();
-        let (protocol_version, decoder): (u64, _) =
-            decoder.decode_field("protocolVersion").unwrap();
-
-        assert_eq!(protocol_version, 5, "only protocol version 5 is supported");
-
-        let (_client_id, decoder): (String, _) = decoder.decode_field("clientId").unwrap();
-        // TODO: store client id for debugging purposes
-
-        // [[cap1, capVersion1], [cap2, capVersion2], ...]
-        let (_capabilities, decoder): (Vec<(Bytes, u64)>, _) =
-            decoder.decode_field("capabilities").unwrap();
-        // TODO: derive shared capabilities for further communication
-
-        // This field should be ignored
-        let (_listen_port, decoder): (u16, _) = decoder.decode_field("listenPort").unwrap();
-
-        let (_node_id, decoder): (H512, _) = decoder.decode_field("nodeId").unwrap();
-        // TODO: check node id is the one we expect
-
-        // Implementations must ignore any additional list elements
-        let _padding = decoder.finish_unchecked();
-
+        let frame_data = read_frame(stream, &mut state).await;
+        let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
+        let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
+        assert!(
+            matches!(message, rlpx::Message::Hello(_)),
+            "Expected Hello message"
+        );
         RLPxConnection { state }
-    }
-}
-
-fn build_frame(message: Message, frame_buffer: &mut Vec<u8>) {
-    message.msg_id().encode(frame_buffer);
-    let mut raw_data = message.msg_data();
-
-    if message.is_compressed() {
-        let mut encoded_data = vec![];
-        raw_data.encode(&mut encoded_data);
-
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .unwrap();
-
-        msg_data.truncate(compressed_size);
-        frame_buffer.append(&mut msg_data);
-    } else {
-        frame_buffer.append(&mut raw_data);
     }
 }
 
@@ -230,6 +123,75 @@ async fn write_frame<S: AsyncWrite>(mut frame_data: Vec<u8>, stream: S, state: &
 
     // Send frame-mac
     stream.write_all(&frame_mac[..16]).await.unwrap();
+}
+
+pub(crate) async fn read_frame<S: AsyncRead>(stream: S, state: &mut RLPxState) -> Vec<u8> {
+    let mut stream = pin!(stream);
+
+    let ingress_aes = &mut state.ingress_aes;
+    let ingress_mac = &mut state.ingress_mac;
+
+    let mac_aes_cipher = Aes256Enc::new_from_slice(&state.mac_key.0).unwrap();
+
+    // Receive the message's frame header
+    let mut frame_header = [0; 32];
+    stream.read_exact(&mut frame_header).await.unwrap();
+    // Both are padded to the block's size (16 bytes)
+    let (header_ciphertext, header_mac) = frame_header.split_at_mut(16);
+
+    // Validate MAC header
+    // header-mac-seed = aes(mac-secret, keccak256.digest(egress-mac)[:16]) ^ header-ciphertext
+    let header_mac_seed = {
+        let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
+        let mut seed = mac_digest.into();
+        mac_aes_cipher.encrypt_block(&mut seed);
+        (H128(seed.into()) ^ H128(header_ciphertext.try_into().unwrap())).0
+    };
+
+    // ingress-mac = keccak256.update(ingress-mac, header-mac-seed)
+    ingress_mac.update(header_mac_seed);
+
+    // header-mac = keccak256.digest(egress-mac)[:16]
+    let expected_header_mac = H128(ingress_mac.clone().finalize()[..16].try_into().unwrap());
+
+    assert_eq!(header_mac, expected_header_mac.0);
+
+    let header_text = header_ciphertext;
+    ingress_aes.apply_keystream(header_text);
+
+    // header-data = [capability-id, context-id]
+    // Both are unused, and always zero
+    assert_eq!(&header_text[3..6], &(0_u8, 0_u8).encode_to_vec());
+
+    let frame_size: usize = u32::from_be_bytes([0, header_text[0], header_text[1], header_text[2]])
+        .try_into()
+        .unwrap();
+    // Receive the hello message
+    let padded_size = frame_size.next_multiple_of(16);
+    let mut frame_data = vec![0; padded_size + 16];
+    stream.read_exact(&mut frame_data).await.unwrap();
+    let (frame_ciphertext, frame_mac) = frame_data.split_at_mut(padded_size);
+
+    // check MAC
+    #[allow(clippy::needless_borrows_for_generic_args)]
+    ingress_mac.update(&frame_ciphertext);
+    let frame_mac_seed = {
+        let mac_digest: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
+        let mut seed = mac_digest.into();
+        mac_aes_cipher.encrypt_block(&mut seed);
+        (H128(seed.into()) ^ H128(mac_digest)).0
+    };
+    ingress_mac.update(frame_mac_seed);
+    let expected_frame_mac: [u8; 16] = ingress_mac.clone().finalize()[..16].try_into().unwrap();
+
+    assert_eq!(frame_mac, expected_frame_mac);
+
+    // decrypt frame
+    ingress_aes.apply_keystream(frame_ciphertext);
+
+    let (frame_data, _padding) = frame_ciphertext.split_at(frame_size);
+
+    frame_data.to_vec()
 }
 
 /// The current state of an RLPx connection
