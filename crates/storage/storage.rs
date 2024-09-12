@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
+use trie::Trie;
 
 mod engines;
 pub mod error;
@@ -28,7 +29,8 @@ mod trie;
 #[derive(Debug, Clone)]
 pub struct Store {
     engine: Arc<Mutex<dyn StoreEngine>>,
-    //world_state:  PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>,
+    // Stores `AccountState`s by `Address`
+    world_state: Arc<Mutex<Trie>>,
 }
 
 #[allow(dead_code)]
@@ -47,13 +49,14 @@ impl Store {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
                 engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
-                // TODO: build from DB
-                //world_state: PatriciaMerkleTree::default(),
+                // A new DB is created for the trie, we should use the same one once DB trait refactor is done
+                world_state: Arc::new(Mutex::new(Trie::new(&[path, "trie"].concat())?)),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
-                //world_state: PatriciaMerkleTree::default(),
+                // A new DB is created for the trie, we should use an in-memory backend once DB trait refactor is done
+                world_state: Arc::new(Mutex::new(Trie::new(&[path, "trie"].concat())?)),
             },
         };
         info!("Started store engine");
@@ -179,6 +182,7 @@ impl Store {
             .get_transaction_location(transaction_hash)
     }
 
+    // TODO(TrieIntegration): Make private
     pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine
             .clone()
@@ -217,7 +221,33 @@ impl Store {
     }
 
     pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().add_account(address, account)
+        // Legacy code compatibility, TODO(TrieIntegration): remove
+        self.engine
+            .lock()
+            .unwrap()
+            .add_account(address, account.clone())?;
+        // Store account code (as this won't be stored in the trie)
+        self.add_account_code(account.info.code_hash, account.code)?;
+        // Store the accounts storage in the storage trie and compute its root
+        // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB tabel and compute the root
+        let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
+        for (storage_key, storage_value) in account.storage {
+            self.add_storage_at(address, storage_key, storage_value)?;
+        }
+        // Add account to trie
+        let account_state = AccountState {
+            nonce: account.info.nonce,
+            balance: account.info.balance,
+            storage_root,
+            code_hash: account.info.code_hash,
+        };
+        let hashed_address = Keccak256::new_with_prefix(address.to_fixed_bytes())
+            .finalize()
+            .to_vec();
+        self.world_state
+            .lock()
+            .unwrap()
+            .insert(hashed_address, account_state.encode_to_vec())
     }
 
     pub fn add_receipt(
@@ -301,7 +331,7 @@ impl Store {
             .unwrap()
             .get_transaction_by_hash(transaction_hash)
     }
-
+    // TODO(TrieIntegration): Make private
     pub fn add_storage_at(
         &self,
         address: Address,

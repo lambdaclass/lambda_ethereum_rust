@@ -12,6 +12,7 @@ use libmdbx::{
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
 use super::{node::Node, node_hash::NodeHash};
+#[derive(Debug)]
 pub struct TrieState {
     db: Database,
     cache: HashMap<NodeHash, Node>,
