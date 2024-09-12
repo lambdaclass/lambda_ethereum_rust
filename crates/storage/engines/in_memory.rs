@@ -199,32 +199,8 @@ impl StoreEngine for Store {
         Ok(())
     }
 
-    fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError> {
-        Ok(self.chain_data.chain_config)
-    }
-
-    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = self.chain_data.chain_config {
-            Ok(Some(chain_config.chain_id))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = self.chain_data.chain_config {
-            Ok(chain_config.cancun_time)
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = self.chain_data.chain_config {
-            Ok(chain_config.shanghai_time)
-        } else {
-            Ok(None)
-        }
+    fn get_chain_config(&self) -> Result<ChainConfig, StoreError> {
+        Ok(self.chain_data.chain_config.unwrap())
     }
 
     fn update_earliest_block_number(

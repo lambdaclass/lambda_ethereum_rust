@@ -1,4 +1,5 @@
 #[macro_export]
+/// Creates a trie node, doesn't guarantee that the correct offsets are used when computing hashes for extension nodes
 macro_rules! pmt_node {
     (
         @( $trie:expr )
@@ -8,16 +9,15 @@ macro_rules! pmt_node {
         $crate::trie::node::BranchNode::new({
             #[allow(unused_variables)]
             let offset = true $( ^ $offset )?;
-            let mut choices = [$crate::trie::node_ref::NodeRef::default(); 16];
+            let mut choices = $crate::trie::node::BranchNode::EMPTY_CHOICES;
             $(
-                let child_node = pmt_node! { @($trie)
+                let child_node: Node = pmt_node! { @($trie)
                     $child_type { $( $child_tokens )* }
                     offset offset
                 }.into();
-                let child_node = $trie.db.insert_node(child_node).unwrap();
-                choices[$choice as usize] = child_node;
+                choices[$choice as usize] = child_node.insert_self(1, &mut $trie.state).unwrap();
             )*
-            choices
+            Box::new(choices)
         })
     };
     (
@@ -29,16 +29,15 @@ macro_rules! pmt_node {
         $crate::trie::node::BranchNode::new_with_value({
             #[allow(unused_variables)]
             let offset = true $( ^ $offset )?;
-            let mut choices = [$crate::trie::node_ref::NodeRef::default(); 16];
+            let mut choices = $crate::trie::node::BranchNode::EMPTY_CHOICES;
             $(
-                choices[$choice as usize] = $trie.db.insert_node(
+                choices[$choice as usize] = $crate::trie::node::Node::from(
                     pmt_node! { @($trie)
                         $child_type { $( $child_tokens )* }
                         offset offset
-                    }.into()
-                ).unwrap();
+                    }).insert_self(1, &mut $trie.state).unwrap();
             )*
-            choices
+            Box::new(choices)
         }, $path, $value)
     }};
 
@@ -58,13 +57,13 @@ macro_rules! pmt_node {
 
         let offset = offset  ^ (prefix.len() % 2 != 0);
         $crate::trie::node::ExtensionNode::new(
-            prefix,
+            prefix.clone(),
             {
-                let child_node = pmt_node! { @($trie)
+                let child_node = $crate::trie::node::Node::from(pmt_node! { @($trie)
                     $child_type { $( $child_tokens )* }
                     offset offset
-                }.into();
-                $trie.db.insert_node(child_node).unwrap()
+                });
+                child_node.insert_self(1, &mut $trie.state).unwrap()
             }
         )
     }};
