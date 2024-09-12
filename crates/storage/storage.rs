@@ -30,8 +30,11 @@ mod trie;
 pub struct Store {
     engine: Arc<Mutex<dyn StoreEngine>>,
     // Stores `AccountState`s by `Address`
+    // TODO: Once we merge the DB refactor this trie will read from the same DB as the one on the engine
+    // In that case, would we persist this trie? Or just create a new one for each querry?
+    // This would mean requiring a block number for each querry and searching for its storage root
     world_state: Arc<Mutex<Trie>>,
-    // storage_tries: Arc<Mutex<HashMap<Address, Trie>> ?
+    // For storage tries, we will always create a new trie as we will always have the previous storage root when updating the storage tries
 }
 
 #[allow(dead_code)]
