@@ -52,14 +52,10 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
-    let bootnode = match bootnodes.first() {
-        Some(b) => b,
-        None => {
-            return;
-        }
+    match bootnodes.first() {
+        Some(b) => ping(&udp_socket, udp_addr, b.socket_address, &signer).await,
+        None => {}
     };
-
-    ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
     let mut table = KademliaTable::new(local_node_id);
@@ -68,6 +64,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         info!("Received {read} bytes from {from}");
 
         let packet = Packet::decode(&buf[..read]);
+        print!("PACKET {:?}", packet);
         if packet.is_err() {
             warn!("Could not decode packet: {:?}", packet.err().unwrap());
             continue;

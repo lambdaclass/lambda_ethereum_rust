@@ -70,16 +70,18 @@ impl Packet {
         let packet_type = encoded_packet[hash_len + signature_len];
         let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
 
-        let header_hash = H256::from_slice(&encoded_packet[hash_len..]);
+        let digest = Keccak256::digest(&encoded_packet[hash_len..]);
+        let header_hash = H256::from_slice(&digest);
 
+        assert_eq!(hash, header_hash);
         if hash != header_hash {
             return Err(PacketDecodeErr::HashMismatch);
         }
 
-        let digest = Keccak256::digest(encoded_msg);
-        let signature = &Signature::from_bytes(signature_bytes[..signature_len].into())
+        let digest = Keccak256::digest(&encoded_msg);
+        let signature = &Signature::from_bytes(signature_bytes[..signature_len - 1].into())
             .map_err(|_| PacketDecodeErr::InvalidSignature)?;
-        let rid = RecoveryId::from_byte(signature_bytes[signature_len])
+        let rid = RecoveryId::from_byte(signature_bytes[signature_len - 1])
             .ok_or(PacketDecodeErr::InvalidSignature)?;
 
         let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid)
@@ -764,7 +766,7 @@ mod tests {
     #[test]
     fn test_decode_pong_message() {
         // in this case the pong message does not contain the `enr_seq` field
-        let hash = "2e1fc2a02ad95a1742f6dd41fb7cbff1e08548ba87f63a72221e44026ab1c347";
+        let hash = "65603d1ee62b03a0c2bf31549910f7bd5a783d82e9b83f5d4709083a7a4932f2";
         let signature = "34f486e4e92f2fdf592912aa77ad51db532dd7f9b426092384c9c2e9919414fd480d57f4f3b2b1964ed6eb1c94b1e4b9f6bfe9b44b1d1ac3d94c38c4cce915bc01";
         let pkt_type = "02";
         let msg = "f0c984bebfbc3982765f80a03e1bf98f025f98d54ed2f61bbef63b6b46f50e12d7b937d6bdea19afd640be2384667d9af0";
