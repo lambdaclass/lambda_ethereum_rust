@@ -9,10 +9,10 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, ValueRLP};
+use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Node {
     Branch(BranchNode),
     Extension(ExtensionNode),
@@ -39,10 +39,14 @@ impl From<LeafNode> for Node {
 
 impl Node {
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieDB, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(
+        &self,
+        state: &TrieState,
+        path: NibbleSlice,
+    ) -> Result<Option<ValueRLP>, StoreError> {
         match self {
-            Node::Branch(n) => n.get(db, path),
-            Node::Extension(n) => n.get(db, path),
+            Node::Branch(n) => n.get(state, path),
+            Node::Extension(n) => n.get(state, path),
             Node::Leaf(n) => n.get(path),
         }
     }
@@ -50,14 +54,14 @@ impl Node {
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         self,
-        db: &mut TrieDB,
+        state: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
         match self {
-            Node::Branch(n) => n.insert(db, path, value),
-            Node::Extension(n) => n.insert(db, path, value),
-            Node::Leaf(n) => n.insert(db, path, value),
+            Node::Branch(n) => n.insert(state, path, value),
+            Node::Extension(n) => n.insert(state, path, value),
+            Node::Leaf(n) => n.insert(state, path, value),
         }
     }
 
@@ -65,21 +69,25 @@ impl Node {
     /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
     pub fn remove(
         self,
-        db: &mut TrieDB,
+        state: &mut TrieState,
         path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         match self {
-            Node::Branch(n) => n.remove(db, path),
-            Node::Extension(n) => n.remove(db, path),
+            Node::Branch(n) => n.remove(state, path),
+            Node::Extension(n) => n.remove(state, path),
             Node::Leaf(n) => n.remove(path),
         }
     }
 
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(
+        self,
+        path_offset: usize,
+        state: &mut TrieState,
+    ) -> Result<NodeHash, StoreError> {
         match self {
-            Node::Branch(n) => n.insert_self(db),
-            Node::Extension(n) => n.insert_self(db),
-            Node::Leaf(n) => n.insert_self(path_offset, db),
+            Node::Branch(n) => n.insert_self(state),
+            Node::Extension(n) => n.insert_self(state),
+            Node::Leaf(n) => n.insert_self(path_offset, state),
         }
     }
 

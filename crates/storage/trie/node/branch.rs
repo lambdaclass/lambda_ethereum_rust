@@ -1,9 +1,9 @@
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_hash::{NodeHash, NodeHasher},
+        state::TrieState,
         PathRLP, ValueRLP,
     },
 };
@@ -66,17 +66,21 @@ impl BranchNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(&self, db: &TrieDB, mut path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+    ) -> Result<Option<ValueRLP>, StoreError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next().map(usize::from) {
             // Delegate to children if present
             let child_hash = &self.choices[choice];
             if child_hash.is_valid() {
-                let child_node = db
+                let child_node = state
                     .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
-                child_node.get(db, path)
+                child_node.get(state, path)
             } else {
                 Ok(None)
             }
@@ -89,7 +93,7 @@ impl BranchNode {
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
     pub fn insert(
         mut self,
-        db: &mut TrieDB,
+        state: &mut TrieState,
         mut path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -100,17 +104,17 @@ impl BranchNode {
                 // Create new child (leaf node)
                 choice_hash if !choice_hash.is_valid() => {
                     let new_leaf = LeafNode::new(path.data(), value);
-                    let child_hash = new_leaf.insert_self(path.offset(), db)?;
+                    let child_hash = new_leaf.insert_self(path.offset(), state)?;
                     *choice_hash = child_hash;
                 }
                 // Insert into existing child and then update it
                 choice_hash => {
-                    let child_node = db
+                    let child_node = state
                         .get_node(choice_hash.clone())?
                         .expect("inconsistent internal tree structure");
 
-                    let child_node = child_node.insert(db, path.clone(), value)?;
-                    *choice_hash = child_node.insert_self(path.offset(), db)?;
+                    let child_node = child_node.insert(state, path.clone(), value)?;
+                    *choice_hash = child_node.insert_self(path.offset(), state)?;
                 }
             },
             None => {
@@ -126,7 +130,7 @@ impl BranchNode {
     /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
     pub fn remove(
         mut self,
-        db: &mut TrieDB,
+        state: &mut TrieState,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         /* Possible flow paths:
@@ -154,15 +158,15 @@ impl BranchNode {
         let value = match path.next() {
             Some(choice_index) => {
                 if self.choices[choice_index as usize].is_valid() {
-                    let child_node = db
+                    let child_node = state
                         .get_node(self.choices[choice_index as usize].clone())?
                         .expect("inconsistent internal tree structure");
                     // Remove value from child node
-                    let (child_node, old_value) = child_node.remove(db, path.clone())?;
+                    let (child_node, old_value) = child_node.remove(state, path.clone())?;
                     if let Some(child_node) = child_node {
                         // Update child node
                         self.choices[choice_index as usize] =
-                            child_node.insert_self(path.offset(), db)?;
+                            child_node.insert_self(path.offset(), state)?;
                     } else {
                         // Remove child hash if the child subtrie was removed in the process
                         self.choices[choice_index as usize] = NodeHash::default();
@@ -209,7 +213,7 @@ impl BranchNode {
         let child_hash = match choice_count {
             Ok(Some((choice_index, child_hash))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();
-                let child_node = db
+                let child_node = state
                     .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
 
@@ -221,13 +225,13 @@ impl BranchNode {
                             NibbleVec::from_single(choice_index, path_offset % 2 != 0),
                             child_hash.clone(),
                         );
-                        *child_hash = extension_node.insert_self(db)?
+                        *child_hash = extension_node.insert_self(state)?
                     }
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
                         debug_assert!(self.path.is_empty()); // Sanity check
                         extension_node.prefix.prepend(choice_index);
-                        // Return node here so we don't have to update it in the DB and then fetch it
+                        // Return node here so we don't have to update it in the state and then fetch it
                         return Ok((Some(extension_node.into()), value));
                     }
                     _ => {}
@@ -245,7 +249,8 @@ impl BranchNode {
             (None, true) => Some(LeafNode::new(self.path, self.value).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
-                db.get_node(x.clone())?
+                state
+                    .get_node(x.clone())?
                     .expect("inconsistent internal tree structure"),
             ),
             // Return this node
@@ -299,10 +304,10 @@ impl BranchNode {
         hasher.finalize()
     }
 
-    /// Inserts the node into the DB and returns its hash
-    pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    /// Inserts the node into the state and returns its hash
+    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash();
-        db.insert_node(self.into(), hash.clone())?;
+        state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
 }
@@ -359,11 +364,11 @@ mod test {
         };
 
         assert_eq!(
-            node.get(&trie.db, NibbleSlice::new(&[0x00])).unwrap(),
+            node.get(&trie.state, NibbleSlice::new(&[0x00])).unwrap(),
             Some(vec![0x12, 0x34, 0x56, 0x78]),
         );
         assert_eq!(
-            node.get(&trie.db, NibbleSlice::new(&[0x10])).unwrap(),
+            node.get(&trie.state, NibbleSlice::new(&[0x10])).unwrap(),
             Some(vec![0x34, 0x56, 0x78, 0x9A]),
         );
     }
@@ -378,7 +383,10 @@ mod test {
             }
         };
 
-        assert_eq!(node.get(&trie.db, NibbleSlice::new(&[0x20])).unwrap(), None,);
+        assert_eq!(
+            node.get(&trie.state, NibbleSlice::new(&[0x20])).unwrap(),
+            None,
+        );
     }
 
     #[test]
@@ -394,11 +402,11 @@ mod test {
         let value = vec![0x3];
 
         let node = node
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
 
         assert!(matches!(node, Node::Branch(_)));
-        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.state, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -415,11 +423,11 @@ mod test {
         let value = vec![0x21];
 
         let node = node
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
 
         assert!(matches!(node, Node::Branch(_)));
-        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.state, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -439,7 +447,7 @@ mod test {
 
         let new_node = node
             .clone()
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
 
         let new_node = match new_node {
@@ -463,7 +471,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.db, NibbleSlice::new(&[0x00]))
+            .remove(&mut trie.state, NibbleSlice::new(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -482,7 +490,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.db, NibbleSlice::new(&[0x00]))
+            .remove(&mut trie.state, NibbleSlice::new(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Branch(_))));
@@ -499,7 +507,7 @@ mod test {
         };
 
         let (node, value) = node
-            .remove(&mut trie.db, NibbleSlice::new(&[0x00]))
+            .remove(&mut trie.state, NibbleSlice::new(&[0x00]))
             .unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
@@ -515,7 +523,7 @@ mod test {
             } with_leaf { vec![0x1] => vec![0xFF] }
         };
 
-        let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[])).unwrap();
+        let (node, value) = node.remove(&mut trie.state, NibbleSlice::new(&[])).unwrap();
 
         assert!(matches!(node, Some(Node::Leaf(_))));
         assert_eq!(value, Some(vec![0xFF]));
@@ -531,7 +539,7 @@ mod test {
             } with_leaf { vec![0x1] => vec![0xFF] }
         };
 
-        let (node, value) = node.remove(&mut trie.db, NibbleSlice::new(&[])).unwrap();
+        let (node, value) = node.remove(&mut trie.state, NibbleSlice::new(&[])).unwrap();
 
         assert!(matches!(node, Some(Node::Branch(_))));
         assert_eq!(value, Some(vec![0xFF]));
