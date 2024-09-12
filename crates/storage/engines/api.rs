@@ -6,9 +6,9 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
 
-use crate::error::StoreError;
+use crate::{error::StoreError, trie::TrieDB};
 
-pub trait StoreEngine: Debug + Send {
+pub trait StoreEngine: Debug + Send + TrieDB {
     /// Add account info
     fn add_account_info(
         &mut self,

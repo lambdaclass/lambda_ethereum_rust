@@ -1,3 +1,5 @@
+#[cfg(feature = "in_memory")]
+use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
@@ -18,7 +20,8 @@ use tracing::info;
 
 mod engines;
 pub mod error;
-mod world_state;
+mod world_state_trie;
+mod storage_trie;
 mod rlp;
 /// TODO: Remove this allow once the trie is integrated into the codebase
 #[allow(unused)]
@@ -26,7 +29,7 @@ mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
-    engine: Arc<Mutex<crate::engines::libmdbx::Store>>,
+    engine: Arc<Mutex<dyn StoreEngine>>,
 }
 
 #[allow(dead_code)]
@@ -41,20 +44,19 @@ pub enum EngineType {
 impl Store {
     pub fn new(path: &str, engine_type: EngineType) -> Result<Self, StoreError> {
         info!("Starting storage engine ({engine_type:?})");
-        // let store = match engine_type {
-        //     #[cfg(feature = "libmdbx")]
-        //     EngineType::Libmdbx => Self {
-        //         engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
-        //         // TODO: build from DB
-        //         //world_state: PatriciaMerkleTree::default(),
-        //     },
-        //     #[cfg(feature = "in_memory")]
-        //     EngineType::InMemory => Self {
-        //         engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
-        //         //world_state: PatriciaMerkleTree::default(),
-        //     },
-        // };
-        let store = Self {engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?))} ;
+        let store = match engine_type {
+            #[cfg(feature = "libmdbx")]
+            EngineType::Libmdbx => Self {
+                engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
+                // TODO: build from DB
+                //world_state: PatriciaMerkleTree::default(),
+            },
+            #[cfg(feature = "in_memory")]
+            EngineType::InMemory => Self {
+                engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
+                //world_state: PatriciaMerkleTree::default(),
+            },
+        };
         info!("Started store engine");
         Ok(store)
     }
