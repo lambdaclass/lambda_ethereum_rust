@@ -1,5 +1,9 @@
-use super::block::BlockIdentifier;
-use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr, RpcHandler};
+use crate::{
+    eth::block,
+    types::{block_identifier::BlockIdentifier, transaction::RpcTransaction},
+    utils::RpcErr,
+    RpcHandler,
+};
 use ethereum_rust_core::{
     types::{AccessListEntry, BlockHash, BlockHeader, GenericTransaction, TxKind},
     H256, U256,
@@ -62,12 +66,17 @@ pub struct AccessListResult {
 impl RpcHandler for CallRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<CallRequest, RpcErr> {
         let params = params.as_ref().ok_or(RpcErr::BadParams)?;
-        if params.len() != 2 {
+        if params.is_empty() || params.len() > 2 {
             return Err(RpcErr::BadParams);
+        };
+        let block = match params.get(1) {
+            // Differentiate between missing and bad block param
+            Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
+            None => None,
         };
         Ok(CallRequest {
             transaction: serde_json::from_value(params[0].clone())?,
-            block: serde_json::from_value(params[1].clone())?,
+            block,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -94,7 +103,7 @@ impl RpcHandler for GetTransactionByBlockNumberAndIndexRequest {
         };
         let index_as_string: String = serde_json::from_value(params[1].clone())?;
         Ok(GetTransactionByBlockNumberAndIndexRequest {
-            block: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
             transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
                 .map_err(|_| RpcErr::BadParams)?,
         })
@@ -242,7 +251,7 @@ impl RpcHandler for CreateAccessListRequest {
         };
         let block = match params.get(1) {
             // Differentiate between missing and bad block param
-            Some(value) => Some(serde_json::from_value(value.clone())?),
+            Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
             None => None,
         };
         Ok(CreateAccessListRequest {
@@ -313,12 +322,12 @@ impl RpcHandler for CreateAccessListRequest {
 impl RpcHandler for EstimateGasRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<EstimateGasRequest, RpcErr> {
         let params = params.as_ref().ok_or(RpcErr::BadParams)?;
-        if params.len() > 2 {
+        if params.is_empty() || params.len() > 2 {
             return Err(RpcErr::BadParams);
         };
         let block = match params.get(1) {
             // Differentiate between missing and bad block param
-            Some(value) => Some(serde_json::from_value(value.clone())?),
+            Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
             None => None,
         };
         Ok(EstimateGasRequest {
