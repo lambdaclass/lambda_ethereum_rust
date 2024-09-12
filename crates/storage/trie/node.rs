@@ -3,12 +3,13 @@ mod extension;
 mod leaf;
 
 pub use branch::BranchNode;
+use ethereum_types::H256;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, ValueRLP};
+use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug)]
@@ -74,11 +75,18 @@ impl Node {
         }
     }
 
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
+    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
         match self {
-            Node::Branch(n) => n.compute_hash(db, path_offset),
-            Node::Extension(n) => n.compute_hash(db, path_offset),
+            Node::Branch(n) => n.insert_self(db),
+            Node::Extension(n) => n.insert_self(db),
+            Node::Leaf(n) => n.insert_self(path_offset, db),
+        }
+    }
+
+    pub fn compute_hash(&self, path_offset: usize) -> NodeHash {
+        match self {
+            Node::Branch(n) => n.compute_hash(),
+            Node::Extension(n) => n.compute_hash(),
             Node::Leaf(n) => n.compute_hash(path_offset),
         }
     }

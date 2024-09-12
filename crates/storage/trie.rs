@@ -1,20 +1,31 @@
 mod db;
-mod hashing;
 mod nibble;
 mod node;
-mod node_ref;
+mod node_hash;
 mod rlp;
 #[cfg(test)]
 mod test_utils;
 
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
+use node::Node;
+use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{
-    db::TrieDB, hashing::NodeHashRef, nibble::NibbleSlice, node::LeafNode, node_ref::NodeRef,
-};
+use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode};
 use crate::error::StoreError;
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    // Hash value for an empty trie, equal to keccak(RLP_NULL)
+    static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
+        Keccak256::new()
+            .chain_update([RLP_NULL])
+            .finalize()
+            .as_slice(),
+    );
+}
 
 /// RLP-encoded trie path
 pub type PathRLP = Vec<u8>;
@@ -24,49 +35,59 @@ pub type ValueRLP = Vec<u8>;
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 /// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
 pub struct Trie {
-    /// Reference to the current root node
-    root_ref: NodeRef,
-    /// Contains the trie's nodes & old root hashes
+    /// Hash of the current node
+    root: Option<NodeHash>,
+    /// Contains the trie's nodes
     pub(crate) db: TrieDB,
-    // Contains the root hash if the current root node has been hashed
-    hash: Option<H256>,
 }
 
 impl Trie {
-    /// Creates a new Trie based on either a previous execution's DB (if `trie_dir` contains a DB) or a clean DB
+    /// Creates a new Trie from a clean DB
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
-        let (db, root_ref) = TrieDB::init(trie_dir)?;
         Ok(Self {
-            root_ref: root_ref.unwrap_or_default(),
-            db,
-            hash: None,
+            db: TrieDB::create(trie_dir)?,
+            root: None,
+        })
+    }
+
+    /// Creates a trie from an already-initialized DB and sets root as the root node of the trie
+    pub fn open(trie_dir: &str, root: H256) -> Result<Self, StoreError> {
+        let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
+        Ok(Self {
+            db: TrieDB::create(trie_dir)?,
+            root,
         })
     }
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
-        if !self.root_ref.is_valid() {
-            return Ok(None);
+        if let Some(root) = &self.root {
+            let root_node = self
+                .db
+                .get_node(root.clone())?
+                .expect("inconsistent internal tree structure");
+            root_node.get(&self.db, NibbleSlice::new(path))
+        } else {
+            Ok(None)
         }
-        let root_node = self
-            .db
-            .get_node(self.root_ref)?
-            .expect("inconsistent internal tree structure");
-
-        root_node.get(&self.db, NibbleSlice::new(path))
     }
 
     /// Insert an RLP-encoded value into the trie.
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
-        self.hash = None;
-        if let Some(root_node) = self.db.get_node(self.root_ref)? {
+        let root = self.root.take();
+        if let Some(root_node) = root
+            .map(|root| self.db.get_node(root))
+            .transpose()?
+            .flatten()
+        {
             // If the trie is not empty, call the root node's insertion logic
             let root_node =
                 root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
-            self.root_ref = self.db.insert_node(root_node)?;
+            self.root = Some(root_node.insert_self(0, &mut self.db)?)
         } else {
             // If the trie is empty, just add a leaf.
-            self.root_ref = self.db.insert_node(LeafNode::new(path, value).into())?;
+            let new_leaf = Node::from(LeafNode::new(path.clone(), value));
+            self.root = Some(new_leaf.insert_self(0, &mut self.db)?)
         }
         Ok(())
     }
@@ -74,97 +95,63 @@ impl Trie {
     /// Remove a value from the trie given its RLP-encoded path.
     /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
     pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
-        if !self.root_ref.is_valid() {
-            return Ok(None);
-        }
-        self.hash = None;
-
-        let root_node = self
-            .db
-            .get_node(self.root_ref)?
-            .expect("inconsistent internal tree structure");
-        let (root_node, old_value) = root_node.remove(&mut self.db, NibbleSlice::new(&path))?;
-        self.root_ref = match root_node {
-            Some(root_node) => self.db.insert_node(root_node)?,
-            None => Default::default(),
-        };
-
-        Ok(old_value)
-    }
-
-    /// Return the hash of the trie's root node (or recompute if needed).
-    /// Returns keccak(RLP_NULL) if the trie is empty
-    pub fn compute_hash(&mut self) -> Result<H256, StoreError> {
-        if let Some(hash) = self.hash {
-            return Ok(hash);
-        }
-        let root_hash = if self.root_ref.is_valid() {
+        let root = self.root.take();
+        if let Some(root) = root {
             let root_node = self
                 .db
-                .get_node(self.root_ref)?
+                .get_node(root)?
                 .expect("inconsistent internal tree structure");
-            let hash = H256::from_slice(
-                match root_node.compute_hash(&self.db, 0)? {
-                    NodeHashRef::Inline(x) => Keccak256::new().chain_update(&*x).finalize(),
-                    NodeHashRef::Hashed(x) => *x,
-                }
-                .as_slice(),
-            );
-            hash
+            let (root_node, old_value) = root_node.remove(&mut self.db, NibbleSlice::new(&path))?;
+            self.root = root_node
+                .map(|root| root.insert_self(0, &mut self.db))
+                .transpose()?;
+            Ok(old_value)
         } else {
-            H256::from_slice(
-                Keccak256::new()
-                    .chain_update([RLP_NULL])
-                    .finalize()
-                    .as_slice(),
-            )
-        };
-        self.db.insert_root_ref(root_hash, self.root_ref)?;
-        Ok(root_hash)
+            Ok(None)
+        }
+    }
+
+    /// Return the hash of the trie's root node.
+    /// Returns keccak(RLP_NULL) if the trie is empty
+    pub fn hash(&mut self) -> H256 {
+        self.root
+            .as_ref()
+            .map(|root| root.clone().finalize())
+            .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root
     /// Please use a root_hash calculated using `compute_hash`
     /// This function is used to access historical data
+    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
+    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
     pub fn get_from_root(
         &self,
         root_hash: H256,
         path: &PathRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
-        let root_ref = self.db.get_root_ref(root_hash)?;
-        match root_ref {
-            Some(root_ref) if root_ref.is_valid() => {
-                let root_node = self
-                    .db
-                    .get_node(root_ref)?
-                    .expect("inconsistent internal tree structure");
-
-                root_node.get(&self.db, NibbleSlice::new(path))
-            }
-            _ => Ok(None),
+        if let Some(root_node) = self.db.get_node(root_hash.into())? {
+            root_node.get(&self.db, NibbleSlice::new(path))
+        } else {
+            Ok(None)
         }
     }
 
     /// Sets the root of the trie to the one which's hash corresponds to the one received
-    /// Returns true if the root was updated succesfully or false if the new root cannot be located
-    /// For this method to work properly, please use a root hash that has been calculated using `compute_hash`
-    pub fn set_root(&mut self, root_hash: H256) -> Result<bool, StoreError> {
-        if let Some(root_ref) = self.db.get_root_ref(root_hash)? {
-            self.root_ref = root_ref;
-            self.hash = Some(root_hash);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+    /// Doesn't check that the root_hash is valid within the trie
+    /// Please use a root hash that has been calculated using `compute_hash`
+    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
+    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
+    pub fn set_root(&mut self, root_hash: H256) {
+        self.root = (root_hash != *EMPTY_TRIE_HASH).then_some(root_hash.into());
     }
 
     #[cfg(test)]
     /// Creates a new trie based on a temporary DB
     pub fn new_temp() -> Self {
         Self {
-            root_ref: NodeRef::default(),
             db: TrieDB::init_temp(),
-            hash: None,
+            root: None,
         }
     }
 }
@@ -192,7 +179,7 @@ mod test {
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().as_ref(),
+            trie.hash().as_ref(),
             hex!("f7537e7f4b313c426440b7fface6bff76f51b3eb0d127356efbe6f2b3c891501")
         );
     }
@@ -206,7 +193,7 @@ mod test {
         trie.insert(b"fourth".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().0.to_vec(),
+            trie.hash().0.to_vec(),
             hex!("e2ff76eca34a96b68e6871c74f2a5d9db58e59f82073276866fdd25e560cedea")
         );
     }
@@ -371,7 +358,7 @@ mod test {
         trie.insert(b"dog".to_vec(), b"puppy".to_vec()).unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().0.as_slice(),
+            trie.hash().0.as_slice(),
             hex!("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84").as_slice()
         );
     }
@@ -380,7 +367,7 @@ mod test {
     fn compute_hash_b() {
         let mut trie = Trie::new_temp();
         assert_eq!(
-            trie.compute_hash().unwrap().0.as_slice(),
+            trie.hash().0.as_slice(),
             hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").as_slice(),
         );
     }
@@ -432,7 +419,7 @@ mod test {
         }
 
         assert_eq!(
-            trie.compute_hash().unwrap().0.as_slice(),
+            trie.hash().0.as_slice(),
             hex!("9f6221ebb8efe7cff60a716ecb886e67dd042014be444669f0159d8e68b42100").as_slice(),
         );
     }
@@ -464,7 +451,7 @@ mod test {
         }
 
         assert_eq!(
-            trie.compute_hash().unwrap().0.as_slice(),
+            trie.hash().0.as_slice(),
             hex!("cb65032e2f76c48b82b5c24b3db8f670ce73982869d38cd39a624f23d62a9e89").as_slice(),
         );
     }
@@ -477,7 +464,7 @@ mod test {
         trie.insert(b"abc".to_vec(), b"abc".to_vec()).unwrap();
 
         assert_eq!(
-            trie.compute_hash().unwrap().0.as_slice(),
+            trie.hash().0.as_slice(),
             hex!("7a320748f780ad9ad5b0837302075ce0eeba6c26e3d8562c67ccc0f1b273298a").as_slice(),
         );
     }
@@ -485,99 +472,99 @@ mod test {
     #[test]
     fn get_old_state() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
-        let root = trie.compute_hash().unwrap();
+        let root = trie.hash();
 
-        trie.insert(vec![0x00], vec![0x02]).unwrap();
-        trie.insert(vec![0x01], vec![0x03]).unwrap();
+        trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x02]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x03]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([3; 32].to_vec()));
 
         assert_eq!(
-            trie.get_from_root(root, &vec![0x00]).unwrap(),
-            Some(vec![0x00])
+            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
+            Some([0; 32].to_vec())
         );
         assert_eq!(
-            trie.get_from_root(root, &vec![0x01]).unwrap(),
-            Some(vec![0x01])
+            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
+            Some([1; 32].to_vec())
         );
     }
 
     #[test]
     fn get_old_state_with_removals() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x02]).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
-        let root = trie.compute_hash().unwrap();
+        let root = trie.hash();
 
-        trie.insert(vec![0x00], vec![0x04]).unwrap();
-        trie.remove(vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x05]).unwrap();
-        trie.remove(vec![0x00]).unwrap();
+        trie.insert([0; 32].to_vec(), vec![0x04]).unwrap();
+        trie.remove([1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), vec![0x05]).unwrap();
+        trie.remove([0; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), None);
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), None);
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x05]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), None);
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), None);
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some(vec![0x05]));
 
         assert_eq!(
-            trie.get_from_root(root, &vec![0x00]).unwrap(),
-            Some(vec![0x00])
+            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
+            Some([0; 32].to_vec())
         );
         assert_eq!(
-            trie.get_from_root(root, &vec![0x01]).unwrap(),
-            Some(vec![0x01])
+            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
+            Some([1; 32].to_vec())
         );
         assert_eq!(
-            trie.get_from_root(root, &vec![0x02]).unwrap(),
-            Some(vec![0x02])
+            trie.get_from_root(root, &[2; 32].to_vec()).unwrap(),
+            Some([2; 32].to_vec())
         );
     }
 
     #[test]
     fn revert() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
-        let root = trie.compute_hash().unwrap();
+        let root = trie.hash();
 
-        trie.insert(vec![0x00], vec![0x02]).unwrap();
-        trie.insert(vec![0x01], vec![0x03]).unwrap();
+        trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
 
-        assert!(trie.set_root(root).unwrap());
+        trie.set_root(root);
 
-        trie.insert(vec![0x02], vec![0x04]).unwrap();
+        trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x04]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some([4; 32].to_vec()));
     }
 
     #[test]
     fn revert_with_removals() {
         let mut trie = Trie::new_temp();
-        trie.insert(vec![0x00], vec![0x00]).unwrap();
-        trie.insert(vec![0x01], vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x02]).unwrap();
+        trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
-        let root = trie.compute_hash().unwrap();
+        let root = trie.hash();
 
-        trie.insert(vec![0x00], vec![0x04]).unwrap();
-        trie.remove(vec![0x01]).unwrap();
-        trie.insert(vec![0x02], vec![0x05]).unwrap();
-        trie.remove(vec![0x00]).unwrap();
+        trie.insert([0; 32].to_vec(), [4; 32].to_vec()).unwrap();
+        trie.remove([1; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [5; 32].to_vec()).unwrap();
+        trie.remove([0; 32].to_vec()).unwrap();
 
-        assert!(trie.set_root(root).unwrap());
+        trie.set_root(root);
 
-        trie.remove(vec![0x02]).unwrap();
+        trie.remove([2; 32].to_vec()).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x00]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x01]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
         assert_eq!(trie.get(&vec![0x02]).unwrap(), None);
     }
 
@@ -590,18 +577,21 @@ mod test {
         // Create new trie from clean DB
         let mut trie = Trie::new(trie_dir).unwrap();
 
-        trie.insert(vec![0x00], vec![0x01]).unwrap();
-        trie.insert(vec![0x01], vec![0x02]).unwrap();
-        trie.insert(vec![0x02], vec![0x04]).unwrap();
+        trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
+        trie.insert([1; 32].to_vec(), [2; 32].to_vec()).unwrap();
+        trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
+
+        // Save current root
+        let root = trie.hash();
 
         drop(trie); // Release DB
 
         // Create a new trie based on the previous trie's DB
-        let trie = Trie::new(trie_dir).unwrap();
+        let trie = Trie::open(trie_dir, root).unwrap();
 
-        assert_eq!(trie.get(&vec![0x00]).unwrap(), Some(vec![0x01]));
-        assert_eq!(trie.get(&vec![0x01]).unwrap(), Some(vec![0x02]));
-        assert_eq!(trie.get(&vec![0x02]).unwrap(), Some(vec![0x04]));
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some([4; 32].to_vec()));
     }
 
     // Proptests
@@ -691,7 +681,7 @@ mod test {
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
             }
 
-            let hash = trie.compute_hash().unwrap().0.to_vec();
+            let hash = trie.hash().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -716,7 +706,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.compute_hash().unwrap().0.to_vec();
+            let hash = trie.hash().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -744,7 +734,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.compute_hash().unwrap().0.to_vec();
+            let hash = trie.hash().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -757,7 +747,7 @@ mod test {
             for val in data.iter(){
                 trie.insert(val.clone(), val.clone()).unwrap();
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
-                let hash = trie.compute_hash().unwrap().0.to_vec();
+                let hash = trie.hash().0.to_vec();
                 let cita_hash = cita_trie.root().unwrap();
                 prop_assert_eq!(hash, cita_hash);
             }
