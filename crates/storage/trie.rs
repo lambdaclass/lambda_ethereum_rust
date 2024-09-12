@@ -153,7 +153,7 @@ impl Trie {
         self.root = (root_hash != *EMPTY_TRIE_HASH).then_some(root_hash.into());
     }
 
-    #[cfg(test)]
+    // TODO: Restore #[cfg(test)]
     /// Creates a new trie based on a temporary DB
     pub fn new_temp() -> Self {
         Self {

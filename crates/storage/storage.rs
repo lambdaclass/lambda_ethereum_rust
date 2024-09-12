@@ -84,13 +84,13 @@ impl Store {
             EngineType::Libmdbx => Self {
                 engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
                 // A new DB is created for the trie, we should use the same one once DB trait refactor is done
-                world_state: Arc::new(Mutex::new(Trie::new(&[path, "trie"].concat())?)),
+                world_state: Arc::new(Mutex::new(Trie::new_temp())),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
                 // A new DB is created for the trie, we should use an in-memory backend once DB trait refactor is done
-                world_state: Arc::new(Mutex::new(Trie::new(&[path, "trie"].concat())?)),
+                world_state: Arc::new(Mutex::new(Trie::new_temp())),
             },
         };
         info!("Started store engine");

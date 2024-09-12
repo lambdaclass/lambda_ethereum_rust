@@ -121,7 +121,7 @@ impl TrieState {
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
 
-    #[cfg(test)]
+    // TODO: Restore #[cfg(test)]
     /// Creates a temporary DB, for testing purposes only
     pub fn init_temp() -> Self {
         let tables = [table_info!(Nodes)].into_iter().collect();
