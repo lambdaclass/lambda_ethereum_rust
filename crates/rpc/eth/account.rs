@@ -1,53 +1,10 @@
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 use serde_json::Value;
-use std::fmt::Display;
 use tracing::info;
 
-use crate::{eth::block::BlockTag, utils::RpcErr, RpcHandler};
-use ethereum_rust_core::{types::BlockNumber, Address, BigEndianHash, H256};
-
-use super::block::BlockIdentifier;
-use ethereum_rust_core::types::BlockHash;
-use serde::Deserialize;
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum BlockIdentifierOrHash {
-    Hash(BlockHash),
-    Identifier(BlockIdentifier),
-}
-
-impl PartialEq<BlockTag> for BlockIdentifierOrHash {
-    fn eq(&self, other: &BlockTag) -> bool {
-        match self {
-            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(tag)) => tag == other,
-            _ => false,
-        }
-    }
-}
-
-impl BlockIdentifierOrHash {
-    #[allow(unused)]
-    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
-            BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(*block_hash),
-        }
-    }
-
-    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
-        if self == &BlockTag::Latest {
-            return Ok(true);
-        }
-
-        let result = self.resolve_block_number(storage)?;
-        let latest = storage.get_latest_block_number()?;
-        match (result, latest) {
-            (Some(result), Some(latest)) => Ok(result == latest),
-            _ => Ok(false),
-        }
-    }
-}
+use crate::types::block_identifier::BlockIdentifierOrHash;
+use crate::{utils::RpcErr, RpcHandler};
+use ethereum_rust_core::{Address, BigEndianHash, H256};
 
 pub struct GetBalanceRequest {
     pub address: Address,
@@ -71,14 +28,14 @@ pub struct GetTransactionCountRequest {
 }
 
 impl RpcHandler for GetBalanceRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetBalanceRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetBalanceRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetBalanceRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetBalanceRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -101,14 +58,14 @@ impl RpcHandler for GetBalanceRequest {
 }
 
 impl RpcHandler for GetCodeRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetCodeRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetCodeRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetCodeRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetCodeRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -132,15 +89,15 @@ impl RpcHandler for GetCodeRequest {
 }
 
 impl RpcHandler for GetStorageAtRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetStorageAtRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetStorageAtRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 3 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetStorageAtRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            storage_slot: serde_json::from_value(params[1].clone()).ok()?,
-            block: serde_json::from_value(params[2].clone()).ok()?,
+        Ok(GetStorageAtRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            storage_slot: serde_json::from_value(params[1].clone())?,
+            block: BlockIdentifierOrHash::parse(params[2].clone(), 2)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -164,14 +121,14 @@ impl RpcHandler for GetStorageAtRequest {
 }
 
 impl RpcHandler for GetTransactionCountRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionCountRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetTransactionCountRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetTransactionCountRequest {
-            address: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(GetTransactionCountRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -191,14 +148,5 @@ impl RpcHandler for GetTransactionCountRequest {
             .unwrap_or_default();
 
         serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)
-    }
-}
-
-impl Display for BlockIdentifierOrHash {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlockIdentifierOrHash::Identifier(id) => id.fmt(f),
-            BlockIdentifierOrHash::Hash(hash) => hash.fmt(f),
-        }
     }
 }

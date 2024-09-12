@@ -56,7 +56,7 @@ HIVE_REVISION := 9bff4bbf4439336bd037a444560516dd49ff1c40
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
-HIVE_SHALLOW_SINCE := 2024_09_02
+HIVE_SHALLOW_SINCE := 2024-09-02
 hive:
 	git clone --single-branch --branch master --shallow-since=$(HIVE_SHALLOW_SINCE) https://github.com/lambdaclass/hive
 

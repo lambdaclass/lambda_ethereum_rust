@@ -14,14 +14,14 @@ pub struct ForkChoiceUpdatedV3 {
 }
 
 impl ForkChoiceUpdatedV3 {
-    pub fn parse(params: &Option<Vec<Value>>) -> Option<ForkChoiceUpdatedV3> {
-        let params = params.as_ref()?;
+    pub fn parse(params: &Option<Vec<Value>>) -> Result<ForkChoiceUpdatedV3, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         }
-        Some(ForkChoiceUpdatedV3 {
-            fork_choice_state: serde_json::from_value(params[0].clone()).ok()?,
-            payload_attributes: serde_json::from_value(params[1].clone()).ok()?,
+        Ok(ForkChoiceUpdatedV3 {
+            fork_choice_state: serde_json::from_value(params[0].clone())?,
+            payload_attributes: serde_json::from_value(params[1].clone())?,
         })
     }
 }

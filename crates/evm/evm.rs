@@ -8,7 +8,7 @@ use db::StoreWrapper;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHeader, GenericTransaction, Receipt, Transaction, TxKind,
+        AccountInfo, Block, BlockHeader, ForkId, GenericTransaction, Receipt, Transaction, TxKind,
         Withdrawal, GWEI_TO_WEI,
     },
     Address, BigEndianHash, H256, U256,
@@ -125,16 +125,12 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
-        let chain_id = state.database().get_chain_id()?;
+        let chain_spec = state.database().get_chain_config()?;
         let mut evm = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
-            .modify_cfg_env(|cfg| {
-                if let Some(chain_id) = chain_id {
-                    cfg.chain_id = chain_id
-                }
-            })
+            .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
             .with_spec_id(spec_id)
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
@@ -170,7 +166,7 @@ pub fn create_access_list(
                     .collect(),
             )
         }));
-        estimate_gas(tx_env, block_env, state, spec_id)?
+        run_without_commit(tx_env, block_env, state, spec_id)?
     } else {
         execution_result
     };
@@ -217,16 +213,6 @@ fn create_access_list_inner(
     Ok((tx_result.result.into(), access_list))
 }
 
-/// Runs the transaction and returns the estimated gas
-fn estimate_gas(
-    tx_env: TxEnv,
-    block_env: BlockEnv,
-    state: &mut EvmState,
-    spec_id: SpecId,
-) -> Result<ExecutionResult, EvmError> {
-    run_without_commit(tx_env, block_env, state, spec_id)
-}
-
 /// Runs the transaction and returns the result, but does not commit it.
 fn run_without_commit(
     tx_env: TxEnv,
@@ -239,7 +225,7 @@ fn run_without_commit(
         tx_env.gas_price,
         tx_env.max_fee_per_blob_gas,
     );
-    let chain_id = state.database().get_chain_id()?;
+    let chain_config = state.database().get_chain_config()?;
     let mut evm = Evm::builder()
         .with_db(&mut state.0)
         .with_block_env(block_env)
@@ -248,9 +234,7 @@ fn run_without_commit(
         .modify_cfg_env(|env| {
             env.disable_base_fee = true;
             env.disable_block_gas_limit = true;
-            if let Some(chain_id) = chain_id {
-                env.chain_id = chain_id
-            }
+            env.chain_id = chain_config.chain_id;
         })
         .build();
     let tx_result = evm.transact().map_err(EvmError::from)?;
@@ -546,21 +530,14 @@ fn access_list_inspector(
 /// Returns the spec id according to the block timestamp and the stored chain config
 /// WARNING: Assumes at least Merge fork is active
 pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
-    Ok(
-        if store
-            .get_cancun_time()?
-            .is_some_and(|t| t <= block_timestamp)
-        {
-            SpecId::CANCUN
-        } else if store
-            .get_shanghai_time()?
-            .is_some_and(|t| t <= block_timestamp)
-        {
-            SpecId::SHANGHAI
-        } else {
-            SpecId::MERGE
-        },
-    )
+    let chain_config = store.get_chain_config()?;
+    let spec = match chain_config.get_fork(block_timestamp) {
+        ForkId::Cancun => SpecId::CANCUN,
+        ForkId::Shanghai => SpecId::SHANGHAI,
+        ForkId::Paris => SpecId::MERGE,
+    };
+
+    Ok(spec)
 }
 
 /// Calculating gas_price according to EIP-1559 rules
