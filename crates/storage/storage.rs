@@ -463,7 +463,12 @@ impl Store {
         from: BlockNumber,
         to: BlockNumber,
     ) -> Result<Vec<Log>, StoreError> {
-        self.engine.lock().unwrap().get_logs_in_range(from, to)
+        let mut lock = self.engine.try_lock();
+        if let Ok(ref mut db) = lock {
+            db.get_logs_in_range(from, to)
+        } else {
+            Err(StoreError::Custom("Could not access db".to_string()))
+        }
     }
 }
 
