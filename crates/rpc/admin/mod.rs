@@ -32,9 +32,9 @@ enum Protocol {
 pub fn node_info(storage: Store, local_node: Node) -> Result<Value, RpcErr> {
     let enode_url = local_node.enode_url();
     let mut protocols = HashMap::new();
-    if let Some(chain_config) = storage.get_chain_config()? {
-        protocols.insert("eth".to_string(), Protocol::Eth(chain_config));
-    }
+
+    let chain_config = storage.get_chain_config().map_err(|_| RpcErr::Internal)?;
+    protocols.insert("eth".to_string(), Protocol::Eth(chain_config));
 
     let node_info = NodeInfo {
         enode: enode_url,
