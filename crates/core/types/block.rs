@@ -325,7 +325,7 @@ fn check_gas_limit(gas_limit: u64, parent_gas_limit: u64) -> bool {
 }
 
 // Calculates the base fee per blob gas for the current block based on it's parent excess blob gas
-pub fn calculate_base_fee_per_blob_gas(parent_header: BlockHeader) -> u64 {
+pub fn calculate_base_fee_per_blob_gas(parent_header: &BlockHeader) -> u64 {
     fake_exponential(
         MIN_BASE_FEE_PER_BLOB_GAS,
         parent_header.excess_blob_gas.unwrap_or_default(),

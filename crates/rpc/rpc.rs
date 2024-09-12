@@ -16,8 +16,8 @@ use engine::{
 use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
-        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest,
+        self, FeeHistoryRequest, GetBlockByHashRequest, GetBlockByNumberRequest,
+        GetBlockReceiptsRequest, GetBlockTransactionCountRequest,
     },
     client,
     transaction::{
@@ -181,6 +181,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_call" => CallRequest::call(req, storage),
         "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
+        "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
