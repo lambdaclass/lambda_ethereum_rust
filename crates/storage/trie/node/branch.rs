@@ -2,9 +2,8 @@ use crate::{
     error::StoreError,
     trie::{
         db::TrieDB,
-        hashing::{DelimitedHash, NodeHash, NodeHashRef, NodeHasher, Output},
         nibble::{Nibble, NibbleSlice, NibbleVec},
-        node_ref::NodeRef,
+        node_hash::{NodeHash, NodeHasher},
         PathRLP, ValueRLP,
     },
 };
@@ -12,31 +11,49 @@ use crate::{
 use super::{ExtensionNode, LeafNode, Node};
 
 /// Branch Node of an an Ethereum Compatible Patricia Merkle Trie
-/// Contains the node's hash, value, path, and the references of its children nodes
+/// Contains the node's hash, value, path, and the hash of its children nodes
 #[derive(Debug, Clone)]
 pub struct BranchNode {
-    pub hash: NodeHash,
-    pub choices: [NodeRef; 16],
+    // TODO: check if switching to hashmap is a better solution
+    pub choices: Box<[NodeHash; 16]>,
     pub path: PathRLP,
     pub value: ValueRLP,
 }
 
 impl BranchNode {
+    /// Empty choice array for more convenient node-building
+    pub const EMPTY_CHOICES: [NodeHash; 16] = [
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+        NodeHash::const_default(),
+    ];
+
     /// Creates a new branch node given its children, without any stored value
-    pub fn new(choices: [NodeRef; 16]) -> Self {
+    pub fn new(choices: Box<[NodeHash; 16]>) -> Self {
         Self {
             choices,
-            hash: Default::default(),
             path: Default::default(),
             value: Default::default(),
         }
     }
 
     /// Creates a new branch node given its children and stores the given (path, value) pair
-    pub fn new_with_value(choices: [NodeRef; 16], path: PathRLP, value: ValueRLP) -> Self {
+    pub fn new_with_value(choices: Box<[NodeHash; 16]>, path: PathRLP, value: ValueRLP) -> Self {
         Self {
             choices,
-            hash: Default::default(),
             path,
             value,
         }
@@ -54,10 +71,10 @@ impl BranchNode {
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next().map(usize::from) {
             // Delegate to children if present
-            let child_ref = self.choices[choice];
-            if child_ref.is_valid() {
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
                 let child_node = db
-                    .get_node(child_ref)?
+                    .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
                 child_node.get(db, path)
             } else {
@@ -78,23 +95,22 @@ impl BranchNode {
     ) -> Result<Node, StoreError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
-        self.hash.mark_as_dirty();
         match path.next() {
             Some(choice) => match &mut self.choices[choice as usize] {
                 // Create new child (leaf node)
-                choice_ref if !choice_ref.is_valid() => {
+                choice_hash if !choice_hash.is_valid() => {
                     let new_leaf = LeafNode::new(path.data(), value);
-                    let child_ref = db.insert_node(new_leaf.into())?;
-                    *choice_ref = child_ref;
+                    let child_hash = new_leaf.insert_self(path.offset(), db)?;
+                    *choice_hash = child_hash;
                 }
                 // Insert into existing child and then update it
-                choice_ref => {
+                choice_hash => {
                     let child_node = db
-                        .get_node(*choice_ref)?
+                        .get_node(choice_hash.clone())?
                         .expect("inconsistent internal tree structure");
 
-                    let child_node = child_node.insert(db, path, value)?;
-                    *choice_ref = db.insert_node(child_node)?;
+                    let child_node = child_node.insert(db, path.clone(), value)?;
+                    *choice_hash = child_node.insert_self(path.offset(), db)?;
                 }
             },
             None => {
@@ -139,16 +155,17 @@ impl BranchNode {
             Some(choice_index) => {
                 if self.choices[choice_index as usize].is_valid() {
                     let child_node = db
-                        .get_node(self.choices[choice_index as usize])?
+                        .get_node(self.choices[choice_index as usize].clone())?
                         .expect("inconsistent internal tree structure");
                     // Remove value from child node
-                    let (child_node, old_value) = child_node.remove(db, path)?;
+                    let (child_node, old_value) = child_node.remove(db, path.clone())?;
                     if let Some(child_node) = child_node {
                         // Update child node
-                        self.choices[choice_index as usize] = db.insert_node(child_node)?;
+                        self.choices[choice_index as usize] =
+                            child_node.insert_self(path.offset(), db)?;
                     } else {
-                        // Remove child reference if the child subtrie was removed in the process
-                        self.choices[choice_index as usize] = NodeRef::default();
+                        // Remove child hash if the child subtrie was removed in the process
+                        self.choices[choice_index as usize] = NodeHash::default();
                     }
                     old_value
                 } else {
@@ -175,7 +192,7 @@ impl BranchNode {
 
         // An `Err(_)` means more than one choice. `Ok(Some(_))` and `Ok(None)` mean a single and no
         // choices respectively.
-        // If there is only one child choice_count will contain the choice index and the reference of the child node
+        // If there is only one child choice_count will contain the choice index and the hash of the child node
         let choice_count = self
             .choices
             .iter_mut()
@@ -189,28 +206,22 @@ impl BranchNode {
                 })
             });
 
-        if value.is_some() {
-            self.hash.mark_as_dirty();
-        }
-
-        let child_ref = match choice_count {
-            Ok(Some((choice_index, child_ref))) => {
+        let child_hash = match choice_count {
+            Ok(Some((choice_index, child_hash))) => {
                 let choice_index = Nibble::try_from(choice_index as u8).unwrap();
                 let child_node = db
-                    .get_node(*child_ref)?
+                    .get_node(child_hash.clone())?
                     .expect("inconsistent internal tree structure");
 
                 match child_node {
                     // Replace the child node  with an extension node leading to it
                     // The extension node will then replace self if self has no value
                     Node::Branch(_) => {
-                        *child_ref = db.insert_node(
-                            ExtensionNode::new(
-                                NibbleVec::from_single(choice_index, path_offset % 2 != 0),
-                                *child_ref,
-                            )
-                            .into(),
-                        )?;
+                        let extension_node = ExtensionNode::new(
+                            NibbleVec::from_single(choice_index, path_offset % 2 != 0),
+                            child_hash.clone(),
+                        );
+                        *child_hash = extension_node.insert_self(db)?
                     }
                     // Replace self with the child extension node, updating its path in the process
                     Node::Extension(mut extension_node) => {
@@ -222,19 +233,19 @@ impl BranchNode {
                     _ => {}
                 }
 
-                Some(child_ref)
+                Some(child_hash)
             }
             _ => None,
         };
 
-        let new_node = match (child_ref, !self.path.is_empty()) {
+        let new_node = match (child_hash, !self.path.is_empty()) {
             // If this node still has a child and value return the updated node
             (Some(_), true) => Some(self.into()),
             // If this node still has a value but no longer has children, convert it into a leaf node
             (None, true) => Some(LeafNode::new(self.path, self.value).into()),
             // If this node doesn't have a value, replace it with its child node
             (Some(x), false) => Some(
-                db.get_node(*x)?
+                db.get_node(x.clone())?
                     .expect("inconsistent internal tree structure"),
             ),
             // Return this node
@@ -245,115 +256,84 @@ impl BranchNode {
     }
 
     /// Computes the node's hash given the offset in the path traversed before reaching this node
-    pub fn compute_hash(&self, db: &TrieDB, path_offset: usize) -> Result<NodeHashRef, StoreError> {
-        if let Some(hash) = self.hash.extract_ref() {
-            return Ok(hash);
-        };
-        let hash_choice = |node_ref: NodeRef| -> Result<DelimitedHash, StoreError> {
-            if node_ref.is_valid() {
-                let child_node = db
-                    .get_node(node_ref)?
-                    .expect("inconsistent internal tree structure");
-
-                let mut target = Output::default();
-                let target_len = match child_node.compute_hash(db, path_offset + 1)? {
-                    NodeHashRef::Inline(x) => {
-                        target[..x.len()].copy_from_slice(&x);
-                        x.len()
-                    }
-                    NodeHashRef::Hashed(x) => {
-                        target.copy_from_slice(&x);
-                        x.len()
-                    }
-                };
-
-                Ok(DelimitedHash(target, target_len))
+    pub fn compute_hash(&self) -> NodeHash {
+        let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
+            if node_hash.is_valid() {
+                match node_hash {
+                    NodeHash::Hashed(x) => (x.as_bytes().to_vec(), 32),
+                    NodeHash::Inline(x) => (x.clone(), x.len()),
+                }
             } else {
-                Ok(DelimitedHash(Output::default(), 0))
+                (Vec::new(), 0)
             }
         };
-        let children = self
-            .choices
-            .iter()
-            .map(|node_ref| hash_choice(*node_ref))
-            .collect::<Result<Vec<_>, _>>()?
-            .try_into()
-            .unwrap();
-
+        let children = self.choices.iter().map(hash_choice).collect::<Vec<_>>();
         let encoded_value = (!self.value.is_empty()).then_some(&self.value[..]);
 
-        Ok(compute_branch_hash::<DelimitedHash>(
-            &self.hash,
-            &children,
-            encoded_value,
-        ))
-    }
-}
+        let mut children_len: usize = children
+            .iter()
+            .map(|x| match x {
+                (_, 0) => 1,
+                (x, 32) => NodeHasher::bytes_len(32, x[0]),
+                (_, y) => *y,
+            })
+            .sum();
+        if let Some(value) = encoded_value {
+            children_len +=
+                NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
+        } else {
+            children_len += 1;
+        }
 
-/// Helper method to compute the hash of a branch node
-fn compute_branch_hash<'a, T>(
-    hash: &'a NodeHash,
-    choices: &[T; 16],
-    value: Option<&[u8]>,
-) -> NodeHashRef<'a>
-where
-    T: AsRef<[u8]>,
-{
-    let mut children_len: usize = choices
-        .iter()
-        .map(|x| match x.as_ref().len() {
-            0 => 1,
-            32 => NodeHasher::bytes_len(32, x.as_ref()[0]),
-            x => x,
-        })
-        .sum();
-
-    if let Some(value) = value {
-        children_len +=
-            NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
-    } else {
-        children_len += 1;
+        let mut hasher = NodeHasher::new();
+        hasher.write_list_header(children_len);
+        children.iter().for_each(|(x, len)| match len {
+            0 => hasher.write_bytes(&[]),
+            32 => hasher.write_bytes(x),
+            _ => hasher.write_raw(x),
+        });
+        match encoded_value {
+            Some(value) => hasher.write_bytes(value),
+            None => hasher.write_bytes(&[]),
+        }
+        hasher.finalize()
     }
 
-    let mut hasher = NodeHasher::new(hash);
-    hasher.write_list_header(children_len);
-    choices.iter().for_each(|x| match x.as_ref().len() {
-        0 => hasher.write_bytes(&[]),
-        32 => hasher.write_bytes(x.as_ref()),
-        _ => hasher.write_raw(x.as_ref()),
-    });
-    match value {
-        Some(value) => hasher.write_bytes(value),
-        None => hasher.write_bytes(&[]),
+    /// Inserts the node into the DB and returns its hash
+    pub fn insert_self(self, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+        let hash = self.compute_hash();
+        db.insert_node(self.into(), hash.clone())?;
+        Ok(hash)
     }
-    hasher.finalize()
 }
 
 #[cfg(test)]
 mod test {
+    use ethereum_types::H256;
+
     use super::*;
     use crate::{pmt_node, trie::Trie};
 
     #[test]
     fn new() {
         let node = BranchNode::new({
-            let mut choices = [Default::default(); 16];
+            let mut choices = BranchNode::EMPTY_CHOICES;
 
-            choices[2] = NodeRef::new(2);
-            choices[5] = NodeRef::new(5);
+            choices[2] = NodeHash::Hashed(H256([2; 32]));
+            choices[5] = NodeHash::Hashed(H256([5; 32]));
 
-            choices
+            Box::new(choices)
         });
 
         assert_eq!(
-            node.choices,
+            *node.choices,
             [
                 Default::default(),
                 Default::default(),
-                NodeRef::new(2),
+                NodeHash::Hashed(H256([2; 32])),
                 Default::default(),
                 Default::default(),
-                NodeRef::new(5),
+                NodeHash::Hashed(H256([5; 32])),
                 Default::default(),
                 Default::default(),
                 Default::default(),
@@ -568,7 +548,7 @@ mod test {
         };
 
         assert_eq!(
-            node.compute_hash(&trie.db, 0).unwrap().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0xD5, 0x80, 0x80, 0xC2, 0x30, 0x20, 0x80, 0xC2, 0x30, 0x40, 0x80, 0x80, 0x80, 0x80,
                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
@@ -601,7 +581,7 @@ mod test {
         };
 
         assert_eq!(
-            node.compute_hash(&trie.db, 0).unwrap().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0x0A, 0x3C, 0x06, 0x2D, 0x4A, 0xE3, 0x61, 0xEC, 0xC4, 0x82, 0x07, 0xB3, 0x2A, 0xDB,
                 0x6A, 0x3A, 0x3F, 0x3E, 0x98, 0x33, 0xC8, 0x9C, 0x9A, 0x71, 0x66, 0x3F, 0x4E, 0xB5,
@@ -621,7 +601,7 @@ mod test {
         };
 
         assert_eq!(
-            node.compute_hash(&trie.db, 0).unwrap().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0xD5, 0x80, 0x80, 0xC2, 0x30, 0x20, 0x80, 0xC2, 0x30, 0x40, 0x80, 0x80, 0x80, 0x80,
                 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01,
@@ -654,7 +634,7 @@ mod test {
         };
 
         assert_eq!(
-            node.compute_hash(&trie.db, 0).unwrap().as_ref(),
+            node.compute_hash().as_ref(),
             &[
                 0x2A, 0x85, 0x67, 0xC5, 0x63, 0x4A, 0x87, 0xBA, 0x19, 0x6F, 0x2C, 0x65, 0x15, 0x16,
                 0x66, 0x37, 0xE0, 0x9A, 0x34, 0xE6, 0xC9, 0xB0, 0x4D, 0xA5, 0x6F, 0xC4, 0x70, 0x4E,
