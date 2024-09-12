@@ -15,7 +15,7 @@ macro_rules! pmt_node {
                     $child_type { $( $child_tokens )* }
                     offset offset
                 }.into();
-                choices[$choice as usize] = child_node.insert_self(1, &mut $trie.db).unwrap();
+                choices[$choice as usize] = child_node.insert_self(1, &mut $trie.state).unwrap();
             )*
             Box::new(choices)
         })
@@ -35,7 +35,7 @@ macro_rules! pmt_node {
                     pmt_node! { @($trie)
                         $child_type { $( $child_tokens )* }
                         offset offset
-                    }).insert_self(1, &mut $trie.db).unwrap();
+                    }).insert_self(1, &mut $trie.state).unwrap();
             )*
             Box::new(choices)
         }, $path, $value)
@@ -63,7 +63,7 @@ macro_rules! pmt_node {
                     $child_type { $( $child_tokens )* }
                     offset offset
                 });
-                child_node.insert_self(1, &mut $trie.db).unwrap()
+                child_node.insert_self(1, &mut $trie.state).unwrap()
             }
         )
     }};

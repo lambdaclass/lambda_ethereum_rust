@@ -1,8 +1,8 @@
-mod db;
 mod nibble;
 mod node;
 mod node_hash;
 mod rlp;
+mod state;
 #[cfg(test)]
 mod test_utils;
 
@@ -12,7 +12,7 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode};
+use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
 use lazy_static::lazy_static;
@@ -38,14 +38,14 @@ pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
     /// Contains the trie's nodes
-    pub(crate) db: TrieDB,
+    pub(crate) state: TrieState,
 }
 
 impl Trie {
     /// Creates a new Trie from a clean DB
     pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            db: TrieDB::create(trie_dir)?,
+            state: TrieState::create(trie_dir)?,
             root: None,
         })
     }
@@ -54,7 +54,7 @@ impl Trie {
     pub fn open(trie_dir: &str, root: H256) -> Result<Self, StoreError> {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
         Ok(Self {
-            db: TrieDB::create(trie_dir)?,
+            state: TrieState::create(trie_dir)?,
             root,
         })
     }
@@ -63,10 +63,10 @@ impl Trie {
     pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
         if let Some(root) = &self.root {
             let root_node = self
-                .db
+                .state
                 .get_node(root.clone())?
                 .expect("inconsistent internal tree structure");
-            root_node.get(&self.db, NibbleSlice::new(path))
+            root_node.get(&self.state, NibbleSlice::new(path))
         } else {
             Ok(None)
         }
@@ -76,18 +76,18 @@ impl Trie {
     pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
         let root = self.root.take();
         if let Some(root_node) = root
-            .map(|root| self.db.get_node(root))
+            .map(|root| self.state.get_node(root))
             .transpose()?
             .flatten()
         {
             // If the trie is not empty, call the root node's insertion logic
             let root_node =
-                root_node.insert(&mut self.db, NibbleSlice::new(&path), value.clone())?;
-            self.root = Some(root_node.insert_self(0, &mut self.db)?)
+                root_node.insert(&mut self.state, NibbleSlice::new(&path), value.clone())?;
+            self.root = Some(root_node.insert_self(0, &mut self.state)?)
         } else {
             // If the trie is empty, just add a leaf.
             let new_leaf = Node::from(LeafNode::new(path.clone(), value));
-            self.root = Some(new_leaf.insert_self(0, &mut self.db)?)
+            self.root = Some(new_leaf.insert_self(0, &mut self.state)?)
         }
         Ok(())
     }
@@ -98,12 +98,13 @@ impl Trie {
         let root = self.root.take();
         if let Some(root) = root {
             let root_node = self
-                .db
+                .state
                 .get_node(root)?
                 .expect("inconsistent internal tree structure");
-            let (root_node, old_value) = root_node.remove(&mut self.db, NibbleSlice::new(&path))?;
+            let (root_node, old_value) =
+                root_node.remove(&mut self.state, NibbleSlice::new(&path))?;
             self.root = root_node
-                .map(|root| root.insert_self(0, &mut self.db))
+                .map(|root| root.insert_self(0, &mut self.state))
                 .transpose()?;
             Ok(old_value)
         } else {
@@ -113,11 +114,16 @@ impl Trie {
 
     /// Return the hash of the trie's root node.
     /// Returns keccak(RLP_NULL) if the trie is empty
-    pub fn hash(&mut self) -> H256 {
-        self.root
+    /// Also commits changes to the DB
+    pub fn hash(&mut self) -> Result<H256, StoreError> {
+        if let Some(ref root) = self.root {
+            self.state.commit(root)?;
+        }
+        Ok(self
+            .root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH)
+            .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
     /// Retrieve a value from the trie given its path from the subtrie originating from the given root
@@ -130,8 +136,8 @@ impl Trie {
         root_hash: H256,
         path: &PathRLP,
     ) -> Result<Option<ValueRLP>, StoreError> {
-        if let Some(root_node) = self.db.get_node(root_hash.into())? {
-            root_node.get(&self.db, NibbleSlice::new(path))
+        if let Some(root_node) = self.state.get_node(root_hash.into())? {
+            root_node.get(&self.state, NibbleSlice::new(path))
         } else {
             Ok(None)
         }
@@ -150,7 +156,7 @@ impl Trie {
     /// Creates a new trie based on a temporary DB
     pub fn new_temp() -> Self {
         Self {
-            db: TrieDB::init_temp(),
+            state: TrieState::init_temp(),
             root: None,
         }
     }
@@ -179,7 +185,7 @@ mod test {
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().as_ref(),
+            trie.hash().unwrap().as_ref(),
             hex!("f7537e7f4b313c426440b7fface6bff76f51b3eb0d127356efbe6f2b3c891501")
         );
     }
@@ -193,7 +199,7 @@ mod test {
         trie.insert(b"fourth".to_vec(), b"value".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().0.to_vec(),
+            trie.hash().unwrap().0.to_vec(),
             hex!("e2ff76eca34a96b68e6871c74f2a5d9db58e59f82073276866fdd25e560cedea")
         );
     }
@@ -358,7 +364,7 @@ mod test {
         trie.insert(b"dog".to_vec(), b"puppy".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84").as_slice()
         );
     }
@@ -367,7 +373,7 @@ mod test {
     fn compute_hash_b() {
         let mut trie = Trie::new_temp();
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").as_slice(),
         );
     }
@@ -419,7 +425,7 @@ mod test {
         }
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("9f6221ebb8efe7cff60a716ecb886e67dd042014be444669f0159d8e68b42100").as_slice(),
         );
     }
@@ -451,7 +457,7 @@ mod test {
         }
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("cb65032e2f76c48b82b5c24b3db8f670ce73982869d38cd39a624f23d62a9e89").as_slice(),
         );
     }
@@ -464,7 +470,7 @@ mod test {
         trie.insert(b"abc".to_vec(), b"abc".to_vec()).unwrap();
 
         assert_eq!(
-            trie.hash().0.as_slice(),
+            trie.hash().unwrap().0.as_slice(),
             hex!("7a320748f780ad9ad5b0837302075ce0eeba6c26e3d8562c67ccc0f1b273298a").as_slice(),
         );
     }
@@ -475,7 +481,7 @@ mod test {
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
@@ -500,7 +506,7 @@ mod test {
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), vec![0x04]).unwrap();
         trie.remove([1; 32].to_vec()).unwrap();
@@ -531,7 +537,7 @@ mod test {
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
@@ -552,7 +558,7 @@ mod test {
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
 
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         trie.insert([0; 32].to_vec(), [4; 32].to_vec()).unwrap();
         trie.remove([1; 32].to_vec()).unwrap();
@@ -582,7 +588,7 @@ mod test {
         trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
         // Save current root
-        let root = trie.hash();
+        let root = trie.hash().unwrap();
 
         drop(trie); // Release DB
 
@@ -681,7 +687,7 @@ mod test {
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
             }
 
-            let hash = trie.hash().0.to_vec();
+            let hash = trie.hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -706,7 +712,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.hash().0.to_vec();
+            let hash = trie.hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -734,7 +740,7 @@ mod test {
                 }
             }
             // Compare hashes
-            let hash = trie.hash().0.to_vec();
+            let hash = trie.hash().unwrap().0.to_vec();
             let cita_hash = cita_trie.root().unwrap();
             prop_assert_eq!(hash, cita_hash);
         }
@@ -747,7 +753,7 @@ mod test {
             for val in data.iter(){
                 trie.insert(val.clone(), val.clone()).unwrap();
                 cita_trie.insert(val.clone(), val.clone()).unwrap();
-                let hash = trie.hash().0.to_vec();
+                let hash = trie.hash().unwrap().0.to_vec();
                 let cita_hash = cita_trie.root().unwrap();
                 prop_assert_eq!(hash, cita_hash);
             }

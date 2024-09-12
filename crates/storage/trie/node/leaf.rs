@@ -3,10 +3,10 @@ use ethereum_types::H256;
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
         nibble::NibbleSlice,
         node::BranchNode,
         node_hash::{NodeHash, NodeHasher, PathKind},
+        state::TrieState,
         PathRLP, ValueRLP,
     },
 };
@@ -38,7 +38,7 @@ impl LeafNode {
     /// Stores the received value and returns the new root of the subtrie previously consisting of self
     pub fn insert(
         mut self,
-        db: &mut TrieDB,
+        state: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -71,7 +71,7 @@ impl LeafNode {
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
-                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, db)?;
+                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
 
                 BranchNode::new_with_value(Box::new(choices), path.data(), value)
             } else if absolute_offset == 2 * self.path.len() {
@@ -81,7 +81,7 @@ impl LeafNode {
                 let new_leaf = LeafNode::new(path.data(), value);
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[path_branch.next().unwrap() as usize] =
-                    new_leaf.insert_self(leaf_offset, db)?;
+                    new_leaf.insert_self(leaf_offset, state)?;
 
                 BranchNode::new_with_value(Box::new(choices), self.path, self.value)
             } else {
@@ -89,11 +89,11 @@ impl LeafNode {
                 // Create a new branch node with the leaf and self as children
                 // Branch { [ Leaf { Path, Value }, Self, ... ], None, None}
                 let new_leaf = LeafNode::new(path.data(), value);
-                let child_hash = new_leaf.insert_self(leaf_offset, db)?;
+                let child_hash = new_leaf.insert_self(leaf_offset, state)?;
                 let mut choices = BranchNode::EMPTY_CHOICES;
                 choices[NibbleSlice::new(self.path.as_ref())
                     .nth(absolute_offset)
-                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, db)?;
+                    .unwrap() as usize] = self.clone().insert_self(leaf_offset, state)?;
                 choices[path_branch.next().unwrap() as usize] = child_hash;
                 BranchNode::new(Box::new(choices))
             };
@@ -101,7 +101,7 @@ impl LeafNode {
             let final_node = if offset != 0 {
                 // Create an extension node with the branch node as child
                 // Extension { BranchNode }
-                let branch_hash = branch_node.insert_self(db)?;
+                let branch_hash = branch_node.insert_self(state)?;
                 ExtensionNode::new(path.split_to_vec(offset), branch_hash).into()
             } else {
                 branch_node.into()
@@ -140,11 +140,15 @@ impl LeafNode {
         hasher.finalize()
     }
 
-    /// Inserts the node into the DB and returns its hash
+    /// Inserts the node into the state and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
-    pub fn insert_self(self, path_offset: usize, db: &mut TrieDB) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(
+        self,
+        path_offset: usize,
+        state: &mut TrieState,
+    ) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash(path_offset);
-        db.insert_node(self.into(), hash.clone())?;
+        state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
 }
@@ -191,7 +195,7 @@ mod test {
         };
 
         let node = node
-            .insert(&mut trie.db, NibbleSlice::new(&[0x12]), vec![0x13])
+            .insert(&mut trie.state, NibbleSlice::new(&[0x12]), vec![0x13])
             .unwrap();
         let node = match node {
             Node::Leaf(x) => x,
@@ -211,13 +215,13 @@ mod test {
         let path = NibbleSlice::new(&[0x22]);
         let value = vec![0x23];
         let node = node
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
         let node = match node {
             Node::Branch(x) => x,
             _ => panic!("expected a branch node"),
         };
-        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.state, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -231,11 +235,11 @@ mod test {
         let value = vec![0x15];
 
         let node = node
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.state, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -249,11 +253,11 @@ mod test {
         let value = vec![0x17];
 
         let node = node
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.state, path).unwrap(), Some(value));
     }
 
     #[test]
@@ -267,11 +271,11 @@ mod test {
         let value = vec![0x17];
 
         let node = node
-            .insert(&mut trie.db, path.clone(), value.clone())
+            .insert(&mut trie.state, path.clone(), value.clone())
             .unwrap();
 
         assert!(matches!(node, Node::Extension(_)));
-        assert_eq!(node.get(&trie.db, path).unwrap(), Some(value));
+        assert_eq!(node.get(&trie.state, path).unwrap(), Some(value));
     }
 
     // An insertion that returns branch [value=(x)] -> leaf (y) is not possible because of the path
