@@ -4,7 +4,10 @@ use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Log, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+};
 
 use super::api::StoreEngine;
 
@@ -20,7 +23,7 @@ pub struct Store {
     account_storages: HashMap<Address, HashMap<H256, U256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
-    receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
+    receipts: BTreeMap<BlockNumber, BTreeMap<Index, Receipt>>,
 }
 
 #[derive(Default)]
@@ -258,7 +261,12 @@ impl StoreEngine for Store {
         from: BlockNumber,
         to: BlockNumber,
     ) -> Result<Vec<Log>, StoreError> {
-        todo!()
+        let mut logs = vec![];
+        for (key, receipt_map) in self.receipts.range(from..=to) {
+            let logs_iter = receipt_map.values().flat_map(|r| r.logs.clone());
+            logs.extend(logs.clone());
+        }
+        Ok(logs)
     }
 }
 

@@ -58,7 +58,7 @@ impl RpcHandler for LogsRequest {
             return Err(RpcErr::BadParams);
         };
         let logs = storage
-            .get_logs_in_range(to, from)
+            .get_logs_in_range(from, to)
             .map_err(|_| RpcErr::Internal)?;
         serde_json::to_value(logs).map_err(|_| RpcErr::Internal)
     }
