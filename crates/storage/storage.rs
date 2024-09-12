@@ -21,6 +21,9 @@ use tracing::info;
 mod engines;
 pub mod error;
 mod rlp;
+/// TODO: Remove this allow once the trie is integrated into the codebase
+#[allow(unused)]
+mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
@@ -354,20 +357,8 @@ impl Store {
         self.engine.lock().unwrap().set_chain_config(chain_config)
     }
 
-    pub fn get_chain_config(&self) -> Result<Option<ChainConfig>, StoreError> {
+    pub fn get_chain_config(&self) -> Result<ChainConfig, StoreError> {
         self.engine.lock().unwrap().get_chain_config()
-    }
-
-    pub fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        self.engine.lock().unwrap().get_chain_id()
-    }
-
-    pub fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        self.engine.lock().unwrap().get_cancun_time()
-    }
-
-    pub fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        self.engine.lock().unwrap().get_shanghai_time()
     }
 
     pub fn update_earliest_block_number(
@@ -528,7 +519,6 @@ mod tests {
         run_test(&test_store_account_storage, engine_type);
         run_test(&test_remove_account_storage, engine_type);
         run_test(&test_increment_balance, engine_type);
-        run_test(&test_get_chain_id_cancun_time, engine_type);
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_account_info_iter, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
@@ -776,23 +766,6 @@ mod tests {
         assert_eq!(stored_account_info.balance, 75.into());
     }
 
-    fn test_get_chain_id_cancun_time(store: Store) {
-        let chain_id = 46_u64;
-        let cancun_time = 12;
-        let chain_config = ChainConfig {
-            chain_id,
-            cancun_time: Some(cancun_time),
-            ..Default::default()
-        };
-
-        store.set_chain_config(&chain_config).unwrap();
-
-        let stored_chain_id = store.get_chain_id().unwrap().unwrap();
-        let stored_cancun_time = store.get_cancun_time().unwrap().unwrap();
-
-        assert_eq!(chain_id, stored_chain_id);
-        assert_eq!(cancun_time, stored_cancun_time);
-    }
     fn test_store_block_tags(store: Store) {
         let earliest_block_number = 0;
         let finalized_block_number = 7;
@@ -908,7 +881,7 @@ mod tests {
     fn test_chain_config_storage(store: Store) {
         let chain_config = example_chain_config();
         store.set_chain_config(&chain_config).unwrap();
-        let retrieved_chain_config = store.get_chain_config().unwrap().unwrap();
+        let retrieved_chain_config = store.get_chain_config().unwrap();
         assert_eq!(chain_config, retrieved_chain_config);
     }
 

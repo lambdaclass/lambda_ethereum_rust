@@ -1,4 +1,4 @@
-use crate::{block::BlockIdentifier, RpcErr, RpcHandler};
+use crate::{types::block_identifier::BlockIdentifier, RpcErr, RpcHandler};
 use ethereum_rust_core::{H160, U256};
 use ethereum_rust_storage::Store;
 use serde_json::{from_value, Value};
@@ -17,15 +17,15 @@ pub struct LogsRequest {
     pub topics: Option<Vec<U256>>,
 }
 impl RpcHandler for LogsRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<LogsRequest> {
+    fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
         match params.as_deref() {
-            Some([from, to, address, topics]) => Some(LogsRequest {
-                from: from_value(from.clone()).unwrap_or(BlockIdentifier::latest()),
-                to: from_value(to.clone()).unwrap_or(BlockIdentifier::latest()),
+            Some([from, to, address, topics]) => Ok(LogsRequest {
+                from: BlockIdentifier::parse(from.clone(), 0).unwrap(),
+                to: BlockIdentifier::parse(to.clone(), 1).unwrap(),
                 address: from_value(address.clone()).ok(),
                 topics: from_value(topics.clone()).ok(),
             }),
-            _ => None,
+            _ => Err(RpcErr::BadParams),
         }
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {

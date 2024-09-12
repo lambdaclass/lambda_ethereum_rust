@@ -8,6 +8,7 @@ use axum_extra::{
     TypedHeader,
 };
 use engine::{
+    exchange_transition_config::ExchangeTransitionConfigV1Req,
     fork_choice::{self, ForkChoiceUpdatedV3},
     payload::{self, NewPayloadV3Request},
     ExchangeCapabilitiesRequest,
@@ -15,11 +16,9 @@ use engine::{
 use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest}, block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest,
+        GetBlockTransactionCountRequest, GetRawHeaderRequest,
     }, client, logs::LogsRequest, transaction::{
-        CallRequest, CreateAccessListRequest, GetTransactionByBlockHashAndIndexRequest,
-        GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest,
-        GetTransactionReceiptRequest,
+        CallRequest, CreateAccessListRequest, EstimateGasRequest, GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest, GetTransactionReceiptRequest
     }
 };
 use serde_json::Value;
@@ -47,10 +46,10 @@ pub struct RpcApiContext {
 }
 
 trait RpcHandler: Sized {
-    fn parse(params: &Option<Vec<Value>>) -> Option<Self>;
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr>;
 
     fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
-        let request = Self::parse(&req.params).ok_or(RpcErr::BadParams)?;
+        let request = Self::parse(&req.params)?;
         request.handle(storage)
     }
 
@@ -137,6 +136,7 @@ pub fn map_http_requests(
     match req.namespace() {
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
+        Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -177,7 +177,15 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_call" => CallRequest::call(req, storage),
         "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
+        "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_getLogs" => LogsRequest::call(req, storage),
+        _ => Err(RpcErr::MethodNotFound),
+    }
+}
+
+pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -196,13 +204,16 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
         }
 
         "engine_forkchoiceUpdatedV3" => {
-            let request = ForkChoiceUpdatedV3::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            let request = ForkChoiceUpdatedV3::parse(&req.params)?;
             fork_choice::forkchoice_updated_v3(request, storage)
         }
         "engine_newPayloadV3" => {
-            let request = NewPayloadV3Request::parse(&req.params).ok_or(RpcErr::BadParams)?;
+            let request = NewPayloadV3Request::parse(&req.params)?;
             serde_json::to_value(payload::new_payload_v3(request, storage)?)
                 .map_err(|_| RpcErr::Internal)
+        }
+        "engine_exchangeTransitionConfigurationV1" => {
+            ExchangeTransitionConfigV1Req::call(req, storage)
         }
         _ => Err(RpcErr::MethodNotFound),
     }
@@ -286,6 +297,9 @@ mod tests {
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage
+            .set_chain_config(&example_chain_config())
+            .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
         storage
@@ -318,6 +332,9 @@ mod tests {
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage
+            .set_chain_config(&example_chain_config())
+            .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
         storage

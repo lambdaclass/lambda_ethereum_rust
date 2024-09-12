@@ -1,8 +1,12 @@
-use super::block::BlockIdentifier;
-use crate::{eth::block, types::transaction::RpcTransaction, utils::RpcErr, RpcHandler};
+use crate::{
+    eth::block,
+    types::{block_identifier::BlockIdentifier, transaction::RpcTransaction},
+    utils::RpcErr,
+    RpcHandler,
+};
 use ethereum_rust_core::{
-    types::{AccessListEntry, BlockHash, GenericTransaction},
-    Bytes, H256,
+    types::{AccessListEntry, BlockHash, BlockHeader, GenericTransaction, TxKind},
+    H256, U256,
 };
 
 use ethereum_rust_storage::Store;
@@ -12,6 +16,10 @@ use serde::Serialize;
 
 use serde_json::Value;
 use tracing::info;
+
+pub const ESTIMATE_ERROR_RATIO: f64 = 0.015;
+pub const CALL_STIPEND: u64 = 2_300; // Free gas given at beginning of call.
+pub const TRANSACTION_GAS: u64 = 21_000; // Per transaction not creating a contract. NOTE: Not payable on data of calls between transactions.
 
 pub struct CallRequest {
     transaction: GenericTransaction,
@@ -40,6 +48,10 @@ pub struct CreateAccessListRequest {
     pub transaction: GenericTransaction,
     pub block: Option<BlockIdentifier>,
 }
+pub struct EstimateGasRequest {
+    pub transaction: GenericTransaction,
+    pub block: Option<BlockIdentifier>,
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,73 +64,48 @@ pub struct AccessListResult {
 }
 
 impl RpcHandler for CallRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<CallRequest> {
-        let params = params.as_ref()?;
-        if params.len() != 2 {
-            return None;
+    fn parse(params: &Option<Vec<Value>>) -> Result<CallRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.is_empty() || params.len() > 2 {
+            return Err(RpcErr::BadParams);
         };
-        Some(CallRequest {
-            transaction: serde_json::from_value(params[0].clone()).ok()?,
-            block: serde_json::from_value(params[1].clone()).ok()?,
+        let block = match params.get(1) {
+            // Differentiate between missing and bad block param
+            Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
+            None => None,
+        };
+        Ok(CallRequest {
+            transaction: serde_json::from_value(params[0].clone())?,
+            block,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let block = self.block.clone().unwrap_or_default();
         info!("Requested call on block: {}", block);
-        let block_number = match block.resolve_block_number(&storage)? {
-            Some(block_number) => block_number,
-            _ => return Ok(Value::Null),
-        };
-        let header = match storage.get_block_header(block_number)? {
+        let header = match block.resolve_block_header(&storage)? {
             Some(header) => header,
             // Block not found
             _ => return Ok(Value::Null),
         };
         // Run transaction
-        let data = match ethereum_rust_evm::simulate_tx_from_generic(
-            &self.transaction,
-            &header,
-            &mut evm_state(storage),
-            SpecId::CANCUN,
-        )? {
-            ExecutionResult::Success {
-                reason: _,
-                gas_used: _,
-                gas_refunded: _,
-                logs: _,
-                output,
-            } => match output {
-                ethereum_rust_evm::Output::Call(bytes) => bytes,
-                ethereum_rust_evm::Output::Create(bytes, _) => bytes,
-            },
-            ExecutionResult::Revert {
-                gas_used: _,
-                output,
-            } => {
-                return Err(RpcErr::Revert {
-                    data: format!("0x{:#x}", output),
-                });
-            }
-            ExecutionResult::Halt {
-                reason: _,
-                gas_used: _,
-            } => Bytes::new(),
-        };
-        serde_json::to_value(format!("0x{:#x}", data)).map_err(|_| RpcErr::Internal)
+        let result = simulate_tx(&self.transaction, &header, storage, SpecId::CANCUN)?;
+        serde_json::to_value(format!("0x{:#x}", result.output())).map_err(|_| RpcErr::Internal)
     }
 }
 
 impl RpcHandler for GetTransactionByBlockNumberAndIndexRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockNumberAndIndexRequest> {
-        let params = params.as_ref()?;
+    fn parse(
+        params: &Option<Vec<Value>>,
+    ) -> Result<GetTransactionByBlockNumberAndIndexRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
-        Some(GetTransactionByBlockNumberAndIndexRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
+        let index_as_string: String = serde_json::from_value(params[1].clone())?;
+        Ok(GetTransactionByBlockNumberAndIndexRequest {
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
             transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
-                .ok()?,
+                .map_err(|_| RpcErr::BadParams)?,
         })
     }
 
@@ -154,16 +141,18 @@ impl RpcHandler for GetTransactionByBlockNumberAndIndexRequest {
 }
 
 impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByBlockHashAndIndexRequest> {
-        let params = params.as_ref()?;
+    fn parse(
+        params: &Option<Vec<Value>>,
+    ) -> Result<GetTransactionByBlockHashAndIndexRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 2 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        let index_as_string: String = serde_json::from_value(params[1].clone()).ok()?;
-        Some(GetTransactionByBlockHashAndIndexRequest {
-            block: serde_json::from_value(params[0].clone()).ok()?,
+        let index_as_string: String = serde_json::from_value(params[1].clone())?;
+        Ok(GetTransactionByBlockHashAndIndexRequest {
+            block: serde_json::from_value(params[0].clone())?,
             transaction_index: usize::from_str_radix(index_as_string.trim_start_matches("0x"), 16)
-                .ok()?,
+                .map_err(|_| RpcErr::BadParams)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -190,13 +179,13 @@ impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
 }
 
 impl RpcHandler for GetTransactionByHashRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionByHashRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetTransactionByHashRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 1 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetTransactionByHashRequest {
-            transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
+        Ok(GetTransactionByHashRequest {
+            transaction_hash: serde_json::from_value(params[0].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -222,13 +211,13 @@ impl RpcHandler for GetTransactionByHashRequest {
 }
 
 impl RpcHandler for GetTransactionReceiptRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<GetTransactionReceiptRequest> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetTransactionReceiptRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 1 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        Some(GetTransactionReceiptRequest {
-            transaction_hash: serde_json::from_value(params[0].clone()).ok()?,
+        Ok(GetTransactionReceiptRequest {
+            transaction_hash: serde_json::from_value(params[0].clone())?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -255,18 +244,18 @@ impl RpcHandler for GetTransactionReceiptRequest {
 }
 
 impl RpcHandler for CreateAccessListRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Option<CreateAccessListRequest> {
-        let params = params.as_ref()?;
-        if params.len() > 2 {
-            return None;
+    fn parse(params: &Option<Vec<Value>>) -> Result<CreateAccessListRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.is_empty() || params.len() > 2 {
+            return Err(RpcErr::BadParams);
         };
         let block = match params.get(1) {
             // Differentiate between missing and bad block param
-            Some(value) => Some(serde_json::from_value(value.clone()).ok()?),
+            Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
             None => None,
         };
-        Some(CreateAccessListRequest {
-            transaction: serde_json::from_value(params.first()?.clone()).ok()?,
+        Ok(CreateAccessListRequest {
+            transaction: serde_json::from_value(params[0].clone())?,
             block,
         })
     }
@@ -327,5 +316,138 @@ impl RpcHandler for CreateAccessListRequest {
         };
 
         serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for EstimateGasRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<EstimateGasRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.is_empty() || params.len() > 2 {
+            return Err(RpcErr::BadParams);
+        };
+        let block = match params.get(1) {
+            // Differentiate between missing and bad block param
+            Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
+            None => None,
+        };
+        Ok(EstimateGasRequest {
+            transaction: serde_json::from_value(params[0].clone())?,
+            block,
+        })
+    }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        let block = self.block.clone().unwrap_or_default();
+        info!("Requested estimate on block: {}", block);
+        let block_header = match block.resolve_block_header(&storage)? {
+            Some(header) => header,
+            // Block not found
+            _ => return Ok(Value::Null),
+        };
+        let spec_id = ethereum_rust_evm::spec_id(&storage, block_header.timestamp)?;
+
+        // If the transaction is a plain value transfer, short circuit estimation.
+        if let TxKind::Call(address) = self.transaction.to {
+            let account_info = storage.get_account_info(address)?;
+            let code = account_info.map(|info| storage.get_account_code(info.code_hash));
+            if code.is_none() {
+                let mut value_transfer_transaction = self.transaction.clone();
+                value_transfer_transaction.gas = Some(TRANSACTION_GAS);
+                let result: Result<ExecutionResult, RpcErr> = simulate_tx(
+                    &value_transfer_transaction,
+                    &block_header,
+                    storage.clone(),
+                    spec_id,
+                );
+                if let Ok(ExecutionResult::Success { .. }) = result {
+                    return serde_json::to_value(format!("{:#x}", TRANSACTION_GAS))
+                        .map_err(|_| RpcErr::Internal);
+                }
+            }
+        }
+
+        // Prepare binary search
+        let mut highest_gas_limit = match self.transaction.gas {
+            Some(gas) => gas.min(block_header.gas_limit),
+            None => block_header.gas_limit,
+        };
+
+        if self.transaction.gas_price != 0 {
+            highest_gas_limit =
+                recap_with_account_balances(highest_gas_limit, &self.transaction, &storage)?;
+        }
+
+        // Check whether the execution is possible
+        let mut transaction = self.transaction.clone();
+        transaction.gas = Some(highest_gas_limit);
+        let result = simulate_tx(&transaction, &block_header, storage.clone(), spec_id)?;
+
+        let gas_used = result.gas_used();
+        let gas_refunded = result.gas_refunded();
+
+        // Choose an optimistic start limit. See https://github.com/ethereum/go-ethereum/blob/a5a4fa7032bb248f5a7c40f4e8df2b131c4186a4/eth/gasestimator/gasestimator.go#L135
+        let optimistic_limit = (gas_used + gas_refunded + CALL_STIPEND) * 64 / 63;
+        let mut lowest_gas_limit = gas_used.saturating_sub(1);
+        let mut middle_gas_limit = (optimistic_limit + lowest_gas_limit) / 2;
+
+        while lowest_gas_limit + 1 < highest_gas_limit {
+            if (highest_gas_limit - lowest_gas_limit) as f64 / (highest_gas_limit as f64)
+                < ESTIMATE_ERROR_RATIO
+            {
+                break;
+            };
+
+            if middle_gas_limit > lowest_gas_limit * 2 {
+                // Favor the low side, since most transactions don't need much higher gas limit than their gas used.
+                middle_gas_limit = lowest_gas_limit * 2;
+            }
+            transaction.gas = Some(middle_gas_limit);
+
+            let result = simulate_tx(&transaction, &block_header, storage.clone(), spec_id);
+            if let Ok(ExecutionResult::Success { .. }) = result {
+                highest_gas_limit = middle_gas_limit;
+            } else {
+                lowest_gas_limit = middle_gas_limit;
+            };
+            middle_gas_limit = (highest_gas_limit + lowest_gas_limit) / 2;
+        }
+
+        serde_json::to_value(format!("{:#x}", highest_gas_limit)).map_err(|_| RpcErr::Internal)
+    }
+}
+
+fn recap_with_account_balances(
+    highest_gas_limit: u64,
+    transaction: &GenericTransaction,
+    storage: &Store,
+) -> Result<u64, RpcErr> {
+    let account_balance = storage
+        .get_account_info(transaction.from)?
+        .map(|acc| acc.balance)
+        .unwrap_or_default();
+    let account_gas =
+        account_balance.saturating_sub(transaction.value) / U256::from(transaction.gas_price);
+    Ok(highest_gas_limit.min(account_gas.as_u64()))
+}
+
+fn simulate_tx(
+    transaction: &GenericTransaction,
+    block_header: &BlockHeader,
+    storage: Store,
+    spec_id: SpecId,
+) -> Result<ExecutionResult, RpcErr> {
+    match ethereum_rust_evm::simulate_tx_from_generic(
+        transaction,
+        block_header,
+        &mut evm_state(storage),
+        spec_id,
+    )? {
+        ExecutionResult::Revert {
+            gas_used: _,
+            output,
+        } => Err(RpcErr::Revert {
+            data: format!("0x{:#x}", output),
+        }),
+        ExecutionResult::Halt { reason, gas_used } => Err(RpcErr::Halt { reason, gas_used }),
+        success => Ok(success),
     }
 }

@@ -32,7 +32,7 @@ impl Store {
         })
     }
 
-    // Helper method to write into a libmdx table
+    // Helper method to write into a libmdbx table
     fn write<T: libmdbx::orm::Table>(
         &self,
         key: T::Key,
@@ -47,13 +47,13 @@ impl Store {
         txn.commit().map_err(StoreError::LibmdbxError)
     }
 
-    // Helper method to read from a libmdx table
+    // Helper method to read from a libmdbx table
     fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
 
-    // Helper method to remove an entry from a libmdx table
+    // Helper method to remove an entry from a libmdbx table
     fn remove<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<(), StoreError> {
         let txn = self
             .db
@@ -224,23 +224,15 @@ impl StoreEngine for Store {
         )
     }
 
-    fn get_chain_config(&self) -> std::result::Result<Option<ChainConfig>, StoreError> {
+    fn get_chain_config(&self) -> Result<ChainConfig, StoreError> {
         match self.read::<ChainData>(ChainDataIndex::ChainConfig)? {
-            None => Ok(None),
+            None => Err(StoreError::Custom("Chain config not found".to_string())),
             Some(bytes) => {
                 let json = String::from_utf8(bytes).map_err(|_| StoreError::DecodeError)?;
                 let chain_config: ChainConfig =
                     serde_json::from_str(&json).map_err(|_| StoreError::DecodeError)?;
-                Ok(Some(chain_config))
+                Ok(chain_config)
             }
-        }
-    }
-
-    fn get_chain_id(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = dbg!(self.get_chain_config()?) {
-            Ok(Some(chain_config.chain_id))
-        } else {
-            Ok(None)
         }
     }
 
@@ -257,22 +249,6 @@ impl StoreEngine for Store {
             .map_while(|res| res.ok().map(|(key, value)| (key.into(), value.into())));
         // We need to collect here so the resulting iterator doesn't read from the cursor itself
         Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
-    }
-
-    fn get_cancun_time(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = self.get_chain_config()? {
-            Ok(chain_config.cancun_time)
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn get_shanghai_time(&self) -> Result<Option<u64>, StoreError> {
-        if let Some(chain_config) = self.get_chain_config()? {
-            Ok(chain_config.shanghai_time)
-        } else {
-            Ok(None)
-        }
     }
 
     fn update_earliest_block_number(
