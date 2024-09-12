@@ -45,22 +45,19 @@ impl BlockIdentifier {
     }
 
     pub fn parse(serde_value: Value, arg_index: u64) -> Result<Self, RpcErr> {
-        dbg!("PARSING AS BLOCK TAG");
         // Check if it is a BlockTag
         if let Ok(tag) = serde_json::from_value::<BlockTag>(serde_value.clone()) {
             return Ok(BlockIdentifier::Tag(tag));
         };
-        dbg!("PARSING AS BLOCK NUMBER");
         // Parse BlockNumber
         let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
             return Err(RpcErr::BadParams);
         };
-        dbg!("PARSING AS BLOCK 0x");
         // Check that the BlockNumber is 0x prefixed
         let Some(hex_str) = hex_str.strip_prefix("0x") else {
             return Err(RpcErr::BadHexFormat(arg_index));
         };
-        dbg!("PARSING AS Hex string");
+
         // Parse hex string
         let Ok(block_number) = u64::from_str_radix(hex_str, 16) else {
             return Err(RpcErr::BadHexFormat(arg_index));

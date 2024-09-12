@@ -262,7 +262,7 @@ impl StoreEngine for Store {
         to: BlockNumber,
     ) -> Result<Vec<Log>, StoreError> {
         let mut logs = vec![];
-        for (key, receipt_map) in self.receipts.range(from..=to) {
+        for (_, receipt_map) in self.receipts.range(from..=to) {
             let logs_iter = receipt_map.values().flat_map(|r| r.logs.clone());
             logs.extend(logs.clone());
         }

@@ -51,7 +51,7 @@ impl RpcHandler for LogsRequest {
         }
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let Ok(Some(from)) = dbg!(self.fromBlock.resolve_block_number(&storage)) else {
+        let Ok(Some(from)) = self.fromBlock.resolve_block_number(&storage) else {
             return Err(RpcErr::BadParams);
         };
         let Ok(Some(to)) = self.toBlock.resolve_block_number(&storage) else {
