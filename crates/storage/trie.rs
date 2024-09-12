@@ -15,9 +15,9 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode, state::TrieState};
+use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
-
+pub use db::TrieDB;
 use lazy_static::lazy_static;
 
 lazy_static! {

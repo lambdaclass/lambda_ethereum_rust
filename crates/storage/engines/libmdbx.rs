@@ -34,7 +34,7 @@ impl Store {
     }
 
     // Helper method to write into a libmdbx table
-    fn write<T: libmdbx::orm::Table>(
+    pub(crate) fn write<T: libmdbx::orm::Table>(
         &self,
         key: T::Key,
         value: T::Value,
@@ -49,7 +49,7 @@ impl Store {
     }
 
     // Helper method to read from a libmdbx table
-    fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
+    pub(crate) fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
@@ -388,6 +388,11 @@ table!(
     ( ChainData ) ChainDataIndex => Vec<u8>
 );
 
+table!(
+    /// Stores world state trie nodes
+    ( WorldStateNodes ) Vec<u8> => Vec<u8>
+);
+
 // Storage values are stored as bytes instead of using their rlp encoding
 // As they are stored in a dupsort table, they need to have a fixed size, and encoding them doesn't preserve their size
 pub struct AccountStorageKeyBytes(pub [u8; 32]);
@@ -479,6 +484,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
+        table_info!(WorldStateNodes),
     ]
     .into_iter()
     .collect();
