@@ -600,7 +600,7 @@ mod tests {
             extra_data: Bytes::new(),
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
-            base_fee_per_gas: 0x07,
+            base_fee_per_gas: Some(0x07),
             withdrawals_root: Some(
                 H256::from_str(
                     "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",

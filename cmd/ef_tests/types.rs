@@ -202,7 +202,7 @@ impl From<Header> for BlockHeader {
             extra_data: val.extra_data,
             prev_randao: val.mix_hash,
             nonce: val.nonce.to_low_u64_be(),
-            base_fee_per_gas: val.base_fee_per_gas.unwrap().as_u64(),
+            base_fee_per_gas: val.base_fee_per_gas.map(|v| v.as_u64()),
             withdrawals_root: val.withdrawals_root,
             blob_gas_used: val.blob_gas_used.map(|x| x.as_u64()),
             excess_blob_gas: val.excess_blob_gas.map(|x| x.as_u64()),
