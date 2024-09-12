@@ -95,18 +95,15 @@ impl BlockIdentifierOrHash {
     }
 
     pub fn parse(serde_value: Value, arg_index: u64) -> Result<BlockIdentifierOrHash, RpcErr> {
-        // Parse as BlockIdentifier
-        if let Ok(block_identifier) = BlockIdentifier::parse(serde_value.clone(), arg_index) {
-            return Ok(BlockIdentifierOrHash::Identifier(block_identifier));
-        };
         // Parse as BlockHash
-        let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
-            return Err(RpcErr::BadParams);
-        };
-        let Ok(block_hash) = BlockHash::from_str(&hex_str) else {
-            return Err(RpcErr::BadHexFormat(arg_index));
-        };
-        Ok(BlockIdentifierOrHash::Hash(block_hash))
+        if let Some(block_hash) = serde_json::from_value::<String>(serde_value.clone())
+            .ok()
+            .and_then(|hex_str| BlockHash::from_str(&hex_str).ok())
+        {
+            return Ok(BlockIdentifierOrHash::Hash(block_hash));
+        }
+        // Parse as BlockIdentifier
+        BlockIdentifier::parse(serde_value, arg_index).map(BlockIdentifierOrHash::Identifier)
     }
 }
 
