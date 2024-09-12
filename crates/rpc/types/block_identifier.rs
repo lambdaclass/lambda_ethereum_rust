@@ -100,10 +100,11 @@ impl BlockIdentifierOrHash {
             .ok()
             .and_then(|hex_str| BlockHash::from_str(&hex_str).ok())
         {
-            return Ok(BlockIdentifierOrHash::Hash(block_hash));
+            Ok(BlockIdentifierOrHash::Hash(block_hash))
+        } else {
+            // Parse as BlockIdentifier
+            BlockIdentifier::parse(serde_value, arg_index).map(BlockIdentifierOrHash::Identifier)
         }
-        // Parse as BlockIdentifier
-        BlockIdentifier::parse(serde_value, arg_index).map(BlockIdentifierOrHash::Identifier)
     }
 }
 
