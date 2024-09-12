@@ -1,6 +1,7 @@
 use crate::{
     error::StoreError,
     trie::{
+        db::TrieDB,
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_hash::{NodeHash, NodeHasher},
         state::TrieState,
@@ -66,9 +67,9 @@ impl BranchNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(
+    pub fn get<DB: TrieDB>(
         &self,
-        state: &TrieState,
+        state: &TrieState<DB>,
         mut path: NibbleSlice,
     ) -> Result<Option<ValueRLP>, StoreError> {
         // If path is at the end, return to its own value if present.
@@ -91,9 +92,9 @@ impl BranchNode {
     }
 
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
-    pub fn insert(
+    pub fn insert<DB: TrieDB>(
         mut self,
-        state: &mut TrieState,
+        state: &mut TrieState<DB>,
         mut path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -128,9 +129,9 @@ impl BranchNode {
 
     /// Removes a value from the subtrie originating from this node given its path
     /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
-    pub fn remove(
+    pub fn remove<DB: TrieDB>(
         mut self,
-        state: &mut TrieState,
+        state: &mut TrieState<DB>,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         /* Possible flow paths:
@@ -305,7 +306,10 @@ impl BranchNode {
     }
 
     /// Inserts the node into the state and returns its hash
-    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, StoreError> {
+    pub fn insert_self<DB: TrieDB>(
+        self,
+        state: &mut TrieState<DB>,
+    ) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
@@ -317,7 +321,17 @@ mod test {
     use ethereum_types::H256;
 
     use super::*;
+    use crate::trie::libdbmx_db::LibmdbxTrieDb;
     use crate::{pmt_node, trie::Trie};
+
+    #[cfg(test)]
+    /// Creates a new trie based on a temporary DB
+    fn new_temp() -> Trie<LibmdbxTrieDb> {
+        Trie {
+            state: TrieState::new(LibmdbxTrieDb::init_temp()),
+            root: None,
+        }
+    }
 
     #[test]
     fn new() {
@@ -355,7 +369,7 @@ mod test {
 
     #[test]
     fn get_some() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -375,7 +389,7 @@ mod test {
 
     #[test]
     fn get_none() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -391,7 +405,7 @@ mod test {
 
     #[test]
     fn insert_self() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -411,7 +425,7 @@ mod test {
 
     #[test]
     fn insert_choice() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -432,7 +446,7 @@ mod test {
 
     #[test]
     fn insert_passthrough() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -462,7 +476,7 @@ mod test {
 
     #[test]
     fn remove_choice_into_inner() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -480,7 +494,7 @@ mod test {
 
     #[test]
     fn remove_choice() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -499,7 +513,7 @@ mod test {
 
     #[test]
     fn remove_choice_into_value() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -516,7 +530,7 @@ mod test {
 
     #[test]
     fn remove_value_into_inner() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -531,7 +545,7 @@ mod test {
 
     #[test]
     fn remove_value() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -547,7 +561,7 @@ mod test {
 
     #[test]
     fn compute_hash_two_choices() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -566,7 +580,7 @@ mod test {
 
     #[test]
     fn compute_hash_all_choices() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },
@@ -600,7 +614,7 @@ mod test {
 
     #[test]
     fn compute_hash_one_choice_with_value() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -619,7 +633,7 @@ mod test {
 
     #[test]
     fn compute_hash_all_choices_with_value() {
-        let mut trie = Trie::new_temp();
+        let mut trie = new_temp();
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },
