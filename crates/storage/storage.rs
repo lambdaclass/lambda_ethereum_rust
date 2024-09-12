@@ -93,32 +93,12 @@ impl Store {
         Ok(store)
     }
 
-    pub fn add_account_info(
-        &self,
-        address: Address,
-        account_info: AccountInfo,
-    ) -> Result<(), StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .add_account_info(address, account_info)
-    }
-
     pub fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
         self.engine
             .clone()
             .lock()
             .unwrap()
             .get_account_info(address)
-    }
-
-    pub fn remove_account_info(&self, address: Address) -> Result<(), StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .remove_account_info(address)
     }
 
     pub fn add_block_header(
@@ -212,7 +192,6 @@ impl Store {
             .get_transaction_location(transaction_hash)
     }
 
-    // TODO(TrieIntegration): Make private
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine
             .clone()
@@ -297,7 +276,9 @@ impl Store {
 
     pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
         // Store account code (as this won't be stored in the trie)
-        self.add_account_code(account.info.code_hash, account.code)?;
+        if !account.code.is_empty() {
+            self.add_account_code(account.info.code_hash, account.code)?;
+        }
         // Store the accounts storage in the storage trie and compute its root
         // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB tabel and compute the root
         let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
@@ -600,9 +581,12 @@ mod tests {
         let balance = U256::from_dec_str("50").unwrap();
         let nonce = 5;
         let code_hash = types::code_hash(&code);
-
-        let account_info = new_account_info(code.clone(), balance, nonce);
-        let _ = store.add_account_info(address, account_info);
+        let account = Account {
+            info: new_account_info(code.clone(), balance, nonce),
+            storage: Default::default(),
+            code,
+        };
+        store.add_account(address, account).unwrap();
 
         let stored_account_info = store.get_account_info(address).unwrap().unwrap();
 
@@ -826,7 +810,11 @@ mod tests {
             balance: 50.into(),
             ..Default::default()
         };
-        store.add_account_info(address, account_info).unwrap();
+        let account = Account {
+            info: account_info,
+            ..Default::default()
+        };
+        store.add_account(address, account).unwrap();
         store.increment_balance(address, 25.into()).unwrap();
 
         let stored_account_info = store.get_account_info(address).unwrap().unwrap();
@@ -896,7 +884,11 @@ mod tests {
 
         // Store account infos
         for (address, account_info) in account_infos.clone() {
-            store.add_account_info(address, account_info).unwrap();
+            let account = Account {
+                info: account_info,
+                ..Default::default()
+            };
+            store.add_account(address, account).unwrap();
         }
 
         // Fetch all account infos from db and compare against preset

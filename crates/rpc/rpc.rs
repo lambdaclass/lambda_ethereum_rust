@@ -310,12 +310,16 @@ mod tests {
             .add_block_header(0, BlockHeader::default())
             .expect("Failed to write to test DB");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
-        let account_info = AccountInfo {
+        let info = AccountInfo {
             balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
             ..Default::default()
         };
+        let account = Account {
+            info,
+            ..Default::default()
+        };
         storage
-            .add_account_info(address, account_info)
+            .add_account(address, account)
             .expect("Failed to write to test DB");
         let local_p2p_node = example_p2p_node();
         // Process request
