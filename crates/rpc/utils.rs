@@ -9,10 +9,12 @@ use crate::authentication::AuthenticationError;
 pub enum RpcErr {
     MethodNotFound,
     BadParams,
+    BadHexFormat(u64),
     UnsuportedFork,
     Internal,
     Vm,
     Revert { data: String },
+    Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
 }
 
@@ -34,6 +36,11 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: "Unsupported fork".to_string(),
             },
+            RpcErr::BadHexFormat(arg_number) => RpcErrorMetadata {
+                code: -32602,
+                data: None,
+                message: format!("invalid argument {arg_number} : hex string without 0x prefix"),
+            },
             RpcErr::Internal => RpcErrorMetadata {
                 code: -32603,
                 data: None,
@@ -53,6 +60,13 @@ impl From<RpcErr> for RpcErrorMetadata {
                     "execution reverted: {}",
                     get_message_from_revert_data(&data)
                 ),
+            },
+            RpcErr::Halt { reason, gas_used } => RpcErrorMetadata {
+                // Just copy the `Revert` error code.
+                // Haven't found an example of this one yet.
+                code: 3,
+                data: None,
+                message: format!("execution halted: reason={}, gas_used={}", reason, gas_used),
             },
             RpcErr::AuthenticationError(auth_error) => match auth_error {
                 AuthenticationError::InvalidIssuedAtClaim => RpcErrorMetadata {
@@ -75,10 +89,17 @@ impl From<RpcErr> for RpcErrorMetadata {
     }
 }
 
+impl From<serde_json::Error> for RpcErr {
+    fn from(_: serde_json::Error) -> Self {
+        Self::BadParams
+    }
+}
+
 pub enum RpcNamespace {
     Engine,
     Eth,
     Admin,
+    Debug,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -97,6 +118,7 @@ impl RpcRequest {
                 "engine" => Ok(RpcNamespace::Engine),
                 "eth" => Ok(RpcNamespace::Eth),
                 "admin" => Ok(RpcNamespace::Admin),
+                "debug" => Ok(RpcNamespace::Debug),
                 _ => Err(RpcErr::MethodNotFound),
             }
         } else {
