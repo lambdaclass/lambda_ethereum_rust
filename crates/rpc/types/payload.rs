@@ -11,7 +11,7 @@ use ethereum_rust_core::{
     Address, Bloom, H256,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadV3 {
     parent_hash: H256,
@@ -41,7 +41,7 @@ pub struct ExecutionPayloadV3 {
     excess_blob_gas: u64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EncodedTransaction(pub Bytes);
 
 impl<'de> Deserialize<'de> for EncodedTransaction {
