@@ -58,7 +58,11 @@ impl RLPxConnectionPending {
         let Self { mut state } = self;
         let frame_data = read_frame(stream, &mut state).await;
         let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
-        rlpx::Message::decode(msg_id, msg_data).unwrap();
+        let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
+        assert!(
+            matches!(message, rlpx::Message::Hello(_)),
+            "Expected Hello message"
+        );
         RLPxConnection { state }
     }
 }
@@ -129,7 +133,7 @@ pub(crate) async fn read_frame<S: AsyncRead>(stream: S, state: &mut RLPxState) -
 
     let mac_aes_cipher = Aes256Enc::new_from_slice(&state.mac_key.0).unwrap();
 
-    // Receive the ping message's frame header
+    // Receive the message's frame header
     let mut frame_header = [0; 32];
     stream.read_exact(&mut frame_header).await.unwrap();
     // Both are padded to the block's size (16 bytes)
