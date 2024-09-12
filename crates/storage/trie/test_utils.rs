@@ -1,5 +1,5 @@
 #[macro_export]
-/// Creates a trie node, doesn't guarantee that the correct offsets are used when computing hahses for storing extension nodes
+/// Creates a trie node, doesn't guarantee that the correct offsets are used when computing hashes for extension nodes
 macro_rules! pmt_node {
     (
         @( $trie:expr )
