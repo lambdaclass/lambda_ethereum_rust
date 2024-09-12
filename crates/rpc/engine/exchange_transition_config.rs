@@ -34,21 +34,20 @@ impl std::fmt::Display for ExchangeTransitionConfigV1Req {
 }
 
 impl RpcHandler for ExchangeTransitionConfigV1Req {
-    fn parse(params: &Option<Vec<Value>>) -> Option<ExchangeTransitionConfigV1Req> {
-        let params = params.as_ref()?;
+    fn parse(params: &Option<Vec<Value>>) -> Result<ExchangeTransitionConfigV1Req, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
         if params.len() != 1 {
-            return None;
+            return Err(RpcErr::BadParams);
         };
-        let payload: ExchangeTransitionConfigPayload =
-            serde_json::from_value(params[0].clone()).unwrap();
-        Some(ExchangeTransitionConfigV1Req { payload })
+        let payload: ExchangeTransitionConfigPayload = serde_json::from_value(params[0].clone())?;
+        Ok(ExchangeTransitionConfigV1Req { payload })
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Received new engine request: {self}");
         let payload = &self.payload;
 
-        let chain_config = storage.get_chain_config()?.ok_or(RpcErr::Internal)?;
+        let chain_config = storage.get_chain_config()?;
         let terminal_total_difficulty = chain_config.terminal_total_difficulty;
 
         if terminal_total_difficulty.unwrap_or_default() != payload.terminal_total_difficulty {
