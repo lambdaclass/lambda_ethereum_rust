@@ -94,11 +94,17 @@ impl Store {
     }
 
     pub fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_account_info(address)
+        let hashed_address = hash_address(&address);
+        if let Some(encoded_state) = self.world_state.lock().unwrap().get(&hashed_address)? {
+            let account_state = AccountState::decode(&encoded_state)?;
+            Ok(Some(AccountInfo {
+                code_hash: account_state.code_hash,
+                balance: account_state.balance,
+                nonce: account_state.nonce,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn add_block_header(
@@ -212,21 +218,25 @@ impl Store {
         &self,
         address: Address,
     ) -> Result<Option<Bytes>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_code_by_account_address(address)
+        let hashed_address = hash_address(&address);
+        if let Some(encoded_state) = self.world_state.lock().unwrap().get(&hashed_address)? {
+            let account_state = AccountState::decode(&encoded_state)?;
+            self.get_account_code(account_state.code_hash)
+        } else {
+            Ok(None)
+        }
     }
     pub fn get_nonce_by_account_address(
         &self,
         address: Address,
     ) -> Result<Option<u64>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_nonce_by_account_address(address)
+        let hashed_address = hash_address(&address);
+        if let Some(encoded_state) = self.world_state.lock().unwrap().get(&hashed_address)? {
+            let account_state = AccountState::decode(&encoded_state)?;
+            Ok(Some(account_state.nonce))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn apply_account_updates(
@@ -260,10 +270,11 @@ impl Store {
                         for (storage_key, storage_value) in &update.added_storage {
                             self.add_storage_at(update.address, *storage_key, *storage_value)?;
                         }
+                        account_state.storage_root =
+                            ethereum_rust_core::types::compute_storage_root(
+                                &self.account_storage_iter(update.address)?.collect(),
+                            );
                     }
-                    account_state.storage_root = ethereum_rust_core::types::compute_storage_root(
-                        &self.account_storage_iter(update.address)?.collect(),
-                    );
                 }
                 self.world_state
                     .lock()
@@ -421,17 +432,17 @@ impl Store {
         Ok(())
     }
 
-    pub fn account_infos_iter(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
-        self.engine.lock().unwrap().account_infos_iter()
-    }
-
     pub fn increment_balance(&self, address: Address, amount: U256) -> Result<(), StoreError> {
-        self.engine
+        let hashed_address = hash_address(&address);
+        let mut account_state = match self.world_state.lock().unwrap().get(&hashed_address)? {
+            Some(encoded_state) => AccountState::decode(&encoded_state)?,
+            None => AccountState::default(),
+        };
+        account_state.balance = account_state.balance.saturating_add(amount);
+        self.world_state
             .lock()
             .unwrap()
-            .increment_balance(address, amount)
+            .insert(hashed_address, account_state.encode_to_vec())
     }
 
     pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
@@ -569,7 +580,6 @@ mod tests {
         run_test(&test_remove_account_storage, engine_type);
         run_test(&test_increment_balance, engine_type);
         run_test(&test_store_block_tags, engine_type);
-        run_test(&test_account_info_iter, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
         run_test(&test_account_storage_iter, engine_type);
         run_test(&test_chain_config_storage, engine_type)
@@ -854,47 +864,6 @@ mod tests {
         assert_eq!(safe_block_number, stored_safe_block_number);
         assert_eq!(latest_block_number, stored_latest_block_number);
         assert_eq!(pending_block_number, stored_pending_block_number);
-    }
-
-    fn test_account_info_iter(store: Store) {
-        // Build preset account infos
-        let account_infos = HashMap::from([
-            (
-                Address::repeat_byte(1),
-                AccountInfo {
-                    balance: 1.into(),
-                    ..Default::default()
-                },
-            ),
-            (
-                Address::repeat_byte(2),
-                AccountInfo {
-                    balance: 2.into(),
-                    ..Default::default()
-                },
-            ),
-            (
-                Address::repeat_byte(2),
-                AccountInfo {
-                    balance: 3.into(),
-                    ..Default::default()
-                },
-            ),
-        ]);
-
-        // Store account infos
-        for (address, account_info) in account_infos.clone() {
-            let account = Account {
-                info: account_info,
-                ..Default::default()
-            };
-            store.add_account(address, account).unwrap();
-        }
-
-        // Fetch all account infos from db and compare against preset
-        let account_info_iter = store.account_infos_iter().unwrap();
-        let account_infos_from_iter = HashMap::from_iter(account_info_iter);
-        assert_eq!(account_infos, account_infos_from_iter)
     }
 
     fn test_world_state_root_smoke(store: Store) {
