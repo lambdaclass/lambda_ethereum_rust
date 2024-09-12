@@ -1,35 +1,101 @@
-use crate::types::Node;
+use crate::{discv4::time_now_unix, types::Node};
 use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
 use std::net::IpAddr;
 
 const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
+const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
 #[derive(Debug)]
 pub struct KademliaTable {
     local_node_id: H512,
-    buckets: Vec<Vec<PeerData>>,
+    buckets: Vec<Vec<NodeEntry>>,
+    replacements: Vec<NodeEntry>,
 }
 
 impl KademliaTable {
     pub fn new(local_node_id: H512) -> Self {
-        let buckets: Vec<Vec<PeerData>> = vec![vec![]; NUMBER_OF_BUCKETS];
+        let buckets: Vec<Vec<NodeEntry>> = vec![vec![]; NUMBER_OF_BUCKETS];
         Self {
             local_node_id,
             buckets,
+            replacements: Vec::with_capacity(MAX_NUMBER_OF_REPLACEMENTS),
         }
     }
 
-    pub fn insert(&mut self, peer: PeerData) {
-        let bucket_number = bucket_number(self.local_node_id, peer.node_id);
-        let bucket = &mut self.buckets[bucket_number];
-        if bucket.len() == MAX_NODES_PER_BUCKET {
-            // TODO: revalidate least recently seen node as described in
-            // <https://github.com/ethereum/devp2p/blob/master/discv4.md#kademlia-table>
-            bucket.pop();
+    #[allow(unused)]
+    pub fn get_by_node_id(&self, node_id: H512) -> Option<&NodeEntry> {
+        let bucket = &self.buckets[bucket_number(node_id, self.local_node_id)];
+        for entry in bucket {
+            if entry.peer.node_id == node_id {
+                return Some(entry);
+            }
         }
-        bucket.push(peer);
+
+        return None;
+    }
+
+    pub fn get_by_node_id_mut(&mut self, node_id: H512) -> Option<&mut NodeEntry> {
+        let bucket = &mut self.buckets[bucket_number(node_id, self.local_node_id)];
+        for entry in bucket {
+            if entry.peer.node_id == node_id {
+                return Some(entry);
+            }
+        }
+
+        return None;
+    }
+
+    /// Will try to insert a node into the table:
+    /// - If the node is already inserted then it updates it
+    /// - If the none is not inserted it will try to create a new entry
+    /// - If the bucket is full then it adds it to the possible replacements table
+    pub fn insert_peer(&mut self, peer: PeerData) {
+        let node_id = peer.node_id;
+        if let Some(node) = self.get_by_node_id_mut(peer.node_id) {
+            node.is_proven = true;
+            node.last_ping = time_now_unix();
+            node.last_ping_hash = None;
+            // we also want to update the peer data, for the node might have changed its ports or ip
+            node.peer = peer;
+            return;
+        }
+        let node = NodeEntry::new(peer, time_now_unix(), false);
+        let bucket_idx = bucket_number(node_id, self.local_node_id);
+
+        if self.buckets[bucket_idx].len() == MAX_NODES_PER_BUCKET {
+            self.insert_as_replacement(&node);
+        } else {
+            self.remove_from_replacements(node_id);
+            self.buckets[bucket_idx].push(node);
+        }
+    }
+
+    fn insert_as_replacement(&mut self, node: &NodeEntry) {
+        let entry = self
+            .replacements
+            .iter_mut()
+            .find(|e| e.peer.node_id == node.peer.node_id);
+
+        if let Some(entry) = entry {
+            entry.is_proven = true;
+            entry.last_ping = time_now_unix();
+            entry.peer = node.peer.clone();
+        } else {
+            if self.replacements.len() >= MAX_NUMBER_OF_REPLACEMENTS {
+                self.replacements.pop();
+            }
+            self.replacements.insert(0, node.clone());
+        }
+    }
+
+    fn remove_from_replacements(&mut self, node_id: H512) {
+        self.replacements = self
+            .replacements
+            .drain(..)
+            .filter(|r| r.peer.node_id != node_id)
+            .collect();
     }
 }
 
@@ -42,6 +108,25 @@ pub fn bucket_number(node_id_1: H512, node_id_2: H512) -> usize {
     let xor = H256(hash_1.into()) ^ H256(hash_2.into());
     let distance = U256::from_big_endian(xor.as_bytes());
     distance.bits().saturating_sub(1)
+}
+
+#[derive(Debug, Clone)]
+pub struct NodeEntry {
+    pub peer: PeerData,
+    pub last_ping: u64,
+    pub last_ping_hash: Option<H256>,
+    pub is_proven: bool,
+}
+
+impl NodeEntry {
+    pub fn new(record: PeerData, last_ping: u64, is_proven: bool) -> Self {
+        Self {
+            peer: record,
+            last_ping,
+            is_proven,
+            last_ping_hash: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

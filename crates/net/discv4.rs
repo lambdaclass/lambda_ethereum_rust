@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::types::{Endpoint, Node, NodeRecord};
 use bytes::BufMut;
 use ethereum_rust_core::rlp::{
@@ -7,8 +9,40 @@ use ethereum_rust_core::rlp::{
     structs::{self, Decoder, Encoder},
 };
 use ethereum_rust_core::{H256, H512, H520};
-use k256::ecdsa::SigningKey;
+use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
 use sha3::{Digest, Keccak256};
+
+//todo add tests
+pub fn is_expired(expiration: u64) -> bool {
+    // this cast to a signed integer is needed as the rlp decoder doesn't take into account the sign
+    // otherwise a potential negative expiration would pass since it would take 2^64.
+    (expiration as i64)
+        < SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64
+}
+
+pub fn time_since_in_hs(time: u64) -> u64 {
+    let time = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(time);
+    SystemTime::now().duration_since(time).unwrap().as_secs() / 3600
+}
+
+pub fn time_now_unix() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+#[derive(Debug)]
+pub enum PacketDecodeErr {
+    #[allow(unused)]
+    RLPDecodeError(RLPDecodeError),
+    InvalidSize,
+    HashMismatch,
+    InvalidSignature,
+}
 
 #[allow(unused)]
 #[derive(Debug)]
@@ -16,27 +50,52 @@ pub struct Packet {
     hash: H256,
     signature: H520,
     message: Message,
+    node_id: H512,
 }
 
 impl Packet {
-    pub fn decode(encoded_packet: &[u8]) -> Result<Packet, RLPDecodeError> {
+    pub fn decode(encoded_packet: &[u8]) -> Result<Packet, PacketDecodeErr> {
         // the packet structure is
         // hash || signature || packet-type || packet-data
         let hash_len = 32;
         let signature_len = 65;
+        let head_size = hash_len + signature_len;
+
+        if encoded_packet.len() < head_size + 1 {
+            return Err(PacketDecodeErr::InvalidSize);
+        };
+
+        let hash = H256::from_slice(&encoded_packet[..hash_len]);
         let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
         let packet_type = encoded_packet[hash_len + signature_len];
         let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
 
-        // TODO: verify hash and signature
-        let hash = H256::from_slice(&encoded_packet[..hash_len]);
+        let header_hash = H256::from_slice(&encoded_packet[hash_len..]);
+
+        if hash != header_hash {
+            return Err(PacketDecodeErr::HashMismatch);
+        }
+
+        let digest = Keccak256::digest(encoded_msg);
+        let signature = &Signature::from_bytes(signature_bytes[..signature_len].into())
+            .map_err(|_| PacketDecodeErr::InvalidSignature)?;
+        let rid = RecoveryId::from_byte(signature_bytes[signature_len])
+            .ok_or(PacketDecodeErr::InvalidSignature)?;
+
+        let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid)
+            .map_err(|_| PacketDecodeErr::InvalidSignature)?;
+        let encoded = peer_pk.to_encoded_point(false);
+
+        let node_id = H512::from_slice(&encoded.as_bytes()[1..]);
         let signature = H520::from_slice(signature_bytes);
-        let message = Message::decode_with_type(packet_type, encoded_msg)?;
+        let message = Message::decode_with_type(packet_type, encoded_msg)
+            .map_err(|e| PacketDecodeErr::RLPDecodeError(e))?;
 
         Ok(Self {
             hash,
             signature,
             message,
+            node_id,
         })
     }
 
@@ -46,6 +105,14 @@ impl Packet {
 
     pub fn get_message(&self) -> &Message {
         &self.message
+    }
+
+    pub fn get_signature(&self) -> H520 {
+        self.signature
+    }
+
+    pub fn get_node_id(&self) -> H512 {
+        self.node_id
     }
 }
 
