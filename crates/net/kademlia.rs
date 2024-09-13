@@ -46,45 +46,32 @@ impl KademliaTable {
         return None;
     }
 
-    /// Will try to insert a node into the table:
-    /// - If the node is already inserted then it updates it
-    /// - If the none is not inserted it will try to create a new entry
-    /// - If the bucket is full then it adds it to the possible replacements table
-    pub fn insert_node(&mut self, peer: Node) {
-        let node_id = peer.node_id;
-        if let Some(node) = self.get_by_node_id_mut(peer.node_id) {
-            node.is_proven = true;
-            node.last_ping = time_now_unix();
-            // we also want to update the peer data, for the node might have changed its ports or ip
-            node.node = peer;
-        }
-        let node = PeerData::new(peer, time_now_unix(), false);
+    /// Will try to insert a node into the table. If the table is full then it pushes it to the replacement list.
+    /// # Returns
+    /// A tuple containing:
+    ///     1. PeerData
+    ///     2. A bool indicating if the node was inserted to the table
+    pub fn insert_node(&mut self, node: Node) -> (&mut PeerData, bool) {
+        let node_id = node.node_id;
+        let peer = PeerData::new(node, time_now_unix(), false);
         let bucket_idx = bucket_number(node_id, self.local_node_id);
 
         if self.buckets[bucket_idx].len() == MAX_NODES_PER_BUCKET {
-            self.insert_as_replacement(&node);
+            (self.insert_as_replacement(&peer), false)
         } else {
             self.remove_from_replacements(node_id);
-            self.buckets[bucket_idx].push(node);
+            self.buckets[bucket_idx].push(peer);
+            let peer_idx = self.buckets[bucket_idx].len() - 1;
+            (&mut self.buckets[bucket_idx][peer_idx], true)
         }
     }
 
-    fn insert_as_replacement(&mut self, node: &PeerData) {
-        let entry = self
-            .replacements
-            .iter_mut()
-            .find(|e| e.node.node_id == node.node.node_id);
-
-        if let Some(entry) = entry {
-            entry.is_proven = true;
-            entry.last_ping = time_now_unix();
-            entry.node = node.node.clone();
-        } else {
-            if self.replacements.len() >= MAX_NUMBER_OF_REPLACEMENTS {
-                self.replacements.pop();
-            }
-            self.replacements.insert(0, node.clone());
+    fn insert_as_replacement(&mut self, node: &PeerData) -> &mut PeerData {
+        if self.replacements.len() >= MAX_NUMBER_OF_REPLACEMENTS {
+            self.replacements.pop();
         }
+        self.replacements.insert(0, node.clone());
+        &mut self.replacements[0]
     }
 
     fn remove_from_replacements(&mut self, node_id: H512) {

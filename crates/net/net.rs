@@ -87,27 +87,29 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                 pong(&udp_socket, from, ping_hash, &signer).await;
 
                 let node = table.get_by_node_id_mut(packet.get_node_id());
-                if let Some(node) = node {
+                if let Some(peer) = node {
                     // send a a ping to get an endpoint proof
-                    if time_since_in_hs(node.last_ping) > 12 {
+                    if time_since_in_hs(peer.last_ping) > 12 {
                         let hash = ping(&udp_socket, udp_addr, from, &signer).await;
-                        node.last_ping_hash = Some(hash);
+                        if let Some(hash) = hash {
+                            peer.last_ping_hash = Some(hash);
+                        }
                     }
-                    node.last_ping = time_now_unix();
+                    peer.last_ping = time_now_unix();
                 } else {
-                    table.insert_node(Node {
+                    // send a ping to get the endpoint proof from our end
+                    let (peer, inserted_to_table) = table.insert_node(Node {
                         ip: from.ip(),
                         udp_port: from.port(),
                         tcp_port: 0,
                         node_id: packet.get_node_id(),
                     });
-                    // send a ping to get the endpoint proof from our end
                     let hash = ping(&udp_socket, udp_addr, from, &signer).await;
-                    // todo avoid this get
-                    table
-                        .get_by_node_id_mut(packet.get_node_id())
-                        .unwrap()
-                        .last_ping_hash = Some(hash);
+                    if let Some(hash) = hash {
+                        if inserted_to_table {
+                            peer.last_ping_hash = Some(hash);
+                        }
+                    }
                 }
             }
             Message::Pong(msg) => {
@@ -116,14 +118,14 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     continue;
                 }
 
-                if let Some(node) = table.get_by_node_id_mut(packet.get_node_id()).cloned() {
-                    if node.last_ping_hash.is_none() {
+                if let Some(peer) = table.get_by_node_id_mut(packet.get_node_id()) {
+                    if peer.last_ping_hash.is_none() {
                         warn!("Discarding pong as the node did not send a previous ping");
                         continue;
                     }
-                    if node.last_ping_hash.unwrap() == msg.ping_hash {
-                        // todo remove the last hash of the node
-                        table.insert_node(node.node);
+                    if peer.last_ping_hash.unwrap() == msg.ping_hash {
+                        peer.last_ping_hash = None;
+                        peer.is_proven = true;
                     } else {
                         warn!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -173,12 +175,15 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     }
 }
 
+/// Sends a ping to the addr
+/// # Returns
+/// an optional hash corresponding to the message header hash to account if the send was successful
 async fn ping(
     socket: &UdpSocket,
     local_addr: SocketAddr,
     to_addr: SocketAddr,
     signer: &SigningKey,
-) -> H256 {
+) -> Option<H256> {
     let mut buf = Vec::new();
 
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
@@ -200,9 +205,20 @@ async fn ping(
 
     let ping: discv4::Message = discv4::Message::Ping(PingMessage::new(from, to, expiration));
     ping.encode_with_header(&mut buf, signer);
-    socket.send_to(&buf, to_addr).await.unwrap();
+    let res = socket.send_to(&buf, to_addr).await;
 
-    H256::from_slice(&buf[0..32])
+    if res.is_err() {
+        return None;
+    }
+    let bytes_sent = res.unwrap();
+
+    // sanity check to make sure the ping was well sent
+    // though idk if this is actually needed or if it might break other stuff
+    if bytes_sent == buf.len() {
+        return Some(H256::from_slice(&buf[0..32]));
+    }
+
+    return None;
 }
 
 async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey) {
