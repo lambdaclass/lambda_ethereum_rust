@@ -170,14 +170,12 @@ impl FeeHistoryRequest {
             .into_iter()
             .map(|t: Transaction| match t {
                 Transaction::LegacyTransaction(_) | Transaction::EIP2930Transaction(_) => 0,
-                Transaction::EIP1559Transaction(t) => t.max_priority_fee_per_gas.min(
-                    t.max_fee_per_gas
-                        .saturating_sub(base_fee_per_gas),
-                ),
-                Transaction::EIP4844Transaction(t) => t.max_priority_fee_per_gas.min(
-                    t.max_fee_per_gas
-                        .saturating_sub(base_fee_per_gas),
-                ),
+                Transaction::EIP1559Transaction(t) => t
+                    .max_priority_fee_per_gas
+                    .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
+                Transaction::EIP4844Transaction(t) => t
+                    .max_priority_fee_per_gas
+                    .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
             })
             .collect();
 
