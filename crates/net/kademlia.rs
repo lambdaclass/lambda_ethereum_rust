@@ -28,24 +28,14 @@ impl KademliaTable {
 
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
         let bucket = &self.buckets[bucket_number(node_id, self.local_node_id)];
-        for entry in bucket {
-            if entry.node.node_id == node_id {
-                return Some(entry);
-            }
-        }
-
-        return None;
+        bucket.iter().find(|entry| entry.node.node_id == node_id)
     }
 
     pub fn get_by_node_id_mut(&mut self, node_id: H512) -> Option<&mut PeerData> {
         let bucket = &mut self.buckets[bucket_number(node_id, self.local_node_id)];
-        for entry in bucket {
-            if entry.node.node_id == node_id {
-                return Some(entry);
-            }
-        }
-
-        return None;
+        bucket
+            .iter_mut()
+            .find(|entry| entry.node.node_id == node_id)
     }
 
     /// Will try to insert a node into the table. If the table is full then it pushes it to the replacement list.
@@ -93,11 +83,11 @@ impl KademliaTable {
             for peer in bucket {
                 let distance = bucket_number(node_id, peer.node.node_id);
                 if nodes.len() < MAX_NODES_PER_BUCKET {
-                    nodes.push((peer.node.clone(), distance));
+                    nodes.push((peer.node, distance));
                 } else {
-                    for i in 0..nodes.len() {
-                        if distance < nodes[i].1 {
-                            nodes[i] = (peer.node.clone(), distance);
+                    for (i, (_, dis)) in &mut nodes.iter().enumerate() {
+                        if distance < *dis {
+                            nodes[i] = (peer.node, distance);
                             break;
                         }
                     }

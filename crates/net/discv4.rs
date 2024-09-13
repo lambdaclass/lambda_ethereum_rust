@@ -84,7 +84,7 @@ impl Packet {
             return Err(PacketDecodeErr::HashMismatch);
         }
 
-        let digest = Keccak256::digest(&encoded_msg);
+        let digest = Keccak256::digest(encoded_msg);
         let signature = &Signature::from_slice(&signature_bytes[0..64]).unwrap();
         let rid = RecoveryId::from_byte(signature_bytes[64]).unwrap();
 
@@ -95,7 +95,7 @@ impl Packet {
         let node_id = H512::from_slice(&encoded.as_bytes()[1..]);
         let signature = H520::from_slice(signature_bytes);
         let message = Message::decode_with_type(packet_type, &encoded_msg[1..])
-            .map_err(|e| PacketDecodeErr::RLPDecodeError(e))?;
+            .map_err(PacketDecodeErr::RLPDecodeError)?;
 
         Ok(Self {
             hash,
@@ -307,6 +307,7 @@ pub struct FindNodeRequest {
     /// we keep track of this number since we will accept neighbor messages until the max_per_bucket
     pub nodes_sent: usize,
     /// unix timestamp tracking when we have sent the request
+    #[allow(unused)]
     pub sent_at: u64,
 }
 

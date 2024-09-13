@@ -55,11 +55,8 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let local_node_id = node_id_from_signing_key(&signer);
 
     // TODO implement this right
-    match bootnodes.first() {
-        Some(b) => {
-            ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
-        }
-        None => {}
+    if let Some(b) = bootnodes.first() {
+        ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
     };
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
@@ -244,9 +241,10 @@ async fn ping(
         return Some(H256::from_slice(&buf[0..32]));
     }
 
-    return None;
+    None
 }
 
+#[allow(unused)]
 async fn find_node(
     socket: &UdpSocket,
     to_addr: SocketAddr,
