@@ -1,8 +1,8 @@
-use super::{db::libmdbx::LibmdbxTrieDb, state::TrieState, Trie};
+use super::{db::libmdbx::Libmdbx, state::TrieState, Trie};
 
 /// Creates a new trie based on a temporary DB
-pub fn new_temp_trie() -> Trie<LibmdbxTrieDb> {
-    Trie::new(LibmdbxTrieDb::init_temp())
+pub fn new_temp_trie() -> Trie<Libmdbx> {
+    Trie::new(Libmdbx::init_temp())
 }
 
 #[macro_export]

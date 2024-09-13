@@ -165,7 +165,7 @@ mod test {
     // Rename imports to avoid potential name clashes
     use super::test_utils;
     use cita_trie::{MemoryDB as CitaMemoryDB, PatriciaTrie as CitaTrie, Trie as CitaTrieTrait};
-    use db::libmdbx::LibmdbxTrieDb;
+    use db::libmdbx::Libmdbx;
     use hasher::HasherKeccak;
     use hex_literal::hex;
     use proptest::{
@@ -578,7 +578,7 @@ mod test {
         let trie_dir = trie_dir.path().to_str().unwrap();
 
         // Create new trie from clean DB
-        let db = LibmdbxTrieDb::create(trie_dir).unwrap();
+        let db = Libmdbx::create(trie_dir).unwrap();
         let mut trie = Trie::new(db);
 
         trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
@@ -590,7 +590,7 @@ mod test {
 
         drop(trie); // Release DB
 
-        let mut db2 = LibmdbxTrieDb::open(trie_dir).unwrap();
+        let mut db2 = Libmdbx::open(trie_dir).unwrap();
         // Create a new trie based on the previous trie's DB
         let trie = Trie::open(db2, root);
 
