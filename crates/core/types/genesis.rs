@@ -88,6 +88,35 @@ pub struct ChainConfig {
     pub terminal_total_difficulty_passed: bool,
 }
 
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum ForkId {
+    Paris = 0,
+    Shanghai = 1,
+    Cancun = 2,
+}
+
+impl ChainConfig {
+    pub fn is_shanghai_activated(&self, block_timestamp: u64) -> bool {
+        self.shanghai_time
+            .map_or(false, |time| time <= block_timestamp)
+    }
+
+    pub fn is_cancun_activated(&self, block_timestamp: u64) -> bool {
+        self.cancun_time
+            .map_or(false, |time| time <= block_timestamp)
+    }
+
+    pub fn get_fork(&self, block_timestamp: u64) -> ForkId {
+        if self.is_cancun_activated(block_timestamp) {
+            ForkId::Cancun
+        } else if self.is_shanghai_activated(block_timestamp) {
+            ForkId::Shanghai
+        } else {
+            ForkId::Paris
+        }
+    }
+}
+
 #[allow(unused)]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
