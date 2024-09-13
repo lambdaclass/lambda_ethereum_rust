@@ -12,7 +12,6 @@ use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
 use sha3::{Digest, Keccak256};
 
-//todo add tests
 pub fn is_expired(expiration: u64) -> bool {
     // this cast to a signed integer is needed as the rlp decoder doesn't take into account the sign
     // otherwise a potential negative expiration would pass since it would take 2^64.
@@ -59,31 +58,27 @@ impl Packet {
         // hash || signature || packet-type || packet-data
         let hash_len = 32;
         let signature_len = 65;
-        let head_size = hash_len + signature_len;
+        let header_size = hash_len + signature_len; // 97
 
-        if encoded_packet.len() < head_size + 1 {
+        if encoded_packet.len() < header_size + 1 {
             return Err(PacketDecodeErr::InvalidSize);
         };
 
-        // todo add tests for the pub key recover!
         let hash = H256::from_slice(&encoded_packet[..hash_len]);
-        let signature_bytes = &encoded_packet[hash_len..hash_len + signature_len];
-        let packet_type = encoded_packet[hash_len + signature_len];
-        let encoded_msg = &encoded_packet[hash_len + signature_len + 1..];
+        let signature_bytes = &encoded_packet[hash_len..header_size];
+        let packet_type = encoded_packet[header_size];
+        let encoded_msg = &encoded_packet[header_size..];
 
-        let digest = Keccak256::digest(&encoded_packet[hash_len..]);
-        let header_hash = H256::from_slice(&digest);
+        let head_digest = Keccak256::digest(&encoded_packet[hash_len..]);
+        let header_hash = H256::from_slice(&head_digest);
 
-        assert_eq!(hash, header_hash);
         if hash != header_hash {
             return Err(PacketDecodeErr::HashMismatch);
         }
 
         let digest = Keccak256::digest(&encoded_msg);
-        let signature = &Signature::from_bytes(signature_bytes[..signature_len - 1].into())
-            .map_err(|_| PacketDecodeErr::InvalidSignature)?;
-        let rid = RecoveryId::from_byte(signature_bytes[signature_len - 1])
-            .ok_or(PacketDecodeErr::InvalidSignature)?;
+        let signature = &Signature::from_slice(&signature_bytes[0..64]).unwrap();
+        let rid = RecoveryId::from_byte(signature_bytes[64]).unwrap();
 
         let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid)
             .map_err(|_| PacketDecodeErr::InvalidSignature)?;
@@ -91,7 +86,7 @@ impl Packet {
 
         let node_id = H512::from_slice(&encoded.as_bytes()[1..]);
         let signature = H520::from_slice(signature_bytes);
-        let message = Message::decode_with_type(packet_type, encoded_msg)
+        let message = Message::decode_with_type(packet_type, &encoded_msg[1..])
             .map_err(|e| PacketDecodeErr::RLPDecodeError(e))?;
 
         Ok(Self {
