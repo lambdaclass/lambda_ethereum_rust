@@ -253,7 +253,10 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
         }
         let address = Address::from_slice(address.0.as_slice());
         // Remove account from DB if destroyed (Process DestroyedChanged as changed account)
-        if matches!(account.status, AccountStatus::Destroyed | AccountStatus::DestroyedAgain) {
+        if matches!(
+            account.status,
+            AccountStatus::Destroyed | AccountStatus::DestroyedAgain
+        ) {
             account_updates.push(AccountUpdate::removed(address));
             continue;
         }
