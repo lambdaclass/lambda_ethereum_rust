@@ -23,7 +23,7 @@ use tokio::{
     net::{TcpSocket, UdpSocket},
     try_join,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use types::{Endpoint, Node};
 
 pub mod bootnode;
@@ -74,13 +74,12 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         let packet = packet.unwrap();
 
         let msg = packet.get_message();
-        info!("Message: {:?}", msg);
-        println!("NODE ID {}", packet.get_node_id());
+        info!("Message: {:?} from {}", msg, packet.get_node_id());
 
         match msg {
             Message::Ping(msg) => {
                 if is_expired(msg.expiration) {
-                    warn!("Ignoring ping as it is expired.");
+                    debug!("Ignoring ping as it is expired.");
                     continue;
                 };
                 let ping_hash = packet.get_hash();
@@ -114,30 +113,30 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
             }
             Message::Pong(msg) => {
                 if is_expired(msg.expiration) {
-                    warn!("Ignoring pong as it is expired.");
+                    debug!("Ignoring pong as it is expired.");
                     continue;
                 }
 
                 if let Some(peer) = table.get_by_node_id_mut(packet.get_node_id()) {
                     if peer.last_ping_hash.is_none() {
-                        warn!("Discarding pong as the node did not send a previous ping");
+                        debug!("Discarding pong as the node did not send a previous ping");
                         continue;
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
                         peer.last_ping_hash = None;
                         peer.is_proven = true;
                     } else {
-                        warn!(
+                        debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
                         );
                     }
                 } else {
-                    warn!("Discarding pong as it is not a known node");
+                    debug!("Discarding pong as it is not a known node");
                 }
             }
             Message::FindNode(msg) => {
                 if is_expired(msg.expiration) {
-                    warn!("Ignoring find node msg as it is expired.");
+                    debug!("Ignoring find node msg as it is expired.");
                     continue;
                 };
                 let node = table.get_by_node_id(packet.get_node_id());
@@ -149,18 +148,18 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                             discv4::Message::Neighbors(NeighborsMessage::new(nodes, expiration));
                         let mut buf = Vec::new();
                         neighbors.encode_with_header(&mut buf, &signer);
-                        info!("Sending neighbors!");
+                        debug!("Sending neighbors!");
                         udp_socket.send_to(&buf, from).await.unwrap();
                     } else {
-                        warn!("Ignoring find node message as the node isn't proven!");
+                        debug!("Ignoring find node message as the node isn't proven!");
                     }
                 } else {
-                    warn!("Ignoring find node message as it is not a known node");
+                    debug!("Ignoring find node message as it is not a known node");
                 }
             }
             Message::Neighbors(neighbors_msg) => {
                 if is_expired(neighbors_msg.expiration) {
-                    warn!("Ignoring neighbor msg as it is expired.");
+                    debug!("Ignoring neighbor msg as it is expired.");
                     continue;
                 };
 
@@ -171,20 +170,20 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                         let nodes_sent = req.nodes_sent + nodes.len();
 
                         if nodes_sent <= MAX_NODES_PER_BUCKET {
-                            info!("Storing neighbors in our table!");
+                            debug!("Storing neighbors in our table!");
                             req.nodes_sent = nodes_sent;
                             nodes_to_insert = Some(nodes.clone());
                         } else {
-                            warn!("Ignoring neighbors message as the client sent more than the allowed nodes");
+                            debug!("Ignoring neighbors message as the client sent more than the allowed nodes");
                         }
 
                         if nodes_sent == MAX_NODES_PER_BUCKET {
-                            info!("Neighbors request has been fulfilled");
+                            debug!("Neighbors request has been fulfilled");
                             node.find_node_request = None;
                         }
                     }
                 } else {
-                    warn!("Ignoring neighbor msg as it is not a known node");
+                    debug!("Ignoring neighbor msg as it is not a known node");
                 }
 
                 if let Some(nodes) = nodes_to_insert {
