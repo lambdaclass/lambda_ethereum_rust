@@ -6,7 +6,7 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
 
-use crate::error::StoreError;
+use crate::{error::StoreError, trie::{Trie, TrieDB}};
 
 pub trait StoreEngine: Debug + Send {
     /// Add account info
@@ -227,4 +227,7 @@ pub trait StoreEngine: Debug + Send {
 
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Opens the world state trie for the given block
+    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>  where DB: TrieDB;
 }

@@ -4,6 +4,7 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
     BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
 };
+use crate::trie::{Trie, TrieDB};
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
@@ -337,6 +338,12 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
+    
+    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>  where DB: TrieDB {
+        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
+            return Ok(None)
+        };
+    }
 }
 
 impl Debug for Store {
@@ -386,6 +393,13 @@ table!(
     /// Stores chain data, each value is unique and stored as its rlp encoding
     /// See [ChainDataIndex] for available chain values
     ( ChainData ) ChainDataIndex => Vec<u8>
+);
+
+// Trie storages
+
+table!(
+    /// World state trie nodes
+    ( WorldStateNodes ) Vec<u8> => Vec<u8>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -479,6 +493,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
+        table_info!(WorldStateNodes),
     ]
     .into_iter()
     .collect();

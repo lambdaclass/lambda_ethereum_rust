@@ -13,6 +13,7 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::{Digest as _, Keccak256};
+use trie::Trie;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
