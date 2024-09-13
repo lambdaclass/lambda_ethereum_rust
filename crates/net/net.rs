@@ -164,34 +164,35 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     continue;
                 };
 
-                let node = table.get_by_node_id_mut(packet.get_node_id());
-                if node.is_none() {
-                    warn!("Ignoring neighbor msg as it is not a known node");
-                    continue;
-                }
-                let node = node.unwrap();
+                let mut nodes_to_insert = None;
+                if let Some(node) = table.get_by_node_id_mut(packet.get_node_id()) {
+                    if let Some(req) = &mut node.find_node_request {
+                        let nodes = &neighbors_msg.nodes;
+                        let nodes_sent = req.nodes_sent + nodes.len();
 
-                if let Some(req) = &mut node.find_node_request {
-                    let nodes = &neighbors_msg.nodes;
-                    let nodes_sent = req.nodes_sent + nodes.len();
-                    if nodes_sent <= MAX_NODES_PER_BUCKET {
-                        info!("Storing neighbors in our table!");
-                        req.nodes_sent = nodes_sent;
-                        for node in nodes {
-                            table.insert_node(*node);
-                            let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
-                            ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                        if nodes_sent <= MAX_NODES_PER_BUCKET {
+                            info!("Storing neighbors in our table!");
+                            req.nodes_sent = nodes_sent;
+                            nodes_to_insert = Some(nodes.clone());
+                        } else {
+                            warn!("Ignoring neighbors message as the client sent more than the allowed nodes");
                         }
-                    } else {
-                        warn!("Ignoring neighbors message as the client sent more than the allowed nodes");
-                    }
 
-                    if nodes_sent == MAX_NODES_PER_BUCKET {
-                        info!("Neighbors request has been fulfilled");
-                        node.find_node_request = None;
+                        if nodes_sent == MAX_NODES_PER_BUCKET {
+                            info!("Neighbors request has been fulfilled");
+                            node.find_node_request = None;
+                        }
                     }
                 } else {
-                    warn!("Ignoring neighbors message as a find node request hasn't been sent")
+                    warn!("Ignoring neighbor msg as it is not a known node");
+                }
+
+                if let Some(nodes) = nodes_to_insert {
+                    for node in nodes {
+                        table.insert_node(node);
+                        let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
+                        ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                    }
                 }
             }
             _ => {}
