@@ -247,7 +247,7 @@ impl Store {
         &self,
         account_updates: &[AccountUpdate],
     ) -> Result<(), StoreError> {
-        for update in account_updates.into_iter() {
+        for update in account_updates.iter() {
             if update.removed {
                 // Remove account from trie
                 self.remove_account(update.address)?;
