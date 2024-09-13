@@ -254,9 +254,8 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
         let address = Address::from_slice(address.0.as_slice());
         // Remove account from DB if destroyed
         if account.status.was_destroyed() {
-            account_updates.push(AccountUpdate::removed(address))
-            // TODO: we should be able to continue here but check it just in case
-            // continue;
+            account_updates.push(AccountUpdate::removed(address));
+            continue;
         }
 
         // If account is empty, do not add to the database
