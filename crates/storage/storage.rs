@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
-use trie::Trie;
+use trie::{Trie, TrieDB};
 
 mod engines;
 pub mod error;
@@ -334,15 +334,19 @@ impl StoreEngine for Engine {
         }
     }
 
-    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>
-    where
-        DB: trie::TrieDB,
-    {
-        match self {
-            Engine::InMemory(engine) => engine.world_state(block_number),
-            Engine::Libmdbx(engine) => engine.world_state(block_number),
-        }
+    fn world_state(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<Trie<impl TrieDB>>, StoreError> {
+        Ok(Some(match self {
+            Engine::InMemory(engine) => foo(engine.world_state(block_number)?.unwrap()),
+            Engine::Libmdbx(engine) => foo(engine.world_state(block_number)?.unwrap()),
+        }))
     }
+}
+
+fn foo<DB: TrieDB>(bar: Trie<DB>) -> Trie<DB> {
+    bar
 }
 
 impl Store {
