@@ -15,7 +15,7 @@ use ethereum_rust_core::{
 use ethereum_rust_storage::{error::StoreError, AccountUpdate, Store};
 use lazy_static::lazy_static;
 use revm::{
-    db::states::bundle_state::BundleRetention,
+    db::{states::bundle_state::BundleRetention, AccountStatus},
     inspector_handle_register,
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
@@ -252,8 +252,8 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
             continue;
         }
         let address = Address::from_slice(address.0.as_slice());
-        // Remove account from DB if destroyed
-        if account.status.was_destroyed() {
+        // Remove account from DB if destroyed (Process DestroyedChanged as changed account)
+        if matches!(account.status, AccountStatus::Destroyed | AccountStatus::DestroyedAgain) {
             account_updates.push(AccountUpdate::removed(address));
             continue;
         }
