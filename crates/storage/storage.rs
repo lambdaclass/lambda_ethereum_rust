@@ -272,9 +272,6 @@ impl Store {
                 // Store the added storage in the account's storage trie and compute its root
                 // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into the DB table and compute the root
                 if !update.added_storage.is_empty() {
-                    ethereum_rust_core::types::compute_storage_root(
-                        &self.account_storage_iter(update.address)?.collect(),
-                    );
                     for (storage_key, storage_value) in &update.added_storage {
                         self.add_storage_at(update.address, *storage_key, *storage_value)?;
                     }
