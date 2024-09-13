@@ -23,7 +23,7 @@ impl<'a, T: Table> Libmdbx<'a, T> {
     }
 }
 
-impl<'a, T: Table> TrieDB for Libmdbx<'a, T>
+impl<'a, T> TrieDB for Libmdbx<'a, T>
 where
     T: Table<Key = Vec<u8>, Value = Vec<u8>>,
 {
