@@ -436,19 +436,6 @@ impl Store {
         Ok(())
     }
 
-    pub fn increment_balance(&self, address: Address, amount: U256) -> Result<(), StoreError> {
-        let hashed_address = hash_address(&address);
-        let mut account_state = match self.world_state.lock().unwrap().get(&hashed_address)? {
-            Some(encoded_state) => AccountState::decode(&encoded_state)?,
-            None => AccountState::default(),
-        };
-        account_state.balance = account_state.balance.saturating_add(amount);
-        self.world_state
-            .lock()
-            .unwrap()
-            .insert(hashed_address, account_state.encode_to_vec())
-    }
-
     pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         self.engine.lock().unwrap().set_chain_config(chain_config)
     }
@@ -582,7 +569,6 @@ mod tests {
         run_test(&test_store_account_code, engine_type);
         run_test(&test_store_account_storage, engine_type);
         run_test(&test_remove_account_storage, engine_type);
-        run_test(&test_increment_balance, engine_type);
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
         run_test(&test_account_storage_iter, engine_type);
@@ -816,24 +802,6 @@ mod tests {
 
         assert!(stored_value_beta_a.is_some());
         assert!(stored_value_beta_b.is_some());
-    }
-
-    fn test_increment_balance(store: Store) {
-        let address = Address::random();
-        let account_info = AccountInfo {
-            balance: 50.into(),
-            ..Default::default()
-        };
-        let account = Account {
-            info: account_info,
-            ..Default::default()
-        };
-        store.add_account(address, account).unwrap();
-        store.increment_balance(address, 25.into()).unwrap();
-
-        let stored_account_info = store.get_account_info(address).unwrap().unwrap();
-
-        assert_eq!(stored_account_info.balance, 75.into());
     }
 
     fn test_store_block_tags(store: Store) {
