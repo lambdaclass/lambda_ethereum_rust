@@ -253,6 +253,16 @@ impl StoreEngine for Store {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.chain_data.pending_block_number)
     }
+
+    fn world_state<DB>(
+        &self,
+        _block_number: BlockNumber,
+    ) -> Result<Option<crate::trie::Trie<DB>>, StoreError>
+    where
+        DB: crate::trie::TrieDB,
+    {
+        todo!()
+    }
 }
 
 impl Debug for Store {

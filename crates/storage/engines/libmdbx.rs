@@ -338,11 +338,16 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
-    
-    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>  where DB: TrieDB {
+
+    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>
+    where
+        DB: TrieDB,
+    {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
-            return Ok(None)
+            return Ok(None);
         };
+        let db: crate::trie::Libmdbx<WorldStateNodes> = crate::trie::Libmdbx::new(&self.db);
+        Ok(Some(Trie::open(db, state_root)))
     }
 }
 

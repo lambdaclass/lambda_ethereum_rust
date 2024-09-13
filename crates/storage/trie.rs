@@ -14,9 +14,10 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
+pub use self::db::libmdbx::Libmdbx;
+pub use self::db::TrieDB;
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
-pub use self::db::TrieDB;
 
 pub type LibmdbxTrieDB<'a, T> = self::db::libmdbx::Libmdbx<'a, T>;
 
