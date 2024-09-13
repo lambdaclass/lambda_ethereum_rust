@@ -273,11 +273,19 @@ impl Store {
     }
 
     pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {
-        // TODO: Check initial state is not already present in db
         info!("Storing initial state from genesis");
 
         // Obtain genesis block
         let genesis_block = genesis.get_block();
+
+        if let Some(header) = self.get_block_header(genesis_block.header.number)? {
+            if header.compute_block_hash() == genesis_block.header.compute_block_hash() {
+                info!("Received genesis file matching a previously stored one, nothing to do");
+                return Ok(());
+            } else {
+                panic!("tried to run genesis twice with different blocks");
+            }
+        }
 
         // Store genesis block
         self.update_earliest_block_number(genesis_block.header.number)?;
@@ -461,7 +469,7 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, str::FromStr};
+    use std::{fs, panic, str::FromStr};
 
     use bytes::Bytes;
     use ethereum_rust_core::{
@@ -515,7 +523,28 @@ mod tests {
         run_test(&test_account_info_iter, engine_type);
         run_test(&test_world_state_root_smoke, engine_type);
         run_test(&test_account_storage_iter, engine_type);
-        run_test(&test_chain_config_storage, engine_type)
+        run_test(&test_chain_config_storage, engine_type);
+        run_test(&test_genesis_block, engine_type);
+    }
+
+    fn test_genesis_block(mut store: Store) {
+        const GENESIS_KURTOSIS: &str = include_str!("../../test_data/genesis-kurtosis.json");
+        const GENESIS_HIVE: &str = include_str!("../../test_data/genesis-hive.json");
+        assert_ne!(GENESIS_KURTOSIS, GENESIS_HIVE);
+        let genesis_kurtosis: Genesis =
+            serde_json::from_str(GENESIS_KURTOSIS).expect("deserialize genesis-kurtosis.json");
+        let genesis_hive: Genesis =
+            serde_json::from_str(GENESIS_HIVE).expect("deserialize genesis-hive.json");
+        store
+            .add_initial_state(genesis_kurtosis.clone())
+            .expect("first genesis");
+        store
+            .add_initial_state(genesis_kurtosis)
+            .expect("second genesis with same block");
+        panic::catch_unwind(move || {
+            let _ = store.add_initial_state(genesis_hive);
+        })
+        .expect_err("genesis with a different block should panic");
     }
 
     fn test_store_account(store: Store) {
@@ -600,7 +629,7 @@ mod tests {
             extra_data: Bytes::new(),
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
-            base_fee_per_gas: 0x07,
+            base_fee_per_gas: Some(0x07),
             withdrawals_root: Some(
                 H256::from_str(
                     "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",

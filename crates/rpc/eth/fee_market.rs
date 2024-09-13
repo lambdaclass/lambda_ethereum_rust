@@ -87,7 +87,7 @@ impl RpcHandler for FeeHistoryRequest {
                 .ok_or(RpcErr::Internal)?;
             let blob_base_fee = calculate_base_fee_per_blob_gas(&header);
 
-            base_fee_per_gas.push(header.base_fee_per_gas);
+            base_fee_per_gas.push(header.base_fee_per_gas.unwrap_or_default());
             base_fee_per_blob_gas.push(blob_base_fee);
             gas_used_ratio.push(header.gas_used as f64 / header.gas_limit as f64);
             blob_gas_used_ratio.push(
@@ -106,7 +106,7 @@ impl RpcHandler for FeeHistoryRequest {
             .ok_or(RpcErr::Internal)?;
 
         let blob_base_fee = calculate_base_fee_per_blob_gas(&header);
-        base_fee_per_gas.push(header.base_fee_per_gas);
+        base_fee_per_gas.push(header.base_fee_per_gas.unwrap_or_default());
         base_fee_per_blob_gas.push(blob_base_fee);
 
         let u64_to_hex_str = |x: u64| format!("0x{:x}", x);
@@ -163,19 +163,21 @@ impl FeeHistoryRequest {
     }
 
     fn calculate_percentiles_for_block(block: Block, percentiles: &[f32]) -> Vec<u64> {
-        let base_fee_per_gas = block.header.base_fee_per_gas;
+        let base_fee_per_gas = block.header.base_fee_per_gas.unwrap_or_default();
         let mut effective_priority_fees: Vec<u64> = block
             .body
             .transactions
             .into_iter()
             .map(|t: Transaction| match t {
                 Transaction::LegacyTransaction(_) | Transaction::EIP2930Transaction(_) => 0,
-                Transaction::EIP1559Transaction(t) => t
-                    .max_priority_fee_per_gas
-                    .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
-                Transaction::EIP4844Transaction(t) => t
-                    .max_priority_fee_per_gas
-                    .min(t.max_fee_per_gas.saturating_sub(base_fee_per_gas)),
+                Transaction::EIP1559Transaction(t) => t.max_priority_fee_per_gas.min(
+                    t.max_fee_per_gas
+                        .saturating_sub(base_fee_per_gas),
+                ),
+                Transaction::EIP4844Transaction(t) => t.max_priority_fee_per_gas.min(
+                    t.max_fee_per_gas
+                        .saturating_sub(base_fee_per_gas),
+                ),
             })
             .collect();
 
