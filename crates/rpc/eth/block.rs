@@ -1,13 +1,11 @@
-use std::fmt::Display;
-
 use ethereum_rust_chain::find_parent_header;
-use serde::Deserialize;
 use serde_json::Value;
 use tracing::info;
 
 use crate::{
     types::{
         block::RpcBlock,
+        block_identifier::{BlockIdentifier, BlockIdentifierOrHash},
         receipt::{RpcReceipt, RpcReceiptBlockInfo, RpcReceiptTxInfo},
     },
     utils::RpcErr,
@@ -15,11 +13,12 @@ use crate::{
 };
 use ethereum_rust_core::{
     rlp::encode::RLPEncode,
-    types::{calculate_base_fee_per_blob_gas, BlockBody, BlockHash, BlockHeader, BlockNumber},
+    types::{
+        calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+        Receipt,
+    },
 };
-use ethereum_rust_storage::{error::StoreError, Store};
-
-use super::account::BlockIdentifierOrHash;
+use ethereum_rust_storage::Store;
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
@@ -39,48 +38,17 @@ pub struct GetBlockReceiptsRequest {
     pub block: BlockIdentifierOrHash,
 }
 
+#[derive(Clone, Debug)]
 pub struct GetRawHeaderRequest {
     pub block: BlockIdentifier,
 }
 
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum BlockIdentifier {
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
-    Number(BlockNumber),
-    Tag(BlockTag),
+pub struct GetRawBlockRequest {
+    pub block: BlockIdentifier,
 }
 
-#[derive(Deserialize, Default, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum BlockTag {
-    Earliest,
-    Finalized,
-    Safe,
-    #[default]
-    Latest,
-    Pending,
-}
-
-impl BlockIdentifier {
-    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            BlockIdentifier::Number(num) => Ok(Some(*num)),
-            BlockIdentifier::Tag(tag) => match tag {
-                BlockTag::Earliest => storage.get_earliest_block_number(),
-                BlockTag::Finalized => storage.get_finalized_block_number(),
-                BlockTag::Safe => storage.get_safe_block_number(),
-                BlockTag::Latest => storage.get_latest_block_number(),
-                BlockTag::Pending => storage.get_pending_block_number(),
-            },
-        }
-    }
-    pub fn resolve_block_header(&self, storage: &Store) -> Result<Option<BlockHeader>, StoreError> {
-        match self.resolve_block_number(storage)? {
-            Some(block_number) => storage.get_block_header(block_number),
-            _ => Ok(None),
-        }
-    }
+pub struct GetRawReceipts {
+    pub block: BlockIdentifier,
 }
 
 impl RpcHandler for GetBlockByNumberRequest {
@@ -90,7 +58,7 @@ impl RpcHandler for GetBlockByNumberRequest {
             return Err(RpcErr::BadParams);
         };
         Ok(GetBlockByNumberRequest {
-            block: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
             hydrated: serde_json::from_value(params[1].clone())?,
         })
     }
@@ -151,7 +119,7 @@ impl RpcHandler for GetBlockTransactionCountRequest {
             return Err(RpcErr::BadParams);
         };
         Ok(GetBlockTransactionCountRequest {
-            block: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[0].clone(), 0)?,
         })
     }
 
@@ -181,7 +149,7 @@ impl RpcHandler for GetBlockReceiptsRequest {
             return Err(RpcErr::BadParams);
         };
         Ok(GetBlockReceiptsRequest {
-            block: serde_json::from_value(params[0].clone())?,
+            block: BlockIdentifierOrHash::parse(params[0].clone(), 0)?,
         })
     }
 
@@ -198,7 +166,7 @@ impl RpcHandler for GetBlockReceiptsRequest {
             // Block not found
             _ => return Ok(Value::Null),
         };
-        let receipts = get_all_block_receipts(block_number, header, body, &storage)?;
+        let receipts = get_all_block_rpc_receipts(block_number, header, body, &storage)?;
 
         serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
     }
@@ -210,17 +178,9 @@ impl RpcHandler for GetRawHeaderRequest {
         if params.len() != 1 {
             return Err(RpcErr::BadParams);
         };
-
-        let block: BlockIdentifier = serde_json::from_value(params[0].clone())?;
-        let block_str: String = serde_json::from_value(params[0].clone())?;
-
-        if let BlockIdentifier::Number(_) = block {
-            if !block_str.starts_with("0x") {
-                return Err(RpcErr::BadHexFormat(0));
-            }
-        }
-
-        Ok(GetRawHeaderRequest { block })
+        Ok(GetRawHeaderRequest {
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
+        })
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -241,7 +201,68 @@ impl RpcHandler for GetRawHeaderRequest {
     }
 }
 
-pub fn get_all_block_receipts(
+impl RpcHandler for GetRawBlockRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<GetRawBlockRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+
+        Ok(GetRawBlockRequest {
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
+        })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested raw block: {}", self.block);
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = storage.get_block_header(block_number)?;
+        let body = storage.get_block_body(block_number)?;
+        let (header, body) = match (header, body) {
+            (Some(header), Some(body)) => (header, body),
+            _ => return Ok(Value::Null),
+        };
+        let block = Block { header, body }.encode_to_vec();
+
+        serde_json::to_value(format!("0x{}", &hex::encode(block))).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetRawReceipts {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+
+        Ok(GetRawReceipts {
+            block: BlockIdentifier::parse(params[0].clone(), 0)?,
+        })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        let block_number = match self.block.resolve_block_number(&storage)? {
+            Some(block_number) => block_number,
+            _ => return Ok(Value::Null),
+        };
+        let header = storage.get_block_header(block_number)?;
+        let body = storage.get_block_body(block_number)?;
+        let (header, body) = match (header, body) {
+            (Some(header), Some(body)) => (header, body),
+            _ => return Ok(Value::Null),
+        };
+        let receipts: Vec<String> = get_all_block_receipts(block_number, header, body, &storage)?
+            .iter()
+            .map(|receipt| format!("0x{}", hex::encode(receipt.encode_to_vec())))
+            .collect();
+        serde_json::to_value(receipts).map_err(|_| RpcErr::Internal)
+    }
+}
+
+pub fn get_all_block_rpc_receipts(
     block_number: BlockNumber,
     header: BlockHeader,
     body: BlockBody,
@@ -284,6 +305,28 @@ pub fn get_all_block_receipts(
     Ok(receipts)
 }
 
+pub fn get_all_block_receipts(
+    block_number: BlockNumber,
+    header: BlockHeader,
+    body: BlockBody,
+    storage: &Store,
+) -> Result<Vec<Receipt>, RpcErr> {
+    let mut receipts = Vec::new();
+    // Check if this is the genesis block
+    if header.parent_hash.is_zero() {
+        return Ok(receipts);
+    }
+    for (index, _) in body.transactions.iter().enumerate() {
+        let index = index as u64;
+        let receipt = match storage.get_receipt(block_number, index)? {
+            Some(receipt) => receipt,
+            _ => return Err(RpcErr::Internal),
+        };
+        receipts.push(receipt);
+    }
+    Ok(receipts)
+}
+
 pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
     info!("Requested latest block number");
     match storage.get_latest_block_number() {
@@ -310,26 +353,5 @@ pub fn get_blob_base_fee(storage: &Store) -> Result<Value, RpcErr> {
             serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
         }
         _ => Err(RpcErr::Internal),
-    }
-}
-
-impl Display for BlockIdentifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlockIdentifier::Number(num) => num.fmt(f),
-            BlockIdentifier::Tag(tag) => match tag {
-                BlockTag::Earliest => "Earliest".fmt(f),
-                BlockTag::Finalized => "Finalized".fmt(f),
-                BlockTag::Safe => "Safe".fmt(f),
-                BlockTag::Latest => "Latest".fmt(f),
-                BlockTag::Pending => "Pending".fmt(f),
-            },
-        }
-    }
-}
-
-impl Default for BlockIdentifier {
-    fn default() -> BlockIdentifier {
-        BlockIdentifier::Tag(BlockTag::default())
     }
 }

@@ -17,11 +17,11 @@ use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawHeaderRequest,
+        GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest, GetRawReceipts,
     },
     client,
     transaction::{
-        CallRequest, CreateAccessListRequest, EstimateGasRequest,
+        CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
@@ -190,6 +190,9 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
 pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
+        "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
+        "debug_getRawTransaction" => GetRawTransaction::call(req, storage),
+        "debug_getRawReceipts" => GetRawReceipts::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -301,6 +304,9 @@ mod tests {
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage
+            .set_chain_config(&example_chain_config())
+            .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
         storage
@@ -333,6 +339,9 @@ mod tests {
         // Setup initial storage
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        storage
+            .set_chain_config(&example_chain_config())
+            .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
         storage

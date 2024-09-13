@@ -15,8 +15,10 @@ use k256::{
     SecretKey,
 };
 use kademlia::{KademliaTable, PeerData, MAX_NODES_PER_BUCKET};
-use rlpx::handshake::RLPxLocalClient;
-use rlpx::{connection::SUPPORTED_CAPABILITIES, p2p::Message as RLPxMessage};
+use rlpx::{
+    connection::SUPPORTED_CAPABILITIES, handshake::RLPxLocalClient,
+    message::Message as RLPxMessage, p2p,
+};
 use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -365,18 +367,38 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     let mut pending_conn = client.decode_ack_message(&secret_key, msg, auth_data);
     info!("Completed handshake!");
 
-    let hello_msg = RLPxMessage::Hello(
-        SUPPORTED_CAPABILITIES.to_vec(),
+    let hello_msg = RLPxMessage::Hello(p2p::HelloMessage::new(
+        SUPPORTED_CAPABILITIES
+            .into_iter()
+            .map(|(name, version)| (name.to_string(), version))
+            .collect(),
         PublicKey::from(signer.verifying_key()),
-    );
+    ));
 
     pending_conn.send(hello_msg, &mut stream).await;
 
-    let mut conn = pending_conn.receive_hello(&mut stream).await;
+    // Receive Hello message
+    let mut conn = pending_conn.receive(&mut stream).await;
 
     info!("Completed Hello roundtrip!");
 
-    conn.send(RLPxMessage::Ping(), &mut stream).await;
+    // Send Ping
+    conn.send(RLPxMessage::Ping(p2p::PingMessage::new()), &mut stream)
+        .await;
+
+    // Receive three messages
+    // TODO implement listen loop instead
+    conn.receive(&mut stream).await;
+
+    // Testing disconnect message
+    // conn.send(
+    //     RLPxMessage::Disconnect(p2p::DisconnectMessage::new(Some(3))),
+    //     &mut stream,
+    // )
+    // .await;
+
+    conn.receive(&mut stream).await;
+    conn.receive(&mut stream).await;
 }
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {

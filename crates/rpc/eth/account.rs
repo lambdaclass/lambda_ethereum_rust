@@ -1,53 +1,10 @@
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 use serde_json::Value;
-use std::fmt::Display;
 use tracing::info;
 
-use crate::{eth::block::BlockTag, utils::RpcErr, RpcHandler};
-use ethereum_rust_core::{types::BlockNumber, Address, BigEndianHash, H256};
-
-use super::block::BlockIdentifier;
-use ethereum_rust_core::types::BlockHash;
-use serde::Deserialize;
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum BlockIdentifierOrHash {
-    Hash(BlockHash),
-    Identifier(BlockIdentifier),
-}
-
-impl PartialEq<BlockTag> for BlockIdentifierOrHash {
-    fn eq(&self, other: &BlockTag) -> bool {
-        match self {
-            BlockIdentifierOrHash::Identifier(BlockIdentifier::Tag(tag)) => tag == other,
-            _ => false,
-        }
-    }
-}
-
-impl BlockIdentifierOrHash {
-    #[allow(unused)]
-    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
-            BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(*block_hash),
-        }
-    }
-
-    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
-        if self == &BlockTag::Latest {
-            return Ok(true);
-        }
-
-        let result = self.resolve_block_number(storage)?;
-        let latest = storage.get_latest_block_number()?;
-        match (result, latest) {
-            (Some(result), Some(latest)) => Ok(result == latest),
-            _ => Ok(false),
-        }
-    }
-}
+use crate::types::block_identifier::BlockIdentifierOrHash;
+use crate::{utils::RpcErr, RpcHandler};
+use ethereum_rust_core::{Address, BigEndianHash, H256};
 
 pub struct GetBalanceRequest {
     pub address: Address,
@@ -78,7 +35,7 @@ impl RpcHandler for GetBalanceRequest {
         };
         Ok(GetBalanceRequest {
             address: serde_json::from_value(params[0].clone())?,
-            block: serde_json::from_value(params[1].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -108,7 +65,7 @@ impl RpcHandler for GetCodeRequest {
         };
         Ok(GetCodeRequest {
             address: serde_json::from_value(params[0].clone())?,
-            block: serde_json::from_value(params[1].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -140,7 +97,7 @@ impl RpcHandler for GetStorageAtRequest {
         Ok(GetStorageAtRequest {
             address: serde_json::from_value(params[0].clone())?,
             storage_slot: serde_json::from_value(params[1].clone())?,
-            block: serde_json::from_value(params[2].clone())?,
+            block: BlockIdentifierOrHash::parse(params[2].clone(), 2)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -171,7 +128,7 @@ impl RpcHandler for GetTransactionCountRequest {
         };
         Ok(GetTransactionCountRequest {
             address: serde_json::from_value(params[0].clone())?,
-            block: serde_json::from_value(params[1].clone())?,
+            block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
@@ -191,14 +148,5 @@ impl RpcHandler for GetTransactionCountRequest {
             .unwrap_or_default();
 
         serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)
-    }
-}
-
-impl Display for BlockIdentifierOrHash {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlockIdentifierOrHash::Identifier(id) => id.fmt(f),
-            BlockIdentifierOrHash::Hash(hash) => hash.fmt(f),
-        }
     }
 }

@@ -88,6 +88,35 @@ pub struct ChainConfig {
     pub terminal_total_difficulty_passed: bool,
 }
 
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum ForkId {
+    Paris = 0,
+    Shanghai = 1,
+    Cancun = 2,
+}
+
+impl ChainConfig {
+    pub fn is_shanghai_activated(&self, block_timestamp: u64) -> bool {
+        self.shanghai_time
+            .map_or(false, |time| time <= block_timestamp)
+    }
+
+    pub fn is_cancun_activated(&self, block_timestamp: u64) -> bool {
+        self.cancun_time
+            .map_or(false, |time| time <= block_timestamp)
+    }
+
+    pub fn get_fork(&self, block_timestamp: u64) -> ForkId {
+        if self.is_cancun_activated(block_timestamp) {
+            ForkId::Cancun
+        } else if self.is_shanghai_activated(block_timestamp) {
+            ForkId::Shanghai
+        } else {
+            ForkId::Paris
+        }
+    }
+}
+
 #[allow(unused)]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
@@ -135,7 +164,7 @@ impl Genesis {
             extra_data: self.extra_data.clone(),
             prev_randao: self.mix_hash,
             nonce: self.nonce,
-            base_fee_per_gas: self.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
+            base_fee_per_gas: self.base_fee_per_gas.or(Some(INITIAL_BASE_FEE)),
             withdrawals_root: Some(compute_withdrawals_root(&[])),
             blob_gas_used,
             excess_blob_gas,
@@ -183,6 +212,8 @@ impl Genesis {
 mod tests {
     use std::str::FromStr;
     use std::{fs::File, io::BufReader};
+
+    use crate::types::INITIAL_BASE_FEE;
 
     use super::*;
 
@@ -299,7 +330,10 @@ mod tests {
         assert_eq!(header.extra_data, Bytes::default());
         assert_eq!(header.prev_randao, H256::from([0; 32]));
         assert_eq!(header.nonce, 4660);
-        assert_eq!(header.base_fee_per_gas, INITIAL_BASE_FEE);
+        assert_eq!(
+            header.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
+            INITIAL_BASE_FEE
+        );
         assert_eq!(header.withdrawals_root, Some(compute_withdrawals_root(&[])));
         assert_eq!(header.blob_gas_used, Some(0));
         assert_eq!(header.excess_blob_gas, Some(0));
