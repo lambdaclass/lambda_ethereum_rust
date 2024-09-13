@@ -232,7 +232,5 @@ pub trait StoreEngine: Debug + Send {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Opens the world state trie for the given block
-    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>
-    where
-        DB: TrieDB;
+    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie<impl TrieDB>>, StoreError>;
 }

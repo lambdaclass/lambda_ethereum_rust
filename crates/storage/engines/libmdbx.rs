@@ -4,7 +4,7 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
     BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
 };
-use crate::trie::{Trie, TrieDB};
+use crate::trie::{Libmdbx, Trie, TrieDB};
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
@@ -339,15 +339,14 @@ impl StoreEngine for Store {
         }
     }
 
-    fn world_state<DB>(&self, block_number: BlockNumber) -> Result<Option<Trie<DB>>, StoreError>
-    where
-        DB: TrieDB,
+    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie<impl TrieDB>>, StoreError>
     {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
         let db = crate::trie::Libmdbx::<WorldStateNodes>::new(&self.db);
-        Ok(Some(Trie::open(db, state_root)))
+        let trie = Trie::open(db, state_root);
+        Ok(Some(trie))
     }
 }
 

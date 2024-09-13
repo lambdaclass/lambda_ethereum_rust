@@ -1,4 +1,4 @@
-use crate::error::StoreError;
+use crate::{error::StoreError, trie::{Trie, TrieDB}};
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
