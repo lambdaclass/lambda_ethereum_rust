@@ -45,20 +45,20 @@ pub struct Trie<DB: TrieDB> {
 
 impl<DB: TrieDB> Trie<DB> {
     /// Creates a new Trie from a clean DB
-    pub fn new(db: DB) -> Result<Self, StoreError> {
-        Ok(Self {
+    pub fn new(db: DB) -> Self {
+        Self {
             state: TrieState::new(db),
             root: None,
-        })
+        }
     }
 
     /// Creates a trie from an already-initialized DB and sets root as the root node of the trie
-    pub fn open(db: DB, root: H256) -> Result<Self, StoreError> {
+    pub fn open(db: DB, root: H256) -> Self {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
-        Ok(Self {
+        Self {
             state: TrieState::new(db),
             root,
-        })
+        }
     }
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
@@ -579,7 +579,7 @@ mod test {
 
         // Create new trie from clean DB
         let db = LibmdbxTrieDb::create(trie_dir).unwrap();
-        let mut trie = Trie::new(db).unwrap();
+        let mut trie = Trie::new(db);
 
         trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -592,7 +592,7 @@ mod test {
 
         let mut db2 = LibmdbxTrieDb::open(trie_dir).unwrap();
         // Create a new trie based on the previous trie's DB
-        let trie = Trie::open(db2, root).unwrap();
+        let trie = Trie::open(db2, root);
 
         assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));

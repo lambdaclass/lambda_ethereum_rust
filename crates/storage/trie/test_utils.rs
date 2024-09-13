@@ -2,10 +2,7 @@ use super::{db::libmdbx::LibmdbxTrieDb, state::TrieState, Trie};
 
 /// Creates a new trie based on a temporary DB
 pub fn new_temp_trie() -> Trie<LibmdbxTrieDb> {
-    Trie {
-        state: TrieState::new(LibmdbxTrieDb::init_temp()),
-        root: None,
-    }
+    Trie::new(LibmdbxTrieDb::init_temp())
 }
 
 #[macro_export]
