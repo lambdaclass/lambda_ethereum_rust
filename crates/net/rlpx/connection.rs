@@ -19,12 +19,19 @@ pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
 /// Fully working RLPx connection.
 pub(crate) struct RLPxConnection {
-    #[allow(unused)]
     state: RLPxState,
+    established: bool,
     // ...capabilities information
 }
 
 impl RLPxConnection {
+    pub fn new(state: RLPxState) -> Self {
+        Self {
+            state,
+            established: false,
+        }
+    }
+
     pub async fn send<S: AsyncWrite>(&mut self, message: rlpx::Message, stream: S) {
         let mut frame_buffer = vec![];
         message.encode(&mut frame_buffer);
@@ -34,36 +41,23 @@ impl RLPxConnection {
     pub async fn receive<S: AsyncRead>(&mut self, stream: S) -> rlpx::Message {
         let frame_data = read_frame(stream, &mut self.state).await;
         let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
-        rlpx::Message::decode(msg_id, msg_data).unwrap()
-    }
-}
-
-/// RLPx connection which is pending the receive of a Hello message.
-pub(crate) struct RLPxConnectionPending {
-    state: RLPxState,
-}
-
-impl RLPxConnectionPending {
-    pub fn new(state: RLPxState) -> Self {
-        Self { state }
-    }
-
-    pub async fn send<S: AsyncWrite>(&mut self, message: rlpx::Message, stream: S) {
-        let mut frame_buffer = vec![];
-        message.encode(&mut frame_buffer);
-        write_frame(frame_buffer, stream, &mut self.state).await;
-    }
-
-    pub async fn receive<S: AsyncRead>(self, stream: S) -> RLPxConnection {
-        let Self { mut state } = self;
-        let frame_data = read_frame(stream, &mut state).await;
-        let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
-        let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
-        assert!(
-            matches!(message, rlpx::Message::Hello(_)),
-            "Expected Hello message"
-        );
-        RLPxConnection { state }
+        if !self.established {
+            if msg_id == 0 {
+                let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
+                assert!(
+                    matches!(message, rlpx::Message::Hello(_)),
+                    "Expected Hello message"
+                );
+                self.established = true;
+                // TODO, register shared capabilities
+                message
+            } else {
+                // if it is not a hello message panic
+                panic!("Expected Hello message")
+            }
+        } else {
+            rlpx::Message::decode(msg_id, msg_data).unwrap()
+        }
     }
 }
 

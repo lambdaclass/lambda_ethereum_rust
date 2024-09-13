@@ -1,5 +1,5 @@
 use crate::rlpx::{
-    connection::{RLPxConnectionPending, RLPxState},
+    connection::{RLPxConnection, RLPxState},
     utils::{ecdh_xchng, id2pubkey, kdf, pubkey2id, sha256, sha256_hmac},
 };
 
@@ -142,7 +142,7 @@ impl RLPxLocalClient {
         static_key: &SecretKey,
         msg: &[u8],
         auth_data: [u8; 2],
-    ) -> RLPxConnectionPending {
+    ) -> RLPxConnection {
         // TODO: return errors instead of panicking
         let sent_auth = self.auth_message.is_some();
         assert!(sent_auth, "received Ack without having sent Auth");
@@ -191,7 +191,7 @@ impl RLPxLocalClient {
             &ack_message,
         );
 
-        RLPxConnectionPending::new(state)
+        RLPxConnection::new(state)
     }
 
     fn derive_secrets(&self, ack: &AckMessage) -> (H256, H256) {
