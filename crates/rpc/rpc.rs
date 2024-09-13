@@ -16,10 +16,11 @@ use engine::{
 use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
-        self, FeeHistoryRequest, GetBlockByHashRequest, GetBlockByNumberRequest,
-        GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawHeaderRequest,
+        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
+        GetBlockTransactionCountRequest, GetRawHeaderRequest,
     },
     client,
+    fee_market::FeeHistoryRequest,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
