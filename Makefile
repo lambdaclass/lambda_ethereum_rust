@@ -52,7 +52,7 @@ checkout-ethereum-package: ethereum-package
 		git fetch --shallow-since=$(ETHEREUM_PACKAGE_SHALLOW_SINCE) && \
 		git checkout $(ETHEREUM_PACKAGE_REVISION)
 
-HIVE_REVISION := 9bff4bbf4439336bd037a444560516dd49ff1c40
+HIVE_REVISION := efcd74daee8edc6b5792fafbb1653ea665a02453
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
