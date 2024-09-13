@@ -290,9 +290,7 @@ impl Store {
 
     pub fn add_account(&self, address: Address, account: Account) -> Result<(), StoreError> {
         // Store account code (as this won't be stored in the trie)
-        if !account.code.is_empty() {
-            self.add_account_code(account.info.code_hash, account.code)?;
-        }
+        self.add_account_code(account.info.code_hash, account.code)?;
         // Store the accounts storage in the storage trie and compute its root
         // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB tabel and compute the root
         let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
