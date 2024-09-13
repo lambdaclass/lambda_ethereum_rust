@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::types::{Endpoint, Node, NodeRecord};
 use bytes::BufMut;
@@ -11,6 +11,14 @@ use ethereum_rust_core::rlp::{
 use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
 use sha3::{Digest, Keccak256};
+
+//todo add tests
+pub fn get_expiration(seconds: u64) -> u64 {
+    (SystemTime::now() + Duration::from_secs(seconds))
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
 
 pub fn is_expired(expiration: u64) -> bool {
     // this cast to a signed integer is needed as the rlp decoder doesn't take into account the sign

@@ -55,10 +55,8 @@ impl KademliaTable {
         if let Some(node) = self.get_by_node_id_mut(peer.node_id) {
             node.is_proven = true;
             node.last_ping = time_now_unix();
-            node.last_ping_hash = None;
             // we also want to update the peer data, for the node might have changed its ports or ip
             node.node = peer;
-            return;
         }
         let node = PeerData::new(peer, time_now_unix(), false);
         let bucket_idx = bucket_number(node_id, self.local_node_id);
@@ -95,6 +93,30 @@ impl KademliaTable {
             .drain(..)
             .filter(|r| r.node.node_id != node_id)
             .collect();
+    }
+
+    pub fn get_closest_nodes(&self, node_id: H512) -> Vec<Node> {
+        let mut nodes: Vec<(Node, usize)> = vec![];
+
+        // todo see if there is a more efficient way of doing this
+        // though the bucket isn't that large and it shouldn't be an issue I guess
+        for bucket in &self.buckets {
+            for peer in bucket {
+                let distance = bucket_number(node_id, peer.node.node_id);
+                if nodes.len() < MAX_NODES_PER_BUCKET {
+                    nodes.push((peer.node.clone(), distance));
+                } else {
+                    for i in 0..nodes.len() {
+                        if distance < nodes[i].1 {
+                            nodes[i] = (peer.node.clone(), distance);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        nodes.iter().map(|a| a.0).collect()
     }
 }
 
