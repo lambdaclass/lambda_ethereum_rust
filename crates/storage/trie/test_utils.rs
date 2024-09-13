@@ -1,8 +1,30 @@
+use std::path::PathBuf;
+
 use super::{db::libmdbx::Libmdbx, state::TrieState, Trie};
 
-/// Creates a new trie based on a temporary DB
-pub fn new_temp_trie() -> Trie<Libmdbx> {
-    Trie::new(Libmdbx::init_temp())
+use libmdbx::{
+    orm::{table_info, Database, Table},
+    table,
+};
+
+table!(
+    /// Test table.
+    (TestNodes) Vec<u8> => Vec<u8>
+);
+
+pub fn new_db_with_path<T: Table>(path: PathBuf) -> Database {
+    let tables = [table_info!(T)].into_iter().collect();
+    Database::create(Some(path), &tables).expect("Failed creating db with path")
+}
+
+pub fn new_db<T: Table>() -> Database {
+    let tables = [table_info!(T)].into_iter().collect();
+    Database::create(None, &tables).expect("Failed to create temp DB")
+}
+
+pub fn open_db<T: Table>(path: &str) -> Database {
+    let tables = [table_info!(T)].into_iter().collect();
+    Database::open(path, &tables).expect("Failed to open DB")
 }
 
 #[macro_export]

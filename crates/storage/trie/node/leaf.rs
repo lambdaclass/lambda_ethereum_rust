@@ -158,6 +158,8 @@ impl LeafNode {
 mod test {
     use super::*;
     use crate::pmt_node;
+    use crate::trie::db::libmdbx::Libmdbx;
+    use crate::trie::test_utils::{new_db, TestNodes};
     use crate::trie::{test_utils, Trie};
 
     #[test]
@@ -190,7 +192,8 @@ mod test {
 
     #[test]
     fn insert_replace() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -209,7 +212,8 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -227,7 +231,8 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -245,7 +250,8 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_self() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -263,7 +269,8 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_other() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
         };

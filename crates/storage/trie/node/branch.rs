@@ -318,10 +318,11 @@ impl BranchNode {
 
 #[cfg(test)]
 mod test {
+    use crate::trie::db::libmdbx::Libmdbx;
     use ethereum_types::H256;
 
     use super::*;
-    use crate::trie::test_utils;
+    use crate::trie::test_utils::{new_db, TestNodes};
 
     use crate::{pmt_node, trie::Trie};
 
@@ -361,7 +362,8 @@ mod test {
 
     #[test]
     fn get_some() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -381,7 +383,8 @@ mod test {
 
     #[test]
     fn get_none() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -397,7 +400,8 @@ mod test {
 
     #[test]
     fn insert_self() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -417,7 +421,8 @@ mod test {
 
     #[test]
     fn insert_choice() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -438,7 +443,8 @@ mod test {
 
     #[test]
     fn insert_passthrough() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -468,7 +474,8 @@ mod test {
 
     #[test]
     fn remove_choice_into_inner() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -486,7 +493,8 @@ mod test {
 
     #[test]
     fn remove_choice() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -505,7 +513,8 @@ mod test {
 
     #[test]
     fn remove_choice_into_value() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -522,7 +531,8 @@ mod test {
 
     #[test]
     fn remove_value_into_inner() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -537,7 +547,8 @@ mod test {
 
     #[test]
     fn remove_value() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -553,7 +564,8 @@ mod test {
 
     #[test]
     fn compute_hash_two_choices() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -572,7 +584,8 @@ mod test {
 
     #[test]
     fn compute_hash_all_choices() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },
@@ -606,7 +619,8 @@ mod test {
 
     #[test]
     fn compute_hash_one_choice_with_value() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -625,7 +639,8 @@ mod test {
 
     #[test]
     fn compute_hash_all_choices_with_value() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },

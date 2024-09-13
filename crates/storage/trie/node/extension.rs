@@ -194,6 +194,8 @@ impl ExtensionNode {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::trie::db::libmdbx::Libmdbx;
+    use crate::trie::test_utils::{new_db, TestNodes};
     use crate::{
         pmt_node,
         trie::{nibble::Nibble, test_utils, Trie},
@@ -209,7 +211,8 @@ mod test {
 
     #[test]
     fn get_some() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -229,7 +232,8 @@ mod test {
 
     #[test]
     fn get_none() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -245,7 +249,8 @@ mod test {
 
     #[test]
     fn insert_passthrough() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -265,7 +270,8 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -288,7 +294,8 @@ mod test {
 
     #[test]
     fn insert_branch_extension() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -311,7 +318,8 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -332,7 +340,8 @@ mod test {
 
     #[test]
     fn insert_extension_branch_extension() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -353,7 +362,8 @@ mod test {
 
     #[test]
     fn remove_none() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -371,7 +381,8 @@ mod test {
 
     #[test]
     fn remove_into_leaf() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -389,7 +400,8 @@ mod test {
 
     #[test]
     fn remove_into_extension() {
-        let mut trie = test_utils::new_temp_trie();
+        let db = new_db::<TestNodes>();
+        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
