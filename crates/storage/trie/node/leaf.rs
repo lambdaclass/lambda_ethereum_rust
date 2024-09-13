@@ -158,17 +158,7 @@ impl LeafNode {
 mod test {
     use super::*;
     use crate::pmt_node;
-    use crate::trie::libdbmx_db::LibmdbxTrieDb;
-    use crate::trie::Trie;
-
-    #[cfg(test)]
-    /// Creates a new trie based on a temporary DB
-    fn new_temp() -> Trie<LibmdbxTrieDb> {
-        Trie {
-            state: TrieState::new(LibmdbxTrieDb::init_temp()),
-            root: None,
-        }
-    }
+    use crate::trie::{test_utils, Trie};
 
     #[test]
     fn new() {
@@ -200,7 +190,7 @@ mod test {
 
     #[test]
     fn insert_replace() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -219,7 +209,7 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -237,7 +227,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -255,7 +245,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_self() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -273,7 +263,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_other() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
         };

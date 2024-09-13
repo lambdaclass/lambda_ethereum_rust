@@ -6,7 +6,7 @@ use libmdbx::{
 
 pub struct LibmdbxTrieDb(Database);
 
-use super::db::TrieDB;
+use super::TrieDB;
 
 table!(
     /// NodeHash to Node table
@@ -40,6 +40,7 @@ impl LibmdbxTrieDb {
     #[cfg(test)]
     /// Creates a temporary DB, for testing purposes only
     pub fn init_temp() -> Self {
+        use tempdir::TempDir;
         let tables = [table_info!(Nodes)].into_iter().collect();
         LibmdbxTrieDb(Database::create(None, &tables).expect("Failed to create temp DB"))
     }
@@ -57,4 +58,12 @@ impl TrieDB for LibmdbxTrieDb {
             .map_err(StoreError::LibmdbxError)?;
         txn.commit().map_err(StoreError::LibmdbxError)
     }
+}
+
+#[test]
+fn simple_addition() {
+    let db = LibmdbxTrieDb::init_temp();
+    assert_eq!(db.get("hello".into()).unwrap(), None);
+    db.put("hello".into(), "value".into());
+    assert_eq!(db.get("hello".into()).unwrap(), Some("value".into()));
 }

@@ -193,22 +193,11 @@ impl ExtensionNode {
 
 #[cfg(test)]
 mod test {
-    use crate::trie::libdbmx_db::LibmdbxTrieDb;
-
     use super::*;
     use crate::{
         pmt_node,
-        trie::{nibble::Nibble, Trie},
+        trie::{nibble::Nibble, test_utils, Trie},
     };
-
-    #[cfg(test)]
-    /// Creates a new trie based on a temporary DB
-    fn new_temp() -> Trie<LibmdbxTrieDb> {
-        Trie {
-            state: TrieState::new(LibmdbxTrieDb::init_temp()),
-            root: None,
-        }
-    }
 
     #[test]
     fn new() {
@@ -220,7 +209,7 @@ mod test {
 
     #[test]
     fn get_some() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -240,7 +229,7 @@ mod test {
 
     #[test]
     fn get_none() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -256,7 +245,7 @@ mod test {
 
     #[test]
     fn insert_passthrough() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -276,7 +265,7 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -299,7 +288,7 @@ mod test {
 
     #[test]
     fn insert_branch_extension() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -322,7 +311,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -343,7 +332,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_extension() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -364,7 +353,7 @@ mod test {
 
     #[test]
     fn remove_none() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -382,7 +371,7 @@ mod test {
 
     #[test]
     fn remove_into_leaf() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -400,7 +389,7 @@ mod test {
 
     #[test]
     fn remove_into_extension() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },

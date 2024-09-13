@@ -321,17 +321,9 @@ mod test {
     use ethereum_types::H256;
 
     use super::*;
-    use crate::trie::libdbmx_db::LibmdbxTrieDb;
-    use crate::{pmt_node, trie::Trie};
+    use crate::trie::test_utils;
 
-    #[cfg(test)]
-    /// Creates a new trie based on a temporary DB
-    fn new_temp() -> Trie<LibmdbxTrieDb> {
-        Trie {
-            state: TrieState::new(LibmdbxTrieDb::init_temp()),
-            root: None,
-        }
-    }
+    use crate::{pmt_node, trie::Trie};
 
     #[test]
     fn new() {
@@ -369,7 +361,7 @@ mod test {
 
     #[test]
     fn get_some() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -389,7 +381,7 @@ mod test {
 
     #[test]
     fn get_none() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -405,7 +397,7 @@ mod test {
 
     #[test]
     fn insert_self() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -425,7 +417,7 @@ mod test {
 
     #[test]
     fn insert_choice() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -446,7 +438,7 @@ mod test {
 
     #[test]
     fn insert_passthrough() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -476,7 +468,7 @@ mod test {
 
     #[test]
     fn remove_choice_into_inner() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -494,7 +486,7 @@ mod test {
 
     #[test]
     fn remove_choice() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -513,7 +505,7 @@ mod test {
 
     #[test]
     fn remove_choice_into_value() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -530,7 +522,7 @@ mod test {
 
     #[test]
     fn remove_value_into_inner() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -545,7 +537,7 @@ mod test {
 
     #[test]
     fn remove_value() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -561,7 +553,7 @@ mod test {
 
     #[test]
     fn compute_hash_two_choices() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -580,7 +572,7 @@ mod test {
 
     #[test]
     fn compute_hash_all_choices() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },
@@ -614,7 +606,7 @@ mod test {
 
     #[test]
     fn compute_hash_one_choice_with_value() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 2 => leaf { vec![0x20] => vec![0x20] },
@@ -633,7 +625,7 @@ mod test {
 
     #[test]
     fn compute_hash_all_choices_with_value() {
-        let mut trie = new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             branch {
                 0x0 => leaf { vec![0x00] => vec![0x00] },

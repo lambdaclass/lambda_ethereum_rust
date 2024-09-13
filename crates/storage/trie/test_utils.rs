@@ -1,3 +1,13 @@
+use super::{db::libmdbx::LibmdbxTrieDb, state::TrieState, Trie};
+
+/// Creates a new trie based on a temporary DB
+pub fn new_temp_trie() -> Trie<LibmdbxTrieDb> {
+    Trie {
+        state: TrieState::new(LibmdbxTrieDb::init_temp()),
+        root: None,
+    }
+}
+
 #[macro_export]
 /// Creates a trie node, doesn't guarantee that the correct offsets are used when computing hashes for extension nodes
 macro_rules! pmt_node {
