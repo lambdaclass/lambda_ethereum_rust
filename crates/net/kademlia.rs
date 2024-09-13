@@ -1,8 +1,11 @@
-use crate::{discv4::time_now_unix, types::Node};
+use crate::{
+    discv4::{time_now_unix, FindNodeRequest},
+    types::Node,
+};
 use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
 
-const MAX_NODES_PER_BUCKET: usize = 16;
+pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
 const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
@@ -23,7 +26,6 @@ impl KademliaTable {
         }
     }
 
-    #[allow(unused)]
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
         let bucket = &self.buckets[bucket_number(node_id, self.local_node_id)];
         for entry in bucket {
@@ -124,6 +126,7 @@ pub struct PeerData {
     pub last_ping: u64,
     pub last_ping_hash: Option<H256>,
     pub is_proven: bool,
+    pub find_node_request: Option<FindNodeRequest>,
 }
 
 impl PeerData {
@@ -133,7 +136,12 @@ impl PeerData {
             last_ping,
             is_proven,
             last_ping_hash: None,
+            find_node_request: None,
         }
+    }
+
+    pub fn new_find_node_request(&mut self) {
+        self.find_node_request = Some(FindNodeRequest::default());
     }
 }
 

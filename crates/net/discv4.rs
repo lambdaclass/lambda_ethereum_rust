@@ -301,6 +301,24 @@ impl RLPDecode for FindNodeMessage {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct FindNodeRequest {
+    /// the number of nodes sent
+    /// we keep track of this number since we will accept neighbor messages until the max_per_bucket
+    pub nodes_sent: usize,
+    /// unix timestamp tracking when we have sent the request
+    pub sent_at: u64,
+}
+
+impl Default for FindNodeRequest {
+    fn default() -> Self {
+        Self {
+            nodes_sent: 0,
+            sent_at: time_now_unix(),
+        }
+    }
+}
+
 impl RLPDecode for PingMessage {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;

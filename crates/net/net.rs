@@ -14,7 +14,7 @@ use k256::{
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
-use kademlia::KademliaTable;
+use kademlia::{KademliaTable, PeerData, MAX_NODES_PER_BUCKET};
 use rlpx::handshake::RLPxLocalClient;
 use rlpx::{connection::SUPPORTED_CAPABILITIES, p2p::Message as RLPxMessage};
 use sha3::{Digest, Keccak256};
@@ -163,11 +163,35 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     warn!("Ignoring neighbor msg as it is expired.");
                     continue;
                 };
-                let nodes = &neighbors_msg.nodes;
-                for node in nodes {
-                    table.insert_node(*node);
-                    let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
-                    ping(&udp_socket, udp_addr, node_addr, &signer).await;
+
+                let node = table.get_by_node_id_mut(packet.get_node_id());
+                if node.is_none() {
+                    warn!("Ignoring neighbor msg as it is not a known node");
+                    continue;
+                }
+                let node = node.unwrap();
+
+                if let Some(req) = &mut node.find_node_request {
+                    let nodes = &neighbors_msg.nodes;
+                    let nodes_sent = req.nodes_sent + nodes.len();
+                    if nodes_sent <= MAX_NODES_PER_BUCKET {
+                        info!("Storing neighbors in our table!");
+                        req.nodes_sent = nodes_sent;
+                        for node in nodes {
+                            table.insert_node(*node);
+                            let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
+                            ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                        }
+                    } else {
+                        warn!("Ignoring neighbors message as the client sent more than the allowed nodes");
+                    }
+
+                    if nodes_sent == MAX_NODES_PER_BUCKET {
+                        info!("Neighbors request has been fulfilled");
+                        node.find_node_request = None;
+                    }
+                } else {
+                    warn!("Ignoring neighbors message as a find node request hasn't been sent")
                 }
             }
             _ => {}
@@ -221,7 +245,12 @@ async fn ping(
     return None;
 }
 
-async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey) {
+async fn find_node(
+    socket: &UdpSocket,
+    to_addr: SocketAddr,
+    signer: &SigningKey,
+    peer: &mut PeerData,
+) {
     let public_key = PublicKey::from(signer.verifying_key());
     let encoded = public_key.to_encoded_point(false);
     let bytes = encoded.as_bytes();
@@ -240,6 +269,7 @@ async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey)
     msg.encode_with_header(&mut buf, signer);
 
     socket.send_to(&buf, to_addr).await.unwrap();
+    peer.new_find_node_request();
 }
 
 async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: &SigningKey) {
