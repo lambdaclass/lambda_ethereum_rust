@@ -17,7 +17,7 @@ use super::TrieDB;
 impl<'a, T: Table> Libmdbx<'a, T> {
     pub fn new(db: &'a Database) -> Self {
         Self {
-            db: db,
+            db,
             phantom: PhantomData,
         }
     }
