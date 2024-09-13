@@ -3,55 +3,25 @@ use std::collections::HashMap;
 use crate::error::StoreError;
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
-use libmdbx::{
-    orm::{table, Database},
-    table_info,
-};
 
-/// Libmbdx database representing the trie state
+use super::db::TrieDB;
+
+/// Libmdbx database representing the trie state
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
 use super::{node::Node, node_hash::NodeHash};
-pub struct TrieState {
-    db: Database,
+pub struct TrieState<DB: TrieDB> {
+    db: DB,
     cache: HashMap<NodeHash, Node>,
 }
 
-/// RLP-encoded trie node
-pub type NodeRLP = Vec<u8>;
-/// RLP-encoded node hash
-pub type NodeHashRLP = [u8; 32];
-
-table!(
-    /// NodeHash to Node table
-    ( Nodes ) NodeHash => NodeRLP
-);
-
-impl TrieState {
-    /// Opens a DB created by a previous execution or creates a new one if it doesn't exist
-    pub fn init(trie_dir: &str) -> Result<TrieState, StoreError> {
-        TrieState::open(trie_dir).or_else(|_| TrieState::create(trie_dir))
-    }
-
-    /// Creates a new clean DB
-    pub fn create(trie_dir: &str) -> Result<TrieState, StoreError> {
-        let tables = [table_info!(Nodes)].into_iter().collect();
-        let path = Some(trie_dir.into());
-        Ok(TrieState {
-            db: Database::create(path, &tables).map_err(StoreError::LibmdbxError)?,
-            cache: Default::default(),
-        })
-    }
-
-    /// Opens a DB created by a previous execution
-    pub fn open(trie_dir: &str) -> Result<TrieState, StoreError> {
-        // Open DB
-        let tables = [table_info!(Nodes)].into_iter().collect();
-        let db = Database::open(trie_dir, &tables).map_err(StoreError::LibmdbxError)?;
-        Ok(TrieState {
+impl<DB: TrieDB> TrieState<DB> {
+    /// Creates a TrieState referring to a db.
+    pub fn new(db: DB) -> TrieState<DB> {
+        TrieState {
             db,
             cache: Default::default(),
-        })
+        }
     }
 
     /// Retrieves a node based on its hash
@@ -59,7 +29,8 @@ impl TrieState {
         if let Some(node) = self.cache.get(&hash) {
             return Ok(Some(node.clone()));
         };
-        self.read::<Nodes>(hash)?
+        self.db
+            .get(hash.into())?
             .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
@@ -96,37 +67,6 @@ impl TrieState {
             Node::Leaf(_) => {}
         }
         // Commit self
-        self.write::<Nodes>(node_hash.clone(), node.encode_to_vec())
-    }
-
-    /// Helper method to write into a libmdbx table
-    fn write<T: libmdbx::orm::Table>(
-        &self,
-        key: T::Key,
-        value: T::Value,
-    ) -> Result<(), StoreError> {
-        let txn = self
-            .db
-            .begin_readwrite()
-            .map_err(StoreError::LibmdbxError)?;
-        txn.upsert::<T>(key, value)
-            .map_err(StoreError::LibmdbxError)?;
-        txn.commit().map_err(StoreError::LibmdbxError)
-    }
-
-    /// Helper method to read from a libmdbx table
-    fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        txn.get::<T>(key).map_err(StoreError::LibmdbxError)
-    }
-
-    #[cfg(test)]
-    /// Creates a temporary DB, for testing purposes only
-    pub fn init_temp() -> Self {
-        let tables = [table_info!(Nodes)].into_iter().collect();
-        TrieState {
-            db: Database::create(None, &tables).expect("Failed to create temp DB"),
-            cache: Default::default(),
-        }
+        self.db.put(node_hash.into(), node.encode_to_vec())
     }
 }
