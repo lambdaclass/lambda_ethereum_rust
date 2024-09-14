@@ -6,9 +6,10 @@ use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::rlp::encode::RLPEncode;
+use ethereum_rust_core::types::Receipt;
 use ethereum_rust_core::types::{
     Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, Index, Log, Receipt, Transaction,
+    ChainConfig, Genesis, Index, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
@@ -458,14 +459,14 @@ impl Store {
         trie
     }
 
-    pub fn get_logs_in_range(
+    pub fn get_receipts_in_range(
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<Vec<Log>, StoreError> {
+    ) -> Result<Vec<Receipt>, StoreError> {
         let mut lock = self.engine.try_lock();
         if let Ok(ref mut db) = lock {
-            db.get_logs_in_range(from, to)
+            db.get_receipts_in_range(from, to)
         } else {
             Err(StoreError::Custom("Could not access db".to_string()))
         }
@@ -668,6 +669,7 @@ mod tests {
             cumulative_gas_used: 1747,
             bloom: Bloom::random(),
             logs: vec![],
+            tx_hash: H256::random(),
         };
         let block_number = 6;
         let index = 4;

@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Log,
+    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
     Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
@@ -228,6 +228,9 @@ pub trait StoreEngine: Debug + Send {
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
-    fn get_logs_in_range(&self, from: BlockNumber, to: BlockNumber)
-        -> Result<Vec<Log>, StoreError>;
+    fn get_receipts_in_range(
+        &self,
+        from: BlockNumber,
+        to: BlockNumber,
+    ) -> Result<Vec<Receipt>, StoreError>;
 }

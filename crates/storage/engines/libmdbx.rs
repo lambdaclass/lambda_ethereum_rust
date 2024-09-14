@@ -8,8 +8,9 @@ use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
+use ethereum_rust_core::types::Receipt;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Log, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -336,39 +337,40 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
-    fn get_logs_in_range(
+    fn get_receipts_in_range(
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> std::prelude::v1::Result<Vec<Log>, StoreError> {
-        let mut err_found = false;
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
-        // let iter = cursor.walk_range(from..to).into_iter();
-        let db_iter = cursor
-            // TODO:
-            // Use the given range by parameter
-            .walk(Some(from))
-            // Take receipts until we reach an error (and keep it to report it)
-            // or until we reach the 'to' upper bound.
-            .take_while(|res| match res {
-                Ok(((block_num, _), receipt)) if *block_num <= to => true,
-                Err(_) if !err_found => {
-                    err_found = true;
-                    true
-                }
-                _ => false,
-            });
-        // Fetched encoded receipts from db, or bail-out if an
-        // error was found.
-        let encoded_receipts = db_iter
-            .collect::<Result<Vec<_>>>()
-            .map_err(|db_err| StoreError::LibmdbxError(db_err))?;
-        // Decode receipts, fetch their logs and return
-        Ok(encoded_receipts
-            .into_iter()
-            .flat_map(|(_, encoded_rec)| encoded_rec.to().logs)
-            .collect())
+    ) -> std::prelude::v1::Result<Vec<Receipt>, StoreError> {
+        todo!()
+        // let mut err_found = false;
+        // let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        // let cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
+        // // let iter = cursor.walk_range(from..to).into_iter();
+        // let db_iter = cursor
+        //     // TODO:
+        //     // Use the given range by parameter
+        //     .walk(Some(from))
+        //     // Take receipts until we reach an error (and keep it to report it)
+        //     // or until we reach the 'to' upper bound.
+        //     .take_while(|res| match res {
+        //         Ok(((block_num, _), receipt)) if *block_num <= to => true,
+        //         Err(_) if !err_found => {
+        //             err_found = true;
+        //             true
+        //         }
+        //         _ => false,
+        //     });
+        // // Fetched encoded receipts from db, or bail-out if an
+        // // error was found.
+        // let encoded_receipts = db_iter
+        //     .collect::<Result<Vec<_>>>()
+        //     .map_err(|db_err| StoreError::LibmdbxError(db_err))?;
+        // // Decode receipts, fetch their logs and return
+        // Ok(encoded_receipts
+        //     .into_iter()
+        //     .flat_map(|(_, encoded_rec)| encoded_rec.to().logs)
+        //     .collect())
     }
 }
 

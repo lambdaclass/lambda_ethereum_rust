@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Log, Receipt,
+    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{
@@ -256,17 +256,16 @@ impl StoreEngine for Store {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.chain_data.pending_block_number)
     }
-    fn get_logs_in_range(
+    fn get_receipts_in_range(
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<Vec<Log>, StoreError> {
-        let mut logs = vec![];
+    ) -> Result<Vec<Receipt>, StoreError> {
+        let mut receipts: Vec<Receipt> = vec![];
         for (_, receipt_map) in self.receipts.range(from..=to) {
-            let logs_iter = receipt_map.values().flat_map(|r| r.logs.clone());
-            logs.extend(logs.clone());
+            receipts.extend(receipt_map.values().map(|receipt| receipt.clone()));
         }
-        Ok(logs)
+        Ok(receipts)
     }
 }
 
