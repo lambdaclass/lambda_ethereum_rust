@@ -19,16 +19,24 @@ pub struct Receipt {
     pub cumulative_gas_used: u64,
     pub bloom: Bloom,
     pub logs: Vec<Log>,
+    pub tx_hash: H256,
 }
 
 impl Receipt {
-    pub fn new(tx_type: TxType, succeeded: bool, cumulative_gas_used: u64, logs: Vec<Log>) -> Self {
+    pub fn new(
+        tx_type: TxType,
+        succeeded: bool,
+        cumulative_gas_used: u64,
+        logs: Vec<Log>,
+        tx_hash: H256,
+    ) -> Self {
         Self {
             tx_type,
             succeeded,
             cumulative_gas_used,
             bloom: bloom_from_logs(&logs),
             logs,
+            tx_hash,
         }
     }
 }
@@ -85,12 +93,14 @@ impl RLPDecode for Receipt {
         let (cumulative_gas_used, decoder) = decoder.decode_field("cumulative_gas_used")?;
         let (bloom, decoder) = decoder.decode_field("bloom")?;
         let (logs, decoder) = decoder.decode_field("logs")?;
+        let (tx_hash, decoder) = decoder.decode_field("tx_hash")?;
         let receipt = Receipt {
             tx_type,
             succeeded,
             cumulative_gas_used,
             bloom,
             logs,
+            tx_hash,
         };
         Ok((receipt, decoder.finish()?))
     }

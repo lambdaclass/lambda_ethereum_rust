@@ -66,6 +66,7 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>
             result.is_success(),
             cumulative_gas_used,
             result.logs(),
+            transaction.compute_hash(),
         );
         receipts.push(receipt);
     }

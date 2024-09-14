@@ -972,6 +972,8 @@ mod serde_impl {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
 
     use super::*;
@@ -1047,7 +1049,10 @@ mod tests {
         let succeeded = true;
         let cumulative_gas_used = 0x5208;
         let logs = vec![];
-        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, logs);
+        let tx_hash =
+            H256::from_str("0x0557bacce3375c98d806609b8d5043072f0b6a8bae45ae5a67a00d3a1a18d673")
+                .unwrap();
+        let receipt = Receipt::new(tx_type, succeeded, cumulative_gas_used, logs, tx_hash);
 
         let result = compute_receipts_root(&[receipt]);
         let expected_root =
