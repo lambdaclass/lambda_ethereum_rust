@@ -342,35 +342,30 @@ impl StoreEngine for Store {
         from: BlockNumber,
         to: BlockNumber,
     ) -> std::prelude::v1::Result<Vec<Receipt>, StoreError> {
-        todo!()
-        // let mut err_found = false;
-        // let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        // let cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
-        // // let iter = cursor.walk_range(from..to).into_iter();
-        // let db_iter = cursor
-        //     // TODO:
-        //     // Use the given range by parameter
-        //     .walk(Some(from))
-        //     // Take receipts until we reach an error (and keep it to report it)
-        //     // or until we reach the 'to' upper bound.
-        //     .take_while(|res| match res {
-        //         Ok(((block_num, _), receipt)) if *block_num <= to => true,
-        //         Err(_) if !err_found => {
-        //             err_found = true;
-        //             true
-        //         }
-        //         _ => false,
-        //     });
-        // // Fetched encoded receipts from db, or bail-out if an
-        // // error was found.
-        // let encoded_receipts = db_iter
-        //     .collect::<Result<Vec<_>>>()
-        //     .map_err(|db_err| StoreError::LibmdbxError(db_err))?;
-        // // Decode receipts, fetch their logs and return
-        // Ok(encoded_receipts
-        //     .into_iter()
-        //     .flat_map(|(_, encoded_rec)| encoded_rec.to().logs)
-        //     .collect())
+        let txn = self
+            .db
+            .begin_read()
+            .map_err(|err| StoreError::LibmdbxError(err))?;
+        let db_iter = match txn.cursor::<Receipts>() {
+            Ok(iter) => iter.walk(Some(from)),
+            Err(err) => return Err(StoreError::LibmdbxError(err)),
+        };
+        // Since keys are dup sort, the items
+        // yielded from db_iter will be sorted
+        // by block_number, we can simply push them
+        // into a vec to preserve the ordering.
+        let mut receipts = vec![];
+        for record in db_iter {
+            match record {
+                Ok(((block_num, _), encoded_receipt)) if block_num <= to => {
+                    let decoded_receipt = encoded_receipt.to();
+                    receipts.push(decoded_receipt);
+                }
+                Ok(_) => break,
+                Err(err) => return Err(StoreError::LibmdbxError(err)),
+            }
+        }
+        Ok(receipts)
     }
 }
 
