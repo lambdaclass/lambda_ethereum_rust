@@ -10,8 +10,13 @@ use ethereum_rust_core::{
 use ethereum_rust_storage::Store;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
+use std::collections::BTreeMap;
 
+// TODO: This struct should be using serde,
+// but I couldn't get it to work, the culprit
+// seems to be BlockIdentifier enum.
 #[derive(Debug)]
+#[allow(non_snake_case)]
 pub struct LogsRequest {
     /// The oldest block from which to start
     /// retrieving logs.
@@ -57,6 +62,14 @@ impl RpcHandler for LogsRequest {
             _ => Err(RpcErr::BadParams),
         }
     }
+    // TODO: This is longer than it has the right to be, we should refactor it.
+    // The main problem here is the layers of indirection needed
+    // to fetch tx and block data for a log rpc response, some ideas here are:
+    // - The ideal one is to have a key-value store BlockNumber -> Log, where the log also stores
+    //   the block hash, transaction hash, transaction number and its own index.
+    // - Another on is the receipt stores the block hash, transaction hash and block number,
+    //   then we simply could retrieve each log from the receipt and add the info
+    //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let Ok(Some(from)) = self.fromBlock.resolve_block_number(&storage) else {
             return Err(RpcErr::BadParams);
@@ -65,10 +78,15 @@ impl RpcHandler for LogsRequest {
             return Err(RpcErr::BadParams);
         };
         let receipts = storage.get_receipts_in_range(from, to)?;
-        // Process transaction and block data for eth_getLogs response
-        use std::collections::HashMap;
 
-        // Process transaction and block data for eth_getLogs response
+        // To build the RPC response, we'll need some information besides the log,
+        // these are:
+        // - Each tx hash + index inside the block
+        // - Each Block Number (and eventually, hash)
+        // This is what each triple of this vec represents:
+        // - First coordinate is hash of a tx.
+        // - Second coordinate is the index inside the tx.
+        // - Third coordinate is the block number on which this tx was executed.
         let tx_and_block_data: Vec<(H256, Index, BlockNumber)> = receipts
             .iter()
             .filter_map(|receipt| {
@@ -81,7 +99,8 @@ impl RpcHandler for LogsRequest {
             })
             .collect();
 
-        // Retrieve block hashes for each transaction
+        // Since we'll also need the block hashes to build the RPC response,
+        // we'll obtain them this by fetching every block header and then computing its hash.
         let block_hashes: Vec<H256> = tx_and_block_data
             .iter()
             .filter_map(|(_, _, block_num)| {
@@ -93,46 +112,40 @@ impl RpcHandler for LogsRequest {
             })
             .collect();
 
-        // Group logs by block number
-        let mut logs_by_block: HashMap<BlockNumber, Vec<RpcLog>> = HashMap::new();
+        // For the RPC response, each log has to know its index inside the receipt
+        // here we'll use a BlockNumber -> Vec<RpcLog> map, backed by a BTreeMap,
+        // since we can take advantage the natural ordering of the BTreeMaps keys to avoid
+        // some more boilerplate. Plus, at this key size, can be more cache-friendly
+        // than a HashMap.
+        let mut logs_by_block: BTreeMap<BlockNumber, Vec<RpcLog>> = BTreeMap::new();
 
         for (r_indx, receipt) in receipts.iter().enumerate() {
-            let tx_data = &tx_and_block_data[r_indx];
+            let (tx_hash, tx_index, block_number) = tx_and_block_data[r_indx];
             let block_hash = block_hashes[r_indx];
 
-            for (_, log) in receipt.logs.iter().enumerate() {
-                let rpc_log = RpcLog {
-                    log: log.clone().into(),
-                    // Ignore this value for now, we'll change it below...
-                    log_index: 0,
-                    transaction_hash: tx_data.0,
-                    transaction_index: tx_data.1,
-                    block_number: tx_data.2,
-                    block_hash,
-                    removed: false,
-                };
-                logs_by_block
-                    .entry(tx_data.2)
-                    .or_insert_with(Vec::new)
-                    .push(rpc_log);
-            }
+            let block_logs = logs_by_block.entry(block_number).or_insert_with(Vec::new);
+            let start_index = block_logs.len();
+
+            block_logs.extend(
+                receipt
+                    .logs
+                    .iter()
+                    .enumerate()
+                    .map(|(log_index, log)| RpcLog {
+                        log: log.clone().into(),
+                        log_index: (start_index + log_index) as u64,
+                        transaction_hash: tx_hash,
+                        transaction_index: tx_index,
+                        block_number,
+                        block_hash,
+                        removed: false,
+                    }),
+            );
         }
 
-        let mut logs: Vec<RpcLog> = Vec::new();
-        for (_, block_logs) in logs_by_block.iter_mut() {
-            for (index, log) in block_logs.iter_mut().enumerate() {
-                // Set properly the index
-                log.log_index = index as u64;
-            }
-            logs.extend(block_logs.drain(..));
-        }
-
-        // Sort logs by block number, then by log index
-        logs.sort_by(|a, b| {
-            a.block_number
-                .cmp(&b.block_number)
-                .then(a.log_index.cmp(&b.log_index))
-        });
+        // Flatten the result, since the BTreeMap is orderd by block number,
+        // the RPC response will be ordered by block number, as expected
+        let logs: Vec<RpcLog> = logs_by_block.into_values().flatten().collect();
 
         // Serialize the logs to JSON, returning an error if serialization fails
         serde_json::to_value(logs).map_err(|_| RpcErr::Internal)
