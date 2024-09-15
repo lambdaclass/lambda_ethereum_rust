@@ -1,5 +1,6 @@
 use std::{
     net::SocketAddr,
+    sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -23,6 +24,7 @@ use sha3::{Digest, Keccak256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpSocket, UdpSocket},
+    sync::Mutex,
     try_join,
 };
 use tracing::{debug, info, warn};
@@ -47,27 +49,51 @@ pub async fn start_network(
 
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
     let server_handle = tokio::spawn(serve_requests(tcp_addr, signer));
+
     try_join!(discovery_handle, server_handle).unwrap();
 }
 
 async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
-    let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
+    let udp_socket = Arc::new(UdpSocket::bind(udp_addr).await.unwrap());
     let local_node_id = node_id_from_signing_key(&signer);
+    let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
     // TODO implement this right
     if let Some(b) = bootnodes.first() {
         ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
     };
 
+    let server_handler = tokio::spawn(discover_peers_server(
+        udp_addr.clone(),
+        udp_socket.clone(),
+        table.clone(),
+        signer.clone(),
+    ));
+    let revalidation_handler = tokio::spawn(peers_revalidation(
+        udp_addr.clone(),
+        udp_socket.clone(),
+        table.clone(),
+        signer.clone(),
+    ));
+
+    try_join!(server_handler, revalidation_handler).unwrap();
+}
+
+async fn discover_peers_server(
+    udp_addr: SocketAddr,
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+) {
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-    let mut table = KademliaTable::new(local_node_id);
+
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
         info!("Received {read} bytes from {from}");
 
         let packet = Packet::decode(&buf[..read]);
         if packet.is_err() {
-            warn!("Could not decode packet: {:?}", packet.err().unwrap());
+            debug!("Could not decode packet: {:?}", packet.err().unwrap());
             continue;
         }
         let packet = packet.unwrap();
@@ -83,7 +109,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                 };
                 let ping_hash = packet.get_hash();
                 pong(&udp_socket, from, ping_hash, &signer).await;
-
+                let mut table = table.lock().await;
                 let node = table.get_by_node_id_mut(packet.get_node_id());
                 if let Some(peer) = node {
                     // send a a ping to get an endpoint proof
@@ -115,7 +141,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     debug!("Ignoring pong as it is expired.");
                     continue;
                 }
-
+                let mut table = table.lock().await;
                 if let Some(peer) = table.get_by_node_id_mut(packet.get_node_id()) {
                     if peer.last_ping_hash.is_none() {
                         debug!("Discarding pong as the node did not send a previous ping");
@@ -138,6 +164,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                     debug!("Ignoring find node msg as it is expired.");
                     continue;
                 };
+                let table = table.lock().await;
                 let node = table.get_by_node_id(packet.get_node_id());
                 if let Some(node) = node {
                     if node.is_proven {
@@ -163,6 +190,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
                 };
 
                 let mut nodes_to_insert = None;
+                let mut table = table.lock().await;
                 if let Some(node) = table.get_by_node_id_mut(packet.get_node_id()) {
                     if let Some(req) = &mut node.find_node_request {
                         let nodes = &neighbors_msg.nodes;
@@ -195,6 +223,35 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
             }
             _ => {}
         }
+    }
+}
+
+// todo this is just an arbitrary number, maybe we should get this from some kind of cfg
+pub const REVALIDATION_INTERVAL_IN_MINUTES: usize = 10;
+
+/// Starts a tokio scheduler that:
+/// - performs periodic revalidation of the current nodes (sends a ping to the old nodes). Currently this is configured to happen every [`REVA`]
+/// - performs random lookups to discover new nodes (not yet implemented)
+///
+/// **Peer revalidation**
+///
+/// Peers revalidation works in the following manner:
+/// 1. If the last ping has happened 12hs ago, we send a ping to re-get the endpoint proof
+/// 2. In the next iteration, we check if the node has responded. If not, then we delete it and insert a new one from the replacements table
+async fn peers_revalidation(
+    udp_addr: SocketAddr,
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+) {
+    let mut interval = tokio::time::interval(Duration::from_secs(
+        REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
+    ));
+    // first tick starts immediately
+    interval.tick().await;
+    loop {
+        interval.tick().await;
+        //todo revalidation logic
     }
 }
 
