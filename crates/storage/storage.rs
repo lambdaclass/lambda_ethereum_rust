@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
-use trie::Trie;
 
 mod engines;
 pub mod error;
@@ -28,16 +27,7 @@ mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
-    engine: Arc<Mutex<Engine>>,
-    //world_state:  PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>,
-}
-
-#[derive(Debug)]
-pub enum Engine {
-    #[cfg(feature = "in_memory")]
-    InMemory(self::engines::in_memory::Store),
-    #[cfg(feature = "libmdbx")]
-    Libmdbx(self::engines::libmdbx::Store),
+    engine: Arc<Mutex<dyn StoreEngine>>,
 }
 
 #[allow(dead_code)]
@@ -49,312 +39,19 @@ pub enum EngineType {
     Libmdbx,
 }
 
-impl StoreEngine for Engine {
-    fn add_account_info(
-        &mut self,
-        address: Address,
-        account_info: AccountInfo,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_account_info(address, account_info),
-            Engine::Libmdbx(engine) => engine.add_account_info(address, account_info),
-        }
-    }
-
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_account_info(address),
-            Engine::Libmdbx(engine) => engine.get_account_info(address),
-        }
-    }
-
-    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.remove_account_info(address),
-            Engine::Libmdbx(engine) => engine.remove_account_info(address),
-        }
-    }
-
-    fn account_infos_iter(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.account_infos_iter(),
-            Engine::Libmdbx(engine) => engine.account_infos_iter(),
-        }
-    }
-
-    fn add_block_header(
-        &mut self,
-        block_number: BlockNumber,
-        block_header: BlockHeader,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_block_header(block_number, block_header),
-            Engine::Libmdbx(engine) => engine.add_block_header(block_number, block_header),
-        }
-    }
-
-    fn get_block_header(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<BlockHeader>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_block_header(block_number),
-            Engine::Libmdbx(engine) => engine.get_block_header(block_number),
-        }
-    }
-
-    fn add_block_body(
-        &mut self,
-        block_number: BlockNumber,
-        block_body: BlockBody,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_block_body(block_number, block_body),
-            Engine::Libmdbx(engine) => engine.add_block_body(block_number, block_body),
-        }
-    }
-
-    fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_block_body(block_number),
-            Engine::Libmdbx(engine) => engine.get_block_body(block_number),
-        }
-    }
-
-    fn add_block_number(
-        &mut self,
-        block_hash: BlockHash,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_block_number(block_hash, block_number),
-            Engine::Libmdbx(engine) => engine.add_block_number(block_hash, block_number),
-        }
-    }
-
-    fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_block_number(block_hash),
-            Engine::Libmdbx(engine) => engine.get_block_number(block_hash),
-        }
-    }
-
-    fn add_transaction_location(
-        &mut self,
-        transaction_hash: H256,
-        block_number: BlockNumber,
-        index: Index,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => {
-                engine.add_transaction_location(transaction_hash, block_number, index)
-            }
-            Engine::Libmdbx(engine) => {
-                engine.add_transaction_location(transaction_hash, block_number, index)
-            }
-        }
-    }
-
-    fn get_transaction_location(
-        &self,
-        transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_transaction_location(transaction_hash),
-            Engine::Libmdbx(engine) => engine.get_transaction_location(transaction_hash),
-        }
-    }
-
-    fn add_receipt(
-        &mut self,
-        block_number: BlockNumber,
-        index: Index,
-        receipt: Receipt,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_receipt(block_number, index, receipt),
-            Engine::Libmdbx(engine) => engine.add_receipt(block_number, index, receipt),
-        }
-    }
-
-    fn get_receipt(
-        &self,
-        block_number: BlockNumber,
-        index: Index,
-    ) -> Result<Option<Receipt>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_receipt(block_number, index),
-            Engine::Libmdbx(engine) => engine.get_receipt(block_number, index),
-        }
-    }
-
-    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_account_code(code_hash, code),
-            Engine::Libmdbx(engine) => engine.add_account_code(code_hash, code),
-        }
-    }
-
-    fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_account_code(code_hash),
-            Engine::Libmdbx(engine) => engine.get_account_code(code_hash),
-        }
-    }
-
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.add_storage_at(address, storage_key, storage_value),
-            Engine::Libmdbx(engine) => engine.add_storage_at(address, storage_key, storage_value),
-        }
-    }
-
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<U256>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_storage_at(address, storage_key),
-            Engine::Libmdbx(engine) => engine.get_storage_at(address, storage_key),
-        }
-    }
-
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.remove_account_storage(address),
-            Engine::Libmdbx(engine) => engine.remove_account_storage(address),
-        }
-    }
-
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.account_storage_iter(address),
-            Engine::Libmdbx(engine) => engine.account_storage_iter(address),
-        }
-    }
-
-    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.set_chain_config(chain_config),
-            Engine::Libmdbx(engine) => engine.set_chain_config(chain_config),
-        }
-    }
-
-    fn get_chain_config(&self) -> Result<ChainConfig, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_chain_config(),
-            Engine::Libmdbx(engine) => engine.get_chain_config(),
-        }
-    }
-
-    fn update_earliest_block_number(
-        &mut self,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.update_earliest_block_number(block_number),
-            Engine::Libmdbx(engine) => engine.update_earliest_block_number(block_number),
-        }
-    }
-
-    fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_earliest_block_number(),
-            Engine::Libmdbx(engine) => engine.get_earliest_block_number(),
-        }
-    }
-
-    fn update_finalized_block_number(
-        &mut self,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.update_finalized_block_number(block_number),
-            Engine::Libmdbx(engine) => engine.update_finalized_block_number(block_number),
-        }
-    }
-
-    fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_finalized_block_number(),
-            Engine::Libmdbx(engine) => engine.get_finalized_block_number(),
-        }
-    }
-
-    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.update_safe_block_number(block_number),
-            Engine::Libmdbx(engine) => engine.update_safe_block_number(block_number),
-        }
-    }
-
-    fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_safe_block_number(),
-            Engine::Libmdbx(engine) => engine.get_safe_block_number(),
-        }
-    }
-
-    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.update_latest_block_number(block_number),
-            Engine::Libmdbx(engine) => engine.update_latest_block_number(block_number),
-        }
-    }
-
-    fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_latest_block_number(),
-            Engine::Libmdbx(engine) => engine.get_latest_block_number(),
-        }
-    }
-
-    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.update_pending_block_number(block_number),
-            Engine::Libmdbx(engine) => engine.update_pending_block_number(block_number),
-        }
-    }
-
-    fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => engine.get_pending_block_number(),
-            Engine::Libmdbx(engine) => engine.get_pending_block_number(),
-        }
-    }
-
-    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
-        match self {
-            Engine::InMemory(engine) => return engine.world_state(block_number),
-            Engine::Libmdbx(engine) => return engine.world_state(block_number),
-        }
-    }
-}
-
 impl Store {
     pub fn new(path: &str, engine_type: EngineType) -> Result<Self, StoreError> {
         info!("Starting storage engine ({engine_type:?})");
         let store = match engine_type {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
-                engine: Arc::new(Mutex::new(Engine::Libmdbx(LibmdbxStore::new(path)?))),
+                engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
                 // TODO: build from DB
                 //world_state: PatriciaMerkleTree::default(),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
-                engine: Arc::new(Mutex::new(Engine::InMemory(InMemoryStore::new()?))),
+                engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
                 //world_state: PatriciaMerkleTree::default(),
             },
         };
