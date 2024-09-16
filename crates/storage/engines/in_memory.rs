@@ -1,10 +1,14 @@
-use crate::error::StoreError;
+use crate::{error::StoreError, trie::Trie};
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    sync::{Arc, Mutex},
+};
 
 use super::api::StoreEngine;
 
@@ -21,6 +25,8 @@ pub struct Store {
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
+    #[allow(unused)] // TODO: remove
+    state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
 #[derive(Default)]
@@ -252,6 +258,17 @@ impl StoreEngine for Store {
 
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.chain_data.pending_block_number)
+    }
+
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
+            return Ok(None);
+        };
+        let db = Box::new(crate::trie::InMemoryTrieDB::new(
+            self.state_trie_nodes.clone(),
+        ));
+        let trie = Trie::open(db, state_root);
+        Ok(Some(trie))
     }
 }
 
