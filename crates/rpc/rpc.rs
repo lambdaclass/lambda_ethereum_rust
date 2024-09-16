@@ -263,7 +263,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::ChainConfig;
+    use ethereum_rust_core::types::{Account, ChainConfig};
     use ethereum_rust_core::{
         types::{code_hash, AccountInfo, BlockHeader},
         Address, Bytes, H512, U256,
@@ -313,12 +313,16 @@ mod tests {
             .add_block_header(0, BlockHeader::default())
             .expect("Failed to write to test DB");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
-        let account_info = AccountInfo {
+        let info = AccountInfo {
             balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
             ..Default::default()
         };
+        let account = Account {
+            info,
+            ..Default::default()
+        };
         storage
-            .add_account_info(address, account_info)
+            .add_account(address, account)
             .expect("Failed to write to test DB");
         let local_p2p_node = example_p2p_node();
         // Process request
@@ -348,28 +352,31 @@ mod tests {
             .add_block_header(0, BlockHeader::default())
             .expect("Failed to write to test DB");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
-        let account_info = AccountInfo {
-            balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
+        let account = Account {
+            info: AccountInfo {
+                balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         storage
-            .add_account_info(address, account_info)
+            .add_account(address, account)
             .expect("Failed to write to test DB");
         let address = Address::from_str("7dcd17433742f4c0ca53122ab541d0ba67fc27df").unwrap();
         let code = Bytes::copy_from_slice(
             &hex::decode("3680600080376000206000548082558060010160005560005263656d697460206000a2")
                 .unwrap(),
         );
-        let code_hash = code_hash(&code);
-        let account_info = AccountInfo {
-            code_hash,
+        let account = Account {
+            info: AccountInfo {
+                code_hash: code_hash(&code),
+                ..Default::default()
+            },
+            code,
             ..Default::default()
         };
         storage
-            .add_account_info(address, account_info)
-            .expect("Failed to write to test DB");
-        storage
-            .add_account_code(code_hash, code)
+            .add_account(address, account)
             .expect("Failed to write to test DB");
         let local_p2p_node = example_p2p_node();
         // Process request

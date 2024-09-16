@@ -23,7 +23,7 @@ use lazy_static::lazy_static;
 
 lazy_static! {
     // Hash value for an empty trie, equal to keccak(RLP_NULL)
-    static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
+    pub static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
         Keccak256::new()
             .chain_update([RLP_NULL])
             .finalize()
@@ -38,6 +38,7 @@ pub type ValueRLP = Vec<u8>;
 
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 /// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
+#[derive(Debug)]
 pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
