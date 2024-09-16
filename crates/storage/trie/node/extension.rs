@@ -208,8 +208,7 @@ mod test {
 
     #[test]
     fn get_some() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -229,8 +228,7 @@ mod test {
 
     #[test]
     fn get_none() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -246,8 +244,7 @@ mod test {
 
     #[test]
     fn insert_passthrough() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -267,8 +264,7 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -291,8 +287,7 @@ mod test {
 
     #[test]
     fn insert_branch_extension() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -315,8 +310,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -337,8 +331,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_extension() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0, 0], branch {
                 0 => leaf { vec![0x00, 0x00] => vec![0x12, 0x34, 0x56, 0x78] },
@@ -359,8 +352,7 @@ mod test {
 
     #[test]
     fn remove_none() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -378,8 +370,7 @@ mod test {
 
     #[test]
     fn remove_into_leaf() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },
@@ -397,8 +388,7 @@ mod test {
 
     #[test]
     fn remove_into_extension() {
-        let db = new_db::<TestNodes>();
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             extension { [0], branch {
                 0 => leaf { vec![0x00] => vec![0x00] },

@@ -194,8 +194,7 @@ mod test {
 
     #[test]
     fn insert_replace() {
-        let db = Arc::new(new_db::<TestNodes>());
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -214,8 +213,7 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let db = Arc::new(new_db::<TestNodes>());
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -233,8 +231,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let db = Arc::new(new_db::<TestNodes>());
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -252,8 +249,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_self() {
-        let db = Arc::new(new_db::<TestNodes>());
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -271,8 +267,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_other() {
-        let db = Arc::new(new_db::<TestNodes>());
-        let mut trie = Trie::new(Libmdbx::<TestNodes>::new(db));
+        let mut trie = Trie::new_temp();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
         };
