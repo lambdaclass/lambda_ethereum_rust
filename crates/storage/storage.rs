@@ -113,14 +113,14 @@ impl Store {
 
     pub fn add_block_body(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError> {
         self.engine
             .clone()
             .lock()
             .unwrap()
-            .add_block_body(block_number, block_body)
+            .add_block_body(block_hash, block_body)
     }
 
     pub fn get_block_body(
@@ -160,19 +160,19 @@ impl Store {
     pub fn add_transaction_location(
         &self,
         transaction_hash: H256,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
         self.engine
             .lock()
             .unwrap()
-            .add_transaction_location(transaction_hash, block_number, index)
+            .add_transaction_location(transaction_hash, block_hash, index)
     }
 
     pub fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+    ) -> Result<Option<(BlockHash, Index)>, StoreError> {
         self.engine
             .lock()
             .unwrap()
@@ -222,7 +222,7 @@ impl Store {
 
     pub fn add_receipt(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
@@ -230,7 +230,7 @@ impl Store {
             .clone()
             .lock()
             .unwrap()
-            .add_receipt(block_number, index, receipt)
+            .add_receipt(block_hash, index, receipt)
     }
 
     pub fn get_receipt(
@@ -250,9 +250,9 @@ impl Store {
         let header = block.header;
         let number = header.number;
         let hash = header.compute_block_hash();
-        self.add_transaction_locations(&block.body.transactions, number)?;
-        self.add_block_body(number, block.body)?;
-        self.add_block_header(number, header)?;
+        self.add_transaction_locations(&block.body.transactions, hash)?;
+        self.add_block_body(number, hash, block.body)?;
+        self.add_block_header(number, hash, header)?;
         self.add_block_number(hash, number)?;
         self.update_latest_block_number(number)
     }
@@ -260,14 +260,10 @@ impl Store {
     fn add_transaction_locations(
         &self,
         transactions: &[Transaction],
-        block_number: BlockNumber,
+        block_hash: BlockHash,
     ) -> Result<(), StoreError> {
         for (index, transaction) in transactions.iter().enumerate() {
-            self.add_transaction_location(
-                transaction.compute_hash(),
-                block_number,
-                index as Index,
-            )?;
+            self.add_transaction_location(transaction.compute_hash(), block_hash, index as Index)?;
         }
         Ok(())
     }

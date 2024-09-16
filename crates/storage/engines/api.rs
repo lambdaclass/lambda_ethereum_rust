@@ -30,11 +30,11 @@ pub trait StoreEngine: Debug + Send {
     /// Add block header
     fn add_block_header(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError>;
 
-    /// Obtain block header
+    /// Obtain canonical block header
     fn get_block_header(
         &self,
         block_number: BlockNumber,
@@ -43,46 +43,52 @@ pub trait StoreEngine: Debug + Send {
     /// Add block body
     fn add_block_body(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError>;
 
-    /// Obtain block body
+    /// Obtain canonical block body
     fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError>;
 
-    /// Add block body
+    /// Obtain any block body using the hash
+    fn get_block_body_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockBody>, StoreError>;
+
+    /// Add block number for a given hash
     fn add_block_number(
         &mut self,
         block_hash: BlockHash,
         block_number: BlockNumber,
     ) -> Result<(), StoreError>;
 
-    /// Obtain block number
+    /// Obtain block number for a given hash
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
 
     /// Store transaction location (block number and index of the transaction within the block)
     fn add_transaction_location(
         &mut self,
         transaction_hash: H256,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError>;
 
-    /// Obtain transaction location (block number and index)
+    /// Obtain transaction location (block hash and index)
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError>;
+    ) -> Result<Option<(BlockHash, Index)>, StoreError>;
 
     /// Add receipt
     fn add_receipt(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError>;
 
-    /// Obtain receipt
+    /// Obtain receipt for a canonical block represented by the block number.
     fn get_receipt(
         &self,
         block_number: BlockNumber,
@@ -116,11 +122,11 @@ pub trait StoreEngine: Debug + Send {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<Transaction>, StoreError> {
-        let (block_number, index) = match self.get_transaction_location(transaction_hash)? {
+        let (block_hash, index) = match self.get_transaction_location(transaction_hash)? {
             Some(locations) => locations,
             None => return Ok(None),
         };
-        let block_body = match self.get_block_body(block_number)? {
+        let block_body = match self.get_block_body_by_hash(block_hash)? {
             Some(body) => body,
             None => return Ok(None),
         };

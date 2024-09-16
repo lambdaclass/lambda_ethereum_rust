@@ -107,10 +107,10 @@ impl StoreEngine for Store {
 
     fn add_block_header(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> std::result::Result<(), StoreError> {
-        self.write::<Headers>(block_number, block_header.into())
+        self.write::<Headers>(block_hash.into(), block_header.into())
     }
 
     fn get_block_header(
@@ -126,10 +126,10 @@ impl StoreEngine for Store {
 
     fn add_block_body(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_body: BlockBody,
     ) -> std::result::Result<(), StoreError> {
-        self.write::<Bodies>(block_number, block_body.into())
+        self.write::<Bodies>(block_hash.into(), block_body.into())
     }
 
     fn get_block_body(
@@ -137,10 +137,17 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
     ) -> std::result::Result<Option<BlockBody>, StoreError> {
         if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
-            Ok(self.read::<Bodies>(hash.into())?.map(|b| b.to()))
+            self.get_block_body_by_hash(hash)
         } else {
             Ok(None)
         }
+    }
+
+    fn get_block_body_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockBody>, StoreError> {
+        Ok(self.read::<Bodies>(block_hash.into())?.map(|b| b.to()))
     }
 
     fn add_block_number(
@@ -168,11 +175,11 @@ impl StoreEngine for Store {
 
     fn add_receipt(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
-        self.write::<Receipts>((block_number, index), receipt.into())
+        self.write::<Receipts>((block_hash.into(), index), receipt.into())
     }
 
     fn get_receipt(
@@ -190,17 +197,18 @@ impl StoreEngine for Store {
     fn add_transaction_location(
         &mut self,
         transaction_hash: H256,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
-        self.write::<TransactionLocations>(transaction_hash.into(), (block_number, index))
+        self.write::<TransactionLocations>(transaction_hash.into(), (block_hash.into(), index))
     }
 
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+    ) -> Result<Option<(BlockHash, Index)>, StoreError> {
         self.read::<TransactionLocations>(transaction_hash.into())
+            .map(|o| o.map(|(h, i)| (h.to(), i)))
     }
 
     fn add_storage_at(
