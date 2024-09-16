@@ -344,7 +344,7 @@ impl StoreEngine for Store {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
-        let db = Box::new(crate::trie::LibmdbxTrieDB::<WorldStateNodes>::new(
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
             self.db.clone(),
         ));
         let trie = Trie::open(db, state_root);
@@ -404,8 +404,8 @@ table!(
 // Trie storages
 
 table!(
-    /// World state trie nodes
-    ( WorldStateNodes ) Vec<u8> => Vec<u8>
+    /// state trie nodes
+    ( StateTrieNodes ) Vec<u8> => Vec<u8>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -499,7 +499,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
-        table_info!(WorldStateNodes),
+        table_info!(StateTrieNodes),
     ]
     .into_iter()
     .collect();

@@ -26,7 +26,7 @@ pub struct Store {
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
     #[allow(unused)] // TODO: remove
-    world_state_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+    state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
 #[derive(Default)]
@@ -265,7 +265,7 @@ impl StoreEngine for Store {
             return Ok(None);
         };
         let db = Box::new(crate::trie::InMemoryTrieDB::new(
-            self.world_state_nodes.clone(),
+            self.state_trie_nodes.clone(),
         ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
