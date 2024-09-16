@@ -1,10 +1,7 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use crate::error::StoreError;
-use libmdbx::{
-    orm::{table, Database, Table},
-    table_info,
-};
+use libmdbx::orm::{Database, Table};
 
 /// Libmdbx implementation for the TrieDB trait, with get and put operations.
 pub struct LibmdbxTrieDB<T: Table> {
@@ -51,9 +48,9 @@ mod test {
     use std::sync::Arc;
 
     use super::LibmdbxTrieDB;
-    use crate::trie::{test_utils::new_db, Trie};
+    use crate::trie::test_utils::new_db;
     use libmdbx::{
-        orm::{table, Database, Table},
+        orm::{table, Database},
         table_info,
     };
     table!(
@@ -68,7 +65,7 @@ mod test {
         let inner_db = new_db::<Nodes>();
         let db = LibmdbxTrieDB::<Nodes>::new(inner_db);
         assert_eq!(db.get("hello".into()).unwrap(), None);
-        db.put("hello".into(), "value".into());
+        db.put("hello".into(), "value".into()).unwrap();
         assert_eq!(db.get("hello".into()).unwrap(), Some("value".into()));
     }
 
@@ -89,7 +86,7 @@ mod test {
         let inner_db = Arc::new(Database::create(None, &tables).unwrap());
         let db_a = LibmdbxTrieDB::<TableA>::new(inner_db.clone());
         let db_b = LibmdbxTrieDB::<TableB>::new(inner_db.clone());
-        db_a.put("hello".into(), "value".into());
+        db_a.put("hello".into(), "value".into()).unwrap();
         assert_eq!(db_b.get("hello".into()).unwrap(), None);
     }
 }

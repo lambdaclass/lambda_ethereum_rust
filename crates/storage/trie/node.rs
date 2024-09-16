@@ -3,13 +3,12 @@ mod extension;
 mod leaf;
 
 pub use branch::BranchNode;
-use ethereum_types::H256;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
+use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug, Clone)]

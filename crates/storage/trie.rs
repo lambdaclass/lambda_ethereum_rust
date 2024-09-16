@@ -168,7 +168,7 @@ impl Trie {
 mod test {
     use std::sync::Arc;
 
-    use crate::trie::test_utils::{new_db, TestNodes};
+    use crate::trie::test_utils::TestNodes;
 
     use super::*;
     // Rename imports to avoid potential name clashes
@@ -601,8 +601,7 @@ mod test {
         drop(db);
         drop(trie);
 
-        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
-        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
+        let db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
         // Create a new trie based on the previous trie's DB
         let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db2)), root);
 

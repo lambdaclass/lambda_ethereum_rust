@@ -21,8 +21,6 @@ use tracing::info;
 mod engines;
 pub mod error;
 mod rlp;
-/// TODO: Remove this allow once the trie is integrated into the codebase
-#[allow(unused)]
 mod trie;
 
 #[derive(Debug, Clone)]
