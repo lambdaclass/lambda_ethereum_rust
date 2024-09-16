@@ -64,6 +64,13 @@ impl Store {
             .map_err(StoreError::LibmdbxError)?;
         txn.commit().map_err(StoreError::LibmdbxError)
     }
+
+    fn get_block_hash_by_block_number(
+        &self,
+        number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        Ok(self.read::<CanonicalBlockHashes>(number)?.map(|a| a.to()))
+    }
 }
 
 impl StoreEngine for Store {
@@ -110,7 +117,11 @@ impl StoreEngine for Store {
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        Ok(self.read::<Headers>(block_number)?.map(|a| a.to()))
+        if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
+            Ok(self.read::<Headers>(hash.into())?.map(|b| b.to()))
+        } else {
+            Ok(None)
+        }
     }
 
     fn add_block_body(
@@ -125,7 +136,11 @@ impl StoreEngine for Store {
         &self,
         block_number: BlockNumber,
     ) -> std::result::Result<Option<BlockBody>, StoreError> {
-        Ok(self.read::<Bodies>(block_number)?.map(|b| b.to()))
+        if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
+            Ok(self.read::<Bodies>(hash.into())?.map(|b| b.to()))
+        } else {
+            Ok(None)
+        }
     }
 
     fn add_block_number(
@@ -165,9 +180,11 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        Ok(self
-            .read::<Receipts>((block_number, index))?
-            .map(|r| r.to()))
+        if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
+            Ok(self.read::<Receipts>((hash.into(), index))?.map(|b| b.to()))
+        } else {
+            Ok(None)
+        }
     }
 
     fn add_transaction_location(
@@ -348,17 +365,22 @@ impl Debug for Store {
 // Define tables
 
 table!(
+    /// The canonical block hash for each block number. It represents the canonical chain.
+    ( CanonicalBlockHashes ) BlockNumber => BlockHashRLP
+);
+
+table!(
     /// Block hash to number table.
     ( BlockNumbers ) BlockHashRLP => BlockNumber
 );
 
 table!(
     /// Block headers table.
-    ( Headers ) BlockNumber => BlockHeaderRLP
+    ( Headers ) BlockHashRLP => BlockHeaderRLP
 );
 table!(
     /// Block bodies table.
-    ( Bodies ) BlockNumber => BlockBodyRLP
+    ( Bodies ) BlockHashRLP => BlockBodyRLP
 );
 table!(
     /// Account infos table.
@@ -374,12 +396,12 @@ table!(
 );
 dupsort!(
     /// Receipts table.
-    ( Receipts ) (BlockNumber, Index)[Index] => ReceiptRLP
+    ( Receipts ) (BlockHashRLP, Index)[Index] => ReceiptRLP
 );
 
 table!(
     /// Transaction locations table.
-    ( TransactionLocations ) TransactionHashRLP => (BlockNumber, Index)
+    ( TransactionLocations ) TransactionHashRLP => (BlockHashRLP, Index)
 );
 
 table!(
