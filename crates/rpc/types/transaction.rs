@@ -1,6 +1,10 @@
 use ethereum_rust_core::{
+    rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder},
     serde_utils,
-    types::{BlockHash, BlockNumber, Transaction},
+    types::{
+        BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction,
+        LegacyTransaction, Transaction,
+    },
     Address, H256,
 };
 use serde::Serialize;
@@ -37,6 +41,97 @@ impl RpcTransaction {
             from,
             hash,
             transaction_index,
+        }
+    }
+}
+
+pub enum SendRawTransactionRequest {
+    LegacyTransaction(LegacyTransaction),
+    EIP2930Transaction(EIP2930Transaction),
+    EIP1559Transaction(EIP1559Transaction),
+    EIP4844Transaction(WrappedEIP4844Transaction),
+}
+
+// TODO: We should move this to constants
+pub const BYTES_PER_BLOB: usize = 131_072;
+pub const BYTES_PER_COMMITMENT: usize = 48;
+pub const BYTES_PER_PROOF: usize = 48;
+
+pub type Blob = [u8; BYTES_PER_BLOB];
+pub type Commitment = [u8; BYTES_PER_COMMITMENT];
+pub type Proof = [u8; BYTES_PER_PROOF];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WrappedEIP4844Transaction {
+    pub tx: EIP4844Transaction,
+    pub blobs: Vec<Blob>,
+    pub commitments: Vec<Commitment>,
+    pub proofs: Vec<Proof>,
+}
+
+impl RLPDecode for WrappedEIP4844Transaction {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(WrappedEIP4844Transaction, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (tx, decoder) = decoder.decode_field("tx")?;
+        let (blobs, decoder) = decoder.decode_field("blobs")?;
+        let (commitments, decoder) = decoder.decode_field("commitments")?;
+        let (proofs, decoder) = decoder.decode_field("proofs")?;
+
+        let wrapped = WrappedEIP4844Transaction {
+            tx,
+            blobs,
+            commitments,
+            proofs,
+        };
+        Ok((wrapped, decoder.finish()?))
+    }
+}
+
+impl SendRawTransactionRequest {
+    pub fn to_transaction(&self) -> Transaction {
+        match self {
+            SendRawTransactionRequest::LegacyTransaction(t) => {
+                Transaction::LegacyTransaction(t.clone())
+            }
+            SendRawTransactionRequest::EIP1559Transaction(t) => {
+                Transaction::EIP1559Transaction(t.clone())
+            }
+            SendRawTransactionRequest::EIP2930Transaction(t) => {
+                Transaction::EIP2930Transaction(t.clone())
+            }
+            SendRawTransactionRequest::EIP4844Transaction(t) => {
+                Transaction::EIP4844Transaction(t.tx.clone())
+            }
+        }
+    }
+
+    pub fn decode_canonical(bytes: &[u8]) -> Result<Self, RLPDecodeError> {
+        // Look at the first byte to check if it corresponds to a TransactionType
+        match bytes.first() {
+            // First byte is a valid TransactionType
+            Some(tx_type) if *tx_type < 0x7f => {
+                // Decode tx based on type
+                let tx_bytes = &bytes[1..];
+                match *tx_type {
+                    // Legacy
+                    0x0 => LegacyTransaction::decode(tx_bytes)
+                        .map(SendRawTransactionRequest::LegacyTransaction),
+                    // EIP2930
+                    0x1 => EIP2930Transaction::decode(tx_bytes)
+                        .map(SendRawTransactionRequest::EIP2930Transaction),
+                    // EIP1559
+                    0x2 => EIP1559Transaction::decode(tx_bytes)
+                        .map(SendRawTransactionRequest::EIP1559Transaction),
+                    // EIP4844
+                    0x3 => WrappedEIP4844Transaction::decode(tx_bytes)
+                        .map(SendRawTransactionRequest::EIP4844Transaction),
+                    ty => Err(RLPDecodeError::Custom(format!(
+                        "Invalid transaction type: {ty}"
+                    ))),
+                }
+            }
+            // LegacyTransaction
+            _ => LegacyTransaction::decode(bytes).map(SendRawTransactionRequest::LegacyTransaction),
         }
     }
 }

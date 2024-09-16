@@ -1,4 +1,4 @@
-use std::{cmp::min, default};
+use std::{cmp::min, default, mem::size_of};
 
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
