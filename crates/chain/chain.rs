@@ -29,7 +29,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     extends_canonical_chain(block, storage)?;
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
-    let mut state = evm_state(storage.clone(), block.header.number);
+    let mut state = evm_state(storage.clone(), parent_header.number);
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
