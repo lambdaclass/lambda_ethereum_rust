@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use crate::{
     discv4::{time_now_unix, FindNodeRequest},
     types::Node,
@@ -60,10 +62,11 @@ impl KademliaTable {
 
     fn insert_as_replacement(&mut self, node: &PeerData) -> &mut PeerData {
         if self.replacements.len() >= MAX_NUMBER_OF_REPLACEMENTS {
-            self.replacements.pop();
+            self.replacements.remove(0);
         }
-        self.replacements.insert(0, node.clone());
-        &mut self.replacements[0]
+        self.replacements.push(node.clone());
+        let idx = self.replacements.len() - 1;
+        &mut self.replacements[idx]
     }
 
     fn remove_from_replacements(&mut self, node_id: H512) {
@@ -96,6 +99,59 @@ impl KademliaTable {
         }
 
         nodes.iter().map(|a| a.0).collect()
+    }
+
+    pub fn invalidate_peer_proof(&mut self, node_id: H512, ping_hash: Option<H256>) {
+        let peer = self.get_by_node_id_mut(node_id);
+        if peer.is_none() {
+            return;
+        }
+
+        let peer = peer.unwrap();
+        peer.is_proven = false;
+        peer.last_ping_hash = ping_hash;
+    }
+
+    pub fn get_pinged_peers_since(&mut self, since: u64) -> Vec<PeerData> {
+        let mut peers = vec![];
+
+        for bucket in &self.buckets {
+            for peer in bucket {
+                if time_now_unix().saturating_sub(peer.last_ping) >= since {
+                    peers.push(peer.clone());
+                }
+            }
+        }
+
+        peers
+    }
+
+    /// Replaces the peer with the given id with the latest replacement stored.
+    /// If there are no replacements, it simply remove it
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the inserted peer or None in case there was no replacement
+    pub fn replace_peer(&mut self, peer_id: H512) -> Option<PeerData> {
+        let bucket_idx = bucket_number(peer_id, self.local_node_id);
+        let idx_to_remove = self.buckets[bucket_idx]
+            .iter()
+            .position(|peer| peer.node.node_id == peer_id);
+
+        if let Some(idx) = idx_to_remove {
+            let bucket = &mut self.buckets[bucket_idx];
+            let new_peer = self.replacements.pop();
+
+            if let Some(new_peer) = new_peer {
+                bucket[idx] = new_peer.clone();
+                return Some(new_peer);
+            } else {
+                bucket.remove(idx);
+                return None;
+            }
+        };
+
+        None
     }
 }
 

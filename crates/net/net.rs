@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     net::SocketAddr,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -226,17 +227,17 @@ async fn discover_peers_server(
     }
 }
 
-// todo this is just an arbitrary number, maybe we should get this from some kind of cfg
-pub const REVALIDATION_INTERVAL_IN_MINUTES: usize = 10;
+const REVALIDATION_INTERVAL_IN_MINUTES: usize = 10; // this is just an arbitrary number, maybe we should get this from some kind of cfg
+const PROOF_EXPIRATION_IN_HS: usize = 24;
 
 /// Starts a tokio scheduler that:
-/// - performs periodic revalidation of the current nodes (sends a ping to the old nodes). Currently this is configured to happen every [`REVA`]
+/// - performs periodic revalidation of the current nodes (sends a ping to the old nodes). Currently this is configured to happen every [`REVALIDATION_INTERVAL_IN_MINUTES`]
 /// - performs random lookups to discover new nodes (not yet implemented)
 ///
 /// **Peer revalidation**
 ///
 /// Peers revalidation works in the following manner:
-/// 1. If the last ping has happened 12hs ago, we send a ping to re-get the endpoint proof
+/// 1. If the last ping has happened 24hs ago, we invalidate and send a ping to re-validate the endpoint proof
 /// 2. In the next iteration, we check if the node has responded. If not, then we delete it and insert a new one from the replacements table
 async fn peers_revalidation(
     udp_addr: SocketAddr,
@@ -247,11 +248,53 @@ async fn peers_revalidation(
     let mut interval = tokio::time::interval(Duration::from_secs(
         REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
     ));
+
+    // peers whose proof expired and we pinged them to revalidate them
+    // we expect them to be proven by the next iteration otherwise we remove them
+    let mut previously_pinged_peers: HashSet<H512> = HashSet::default();
+
     // first tick starts immediately
     interval.tick().await;
+
     loop {
         interval.tick().await;
-        //todo revalidation logic
+
+        let mut table = table.lock().await;
+        let peers = table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60);
+        let mut peers_pending_revalidation: HashSet<H512> = HashSet::default();
+
+        for peer in peers {
+            if previously_pinged_peers.get(&peer.node.node_id).is_some() {
+                // Peer did not respond, replace it with a new peer from the replacements table
+                if !peer.is_proven {
+                    let new_peer = table.replace_peer(peer.node.node_id);
+                    if let Some(peer) = new_peer {
+                        let ping_hash = ping(
+                            &udp_socket,
+                            udp_addr,
+                            SocketAddr::new(peer.node.ip, peer.node.udp_port),
+                            &signer,
+                        )
+                        .await;
+                        table.invalidate_peer_proof(peer.node.node_id, ping_hash);
+                        peers_pending_revalidation.insert(peer.node.node_id);
+                    }
+                }
+                continue;
+            }
+
+            let ping_hash = ping(
+                &udp_socket,
+                udp_addr,
+                SocketAddr::new(peer.node.ip, peer.node.udp_port),
+                &signer,
+            )
+            .await;
+            table.invalidate_peer_proof(peer.node.node_id, ping_hash);
+            peers_pending_revalidation.insert(peer.node.node_id);
+        }
+
+        previously_pinged_peers = peers_pending_revalidation;
     }
 }
 
