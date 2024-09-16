@@ -3,6 +3,7 @@ use ethereum_types::H256;
 use crate::{
     error::StoreError,
     trie::{
+        db::TrieDB,
         nibble::NibbleSlice,
         node::BranchNode,
         node_hash::{NodeHash, NodeHasher, PathKind},
@@ -36,9 +37,9 @@ impl LeafNode {
     }
 
     /// Stores the received value and returns the new root of the subtrie previously consisting of self
-    pub fn insert(
+    pub fn insert<DB: TrieDB>(
         mut self,
-        state: &mut TrieState,
+        state: &mut TrieState<DB>,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -142,10 +143,10 @@ impl LeafNode {
 
     /// Inserts the node into the state and returns its hash
     /// Receives the offset that needs to be traversed to reach the leaf node from the canonical root, used to compute the node hash
-    pub fn insert_self(
+    pub fn insert_self<DB: TrieDB>(
         self,
         path_offset: usize,
-        state: &mut TrieState,
+        state: &mut TrieState<DB>,
     ) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash(path_offset);
         state.insert_node(self.into(), hash.clone());
@@ -157,7 +158,7 @@ impl LeafNode {
 mod test {
     use super::*;
     use crate::pmt_node;
-    use crate::trie::Trie;
+    use crate::trie::{test_utils, Trie};
 
     #[test]
     fn new() {
@@ -189,7 +190,7 @@ mod test {
 
     #[test]
     fn insert_replace() {
-        let mut trie = Trie::new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -208,7 +209,7 @@ mod test {
 
     #[test]
     fn insert_branch() {
-        let mut trie = Trie::new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -226,7 +227,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch() {
-        let mut trie = Trie::new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -244,7 +245,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_self() {
-        let mut trie = Trie::new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12] => vec![0x12, 0x34, 0x56, 0x78] }
         };
@@ -262,7 +263,7 @@ mod test {
 
     #[test]
     fn insert_extension_branch_value_other() {
-        let mut trie = Trie::new_temp();
+        let mut trie = test_utils::new_temp_trie();
         let node = pmt_node! { @(trie)
             leaf { vec![0x12, 0x34] => vec![0x12, 0x34, 0x56, 0x78] }
         };

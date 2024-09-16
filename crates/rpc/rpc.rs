@@ -15,10 +15,9 @@ use engine::{
 };
 use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest}, block::{
-        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawHeaderRequest,
+        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest, GetRawReceipts
     }, client, logs::LogsRequest, transaction::{
-        CallRequest, CreateAccessListRequest, EstimateGasRequest, GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest, GetTransactionReceiptRequest
+        CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction, GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest, GetTransactionByHashRequest, GetTransactionReceiptRequest
     }
 };
 use serde_json::Value;
@@ -186,6 +185,9 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
 pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
+        "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
+        "debug_getRawTransaction" => GetRawTransaction::call(req, storage),
+        "debug_getRawReceipts" => GetRawReceipts::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
