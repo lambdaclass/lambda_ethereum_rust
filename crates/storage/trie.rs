@@ -597,7 +597,9 @@ mod test {
         // Save current root
         let root = trie.hash().unwrap();
 
-        drop(db); // Release DB
+        // Release DB
+        drop(db);
+        drop(trie);
 
         let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
         // Create a new trie based on the previous trie's DB
