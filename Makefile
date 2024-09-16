@@ -20,7 +20,7 @@ run_image: build_image
 
 # Only rebuild the image if the source files have changed
 STAMP_FILE := .docker_build_stamp
-$(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Cargo.lock Dockerfile
+$(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfile
 	docker build -t ethereum_rust .
 	touch $(STAMP_FILE)
 
