@@ -8,8 +8,8 @@ use engines::api::StoreEngine;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, Index, Receipt, Transaction,
+    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
@@ -296,33 +296,33 @@ impl Store {
         Ok(Some(world_state.hash()?))
     }
 
-    // TODO: See if we can replace with test util/ initializer fn
-    fn add_account(
+    /// Adds all genesis accounts and returns the genesis block's state_root
+    pub fn setup_genesis_world_state(
         &self,
-        block_number: BlockNumber,
-        address: Address,
-        account: Account,
-    ) -> Result<(), StoreError> {
-        let Some(mut world_state) = self.engine.lock().unwrap().world_state(block_number)? else {
-            return Ok(());
-        };
-        // Store account code (as this won't be stored in the trie)
-        self.add_account_code(account.info.code_hash, account.code)?;
-        // Store the accounts storage in the storage trie and compute its root
-        // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB tabel and compute the root
-        let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
-        for (storage_key, storage_value) in account.storage {
-            self.add_storage_at(address, storage_key, storage_value)?;
+        genesis_accounts: HashMap<Address, GenesisAccount>,
+    ) -> Result<H256, StoreError> {
+        let mut genesis_world_state = self.engine.lock().unwrap().new_world_state()?;
+        for (address, account) in genesis_accounts {
+            // Store account code (as this won't be stored in the trie)
+            let code_hash = code_hash(&account.code);
+            self.add_account_code(code_hash, account.code)?;
+            // Store the accounts storage in the storage trie and compute its root
+            // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB tabel and compute the root
+            let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
+            for (storage_key, storage_value) in account.storage {
+                self.add_storage_at(address, storage_key, storage_value)?;
+            }
+            // Add account to trie
+            let account_state = AccountState {
+                nonce: account.nonce,
+                balance: account.balance,
+                storage_root,
+                code_hash,
+            };
+            let hashed_address = hash_address(&address);
+            genesis_world_state.insert(hashed_address, account_state.encode_to_vec());
         }
-        // Add account to trie
-        let account_state = AccountState {
-            nonce: account.info.nonce,
-            balance: account.info.balance,
-            storage_root,
-            code_hash: account.info.code_hash,
-        };
-        let hashed_address = hash_address(&address);
-        world_state.insert(hashed_address, account_state.encode_to_vec())
+        genesis_world_state.hash()
     }
 
     pub fn add_receipt(
@@ -382,8 +382,9 @@ impl Store {
 
         // Obtain genesis block
         let genesis_block = genesis.get_block();
+        let genesis_block_number = genesis_block.header.number;
 
-        if let Some(header) = self.get_block_header(genesis_block.header.number)? {
+        if let Some(header) = self.get_block_header(genesis_block_number)? {
             if header.compute_block_hash() == genesis_block.header.compute_block_hash() {
                 info!("Received genesis file matching a previously stored one, nothing to do");
                 return Ok(());
@@ -393,13 +394,12 @@ impl Store {
         }
 
         // Store genesis block
-        self.update_earliest_block_number(genesis_block.header.number)?;
+        self.update_earliest_block_number(genesis_block_number)?;
         self.add_block(genesis_block)?;
 
         // Store each alloc account
-        for (address, account) in genesis.alloc.into_iter() {
-            self.add_account(0, address, account.into())?;
-        }
+        // TODO: Use this when converting genesis to block
+        let _genesis_state_root = self.setup_genesis_world_state(genesis.alloc)?;
 
         // Set chain config
         self.set_chain_config(&genesis.config)

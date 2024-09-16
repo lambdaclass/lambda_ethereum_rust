@@ -319,6 +319,14 @@ impl StoreEngine for Store {
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
     }
+
+    fn new_world_state(&self) -> Result<Trie, StoreError> {
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<WorldStateNodes>::new(
+            self.db.clone(),
+        ));
+        let trie = Trie::new(db);
+        Ok(trie)
+    }
 }
 
 impl Debug for Store {

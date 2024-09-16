@@ -96,7 +96,7 @@ pub fn build_store_for_test(test: &TestUnit) -> Store {
     for (address, account) in &test.pre {
         let account: CoreAccount = account.clone().into();
         store
-            .add_account(*address, account)
+            .add_account(block_number, *address, account)
             .expect("Failed to write to test DB")
     }
     store

@@ -38,7 +38,6 @@ pub type ValueRLP = Vec<u8>;
 
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 /// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
-#[derive(Debug)]
 pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,

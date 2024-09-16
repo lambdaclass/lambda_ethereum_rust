@@ -29,7 +29,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     extends_canonical_chain(block, storage)?;
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
-    let mut state = evm_state(storage.clone());
+    let mut state = evm_state(storage.clone(), block.header.number);
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
@@ -42,7 +42,8 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
-        .apply_account_updates(block.header.number.saturating_sub(1), &account_updates)?;
+        .apply_account_updates(block.header.number.saturating_sub(1), &account_updates)?
+        .unwrap_or_default();
 
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;
@@ -89,7 +90,7 @@ pub fn validate_state_root(
     new_state_root: H256,
 ) -> Result<(), ChainError> {
     // Compare state root
-    if storage.world_state_root()? == block_header.state_root {
+    if new_state_root == block_header.state_root {
         Ok(())
     } else {
         Err(ChainError::InvalidBlock(
