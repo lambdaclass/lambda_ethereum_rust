@@ -7,14 +7,14 @@ use libmdbx::{
 };
 
 /// Libmdbx implementation for the TrieDB trait, with get and put operations.
-pub struct Libmdbx<'a, T: Table> {
+pub struct LibmdbxTrieDB<'a, T: Table> {
     db: &'a Database,
     phantom: PhantomData<T>,
 }
 
 use super::TrieDB;
 
-impl<'a, T: Table> Libmdbx<'a, T> {
+impl<'a, T: Table> LibmdbxTrieDB<'a, T> {
     pub fn new(db: &'a Database) -> Self {
         Self {
             db,
@@ -23,7 +23,7 @@ impl<'a, T: Table> Libmdbx<'a, T> {
     }
 }
 
-impl<'a, T: Table> TrieDB for Libmdbx<'a, T>
+impl<'a, T: Table> TrieDB for LibmdbxTrieDB<'a, T>
 where
     T: Table<Key = Vec<u8>, Value = Vec<u8>>,
 {
@@ -45,7 +45,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::Libmdbx;
+    use super::LibmdbxTrieDB;
     use crate::trie::test_utils::new_db;
     use libmdbx::{
         orm::{table, Database, Table},
@@ -61,7 +61,7 @@ mod test {
     #[test]
     fn simple_addition() {
         let inner_db = new_db::<Nodes>();
-        let db = Libmdbx::<Nodes>::new(&inner_db);
+        let db = LibmdbxTrieDB::<Nodes>::new(&inner_db);
         assert_eq!(db.get("hello".into()).unwrap(), None);
         db.put("hello".into(), "value".into());
         assert_eq!(db.get("hello".into()).unwrap(), Some("value".into()));
@@ -82,8 +82,8 @@ mod test {
             .collect();
 
         let inner_db = Database::create(None, &tables).unwrap();
-        let db_a = Libmdbx::<TableA>::new(&inner_db);
-        let db_b = Libmdbx::<TableB>::new(&inner_db);
+        let db_a = LibmdbxTrieDB::<TableA>::new(&inner_db);
+        let db_b = LibmdbxTrieDB::<TableB>::new(&inner_db);
         db_a.put("hello".into(), "value".into());
         assert_eq!(db_b.get("hello".into()).unwrap(), None);
     }

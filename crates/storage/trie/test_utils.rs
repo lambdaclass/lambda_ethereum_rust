@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use super::{db::libmdbx::Libmdbx, state::TrieState, Trie};
-
 use libmdbx::{
     orm::{table_info, Database, Table},
     table,
