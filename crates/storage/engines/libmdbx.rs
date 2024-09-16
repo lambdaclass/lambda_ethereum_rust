@@ -339,9 +339,8 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
-}
-impl Store {
-    pub fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+
+    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
