@@ -71,10 +71,10 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         signer.clone(),
     ));
     let revalidation_handler = tokio::spawn(peers_revalidation(
-        udp_addr.clone(),
+        udp_addr,
         udp_socket.clone(),
         table.clone(),
-        signer.clone(),
+        signer,
     ));
 
     try_join!(server_handler, revalidation_handler).unwrap();
@@ -133,6 +133,7 @@ async fn discover_peers_server(
                     if let Some(hash) = hash {
                         if inserted_to_table {
                             peer.last_ping_hash = Some(hash);
+                            peer.last_ping = time_now_unix();
                         }
                     }
                 }
@@ -258,6 +259,7 @@ async fn peers_revalidation(
 
     loop {
         interval.tick().await;
+        debug!("Running peer revalidation");
 
         let mut table = table.lock().await;
         let peers = table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60);
@@ -268,6 +270,10 @@ async fn peers_revalidation(
                 // Peer did not respond, replace it with a new peer from the replacements table
                 if !peer.is_proven {
                     let new_peer = table.replace_peer(peer.node.node_id);
+                    debug!(
+                        "Replacing peer {} with {:?} from table as it hasn't pinged back!",
+                        peer.node.node_id, new_peer
+                    );
                     if let Some(peer) = new_peer {
                         let ping_hash = ping(
                             &udp_socket,
@@ -292,9 +298,14 @@ async fn peers_revalidation(
             .await;
             table.invalidate_peer_proof(peer.node.node_id, ping_hash);
             peers_pending_revalidation.insert(peer.node.node_id);
+            debug!(
+                "Pinging peer {} to re-validate endpoint proof!",
+                peer.node.node_id
+            );
         }
 
         previously_pinged_peers = peers_pending_revalidation;
+        debug!("Peer revalidation finished");
     }
 }
 

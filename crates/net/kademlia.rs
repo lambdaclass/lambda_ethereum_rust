@@ -110,6 +110,7 @@ impl KademliaTable {
         let peer = peer.unwrap();
         peer.is_proven = false;
         peer.last_ping_hash = ping_hash;
+        peer.last_ping = time_now_unix();
     }
 
     pub fn get_pinged_peers_since(&mut self, since: u64) -> Vec<PeerData> {
