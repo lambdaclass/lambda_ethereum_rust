@@ -129,13 +129,12 @@ async fn discover_peers_server(
                     // send a ping to get the endpoint proof from our end
                     let (peer, inserted_to_table) = {
                         let mut table = table.lock().await;
-                        let res = table.insert_node(Node {
+                        table.insert_node(Node {
                             ip: from.ip(),
                             udp_port: from.port(),
                             tcp_port: 0,
                             node_id: packet.get_node_id(),
-                        });
-                        (res.0.clone(), res.1)
+                        })
                     };
                     let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                     if let Some(hash) = hash {

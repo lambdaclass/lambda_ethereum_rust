@@ -9,31 +9,39 @@ pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
 const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
+#[derive(Clone, Debug, Default)]
+struct Bucket {
+    pub peers: Vec<PeerData>,
+    pub replacements: Vec<PeerData>,
+}
+
 #[derive(Debug)]
 pub struct KademliaTable {
     local_node_id: H512,
-    buckets: Vec<Vec<PeerData>>,
-    replacements: Vec<PeerData>,
+    buckets: Vec<Bucket>,
 }
 
 impl KademliaTable {
     pub fn new(local_node_id: H512) -> Self {
-        let buckets: Vec<Vec<PeerData>> = vec![vec![]; NUMBER_OF_BUCKETS];
+        let buckets: Vec<Bucket> = vec![Bucket::default(); NUMBER_OF_BUCKETS];
         Self {
             local_node_id,
             buckets,
-            replacements: Vec::with_capacity(MAX_NUMBER_OF_REPLACEMENTS),
         }
     }
 
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
         let bucket = &self.buckets[bucket_number(node_id, self.local_node_id)];
-        bucket.iter().find(|entry| entry.node.node_id == node_id)
+        bucket
+            .peers
+            .iter()
+            .find(|entry| entry.node.node_id == node_id)
     }
 
     pub fn get_by_node_id_mut(&mut self, node_id: H512) -> Option<&mut PeerData> {
         let bucket = &mut self.buckets[bucket_number(node_id, self.local_node_id)];
         bucket
+            .peers
             .iter_mut()
             .find(|entry| entry.node.node_id == node_id)
     }
@@ -43,32 +51,44 @@ impl KademliaTable {
     /// A tuple containing:
     ///     1. PeerData
     ///     2. A bool indicating if the node was inserted to the table
-    pub fn insert_node(&mut self, node: Node) -> (&mut PeerData, bool) {
+    pub fn insert_node(&mut self, node: Node) -> (PeerData, bool) {
         let node_id = node.node_id;
-        let peer = PeerData::new(node, time_now_unix(), false);
         let bucket_idx = bucket_number(node_id, self.local_node_id);
 
-        if self.buckets[bucket_idx].len() == MAX_NODES_PER_BUCKET {
-            (self.insert_as_replacement(&peer), false)
+        self.insert_node_inner(node, bucket_idx)
+    }
+
+    #[cfg(test)]
+    fn insert_node_on_custom_bucket(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
+        self.insert_node_inner(node, bucket_idx)
+    }
+
+    fn insert_node_inner(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
+        let node_id = node.node_id;
+        let peer = PeerData::new(node, time_now_unix(), false);
+
+        if self.buckets[bucket_idx].peers.len() == MAX_NODES_PER_BUCKET {
+            self.insert_as_replacement(&peer, bucket_idx);
+            (peer, false)
         } else {
-            self.remove_from_replacements(node_id);
-            self.buckets[bucket_idx].push(peer);
-            let peer_idx = self.buckets[bucket_idx].len() - 1;
-            (&mut self.buckets[bucket_idx][peer_idx], true)
+            self.remove_from_replacements(node_id, bucket_idx);
+            self.buckets[bucket_idx].peers.push(peer.clone());
+            (peer, true)
         }
     }
 
-    fn insert_as_replacement(&mut self, node: &PeerData) -> &mut PeerData {
-        if self.replacements.len() >= MAX_NUMBER_OF_REPLACEMENTS {
-            self.replacements.remove(0);
+    fn insert_as_replacement(&mut self, node: &PeerData, bucket_idx: usize) {
+        let bucket = &mut self.buckets[bucket_idx];
+        if bucket.replacements.len() >= MAX_NUMBER_OF_REPLACEMENTS {
+            bucket.replacements.remove(0);
         }
-        self.replacements.push(node.clone());
-        let idx = self.replacements.len() - 1;
-        &mut self.replacements[idx]
+        bucket.replacements.push(node.clone());
     }
 
-    fn remove_from_replacements(&mut self, node_id: H512) {
-        self.replacements = self
+    fn remove_from_replacements(&mut self, node_id: H512, bucket_idx: usize) {
+        let bucket = &mut self.buckets[bucket_idx];
+
+        bucket.replacements = bucket
             .replacements
             .drain(..)
             .filter(|r| r.node.node_id != node_id)
@@ -81,7 +101,7 @@ impl KademliaTable {
         // todo see if there is a more efficient way of doing this
         // though the bucket isn't that large and it shouldn't be an issue I guess
         for bucket in &self.buckets {
-            for peer in bucket {
+            for peer in &bucket.peers {
                 let distance = bucket_number(node_id, peer.node.node_id);
                 if nodes.len() < MAX_NODES_PER_BUCKET {
                     nodes.push((peer.node, distance));
@@ -137,7 +157,7 @@ impl KademliaTable {
         let mut peers = vec![];
 
         for bucket in &self.buckets {
-            for peer in bucket {
+            for peer in &bucket.peers {
                 if time_now_unix().saturating_sub(peer.last_ping) >= since {
                     peers.push(peer.clone());
                 }
@@ -156,18 +176,19 @@ impl KademliaTable {
     pub fn replace_peer(&mut self, peer_id: H512) -> Option<PeerData> {
         let bucket_idx = bucket_number(peer_id, self.local_node_id);
         let idx_to_remove = self.buckets[bucket_idx]
+            .peers
             .iter()
             .position(|peer| peer.node.node_id == peer_id);
 
         if let Some(idx) = idx_to_remove {
             let bucket = &mut self.buckets[bucket_idx];
-            let new_peer = self.replacements.pop();
+            let new_peer = bucket.replacements.pop();
 
             if let Some(new_peer) = new_peer {
-                bucket[idx] = new_peer.clone();
+                bucket.peers[idx] = new_peer.clone();
                 return Some(new_peer);
             } else {
-                bucket.remove(idx);
+                bucket.peers.remove(idx);
                 return None;
             }
         };
@@ -214,16 +235,14 @@ impl PeerData {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::{node_id_from_signing_key, PROOF_EXPIRATION_IN_HS};
+    use hex_literal::hex;
+    use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
     use std::{
         net::{IpAddr, Ipv4Addr},
         time::{Duration, SystemTime, UNIX_EPOCH},
     };
-
-    use crate::{node_id_from_signing_key, PROOF_EXPIRATION_IN_HS};
-
-    use super::*;
-    use hex_literal::hex;
-    use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 
     #[test]
     fn bucket_number_works_as_expected() {
@@ -234,7 +253,7 @@ mod tests {
         assert_eq!(result, expected_bucket);
     }
 
-    fn insert_random_node(table: &mut KademliaTable) -> (&mut PeerData, bool) {
+    fn insert_random_node(table: &mut KademliaTable) -> (PeerData, bool) {
         let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         let node = Node {
             ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
@@ -245,10 +264,25 @@ mod tests {
         table.insert_node(node)
     }
 
+    fn insert_random_node_on_custom_bucket(
+        table: &mut KademliaTable,
+        bucket_idx: usize,
+    ) -> (PeerData, bool) {
+        let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        let node = Node {
+            ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            tcp_port: 0,
+            udp_port: 0,
+            node_id,
+        };
+        table.insert_node_on_custom_bucket(node, bucket_idx)
+    }
+
     fn fill_table_with_random_nodes(table: &mut KademliaTable) {
-        // the idea is to fill the bucket to its max capacity
-        for _ in 0..256 * 16 {
-            insert_random_node(table);
+        for i in 0..256 {
+            for _ in 0..16 {
+                insert_random_node_on_custom_bucket(table, i);
+            }
         }
     }
 
@@ -265,44 +299,47 @@ mod tests {
         let mut table = get_test_table();
         let node_1_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         {
-            let (peer_1, _) = table.insert_node(Node {
+            table.insert_node(Node {
                 ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                 tcp_port: 0,
                 udp_port: 0,
                 node_id: node_1_id,
             });
-            peer_1.last_ping = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            table.get_by_node_id_mut(node_1_id).unwrap().last_ping = (SystemTime::now()
+                - Duration::from_secs(24 * 60 * 60))
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         }
 
         let node_2_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         {
-            let (peer_2, _) = table.insert_node(Node {
+            table.insert_node(Node {
                 ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                 tcp_port: 0,
                 udp_port: 0,
                 node_id: node_2_id,
             });
-            peer_2.last_ping = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            table.get_by_node_id_mut(node_2_id).unwrap().last_ping = (SystemTime::now()
+                - Duration::from_secs(36 * 60 * 60))
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         }
 
         let node_3_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         {
-            let (peer_3, _) = table.insert_node(Node {
+            table.insert_node(Node {
                 ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                 tcp_port: 0,
                 udp_port: 0,
                 node_id: node_3_id,
             });
-            peer_3.last_ping = (SystemTime::now() - Duration::from_secs(12 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            table.get_by_node_id_mut(node_3_id).unwrap().last_ping = (SystemTime::now()
+                - Duration::from_secs(12 * 60 * 60))
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         }
 
         // we expect the node_1 & node_2 to be returned here
@@ -318,36 +355,38 @@ mod tests {
     }
 
     #[test]
-    fn insert_peer_first_one_is_removed_when_filled() {
+    fn insert_peer_should_remove_first_replacement_when_list_is_full() {
         let mut table = get_test_table();
         fill_table_with_random_nodes(&mut table);
+        let bucket_idx = 0;
 
-        let first = insert_random_node(&mut table);
-        let (first, inserted_to_table) = (first.0.clone(), first.1);
-        assert!(!inserted_to_table);
+        let (first_node, _) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
 
+        // here we are forcingly pushing to the first bucket, that is, the distance might
+        // not be in accordance with the bucket index
+        // but we don't care about that here, we just want to check if the replacement works as expected
         for _ in 1..10 {
-            let (_, inserted_to_table) = insert_random_node(&mut table);
-            assert!(!inserted_to_table);
+            insert_random_node_on_custom_bucket(&mut table, bucket_idx);
         }
 
-        assert_eq!(first.node.node_id, table.replacements[0].node.node_id);
+        {
+            let bucket = &table.buckets[bucket_idx];
+            assert_eq!(first_node.node.node_id, bucket.replacements[0].node.node_id);
+        }
 
-        let last = insert_random_node(&mut table);
-        let (last, inserted_to_table) = (last.0.clone(), last.1);
-        assert!(!inserted_to_table);
+        // push one more element, this should replace the first one pushed
+        let (last, _) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
 
-        assert_ne!(first.node.node_id, table.replacements[0].node.node_id);
+        let bucket = &table.buckets[bucket_idx];
+        assert_ne!(first_node.node.node_id, bucket.replacements[0].node.node_id);
         assert_eq!(
             last.node.node_id,
-            table.replacements[MAX_NUMBER_OF_REPLACEMENTS - 1]
+            bucket.replacements[MAX_NUMBER_OF_REPLACEMENTS - 1]
                 .node
                 .node_id
         );
     }
 
-    #[test]
-    fn replace_peer_should_replace_peer() {}
     #[test]
     fn replace_peer_should_remove_peer_but_not_replace() {}
 }
