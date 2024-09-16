@@ -260,7 +260,7 @@ impl StoreEngine for Store {
         Ok(self.chain_data.pending_block_number)
     }
 
-    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };

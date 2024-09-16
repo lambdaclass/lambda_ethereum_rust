@@ -230,5 +230,5 @@ pub trait StoreEngine: Debug + Send {
 
     // Obtain the world state trie for the given block
     #[allow(unused)] // TODO: remove
-    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
 }
