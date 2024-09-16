@@ -110,30 +110,40 @@ async fn discover_peers_server(
                 };
                 let ping_hash = packet.get_hash();
                 pong(&udp_socket, from, ping_hash, &signer).await;
-                let mut table = table.lock().await;
-                let node = table.get_by_node_id_mut(packet.get_node_id());
+                let node = {
+                    let table = table.lock().await;
+                    table.get_by_node_id(packet.get_node_id()).cloned()
+                };
                 if let Some(peer) = node {
                     // send a a ping to get an endpoint proof
                     if time_since_in_hs(peer.last_ping) > 12 {
                         let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                         if let Some(hash) = hash {
-                            peer.last_ping_hash = Some(hash);
+                            table
+                                .lock()
+                                .await
+                                .update_peer_ping_hash(peer.node.node_id, Some(hash));
                         }
                     }
-                    peer.last_ping = time_now_unix();
                 } else {
                     // send a ping to get the endpoint proof from our end
-                    let (peer, inserted_to_table) = table.insert_node(Node {
-                        ip: from.ip(),
-                        udp_port: from.port(),
-                        tcp_port: 0,
-                        node_id: packet.get_node_id(),
-                    });
+                    let (peer, inserted_to_table) = {
+                        let mut table = table.lock().await;
+                        let res = table.insert_node(Node {
+                            ip: from.ip(),
+                            udp_port: from.port(),
+                            tcp_port: 0,
+                            node_id: packet.get_node_id(),
+                        });
+                        (res.0.clone(), res.1)
+                    };
                     let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                     if let Some(hash) = hash {
                         if inserted_to_table {
-                            peer.last_ping_hash = Some(hash);
-                            peer.last_ping = time_now_unix();
+                            table
+                                .lock()
+                                .await
+                                .update_peer_ping_hash(peer.node.node_id, Some(hash));
                         }
                     }
                 }
@@ -143,15 +153,17 @@ async fn discover_peers_server(
                     debug!("Ignoring pong as it is expired.");
                     continue;
                 }
-                let mut table = table.lock().await;
-                if let Some(peer) = table.get_by_node_id_mut(packet.get_node_id()) {
+                let peer = {
+                    let table = table.lock().await;
+                    table.get_by_node_id(packet.get_node_id()).cloned()
+                };
+                if let Some(peer) = peer {
                     if peer.last_ping_hash.is_none() {
                         debug!("Discarding pong as the node did not send a previous ping");
                         continue;
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
-                        peer.last_ping_hash = None;
-                        peer.is_proven = true;
+                        table.lock().await.mark_peer_as_proven(peer.node.node_id);
                     } else {
                         debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -166,11 +178,16 @@ async fn discover_peers_server(
                     debug!("Ignoring find node msg as it is expired.");
                     continue;
                 };
-                let table = table.lock().await;
-                let node = table.get_by_node_id(packet.get_node_id());
+                let node = {
+                    let table = table.lock().await;
+                    table.get_by_node_id(packet.get_node_id()).cloned()
+                };
                 if let Some(node) = node {
                     if node.is_proven {
-                        let nodes = table.get_closest_nodes(node.node.node_id);
+                        let nodes = {
+                            let table = table.lock().await;
+                            table.get_closest_nodes(node.node.node_id)
+                        };
                         let expiration = get_expiration(20);
                         let neighbors =
                             discv4::Message::Neighbors(NeighborsMessage::new(nodes, expiration));

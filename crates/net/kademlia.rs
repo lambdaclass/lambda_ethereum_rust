@@ -99,6 +99,28 @@ impl KademliaTable {
         nodes.iter().map(|a| a.0).collect()
     }
 
+    pub fn mark_peer_as_proven(&mut self, node_id: H512) {
+        let peer = self.get_by_node_id_mut(node_id);
+        if peer.is_none() {
+            return;
+        }
+
+        let peer = peer.unwrap();
+        peer.is_proven = true;
+        peer.last_ping_hash = None;
+    }
+
+    pub fn update_peer_ping_hash(&mut self, node_id: H512, ping_hash: Option<H256>) {
+        let peer = self.get_by_node_id_mut(node_id);
+        if peer.is_none() {
+            return;
+        }
+
+        let peer = peer.unwrap();
+        peer.last_ping_hash = ping_hash;
+        peer.last_ping = time_now_unix();
+    }
+
     pub fn invalidate_peer_proof(&mut self, node_id: H512, ping_hash: Option<H256>) {
         let peer = self.get_by_node_id_mut(node_id);
         if peer.is_none() {
