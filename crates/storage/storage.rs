@@ -320,7 +320,7 @@ impl Store {
                 code_hash,
             };
             let hashed_address = hash_address(&address);
-            genesis_world_state.insert(hashed_address, account_state.encode_to_vec());
+            genesis_world_state.insert(hashed_address, account_state.encode_to_vec())?;
         }
         genesis_world_state.hash()
     }
@@ -532,7 +532,7 @@ mod tests {
     use bytes::Bytes;
     use ethereum_rust_core::{
         rlp::decode::RLPDecode,
-        types::{self, Transaction, TxType},
+        types::{Transaction, TxType},
         Bloom,
     };
     use ethereum_types::{H256, U256};
@@ -599,14 +599,6 @@ mod tests {
             let _ = store.add_initial_state(genesis_hive);
         })
         .expect_err("genesis with a different block should panic");
-    }
-
-    fn new_account_info(code: Bytes, balance: U256, nonce: u64) -> AccountInfo {
-        AccountInfo {
-            code_hash: types::code_hash(&code),
-            balance,
-            nonce,
-        }
     }
 
     fn remove_test_dbs(path: &str) {
