@@ -168,7 +168,10 @@ impl Genesis {
             withdrawals_root: Some(compute_withdrawals_root(&[])),
             blob_gas_used,
             excess_blob_gas,
-            parent_beacon_block_root: Some(H256::zero()),
+            parent_beacon_block_root: self
+                .config
+                .is_cancun_activated(self.timestamp)
+                .then_some(H256::zero()),
         }
     }
 
