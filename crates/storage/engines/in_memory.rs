@@ -25,6 +25,7 @@ pub struct Store {
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
+    #[allow(unused)] // TODO: remove
     world_state_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
