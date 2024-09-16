@@ -14,7 +14,7 @@ pub struct LibmdbxTrieDB<T: Table> {
 
 use super::TrieDB;
 
-impl<T: Table> LibmdbxTrieDB<T>
+impl<T> LibmdbxTrieDB<T>
 where
     T: Table<Key = Vec<u8>, Value = Vec<u8>>,
 {
