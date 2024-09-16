@@ -43,7 +43,6 @@ impl RLPDecode for ForkId {
 }
 
 pub(crate) struct StatusMessage {
-    // TODO: check types.
     eth_version: u32,
     network_id: u64,
     total_difficulty: U256,
@@ -51,26 +50,6 @@ pub(crate) struct StatusMessage {
     genesis: BlockHash,
     fork_id: ForkId,
 }
-
-// impl StatusMessage {
-//     pub fn new(
-//         version: u8,
-//         network_id: u64,
-//         total_difficulty: U256,
-//         block_hash: BlockHash,
-//         genesis: BlockHash,
-//         fork_id: ForkId,
-//     ) -> Self {
-//         Self {
-//             version,
-//             network_id,
-//             total_difficulty,
-//             block_hash,
-//             genesis,
-//             fork_id,
-//         }
-//     }
-// }
 
 impl RLPxMessage for StatusMessage {
     fn encode(&self, buf: &mut dyn BufMut) {

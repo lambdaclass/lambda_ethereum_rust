@@ -30,7 +30,8 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{
-    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcSuccessResponse,
+    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcRequestId,
+    RpcSuccessResponse,
 };
 mod admin;
 mod authentication;
@@ -119,6 +120,7 @@ pub async fn handle_authrpc_request(
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
+    info!("Received body: {body}");
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
@@ -237,7 +239,7 @@ pub fn map_admin_requests(
     }
 }
 
-fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
+fn rpc_response<E>(id: RpcRequestId, res: Result<Value, E>) -> Json<Value>
 where
     E: Into<RpcErrorMetadata>,
 {
