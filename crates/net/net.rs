@@ -280,7 +280,7 @@ async fn peers_revalidation(
 
         let peers = {
             let mut table = table.lock().await;
-            table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60)
+            table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60 * 60)
         };
         let mut peers_pending_revalidation: HashSet<H512> = HashSet::default();
 
@@ -332,6 +332,14 @@ async fn peers_revalidation(
         debug!("Peer revalidation finished");
     }
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+
+//     #[test]
+//     fn
+// }
 
 /// Sends a ping to the addr
 /// # Returns

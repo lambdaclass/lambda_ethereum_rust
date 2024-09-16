@@ -214,8 +214,16 @@ impl PeerData {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        net::{IpAddr, Ipv4Addr},
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    };
+
+    use crate::{node_id_from_signing_key, PROOF_EXPIRATION_IN_HS};
+
     use super::*;
     use hex_literal::hex;
+    use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 
     #[test]
     fn bucket_number_works_as_expected() {
@@ -225,4 +233,121 @@ mod tests {
         let result = bucket_number(node_id_1, node_id_2);
         assert_eq!(result, expected_bucket);
     }
+
+    fn insert_random_node(table: &mut KademliaTable) -> (&mut PeerData, bool) {
+        let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        let node = Node {
+            ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            tcp_port: 0,
+            udp_port: 0,
+            node_id,
+        };
+        table.insert_node(node)
+    }
+
+    fn fill_table_with_random_nodes(table: &mut KademliaTable) {
+        // the idea is to fill the bucket to its max capacity
+        for _ in 0..256 * 16 {
+            insert_random_node(table);
+        }
+    }
+
+    fn get_test_table() -> KademliaTable {
+        let signer = SigningKey::random(&mut OsRng);
+        let local_node_id = node_id_from_signing_key(&signer);
+        let table = KademliaTable::new(local_node_id);
+
+        table
+    }
+
+    #[test]
+    fn get_peers_since_should_return_the_right_peers() {
+        let mut table = get_test_table();
+        let node_1_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        {
+            let (peer_1, _) = table.insert_node(Node {
+                ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                tcp_port: 0,
+                udp_port: 0,
+                node_id: node_1_id,
+            });
+            peer_1.last_ping = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+
+        let node_2_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        {
+            let (peer_2, _) = table.insert_node(Node {
+                ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                tcp_port: 0,
+                udp_port: 0,
+                node_id: node_2_id,
+            });
+            peer_2.last_ping = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+
+        let node_3_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        {
+            let (peer_3, _) = table.insert_node(Node {
+                ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                tcp_port: 0,
+                udp_port: 0,
+                node_id: node_3_id,
+            });
+            peer_3.last_ping = (SystemTime::now() - Duration::from_secs(12 * 60 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+
+        // we expect the node_1 & node_2 to be returned here
+        let peers: Vec<H512> = table
+            .get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60 * 60)
+            .iter()
+            .map(|p| p.node.node_id)
+            .collect();
+
+        assert!(peers.contains(&node_1_id));
+        assert!(peers.contains(&node_2_id));
+        assert!(!peers.contains(&node_3_id));
+    }
+
+    #[test]
+    fn insert_peer_first_one_is_removed_when_filled() {
+        let mut table = get_test_table();
+        fill_table_with_random_nodes(&mut table);
+
+        let first = insert_random_node(&mut table);
+        let (first, inserted_to_table) = (first.0.clone(), first.1);
+        assert!(!inserted_to_table);
+
+        for _ in 1..10 {
+            let (_, inserted_to_table) = insert_random_node(&mut table);
+            assert!(!inserted_to_table);
+        }
+
+        assert_eq!(first.node.node_id, table.replacements[0].node.node_id);
+
+        let last = insert_random_node(&mut table);
+        let (last, inserted_to_table) = (last.0.clone(), last.1);
+        assert!(!inserted_to_table);
+
+        assert_ne!(first.node.node_id, table.replacements[0].node.node_id);
+        assert_eq!(
+            last.node.node_id,
+            table.replacements[MAX_NUMBER_OF_REPLACEMENTS - 1]
+                .node
+                .node_id
+        );
+    }
+
+    #[test]
+    fn replace_peer_should_replace_peer() {}
+    #[test]
+    fn replace_peer_should_remove_peer_but_not_replace() {}
 }
