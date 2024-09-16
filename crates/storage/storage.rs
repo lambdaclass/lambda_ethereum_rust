@@ -27,6 +27,7 @@ mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
+    // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: Arc<Mutex<dyn StoreEngine>>,
 }
 
