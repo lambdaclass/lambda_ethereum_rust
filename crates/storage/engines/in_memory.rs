@@ -24,8 +24,7 @@ pub struct Store {
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
-    #[allow(unused)] // TODO: remove
-    world_state_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+    state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
 #[derive(Default)]
@@ -235,20 +234,20 @@ impl StoreEngine for Store {
         Ok(self.chain_data.pending_block_number)
     }
 
-    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
         let db = Box::new(crate::trie::InMemoryTrieDB::new(
-            self.world_state_nodes.clone(),
+            self.state_trie_nodes.clone(),
         ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
     }
 
-    fn new_world_state(&self) -> Result<Trie, StoreError> {
+    fn new_state_trie(&self) -> Result<Trie, StoreError> {
         let db = Box::new(crate::trie::InMemoryTrieDB::new(
-            self.world_state_nodes.clone(),
+            self.state_trie_nodes.clone(),
         ));
         let trie = Trie::new(db);
         Ok(trie)

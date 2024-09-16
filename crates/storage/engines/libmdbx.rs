@@ -309,19 +309,19 @@ impl StoreEngine for Store {
         }
     }
 
-    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
-        let db = Box::new(crate::trie::LibmdbxTrieDB::<WorldStateNodes>::new(
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
             self.db.clone(),
         ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
     }
 
-    fn new_world_state(&self) -> Result<Trie, StoreError> {
-        let db = Box::new(crate::trie::LibmdbxTrieDB::<WorldStateNodes>::new(
+    fn new_state_trie(&self) -> Result<Trie, StoreError> {
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
             self.db.clone(),
         ));
         let trie = Trie::new(db);
@@ -377,8 +377,8 @@ table!(
 // Trie storages
 
 table!(
-    /// World state trie nodes
-    ( WorldStateNodes ) Vec<u8> => Vec<u8>
+    /// state trie nodes
+    ( StateTrieNodes ) Vec<u8> => Vec<u8>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -471,7 +471,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
-        table_info!(WorldStateNodes),
+        table_info!(StateTrieNodes),
     ]
     .into_iter()
     .collect();

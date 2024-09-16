@@ -92,11 +92,11 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountInfo>, StoreError> {
-        let Some(world_state) = self.engine.lock().unwrap().world_state(block_number)? else {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
-        if let Some(encoded_state) = world_state.get(&hashed_address)? {
+        if let Some(encoded_state) = state_trie.get(&hashed_address)? {
             let account_state = AccountState::decode(&encoded_state)?;
             Ok(Some(AccountInfo {
                 code_hash: account_state.code_hash,
@@ -220,11 +220,11 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<Bytes>, StoreError> {
-        let Some(world_state) = self.engine.lock().unwrap().world_state(block_number)? else {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
-        if let Some(encoded_state) = world_state.get(&hashed_address)? {
+        if let Some(encoded_state) = state_trie.get(&hashed_address)? {
             let account_state = AccountState::decode(&encoded_state)?;
             self.get_account_code(account_state.code_hash)
         } else {
@@ -236,11 +236,11 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<u64>, StoreError> {
-        let Some(world_state) = self.engine.lock().unwrap().world_state(block_number)? else {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
-        if let Some(encoded_state) = world_state.get(&hashed_address)? {
+        if let Some(encoded_state) = state_trie.get(&hashed_address)? {
             let account_state = AccountState::decode(&encoded_state)?;
             Ok(Some(account_state.nonce))
         } else {
@@ -255,7 +255,7 @@ impl Store {
         block_number: BlockNumber,
         account_updates: &[AccountUpdate],
     ) -> Result<Option<H256>, StoreError> {
-        let Some(mut world_state) = self.engine.lock().unwrap().world_state(block_number)? else {
+        let Some(mut state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
             return Ok(None);
         };
         for update in account_updates.iter() {
@@ -263,11 +263,11 @@ impl Store {
             let hashed_address = hash_address(&update.address);
             if update.removed {
                 // Remove account from trie
-                world_state.remove(hashed_address)?;
+                state_trie.remove(hashed_address)?;
             } else {
                 // Add or update AccountState in the trie
                 // Fetch current state or create a new state to be inserted
-                let mut account_state = match world_state.get(&hashed_address)? {
+                let mut account_state = match state_trie.get(&hashed_address)? {
                     Some(encoded_state) => AccountState::decode(&encoded_state)?,
                     None => AccountState::default(),
                 };
@@ -290,18 +290,18 @@ impl Store {
                         &self.account_storage_iter(update.address)?.collect(),
                     );
                 }
-                world_state.insert(hashed_address, account_state.encode_to_vec())?;
+                state_trie.insert(hashed_address, account_state.encode_to_vec())?;
             }
         }
-        Ok(Some(world_state.hash()?))
+        Ok(Some(state_trie.hash()?))
     }
 
     /// Adds all genesis accounts and returns the genesis block's state_root
-    pub fn setup_genesis_world_state(
+    pub fn setup_genesis_state_trie(
         &self,
         genesis_accounts: HashMap<Address, GenesisAccount>,
     ) -> Result<H256, StoreError> {
-        let mut genesis_world_state = self.engine.lock().unwrap().new_world_state()?;
+        let mut genesis_state_trie = self.engine.lock().unwrap().new_state_trie()?;
         for (address, account) in genesis_accounts {
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
@@ -320,9 +320,9 @@ impl Store {
                 code_hash,
             };
             let hashed_address = hash_address(&address);
-            genesis_world_state.insert(hashed_address, account_state.encode_to_vec())?;
+            genesis_state_trie.insert(hashed_address, account_state.encode_to_vec())?;
         }
-        genesis_world_state.hash()
+        genesis_state_trie.hash()
     }
 
     pub fn add_receipt(
@@ -399,7 +399,7 @@ impl Store {
 
         // Store each alloc account
         // TODO: Use this when converting genesis to block
-        let _genesis_state_root = self.setup_genesis_world_state(genesis.alloc)?;
+        let _genesis_state_root = self.setup_genesis_state_trie(genesis.alloc)?;
 
         // Set chain config
         self.set_chain_config(&genesis.config)

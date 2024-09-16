@@ -160,9 +160,9 @@ pub trait StoreEngine: Debug + Send {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Obtain the world state trie for the given block
-    fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
 
     // Obtain a world state from an empty root
     // This method should be used when creating the genesis world state
-    fn new_world_state(&self) -> Result<Trie, StoreError>;
+    fn new_state_trie(&self) -> Result<Trie, StoreError>;
 }
