@@ -333,21 +333,19 @@ impl StoreEngine for Engine {
             Engine::Libmdbx(engine) => engine.get_pending_block_number(),
         }
     }
-
-    fn world_state(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<Trie<impl TrieDB>>, StoreError> {
-        Ok(Some(match self {
-            Engine::InMemory(engine) => foo(engine.world_state(block_number)?.unwrap()),
-            Engine::Libmdbx(engine) => foo(engine.world_state(block_number)?.unwrap()),
-        }))
-    }
 }
 
-fn foo<DB: TrieDB>(bar: Trie<DB>) -> Trie<DB> {
-    bar
-}
+// impl Engine {
+//     fn world_state<DB: TrieDB>(
+//         &self,
+//         block_number: BlockNumber,
+//     ) -> Result<Option<Trie<DB>>, StoreError> {
+//         match self {
+//             Engine::InMemory(engine) => return engine.world_state(block_number),
+//             Engine::Libmdbx(engine) => return engine.world_state(block_number),
+//         }
+//     }
+// }
 
 impl Store {
     pub fn new(path: &str, engine_type: EngineType) -> Result<Self, StoreError> {

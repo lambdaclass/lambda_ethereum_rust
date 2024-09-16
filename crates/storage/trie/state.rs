@@ -10,14 +10,14 @@ use super::db::TrieDB;
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed
 use super::{node::Node, node_hash::NodeHash};
-pub struct TrieState<DB: TrieDB> {
-    db: DB,
+pub struct TrieState {
+    db: Box<dyn TrieDB>,
     cache: HashMap<NodeHash, Node>,
 }
 
-impl<DB: TrieDB> TrieState<DB> {
+impl TrieState {
     /// Creates a TrieState referring to a db.
-    pub fn new(db: DB) -> TrieState<DB> {
+    pub fn new(db: Box<dyn TrieDB>) -> TrieState {
         TrieState {
             db,
             cache: Default::default(),

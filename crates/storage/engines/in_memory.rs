@@ -261,15 +261,15 @@ impl StoreEngine for Store {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.chain_data.pending_block_number)
     }
-
-    fn world_state(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<Trie<impl TrieDB>>, StoreError> {
+}
+impl Store {
+    pub fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
-        let db = crate::trie::InMemoryTrieDB::new(self.world_state_nodes.clone());
+        let db = Box::new(crate::trie::InMemoryTrieDB::new(
+            self.world_state_nodes.clone(),
+        ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
     }

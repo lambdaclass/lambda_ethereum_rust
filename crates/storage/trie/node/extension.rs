@@ -23,9 +23,9 @@ impl ExtensionNode {
     }
 
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get<DB: TrieDB>(
+    pub fn get(
         &self,
-        state: &TrieState<DB>,
+        state: &TrieState,
         mut path: NibbleSlice,
     ) -> Result<Option<ValueRLP>, StoreError> {
         // If the path is prefixed by this node's prefix, delegate to its child.
@@ -42,9 +42,9 @@ impl ExtensionNode {
     }
 
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
-    pub fn insert<DB: TrieDB>(
+    pub fn insert(
         mut self,
-        state: &mut TrieState<DB>,
+        state: &mut TrieState,
         mut path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -115,9 +115,9 @@ impl ExtensionNode {
         }
     }
 
-    pub fn remove<DB: TrieDB>(
+    pub fn remove(
         mut self,
-        state: &mut TrieState<DB>,
+        state: &mut TrieState,
         mut path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         /* Possible flow paths:
@@ -181,10 +181,7 @@ impl ExtensionNode {
     }
 
     /// Inserts the node into the state and returns its hash
-    pub fn insert_self<DB: TrieDB>(
-        self,
-        state: &mut TrieState<DB>,
-    ) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, StoreError> {
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use super::{db::libmdbx::Libmdbx, state::TrieState, Trie};
 
@@ -17,9 +17,9 @@ pub fn new_db_with_path<T: Table>(path: PathBuf) -> Database {
     Database::create(Some(path), &tables).expect("Failed creating db with path")
 }
 
-pub fn new_db<T: Table>() -> Database {
+pub fn new_db<T: Table>() -> Arc<Database> {
     let tables = [table_info!(T)].into_iter().collect();
-    Database::create(None, &tables).expect("Failed to create temp DB")
+    Arc::new(Database::create(None, &tables).expect("Failed to create temp DB"))
 }
 
 pub fn open_db<T: Table>(path: &str) -> Database {

@@ -19,8 +19,6 @@ pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::Libmdbx};
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
-pub type LibmdbxTrieDB<'a, T> = self::db::libmdbx::Libmdbx<'a, T>;
-
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -40,16 +38,16 @@ pub type ValueRLP = Vec<u8>;
 
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 /// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
-pub struct Trie<DB: TrieDB> {
+pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
     /// Contains the trie's nodes
-    pub(crate) state: TrieState<DB>,
+    pub(crate) state: TrieState,
 }
 
-impl<DB: TrieDB> Trie<DB> {
+impl Trie {
     /// Creates a new Trie from a clean DB
-    pub fn new(db: DB) -> Self {
+    pub fn new(db: Box<dyn TrieDB>) -> Self {
         Self {
             state: TrieState::new(db),
             root: None,
@@ -57,7 +55,7 @@ impl<DB: TrieDB> Trie<DB> {
     }
 
     /// Creates a trie from an already-initialized DB and sets root as the root node of the trie
-    pub fn open(db: DB, root: H256) -> Self {
+    pub fn open(db: Box<dyn TrieDB>, root: H256) -> Self {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
         Self {
             state: TrieState::new(db),

@@ -4,7 +4,7 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
     BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
 };
-use crate::trie::{Trie, TrieDB};
+use crate::trie::Trie;
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
@@ -22,15 +22,16 @@ use libmdbx::{
 use serde_json;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct Store {
-    db: Database,
+    db: Arc<Database>,
 }
 
 impl Store {
     pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            db: init_db(Some(path)),
+            db: Arc::new(init_db(Some(path))),
         })
     }
 
@@ -338,15 +339,15 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
-
-    fn world_state(
-        &self,
-        block_number: BlockNumber,
-    ) -> Result<Option<Trie<impl TrieDB>>, StoreError> {
+}
+impl Store {
+    pub fn world_state(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
-        let db = crate::trie::Libmdbx::<WorldStateNodes>::new(&self.db);
+        let db = Box::new(crate::trie::Libmdbx::<WorldStateNodes>::new(
+            self.db.clone(),
+        ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
     }
