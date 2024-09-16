@@ -173,12 +173,25 @@ impl KademliaTable {
     /// # Returns
     ///
     /// A mutable reference to the inserted peer or None in case there was no replacement
-    pub fn replace_peer(&mut self, peer_id: H512) -> Option<PeerData> {
-        let bucket_idx = bucket_number(peer_id, self.local_node_id);
+    pub fn replace_peer(&mut self, node_id: H512) -> Option<PeerData> {
+        let bucket_idx = bucket_number(self.local_node_id, node_id);
+        self.replace_peer_inner(node_id, bucket_idx)
+    }
+
+    #[cfg(test)]
+    fn replace_peer_on_custom_bucket(
+        &mut self,
+        node_id: H512,
+        bucket_idx: usize,
+    ) -> Option<PeerData> {
+        self.replace_peer_inner(node_id, bucket_idx)
+    }
+
+    pub fn replace_peer_inner(&mut self, node_id: H512, bucket_idx: usize) -> Option<PeerData> {
         let idx_to_remove = self.buckets[bucket_idx]
             .peers
             .iter()
-            .position(|peer| peer.node.node_id == peer_id);
+            .position(|peer| peer.node.node_id == node_id);
 
         if let Some(idx) = idx_to_remove {
             let bucket = &mut self.buckets[bucket_idx];
@@ -251,17 +264,6 @@ mod tests {
         let expected_bucket = 255;
         let result = bucket_number(node_id_1, node_id_2);
         assert_eq!(result, expected_bucket);
-    }
-
-    fn insert_random_node(table: &mut KademliaTable) -> (PeerData, bool) {
-        let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
-        let node = Node {
-            ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            tcp_port: 0,
-            udp_port: 0,
-            node_id,
-        };
-        table.insert_node(node)
     }
 
     fn insert_random_node_on_custom_bucket(
@@ -360,13 +362,17 @@ mod tests {
         fill_table_with_random_nodes(&mut table);
         let bucket_idx = 0;
 
-        let (first_node, _) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let (first_node, inserted_to_table) =
+            insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        assert!(!inserted_to_table);
 
         // here we are forcingly pushing to the first bucket, that is, the distance might
         // not be in accordance with the bucket index
         // but we don't care about that here, we just want to check if the replacement works as expected
-        for _ in 1..10 {
-            insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        for _ in 1..MAX_NUMBER_OF_REPLACEMENTS {
+            let (_, inserted_to_table) =
+                insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+            assert!(!inserted_to_table);
         }
 
         {
@@ -375,7 +381,8 @@ mod tests {
         }
 
         // push one more element, this should replace the first one pushed
-        let (last, _) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let (last, inserted_to_table) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        assert!(!inserted_to_table);
 
         let bucket = &table.buckets[bucket_idx];
         assert_ne!(first_node.node.node_id, bucket.replacements[0].node.node_id);
@@ -388,5 +395,40 @@ mod tests {
     }
 
     #[test]
-    fn replace_peer_should_remove_peer_but_not_replace() {}
+    fn replace_peer_should_replace_peer() {
+        let mut table = get_test_table();
+        let bucket_idx = 0;
+        fill_table_with_random_nodes(&mut table);
+
+        let (replacement_peer, inserted_to_table) =
+            insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        assert!(!inserted_to_table);
+
+        let node_id_to_replace = table.buckets[bucket_idx].peers[0].node.node_id;
+        let replacement = table.replace_peer_on_custom_bucket(node_id_to_replace, bucket_idx);
+
+        assert_eq!(
+            replacement.unwrap().node.node_id,
+            replacement_peer.node.node_id
+        );
+        assert_eq!(
+            table.buckets[bucket_idx].peers[0].node.node_id,
+            replacement_peer.node.node_id
+        );
+    }
+    #[test]
+    fn replace_peer_should_remove_peer_but_not_replace() {
+        // here, we will remove the peer, but with no replacements peers available
+        let mut table = get_test_table();
+        let bucket_idx = 0;
+        fill_table_with_random_nodes(&mut table);
+
+        let node_id_to_replace = table.buckets[bucket_idx].peers[0].node.node_id;
+        let len_before = table.buckets[bucket_idx].peers.len();
+        let replacement = table.replace_peer_on_custom_bucket(node_id_to_replace, bucket_idx);
+        let len_after = table.buckets[bucket_idx].peers.len();
+
+        assert!(replacement.is_none());
+        assert!(len_before - 1 == len_after);
+    }
 }
