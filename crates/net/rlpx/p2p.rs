@@ -12,13 +12,7 @@ use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEnc
 
 use crate::rlpx::utils::id2pubkey;
 
-use super::utils::pubkey2id;
-
-pub trait RLPxMessage: Sized {
-    fn encode(&self, buf: &mut dyn BufMut);
-
-    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError>;
-}
+use super::{message::RLPxMessage, utils::pubkey2id};
 
 pub(crate) struct HelloMessage {
     capabilities: Vec<(String, u8)>,
