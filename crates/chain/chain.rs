@@ -42,7 +42,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
-        .apply_account_updates(block.header.number.saturating_sub(1), &account_updates)?
+        .apply_account_updates(parent_header.number, &account_updates)?
         .unwrap_or_default();
 
     // Check state root matches the one in block header after execution
