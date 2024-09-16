@@ -1,5 +1,3 @@
-use std::time::{Duration, SystemTime};
-
 use crate::{
     discv4::{time_now_unix, FindNodeRequest},
     types::Node,

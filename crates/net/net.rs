@@ -65,7 +65,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     };
 
     let server_handler = tokio::spawn(discover_peers_server(
-        udp_addr.clone(),
+        udp_addr,
         udp_socket.clone(),
         table.clone(),
         signer.clone(),
@@ -261,15 +261,20 @@ async fn peers_revalidation(
         interval.tick().await;
         debug!("Running peer revalidation");
 
-        let mut table = table.lock().await;
-        let peers = table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60);
+        let peers = {
+            let mut table = table.lock().await;
+            table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60)
+        };
         let mut peers_pending_revalidation: HashSet<H512> = HashSet::default();
 
         for peer in peers {
-            if previously_pinged_peers.get(&peer.node.node_id).is_some() {
+            if previously_pinged_peers.contains(&peer.node.node_id) {
                 // Peer did not respond, replace it with a new peer from the replacements table
                 if !peer.is_proven {
-                    let new_peer = table.replace_peer(peer.node.node_id);
+                    let new_peer = {
+                        let mut table = table.lock().await;
+                        table.replace_peer(peer.node.node_id)
+                    };
                     debug!(
                         "Replacing peer {} with {:?} from table as it hasn't pinged back!",
                         peer.node.node_id, new_peer
@@ -282,6 +287,7 @@ async fn peers_revalidation(
                             &signer,
                         )
                         .await;
+                        let mut table = table.lock().await;
                         table.invalidate_peer_proof(peer.node.node_id, ping_hash);
                         peers_pending_revalidation.insert(peer.node.node_id);
                     }
@@ -296,6 +302,7 @@ async fn peers_revalidation(
                 &signer,
             )
             .await;
+            let mut table = table.lock().await;
             table.invalidate_peer_proof(peer.node.node_id, ping_hash);
             peers_pending_revalidation.insert(peer.node.node_id);
             debug!(
