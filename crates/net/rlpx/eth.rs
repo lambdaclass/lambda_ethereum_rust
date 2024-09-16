@@ -134,7 +134,7 @@ impl RLPxMessage for StatusMessage {
 
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, u64};
+    use std::str::FromStr;
 
     use ethereum_rust_core::{rlp::encode::RLPEncode, H32};
     use hex_literal::hex;
