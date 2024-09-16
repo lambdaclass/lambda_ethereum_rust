@@ -39,10 +39,13 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     validate_gas_used(&receipts, &block.header)?;
 
     let account_updates = get_state_transitions(&mut state);
-    state.database().apply_account_updates(&account_updates)?;
+    // Apply the account updates over the last block's state and compute the new state root
+    let new_state_root = state
+        .database()
+        .apply_account_updates(block.header.number.saturating_sub(1), &account_updates)?;
 
     // Check state root matches the one in block header after execution
-    validate_state_root(&block.header, storage)?;
+    validate_state_root(&block.header, new_state_root)?;
 
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block.header.number)?;
@@ -81,7 +84,10 @@ pub fn store_receipts(
 }
 
 /// Performs post-execution checks
-pub fn validate_state_root(block_header: &BlockHeader, storage: &Store) -> Result<(), ChainError> {
+pub fn validate_state_root(
+    block_header: &BlockHeader,
+    new_state_root: H256,
+) -> Result<(), ChainError> {
     // Compare state root
     if storage.world_state_root()? == block_header.state_root {
         Ok(())
