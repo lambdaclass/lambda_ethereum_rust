@@ -4,14 +4,19 @@ use crate::{
     RpcErr, RpcHandler,
 };
 use ethereum_rust_core::{
-    types::{BlockNumber, Index},
+    types::{BlockNumber, Index, Receipt},
     H160, H256, U256,
 };
 use ethereum_rust_storage::Store;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
-use std::collections::BTreeMap;
-
+use std::collections::{BTreeMap, BTreeSet};
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum AddressFilter {
+    Single(H160),
+    Many(Vec<H160>),
+}
 // TODO: This struct should be using serde,
 // but I couldn't get it to work, the culprit
 // seems to be BlockIdentifier enum.
@@ -26,7 +31,7 @@ pub struct LogsRequest {
     /// Will default to `latest` if not provided.
     pub toBlock: BlockIdentifier,
     /// The addresses from where the logs origin from.
-    pub address: Option<Vec<H160>>,
+    pub address: Option<AddressFilter>,
     /// Which topics to filter.
     pub topics: Option<Vec<U256>>,
 }
@@ -49,11 +54,16 @@ impl RpcHandler for LogsRequest {
                         BlockIdentifier::latest()
                     }
                 };
-                let address = None;
+                let address_filter = param.get("address").and_then(|address| match address {
+                    Value::String(_) | Value::Array(_) => {
+                        Some(serde_json::from_value::<AddressFilter>(address.clone()).unwrap())
+                    }
+                    _ => None,
+                });
                 let topics = None;
                 Ok(LogsRequest {
                     fromBlock,
-                    address,
+                    address: address_filter,
                     topics,
                     toBlock,
                 })
@@ -77,77 +87,68 @@ impl RpcHandler for LogsRequest {
         let Ok(Some(to)) = self.toBlock.resolve_block_number(&storage) else {
             return Err(RpcErr::BadParams);
         };
-        let receipts = storage.get_receipts_in_range(from, to)?;
+        let receipts: BTreeMap<BlockNumber, Receipt> =
+            storage.get_receipts_in_range(from, to).unwrap();
+
+        // Create address filter set
+        let address_filter: BTreeSet<_> = match &self.address {
+            Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
+            Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
+            None => BTreeSet::new(),
+        };
 
         // To build the RPC response, we'll need some information besides the log,
         // these are:
         // - Each tx hash + index inside the block
         // - Each Block Number (and eventually, hash)
-        // This is what each triple of this vec represents:
-        // - First coordinate is hash of a tx.
-        // - Second coordinate is the index inside the tx.
-        // - Third coordinate is the block number on which this tx was executed.
-        let tx_and_block_data: Vec<(H256, Index, BlockNumber)> = receipts
-            .iter()
-            .filter_map(|receipt| {
-                let tx_hash = receipt.tx_hash;
-                storage
-                    .get_transaction_location(tx_hash)
-                    .ok()
-                    .flatten()
-                    .map(|(block_num, tx_indx)| (tx_hash, tx_indx, block_num))
-            })
-            .collect();
+        // We'll collect this information as we process the receipts
 
-        // Since we'll also need the block hashes to build the RPC response,
-        // we'll obtain them this by fetching every block header and then computing its hash.
-        let block_hashes: Vec<H256> = tx_and_block_data
-            .iter()
-            .filter_map(|(_, _, block_num)| {
-                storage
-                    .get_block_header(*block_num)
-                    .ok()
-                    .flatten()
-                    .map(|header| header.compute_block_hash())
-            })
-            .collect();
+        // For the RPC response, each log has to know its index globally
+        // We'll use a global counter for log indices
+        let mut global_log_index: u64 = 0;
+        let mut all_logs: Vec<RpcLog> = Vec::new();
 
-        // For the RPC response, each log has to know its index inside the receipt
-        // here we'll use a BlockNumber -> Vec<RpcLog> map, backed by a BTreeMap,
-        // since we can take advantage the natural ordering of the BTreeMaps keys to avoid
-        // some more boilerplate. Plus, at this key size, can be more cache-friendly
-        // than a HashMap.
-        let mut logs_by_block: BTreeMap<BlockNumber, Vec<RpcLog>> = BTreeMap::new();
+        for (block_number, block_receipts) in receipts {
+            // Fetch block hash once per block
+            let block_hash = storage
+                .get_block_header(block_number)
+                .ok()
+                .flatten()
+                .map(|header| header.compute_block_hash())
+                .unwrap_or_default();
 
-        for (r_indx, receipt) in receipts.iter().enumerate() {
-            let (tx_hash, tx_index, block_number) = tx_and_block_data[r_indx];
-            let block_hash = block_hashes[r_indx];
+            for receipt in block_receipts {
+                // Fetch transaction location for each receipt
+                let Ok(Some((_, tx_index))) = storage.get_transaction_location(receipt.tx_hash)
+                else {
+                    continue;
+                };
 
-            let block_logs = logs_by_block.entry(block_number).or_insert_with(Vec::new);
-            let start_index = block_logs.len();
-
-            block_logs.extend(
-                receipt
-                    .logs
-                    .iter()
-                    .enumerate()
-                    .map(|(log_index, log)| RpcLog {
-                        log: log.clone().into(),
-                        log_index: (start_index + log_index) as u64,
-                        transaction_hash: tx_hash,
-                        transaction_index: tx_index,
-                        block_number,
-                        block_hash,
-                        removed: false,
-                    }),
-            );
+                for log in &receipt.logs {
+                    if address_filter.is_empty() || address_filter.contains(&log.address) {
+                        all_logs.push(RpcLog {
+                            log: log.clone().into(),
+                            log_index: global_log_index,
+                            transaction_hash: receipt.tx_hash,
+                            transaction_index: tx_index,
+                            block_number,
+                            block_hash,
+                            removed: false,
+                        });
+                        global_log_index += 1;
+                    }
+                }
+            }
         }
 
-        // Flatten the result, since the BTreeMap is orderd by block number,
-        // the RPC response will be ordered by block number, as expected
-        let logs: Vec<RpcLog> = logs_by_block.into_values().flatten().collect();
+        // Sort logs by block number and then by log index
+        all_logs.sort_by(|a, b| {
+            a.block_number
+                .cmp(&b.block_number)
+                .then(a.log_index.cmp(&b.log_index))
+        });
 
         // Serialize the logs to JSON, returning an error if serialization fails
-        serde_json::to_value(logs).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
     }
 }

@@ -4,7 +4,7 @@ use ethereum_rust_core::types::{
     Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::error::StoreError;
 
@@ -232,5 +232,5 @@ pub trait StoreEngine: Debug + Send {
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<Vec<Receipt>, StoreError>;
+    ) -> Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError>;
 }

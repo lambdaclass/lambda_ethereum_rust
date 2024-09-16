@@ -20,6 +20,7 @@ use libmdbx::{
     table_info,
 };
 use serde_json;
+use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 
@@ -341,31 +342,32 @@ impl StoreEngine for Store {
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> std::prelude::v1::Result<Vec<Receipt>, StoreError> {
-        let txn = self
-            .db
-            .begin_read()
-            .map_err(|err| StoreError::LibmdbxError(err))?;
-        let db_iter = match txn.cursor::<Receipts>() {
-            Ok(iter) => iter.walk(Some(from)),
-            Err(err) => return Err(StoreError::LibmdbxError(err)),
-        };
-        // Since keys are dup sort, the items
-        // yielded from db_iter will be sorted
-        // by block_number, we can simply push them
-        // into a vec to preserve the ordering.
-        let mut receipts = vec![];
-        for record in db_iter {
-            match record {
-                Ok(((block_num, _), encoded_receipt)) if block_num <= to => {
-                    let decoded_receipt = encoded_receipt.to();
-                    receipts.push(decoded_receipt);
-                }
-                Ok(_) => break,
-                Err(err) => return Err(StoreError::LibmdbxError(err)),
-            }
-        }
-        Ok(receipts)
+    ) -> std::prelude::v1::Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError> {
+        todo!()
+        // let txn = self
+        //     .db
+        //     .begin_read()
+        //     .map_err(|err| StoreError::LibmdbxError(err))?;
+        // let db_iter = match txn.cursor::<Receipts>() {
+        //     Ok(iter) => iter.walk(Some(from)),
+        //     Err(err) => return Err(StoreError::LibmdbxError(err)),
+        // };
+        // // Since keys are dup sort, the items
+        // // yielded from db_iter will be sorted
+        // // by block_number, we can simply push them
+        // // into a vec to preserve the ordering.
+        // let mut receipts = vec![];
+        // for record in db_iter {
+        //     match record {
+        //         Ok(((block_num, _), encoded_receipt)) if block_num <= to => {
+        //             let decoded_receipt = encoded_receipt.to();
+        //             receipts.push(decoded_receipt);
+        //         }
+        //         Ok(_) => break,
+        //         Err(err) => return Err(StoreError::LibmdbxError(err)),
+        //     }
+        // }
+        // Ok(receipts)
     }
 }
 

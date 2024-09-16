@@ -260,12 +260,15 @@ impl StoreEngine for Store {
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<Vec<Receipt>, StoreError> {
-        let mut receipts: Vec<Receipt> = vec![];
-        for (_, receipt_map) in self.receipts.range(from..=to) {
-            receipts.extend(receipt_map.values().map(|receipt| receipt.clone()));
+    ) -> Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError> {
+        let mut res = BTreeMap::new();
+
+        for (block_number, receipt_b_tree_map) in self.receipts.range(from..=to) {
+            let receipts: Vec<Receipt> = receipt_b_tree_map.values().cloned().collect();
+            res.insert(*block_number, receipts);
         }
-        Ok(receipts)
+
+        Ok(res)
     }
 }
 

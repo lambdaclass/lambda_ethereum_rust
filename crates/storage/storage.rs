@@ -14,7 +14,7 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::{Digest as _, Keccak256};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
@@ -471,7 +471,7 @@ impl Store {
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<Vec<Receipt>, StoreError> {
+    ) -> Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError> {
         let mut lock = self.engine.try_lock();
         if let Ok(ref mut db) = lock {
             db.get_receipts_in_range(from, to)
