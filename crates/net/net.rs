@@ -4,14 +4,17 @@ use std::{
 };
 
 use bootnode::BootNode;
-use discv4::{FindNodeMessage, Message, Packet, PingMessage, PongMessage};
+use discv4::{
+    get_expiration, is_expired, time_now_unix, time_since_in_hs, FindNodeMessage, Message,
+    NeighborsMessage, Packet, PingMessage, PongMessage,
+};
 use ethereum_rust_core::{H256, H512};
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
-use kademlia::{KademliaTable, PeerData};
+use kademlia::{KademliaTable, PeerData, MAX_NODES_PER_BUCKET};
 use rlpx::{
     connection::{RLPxConnection, SUPPORTED_CAPABILITIES},
     handshake::RLPxLocalClient,
@@ -24,8 +27,8 @@ use tokio::{
     net::{TcpSocket, UdpSocket},
     try_join,
 };
-use tracing::{info, warn};
-use types::Endpoint;
+use tracing::{debug, info, warn};
+use types::{Endpoint, Node};
 
 pub mod bootnode;
 pub(crate) mod discv4;
@@ -53,37 +56,143 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
-    let bootnode = match bootnodes.first() {
-        Some(b) => b,
-        None => {
-            return;
-        }
+    // TODO implement this right
+    if let Some(b) = bootnodes.first() {
+        ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
     };
-
-    ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
     let mut table = KademliaTable::new(local_node_id);
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        let packet = Packet::decode(&buf[..read]).unwrap();
-        let msg = packet.get_message();
         info!("Received {read} bytes from {from}");
-        info!("Message: {:?}", msg);
+
+        let packet = Packet::decode(&buf[..read]);
+        if packet.is_err() {
+            warn!("Could not decode packet: {:?}", packet.err().unwrap());
+            continue;
+        }
+        let packet = packet.unwrap();
+
+        let msg = packet.get_message();
+        info!("Message: {:?} from {}", msg, packet.get_node_id());
 
         match msg {
-            Message::Ping(_) => {
+            Message::Ping(msg) => {
+                if is_expired(msg.expiration) {
+                    debug!("Ignoring ping as it is expired.");
+                    continue;
+                };
                 let ping_hash = packet.get_hash();
                 pong(&udp_socket, from, ping_hash, &signer).await;
-                find_node(&udp_socket, from, &signer).await;
+
+                let node = table.get_by_node_id_mut(packet.get_node_id());
+                if let Some(peer) = node {
+                    // send a a ping to get an endpoint proof
+                    if time_since_in_hs(peer.last_ping) > 12 {
+                        let hash = ping(&udp_socket, udp_addr, from, &signer).await;
+                        if let Some(hash) = hash {
+                            peer.last_ping_hash = Some(hash);
+                        }
+                    }
+                    peer.last_ping = time_now_unix();
+                } else {
+                    // send a ping to get the endpoint proof from our end
+                    let (peer, inserted_to_table) = table.insert_node(Node {
+                        ip: from.ip(),
+                        udp_port: from.port(),
+                        tcp_port: 0,
+                        node_id: packet.get_node_id(),
+                    });
+                    let hash = ping(&udp_socket, udp_addr, from, &signer).await;
+                    if let Some(hash) = hash {
+                        if inserted_to_table {
+                            peer.last_ping_hash = Some(hash);
+                        }
+                    }
+                }
+            }
+            Message::Pong(msg) => {
+                if is_expired(msg.expiration) {
+                    debug!("Ignoring pong as it is expired.");
+                    continue;
+                }
+
+                if let Some(peer) = table.get_by_node_id_mut(packet.get_node_id()) {
+                    if peer.last_ping_hash.is_none() {
+                        debug!("Discarding pong as the node did not send a previous ping");
+                        continue;
+                    }
+                    if peer.last_ping_hash.unwrap() == msg.ping_hash {
+                        peer.last_ping_hash = None;
+                        peer.is_proven = true;
+                    } else {
+                        debug!(
+                            "Discarding pong as the hash did not match the last corresponding ping"
+                        );
+                    }
+                } else {
+                    debug!("Discarding pong as it is not a known node");
+                }
+            }
+            Message::FindNode(msg) => {
+                if is_expired(msg.expiration) {
+                    debug!("Ignoring find node msg as it is expired.");
+                    continue;
+                };
+                let node = table.get_by_node_id(packet.get_node_id());
+                if let Some(node) = node {
+                    if node.is_proven {
+                        let nodes = table.get_closest_nodes(node.node.node_id);
+                        let expiration = get_expiration(20);
+                        let neighbors =
+                            discv4::Message::Neighbors(NeighborsMessage::new(nodes, expiration));
+                        let mut buf = Vec::new();
+                        neighbors.encode_with_header(&mut buf, &signer);
+                        debug!("Sending neighbors!");
+                        udp_socket.send_to(&buf, from).await.unwrap();
+                    } else {
+                        debug!("Ignoring find node message as the node isn't proven!");
+                    }
+                } else {
+                    debug!("Ignoring find node message as it is not a known node");
+                }
             }
             Message::Neighbors(neighbors_msg) => {
-                let nodes = &neighbors_msg.nodes;
-                for node in nodes {
-                    let peer_data = PeerData::from(*node);
-                    table.insert(peer_data);
-                    let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
-                    ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                if is_expired(neighbors_msg.expiration) {
+                    debug!("Ignoring neighbor msg as it is expired.");
+                    continue;
+                };
+
+                let mut nodes_to_insert = None;
+                if let Some(node) = table.get_by_node_id_mut(packet.get_node_id()) {
+                    if let Some(req) = &mut node.find_node_request {
+                        let nodes = &neighbors_msg.nodes;
+                        let nodes_sent = req.nodes_sent + nodes.len();
+
+                        if nodes_sent <= MAX_NODES_PER_BUCKET {
+                            debug!("Storing neighbors in our table!");
+                            req.nodes_sent = nodes_sent;
+                            nodes_to_insert = Some(nodes.clone());
+                        } else {
+                            debug!("Ignoring neighbors message as the client sent more than the allowed nodes");
+                        }
+
+                        if nodes_sent == MAX_NODES_PER_BUCKET {
+                            debug!("Neighbors request has been fulfilled");
+                            node.find_node_request = None;
+                        }
+                    }
+                } else {
+                    debug!("Ignoring neighbor msg as it is not a known node");
+                }
+
+                if let Some(nodes) = nodes_to_insert {
+                    for node in nodes {
+                        table.insert_node(node);
+                        let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
+                        ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                    }
                 }
             }
             _ => {}
@@ -91,15 +200,18 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     }
 }
 
+/// Sends a ping to the addr
+/// # Returns
+/// an optional hash corresponding to the message header hash to account if the send was successful
 async fn ping(
     socket: &UdpSocket,
     local_addr: SocketAddr,
     to_addr: SocketAddr,
     signer: &SigningKey,
-) {
+) -> Option<H256> {
     let mut buf = Vec::new();
 
-    let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
+    let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
@@ -118,10 +230,29 @@ async fn ping(
 
     let ping: discv4::Message = discv4::Message::Ping(PingMessage::new(from, to, expiration));
     ping.encode_with_header(&mut buf, signer);
-    socket.send_to(&buf, to_addr).await.unwrap();
+    let res = socket.send_to(&buf, to_addr).await;
+
+    if res.is_err() {
+        return None;
+    }
+    let bytes_sent = res.unwrap();
+
+    // sanity check to make sure the ping was well sent
+    // though idk if this is actually needed or if it might break other stuff
+    if bytes_sent == buf.len() {
+        return Some(H256::from_slice(&buf[0..32]));
+    }
+
+    None
 }
 
-async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey) {
+#[allow(unused)]
+async fn find_node(
+    socket: &UdpSocket,
+    to_addr: SocketAddr,
+    signer: &SigningKey,
+    peer: &mut PeerData,
+) {
     let public_key = PublicKey::from(signer.verifying_key());
     let encoded = public_key.to_encoded_point(false);
     let bytes = encoded.as_bytes();
@@ -129,7 +260,7 @@ async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey)
 
     let target = H512::from_slice(&bytes[1..]);
 
-    let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
+    let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
@@ -140,12 +271,13 @@ async fn find_node(socket: &UdpSocket, to_addr: SocketAddr, signer: &SigningKey)
     msg.encode_with_header(&mut buf, signer);
 
     socket.send_to(&buf, to_addr).await.unwrap();
+    peer.new_find_node_request();
 }
 
 async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: &SigningKey) {
     let mut buf = Vec::new();
 
-    let expiration: u64 = (SystemTime::now() + Duration::from_secs(10))
+    let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
