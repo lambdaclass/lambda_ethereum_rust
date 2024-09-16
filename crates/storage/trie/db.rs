@@ -3,7 +3,7 @@ pub mod libmdbx;
 
 use crate::error::StoreError;
 
-use super::{InMemoryTrieDB, Libmdbx};
+use super::{InMemoryTrieDB, LibmdbxTrieDB};
 
 pub trait TrieDB {
     fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, StoreError>;

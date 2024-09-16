@@ -95,7 +95,7 @@ impl ExecutionPayloadV3 {
                 extra_data: self.extra_data,
                 prev_randao: self.prev_randao,
                 nonce: 0,
-                base_fee_per_gas: self.base_fee_per_gas,
+                base_fee_per_gas: Some(self.base_fee_per_gas),
                 withdrawals_root: Some(compute_withdrawals_root(
                     &body.withdrawals.clone().unwrap_or_default(),
                 )),

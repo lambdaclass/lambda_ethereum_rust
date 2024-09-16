@@ -315,7 +315,7 @@ impl BranchNode {
 
 #[cfg(test)]
 mod test {
-    use crate::trie::db::libmdbx::Libmdbx;
+    use crate::trie::db::libmdbx::LibmdbxTrieDB;
     use ethereum_types::H256;
 
     use super::*;

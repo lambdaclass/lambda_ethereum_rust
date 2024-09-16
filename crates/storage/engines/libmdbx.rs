@@ -344,7 +344,7 @@ impl StoreEngine for Store {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
-        let db = Box::new(crate::trie::Libmdbx::<WorldStateNodes>::new(
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<WorldStateNodes>::new(
             self.db.clone(),
         ));
         let trie = Trie::open(db, state_root);

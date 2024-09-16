@@ -191,7 +191,7 @@ impl ExtensionNode {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::trie::db::libmdbx::Libmdbx;
+    use crate::trie::db::libmdbx::LibmdbxTrieDB;
     use crate::trie::test_utils::{new_db, TestNodes};
     use crate::{
         pmt_node,

@@ -15,7 +15,7 @@ use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
 pub use self::db::TrieDB;
-pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::Libmdbx};
+pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB};
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
@@ -160,7 +160,7 @@ impl Trie {
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {
         let db = test_utils::new_db::<test_utils::TestNodes>();
-        Trie::new(Box::new(Libmdbx::<test_utils::TestNodes>::new(db)))
+        Trie::new(Box::new(LibmdbxTrieDB::<test_utils::TestNodes>::new(db)))
     }
 }
 
@@ -174,7 +174,7 @@ mod test {
     // Rename imports to avoid potential name clashes
     use super::test_utils;
     use cita_trie::{MemoryDB as CitaMemoryDB, PatriciaTrie as CitaTrie, Trie as CitaTrieTrait};
-    use db::libmdbx::Libmdbx;
+    use db::libmdbx::LibmdbxTrieDB;
     use hasher::HasherKeccak;
     use hex_literal::hex;
     use proptest::{
@@ -588,7 +588,7 @@ mod test {
 
         // Create new trie from clean DB
         let db = test_utils::new_db_with_path::<TestNodes>(trie_dir.into());
-        let mut trie = Trie::new(Box::new(Libmdbx::<TestNodes>::new(db.clone())));
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
 
         trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -603,7 +603,7 @@ mod test {
 
         let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
         // Create a new trie based on the previous trie's DB
-        let trie = Trie::open(Box::new(Libmdbx::<TestNodes>::new(db2)), root);
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db2)), root);
 
         assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
