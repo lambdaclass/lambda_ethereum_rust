@@ -305,7 +305,7 @@ impl Store {
             let code_hash = code_hash(&account.code);
             self.add_account_code(code_hash, account.code)?;
             // Store the accounts storage in the storage trie and compute its root
-            // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB tabel and compute the root
+            // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB table and compute the root
             let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
             for (storage_key, storage_value) in account.storage {
                 self.add_storage_at(address, storage_key, storage_value)?;
@@ -390,14 +390,14 @@ impl Store {
                 panic!("tried to run genesis twice with different blocks");
             }
         }
+        // Store genesis accounts
+        // TODO: Should we use this root instead of computing it before the block hash check?
+        let genesis_state_root = self.setup_genesis_state_trie(genesis.alloc)?;
+        debug_assert_eq!(genesis_state_root, genesis_block.header.state_root);
 
         // Store genesis block
         self.update_earliest_block_number(genesis_block_number)?;
         self.add_block(genesis_block)?;
-
-        // Store each alloc account
-        // TODO: Use this when converting genesis to block
-        let _genesis_state_root = self.setup_genesis_state_trie(genesis.alloc)?;
 
         // Set chain config
         self.set_chain_config(&genesis.config)
