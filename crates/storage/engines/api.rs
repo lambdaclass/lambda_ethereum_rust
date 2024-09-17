@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 
 use crate::{error::StoreError, trie::Trie};
@@ -93,30 +93,6 @@ pub trait StoreEngine: Debug + Send {
             .ok()
             .and_then(|index: usize| block_body.transactions.get(index).cloned()))
     }
-
-    // Add storage value
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError>;
-
-    // Obtain storage value
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<U256>, StoreError>;
-
-    // Add storage value
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError>;
-
-    // Get full account storage
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError>;
 
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present

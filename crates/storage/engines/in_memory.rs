@@ -3,7 +3,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H256};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -22,7 +22,6 @@ pub struct Store {
     headers: HashMap<BlockNumber, BlockHeader>,
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
-    account_storages: HashMap<Address, HashMap<H256, U256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
@@ -134,46 +133,6 @@ impl StoreEngine for Store {
 
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
         Ok(self.account_codes.get(&code_hash).cloned())
-    }
-
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        let entry = self.account_storages.entry(address).or_default();
-        entry.insert(storage_key, storage_value);
-        Ok(())
-    }
-
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<U256>, StoreError> {
-        Ok(self
-            .account_storages
-            .get(&address)
-            .and_then(|entry| entry.get(&storage_key).cloned()))
-    }
-
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
-        self.account_storages.remove(&address);
-        Ok(())
-    }
-
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        Ok(Box::new(
-            self.account_storages
-                .get(&address)
-                .cloned()
-                .into_iter()
-                .flatten(),
-        ))
     }
 
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
