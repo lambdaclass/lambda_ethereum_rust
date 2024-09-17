@@ -637,9 +637,35 @@ mod tests {
     use super::*;
     use discv4::time_now_unix;
     use k256::ecdsa::SigningKey;
+    use kademlia::bucket_number;
     use rand::rngs::OsRng;
     use std::net::{IpAddr, Ipv4Addr};
     use tokio::time::sleep;
+
+    async fn insert_random_node_on_custom_bucket(
+        table: Arc<Mutex<KademliaTable>>,
+        bucket_idx: usize,
+    ) {
+        let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        let node = Node {
+            ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            tcp_port: 0,
+            udp_port: 0,
+            node_id,
+        };
+        table
+            .lock()
+            .await
+            .insert_node_on_custom_bucket(node, bucket_idx);
+    }
+
+    async fn fill_table_with_random_nodes(table: Arc<Mutex<KademliaTable>>) {
+        for i in 0..256 {
+            for _ in 0..16 {
+                insert_random_node_on_custom_bucket(table.clone(), i).await;
+            }
+        }
+    }
 
     #[tokio::test]
     /** This is a end to end test on the discovery server, the idea is as follows:
@@ -793,6 +819,88 @@ mod tests {
             let table = table.lock().await;
             let peer = table.get_by_node_id(node_id_a);
             assert!(peer.is_none());
+        }
+    }
+
+    #[tokio::test]
+    /** This test tests the lookup function, the idea is as follows:
+     * - We'll start two discovery servers (`a` & `b`) that will connect between each other
+     * - We'll insert random nodes to the server `a`` to fill its table
+     * - We'll forcedly run `lookup` and validate that a `find_node` request was sent
+     *   by checking that new nodes have been inserted to the table
+     */
+    async fn discovery_server_lookup() {
+        let addr_a = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8002);
+        let signer_a = SigningKey::random(&mut OsRng);
+        let udp_socket_a = Arc::new(UdpSocket::bind(addr_a).await.unwrap());
+        let node_id_a = node_id_from_signing_key(&signer_a);
+        let table_a = Arc::new(Mutex::new(KademliaTable::new(node_id_a)));
+        fill_table_with_random_nodes(table_a.clone()).await;
+
+        tokio::spawn(discover_peers_server(
+            addr_a,
+            udp_socket_a.clone(),
+            table_a.clone(),
+            signer_a.clone(),
+        ));
+
+        let addr_b = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8003);
+        let signer_b = SigningKey::random(&mut OsRng);
+        let udp_socket_b = Arc::new(UdpSocket::bind(addr_b).await.unwrap());
+        let node_id_b = node_id_from_signing_key(&signer_b);
+        let table_b = Arc::new(Mutex::new(KademliaTable::new(node_id_b)));
+
+        tokio::spawn(discover_peers_server(
+            addr_b,
+            udp_socket_b.clone(),
+            table_b.clone(),
+            signer_b.clone(),
+        ));
+
+        // before making the connection, remove a node from the `b` bucket. Otherwise it won't be added
+        let b_bucket = bucket_number(node_id_a, node_id_b);
+        let node_id_to_remove = table_a.lock().await.buckets()[b_bucket].peers[0]
+            .node
+            .node_id;
+        table_a
+            .lock()
+            .await
+            .replace_peer_on_custom_bucket(node_id_to_remove, b_bucket);
+
+        let ping_hash = ping(&udp_socket_b, addr_b, addr_a, &signer_b).await;
+        {
+            let mut table = table_b.lock().await;
+            table.insert_node(Node {
+                ip: addr_a.ip(),
+                udp_port: addr_a.port(),
+                tcp_port: 0,
+                node_id: node_id_a,
+            });
+            table.update_peer_ping(node_id_a, ping_hash);
+        }
+
+        // allow some time for the handshake
+        sleep(Duration::from_secs(1)).await;
+
+        // now we are going to run a lookup with us as the target
+        let closets_peers_to_b_from_a = table_a.lock().await.get_closest_nodes(node_id_b);
+        let mut asked_peers = HashSet::default();
+        lookup(
+            udp_socket_b.clone(),
+            table_b.clone(),
+            &signer_b,
+            node_id_b,
+            &mut asked_peers,
+        )
+        .await;
+
+        // find_node sent, allow some time for `a` to respond
+        sleep(Duration::from_secs(30)).await;
+
+        // now all peers should've been inserted
+        for peer in closets_peers_to_b_from_a {
+            let table = table_b.lock().await;
+            assert!(table.get_by_node_id(peer.node_id).is_some());
         }
     }
 }

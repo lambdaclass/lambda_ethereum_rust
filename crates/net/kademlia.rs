@@ -10,7 +10,7 @@ const NUMBER_OF_BUCKETS: usize = 256;
 const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
 #[derive(Clone, Debug, Default)]
-struct Bucket {
+pub struct Bucket {
     pub peers: Vec<PeerData>,
     pub replacements: Vec<PeerData>,
 }
@@ -28,6 +28,10 @@ impl KademliaTable {
             local_node_id,
             buckets,
         }
+    }
+
+    pub fn buckets(&self) -> &Vec<Bucket> {
+        &self.buckets
     }
 
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
@@ -59,7 +63,7 @@ impl KademliaTable {
     }
 
     #[cfg(test)]
-    fn insert_node_on_custom_bucket(
+    pub fn insert_node_on_custom_bucket(
         &mut self,
         node: Node,
         bucket_idx: usize,
@@ -195,7 +199,7 @@ impl KademliaTable {
     }
 
     #[cfg(test)]
-    fn replace_peer_on_custom_bucket(
+    pub fn replace_peer_on_custom_bucket(
         &mut self,
         node_id: H512,
         bucket_idx: usize,
