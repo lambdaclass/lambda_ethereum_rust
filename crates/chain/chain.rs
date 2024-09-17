@@ -9,7 +9,7 @@ use ethereum_rust_core::types::{
 use ethereum_rust_core::H256;
 
 use ethereum_rust_evm::{
-    apply_state_transitions, evm_state, execute_block, spec_id, EvmState, SpecId,
+    evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
 };
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
@@ -29,7 +29,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     extends_canonical_chain(block, storage)?;
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
-    let mut state = evm_state(storage.clone());
+    let mut state = evm_state(storage.clone(), parent_header.number);
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
@@ -38,10 +38,15 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     validate_gas_used(&receipts, &block.header)?;
 
-    apply_state_transitions(&mut state)?;
+    let account_updates = get_state_transitions(&mut state);
+    // Apply the account updates over the last block's state and compute the new state root
+    let new_state_root = state
+        .database()
+        .apply_account_updates(parent_header.number, &account_updates)?
+        .unwrap_or_default();
 
     // Check state root matches the one in block header after execution
-    validate_state_root(&block.header, storage)?;
+    validate_state_root(&block.header, new_state_root)?;
 
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block.header.number)?;
@@ -80,9 +85,12 @@ pub fn store_receipts(
 }
 
 /// Performs post-execution checks
-pub fn validate_state_root(block_header: &BlockHeader, storage: &Store) -> Result<(), ChainError> {
+pub fn validate_state_root(
+    block_header: &BlockHeader,
+    new_state_root: H256,
+) -> Result<(), ChainError> {
     // Compare state root
-    if storage.world_state_root() == block_header.state_root {
+    if new_state_root == block_header.state_root {
         Ok(())
     } else {
         Err(ChainError::InvalidBlock(

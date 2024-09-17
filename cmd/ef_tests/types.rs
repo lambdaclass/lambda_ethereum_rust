@@ -1,10 +1,10 @@
 use bytes::Bytes;
-use ethereum_rust_core::types::Withdrawal;
 use ethereum_rust_core::types::{
     code_hash, Account as ethereum_rustAccount, AccountInfo, Block as CoreBlock, BlockBody,
     EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
     Transaction as ethereum_rustTransaction, TxKind,
 };
+use ethereum_rust_core::types::{Genesis, GenesisAccount, Withdrawal};
 use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,6 +36,34 @@ impl TestUnit {
             is_rlp_only = is_rlp_only || block.block().is_none();
         }
         is_rlp_only
+    }
+
+    pub fn get_genesis(&self) -> Genesis {
+        Genesis {
+            config: *self.network.chain_config(),
+            alloc: self
+                .pre
+                .clone()
+                .into_iter()
+                .map(|(key, val)| (key, val.into()))
+                .collect(),
+            coinbase: self.genesis_block_header.coinbase,
+            difficulty: self.genesis_block_header.difficulty,
+            extra_data: self.genesis_block_header.extra_data.clone(),
+            gas_limit: self.genesis_block_header.gas_limit.as_u64(),
+            nonce: self.genesis_block_header.nonce.to_low_u64_be(),
+            mix_hash: self.genesis_block_header.mix_hash,
+            timestamp: self.genesis_block_header.timestamp.as_u64(),
+            base_fee_per_gas: self
+                .genesis_block_header
+                .base_fee_per_gas
+                .map(|v| v.as_u64()),
+            blob_gas_used: self.genesis_block_header.blob_gas_used.map(|v| v.as_u64()),
+            excess_blob_gas: self
+                .genesis_block_header
+                .excess_blob_gas
+                .map(|v| v.as_u64()),
+        }
     }
 }
 
@@ -355,6 +383,25 @@ impl From<Account> for ethereum_rustAccount {
                     (H256(k_bytes), v)
                 })
                 .collect(),
+        }
+    }
+}
+
+impl From<Account> for GenesisAccount {
+    fn from(val: Account) -> Self {
+        GenesisAccount {
+            code: val.code,
+            storage: val
+                .storage
+                .into_iter()
+                .map(|(k, v)| {
+                    let mut k_bytes = [0; 32];
+                    k.to_big_endian(&mut k_bytes);
+                    (H256(k_bytes), v)
+                })
+                .collect(),
+            balance: val.balance,
+            nonce: val.nonce.as_u64(),
         }
     }
 }
