@@ -16,7 +16,8 @@ use k256::{
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
-use kademlia::{KademliaTable, PeerData, MAX_NODES_PER_BUCKET};
+use kademlia::{KademliaTable, MAX_NODES_PER_BUCKET};
+use rand::rngs::OsRng;
 use rlpx::{
     connection::SUPPORTED_CAPABILITIES, handshake::RLPxLocalClient,
     message::Message as RLPxMessage, p2p,
@@ -74,11 +75,18 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         udp_addr,
         udp_socket.clone(),
         table.clone(),
-        signer,
+        signer.clone(),
         REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
     ));
+    let lookup_handler = tokio::spawn(peers_lookup(
+        udp_socket.clone(),
+        table.clone(),
+        signer,
+        local_node_id,
+        PEERS_RANDOM_LOOKUP_TIME_IN_MIN as u64 * 60,
+    ));
 
-    try_join!(server_handler, revalidation_handler).unwrap();
+    try_join!(server_handler, revalidation_handler, lookup_handler).unwrap();
 }
 async fn discover_peers_server(
     udp_addr: SocketAddr,
@@ -138,7 +146,8 @@ async fn discover_peers_server(
                     };
                     let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                     if let Some(hash) = hash {
-                        if inserted_to_table {
+                        if inserted_to_table && peer.is_some() {
+                            let peer = peer.unwrap();
                             table
                                 .lock()
                                 .await
@@ -234,7 +243,8 @@ async fn discover_peers_server(
                 if let Some(nodes) = nodes_to_insert {
                     for node in nodes {
                         let (peer, inserted_to_table) = table.insert_node(node);
-                        if inserted_to_table {
+                        if inserted_to_table && peer.is_some() {
+                            let peer = peer.unwrap();
                             let node_addr = SocketAddr::new(peer.node.ip, peer.node.udp_port);
                             let ping_hash = ping(&udp_socket, udp_addr, node_addr, &signer).await;
                             table.update_peer_ping(peer.node.node_id, ping_hash);
@@ -333,6 +343,96 @@ async fn peers_revalidation(
     }
 }
 
+const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 10;
+
+/// Starts a tokio scheduler that:
+/// - performs random lookups to discover new nodes. Currently this is configure to run every `PEERS_RANDOM_LOOKUP_TIME_IN_MIN`
+///
+/// **Random lookups**
+///
+/// Random lookups work in the following manner:
+/// 1. We send a find_node that is closest to our public key
+/// 2. We select the 3 closest peers that we haven't select previously
+/// 3. We send a find_node request to each one of them concurrently
+///
+/// To each find_node request it will correspond (or it should) a neighbors response
+/// where we will decide whether we insert the node or not (at least it will be added to the replacement list).
+///
+/// See more https://github.com/ethereum/devp2p/blob/master/discv4.md#recursive-lookup
+async fn peers_lookup(
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    local_node_id: H512,
+    interval_time_in_seconds: u64,
+) {
+    let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
+
+    // here we store the peers that we have already send a find_node request
+    let mut asked_peers: HashSet<H512> = HashSet::default();
+
+    interval.tick().await;
+    loop {
+        interval.tick().await;
+
+        // lookup closest to our pub key
+        lookup(
+            udp_socket.clone(),
+            table.clone(),
+            &signer,
+            local_node_id,
+            &mut asked_peers,
+        )
+        .await;
+
+        // lookup closest to 3 random keys
+        for _ in 0..3 {
+            let random_pub_key = &SigningKey::random(&mut OsRng);
+            lookup(
+                udp_socket.clone(),
+                table.clone(),
+                &signer,
+                node_id_from_signing_key(random_pub_key),
+                &mut asked_peers,
+            )
+            .await;
+        }
+    }
+}
+
+async fn lookup(
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: &SigningKey,
+    target: H512,
+    asked_peers: &mut HashSet<H512>,
+) {
+    let alpha = 3;
+    let closest_nodes = table.lock().await.get_closest_nodes(target);
+    let queries = 0;
+    for node in closest_nodes {
+        if !asked_peers.contains(&node.node_id) {
+            find_node(
+                &udp_socket,
+                SocketAddr::new(node.ip, node.udp_port),
+                signer,
+                target,
+            )
+            .await;
+            let mut table = table.lock().await;
+            let peer = table.get_by_node_id_mut(node.node_id);
+            if let Some(peer) = peer {
+                peer.new_find_node_request();
+            }
+            asked_peers.insert(node.node_id);
+        }
+
+        if queries == alpha {
+            break;
+        }
+    }
+}
+
 /// Sends a ping to the addr
 /// # Returns
 /// an optional hash corresponding to the message header hash to account if the send was successful
@@ -379,13 +479,11 @@ async fn ping(
     None
 }
 
-#[allow(unused)]
 async fn find_node(
     socket: &UdpSocket,
     to_addr: SocketAddr,
     signer: &SigningKey,
     target_node_id: H512,
-    peer: &mut PeerData,
 ) {
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
@@ -399,7 +497,6 @@ async fn find_node(
     msg.encode_with_header(&mut buf, signer);
 
     socket.send_to(&buf, to_addr).await.unwrap();
-    peer.new_find_node_request();
 }
 
 async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: &SigningKey) {
