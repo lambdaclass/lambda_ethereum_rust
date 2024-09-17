@@ -185,7 +185,7 @@ async fn discover_peers_server(
                     if node.is_proven {
                         let nodes = {
                             let table = table.lock().await;
-                            table.get_closest_nodes(node.node.node_id)
+                            table.get_closest_nodes(msg.target)
                         };
                         let expiration = get_expiration(20);
                         let neighbors =
@@ -233,9 +233,12 @@ async fn discover_peers_server(
 
                 if let Some(nodes) = nodes_to_insert {
                     for node in nodes {
-                        table.insert_node(node);
-                        let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
-                        ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                        let (peer, inserted_to_table) = table.insert_node(node);
+                        if inserted_to_table {
+                            let node_addr = SocketAddr::new(peer.node.ip, peer.node.udp_port);
+                            let ping_hash = ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                            table.update_peer_ping(peer.node.node_id, ping_hash);
+                        };
                     }
                 }
             }
@@ -249,7 +252,6 @@ const PROOF_EXPIRATION_IN_HS: usize = 12;
 
 /// Starts a tokio scheduler that:
 /// - performs periodic revalidation of the current nodes (sends a ping to the old nodes). Currently this is configured to happen every [`REVALIDATION_INTERVAL_IN_MINUTES`]
-/// - performs random lookups to discover new nodes (not yet implemented)
 ///
 /// **Peer revalidation**
 ///
@@ -382,21 +384,16 @@ async fn find_node(
     socket: &UdpSocket,
     to_addr: SocketAddr,
     signer: &SigningKey,
+    target_node_id: H512,
     peer: &mut PeerData,
 ) {
-    let public_key = PublicKey::from(signer.verifying_key());
-    let encoded = public_key.to_encoded_point(false);
-    let bytes = encoded.as_bytes();
-    debug_assert_eq!(bytes[0], 4);
-
-    let target = H512::from_slice(&bytes[1..]);
-
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
 
-    let msg: discv4::Message = discv4::Message::FindNode(FindNodeMessage::new(target, expiration));
+    let msg: discv4::Message =
+        discv4::Message::FindNode(FindNodeMessage::new(target_node_id, expiration));
 
     let mut buf = Vec::new();
     msg.encode_with_header(&mut buf, signer);
