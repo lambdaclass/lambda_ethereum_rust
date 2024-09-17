@@ -31,7 +31,7 @@ pub struct LogsRequest {
     /// Will default to `latest` if not provided.
     pub toBlock: BlockIdentifier,
     /// The addresses from where the logs origin from.
-    pub address: Option<AddressFilter>,
+    pub address_filters: Option<AddressFilter>,
     /// Which topics to filter.
     pub topics: Option<Vec<U256>>,
 }
@@ -63,7 +63,7 @@ impl RpcHandler for LogsRequest {
                 let topics = None;
                 Ok(LogsRequest {
                     fromBlock,
-                    address: address_filter,
+                    address_filters: address_filter,
                     topics,
                     toBlock,
                 })
@@ -87,55 +87,61 @@ impl RpcHandler for LogsRequest {
         let Ok(Some(to)) = self.toBlock.resolve_block_number(&storage) else {
             return Err(RpcErr::BadParams);
         };
-        let receipts: BTreeMap<BlockNumber, Receipt> =
+
+        // First, we fetch *every* receipt in range, we'll
+        // need to count every one last of them to properly
+        // index the logs.
+        let receipts: BTreeMap<BlockNumber, Vec<Receipt>> =
             storage.get_receipts_in_range(from, to).unwrap();
 
-        // Create address filter set
-        let address_filter: BTreeSet<_> = match &self.address {
+        // If we were given one or more input address, we'll use them
+        // to only keep the logs which started from one of the given addresses.
+        let address_filter: BTreeSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
             Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
             None => BTreeSet::new(),
         };
 
-        // To build the RPC response, we'll need some information besides the log,
-        // these are:
-        // - Each tx hash + index inside the block
-        // - Each Block Number (and eventually, hash)
-        // We'll collect this information as we process the receipts
-
-        // For the RPC response, each log has to know its index globally
-        // We'll use a global counter for log indices
-        let mut global_log_index: u64 = 0;
         let mut all_logs: Vec<RpcLog> = Vec::new();
 
         for (block_number, block_receipts) in receipts {
-            // Fetch block hash once per block
-            let block_hash = storage
-                .get_block_header(block_number)
-                .ok()
-                .flatten()
-                .map(|header| header.compute_block_hash())
-                .unwrap_or_default();
+            let block_header = storage.get_block_header(block_number)?;
+            // This error is on our side, since we should
+            // previously check the given block range is valid,
+            // but this is a probably a WIP.
+            match block_header {
+                None => {
+                    return Err(RpcErr::Internal);
+                }
+                Some(header) => {
+                    // Logs are indexed block wide, so we count them up from 0
+                    // on each block.
+                    let mut block_log_index = 0_u64;
+                    // TODO: Computing a hash on every request
+                    // seems risky, should we cache this
+                    // when we can?
+                    let block_hash = header.compute_block_hash();
+                    for receipt in block_receipts {
+                        let Ok(Some((_, tx_index))) =
+                            storage.get_transaction_location(receipt.tx_hash)
+                        else {
+                            continue;
+                        };
 
-            for receipt in block_receipts {
-                // Fetch transaction location for each receipt
-                let Ok(Some((_, tx_index))) = storage.get_transaction_location(receipt.tx_hash)
-                else {
-                    continue;
-                };
-
-                for log in &receipt.logs {
-                    if address_filter.is_empty() || address_filter.contains(&log.address) {
-                        all_logs.push(RpcLog {
-                            log: log.clone().into(),
-                            log_index: global_log_index,
-                            transaction_hash: receipt.tx_hash,
-                            transaction_index: tx_index,
-                            block_number,
-                            block_hash,
-                            removed: false,
-                        });
-                        global_log_index += 1;
+                        for log in &receipt.logs {
+                            if address_filter.is_empty() || address_filter.contains(&log.address) {
+                                all_logs.push(RpcLog {
+                                    log: log.clone().into(),
+                                    log_index: block_log_index,
+                                    transaction_hash: receipt.tx_hash,
+                                    transaction_index: tx_index,
+                                    block_number,
+                                    block_hash,
+                                    removed: false,
+                                });
+                            }
+                            block_log_index += 1;
+                        }
                     }
                 }
             }
