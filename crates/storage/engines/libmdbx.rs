@@ -4,6 +4,7 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
     BlockHeaderRLP, ReceiptRLP, TransactionHashRLP, TupleRLP,
 };
+use crate::trie::Trie;
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
@@ -21,15 +22,16 @@ use libmdbx::{
 use serde_json;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct Store {
-    db: Database,
+    db: Arc<Database>,
 }
 
 impl Store {
     pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            db: init_db(Some(path)),
+            db: Arc::new(init_db(Some(path))),
         })
     }
 
@@ -363,6 +365,17 @@ impl StoreEngine for Store {
         }
     }
 
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
+            return Ok(None);
+        };
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
+            self.db.clone(),
+        ));
+        let trie = Trie::open(db, state_root);
+        Ok(Some(trie))
+    }
+
     fn set_canonical_block_hash(
         &mut self,
         number: BlockNumber,
@@ -425,6 +438,13 @@ table!(
     /// Stores chain data, each value is unique and stored as its rlp encoding
     /// See [ChainDataIndex] for available chain values
     ( ChainData ) ChainDataIndex => Vec<u8>
+);
+
+// Trie storages
+
+table!(
+    /// state trie nodes
+    ( StateTrieNodes ) Vec<u8> => Vec<u8>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -518,6 +538,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
+        table_info!(StateTrieNodes),
         table_info!(CanonicalBlockHashes),
     ]
     .into_iter()

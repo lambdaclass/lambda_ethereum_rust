@@ -6,7 +6,7 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
 
-use crate::error::StoreError;
+use crate::{error::StoreError, trie::Trie};
 
 pub trait StoreEngine: Debug + Send {
     /// Add account info
@@ -233,6 +233,10 @@ pub trait StoreEngine: Debug + Send {
 
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Obtain the world state trie for the given block
+    #[allow(unused)] // TODO: remove
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
 
     // Get the canonical block hash for a given block number.
     fn set_canonical_block_hash(

@@ -27,8 +27,8 @@ mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
+    // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: Arc<Mutex<dyn StoreEngine>>,
-    //world_state:  PatriciaMerkleTree<Vec<u8>, Vec<u8>, Keccak256>,
 }
 
 #[allow(dead_code)]
@@ -47,13 +47,10 @@ impl Store {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
                 engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
-                // TODO: build from DB
-                //world_state: PatriciaMerkleTree::default(),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
-                //world_state: PatriciaMerkleTree::default(),
             },
         };
         info!("Started store engine");
