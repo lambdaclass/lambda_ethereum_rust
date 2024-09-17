@@ -43,8 +43,12 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, storage)?;
 
+    let hash = block.header.compute_block_hash();
     store_block(storage, block.clone())?;
-    store_receipts(storage, receipts, block.header.compute_block_hash())?;
+    store_receipts(storage, receipts, hash)?;
+
+    // TODO(#350): This should happen in forkchoiceUpdates, not every time a block is added.
+    storage.set_canonical_block_hash(block.header.number, hash)?;
 
     Ok(())
 }
