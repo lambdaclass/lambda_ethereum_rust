@@ -216,10 +216,7 @@ impl StoreEngine for Store {
     }
 
     fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
-        let trie_backend = self
-            .storage_trie_nodes
-            .entry(address)
-            .or_insert(NodeMap::default());
+        let trie_backend = self.storage_trie_nodes.entry(address).or_default();
         let db = Box::new(crate::trie::InMemoryTrieDB::new(trie_backend.clone()));
         Trie::open(db, storage_root)
     }

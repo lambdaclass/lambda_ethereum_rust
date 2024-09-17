@@ -284,7 +284,7 @@ impl Store {
                         .unwrap()
                         .open_storage_trie(update.address, account_state.storage_root);
                     for (storage_key, storage_value) in &update.added_storage {
-                        let hashed_key = hash_key(&storage_key);
+                        let hashed_key = hash_key(storage_key);
                         if storage_value.is_zero() {
                             storage_trie.remove(hashed_key)?;
                         } else {
