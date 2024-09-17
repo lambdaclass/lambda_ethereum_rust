@@ -14,14 +14,16 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-use self::{db::TrieDB, nibble::NibbleSlice, node::LeafNode, state::TrieState};
+pub use self::db::TrieDB;
+pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB};
+use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
 use lazy_static::lazy_static;
 
 lazy_static! {
     // Hash value for an empty trie, equal to keccak(RLP_NULL)
-    static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
+    pub static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
         Keccak256::new()
             .chain_update([RLP_NULL])
             .finalize()
@@ -36,16 +38,16 @@ pub type ValueRLP = Vec<u8>;
 
 /// Libmdx-based Ethereum Compatible Merkle Patricia Trie
 /// Adapted from https://github.com/lambdaclass/merkle_patricia_tree
-pub struct Trie<DB: TrieDB> {
+pub struct Trie {
     /// Hash of the current node
     root: Option<NodeHash>,
     /// Contains the trie's nodes
-    pub(crate) state: TrieState<DB>,
+    pub(crate) state: TrieState,
 }
 
-impl<DB: TrieDB> Trie<DB> {
+impl Trie {
     /// Creates a new Trie from a clean DB
-    pub fn new(db: DB) -> Self {
+    pub fn new(db: Box<dyn TrieDB>) -> Self {
         Self {
             state: TrieState::new(db),
             root: None,
@@ -53,7 +55,7 @@ impl<DB: TrieDB> Trie<DB> {
     }
 
     /// Creates a trie from an already-initialized DB and sets root as the root node of the trie
-    pub fn open(db: DB, root: H256) -> Self {
+    pub fn open(db: Box<dyn TrieDB>, root: H256) -> Self {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
         Self {
             state: TrieState::new(db),
@@ -128,30 +130,11 @@ impl<DB: TrieDB> Trie<DB> {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
-    /// Retrieve a value from the trie given its path from the subtrie originating from the given root
-    /// Please use a root_hash calculated using `compute_hash`
-    /// This function is used to access historical data
-    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
-    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
-    pub fn get_from_root(
-        &self,
-        root_hash: H256,
-        path: &PathRLP,
-    ) -> Result<Option<ValueRLP>, StoreError> {
-        if let Some(root_node) = self.state.get_node(root_hash.into())? {
-            root_node.get(&self.state, NibbleSlice::new(path))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Sets the root of the trie to the one which's hash corresponds to the one received
-    /// Doesn't check that the root_hash is valid within the trie
-    /// Please use a root hash that has been calculated using `compute_hash`
-    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
-    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
-    pub fn set_root(&mut self, root_hash: H256) {
-        self.root = (root_hash != *EMPTY_TRIE_HASH).then_some(root_hash.into());
+    #[cfg(test)]
+    /// Creates a new Trie based on a temporary Libmdbx DB
+    fn new_temp() -> Self {
+        let db = test_utils::new_db::<test_utils::TestNodes>();
+        Trie::new(Box::new(LibmdbxTrieDB::<test_utils::TestNodes>::new(db)))
     }
 }
 
@@ -159,7 +142,7 @@ impl<DB: TrieDB> Trie<DB> {
 mod test {
     use std::sync::Arc;
 
-    use crate::trie::test_utils::{new_db, TestNodes};
+    use crate::trie::test_utils::TestNodes;
 
     use super::*;
     // Rename imports to avoid potential name clashes
@@ -177,8 +160,7 @@ mod test {
 
     #[test]
     fn compute_hash() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
 
@@ -190,8 +172,7 @@ mod test {
 
     #[test]
     fn compute_hash_long() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(b"first".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"second".to_vec(), b"value".to_vec()).unwrap();
         trie.insert(b"third".to_vec(), b"value".to_vec()).unwrap();
@@ -205,8 +186,7 @@ mod test {
 
     #[test]
     fn get_insert_words() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let first_path = b"first".to_vec();
         let first_value = b"value_a".to_vec();
         let second_path = b"second".to_vec();
@@ -226,8 +206,7 @@ mod test {
 
     #[test]
     fn get_insert_zero() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0x0], b"value".to_vec()).unwrap();
         let first = trie.get(&[0x0][..].to_vec()).unwrap();
         assert_eq!(first, Some(b"value".to_vec()));
@@ -235,8 +214,7 @@ mod test {
 
     #[test]
     fn get_insert_a() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(vec![16], vec![0]).unwrap();
         trie.insert(vec![16, 0], vec![0]).unwrap();
 
@@ -249,8 +227,7 @@ mod test {
 
     #[test]
     fn get_insert_b() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0, 0], vec![0, 0]).unwrap();
         trie.insert(vec![1, 0], vec![1, 0]).unwrap();
 
@@ -263,8 +240,7 @@ mod test {
 
     #[test]
     fn get_insert_c() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let vecs = vec![
             vec![26, 192, 44, 251],
             vec![195, 132, 220, 124, 112, 201, 70, 128, 235],
@@ -283,8 +259,7 @@ mod test {
 
     #[test]
     fn get_insert_d() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let vecs = vec![
             vec![52, 53, 143, 52, 206, 112],
             vec![14, 183, 34, 39, 113],
@@ -307,8 +282,7 @@ mod test {
 
     #[test]
     fn get_insert_e() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0x00], vec![0x00]).unwrap();
         trie.insert(vec![0xC8], vec![0xC8]).unwrap();
         trie.insert(vec![0xC8, 0x00], vec![0xC8, 0x00]).unwrap();
@@ -320,8 +294,7 @@ mod test {
 
     #[test]
     fn get_insert_f() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(vec![0x00], vec![0x00]).unwrap();
         trie.insert(vec![0x01], vec![0x01]).unwrap();
         trie.insert(vec![0x10], vec![0x10]).unwrap();
@@ -339,8 +312,7 @@ mod test {
 
     #[test]
     fn get_insert_remove_a() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(b"do".to_vec(), b"verb".to_vec()).unwrap();
         trie.insert(b"horse".to_vec(), b"stallion".to_vec())
             .unwrap();
@@ -352,8 +324,7 @@ mod test {
 
     #[test]
     fn get_insert_remove_b() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(vec![185], vec![185]).unwrap();
         trie.insert(vec![185, 0], vec![185, 0]).unwrap();
         trie.insert(vec![185, 1], vec![185, 1]).unwrap();
@@ -365,8 +336,7 @@ mod test {
 
     #[test]
     fn compute_hash_a() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(b"do".to_vec(), b"verb".to_vec()).unwrap();
         trie.insert(b"horse".to_vec(), b"stallion".to_vec())
             .unwrap();
@@ -381,8 +351,7 @@ mod test {
 
     #[test]
     fn compute_hash_b() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         assert_eq!(
             trie.hash().unwrap().0.as_slice(),
             hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").as_slice(),
@@ -391,8 +360,7 @@ mod test {
 
     #[test]
     fn compute_hash_c() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         let data = [
             (
                 hex!("0000000000000000000000000000000000000000000000000000000000000045").to_vec(),
@@ -444,8 +412,7 @@ mod test {
 
     #[test]
     fn compute_hash_d() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
 
         let data = [
             (
@@ -477,8 +444,7 @@ mod test {
 
     #[test]
     fn compute_hash_e() {
-        let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new_temp();
         trie.insert(b"abc".to_vec(), b"123".to_vec()).unwrap();
         trie.insert(b"abcd".to_vec(), b"abcd".to_vec()).unwrap();
         trie.insert(b"abc".to_vec(), b"abc".to_vec()).unwrap();
@@ -492,7 +458,8 @@ mod test {
     #[test]
     fn get_old_state() {
         let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
@@ -504,20 +471,17 @@ mod test {
         assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([3; 32].to_vec()));
 
-        assert_eq!(
-            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
-            Some([0; 32].to_vec())
-        );
-        assert_eq!(
-            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
-            Some([1; 32].to_vec())
-        );
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
+
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
     }
 
     #[test]
     fn get_old_state_with_removals() {
         let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -533,24 +497,18 @@ mod test {
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), None);
         assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some(vec![0x05]));
 
-        assert_eq!(
-            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
-            Some([0; 32].to_vec())
-        );
-        assert_eq!(
-            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
-            Some([1; 32].to_vec())
-        );
-        assert_eq!(
-            trie.get_from_root(root, &[2; 32].to_vec()).unwrap(),
-            Some([2; 32].to_vec())
-        );
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
+
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
     }
 
     #[test]
     fn revert() {
         let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
@@ -559,7 +517,7 @@ mod test {
         trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
 
-        trie.set_root(root);
+        let mut trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
 
         trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
@@ -571,7 +529,8 @@ mod test {
     #[test]
     fn revert_with_removals() {
         let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -583,7 +542,7 @@ mod test {
         trie.insert([2; 32].to_vec(), [5; 32].to_vec()).unwrap();
         trie.remove([0; 32].to_vec()).unwrap();
 
-        trie.set_root(root);
+        let mut trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
 
         trie.remove([2; 32].to_vec()).unwrap();
 
@@ -600,7 +559,7 @@ mod test {
 
         // Create new trie from clean DB
         let db = test_utils::new_db_with_path::<TestNodes>(trie_dir.into());
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
 
         trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -609,11 +568,13 @@ mod test {
         // Save current root
         let root = trie.hash().unwrap();
 
-        drop(db); // Release DB
+        // Release DB
+        drop(db);
+        drop(trie);
 
-        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
+        let db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
         // Create a new trie based on the previous trie's DB
-        let trie = Trie::open(LibmdbxTrieDB::<TestNodes>::new(&db2), root);
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db2)), root);
 
         assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
@@ -624,8 +585,7 @@ mod test {
     proptest! {
         #[test]
         fn proptest_get_insert(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
 
             for val in data.iter(){
                 trie.insert(val.clone(), val.clone()).unwrap();
@@ -640,8 +600,7 @@ mod test {
 
         #[test]
         fn proptest_get_insert_with_removals(mut data in vec((vec(any::<u8>(), 5..100), any::<bool>()), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
             // Remove duplicate values with different expected status
             data.sort_by_key(|(val, _)| val.clone());
             data.dedup_by_key(|(val, _)| val.clone());
@@ -671,8 +630,7 @@ mod test {
         // The previous test needs to sort the input values in order to get rid of duplicate entries, leading to ordered insertions
         // This check has a fixed way of determining wether a value should be removed but doesn't require ordered insertions
         fn proptest_get_insert_with_removals_unsorted(data in btree_set(vec(any::<u8>(), 5..100), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
             // Remove all values that have an odd first value
             let remove = |value: &Vec<u8>| -> bool {
                 value.first().is_some_and(|v| v % 2 != 0)
@@ -702,8 +660,7 @@ mod test {
 
         #[test]
         fn proptest_compare_hash(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
             let mut cita_trie = cita_trie();
 
             for val in data.iter(){
@@ -718,8 +675,7 @@ mod test {
 
         #[test]
         fn proptest_compare_hash_with_removals(mut data in vec((vec(any::<u8>(), 5..100), any::<bool>()), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
             let mut cita_trie = cita_trie();
             // Remove duplicate values with different expected status
             data.sort_by_key(|(val, _)| val.clone());
@@ -746,8 +702,7 @@ mod test {
         // The previous test needs to sort the input values in order to get rid of duplicate entries, leading to ordered insertions
         // This check has a fixed way of determining wether a value should be removed but doesn't require ordered insertions
         fn proptest_compare_hash_with_removals_unsorted(data in btree_set(vec(any::<u8>(), 5..100), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
             let mut cita_trie = cita_trie();
             // Remove all values that have an odd first value
             let remove = |value: &Vec<u8>| -> bool {
@@ -773,8 +728,7 @@ mod test {
 
         #[test]
         fn proptest_compare_hash_between_inserts(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
-            let db = test_utils::new_db::<TestNodes>();
-        let mut trie = Trie::new(LibmdbxTrieDB::<TestNodes>::new(&db));
+            let mut trie = Trie::new_temp();
             let mut cita_trie = cita_trie();
 
             for val in data.iter(){

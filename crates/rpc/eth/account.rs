@@ -44,13 +44,11 @@ impl RpcHandler for GetBalanceRequest {
             self.address, self.block
         );
 
-        // TODO: implement historical querying
-        let is_latest = self.block.is_latest(&storage)?;
-        if !is_latest {
-            return Err(RpcErr::Internal);
-        }
+        let Some(block_number) = self.block.resolve_block_number(&storage)? else {
+            return Err(RpcErr::Internal); // Should we return Null here?
+        };
 
-        let account = storage.get_account_info(self.address)?;
+        let account = storage.get_account_info(block_number, self.address)?;
         let balance = account.map(|acc| acc.balance).unwrap_or_default();
 
         serde_json::to_value(format!("{:#x}", balance)).map_err(|_| RpcErr::Internal)
@@ -74,14 +72,12 @@ impl RpcHandler for GetCodeRequest {
             self.address, self.block
         );
 
-        // TODO: implement historical querying
-        let is_latest = self.block.is_latest(&storage)?;
-        if !is_latest {
-            return Err(RpcErr::Internal);
-        }
+        let Some(block_number) = self.block.resolve_block_number(&storage)? else {
+            return Err(RpcErr::Internal); // Should we return Null here?
+        };
 
         let code = storage
-            .get_code_by_account_address(self.address)?
+            .get_code_by_account_address(block_number, self.address)?
             .unwrap_or_default();
 
         serde_json::to_value(format!("0x{:x}", code)).map_err(|_| RpcErr::Internal)
@@ -137,14 +133,12 @@ impl RpcHandler for GetTransactionCountRequest {
             self.address, self.block
         );
 
-        // TODO: implement historical querying
-        let is_latest = self.block.is_latest(&storage)?;
-        if !is_latest {
-            return Err(RpcErr::Internal);
-        }
+        let Some(block_number) = self.block.resolve_block_number(&storage)? else {
+            return Err(RpcErr::Internal); // Should we return Null here?
+        };
 
         let nonce = storage
-            .get_nonce_by_account_address(self.address)?
+            .get_nonce_by_account_address(block_number, self.address)?
             .unwrap_or_default();
 
         serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)

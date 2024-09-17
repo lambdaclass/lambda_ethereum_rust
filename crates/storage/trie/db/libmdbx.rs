@@ -1,21 +1,21 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use crate::error::StoreError;
-use libmdbx::{
-    orm::{table, Database, Table},
-    table_info,
-};
+use libmdbx::orm::{Database, Table};
 
 /// Libmdbx implementation for the TrieDB trait, with get and put operations.
-pub struct LibmdbxTrieDB<'a, T: Table> {
-    db: &'a Database,
+pub struct LibmdbxTrieDB<T: Table> {
+    db: Arc<Database>,
     phantom: PhantomData<T>,
 }
 
 use super::TrieDB;
 
-impl<'a, T: Table> LibmdbxTrieDB<'a, T> {
-    pub fn new(db: &'a Database) -> Self {
+impl<T> LibmdbxTrieDB<T>
+where
+    T: Table<Key = Vec<u8>, Value = Vec<u8>>,
+{
+    pub fn new(db: Arc<Database>) -> Self {
         Self {
             db,
             phantom: PhantomData,
@@ -23,7 +23,7 @@ impl<'a, T: Table> LibmdbxTrieDB<'a, T> {
     }
 }
 
-impl<'a, T: Table> TrieDB for LibmdbxTrieDB<'a, T>
+impl<T> TrieDB for LibmdbxTrieDB<T>
 where
     T: Table<Key = Vec<u8>, Value = Vec<u8>>,
 {
@@ -45,10 +45,12 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use super::LibmdbxTrieDB;
     use crate::trie::test_utils::new_db;
     use libmdbx::{
-        orm::{table, Database, Table},
+        orm::{table, Database},
         table_info,
     };
     table!(
@@ -61,9 +63,9 @@ mod test {
     #[test]
     fn simple_addition() {
         let inner_db = new_db::<Nodes>();
-        let db = LibmdbxTrieDB::<Nodes>::new(&inner_db);
+        let db = LibmdbxTrieDB::<Nodes>::new(inner_db);
         assert_eq!(db.get("hello".into()).unwrap(), None);
-        db.put("hello".into(), "value".into());
+        db.put("hello".into(), "value".into()).unwrap();
         assert_eq!(db.get("hello".into()).unwrap(), Some("value".into()));
     }
 
@@ -81,10 +83,10 @@ mod test {
             .into_iter()
             .collect();
 
-        let inner_db = Database::create(None, &tables).unwrap();
-        let db_a = LibmdbxTrieDB::<TableA>::new(&inner_db);
-        let db_b = LibmdbxTrieDB::<TableB>::new(&inner_db);
-        db_a.put("hello".into(), "value".into());
+        let inner_db = Arc::new(Database::create(None, &tables).unwrap());
+        let db_a = LibmdbxTrieDB::<TableA>::new(inner_db.clone());
+        let db_b = LibmdbxTrieDB::<TableB>::new(inner_db.clone());
+        db_a.put("hello".into(), "value".into()).unwrap();
         assert_eq!(db_b.get("hello".into()).unwrap(), None);
     }
 }
