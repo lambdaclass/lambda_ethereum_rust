@@ -40,7 +40,7 @@ pub enum EngineType {
     Libmdbx,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct AccountUpdate {
     pub address: Address,
     pub removed: bool,
@@ -284,8 +284,12 @@ impl Store {
                         .unwrap()
                         .open_storage_trie(update.address, account_state.storage_root);
                     for (storage_key, storage_value) in &update.added_storage {
-                        storage_trie
-                            .insert(storage_key.encode_to_vec(), storage_value.encode_to_vec())?;
+                        let hashed_key = hash_key(&storage_key);
+                        if storage_value.is_zero() {
+                            storage_trie.remove(hashed_key)?;
+                        } else {
+                            storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
+                        }
                     }
                     account_state.storage_root = state_trie.hash()?;
                 }
@@ -312,7 +316,10 @@ impl Store {
                 .unwrap()
                 .open_storage_trie(address, *EMPTY_TRIE_HASH);
             for (storage_key, storage_value) in account.storage {
-                storage_trie.insert(storage_key.encode_to_vec(), storage_value.encode_to_vec())?;
+                if !storage_value.is_zero() {
+                    let hashed_key = hash_key(&storage_key);
+                    storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
+                }
             }
             let storage_root = storage_trie.hash()?;
             // Add account to trie
@@ -427,8 +434,9 @@ impl Store {
         let Some(storage_trie) = self.storage_trie(block_number, address)? else {
             return Ok(None);
         };
+        let hashed_key = hash_key(&storage_key);
         storage_trie
-            .get(&storage_key.encode_to_vec())?
+            .get(&hashed_key)?
             .map(|rlp| U256::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
     }
@@ -530,6 +538,12 @@ impl Store {
 
 fn hash_address(address: &Address) -> Vec<u8> {
     Keccak256::new_with_prefix(address.to_fixed_bytes())
+        .finalize()
+        .to_vec()
+}
+
+fn hash_key(key: &H256) -> Vec<u8> {
+    Keccak256::new_with_prefix(key.to_fixed_bytes())
         .finalize()
         .to_vec()
 }
