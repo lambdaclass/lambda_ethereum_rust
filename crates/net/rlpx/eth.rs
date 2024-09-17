@@ -14,6 +14,7 @@ use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEnc
 use super::message::RLPxMessage;
 
 // TODO: Find a better place for this. Maybe core types.
+#[derive(Debug)]
 pub struct ForkId {
     fork_hash: H32,
     fork_next: BlockNumber,
@@ -42,6 +43,7 @@ impl RLPDecode for ForkId {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct StatusMessage {
     eth_version: u32,
     network_id: u64,
@@ -53,7 +55,7 @@ pub(crate) struct StatusMessage {
 
 impl RLPxMessage for StatusMessage {
     fn encode(&self, buf: &mut dyn BufMut) {
-        10_u8.encode(buf); // msg_id
+        16_u8.encode(buf); // msg_id
 
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
@@ -78,7 +80,6 @@ impl RLPxMessage for StatusMessage {
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
-        // decode ping message: data is empty list [] but it is snappy compressed
         let mut snappy_decoder = SnappyDecoder::new();
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;

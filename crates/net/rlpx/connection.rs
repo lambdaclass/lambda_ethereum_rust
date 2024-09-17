@@ -12,7 +12,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use super::message as rlpx;
 
-pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
+// pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
+pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
