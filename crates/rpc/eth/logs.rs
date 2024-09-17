@@ -17,6 +17,13 @@ pub enum AddressFilter {
     Single(H160),
     Many(Vec<H160>),
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum TopicFilter {
+    Topic(U256),
+    Topics(Vec<TopicFilter>),
+}
 // TODO: This struct should be using serde,
 // but I couldn't get it to work, the culprit
 // seems to be BlockIdentifier enum.
@@ -33,7 +40,7 @@ pub struct LogsRequest {
     /// The addresses from where the logs origin from.
     pub address_filters: Option<AddressFilter>,
     /// Which topics to filter.
-    pub topics: Option<Vec<U256>>,
+    pub topics: Option<Vec<TopicFilter>>,
 }
 impl RpcHandler for LogsRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
@@ -60,11 +67,15 @@ impl RpcHandler for LogsRequest {
                     }
                     _ => None,
                 });
-                let topics = None;
+                let topics = param.get("topics").and_then(|topics| {
+                    Some(
+                        serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap(),
+                    )
+                });
                 Ok(LogsRequest {
                     fromBlock,
                     address_filters: address_filter,
-                    topics,
+                    topics: topics.unwrap(),
                     toBlock,
                 })
             }
@@ -93,6 +104,11 @@ impl RpcHandler for LogsRequest {
             None => BTreeSet::new(),
         };
 
+        // let topic_filter: BTreeSet<_> = match &self.topics {
+        //     Some(filters) => filters.iter().collect(),
+        //     None => BTreeSet::new(),
+        // };
+        // let topic_filter
         let mut all_logs: Vec<RpcLog> = Vec::new();
         for block_num in from..=to {
             let block_body = storage.get_block_body(block_num)?.ok_or(RpcErr::Internal)?;
