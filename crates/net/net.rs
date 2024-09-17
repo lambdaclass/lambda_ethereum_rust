@@ -75,11 +75,11 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         udp_socket.clone(),
         table.clone(),
         signer,
+        REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
     ));
 
     try_join!(server_handler, revalidation_handler).unwrap();
 }
-
 async fn discover_peers_server(
     udp_addr: SocketAddr,
     udp_socket: Arc<UdpSocket>,
@@ -122,7 +122,7 @@ async fn discover_peers_server(
                             table
                                 .lock()
                                 .await
-                                .update_peer_ping_hash(peer.node.node_id, Some(hash));
+                                .update_peer_ping(peer.node.node_id, Some(hash));
                         }
                     }
                 } else {
@@ -142,7 +142,7 @@ async fn discover_peers_server(
                             table
                                 .lock()
                                 .await
-                                .update_peer_ping_hash(peer.node.node_id, Some(hash));
+                                .update_peer_ping(peer.node.node_id, Some(hash));
                         }
                     }
                 }
@@ -261,10 +261,9 @@ async fn peers_revalidation(
     udp_socket: Arc<UdpSocket>,
     table: Arc<Mutex<KademliaTable>>,
     signer: SigningKey,
+    interval_time_in_seconds: u64,
 ) {
-    let mut interval = tokio::time::interval(Duration::from_secs(
-        REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
-    ));
+    let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
 
     // peers whose proof expired and we pinged them to revalidate them
     // we expect them to be proven by the next iteration otherwise we remove them
@@ -304,7 +303,7 @@ async fn peers_revalidation(
                         )
                         .await;
                         let mut table = table.lock().await;
-                        table.invalidate_peer_proof(peer.node.node_id, ping_hash);
+                        table.update_peer_ping(peer.node.node_id, ping_hash);
                         peers_pending_revalidation.insert(peer.node.node_id);
                     }
                 }
@@ -319,10 +318,10 @@ async fn peers_revalidation(
             )
             .await;
             let mut table = table.lock().await;
-            table.invalidate_peer_proof(peer.node.node_id, ping_hash);
+            table.update_peer_ping(peer.node.node_id, ping_hash);
             peers_pending_revalidation.insert(peer.node.node_id);
             debug!(
-                "Pinging peer {} to re-validate endpoint proof!",
+                "Pinging peer {:?} to re-validate endpoint proof!",
                 peer.node.node_id
             );
         }
@@ -332,13 +331,154 @@ async fn peers_revalidation(
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use discv4::time_now_unix;
+    use k256::ecdsa::SigningKey;
+    use rand::rngs::OsRng;
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio::time::sleep;
 
-//     #[test]
-//     fn
-// }
+    #[tokio::test]
+    /** This is a end to end test on the discovery server, the idea is as follows:
+     * - We'll start two discovery servers (`a` & `b`) to ping between each other
+     * - We'll make `b` ping `a`, and validate that the connection is right
+     * - Then we'll forcedly run a revalidation where we expect everything to be the same
+     * - Then we'll forcedly change the last_ping of `b` such that in the next revalidation `b` re-validates `a`
+     * - Finally, we'll forcedly change the last_ping of `b` but this time we won't answer from `a`.
+     *   In this case, we expect that `b` removes `a` from its bucket.
+     *
+     * To make this run faster, we'll change the revalidation time to be every 10secs
+     */
+    async fn discovery_server_e2e() {
+        let addr_a = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
+        let signer_a = SigningKey::random(&mut OsRng);
+        let node_id_a = node_id_from_signing_key(&signer_a);
+        tokio::spawn(discover_peers(addr_a, signer_a.clone(), vec![]));
+
+        let addr_b = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8001);
+        let signer_b = SigningKey::random(&mut OsRng);
+        let udp_socket = Arc::new(UdpSocket::bind(addr_b).await.unwrap());
+        let local_node_id = node_id_from_signing_key(&signer_b);
+        let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
+
+        tokio::spawn(discover_peers_server(
+            addr_b,
+            udp_socket.clone(),
+            table.clone(),
+            signer_b.clone(),
+        ));
+        tokio::spawn(peers_revalidation(
+            addr_b,
+            udp_socket.clone(),
+            table.clone(),
+            signer_b.clone(),
+            2,
+        ));
+
+        let ping_hash = ping(&udp_socket, addr_b, addr_a, &signer_b).await;
+        {
+            let mut table = table.lock().await;
+            table.insert_node(Node {
+                ip: addr_a.ip(),
+                udp_port: addr_a.port(),
+                tcp_port: 0,
+                node_id: node_id_a,
+            });
+            let peer = table
+                .get_by_node_id_mut(node_id_from_signing_key(&signer_a))
+                .unwrap();
+            peer.last_ping_hash = ping_hash;
+            peer.last_ping = time_now_unix();
+        }
+
+        // allow some time for server_a to respond
+        sleep(Duration::from_secs(1)).await;
+
+        // server_a should've received the ping, and now we expect a pong to be received
+        {
+            let table = table.lock().await;
+            let peer = table.get_by_node_id(node_id_a).unwrap();
+            assert!(peer.is_proven);
+            assert!(peer.last_ping_hash.is_none());
+        }
+
+        // now we wait 2 seconds, so that the revalidation runs, we expect everything to be the same
+        sleep(Duration::from_secs(2)).await;
+        {
+            let table = table.lock().await;
+            let peer = table.get_by_node_id(node_id_a).unwrap();
+            assert!(peer.is_proven);
+            assert!(peer.last_ping_hash.is_none());
+        }
+
+        // now we are going to change the last pong to be from more than 24hs ago
+        // we expect everything to stay the same
+        {
+            let mut table = table.lock().await;
+            let peer = table
+                .get_by_node_id_mut(node_id_from_signing_key(&signer_a))
+                .unwrap();
+            peer.last_pong = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+
+        sleep(Duration::from_secs(3)).await;
+        {
+            let table = table.lock().await;
+            let peer = table.get_by_node_id(node_id_a).unwrap();
+            assert!(peer.is_proven);
+            assert!(peer.last_ping_hash.is_none());
+        }
+
+        // though we expect the revalidation, to send the ping
+        // we can make sure it has run by checking that the last ping and pong are recent
+        {
+            let mut table = table.lock().await;
+            let peer = table.get_by_node_id_mut(node_id_a).unwrap();
+
+            assert!(
+                time_now_unix().saturating_sub(peer.last_ping) <= Duration::from_secs(10).as_secs()
+            );
+            assert!(
+                time_now_unix().saturating_sub(peer.last_pong) <= Duration::from_secs(10).as_secs()
+            );
+        }
+
+        // finally, we'll change the port of the server_a so that no one responds and the peer is removed
+        {
+            let mut table = table.lock().await;
+            let peer = table
+                .get_by_node_id_mut(node_id_from_signing_key(&signer_a))
+                .unwrap();
+            peer.node.udp_port = 0;
+            peer.last_pong = (SystemTime::now() - Duration::from_secs(36 * 60 * 60))
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+        }
+
+        // first it will try to send a revalidation
+        sleep(Duration::from_secs(2)).await;
+        {
+            let table = table.lock().await;
+            let peer = table.get_by_node_id(node_id_a).unwrap();
+            assert!(!peer.is_proven);
+            assert!(peer.last_ping_hash.is_some());
+        }
+
+        // but it won't respond, so it should not exist anymore
+        sleep(Duration::from_secs(2)).await;
+        {
+            let table = table.lock().await;
+            let peer = table.get_by_node_id(node_id_a);
+            assert!(peer.is_none());
+        }
+    }
+}
 
 /// Sends a ping to the addr
 /// # Returns
