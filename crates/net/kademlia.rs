@@ -305,7 +305,7 @@ mod tests {
                 node_id: node_1_id,
             });
             table.get_by_node_id_mut(node_1_id).unwrap().last_pong = (SystemTime::now()
-                - Duration::from_secs(24 * 60 * 60))
+                - Duration::from_secs(12 * 60 * 60))
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
@@ -335,7 +335,7 @@ mod tests {
                 node_id: node_3_id,
             });
             table.get_by_node_id_mut(node_3_id).unwrap().last_pong = (SystemTime::now()
-                - Duration::from_secs(12 * 60 * 60))
+                - Duration::from_secs(10 * 60 * 60))
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();

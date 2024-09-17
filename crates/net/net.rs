@@ -245,7 +245,7 @@ async fn discover_peers_server(
 }
 
 const REVALIDATION_INTERVAL_IN_MINUTES: usize = 10; // this is just an arbitrary number, maybe we should get this from some kind of cfg
-const PROOF_EXPIRATION_IN_HS: usize = 24;
+const PROOF_EXPIRATION_IN_HS: usize = 12;
 
 /// Starts a tokio scheduler that:
 /// - performs periodic revalidation of the current nodes (sends a ping to the old nodes). Currently this is configured to happen every [`REVALIDATION_INTERVAL_IN_MINUTES`]
@@ -254,7 +254,7 @@ const PROOF_EXPIRATION_IN_HS: usize = 24;
 /// **Peer revalidation**
 ///
 /// Peers revalidation works in the following manner:
-/// 1. If the last ping has happened 24hs ago, we invalidate and send a ping to re-validate the endpoint proof
+/// 1. If the last ping has happened `PROOF_EXPIRATION_TIME_IN_HS`hs ago, we invalidate and send a ping to re-validate the endpoint proof
 /// 2. In the next iteration, we check if the node has responded. If not, then we delete it and insert a new one from the replacements table
 async fn peers_revalidation(
     udp_addr: SocketAddr,
