@@ -89,12 +89,4 @@ impl Node {
             Node::Leaf(n) => n.insert_self(path_offset, state),
         }
     }
-
-    pub fn compute_hash(&self, path_offset: usize) -> NodeHash {
-        match self {
-            Node::Branch(n) => n.compute_hash(),
-            Node::Extension(n) => n.compute_hash(),
-            Node::Leaf(n) => n.compute_hash(path_offset),
-        }
-    }
 }
