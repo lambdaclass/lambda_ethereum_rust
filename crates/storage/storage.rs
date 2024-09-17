@@ -408,7 +408,7 @@ impl Store {
             .unwrap()
             .get_transaction_by_hash(transaction_hash)
     }
-
+    // TODO(TrieIntegration): Make private
     pub fn add_storage_at(
         &self,
         address: Address,
@@ -431,11 +431,11 @@ impl Store {
             .unwrap()
             .get_storage_at(address, storage_key)
     }
-
+    // TODO(TrieIntegration): Make private
     pub fn remove_account_storage(&self, address: Address) -> Result<(), StoreError> {
         self.engine.lock().unwrap().remove_account_storage(address)
     }
-
+    // TODO(TrieIntegration): Remove
     pub fn account_storage_iter(
         &self,
         address: Address,
