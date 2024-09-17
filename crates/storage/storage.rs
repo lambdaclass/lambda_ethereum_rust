@@ -3,6 +3,7 @@ use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
+use crate::trie::EMPTY_TRIE_HASH;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::rlp::decode::RLPDecode;
@@ -275,15 +276,18 @@ impl Store {
                         self.add_account_code(info.code_hash, code.clone())?;
                     }
                 }
-                // Store the added storage in the account's storage trie and compute its root
-                // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into the DB table and compute the root
+                // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
+                    let mut storage_trie = self
+                        .engine
+                        .lock()
+                        .unwrap()
+                        .open_storage_trie(update.address, account_state.storage_root);
                     for (storage_key, storage_value) in &update.added_storage {
-                        self.add_storage_at(update.address, *storage_key, *storage_value)?;
+                        storage_trie
+                            .insert(storage_key.encode_to_vec(), storage_value.encode_to_vec())?;
                     }
-                    account_state.storage_root = ethereum_rust_core::types::compute_storage_root(
-                        &self.account_storage_iter(update.address)?.collect(),
-                    );
+                    account_state.storage_root = state_trie.hash()?;
                 }
                 state_trie.insert(hashed_address, account_state.encode_to_vec())?;
             }
@@ -301,12 +305,16 @@ impl Store {
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
             self.add_account_code(code_hash, account.code)?;
-            // Store the accounts storage in the storage trie and compute its root
-            // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB table and compute the root
-            let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
+            // Store the account's storage in a clean storage trie and compute its root
+            let mut storage_trie = self
+                .engine
+                .lock()
+                .unwrap()
+                .open_storage_trie(address, *EMPTY_TRIE_HASH);
             for (storage_key, storage_value) in account.storage {
-                self.add_storage_at(address, storage_key, storage_value)?;
+                storage_trie.insert(storage_key.encode_to_vec(), storage_value.encode_to_vec())?;
             }
+            let storage_root = storage_trie.hash()?;
             // Add account to trie
             let account_state = AccountState {
                 nonce: account.nonce,
