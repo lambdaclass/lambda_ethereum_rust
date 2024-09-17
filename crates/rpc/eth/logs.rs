@@ -148,12 +148,6 @@ impl RpcHandler for LogsRequest {
         }
 
         // Sort logs by block number and then by log index
-        all_logs.sort_by(|a, b| {
-            a.block_number
-                .cmp(&b.block_number)
-                .then(a.log_index.cmp(&b.log_index))
-        });
-
         // Serialize the logs to JSON, returning an error if serialization fails
         serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
     }
