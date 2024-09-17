@@ -23,7 +23,7 @@ use lazy_static::lazy_static;
 
 lazy_static! {
     // Hash value for an empty trie, equal to keccak(RLP_NULL)
-    static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
+    pub static ref EMPTY_TRIE_HASH: H256 = H256::from_slice(
         Keccak256::new()
             .chain_update([RLP_NULL])
             .finalize()
@@ -130,32 +130,6 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
-    /// Retrieve a value from the trie given its path from the subtrie originating from the given root
-    /// Please use a root_hash calculated using `compute_hash`
-    /// This function is used to access historical data
-    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
-    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
-    pub fn get_from_root(
-        &self,
-        root_hash: H256,
-        path: &PathRLP,
-    ) -> Result<Option<ValueRLP>, StoreError> {
-        if let Some(root_node) = self.state.get_node(root_hash.into())? {
-            root_node.get(&self.state, NibbleSlice::new(path))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Sets the root of the trie to the one which's hash corresponds to the one received
-    /// Doesn't check that the root_hash is valid within the trie
-    /// Please use a root hash that has been calculated using `compute_hash`
-    // WARNING: Won't work if the root is too small (as it wont be stored by its hash)
-    // (This should only be a problem for testing, as the values used in this project exceed the minimum hashable)
-    pub fn set_root(&mut self, root_hash: H256) {
-        self.root = (root_hash != *EMPTY_TRIE_HASH).then_some(root_hash.into());
-    }
-
     #[cfg(test)]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {
@@ -168,7 +142,7 @@ impl Trie {
 mod test {
     use std::sync::Arc;
 
-    use crate::trie::test_utils::{new_db, TestNodes};
+    use crate::trie::test_utils::TestNodes;
 
     use super::*;
     // Rename imports to avoid potential name clashes
@@ -483,7 +457,9 @@ mod test {
 
     #[test]
     fn get_old_state() {
-        let mut trie = Trie::new_temp();
+        let db = test_utils::new_db::<TestNodes>();
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
@@ -495,19 +471,17 @@ mod test {
         assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([3; 32].to_vec()));
 
-        assert_eq!(
-            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
-            Some([0; 32].to_vec())
-        );
-        assert_eq!(
-            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
-            Some([1; 32].to_vec())
-        );
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
+
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
     }
 
     #[test]
     fn get_old_state_with_removals() {
-        let mut trie = Trie::new_temp();
+        let db = test_utils::new_db::<TestNodes>();
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -523,23 +497,18 @@ mod test {
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), None);
         assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some(vec![0x05]));
 
-        assert_eq!(
-            trie.get_from_root(root, &[0; 32].to_vec()).unwrap(),
-            Some([0; 32].to_vec())
-        );
-        assert_eq!(
-            trie.get_from_root(root, &[1; 32].to_vec()).unwrap(),
-            Some([1; 32].to_vec())
-        );
-        assert_eq!(
-            trie.get_from_root(root, &[2; 32].to_vec()).unwrap(),
-            Some([2; 32].to_vec())
-        );
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
+
+        assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([0; 32].to_vec()));
+        assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
+        assert_eq!(trie.get(&[2; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));
     }
 
     #[test]
     fn revert() {
-        let mut trie = Trie::new_temp();
+        let db = test_utils::new_db::<TestNodes>();
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
 
@@ -548,7 +517,7 @@ mod test {
         trie.insert([0; 32].to_vec(), [2; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [3; 32].to_vec()).unwrap();
 
-        trie.set_root(root);
+        let mut trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
 
         trie.insert([2; 32].to_vec(), [4; 32].to_vec()).unwrap();
 
@@ -559,7 +528,9 @@ mod test {
 
     #[test]
     fn revert_with_removals() {
-        let mut trie = Trie::new_temp();
+        let db = test_utils::new_db::<TestNodes>();
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
+
         trie.insert([0; 32].to_vec(), [0; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([2; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -571,7 +542,7 @@ mod test {
         trie.insert([2; 32].to_vec(), [5; 32].to_vec()).unwrap();
         trie.remove([0; 32].to_vec()).unwrap();
 
-        trie.set_root(root);
+        let mut trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())), root);
 
         trie.remove([2; 32].to_vec()).unwrap();
 
@@ -601,8 +572,7 @@ mod test {
         drop(db);
         drop(trie);
 
-        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
-        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
+        let db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
         // Create a new trie based on the previous trie's DB
         let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db2)), root);
 
