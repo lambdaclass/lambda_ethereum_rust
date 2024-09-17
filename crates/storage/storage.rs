@@ -94,16 +94,15 @@ impl Store {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
-        if let Some(encoded_state) = state_trie.get(&hashed_address)? {
-            let account_state = AccountState::decode(&encoded_state)?;
-            Ok(Some(AccountInfo {
-                code_hash: account_state.code_hash,
-                balance: account_state.balance,
-                nonce: account_state.nonce,
-            }))
-        } else {
-            Ok(None)
-        }
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        let account_state = AccountState::decode(&encoded_state)?;
+        Ok(Some(AccountInfo {
+            code_hash: account_state.code_hash,
+            balance: account_state.balance,
+            nonce: account_state.nonce,
+        }))
     }
 
     pub fn add_block_header(
@@ -222,12 +221,11 @@ impl Store {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
-        if let Some(encoded_state) = state_trie.get(&hashed_address)? {
-            let account_state = AccountState::decode(&encoded_state)?;
-            self.get_account_code(account_state.code_hash)
-        } else {
-            Ok(None)
-        }
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        let account_state = AccountState::decode(&encoded_state)?;
+        self.get_account_code(account_state.code_hash)
     }
     pub fn get_nonce_by_account_address(
         &self,
@@ -238,12 +236,11 @@ impl Store {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
-        if let Some(encoded_state) = state_trie.get(&hashed_address)? {
-            let account_state = AccountState::decode(&encoded_state)?;
-            Ok(Some(account_state.nonce))
-        } else {
-            Ok(None)
-        }
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        let account_state = AccountState::decode(&encoded_state)?;
+        Ok(Some(account_state.nonce))
     }
 
     /// Applies account updates based on the block's latest storage state
