@@ -289,9 +289,8 @@ mod tests {
     fn get_test_table() -> KademliaTable {
         let signer = SigningKey::random(&mut OsRng);
         let local_node_id = node_id_from_signing_key(&signer);
-        let table = KademliaTable::new(local_node_id);
 
-        table
+        KademliaTable::new(local_node_id)
     }
 
     #[test]
@@ -305,7 +304,7 @@ mod tests {
                 udp_port: 0,
                 node_id: node_1_id,
             });
-            table.get_by_node_id_mut(node_1_id).unwrap().last_ping = (SystemTime::now()
+            table.get_by_node_id_mut(node_1_id).unwrap().last_pong = (SystemTime::now()
                 - Duration::from_secs(24 * 60 * 60))
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -320,7 +319,7 @@ mod tests {
                 udp_port: 0,
                 node_id: node_2_id,
             });
-            table.get_by_node_id_mut(node_2_id).unwrap().last_ping = (SystemTime::now()
+            table.get_by_node_id_mut(node_2_id).unwrap().last_pong = (SystemTime::now()
                 - Duration::from_secs(36 * 60 * 60))
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -335,7 +334,7 @@ mod tests {
                 udp_port: 0,
                 node_id: node_3_id,
             });
-            table.get_by_node_id_mut(node_3_id).unwrap().last_ping = (SystemTime::now()
+            table.get_by_node_id_mut(node_3_id).unwrap().last_pong = (SystemTime::now()
                 - Duration::from_secs(12 * 60 * 60))
             .duration_since(UNIX_EPOCH)
             .unwrap()
