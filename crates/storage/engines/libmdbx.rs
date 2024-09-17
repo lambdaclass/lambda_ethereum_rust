@@ -1,8 +1,8 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
-    TransactionHashRLP,
+    AccountCodeHashRLP, AccountCodeRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    ReceiptRLP, TransactionHashRLP,
 };
 use crate::trie::Trie;
 use anyhow::Result;
@@ -303,7 +303,6 @@ table!(
     /// Block bodies table.
     ( Bodies ) BlockNumber => BlockBodyRLP
 );
-
 table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP

@@ -4,12 +4,20 @@ use bytes::Bytes;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{BlockBody, BlockHash, BlockHeader, Receipt},
+<<<<<<< HEAD
     H256,
+=======
+    Address, H256,
+>>>>>>> de5584839494df94da77948a99e818dc98a0dffa
 };
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
+<<<<<<< HEAD
+=======
+pub type AddressRLP = Rlp<Address>;
+>>>>>>> de5584839494df94da77948a99e818dc98a0dffa
 pub type AccountCodeHashRLP = Rlp<H256>;
 pub type AccountCodeRLP = Rlp<Bytes>;
 
