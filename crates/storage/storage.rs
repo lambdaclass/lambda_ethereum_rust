@@ -17,6 +17,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tracing::info;
+use trie::Trie;
 
 mod engines;
 pub mod error;
@@ -510,6 +511,31 @@ impl Store {
 
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
+    }
+
+    // Obtain the storage trie for the given account on the given block
+    fn storage_trie(
+        &mut self,
+        block_number: BlockNumber,
+        address: Address,
+    ) -> Result<Option<Trie>, StoreError> {
+        // Fetch Account from state_trie
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+            return Ok(None);
+        };
+        let hashed_address = hash_address(&address);
+        let Some(encoded_account) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        let account = AccountState::decode(&encoded_account)?;
+        // Open storage_trie
+        let storage_root = account.storage_root;
+        Ok(Some(
+            self.engine
+                .lock()
+                .unwrap()
+                .open_storage_trie(address, storage_root),
+        ))
     }
 }
 

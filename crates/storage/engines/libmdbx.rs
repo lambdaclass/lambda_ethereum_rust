@@ -1,5 +1,6 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
+use crate::hash_address;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
     ReceiptRLP, TransactionHashRLP,
@@ -10,7 +11,7 @@ use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    AccountState, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -327,6 +328,14 @@ impl StoreEngine for Store {
         let trie = Trie::new(db);
         Ok(trie)
     }
+
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
+        let db = Box::new(crate::trie::LibmdbxDupsortTrieDB::<
+            StorageTriesNodes,
+            [u8; 20],
+        >::new(self.db.clone(), address.0));
+        Trie::open(db, storage_root)
+    }
 }
 
 impl Debug for Store {
@@ -354,6 +363,7 @@ dupsort!(
     /// Account storages table.
     ( AccountStorages ) AddressRLP => (AccountStorageKeyBytes, AccountStorageValueBytes) [AccountStorageKeyBytes]
 );
+
 table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
@@ -361,6 +371,12 @@ table!(
 dupsort!(
     /// Receipts table.
     ( Receipts ) (BlockNumber, Index)[Index] => ReceiptRLP
+);
+
+dupsort!(
+    /// Table containing all storage trie's nodes
+    /// Each node is stored by address and node hash in order to keep different storage trie's nodes separate
+    ( StorageTriesNodes ) ([u8;20], [u8;33])[[u8;20]] => Vec<u8>
 );
 
 table!(

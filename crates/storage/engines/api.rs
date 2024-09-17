@@ -165,4 +165,9 @@ pub trait StoreEngine: Debug + Send {
     // Obtain a world state from an empty root
     // This method should be used when creating the genesis world state
     fn new_state_trie(&self) -> Result<Trie, StoreError>;
+
+    // Obtain a storage trie from the given address and storage_root
+    // Doesn't check if the account is stored
+    // Used for internal store operations
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie;
 }

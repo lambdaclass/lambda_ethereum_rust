@@ -12,6 +12,8 @@ use std::{
 
 use super::api::StoreEngine;
 
+pub type NodeMap = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
+
 #[derive(Default)]
 pub struct Store {
     chain_data: ChainData,
@@ -24,7 +26,8 @@ pub struct Store {
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
-    state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+    state_trie_nodes: NodeMap,
+    storage_trie_nodes: HashMap<Address, NodeMap>,
 }
 
 #[derive(Default)]
@@ -251,6 +254,15 @@ impl StoreEngine for Store {
         ));
         let trie = Trie::new(db);
         Ok(trie)
+    }
+
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
+        let trie_backend = self
+            .storage_trie_nodes
+            .entry(address)
+            .or_insert(NodeMap::default());
+        let db = Box::new(crate::trie::InMemoryTrieDB::new(trie_backend.clone()));
+        Trie::open(db, storage_root)
     }
 }
 
