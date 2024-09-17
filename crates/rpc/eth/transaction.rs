@@ -8,8 +8,7 @@ use crate::{
     RpcHandler,
 };
 use ethereum_rust_core::{
-    rlp::decode::RLPDecode,
-    types::{AccessListEntry, BlockHash, BlockHeader, GenericTransaction, Transaction, TxKind},
+    types::{AccessListEntry, BlockHash, BlockHeader, GenericTransaction, TxKind},
     H256, U256,
 };
 

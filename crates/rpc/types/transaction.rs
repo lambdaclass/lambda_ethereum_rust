@@ -3,7 +3,7 @@ use ethereum_rust_core::{
     serde_utils,
     types::{
         BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction,
-        LegacyTransaction, Transaction,
+        LegacyTransaction, Transaction, BYTES_PER_BLOB,
     },
     Address, H256,
 };
@@ -46,20 +46,17 @@ impl RpcTransaction {
 }
 
 pub enum SendRawTransactionRequest {
-    LegacyTransaction(LegacyTransaction),
-    EIP2930Transaction(EIP2930Transaction),
-    EIP1559Transaction(EIP1559Transaction),
-    EIP4844Transaction(WrappedEIP4844Transaction),
+    Legacy(LegacyTransaction),
+    EIP2930(EIP2930Transaction),
+    EIP1559(EIP1559Transaction),
+    EIP4844(WrappedEIP4844Transaction),
 }
 
-// TODO: We should move this to constants
-pub const BYTES_PER_BLOB: usize = 131_072;
-pub const BYTES_PER_COMMITMENT: usize = 48;
-pub const BYTES_PER_PROOF: usize = 48;
-
+// NOTE: We might move this transaction definitions to `core/types/transactions.rs` later on.
+pub type Bytes48 = [u8; 48];
 pub type Blob = [u8; BYTES_PER_BLOB];
-pub type Commitment = [u8; BYTES_PER_COMMITMENT];
-pub type Proof = [u8; BYTES_PER_PROOF];
+pub type Commitment = Bytes48;
+pub type Proof = Bytes48;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WrappedEIP4844Transaction {
@@ -90,18 +87,10 @@ impl RLPDecode for WrappedEIP4844Transaction {
 impl SendRawTransactionRequest {
     pub fn to_transaction(&self) -> Transaction {
         match self {
-            SendRawTransactionRequest::LegacyTransaction(t) => {
-                Transaction::LegacyTransaction(t.clone())
-            }
-            SendRawTransactionRequest::EIP1559Transaction(t) => {
-                Transaction::EIP1559Transaction(t.clone())
-            }
-            SendRawTransactionRequest::EIP2930Transaction(t) => {
-                Transaction::EIP2930Transaction(t.clone())
-            }
-            SendRawTransactionRequest::EIP4844Transaction(t) => {
-                Transaction::EIP4844Transaction(t.tx.clone())
-            }
+            SendRawTransactionRequest::Legacy(t) => Transaction::LegacyTransaction(t.clone()),
+            SendRawTransactionRequest::EIP1559(t) => Transaction::EIP1559Transaction(t.clone()),
+            SendRawTransactionRequest::EIP2930(t) => Transaction::EIP2930Transaction(t.clone()),
+            SendRawTransactionRequest::EIP4844(t) => Transaction::EIP4844Transaction(t.tx.clone()),
         }
     }
 
@@ -114,24 +103,27 @@ impl SendRawTransactionRequest {
                 let tx_bytes = &bytes[1..];
                 match *tx_type {
                     // Legacy
-                    0x0 => LegacyTransaction::decode(tx_bytes)
-                        .map(SendRawTransactionRequest::LegacyTransaction),
+                    0x0 => {
+                        LegacyTransaction::decode(tx_bytes).map(SendRawTransactionRequest::Legacy)
+                    }
                     // EIP2930
-                    0x1 => EIP2930Transaction::decode(tx_bytes)
-                        .map(SendRawTransactionRequest::EIP2930Transaction),
+                    0x1 => {
+                        EIP2930Transaction::decode(tx_bytes).map(SendRawTransactionRequest::EIP2930)
+                    }
                     // EIP1559
-                    0x2 => EIP1559Transaction::decode(tx_bytes)
-                        .map(SendRawTransactionRequest::EIP1559Transaction),
+                    0x2 => {
+                        EIP1559Transaction::decode(tx_bytes).map(SendRawTransactionRequest::EIP1559)
+                    }
                     // EIP4844
                     0x3 => WrappedEIP4844Transaction::decode(tx_bytes)
-                        .map(SendRawTransactionRequest::EIP4844Transaction),
+                        .map(SendRawTransactionRequest::EIP4844),
                     ty => Err(RLPDecodeError::Custom(format!(
                         "Invalid transaction type: {ty}"
                     ))),
                 }
             }
             // LegacyTransaction
-            _ => LegacyTransaction::decode(bytes).map(SendRawTransactionRequest::LegacyTransaction),
+            _ => LegacyTransaction::decode(bytes).map(SendRawTransactionRequest::Legacy),
         }
     }
 }
