@@ -65,7 +65,7 @@ impl KademliaTable {
 
     fn insert_node_inner(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
         let node_id = node.node_id;
-        let peer = PeerData::new(node, time_now_unix(), false);
+        let peer = PeerData::new(node, time_now_unix(), 0, false);
 
         if self.buckets[bucket_idx].peers.len() == MAX_NODES_PER_BUCKET {
             self.insert_as_replacement(&peer, bucket_idx);
@@ -127,21 +127,11 @@ impl KademliaTable {
 
         let peer = peer.unwrap();
         peer.is_proven = true;
+        peer.last_pong = time_now_unix();
         peer.last_ping_hash = None;
     }
 
-    pub fn update_peer_ping_hash(&mut self, node_id: H512, ping_hash: Option<H256>) {
-        let peer = self.get_by_node_id_mut(node_id);
-        if peer.is_none() {
-            return;
-        }
-
-        let peer = peer.unwrap();
-        peer.last_ping_hash = ping_hash;
-        peer.last_ping = time_now_unix();
-    }
-
-    pub fn invalidate_peer_proof(&mut self, node_id: H512, ping_hash: Option<H256>) {
+    pub fn update_peer_ping(&mut self, node_id: H512, ping_hash: Option<H256>) {
         let peer = self.get_by_node_id_mut(node_id);
         if peer.is_none() {
             return;
@@ -153,12 +143,18 @@ impl KademliaTable {
         peer.last_ping = time_now_unix();
     }
 
+    /// ## Returns
+    /// The peers whose pong back is past the since. Since is given in seconds and it is not an actual data
+    /// but a Duration.
+    ///
+    /// ### Example
+    /// table.get_pinged_peers_since(24 * 60 * 60) // this would return the peers that haven't ponged for 24hs
     pub fn get_pinged_peers_since(&mut self, since: u64) -> Vec<PeerData> {
         let mut peers = vec![];
 
         for bucket in &self.buckets {
             for peer in &bucket.peers {
-                if time_now_unix().saturating_sub(peer.last_ping) >= since {
+                if time_now_unix().saturating_sub(peer.last_pong) >= since {
                     peers.push(peer.clone());
                 }
             }
@@ -187,7 +183,7 @@ impl KademliaTable {
         self.replace_peer_inner(node_id, bucket_idx)
     }
 
-    pub fn replace_peer_inner(&mut self, node_id: H512, bucket_idx: usize) -> Option<PeerData> {
+    fn replace_peer_inner(&mut self, node_id: H512, bucket_idx: usize) -> Option<PeerData> {
         let idx_to_remove = self.buckets[bucket_idx]
             .peers
             .iter()
@@ -225,16 +221,18 @@ pub fn bucket_number(node_id_1: H512, node_id_2: H512) -> usize {
 pub struct PeerData {
     pub node: Node,
     pub last_ping: u64,
+    pub last_pong: u64,
     pub last_ping_hash: Option<H256>,
     pub is_proven: bool,
     pub find_node_request: Option<FindNodeRequest>,
 }
 
 impl PeerData {
-    pub fn new(record: Node, last_ping: u64, is_proven: bool) -> Self {
+    pub fn new(record: Node, last_ping: u64, last_pong: u64, is_proven: bool) -> Self {
         Self {
             node: record,
             last_ping,
+            last_pong,
             is_proven,
             last_ping_hash: None,
             find_node_request: None,
