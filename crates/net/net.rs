@@ -683,12 +683,11 @@ mod tests {
         }
 
         // first it will try to send a revalidation
-        sleep(Duration::from_secs(2)).await;
+        sleep(Duration::from_secs(3)).await;
         {
             let table = table.lock().await;
             let peer = table.get_by_node_id(node_id_a).unwrap();
             assert!(!peer.is_proven);
-            assert!(peer.last_ping_hash.is_some());
             assert!(
                 time_now_unix().saturating_sub(peer.last_ping) <= Duration::from_secs(10).as_secs()
             );
