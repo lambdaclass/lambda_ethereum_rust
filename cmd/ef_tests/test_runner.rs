@@ -5,6 +5,7 @@ use ethereum_rust_chain::add_block;
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
+    H256,
 };
 use ethereum_rust_storage::{EngineType, Store};
 
@@ -86,8 +87,13 @@ pub fn build_store_for_test(test: &TestUnit) -> Store {
     let store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
     let block_number = test.genesis_block_header.number.as_u64();
+    let hash = H256::random();
     store
-        .add_block_header(block_number, test.genesis_block_header.clone().into())
+        .set_canonical_block_hash(block_number, hash)
+        .expect("Failed to set canonical chain");
+
+    store
+        .add_block_header(hash, test.genesis_block_header.clone().into())
         .unwrap();
     store
         .add_block_number(test.genesis_block_header.hash, block_number)

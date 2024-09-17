@@ -233,4 +233,11 @@ pub trait StoreEngine: Debug + Send {
 
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Get the canonical block hash for a given block number.
+    fn set_canonical_block_hash(
+        &mut self,
+        number: BlockNumber,
+        hash: BlockHash,
+    ) -> Result<(), StoreError>;
 }

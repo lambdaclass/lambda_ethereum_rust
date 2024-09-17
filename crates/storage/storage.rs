@@ -90,14 +90,14 @@ impl Store {
 
     pub fn add_block_header(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
         self.engine
             .clone()
             .lock()
             .unwrap()
-            .add_block_header(block_number, block_header)
+            .add_block_header(block_hash, block_header)
     }
 
     pub fn get_block_header(
@@ -251,8 +251,8 @@ impl Store {
         let number = header.number;
         let hash = header.compute_block_hash();
         self.add_transaction_locations(&block.body.transactions, hash)?;
-        self.add_block_body(number, hash, block.body)?;
-        self.add_block_header(number, hash, header)?;
+        self.add_block_body(hash, block.body)?;
+        self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
         self.update_latest_block_number(number)
     }
@@ -461,6 +461,17 @@ impl Store {
         }
         trie
     }
+
+    pub fn set_canonical_block_hash(
+        &self,
+        number: BlockNumber,
+        hash: BlockHash,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .set_canonical_block_hash(number, hash)
+    }
 }
 
 #[cfg(test)]
@@ -578,13 +589,10 @@ mod tests {
     fn test_store_block(store: Store) {
         let (block_header, block_body) = create_block_for_testing();
         let block_number = 6;
+        let hash = block_header.compute_block_hash();
 
-        store
-            .add_block_header(block_number, block_header.clone())
-            .unwrap();
-        store
-            .add_block_body(block_number, block_body.clone())
-            .unwrap();
+        store.add_block_header(hash, block_header.clone()).unwrap();
+        store.add_block_body(hash, block_body.clone()).unwrap();
 
         let stored_header = store.get_block_header(block_number).unwrap().unwrap();
         let stored_body = store.get_block_body(block_number).unwrap().unwrap();
@@ -658,11 +666,11 @@ mod tests {
 
     fn test_store_transaction_location(store: Store) {
         let transaction_hash = H256::random();
-        let block_number = 6;
+        let block_hash = H256::random();
         let index = 3;
 
         store
-            .add_transaction_location(transaction_hash, block_number, index)
+            .add_transaction_location(transaction_hash, block_hash, index)
             .unwrap();
 
         let stored_location = store
@@ -670,7 +678,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(stored_location, (block_number, index));
+        assert_eq!(stored_location, (block_hash, index));
     }
 
     fn test_store_block_receipt(store: Store) {
@@ -683,10 +691,13 @@ mod tests {
         };
         let block_number = 6;
         let index = 4;
+        let block_hash = H256::random();
 
         store
-            .add_receipt(block_number, index, receipt.clone())
+            .add_receipt(block_hash, index, receipt.clone())
             .unwrap();
+
+        store.set_canonical_block_hash(block_number, block_hash);
 
         let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
 

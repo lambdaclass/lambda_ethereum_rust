@@ -2,7 +2,7 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
-    BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
+    BlockHeaderRLP, ReceiptRLP, TransactionHashRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
@@ -179,7 +179,7 @@ impl StoreEngine for Store {
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
-        self.write::<Receipts>((block_hash.into(), index), receipt.into())
+        self.write::<Receipts>((block_hash, index).into(), receipt.into())
     }
 
     fn get_receipt(
@@ -188,7 +188,7 @@ impl StoreEngine for Store {
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
         if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
-            Ok(self.read::<Receipts>((hash.into(), index))?.map(|b| b.to()))
+            Ok(self.read::<Receipts>((hash, index).into())?.map(|b| b.to()))
         } else {
             Ok(None)
         }
@@ -200,7 +200,7 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
-        self.write::<TransactionLocations>(transaction_hash.into(), (block_hash.into(), index))
+        self.write::<TransactionLocations>(transaction_hash.into(), (block_hash, index).into())
     }
 
     fn get_transaction_location(
@@ -208,7 +208,7 @@ impl StoreEngine for Store {
         transaction_hash: H256,
     ) -> Result<Option<(BlockHash, Index)>, StoreError> {
         self.read::<TransactionLocations>(transaction_hash.into())
-            .map(|o| o.map(|(h, i)| (h.to(), i)))
+            .map(|o| o.map(|t| t.to()))
     }
 
     fn add_storage_at(
@@ -362,6 +362,14 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
+
+    fn set_canonical_block_hash(
+        &mut self,
+        number: BlockNumber,
+        hash: BlockHash,
+    ) -> Result<(), StoreError> {
+        self.write::<CanonicalBlockHashes>(number, hash.into())
+    }
 }
 
 impl Debug for Store {
@@ -402,14 +410,15 @@ table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
 );
+
 dupsort!(
     /// Receipts table.
-    ( Receipts ) (BlockHashRLP, Index)[Index] => ReceiptRLP
+    ( Receipts ) TupleRLP<BlockHash, Index>[Index] => ReceiptRLP
 );
 
 table!(
     /// Transaction locations table.
-    ( TransactionLocations ) TransactionHashRLP => (BlockHashRLP, Index)
+    ( TransactionLocations ) TransactionHashRLP => TupleRLP<BlockHash, Index>
 );
 
 table!(

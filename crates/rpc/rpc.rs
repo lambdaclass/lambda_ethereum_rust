@@ -264,6 +264,7 @@ where
 #[cfg(test)]
 mod tests {
     use ethereum_rust_core::types::ChainConfig;
+    use ethereum_rust_core::H256;
     use ethereum_rust_core::{
         types::{code_hash, AccountInfo, BlockHeader},
         Address, Bytes, H512, U256,
@@ -309,9 +310,13 @@ mod tests {
             .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
+        let hash = H256::random();
         storage
-            .add_block_header(0, BlockHeader::default())
+            .add_block_header(hash, BlockHeader::default())
             .expect("Failed to write to test DB");
+        storage
+            .set_canonical_block_hash(0, hash)
+            .expect("Failed to set canonical chain");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
         let account_info = AccountInfo {
             balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
@@ -344,8 +349,13 @@ mod tests {
             .expect("Failed to write to test DB");
         // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
         // TODO: Replace this initialization with reading and storing genesis block
+        let hash = H256::random();
         storage
-            .add_block_header(0, BlockHeader::default())
+            .set_canonical_block_hash(0, hash)
+            .expect("Failed to set canonical chain");
+
+        storage
+            .add_block_header(hash, BlockHeader::default())
             .expect("Failed to write to test DB");
         let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
         let account_info = AccountInfo {

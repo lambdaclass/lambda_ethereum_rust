@@ -200,8 +200,12 @@ impl RpcHandler for GetTransactionByHashRequest {
                 Some(transaction) => transaction,
                 _ => return Ok(Value::Null),
             };
-        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
+        let (block_hash, index) = match storage.get_transaction_location(self.transaction_hash)? {
             Some(location) => location,
+            _ => return Ok(Value::Null),
+        };
+        let block_number = match storage.get_block_number(block_hash)? {
+            Some(number) => number,
             _ => return Ok(Value::Null),
         };
         let block_header = match storage.get_block_header(block_number)? {
@@ -230,8 +234,12 @@ impl RpcHandler for GetTransactionReceiptRequest {
             "Requested receipt for transaction {}",
             self.transaction_hash,
         );
-        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
+        let (block_hash, index) = match storage.get_transaction_location(self.transaction_hash)? {
             Some(location) => location,
+            _ => return Ok(Value::Null),
+        };
+        let block_number = match storage.get_block_number(block_hash)? {
+            Some(number) => number,
             _ => return Ok(Value::Null),
         };
         let block_header = match storage.get_block_header(block_number)? {
