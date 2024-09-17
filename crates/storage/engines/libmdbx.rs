@@ -518,6 +518,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
+        table_info!(CanonicalBlockHashes),
     ]
     .into_iter()
     .collect();

@@ -274,8 +274,10 @@ impl Store {
         // Obtain genesis block
         let genesis_block = genesis.get_block();
 
+        let genesis_hash = genesis_block.header.compute_block_hash();
+
         if let Some(header) = self.get_block_header(genesis_block.header.number)? {
-            if header.compute_block_hash() == genesis_block.header.compute_block_hash() {
+            if header.compute_block_hash() == genesis_hash {
                 info!("Received genesis file matching a previously stored one, nothing to do");
                 return Ok(());
             } else {
@@ -283,9 +285,12 @@ impl Store {
             }
         }
 
+        let block_number = genesis_block.header.number;
+
         // Store genesis block
-        self.update_earliest_block_number(genesis_block.header.number)?;
+        self.update_earliest_block_number(block_number)?;
         self.add_block(genesis_block)?;
+        self.set_canonical_block_hash(block_number, genesis_hash)?;
 
         // Store each alloc account
         for (address, account) in genesis.alloc.into_iter() {
@@ -593,6 +598,7 @@ mod tests {
 
         store.add_block_header(hash, block_header.clone()).unwrap();
         store.add_block_body(hash, block_body.clone()).unwrap();
+        store.set_canonical_block_hash(block_number, hash).unwrap();
 
         let stored_header = store.get_block_header(block_number).unwrap().unwrap();
         let stored_body = store.get_block_body(block_number).unwrap().unwrap();
