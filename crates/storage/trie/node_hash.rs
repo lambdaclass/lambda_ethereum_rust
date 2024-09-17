@@ -1,4 +1,4 @@
-use std::{cmp::min, default};
+use std::cmp::min;
 
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
@@ -275,7 +275,7 @@ impl RLPDecode for NodeHash {
     fn decode_unfinished(
         rlp: &[u8],
     ) -> Result<(Self, &[u8]), ethereum_rust_core::rlp::error::RLPDecodeError> {
-        let (mut hash, mut rest): (Vec<u8>, &[u8]);
+        let (hash, rest): (Vec<u8>, &[u8]);
         (hash, rest) = RLPDecode::decode_unfinished(rlp)?;
         let hash = NodeHash::from(hash);
         Ok((hash, rest))

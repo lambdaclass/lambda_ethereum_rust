@@ -1,15 +1,16 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
-    BlockHeaderRLP, ReceiptRLP, TransactionHashRLP,
+    AccountCodeHashRLP, AccountCodeRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    ReceiptRLP, TransactionHashRLP,
 };
+use crate::trie::Trie;
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -21,15 +22,16 @@ use libmdbx::{
 use serde_json;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
+use std::sync::Arc;
 
 pub struct Store {
-    db: Database,
+    db: Arc<Database>,
 }
 
 impl Store {
     pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
-            db: init_db(Some(path)),
+            db: Arc::new(init_db(Some(path))),
         })
     }
 
@@ -67,37 +69,6 @@ impl Store {
 }
 
 impl StoreEngine for Store {
-    fn add_account_info(
-        &mut self,
-        address: Address,
-        account_info: AccountInfo,
-    ) -> Result<(), StoreError> {
-        self.write::<AccountInfos>(address.into(), account_info.into())
-    }
-
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
-        Ok(self.read::<AccountInfos>(address.into())?.map(|a| a.to()))
-    }
-
-    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
-        self.remove::<AccountInfos>(address.into())
-    }
-
-    fn account_infos_iter(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
-        // Read storage from mdbx
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let cursor = txn
-            .cursor::<AccountInfos>()
-            .map_err(StoreError::LibmdbxError)?;
-        let iter = cursor
-            .walk(None)
-            .map_while(|res| res.ok().map(|(addr, info)| (addr.to(), info.to())));
-        // We need to collect here so the resulting iterator doesn't read from the cursor itself
-        Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
-    }
-
     fn add_block_header(
         &mut self,
         block_number: BlockNumber,
@@ -337,6 +308,25 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
+
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
+            return Ok(None);
+        };
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
+            self.db.clone(),
+        ));
+        let trie = Trie::open(db, state_root);
+        Ok(Some(trie))
+    }
+
+    fn new_state_trie(&self) -> Result<Trie, StoreError> {
+        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
+            self.db.clone(),
+        ));
+        let trie = Trie::new(db);
+        Ok(trie)
+    }
 }
 
 impl Debug for Store {
@@ -360,10 +350,6 @@ table!(
     /// Block bodies table.
     ( Bodies ) BlockNumber => BlockBodyRLP
 );
-table!(
-    /// Account infos table.
-    ( AccountInfos ) AddressRLP => AccountInfoRLP
-);
 dupsort!(
     /// Account storages table.
     ( AccountStorages ) AddressRLP => (AccountStorageKeyBytes, AccountStorageValueBytes) [AccountStorageKeyBytes]
@@ -386,6 +372,13 @@ table!(
     /// Stores chain data, each value is unique and stored as its rlp encoding
     /// See [ChainDataIndex] for available chain values
     ( ChainData ) ChainDataIndex => Vec<u8>
+);
+
+// Trie storages
+
+table!(
+    /// state trie nodes
+    ( StateTrieNodes ) Vec<u8> => Vec<u8>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -473,12 +466,12 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(BlockNumbers),
         table_info!(Headers),
         table_info!(Bodies),
-        table_info!(AccountInfos),
         table_info!(AccountStorages),
         table_info!(AccountCodes),
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(ChainData),
+        table_info!(StateTrieNodes),
     ]
     .into_iter()
     .collect();

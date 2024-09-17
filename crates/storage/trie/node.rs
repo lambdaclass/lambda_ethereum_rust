@@ -3,13 +3,12 @@ mod extension;
 mod leaf;
 
 pub use branch::BranchNode;
-use ethereum_types::H256;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
+use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug, Clone)]
@@ -39,9 +38,9 @@ impl From<LeafNode> for Node {
 
 impl Node {
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get<DB: TrieDB>(
+    pub fn get(
         &self,
-        state: &TrieState<DB>,
+        state: &TrieState,
         path: NibbleSlice,
     ) -> Result<Option<ValueRLP>, StoreError> {
         match self {
@@ -52,9 +51,9 @@ impl Node {
     }
 
     /// Inserts a value into the subtrie originating from this node and returns the new root of the subtrie
-    pub fn insert<DB: TrieDB>(
+    pub fn insert(
         self,
-        state: &mut TrieState<DB>,
+        state: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
     ) -> Result<Node, StoreError> {
@@ -67,9 +66,9 @@ impl Node {
 
     /// Removes a value from the subtrie originating from this node given its path
     /// Returns the new root of the subtrie (if any) and the removed value if it existed in the subtrie
-    pub fn remove<DB: TrieDB>(
+    pub fn remove(
         self,
-        state: &mut TrieState<DB>,
+        state: &mut TrieState,
         path: NibbleSlice,
     ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
         match self {
@@ -79,23 +78,15 @@ impl Node {
         }
     }
 
-    pub fn insert_self<DB: TrieDB>(
+    pub fn insert_self(
         self,
         path_offset: usize,
-        state: &mut TrieState<DB>,
+        state: &mut TrieState,
     ) -> Result<NodeHash, StoreError> {
         match self {
             Node::Branch(n) => n.insert_self(state),
             Node::Extension(n) => n.insert_self(state),
             Node::Leaf(n) => n.insert_self(path_offset, state),
-        }
-    }
-
-    pub fn compute_hash(&self, path_offset: usize) -> NodeHash {
-        match self {
-            Node::Branch(n) => n.compute_hash(),
-            Node::Extension(n) => n.compute_hash(),
-            Node::Leaf(n) => n.compute_hash(path_offset),
         }
     }
 }

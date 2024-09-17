@@ -24,3 +24,5 @@ cmd/ef_tests/vectors
 # Repos checked out by make target
 hive/
 ethereum-package/
+
+.docker_build_stamp
