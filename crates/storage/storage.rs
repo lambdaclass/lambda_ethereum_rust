@@ -698,7 +698,6 @@ mod tests {
             cumulative_gas_used: 1747,
             bloom: Bloom::random(),
             logs: vec![],
-            tx_hash: H256::random(),
         };
         let block_number = 6;
         let index = 4;

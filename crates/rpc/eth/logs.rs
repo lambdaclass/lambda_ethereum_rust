@@ -68,11 +68,10 @@ impl RpcHandler for LogsRequest {
                     toBlock,
                 })
             }
-            Some(params) => unreachable!("{params:?}"),
             _ => Err(RpcErr::BadParams),
         }
     }
-    // TODO: This is longer than it has the right to be, we should refactor it.
+    // TODO: This is longer than it has the right to be, maybe we should refactor it.
     // The main problem here is the layers of indirection needed
     // to fetch tx and block data for a log rpc response, some ideas here are:
     // - The ideal one is to have a key-value store BlockNumber -> Log, where the log also stores
@@ -88,14 +87,6 @@ impl RpcHandler for LogsRequest {
             return Err(RpcErr::BadParams);
         };
 
-        // First, we fetch *every* receipt in range, we'll
-        // need to count every one last of them to properly
-        // index the logs.
-        let receipts: BTreeMap<BlockNumber, Vec<Receipt>> =
-            storage.get_receipts_in_range(from, to).unwrap();
-
-        // If we were given one or more input address, we'll use them
-        // to only keep the logs which started from one of the given addresses.
         let address_filter: BTreeSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
             Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
@@ -103,52 +94,40 @@ impl RpcHandler for LogsRequest {
         };
 
         let mut all_logs: Vec<RpcLog> = Vec::new();
+        for block_num in from..=to {
+            let block_body = storage.get_block_body(block_num)?.ok_or(RpcErr::Internal)?;
+            let block_header = storage
+                .get_block_header(block_num)?
+                .ok_or(RpcErr::Internal)?;
+            let block_hash = block_header.compute_block_hash();
 
-        for (block_number, block_receipts) in receipts {
-            let block_header = storage.get_block_header(block_number)?;
-            // This error is on our side, since we should
-            // previously check the given block range is valid,
-            // but this is a probably a WIP.
-            match block_header {
-                None => {
-                    return Err(RpcErr::Internal);
-                }
-                Some(header) => {
-                    // Logs are indexed block wide, so we count them up from 0
-                    // on each block.
-                    let mut block_log_index = 0_u64;
-                    // TODO: Computing a hash on every request
-                    // seems risky, should we cache this
-                    // when we can?
-                    let block_hash = header.compute_block_hash();
-                    for receipt in block_receipts {
-                        let Ok(Some((_, tx_index))) =
-                            storage.get_transaction_location(receipt.tx_hash)
-                        else {
-                            continue;
-                        };
+            let mut block_log_index = 0_u64;
 
-                        for log in &receipt.logs {
-                            if address_filter.is_empty() || address_filter.contains(&log.address) {
-                                all_logs.push(RpcLog {
-                                    log: log.clone().into(),
-                                    log_index: block_log_index,
-                                    transaction_hash: receipt.tx_hash,
-                                    transaction_index: tx_index,
-                                    block_number,
-                                    block_hash,
-                                    removed: false,
-                                });
-                            }
-                            block_log_index += 1;
+            for (tx_index, tx) in block_body.transactions.iter().enumerate() {
+                let tx_hash = tx.compute_hash();
+                let receipt = storage
+                    .get_receipt(block_num, tx_index as u64)?
+                    .ok_or(RpcErr::Internal)?;
+
+                if receipt.succeeded {
+                    for log in &receipt.logs {
+                        if address_filter.is_empty() || address_filter.contains(&log.address) {
+                            all_logs.push(RpcLog {
+                                log: log.clone().into(),
+                                log_index: block_log_index,
+                                transaction_hash: tx_hash,
+                                transaction_index: tx_index as u64,
+                                block_number: block_num,
+                                block_hash,
+                                removed: false,
+                            });
                         }
+                        block_log_index += 1;
                     }
                 }
             }
         }
 
-        // Sort logs by block number and then by log index
-        // Serialize the logs to JSON, returning an error if serialization fails
         serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
     }
 }
