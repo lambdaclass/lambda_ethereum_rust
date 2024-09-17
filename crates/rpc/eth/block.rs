@@ -277,7 +277,7 @@ pub fn get_all_block_rpc_receipts(
         Ok(header) => header,
         _ => return Err(RpcErr::Internal),
     };
-    let blob_gas_price = calculate_base_fee_per_blob_gas(parent_header);
+    let blob_gas_price = calculate_base_fee_per_blob_gas(&parent_header);
     // Fetch receipt info from block
     let block_info = RpcReceiptBlockInfo::from_block_header(header);
     // Fetch receipt for each tx in the block and add block and tx info
@@ -349,7 +349,7 @@ pub fn get_blob_base_fee(storage: &Store) -> Result<Value, RpcErr> {
                 Ok(header) => header,
                 _ => return Err(RpcErr::Internal),
             };
-            let blob_base_fee = calculate_base_fee_per_blob_gas(parent_header);
+            let blob_base_fee = calculate_base_fee_per_blob_gas(&parent_header);
             serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
         }
         _ => Err(RpcErr::Internal),
