@@ -3,6 +3,7 @@ use ethereum_types::H256;
 use crate::{
     error::StoreError,
     trie::{
+        db::TrieDB,
         nibble::NibbleSlice,
         node::BranchNode,
         node_hash::{NodeHash, NodeHasher, PathKind},
@@ -155,9 +156,13 @@ impl LeafNode {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
     use super::*;
     use crate::pmt_node;
-    use crate::trie::Trie;
+    use crate::trie::db::libmdbx::LibmdbxTrieDB;
+    use crate::trie::test_utils::{new_db, TestNodes};
+    use crate::trie::{test_utils, Trie};
 
     #[test]
     fn new() {

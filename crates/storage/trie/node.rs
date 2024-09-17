@@ -9,7 +9,7 @@ pub use leaf::LeafNode;
 
 use crate::error::StoreError;
 
-use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
+use super::{db::TrieDB, nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug, Clone)]

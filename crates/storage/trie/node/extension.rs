@@ -1,4 +1,5 @@
 use crate::error::StoreError;
+use crate::trie::db::TrieDB;
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::nibble::NibbleVec;
 use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
@@ -190,9 +191,11 @@ impl ExtensionNode {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::trie::db::libmdbx::LibmdbxTrieDB;
+    use crate::trie::test_utils::{new_db, TestNodes};
     use crate::{
         pmt_node,
-        trie::{nibble::Nibble, Trie},
+        trie::{nibble::Nibble, test_utils, Trie},
     };
 
     #[test]

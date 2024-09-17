@@ -1,6 +1,6 @@
 use super::{
     BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
-    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, MIN_BASE_FEE_PER_BLOB_GAS,
+    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
 };
 use crate::{
     rlp::{
@@ -94,8 +94,8 @@ pub struct BlockHeader {
     pub prev_randao: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str_padding")]
     pub nonce: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
-    pub base_fee_per_gas: u64,
+    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    pub base_fee_per_gas: Option<u64>,
     pub withdrawals_root: Option<H256>,
     #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
     pub blob_gas_used: Option<u64>,
@@ -122,7 +122,7 @@ impl RLPEncode for BlockHeader {
             .encode_field(&self.extra_data)
             .encode_field(&self.prev_randao)
             .encode_field(&self.nonce.to_be_bytes())
-            .encode_field(&self.base_fee_per_gas)
+            .encode_optional_field(&self.base_fee_per_gas)
             .encode_optional_field(&self.withdrawals_root)
             .encode_optional_field(&self.blob_gas_used)
             .encode_optional_field(&self.excess_blob_gas)
@@ -150,7 +150,7 @@ impl RLPDecode for BlockHeader {
         let (prev_randao, decoder) = decoder.decode_field("prev_randao")?;
         let (nonce, decoder) = decoder.decode_field("nonce")?;
         let nonce = u64::from_be_bytes(nonce);
-        let (base_fee_per_gas, decoder) = decoder.decode_field("base_fee_per_gas")?;
+        let (base_fee_per_gas, decoder) = decoder.decode_optional_field();
         let (withdrawals_root, decoder) = decoder.decode_optional_field();
         let (blob_gas_used, decoder) = decoder.decode_optional_field();
         let (excess_blob_gas, decoder) = decoder.decode_optional_field();
@@ -325,7 +325,7 @@ fn check_gas_limit(gas_limit: u64, parent_gas_limit: u64) -> bool {
 }
 
 // Calculates the base fee per blob gas for the current block based on it's parent excess blob gas
-pub fn calculate_base_fee_per_blob_gas(parent_header: BlockHeader) -> u64 {
+pub fn calculate_base_fee_per_blob_gas(parent_header: &BlockHeader) -> u64 {
     fake_exponential(
         MIN_BASE_FEE_PER_BLOB_GAS,
         parent_header.excess_blob_gas.unwrap_or_default(),
@@ -397,14 +397,14 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
         header.gas_limit,
         parent_header.gas_limit,
         parent_header.gas_used,
-        parent_header.base_fee_per_gas,
+        parent_header.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE),
     ) {
         base_fee
     } else {
         return false;
     };
 
-    expected_base_fee_per_gas == header.base_fee_per_gas
+    expected_base_fee_per_gas == header.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE)
         && header.timestamp > parent_header.timestamp
         && header.number == parent_header.number + 1
         && header.extra_data.len() <= 32
@@ -508,7 +508,7 @@ mod test {
             extra_data: Bytes::new(),
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
-            base_fee_per_gas: 0x07,
+            base_fee_per_gas: Some(0x07),
             withdrawals_root: Some(
                 H256::from_str(
                     "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
@@ -550,7 +550,7 @@ mod test {
             extra_data: Bytes::new(),
             prev_randao: H256::zero(),
             nonce: 0x0000000000000000,
-            base_fee_per_gas: 0x07,
+            base_fee_per_gas: Some(0x07),
             withdrawals_root: Some(
                 H256::from_str(
                     "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",

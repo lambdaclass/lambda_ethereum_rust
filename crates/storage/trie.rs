@@ -1,8 +1,10 @@
+mod db;
 mod nibble;
 mod node;
 mod node_hash;
 mod rlp;
 mod state;
+
 #[cfg(test)]
 mod test_utils;
 
@@ -12,6 +14,8 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
+pub use self::db::TrieDB;
+pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB};
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
@@ -43,20 +47,20 @@ pub struct Trie {
 
 impl Trie {
     /// Creates a new Trie from a clean DB
-    pub fn new(trie_dir: &str) -> Result<Self, StoreError> {
-        Ok(Self {
-            state: TrieState::create(trie_dir)?,
+    pub fn new(db: Box<dyn TrieDB>) -> Self {
+        Self {
+            state: TrieState::new(db),
             root: None,
-        })
+        }
     }
 
     /// Creates a trie from an already-initialized DB and sets root as the root node of the trie
-    pub fn open(trie_dir: &str, root: H256) -> Result<Self, StoreError> {
+    pub fn open(db: Box<dyn TrieDB>, root: H256) -> Self {
         let root = (root != *EMPTY_TRIE_HASH).then_some(root.into());
-        Ok(Self {
-            state: TrieState::create(trie_dir)?,
+        Self {
+            state: TrieState::new(db),
             root,
-        })
+        }
     }
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
@@ -153,12 +157,10 @@ impl Trie {
     }
 
     #[cfg(test)]
-    /// Creates a new trie based on a temporary DB
-    pub fn new_temp() -> Self {
-        Self {
-            state: TrieState::init_temp(),
-            root: None,
-        }
+    /// Creates a new Trie based on a temporary Libmdbx DB
+    fn new_temp() -> Self {
+        let db = test_utils::new_db::<test_utils::TestNodes>();
+        Trie::new(Box::new(LibmdbxTrieDB::<test_utils::TestNodes>::new(db)))
     }
 }
 
@@ -166,9 +168,13 @@ impl Trie {
 mod test {
     use std::sync::Arc;
 
+    use crate::trie::test_utils::{new_db, TestNodes};
+
     use super::*;
     // Rename imports to avoid potential name clashes
+    use super::test_utils;
     use cita_trie::{MemoryDB as CitaMemoryDB, PatriciaTrie as CitaTrie, Trie as CitaTrieTrait};
+    use db::libmdbx::LibmdbxTrieDB;
     use hasher::HasherKeccak;
     use hex_literal::hex;
     use proptest::{
@@ -578,10 +584,11 @@ mod test {
     fn resume_trie() {
         const TRIE_DIR: &str = "trie-db-resume-trie-test";
         let trie_dir = TempDir::new(TRIE_DIR).expect("Failed to create temp dir");
-        let trie_dir = trie_dir.path().to_str().unwrap();
+        let trie_dir = trie_dir.path();
 
         // Create new trie from clean DB
-        let mut trie = Trie::new(trie_dir).unwrap();
+        let db = test_utils::new_db_with_path::<TestNodes>(trie_dir.into());
+        let mut trie = Trie::new(Box::new(LibmdbxTrieDB::<TestNodes>::new(db.clone())));
 
         trie.insert([0; 32].to_vec(), [1; 32].to_vec()).unwrap();
         trie.insert([1; 32].to_vec(), [2; 32].to_vec()).unwrap();
@@ -590,10 +597,14 @@ mod test {
         // Save current root
         let root = trie.hash().unwrap();
 
-        drop(trie); // Release DB
+        // Release DB
+        drop(db);
+        drop(trie);
 
+        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
+        let mut db2 = test_utils::open_db::<TestNodes>(trie_dir.to_str().unwrap());
         // Create a new trie based on the previous trie's DB
-        let trie = Trie::open(trie_dir, root).unwrap();
+        let trie = Trie::open(Box::new(LibmdbxTrieDB::<TestNodes>::new(db2)), root);
 
         assert_eq!(trie.get(&[0; 32].to_vec()).unwrap(), Some([1; 32].to_vec()));
         assert_eq!(trie.get(&[1; 32].to_vec()).unwrap(), Some([2; 32].to_vec()));

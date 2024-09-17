@@ -18,11 +18,12 @@ use eth::{
     account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
     block::{
         self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawHeaderRequest,
+        GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest, GetRawReceipts,
     },
     client,
+    fee_market::FeeHistoryRequest,
     transaction::{
-        CallRequest, CreateAccessListRequest, EstimateGasRequest,
+        CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
     },
@@ -183,6 +184,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_call" => CallRequest::call(req, storage),
         "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
+        "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
@@ -192,6 +194,9 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
 pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
+        "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
+        "debug_getRawTransaction" => GetRawTransaction::call(req, storage),
+        "debug_getRawReceipts" => GetRawReceipts::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
