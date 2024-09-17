@@ -254,7 +254,6 @@ impl Store {
             return Ok(None);
         };
         for update in account_updates.iter() {
-            // Add or update AccountState in the trie
             let hashed_address = hash_address(&update.address);
             if update.removed {
                 // Remove account from trie
@@ -409,7 +408,7 @@ impl Store {
             .unwrap()
             .get_transaction_by_hash(transaction_hash)
     }
-    // TODO(TrieIntegration): Make private
+
     pub fn add_storage_at(
         &self,
         address: Address,
