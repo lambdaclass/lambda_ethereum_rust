@@ -21,8 +21,8 @@ pub enum AddressFilter {
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum TopicFilter {
-    Topic(U256),
-    Topics(Vec<TopicFilter>),
+    Topic(H256),
+    Topics(Vec<H256>),
 }
 // TODO: This struct should be using serde,
 // but I couldn't get it to work, the culprit
@@ -40,7 +40,7 @@ pub struct LogsRequest {
     /// The addresses from where the logs origin from.
     pub address_filters: Option<AddressFilter>,
     /// Which topics to filter.
-    pub topics: Option<Vec<TopicFilter>>,
+    pub topics: Vec<TopicFilter>,
 }
 impl RpcHandler for LogsRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
@@ -67,15 +67,18 @@ impl RpcHandler for LogsRequest {
                     }
                     _ => None,
                 });
+                dbg!("PARSING TOPICS");
                 let topics = param.get("topics").and_then(|topics| {
-                    Some(
-                        serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap(),
+                    dbg!("TOPICS");
+                    Some(dbg!(serde_json::from_value::<Option<Vec<TopicFilter>>>(
+                        topics.clone()
                     )
+                    .unwrap()))
                 });
                 Ok(LogsRequest {
                     fromBlock,
                     address_filters: address_filter,
-                    topics: topics.unwrap(),
+                    topics: topics.unwrap().unwrap(),
                     toBlock,
                 })
             }
@@ -104,13 +107,23 @@ impl RpcHandler for LogsRequest {
             None => BTreeSet::new(),
         };
 
-        // let topic_filter: BTreeSet<_> = match &self.topics {
-        //     Some(filters) => filters.iter().collect(),
-        //     None => BTreeSet::new(),
-        // };
-        // let topic_filter
+        let mut topic_filter: BTreeSet<H256> = BTreeSet::new();
+        for topic in &self.topics {
+            match topic {
+                TopicFilter::Topic(topic) => {
+                    topic_filter.insert(topic.clone());
+                }
+                TopicFilter::Topics(multi_topics) => {
+                    topic_filter.extend(multi_topics.iter());
+                }
+            }
+        }
+
         let mut all_logs: Vec<RpcLog> = Vec::new();
+        // For each block in range...
         for block_num in from..=to {
+            // Take the header of the block, we
+            // will use it to access the transactions.
             let block_body = storage.get_block_body(block_num)?.ok_or(RpcErr::Internal)?;
             let block_header = storage
                 .get_block_header(block_num)?
@@ -119,6 +132,8 @@ impl RpcHandler for LogsRequest {
 
             let mut block_log_index = 0_u64;
 
+            // Since transactions share indices with their receipts,
+            // we'll use them to fetch
             for (tx_index, tx) in block_body.transactions.iter().enumerate() {
                 let tx_hash = tx.compute_hash();
                 let receipt = storage
@@ -143,7 +158,19 @@ impl RpcHandler for LogsRequest {
                 }
             }
         }
-
-        serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
+        // Now that we have the logs filtered by address,
+        // we still need to filter by topics if it was a given parameter.
+        if !topic_filter.is_empty() {
+            all_logs.iter_mut().filter_map(|rpc_log| {
+                rpc_log
+                    .log
+                    .topics
+                    .iter()
+                    .find(|topic| topic_filter.contains(*topic))
+            });
+            serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
+        } else {
+            serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
+        }
     }
 }
