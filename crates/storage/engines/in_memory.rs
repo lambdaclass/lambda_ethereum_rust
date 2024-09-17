@@ -67,7 +67,7 @@ impl StoreEngine for Store {
 
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
         if let Some(hash) = self.canonical_hashes.get(&block_number) {
-            Ok(self.headers.get(&hash).cloned())
+            Ok(self.headers.get(hash).cloned())
         } else {
             Ok(None)
         }
@@ -75,7 +75,7 @@ impl StoreEngine for Store {
 
     fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError> {
         if let Some(hash) = self.canonical_hashes.get(&block_number) {
-            Ok(self.bodies.get(&hash).cloned())
+            Ok(self.bodies.get(hash).cloned())
         } else {
             Ok(None)
         }
@@ -149,7 +149,7 @@ impl StoreEngine for Store {
         if let Some(hash) = self.canonical_hashes.get(&block_number) {
             Ok(self
                 .receipts
-                .get(&hash)
+                .get(hash)
                 .and_then(|entry| entry.get(&index))
                 .cloned())
         } else {

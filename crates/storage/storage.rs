@@ -697,7 +697,9 @@ mod tests {
             .add_receipt(block_hash, index, receipt.clone())
             .unwrap();
 
-        store.set_canonical_block_hash(block_number, block_hash);
+        store
+            .set_canonical_block_hash(block_number, block_hash)
+            .unwrap();
 
         let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
 
