@@ -276,7 +276,6 @@ impl Store {
                         self.add_account_code(info.code_hash, code.clone())?;
                     }
                 }
-<<<<<<< HEAD
                 // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
                     let mut storage_trie = self
@@ -289,17 +288,6 @@ impl Store {
                             .insert(storage_key.encode_to_vec(), storage_value.encode_to_vec())?;
                     }
                     account_state.storage_root = state_trie.hash()?;
-=======
-                // Store the added storage in the account's storage trie and compute its root
-                // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into the DB table and compute the root
-                if !update.added_storage.is_empty() {
-                    for (storage_key, storage_value) in &update.added_storage {
-                        self.add_storage_at(update.address, *storage_key, *storage_value)?;
-                    }
-                    account_state.storage_root = ethereum_rust_core::types::compute_storage_root(
-                        &self.account_storage_iter(update.address)?.collect(),
-                    );
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
                 }
                 state_trie.insert(hashed_address, account_state.encode_to_vec())?;
             }
@@ -317,7 +305,6 @@ impl Store {
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
             self.add_account_code(code_hash, account.code)?;
-<<<<<<< HEAD
             // Store the account's storage in a clean storage trie and compute its root
             let mut storage_trie = self
                 .engine
@@ -328,14 +315,6 @@ impl Store {
                 storage_trie.insert(storage_key.encode_to_vec(), storage_value.encode_to_vec())?;
             }
             let storage_root = storage_trie.hash()?;
-=======
-            // Store the accounts storage in the storage trie and compute its root
-            // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB table and compute the root
-            let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
-            for (storage_key, storage_value) in account.storage {
-                self.add_storage_at(address, storage_key, storage_value)?;
-            }
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
             // Add account to trie
             let account_state = AccountState {
                 nonce: account.nonce,
@@ -438,21 +417,6 @@ impl Store {
             .unwrap()
             .get_transaction_by_hash(transaction_hash)
     }
-<<<<<<< HEAD
-=======
-    // TODO(TrieIntegration): Make private
-    pub fn add_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .add_storage_at(address, storage_key, storage_value)
-    }
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
 
     pub fn get_storage_at(
         &self,
@@ -460,7 +424,6 @@ impl Store {
         address: Address,
         storage_key: H256,
     ) -> Result<Option<U256>, StoreError> {
-<<<<<<< HEAD
         let Some(storage_trie) = self.storage_trie(block_number, address)? else {
             return Ok(None);
         };
@@ -468,23 +431,6 @@ impl Store {
             .get(&storage_key.encode_to_vec())?
             .map(|rlp| U256::decode(&rlp).map_err(StoreError::RLPDecode))
             .transpose()
-=======
-        self.engine
-            .lock()
-            .unwrap()
-            .get_storage_at(address, storage_key)
-    }
-    // TODO(TrieIntegration): Make private
-    pub fn remove_account_storage(&self, address: Address) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().remove_account_storage(address)
-    }
-    // TODO(TrieIntegration): Remove
-    pub fn account_storage_iter(
-        &self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        self.engine.lock().unwrap().account_storage_iter(address)
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
     }
 
     pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
@@ -555,9 +501,7 @@ impl Store {
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
     }
-}
 
-<<<<<<< HEAD
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
         &self,
@@ -584,8 +528,6 @@ impl Store {
     }
 }
 
-=======
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
 fn hash_address(address: &Address) -> Vec<u8> {
     Keccak256::new_with_prefix(address.to_fixed_bytes())
         .finalize()
@@ -594,7 +536,7 @@ fn hash_address(address: &Address) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs, panic, str::FromStr};
+    use std::{fs, panic, str::FromStr};
 
     use bytes::Bytes;
     use ethereum_rust_core::{
@@ -640,14 +582,7 @@ mod tests {
         run_test(&test_store_transaction_location, engine_type);
         run_test(&test_store_block_receipt, engine_type);
         run_test(&test_store_account_code, engine_type);
-<<<<<<< HEAD
         run_test(&test_store_block_tags, engine_type);
-=======
-        run_test(&test_store_account_storage, engine_type);
-        run_test(&test_remove_account_storage, engine_type);
-        run_test(&test_store_block_tags, engine_type);
-        run_test(&test_account_storage_iter, engine_type);
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
         run_test(&test_chain_config_storage, engine_type);
         run_test(&test_genesis_block, engine_type);
     }
@@ -808,74 +743,6 @@ mod tests {
         assert_eq!(stored_code, code);
     }
 
-<<<<<<< HEAD
-=======
-    fn test_store_account_storage(store: Store) {
-        let address = Address::random();
-        let storage_key_a = H256::random();
-        let storage_key_b = H256::random();
-        let storage_value_a = U256::from(50);
-        let storage_value_b = U256::from(100);
-
-        store
-            .add_storage_at(address, storage_key_a, storage_value_a)
-            .unwrap();
-        store
-            .add_storage_at(address, storage_key_b, storage_value_b)
-            .unwrap();
-
-        let stored_value_a = store
-            .get_storage_at(address, storage_key_a)
-            .unwrap()
-            .unwrap();
-        let stored_value_b = store
-            .get_storage_at(address, storage_key_b)
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(stored_value_a, storage_value_a);
-        assert_eq!(stored_value_b, storage_value_b);
-    }
-
-    fn test_remove_account_storage(store: Store) {
-        let address_alpha = Address::random();
-        let address_beta = Address::random();
-
-        let storage_key_a = H256::random();
-        let storage_key_b = H256::random();
-        let storage_value_a = U256::from(50);
-        let storage_value_b = U256::from(100);
-
-        store
-            .add_storage_at(address_alpha, storage_key_a, storage_value_a)
-            .unwrap();
-        store
-            .add_storage_at(address_alpha, storage_key_b, storage_value_b)
-            .unwrap();
-
-        store
-            .add_storage_at(address_beta, storage_key_a, storage_value_a)
-            .unwrap();
-        store
-            .add_storage_at(address_beta, storage_key_b, storage_value_b)
-            .unwrap();
-
-        store.remove_account_storage(address_alpha).unwrap();
-
-        let stored_value_alpha_a = store.get_storage_at(address_alpha, storage_key_a).unwrap();
-        let stored_value_alpha_b = store.get_storage_at(address_alpha, storage_key_b).unwrap();
-
-        let stored_value_beta_a = store.get_storage_at(address_beta, storage_key_a).unwrap();
-        let stored_value_beta_b = store.get_storage_at(address_beta, storage_key_b).unwrap();
-
-        assert!(stored_value_alpha_a.is_none());
-        assert!(stored_value_alpha_b.is_none());
-
-        assert!(stored_value_beta_a.is_some());
-        assert!(stored_value_beta_b.is_some());
-    }
-
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
     fn test_store_block_tags(store: Store) {
         let earliest_block_number = 0;
         let finalized_block_number = 7;
@@ -910,30 +777,6 @@ mod tests {
         assert_eq!(pending_block_number, stored_pending_block_number);
     }
 
-<<<<<<< HEAD
-=======
-    fn test_account_storage_iter(store: Store) {
-        let address = Address::random();
-        // Build preset account storage
-        let account_storage = HashMap::from([
-            (H256::random(), U256::from(7)),
-            (H256::random(), U256::from(17)),
-            (H256::random(), U256::from(77)),
-            (H256::random(), U256::from(707)),
-        ]);
-
-        // Store account storage
-        for (key, value) in account_storage.clone() {
-            store.add_storage_at(address, key, value).unwrap();
-        }
-
-        // Fetch account storage from db and compare against preset
-        let account_storage_iter = store.account_storage_iter(address).unwrap();
-        let account_storage_from_iter = HashMap::from_iter(account_storage_iter);
-        assert_eq!(account_storage, account_storage_from_iter)
-    }
-
->>>>>>> de5584839494df94da77948a99e818dc98a0dffa
     fn test_chain_config_storage(store: Store) {
         let chain_config = example_chain_config();
         store.set_chain_config(&chain_config).unwrap();
