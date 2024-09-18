@@ -136,9 +136,9 @@ impl Trie {
         let Some(root) = &self.root else {
             return Ok(node_path);
         };
-        // If the root is an inlined leaf, return it
+        // If the root is inlined, add it to the node_path
         if let NodeHash::Inline(node) = root {
-            return Ok(vec![node.to_vec()]);
+            node_path.push(node.to_vec());
         }
         let root_node = self
             .state
@@ -794,9 +794,8 @@ mod test {
             .insert(b"goose".to_vec(), b"goose".to_vec())
             .unwrap();
         trie.insert(b"duck".to_vec(), b"duck".to_vec()).unwrap();
-        trie
-            .insert(b"goose".to_vec(), b"goose".to_vec())
-            .unwrap();
+        trie.insert(b"goose".to_vec(), b"goose".to_vec()).unwrap();
+        let _ = cita_trie.root();
         let cita_proof = cita_trie.get_proof(&b"duck".to_vec()).unwrap();
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
