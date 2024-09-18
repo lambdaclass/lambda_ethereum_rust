@@ -467,14 +467,14 @@ impl Store {
         trie
     }
 
-    pub fn get_receipts_in_range(
+    pub fn get_blocks_in_range(
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError> {
+    ) -> Result<Vec<BlockBody>, StoreError> {
         let mut lock = self.engine.try_lock();
         if let Ok(ref mut db) = lock {
-            db.get_receipts_in_range(from, to)
+            db.get_blocks_in_range(from, to)
         } else {
             Err(StoreError::Custom("Could not access db".to_string()))
         }

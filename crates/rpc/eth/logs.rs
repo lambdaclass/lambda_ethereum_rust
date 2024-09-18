@@ -69,10 +69,9 @@ impl RpcHandler for LogsRequest {
                     _ => None,
                 });
                 let topics = param.get("topics").and_then(|topics| {
-                    Some(dbg!(serde_json::from_value::<Option<Vec<TopicFilter>>>(
-                        topics.clone()
+                    Some(
+                        serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap(),
                     )
-                    .unwrap()))
                 });
                 Ok(LogsRequest {
                     fromBlock,

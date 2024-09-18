@@ -338,12 +338,12 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
-    fn get_receipts_in_range(
+    fn get_blocks_in_range(
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> std::prelude::v1::Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError> {
-        todo!()
+    ) -> std::prelude::v1::Result<Vec<BlockBody>, StoreError> {
+        todo!();
         // let txn = self
         //     .db
         //     .begin_read()

@@ -228,9 +228,9 @@ pub trait StoreEngine: Debug + Send {
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
-    fn get_receipts_in_range(
+    fn get_blocks_in_range(
         &self,
         from: BlockNumber,
         to: BlockNumber,
-    ) -> Result<BTreeMap<BlockNumber, Vec<Receipt>>, StoreError>;
+    ) -> Result<Vec<BlockBody>, StoreError>;
 }
