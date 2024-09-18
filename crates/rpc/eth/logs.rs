@@ -21,9 +21,10 @@ pub enum AddressFilter {
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum TopicFilter {
-    Topic(H256),
-    Topics(Vec<H256>),
+    Topic(Option<H256>),
+    Topics(Vec<Option<H256>>),
 }
+
 // TODO: This struct should be using serde,
 // but I couldn't get it to work, the culprit
 // seems to be BlockIdentifier enum.
@@ -67,9 +68,7 @@ impl RpcHandler for LogsRequest {
                     }
                     _ => None,
                 });
-                dbg!("PARSING TOPICS");
                 let topics = param.get("topics").and_then(|topics| {
-                    dbg!("TOPICS");
                     Some(dbg!(serde_json::from_value::<Option<Vec<TopicFilter>>>(
                         topics.clone()
                     )
@@ -78,7 +77,7 @@ impl RpcHandler for LogsRequest {
                 Ok(LogsRequest {
                     fromBlock,
                     address_filters: address_filter,
-                    topics: topics.unwrap().unwrap(),
+                    topics: topics.flatten().unwrap_or_else(|| vec![]),
                     toBlock,
                 })
             }
@@ -107,18 +106,6 @@ impl RpcHandler for LogsRequest {
             None => BTreeSet::new(),
         };
 
-        let mut topic_filter: BTreeSet<H256> = BTreeSet::new();
-        for topic in &self.topics {
-            match topic {
-                TopicFilter::Topic(topic) => {
-                    topic_filter.insert(topic.clone());
-                }
-                TopicFilter::Topics(multi_topics) => {
-                    topic_filter.extend(multi_topics.iter());
-                }
-            }
-        }
-
         let mut all_logs: Vec<RpcLog> = Vec::new();
         // For each block in range...
         for block_num in from..=to {
@@ -133,7 +120,7 @@ impl RpcHandler for LogsRequest {
             let mut block_log_index = 0_u64;
 
             // Since transactions share indices with their receipts,
-            // we'll use them to fetch
+            // we'll use them to fetch their receipts, which have the actual logs.
             for (tx_index, tx) in block_body.transactions.iter().enumerate() {
                 let tx_hash = tx.compute_hash();
                 let receipt = storage
@@ -160,17 +147,37 @@ impl RpcHandler for LogsRequest {
         }
         // Now that we have the logs filtered by address,
         // we still need to filter by topics if it was a given parameter.
-        if !topic_filter.is_empty() {
-            all_logs.iter_mut().filter_map(|rpc_log| {
-                rpc_log
-                    .log
-                    .topics
-                    .iter()
-                    .find(|topic| topic_filter.contains(*topic))
-            });
-            serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
-        } else {
-            serde_json::to_value(all_logs).map_err(|_| RpcErr::Internal)
-        }
+
+        let filtered_logs = all_logs
+            .into_iter()
+            .filter(|rpc_log| {
+                if self.topics.len() > rpc_log.log.topics.len() {
+                    return false;
+                }
+                for (i, topic_filter) in self.topics.iter().enumerate() {
+                    match topic_filter {
+                        TopicFilter::Topic(t) => {
+                            if let Some(topic) = t {
+                                if rpc_log.log.topics[i] != *topic {
+                                    return false;
+                                }
+                            }
+                        }
+                        TopicFilter::Topics(sub_topics) => {
+                            if !sub_topics.is_empty()
+                                && !sub_topics
+                                    .iter()
+                                    .any(|st| st.map_or(true, |t| rpc_log.log.topics[i] == t))
+                            {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                true
+            })
+            .collect::<Vec<RpcLog>>();
+
+        serde_json::to_value(filtered_logs).map_err(|_| RpcErr::Internal)
     }
 }
