@@ -121,7 +121,6 @@ pub async fn handle_authrpc_request(
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
-    info!("Received body: {body}");
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
