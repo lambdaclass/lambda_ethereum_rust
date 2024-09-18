@@ -130,6 +130,20 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, StoreError> {
+        // Will store all the encoded nodes traversed until reaching the node containing the path
+        let mut node_path = Vec::new();
+        let Some(root) = &self.root else {
+            return Ok(node_path);
+        };
+        let root_node = self
+            .state
+            .get_node(root.clone())?
+            .expect("inconsistent tree structure");
+        root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        Ok(node_path)
+    }
+
     #[cfg(test)]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {

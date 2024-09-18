@@ -78,6 +78,21 @@ impl Node {
         }
     }
 
+    /// Traverses own subtrie until reaching the node containing `path`
+    /// Appends all encoded nodes traversed to `node_path`
+    pub fn get_path(
+        &self,
+        state: &TrieState,
+        path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        match self {
+            Node::Branch(n) => todo!(),
+            Node::Extension(n) => todo!(),
+            Node::Leaf(n) => todo!(),
+        }
+    }
+
     pub fn insert_self(
         self,
         path_offset: usize,
