@@ -196,13 +196,14 @@ async fn discover_peers_server(
                             let table = table.lock().await;
                             table.get_closest_nodes(msg.target)
                         };
+                        let nodes_chunks = nodes.chunks(4);
                         let expiration = get_expiration(20);
                         debug!("Sending neighbors!");
                         // we are sending the neighbors in 4 different messages as not to exceed the
                         // maximum packet size
-                        for i in 0..4 {
+                        for nodes in nodes_chunks {
                             let neighbors = discv4::Message::Neighbors(NeighborsMessage::new(
-                                nodes[i * 4..i * 4 + 4].to_vec(),
+                                nodes.to_vec(),
                                 expiration,
                             ));
                             let mut buf = Vec::new();
