@@ -157,13 +157,16 @@ impl Store {
     pub fn add_transaction_location(
         &self,
         transaction_hash: H256,
+        block_number: BlockNumber,
         block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .add_transaction_location(transaction_hash, block_hash, index)
+        self.engine.lock().unwrap().add_transaction_location(
+            transaction_hash,
+            block_number,
+            block_hash,
+            index,
+        )
     }
 
     pub fn get_transaction_location(
@@ -247,7 +250,7 @@ impl Store {
         let header = block.header;
         let number = header.number;
         let hash = header.compute_block_hash();
-        self.add_transaction_locations(&block.body.transactions, hash)?;
+        self.add_transaction_locations(&block.body.transactions, number, hash)?;
         self.add_block_body(hash, block.body)?;
         self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
@@ -257,10 +260,16 @@ impl Store {
     fn add_transaction_locations(
         &self,
         transactions: &[Transaction],
+        block_number: BlockNumber,
         block_hash: BlockHash,
     ) -> Result<(), StoreError> {
         for (index, transaction) in transactions.iter().enumerate() {
-            self.add_transaction_location(transaction.compute_hash(), block_hash, index as Index)?;
+            self.add_transaction_location(
+                transaction.compute_hash(),
+                block_number,
+                block_hash,
+                index as Index,
+            )?;
         }
         Ok(())
     }
@@ -670,10 +679,15 @@ mod tests {
     fn test_store_transaction_location(store: Store) {
         let transaction_hash = H256::random();
         let block_hash = H256::random();
+        let block_number = 6;
         let index = 3;
 
         store
-            .add_transaction_location(transaction_hash, block_hash, index)
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
+            .unwrap();
+
+        store
+            .set_canonical_block_hash(block_number, block_hash)
             .unwrap();
 
         let stored_location = store

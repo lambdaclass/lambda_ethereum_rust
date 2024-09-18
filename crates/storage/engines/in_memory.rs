@@ -23,8 +23,8 @@ pub struct Store {
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
     account_storages: HashMap<Address, HashMap<H256, U256>>,
-    // Maps transaction hashes to their block number and index within the block
-    transaction_locations: HashMap<H256, (BlockHash, Index)>,
+    // Maps transaction hashes to their blocks (height+hash) and index within the blocks.
+    transaction_locations: HashMap<H256, Vec<(BlockNumber, BlockHash, Index)>>,
     receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
     #[allow(unused)] // TODO: remove
     state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
@@ -121,11 +121,14 @@ impl StoreEngine for Store {
     fn add_transaction_location(
         &mut self,
         transaction_hash: H256,
+        block_number: BlockNumber,
         block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
         self.transaction_locations
-            .insert(transaction_hash, (block_hash, index));
+            .entry(transaction_hash)
+            .or_insert(Vec::default())
+            .push((block_number, block_hash, index));
         Ok(())
     }
 
@@ -133,7 +136,14 @@ impl StoreEngine for Store {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockHash, Index)>, StoreError> {
-        Ok(self.transaction_locations.get(&transaction_hash).copied())
+        Ok(self
+            .transaction_locations
+            .get(&transaction_hash)
+            .and_then(|v| {
+                v.into_iter()
+                    .find(|(number, hash, _index)| self.canonical_hashes.get(number) == Some(hash))
+                    .map(|(_number, hash, index)| (hash.clone(), index.clone()))
+            }))
     }
 
     fn add_receipt(

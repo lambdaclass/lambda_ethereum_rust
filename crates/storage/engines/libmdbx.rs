@@ -2,7 +2,7 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AccountInfoRLP, AddressRLP, BlockBodyRLP, BlockHashRLP,
-    BlockHeaderRLP, ReceiptRLP, TransactionHashRLP, TupleRLP,
+    BlockHeaderRLP, ReceiptRLP, Rlp, TransactionHashRLP, TupleRLP,
 };
 use crate::trie::Trie;
 use anyhow::Result;
@@ -199,18 +199,32 @@ impl StoreEngine for Store {
     fn add_transaction_location(
         &mut self,
         transaction_hash: H256,
+        block_number: BlockNumber,
         block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
-        self.write::<TransactionLocations>(transaction_hash.into(), (block_hash, index).into())
+        self.write::<TransactionLocations>(
+            transaction_hash.into(),
+            (block_number, block_hash, index).into(),
+        )
     }
 
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockHash, Index)>, StoreError> {
-        self.read::<TransactionLocations>(transaction_hash.into())
-            .map(|o| o.map(|t| t.to()))
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn
+            .cursor::<TransactionLocations>()
+            .map_err(StoreError::LibmdbxError)?;
+        Ok(cursor
+            .walk_key(transaction_hash.into(), None)
+            .map_while(|res| res.ok().map(|t| t.to()))
+            .find(|(number, hash, _index)| {
+                self.get_block_hash_by_block_number(*number)
+                    .is_ok_and(|o| o == Some(*hash))
+            })
+            .map(|(_number, hash, index)| (hash, index)))
     }
 
     fn add_storage_at(
@@ -429,9 +443,9 @@ dupsort!(
     ( Receipts ) TupleRLP<BlockHash, Index>[Index] => ReceiptRLP
 );
 
-table!(
+dupsort!(
     /// Transaction locations table.
-    ( TransactionLocations ) TransactionHashRLP => TupleRLP<BlockHash, Index>
+    ( TransactionLocations ) TransactionHashRLP => Rlp<(BlockNumber, BlockHash, Index)>
 );
 
 table!(
@@ -727,5 +741,17 @@ mod tests {
             let value2 = cursor.seek_value(key, subkey2).unwrap().unwrap();
             assert_eq!(value2, (subkey2, value));
         };
+
+        // Walk through duplicates
+        {
+            let txn = db.begin_read().unwrap();
+            let cursor = txn.cursor::<DupsortExample>().unwrap();
+            let mut acc = 0;
+            for key in cursor.walk_key(key, None).map(|r| r.unwrap().0 .0) {
+                acc += key;
+            }
+
+            assert_eq!(acc, 58);
+        }
     }
 }

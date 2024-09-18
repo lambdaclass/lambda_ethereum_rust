@@ -70,6 +70,7 @@ pub trait StoreEngine: Debug + Send {
     fn add_transaction_location(
         &mut self,
         transaction_hash: H256,
+        block_number: BlockNumber,
         block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError>;
