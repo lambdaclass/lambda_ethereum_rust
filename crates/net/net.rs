@@ -16,7 +16,7 @@ use k256::{
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
-use kademlia::{KademliaTable, MAX_NODES_PER_BUCKET};
+use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
 use rlpx::{
     connection::SUPPORTED_CAPABILITIES, handshake::RLPxLocalClient,
@@ -413,6 +413,31 @@ async fn peers_lookup(
     }
 }
 
+fn peers_to_ask_push(peers_to_ask: &mut Vec<Node>, target: H512, node: Node) {
+    let distance = bucket_number(target, node.node_id);
+
+    if peers_to_ask.len() < MAX_NODES_PER_BUCKET {
+        peers_to_ask.push(node);
+        return;
+    }
+
+    // replace this node for the one whose distance to the target is the highest
+    let (mut idx_to_replace, mut highest_distance) = (None, 0);
+
+    for (i, peer) in peers_to_ask.iter().enumerate() {
+        let current_distance = bucket_number(peer.node_id, target);
+
+        if distance < current_distance && current_distance >= highest_distance {
+            highest_distance = current_distance;
+            idx_to_replace = Some(i);
+        }
+    }
+
+    if let Some(idx) = idx_to_replace {
+        peers_to_ask[idx] = node;
+    }
+}
+
 async fn recursive_lookup(
     udp_socket: Arc<UdpSocket>,
     table: Arc<Mutex<KademliaTable>>,
@@ -442,12 +467,13 @@ async fn recursive_lookup(
         )
         .await;
 
-        // only push the peers that are not already in the array
+        // only push the peers that have not been seen (that is those who have not been yet pushed)
+        // this also account for those peers that were in the array but have been replaced for closer peers
         for node in nodes_found {
             if !seen_peers.contains(&node.node_id) {
                 seen_peers.insert(node.node_id);
                 if node.node_id != local_node_id {
-                    peers_to_ask.push(node);
+                    peers_to_ask_push(&mut peers_to_ask, target, node);
                 }
             }
         }
@@ -488,7 +514,7 @@ async fn lookup(
                     peer.new_find_node_request_with_sender(tx);
                     rx = Some(receiver);
                 } else {
-                    // if peer isn't inserted to table, then we won't query him
+                    // if peer isn't inserted to table, don't query
                     continue;
                 }
             }
@@ -763,7 +789,7 @@ mod tests {
         let node = Node {
             ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             tcp_port: 0,
-            udp_port: 8002,
+            udp_port: 0,
             node_id,
         };
         table
