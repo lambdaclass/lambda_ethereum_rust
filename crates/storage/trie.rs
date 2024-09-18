@@ -817,4 +817,18 @@ mod test {
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
+
+    #[test]
+    fn get_proof_one_big_leaf() {
+        // Trie -> Leaf[[0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie
+            .insert(vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0], vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+            .unwrap();
+        trie.insert(vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0], vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0]).unwrap();
+        let cita_proof = cita_trie.get_proof(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0]).unwrap();
+        let trie_proof = trie.get_proof(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0]).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
 }
