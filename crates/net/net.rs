@@ -416,7 +416,7 @@ async fn lookup(
 ) {
     let alpha = 3;
     let closest_nodes = table.lock().await.get_closest_nodes(target);
-    let queries = 0;
+    let mut queries = 0;
     for node in closest_nodes {
         if !asked_peers.contains(&node.node_id) {
             find_node(
@@ -432,6 +432,7 @@ async fn lookup(
                 peer.new_find_node_request();
             }
             asked_peers.insert(node.node_id);
+            queries += 1;
         }
 
         if queries == alpha {
