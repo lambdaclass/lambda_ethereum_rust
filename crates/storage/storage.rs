@@ -8,8 +8,8 @@ use engines::api::StoreEngine;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    code_hash, Account, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader,
-    BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
+    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};

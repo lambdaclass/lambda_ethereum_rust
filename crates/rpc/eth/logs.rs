@@ -64,15 +64,13 @@ impl RpcHandler for LogsRequest {
                     }
                     _ => None,
                 });
-                let topics = param.get("topics").and_then(|topics| {
-                    Some(
-                        serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap(),
-                    )
+                let topics = param.get("topics").map(|topics| {
+                    serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap()
                 });
                 Ok(LogsRequest {
                     from_block,
                     address_filters: address_filter,
-                    topics: topics.flatten().unwrap_or_else(|| vec![]),
+                    topics: topics.flatten().unwrap_or_else(Vec::new),
                     to_block,
                 })
             }

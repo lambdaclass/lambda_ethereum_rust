@@ -22,13 +22,7 @@ pub struct Receipt {
 }
 
 impl Receipt {
-    pub fn new(
-        tx_type: TxType,
-        succeeded: bool,
-        cumulative_gas_used: u64,
-        logs: Vec<Log>,
-        tx_hash: H256,
-    ) -> Self {
+    pub fn new(tx_type: TxType, succeeded: bool, cumulative_gas_used: u64, logs: Vec<Log>) -> Self {
         Self {
             tx_type,
             succeeded,
