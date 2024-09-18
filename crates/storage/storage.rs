@@ -176,6 +176,17 @@ impl Store {
             .get_transaction_location(transaction_hash)
     }
 
+    pub fn add_transaction_to_pool(
+        &self,
+        hash: H256,
+        transaction: Transaction,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .add_transaction_to_pool(hash, transaction)
+    }
+
     pub fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine
             .clone()

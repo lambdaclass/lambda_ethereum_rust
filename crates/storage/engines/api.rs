@@ -74,6 +74,13 @@ pub trait StoreEngine: Debug + Send {
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, Index)>, StoreError>;
 
+    /// Store transaction into pool table
+    fn add_transaction_to_pool(
+        &mut self,
+        hash: H256,
+        transaction: Transaction,
+    ) -> Result<(), StoreError>;
+
     /// Add receipt
     fn add_receipt(
         &mut self,

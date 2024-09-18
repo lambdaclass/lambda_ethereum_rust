@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use bytes::Bytes;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
-    types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt},
+    types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
     Address, H256,
 };
 #[cfg(feature = "libmdbx")]
@@ -25,6 +25,7 @@ pub type ReceiptRLP = Rlp<Receipt>;
 
 // Transaction types
 pub type TransactionHashRLP = Rlp<H256>;
+pub type TransactionRLP = Rlp<Transaction>;
 
 #[derive(Clone)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);

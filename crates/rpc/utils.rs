@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::authentication::AuthenticationError;
+use ethereum_rust_pool::MempoolError;
 
 #[derive(Debug)]
 pub enum RpcErr {
@@ -91,6 +92,14 @@ impl From<RpcErr> for RpcErrorMetadata {
 
 impl From<serde_json::Error> for RpcErr {
     fn from(_: serde_json::Error) -> Self {
+        Self::BadParams
+    }
+}
+
+// TODO: Actually return different errors for each case
+// here we are returning a BadParams error
+impl From<MempoolError> for RpcErr {
+    fn from(_: MempoolError) -> Self {
         Self::BadParams
     }
 }

@@ -13,6 +13,7 @@ use ethereum_rust_core::{
     H256, U256,
 };
 
+use ethereum_rust_pool as mempool;
 use ethereum_rust_storage::Store;
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
@@ -506,10 +507,12 @@ impl RpcHandler for SendRawTransactionRequest {
 
         Ok(transaction)
     }
-    fn handle(&self, _storage: Store) -> Result<Value, RpcErr> {
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         //TODO: We have to add the transaction to the mempool here
         //TODO: We have to check what to do with the extra data on blob transactions
         let tx = self.to_transaction();
-        serde_json::to_value(format!("{:#x}", tx.compute_hash())).map_err(|_| RpcErr::Internal)
+
+        let hash = mempool::add_transaction(tx, storage)?;
+        serde_json::to_value(format!("{:#x}", hash)).map_err(|_| RpcErr::Internal)
     }
 }

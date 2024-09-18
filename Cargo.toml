@@ -6,6 +6,7 @@ members = [
     "crates/rpc",
     "crates/storage",
     "crates/evm",
+    "crates/pool",
     "cmd/ethereum_rust",
     "cmd/ef_tests",
 ]
@@ -23,6 +24,7 @@ ethereum_rust-net = { path = "./crates/net" }
 ethereum_rust-rpc = { path = "./crates/rpc" }
 ethereum_rust-storage = { path = "./crates/storage" }
 ethereum_rust-evm = { path = "./crates/evm" }
+ethereum_rust-pool = { path = "./crates/pool" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
