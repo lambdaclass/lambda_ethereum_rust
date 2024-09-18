@@ -189,6 +189,27 @@ impl ExtensionNode {
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
+
+    pub fn get_path(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        if path.skip_prefix(&self.prefix) {
+            // Add self to node_path (if not inlined in parent)
+            let encoded = self.encode_raw();
+            if encoded.len() >= 32 {
+                node_path.push(encoded);
+            };
+            // Continue to child
+            let child_node = state
+                .get_node(self.child.clone())?
+                .expect("inconsistent internal tree structure");
+            child_node.get_path(state, path, node_path)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -80,6 +80,7 @@ impl Node {
 
     /// Traverses own subtrie until reaching the node containing `path`
     /// Appends all encoded nodes traversed to `node_path` (including self)
+    /// Only nodes with encoded len over or equal to 32 bytes are included
     pub fn get_path(
         &self,
         state: &TrieState,

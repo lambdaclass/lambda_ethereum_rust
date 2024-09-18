@@ -780,7 +780,7 @@ mod test {
 
     #[test]
     fn get_proof_two_leaves() {
-        // Trie -> Branch[Leaf["duck"] Leaf["goose"]]
+        // Trie -> Extension[Branch[Leaf["duck"] Leaf["goose"]]]
         let mut cita_trie = cita_trie();
         let mut trie = Trie::new_temp();
         cita_trie
