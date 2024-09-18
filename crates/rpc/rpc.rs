@@ -31,7 +31,8 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{
-    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcSuccessResponse,
+    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcRequestId,
+    RpcSuccessResponse,
 };
 mod admin;
 mod authentication;
@@ -239,7 +240,7 @@ pub fn map_admin_requests(
     }
 }
 
-fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
+fn rpc_response<E>(id: RpcRequestId, res: Result<Value, E>) -> Json<Value>
 where
     E: Into<RpcErrorMetadata>,
 {

@@ -516,21 +516,22 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     info!("Completed Hello roundtrip!");
 
+    // Receive and send the same status msg.
+    // TODO: calculate status msg instead
+    let status = conn.receive().await;
+    debug!("Received RLPxMessage: {:?}", status);
+    // Send status
+    conn.send(status).await;
+
+    // TODO: implement listen loop instead
+    debug!("Sending Ping RLPxMessage");
     // Send Ping
     conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
 
-    // Receive three messages
-    // TODO implement listen loop instead
-    conn.receive().await;
+    debug!("Awaiting Pong RLPxMessage");
+    let pong = conn.receive().await;
+    debug!("Received RLPxMessage: {:?}", pong);
 
-    // Testing disconnect message
-    // conn.send(
-    //     RLPxMessage::Disconnect(p2p::DisconnectMessage::new(Some(3))),
-    //     &mut stream,
-    // )
-    // .await;
-
-    conn.receive().await;
     conn.receive().await;
 }
 
