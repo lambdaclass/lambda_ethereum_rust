@@ -519,7 +519,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     // Receive and send the same status msg.
     // TODO: calculate status msg instead
     let status = conn.receive().await;
-    info!("Received RLPxMessage: {:?}", status);
+    debug!("Received RLPxMessage: {:?}", status);
     // Send status
     conn.send(status).await;
 
