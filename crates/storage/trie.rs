@@ -766,12 +766,33 @@ mod test {
 
     #[test]
     fn get_proof_one_leaf() {
+        // Trie -> Leaf["duck"]
         let mut cita_trie = cita_trie();
         let mut trie = Trie::new_temp();
         cita_trie
             .insert(b"duck".to_vec(), b"duckling".to_vec())
             .unwrap();
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
+        let cita_proof = cita_trie.get_proof(&b"duck".to_vec()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn get_proof_two_leaves() {
+        // Trie -> Branch[Leaf["duck"] Leaf["goose"]]
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie
+            .insert(b"duck".to_vec(), b"duck".to_vec())
+            .unwrap();
+        cita_trie
+            .insert(b"goose".to_vec(), b"goose".to_vec())
+            .unwrap();
+        trie.insert(b"duck".to_vec(), b"duck".to_vec()).unwrap();
+        trie
+            .insert(b"goose".to_vec(), b"goose".to_vec())
+            .unwrap();
         let cita_proof = cita_trie.get_proof(&b"duck".to_vec()).unwrap();
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
