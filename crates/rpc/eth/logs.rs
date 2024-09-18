@@ -105,8 +105,11 @@ impl RpcHandler for LogsRequest {
             None => BTreeSet::new(),
         };
 
-        let mut all_logs: Vec<RpcLog> = Vec::new();
-        // For each block in range...
+        let mut logs: Vec<RpcLog> = Vec::new();
+        // The idea here is to fetch every log and filter by address, if given.
+        // For that, we'll need each block in range, and its transactions,
+        // and for each transaction, we'll need its receipts, which
+        // contain the actual logs we want.
         for block_num in from..=to {
             // Take the header of the block, we
             // will use it to access the transactions.
@@ -129,7 +132,9 @@ impl RpcHandler for LogsRequest {
                 if receipt.succeeded {
                     for log in &receipt.logs {
                         if address_filter.is_empty() || address_filter.contains(&log.address) {
-                            all_logs.push(RpcLog {
+                            // Some extra data is needed when
+                            // forming the RPC response.
+                            logs.push(RpcLog {
                                 log: log.clone().into(),
                                 log_index: block_log_index,
                                 transaction_hash: tx_hash,
@@ -147,7 +152,7 @@ impl RpcHandler for LogsRequest {
         // Now that we have the logs filtered by address,
         // we still need to filter by topics if it was a given parameter.
 
-        let filtered_logs = all_logs
+        let filtered_logs = logs
             .into_iter()
             .filter(|rpc_log| {
                 if self.topics.len() > rpc_log.log.topics.len() {
