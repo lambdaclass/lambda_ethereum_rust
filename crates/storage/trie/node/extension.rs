@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::nibble::NibbleVec;
-use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
+use crate::trie::node_hash::{NodeHash, NodeEncoder, PathKind};
 use crate::trie::state::TrieState;
 use crate::trie::ValueRLP;
 
@@ -163,20 +163,20 @@ impl ExtensionNode {
 
     pub fn compute_hash(&self) -> NodeHash {
         let child_hash = &self.child;
-        let prefix_len = NodeHasher::path_len(self.prefix.len());
+        let prefix_len = NodeEncoder::path_len(self.prefix.len());
         let child_len = match child_hash {
             NodeHash::Inline(ref x) => x.len(),
-            NodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
+            NodeHash::Hashed(x) => NodeEncoder::bytes_len(32, x[0]),
         };
 
-        let mut hasher = NodeHasher::new();
-        hasher.write_list_header(prefix_len + child_len);
-        hasher.write_path_vec(&self.prefix, PathKind::Extension);
+        let mut encoder = NodeEncoder::new();
+        encoder.write_list_header(prefix_len + child_len);
+        encoder.write_path_vec(&self.prefix, PathKind::Extension);
         match child_hash {
-            NodeHash::Inline(x) => hasher.write_raw(x),
-            NodeHash::Hashed(x) => hasher.write_bytes(&x.0),
+            NodeHash::Inline(x) => encoder.write_raw(x),
+            NodeHash::Hashed(x) => encoder.write_bytes(&x.0),
         }
-        hasher.finalize()
+        encoder.hash()
     }
 
     /// Inserts the node into the state and returns its hash

@@ -3,7 +3,7 @@ use crate::{
     trie::{
         nibble::NibbleSlice,
         node::BranchNode,
-        node_hash::{NodeHash, NodeHasher, PathKind},
+        node_hash::{NodeEncoder, NodeHash, PathKind},
         state::TrieState,
         PathRLP, ValueRLP,
     },
@@ -125,17 +125,17 @@ impl LeafNode {
         let mut path = NibbleSlice::new(encoded_path);
         path.offset_add(offset);
 
-        let path_len = NodeHasher::path_len(path.len());
-        let value_len = NodeHasher::bytes_len(
+        let path_len = NodeEncoder::path_len(path.len());
+        let value_len = NodeEncoder::bytes_len(
             encoded_value.len(),
             encoded_value.first().copied().unwrap_or_default(),
         );
 
-        let mut hasher = NodeHasher::new();
-        hasher.write_list_header(path_len + value_len);
-        hasher.write_path_slice(&path, PathKind::Leaf);
-        hasher.write_bytes(encoded_value);
-        hasher.finalize()
+        let mut encoder = crate::trie::node_hash::NodeEncoder::new();
+        encoder.write_list_header(path_len + value_len);
+        encoder.write_path_slice(&path, PathKind::Leaf);
+        encoder.write_bytes(encoded_value);
+        encoder.hash()
     }
 
     /// Inserts the node into the state and returns its hash
@@ -304,7 +304,7 @@ mod test {
     }
 
     #[test]
-    fn compute_hash() {
+    fn patito() {
         let node = LeafNode::new(b"key".to_vec(), b"value".to_vec());
         let node_hash_ref = node.compute_hash(0);
         assert_eq!(

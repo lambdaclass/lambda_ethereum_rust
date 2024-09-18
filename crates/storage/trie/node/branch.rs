@@ -2,7 +2,7 @@ use crate::{
     error::StoreError,
     trie::{
         nibble::{Nibble, NibbleSlice, NibbleVec},
-        node_hash::{NodeHash, NodeHasher},
+        node_hash::{NodeEncoder, NodeHash},
         state::TrieState,
         PathRLP, ValueRLP,
     },
@@ -279,29 +279,29 @@ impl BranchNode {
             .iter()
             .map(|x| match x {
                 (_, 0) => 1,
-                (x, 32) => NodeHasher::bytes_len(32, x[0]),
+                (x, 32) => NodeEncoder::bytes_len(32, x[0]),
                 (_, y) => *y,
             })
             .sum();
         if let Some(value) = encoded_value {
             children_len +=
-                NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
+                NodeEncoder::bytes_len(value.len(), value.first().copied().unwrap_or_default());
         } else {
             children_len += 1;
         }
 
-        let mut hasher = NodeHasher::new();
-        hasher.write_list_header(children_len);
+        let mut encoder = NodeEncoder::new();
+        encoder.write_list_header(children_len);
         children.iter().for_each(|(x, len)| match len {
-            0 => hasher.write_bytes(&[]),
-            32 => hasher.write_bytes(x),
-            _ => hasher.write_raw(x),
+            0 => encoder.write_bytes(&[]),
+            32 => encoder.write_bytes(x),
+            _ => encoder.write_raw(x),
         });
         match encoded_value {
-            Some(value) => hasher.write_bytes(value),
-            None => hasher.write_bytes(&[]),
+            Some(value) => encoder.write_bytes(value),
+            None => encoder.write_bytes(&[]),
         }
-        hasher.finalize()
+        encoder.hash()
     }
 
     /// Inserts the node into the state and returns its hash
