@@ -532,6 +532,7 @@ mod tests {
         run_test(&test_store_block, engine_type);
         run_test(&test_store_block_number, engine_type);
         run_test(&test_store_transaction_location, engine_type);
+        run_test(&test_store_transaction_location_not_canonical, engine_type);
         run_test(&test_store_block_receipt, engine_type);
         run_test(&test_store_account_code, engine_type);
         run_test(&test_store_account_storage, engine_type);
@@ -696,6 +697,26 @@ mod tests {
             .unwrap();
 
         assert_eq!(stored_location, (block_hash, index));
+    }
+
+    fn test_store_transaction_location_not_canonical(store: Store) {
+        let transaction_hash = H256::random();
+        let block_hash = H256::random();
+        let block_number = 6;
+        let index = 3;
+
+        store
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
+            .unwrap();
+
+        store
+            .set_canonical_block_hash(block_number, H256::random())
+            .unwrap();
+
+        assert_eq!(
+            store.get_transaction_location(transaction_hash).unwrap(),
+            None
+        )
     }
 
     fn test_store_block_receipt(store: Store) {
