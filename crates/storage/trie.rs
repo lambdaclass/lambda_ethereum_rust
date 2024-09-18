@@ -763,4 +763,17 @@ mod test {
 
         CitaTrie::new(Arc::clone(&memdb), Arc::clone(&hasher))
     }
+
+    #[test]
+    fn get_proof_one_leaf() {
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie
+            .insert(b"duck".to_vec(), b"duckling".to_vec())
+            .unwrap();
+        trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
+        let cita_proof = cita_trie.get_proof(&b"duck".to_vec()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
 }

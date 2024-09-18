@@ -79,7 +79,7 @@ impl Node {
     }
 
     /// Traverses own subtrie until reaching the node containing `path`
-    /// Appends all encoded nodes traversed to `node_path`
+    /// Appends all encoded nodes traversed to `node_path` (including self)
     pub fn get_path(
         &self,
         state: &TrieState,
@@ -89,7 +89,7 @@ impl Node {
         match self {
             Node::Branch(n) => todo!(),
             Node::Extension(n) => todo!(),
-            Node::Leaf(n) => todo!(),
+            Node::Leaf(n) => n.get_path(path, node_path),
         }
     }
 
