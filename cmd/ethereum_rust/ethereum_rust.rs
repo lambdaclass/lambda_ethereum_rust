@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use directories::ProjectDirs;
 use ethereum_rust_chain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
@@ -80,11 +81,15 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let mut store = match matches.get_one::<String>("datadir") {
-        Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir, EngineType::Libmdbx),
-        _ => Store::new("storage.db", EngineType::InMemory),
-    }
-    .expect("Failed to create Store");
+    let project_dir = ProjectDirs::from("com", "lambdaclass", "ethereum_rust")
+        .expect("couldn't find home directory");
+    let default_data_dir = project_dir.data_local_dir()
+        .to_str()
+        .expect("invalid data directory")
+        .to_owned();
+
+    let data_dir = matches.get_one::<String>("datadir").unwrap_or(&default_data_dir);
+    let mut store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
     store

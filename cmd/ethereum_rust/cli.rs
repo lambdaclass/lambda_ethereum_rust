@@ -87,7 +87,6 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("datadir")
                 .long("datadir")
-                .default_value("")
                 .value_name("DATABASE_DIRECTORY")
                 .action(ArgAction::Set),
         )
