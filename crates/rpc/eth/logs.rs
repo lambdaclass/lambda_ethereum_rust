@@ -44,14 +44,14 @@ impl RpcHandler for LogsRequest {
         match params.as_deref() {
             Some([param]) => {
                 let param = param.as_object().ok_or(RpcErr::BadParams)?;
-                let fromBlock = {
+                let from_block = {
                     if let Some(param) = param.get("fromBlock") {
                         BlockIdentifier::parse(param.clone(), 0)?
                     } else {
                         BlockIdentifier::latest()
                     }
                 };
-                let toBlock = {
+                let to_block = {
                     if let Some(param) = param.get("toBlock") {
                         BlockIdentifier::parse(param.clone(), 1)?
                     } else {
@@ -70,10 +70,10 @@ impl RpcHandler for LogsRequest {
                     )
                 });
                 Ok(LogsRequest {
-                    from_block: fromBlock,
+                    from_block,
                     address_filters: address_filter,
                     topics: topics.flatten().unwrap_or_else(|| vec![]),
-                    to_block: toBlock,
+                    to_block,
                 })
             }
             _ => Err(RpcErr::BadParams),

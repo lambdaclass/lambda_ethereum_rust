@@ -56,7 +56,7 @@ jobs:
 
       - name: Download test vectors
         run: |
-          make download-vectors
+          make download-test-vectors
 
       - name: Run tests
         run: |

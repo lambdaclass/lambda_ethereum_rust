@@ -1,32 +1,13 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Account, AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    Receipt, Transaction,
+    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
 
-use crate::error::StoreError;
+use crate::{error::StoreError, trie::Trie};
 
 pub trait StoreEngine: Debug + Send {
-    /// Add account info
-    fn add_account_info(
-        &mut self,
-        address: Address,
-        account_info: AccountInfo,
-    ) -> Result<(), StoreError>;
-
-    /// Obtain account info
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError>;
-
-    /// Remove account info
-    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError>;
-
-    /// Iterate all accounts in the storage
-    fn account_infos_iter(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError>;
-
     /// Add block header
     fn add_block_header(
         &mut self,
@@ -95,23 +76,6 @@ pub trait StoreEngine: Debug + Send {
     /// Obtain account code via code hash
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError>;
 
-    /// Obtain account code via account address
-    fn get_code_by_account_address(&self, address: Address) -> Result<Option<Bytes>, StoreError> {
-        let code_hash = match self.get_account_info(address)? {
-            Some(acc_info) => acc_info.code_hash,
-            None => return Ok(None),
-        };
-        self.get_account_code(code_hash)
-    }
-
-    /// Obtain account nonce via account address
-    fn get_nonce_by_account_address(&self, address: Address) -> Result<Option<u64>, StoreError> {
-        let nonce = self
-            .get_account_info(address)?
-            .map(|acc_info| acc_info.nonce);
-        Ok(nonce)
-    }
-
     fn get_transaction_by_hash(
         &self,
         transaction_hash: H256,
@@ -154,39 +118,6 @@ pub trait StoreEngine: Debug + Send {
         address: Address,
     ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError>;
 
-    /// Stores account in db (including info, code & storage)
-    fn add_account(&mut self, address: Address, account: Account) -> Result<(), StoreError> {
-        self.add_account_info(address, account.info.clone())?;
-        self.add_account_code(account.info.code_hash, account.code)?;
-        for (storage_key, storage_value) in account.storage {
-            self.add_storage_at(address, storage_key, storage_value)?;
-        }
-        Ok(())
-    }
-
-    /// Removes account info and storage
-    fn remove_account(&mut self, address: Address) -> Result<(), StoreError> {
-        self.remove_account_info(address)?;
-        self.remove_account_storage(address)
-    }
-
-    /// Increments the balance of an account by a given amount (if it exists)
-    fn increment_balance(&mut self, address: Address, amount: U256) -> Result<(), StoreError> {
-        if let Some(mut account_info) = self.get_account_info(address)? {
-            account_info.balance = account_info.balance.saturating_add(amount);
-            self.add_account_info(address, account_info)?;
-        } else {
-            self.add_account_info(
-                address,
-                AccountInfo {
-                    balance: amount,
-                    ..Default::default()
-                },
-            )?;
-        }
-        Ok(())
-    }
-
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
@@ -227,4 +158,11 @@ pub trait StoreEngine: Debug + Send {
 
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
+
+    // Obtain the world state trie for the given block
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
+
+    // Obtain a world state from an empty root
+    // This method should be used when creating the genesis world state
+    fn new_state_trie(&self) -> Result<Trie, StoreError>;
 }

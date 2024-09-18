@@ -8,30 +8,26 @@ use axum_extra::{
     TypedHeader,
 };
 use engine::{
-    exchange_transition_config::ExchangeTransitionConfigV1Req,
-    fork_choice::{self, ForkChoiceUpdatedV3},
-    payload::{self, NewPayloadV3Request},
-    ExchangeCapabilitiesRequest,
+    exchange_transition_config::ExchangeTransitionConfigV1Req, fork_choice::ForkChoiceUpdatedV3,
+    payload::NewPayloadV3Request, ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
-    block::{
-        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest, GetRawReceipts,
-    },
-    client,
-    logs::LogsRequest,
-    transaction::{
+    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest}, block::{
+        BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
+        GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
+        GetRawHeaderRequest, GetRawReceipts,
+    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, logs::LogsRequest, transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
-    },
+    }
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
 use tracing::info;
 use utils::{
-    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcSuccessResponse,
+    RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcRequestId,
+    RpcSuccessResponse,
 };
 mod admin;
 mod authentication;
@@ -158,8 +154,8 @@ pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, R
 
 pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
-        "eth_chainId" => client::chain_id(storage),
-        "eth_syncing" => client::syncing(),
+        "eth_chainId" => ChainId::call(req, storage),
+        "eth_syncing" => Syncing::call(req, storage),
         "eth_getBlockByNumber" => GetBlockByNumberRequest::call(req, storage),
         "eth_getBlockByHash" => GetBlockByHashRequest::call(req, storage),
         "eth_getBalance" => GetBalanceRequest::call(req, storage),
@@ -179,10 +175,11 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_getTransactionByHash" => GetTransactionByHashRequest::call(req, storage),
         "eth_getTransactionReceipt" => GetTransactionReceiptRequest::call(req, storage),
         "eth_createAccessList" => CreateAccessListRequest::call(req, storage),
-        "eth_blockNumber" => block::block_number(storage),
+        "eth_blockNumber" => BlockNumberRequest::call(req, storage),
         "eth_call" => CallRequest::call(req, storage),
-        "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
+        "eth_blobBaseFee" => GetBlobBaseFee::call(req, storage),
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
+        "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_getLogs" => LogsRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
@@ -201,26 +198,9 @@ pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rpc
 
 pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
-        "engine_exchangeCapabilities" => {
-            let capabilities: ExchangeCapabilitiesRequest = req
-                .params
-                .as_ref()
-                .ok_or(RpcErr::BadParams)?
-                .first()
-                .ok_or(RpcErr::BadParams)
-                .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
-            engine::exchange_capabilities(&capabilities)
-        }
-
-        "engine_forkchoiceUpdatedV3" => {
-            let request = ForkChoiceUpdatedV3::parse(&req.params)?;
-            fork_choice::forkchoice_updated_v3(request, storage)
-        }
-        "engine_newPayloadV3" => {
-            let request = NewPayloadV3Request::parse(&req.params)?;
-            serde_json::to_value(payload::new_payload_v3(request, storage)?)
-                .map_err(|_| RpcErr::Internal)
-        }
+        "engine_exchangeCapabilities" => ExchangeCapabilitiesRequest::call(req, storage),
+        "engine_forkchoiceUpdatedV3" => ForkChoiceUpdatedV3::call(req, storage),
+        "engine_newPayloadV3" => NewPayloadV3Request::call(req, storage),
         "engine_exchangeTransitionConfigurationV1" => {
             ExchangeTransitionConfigV1Req::call(req, storage)
         }
@@ -239,7 +219,7 @@ pub fn map_admin_requests(
     }
 }
 
-fn rpc_response<E>(id: i32, res: Result<Value, E>) -> Json<Value>
+fn rpc_response<E>(id: RpcRequestId, res: Result<Value, E>) -> Json<Value>
 where
     E: Into<RpcErrorMetadata>,
 {
@@ -265,12 +245,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::ChainConfig;
-    use ethereum_rust_core::{
-        types::{code_hash, AccountInfo, BlockHeader},
-        Address, Bytes, H512, U256,
-    };
+    use ethereum_rust_core::types::{ChainConfig, Genesis};
+    use ethereum_rust_core::H512;
     use ethereum_rust_storage::EngineType;
+    use std::fs::File;
+    use std::io::BufReader;
     use std::str::FromStr;
 
     use super::*;
@@ -297,6 +276,14 @@ mod tests {
         assert_eq!(rpc_response.to_string(), expected_response.to_string())
     }
 
+    // Reads genesis file taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
+    fn read_execution_api_genesis_file() -> Genesis {
+        let file = File::open("../../test_data/genesis-execution-api.json")
+            .expect("Failed to open genesis file");
+        let reader = BufReader::new(file);
+        serde_json::from_reader(reader).expect("Failed to deserialize genesis file")
+    }
+
     #[test]
     fn create_access_list_simple_transfer() {
         // Create Request
@@ -304,24 +291,12 @@ mod tests {
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","nonce":"0x0","to":"0x0100000000000000000000000000000000000000","value":"0xa"},"0x00"]}"#;
         let request: RpcRequest = serde_json::from_str(body).unwrap();
         // Setup initial storage
-        let storage =
+        let mut storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        let genesis = read_execution_api_genesis_file();
         storage
-            .set_chain_config(&example_chain_config())
-            .expect("Failed to write to test DB");
-        // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
-        // TODO: Replace this initialization with reading and storing genesis block
-        storage
-            .add_block_header(0, BlockHeader::default())
-            .expect("Failed to write to test DB");
-        let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
-        let account_info = AccountInfo {
-            balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
-            ..Default::default()
-        };
-        storage
-            .add_account_info(address, account_info)
-            .expect("Failed to write to test DB");
+            .add_initial_state(genesis)
+            .expect("Failed to add genesis block to DB");
         let local_p2p_node = example_p2p_node();
         // Process request
         let result = map_http_requests(&request, storage, local_p2p_node);
@@ -339,40 +314,12 @@ mod tests {
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","gas":"0xea60","gasPrice":"0x44103f2","input":"0x010203040506","nonce":"0x0","to":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df"},"0x00"]}"#;
         let request: RpcRequest = serde_json::from_str(body).unwrap();
         // Setup initial storage
-        let storage =
+        let mut storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        let genesis = read_execution_api_genesis_file();
         storage
-            .set_chain_config(&example_chain_config())
-            .expect("Failed to write to test DB");
-        // Values taken from https://github.com/ethereum/execution-apis/blob/main/tests/genesis.json
-        // TODO: Replace this initialization with reading and storing genesis block
-        storage
-            .add_block_header(0, BlockHeader::default())
-            .expect("Failed to write to test DB");
-        let address = Address::from_str("0c2c51a0990aee1d73c1228de158688341557508").unwrap();
-        let account_info = AccountInfo {
-            balance: U256::from_str_radix("c097ce7bc90715b34b9f1000000000", 16).unwrap(),
-            ..Default::default()
-        };
-        storage
-            .add_account_info(address, account_info)
-            .expect("Failed to write to test DB");
-        let address = Address::from_str("7dcd17433742f4c0ca53122ab541d0ba67fc27df").unwrap();
-        let code = Bytes::copy_from_slice(
-            &hex::decode("3680600080376000206000548082558060010160005560005263656d697460206000a2")
-                .unwrap(),
-        );
-        let code_hash = code_hash(&code);
-        let account_info = AccountInfo {
-            code_hash,
-            ..Default::default()
-        };
-        storage
-            .add_account_info(address, account_info)
-            .expect("Failed to write to test DB");
-        storage
-            .add_account_code(code_hash, code)
-            .expect("Failed to write to test DB");
+            .add_initial_state(genesis)
+            .expect("Failed to add genesis block to DB");
         let local_p2p_node = example_p2p_node();
         // Process request
         let result = map_http_requests(&request, storage, local_p2p_node);
