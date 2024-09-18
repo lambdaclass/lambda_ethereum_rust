@@ -466,19 +466,6 @@ impl Store {
         }
         trie
     }
-
-    pub fn get_blocks_in_range(
-        &self,
-        from: BlockNumber,
-        to: BlockNumber,
-    ) -> Result<Vec<BlockBody>, StoreError> {
-        let mut lock = self.engine.try_lock();
-        if let Ok(ref mut db) = lock {
-            db.get_blocks_in_range(from, to)
-        } else {
-            Err(StoreError::Custom("Could not access db".to_string()))
-        }
-    }
 }
 
 #[cfg(test)]

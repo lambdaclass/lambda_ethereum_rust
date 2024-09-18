@@ -338,37 +338,6 @@ impl StoreEngine for Store {
                 .map_err(|_| StoreError::DecodeError),
         }
     }
-    fn get_blocks_in_range(
-        &self,
-        from: BlockNumber,
-        to: BlockNumber,
-    ) -> std::prelude::v1::Result<Vec<BlockBody>, StoreError> {
-        todo!();
-        // let txn = self
-        //     .db
-        //     .begin_read()
-        //     .map_err(|err| StoreError::LibmdbxError(err))?;
-        // let db_iter = match txn.cursor::<Receipts>() {
-        //     Ok(iter) => iter.walk(Some(from)),
-        //     Err(err) => return Err(StoreError::LibmdbxError(err)),
-        // };
-        // // Since keys are dup sort, the items
-        // // yielded from db_iter will be sorted
-        // // by block_number, we can simply push them
-        // // into a vec to preserve the ordering.
-        // let mut receipts = vec![];
-        // for record in db_iter {
-        //     match record {
-        //         Ok(((block_num, _), encoded_receipt)) if block_num <= to => {
-        //             let decoded_receipt = encoded_receipt.to();
-        //             receipts.push(decoded_receipt);
-        //         }
-        //         Ok(_) => break,
-        //         Err(err) => return Err(StoreError::LibmdbxError(err)),
-        //     }
-        // }
-        // Ok(receipts)
-    }
 }
 
 impl Debug for Store {

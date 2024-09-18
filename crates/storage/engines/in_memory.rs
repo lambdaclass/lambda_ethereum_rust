@@ -256,21 +256,6 @@ impl StoreEngine for Store {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.chain_data.pending_block_number)
     }
-    fn get_blocks_in_range(
-        &self,
-        from: BlockNumber,
-        to: BlockNumber,
-    ) -> Result<Vec<BlockBody>, StoreError> {
-        todo!()
-        // let mut res = BTreeMap::new();
-
-        // for (block_number, receipt_b_tree_map) in self.receipts.range(from..=to) {
-        //     let receipts: Vec<Receipt> = receipt_b_tree_map.values().cloned().collect();
-        //     res.insert(*block_number, receipts);
-        // }
-
-        // Ok(res)
-    }
 }
 
 impl Debug for Store {
