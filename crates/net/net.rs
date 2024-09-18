@@ -613,7 +613,7 @@ async fn find_node_and_wait_for_response(
     to_addr: SocketAddr,
     signer: &SigningKey,
     target_node_id: H512,
-    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Vec<Node>>,
+    request_receiver: &mut tokio::sync::mpsc::UnboundedReceiver<Vec<Node>>,
 ) -> Vec<Node> {
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
@@ -628,12 +628,22 @@ async fn find_node_and_wait_for_response(
     socket.send_to(&buf, to_addr).await.unwrap();
 
     let mut nodes = vec![];
+
+    // wait as much as two seconds for the response
     loop {
-        let res = rx.recv().await;
-        if let Some(mut found_nodes) = res {
-            nodes.append(&mut found_nodes);
-        } else {
-            return nodes;
+        match tokio::time::timeout(Duration::from_secs(2), request_receiver.recv()).await {
+            Ok(Some(mut found_nodes)) => {
+                nodes.append(&mut found_nodes);
+                if nodes.len() == MAX_NODES_PER_BUCKET {
+                    return nodes;
+                };
+            }
+            Ok(None) => {
+                return nodes;
+            }
+            Err(_) => {
+                return nodes;
+            }
         }
     }
 }
