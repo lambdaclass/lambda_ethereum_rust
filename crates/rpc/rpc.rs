@@ -12,15 +12,20 @@ use engine::{
     payload::NewPayloadV3Request, ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest}, block::{
+    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
+    block::{
         BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
         GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
         GetRawHeaderRequest, GetRawReceipts,
-    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, logs::LogsRequest, transaction::{
+    },
+    client::{ChainId, Syncing},
+    fee_market::FeeHistoryRequest,
+    logs::LogsRequest,
+    transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
-    }
+    },
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
