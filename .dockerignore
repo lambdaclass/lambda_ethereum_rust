@@ -3,6 +3,5 @@
 
 target/
 
-justfile
 LICENSE
 README.md

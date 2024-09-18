@@ -1,8 +1,7 @@
 use crate::{error::StoreError, trie::Trie};
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AccountInfo, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
-    Transaction,
+    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{
@@ -16,7 +15,6 @@ use super::api::StoreEngine;
 #[derive(Default)]
 pub struct Store {
     chain_data: ChainData,
-    account_infos: HashMap<Address, AccountInfo>,
     block_numbers: HashMap<BlockHash, BlockNumber>,
     bodies: HashMap<BlockNumber, BlockBody>,
     headers: HashMap<BlockNumber, BlockHeader>,
@@ -28,7 +26,6 @@ pub struct Store {
     // Stores pooled transactions by their hashes
     transaction_pool: HashMap<H256, Transaction>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
-    #[allow(unused)] // TODO: remove
     state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
@@ -49,30 +46,6 @@ impl Store {
 }
 
 impl StoreEngine for Store {
-    fn add_account_info(
-        &mut self,
-        address: Address,
-        account_info: AccountInfo,
-    ) -> Result<(), StoreError> {
-        self.account_infos.insert(address, account_info);
-        Ok(())
-    }
-
-    fn get_account_info(&self, address: Address) -> Result<Option<AccountInfo>, StoreError> {
-        Ok(self.account_infos.get(&address).cloned())
-    }
-
-    fn remove_account_info(&mut self, address: Address) -> Result<(), StoreError> {
-        self.account_infos.remove(&address);
-        Ok(())
-    }
-
-    fn account_infos_iter(
-        &self,
-    ) -> Result<Box<dyn Iterator<Item = (Address, AccountInfo)>>, StoreError> {
-        Ok(Box::new(self.account_infos.clone().into_iter()))
-    }
-
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
         Ok(self.headers.get(&block_number).cloned())
     }
@@ -281,6 +254,14 @@ impl StoreEngine for Store {
         ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
+    }
+
+    fn new_state_trie(&self) -> Result<Trie, StoreError> {
+        let db = Box::new(crate::trie::InMemoryTrieDB::new(
+            self.state_trie_nodes.clone(),
+        ));
+        let trie = Trie::new(db);
+        Ok(trie)
     }
 }
 

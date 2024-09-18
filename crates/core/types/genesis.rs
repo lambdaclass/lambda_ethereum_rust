@@ -165,10 +165,16 @@ impl Genesis {
             prev_randao: self.mix_hash,
             nonce: self.nonce,
             base_fee_per_gas: self.base_fee_per_gas.or(Some(INITIAL_BASE_FEE)),
-            withdrawals_root: Some(compute_withdrawals_root(&[])),
+            withdrawals_root: self
+                .config
+                .is_shanghai_activated(self.timestamp)
+                .then_some(compute_withdrawals_root(&[])),
             blob_gas_used,
             excess_blob_gas,
-            parent_beacon_block_root: Some(H256::zero()),
+            parent_beacon_block_root: self
+                .config
+                .is_cancun_activated(self.timestamp)
+                .then_some(H256::zero()),
         }
     }
 
