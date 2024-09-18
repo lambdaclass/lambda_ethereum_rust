@@ -4,7 +4,7 @@ use ethereum_rust_core::types::{
     Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::error::StoreError;
 

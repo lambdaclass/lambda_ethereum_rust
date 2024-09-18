@@ -20,7 +20,6 @@ use libmdbx::{
     table_info,
 };
 use serde_json;
-use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 

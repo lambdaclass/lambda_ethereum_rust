@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethereum_types::{Address, H160, H256, U256};
+use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use serde::{ser::SerializeStruct, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};

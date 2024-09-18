@@ -1,16 +1,12 @@
 use crate::{
-    eth::block::block_number,
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::{
-    types::{BlockNumber, Index, Receipt},
-    H160, H256, U256,
-};
+use ethereum_rust_core::{H160, H256};
 use ethereum_rust_storage::Store;
 use serde::Deserialize;
-use serde_json::{from_value, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use serde_json::Value;
+use std::collections::BTreeSet;
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum AddressFilter {
@@ -34,10 +30,10 @@ pub struct LogsRequest {
     /// The oldest block from which to start
     /// retrieving logs.
     /// Will default to `latest` if not provided.
-    pub fromBlock: BlockIdentifier,
+    pub from_block: BlockIdentifier,
     /// Up to which block to stop retrieving logs.
     /// Will default to `latest` if not provided.
-    pub toBlock: BlockIdentifier,
+    pub to_block: BlockIdentifier,
     /// The addresses from where the logs origin from.
     pub address_filters: Option<AddressFilter>,
     /// Which topics to filter.
@@ -74,10 +70,10 @@ impl RpcHandler for LogsRequest {
                     )
                 });
                 Ok(LogsRequest {
-                    fromBlock,
+                    from_block: fromBlock,
                     address_filters: address_filter,
                     topics: topics.flatten().unwrap_or_else(|| vec![]),
-                    toBlock,
+                    to_block: toBlock,
                 })
             }
             _ => Err(RpcErr::BadParams),
@@ -92,10 +88,10 @@ impl RpcHandler for LogsRequest {
     //   then we simply could retrieve each log from the receipt and add the info
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let Ok(Some(from)) = self.fromBlock.resolve_block_number(&storage) else {
+        let Ok(Some(from)) = self.from_block.resolve_block_number(&storage) else {
             return Err(RpcErr::BadParams);
         };
-        let Ok(Some(to)) = self.toBlock.resolve_block_number(&storage) else {
+        let Ok(Some(to)) = self.to_block.resolve_block_number(&storage) else {
             return Err(RpcErr::BadParams);
         };
 
