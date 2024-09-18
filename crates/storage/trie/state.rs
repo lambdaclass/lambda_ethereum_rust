@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::error::StoreError;
 use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
-use ethereum_types::H256;
 
 use super::db::TrieDB;
 

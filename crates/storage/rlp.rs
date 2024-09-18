@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use bytes::Bytes;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
-    types::{AccountInfo, BlockBody, BlockHash, BlockHeader, Receipt},
+    types::{BlockBody, BlockHash, BlockHeader, Receipt},
     Address, H256,
 };
 #[cfg(feature = "libmdbx")]
@@ -11,7 +11,6 @@ use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
 pub type AddressRLP = Rlp<Address>;
-pub type AccountInfoRLP = Rlp<AccountInfo>;
 pub type AccountCodeHashRLP = Rlp<H256>;
 pub type AccountCodeRLP = Rlp<Bytes>;
 

@@ -1,7 +1,6 @@
 use crate::{
     error::StoreError,
     trie::{
-        db::TrieDB,
         nibble::{Nibble, NibbleSlice, NibbleVec},
         node_hash::{NodeHash, NodeHasher},
         state::TrieState,
@@ -315,11 +314,9 @@ impl BranchNode {
 
 #[cfg(test)]
 mod test {
-    use crate::trie::db::libmdbx::LibmdbxTrieDB;
     use ethereum_types::H256;
 
     use super::*;
-    use crate::trie::test_utils::{new_db, TestNodes};
 
     use crate::{pmt_node, trie::Trie};
 

@@ -6,7 +6,7 @@ use crate::{
 };
 use ethereum_rust_core::{
     rlp::encode::RLPEncode,
-    types::{AccessListEntry, BlockHash, BlockHeader, GenericTransaction, TxKind},
+    types::{AccessListEntry, BlockHash, BlockHeader, BlockNumber, GenericTransaction, TxKind},
     H256, U256,
 };
 
@@ -288,7 +288,7 @@ impl RpcHandler for CreateAccessListRequest {
         let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
             &self.transaction,
             &header,
-            &mut evm_state(storage),
+            &mut evm_state(storage, header.number),
             SpecId::CANCUN,
         )? {
             (
@@ -390,7 +390,7 @@ impl RpcHandler for EstimateGasRequest {
 
         // If the transaction is a plain value transfer, short circuit estimation.
         if let TxKind::Call(address) = self.transaction.to {
-            let account_info = storage.get_account_info(address)?;
+            let account_info = storage.get_account_info(block_header.number, address)?;
             let code = account_info.map(|info| storage.get_account_code(info.code_hash));
             if code.is_none() {
                 let mut value_transfer_transaction = self.transaction.clone();
@@ -415,8 +415,12 @@ impl RpcHandler for EstimateGasRequest {
         };
 
         if self.transaction.gas_price != 0 {
-            highest_gas_limit =
-                recap_with_account_balances(highest_gas_limit, &self.transaction, &storage)?;
+            highest_gas_limit = recap_with_account_balances(
+                highest_gas_limit,
+                &self.transaction,
+                &storage,
+                block_header.number,
+            )?;
         }
 
         // Check whether the execution is possible
@@ -462,9 +466,10 @@ fn recap_with_account_balances(
     highest_gas_limit: u64,
     transaction: &GenericTransaction,
     storage: &Store,
+    block_number: BlockNumber,
 ) -> Result<u64, RpcErr> {
     let account_balance = storage
-        .get_account_info(transaction.from)?
+        .get_account_info(block_number, transaction.from)?
         .map(|acc| acc.balance)
         .unwrap_or_default();
     let account_gas =
@@ -481,7 +486,7 @@ fn simulate_tx(
     match ethereum_rust_evm::simulate_tx_from_generic(
         transaction,
         block_header,
-        &mut evm_state(storage),
+        &mut evm_state(storage, block_header.number),
         spec_id,
     )? {
         ExecutionResult::Revert {
