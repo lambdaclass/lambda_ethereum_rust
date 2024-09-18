@@ -45,6 +45,15 @@ impl AsRef<[u8]> for NodeHash {
 }
 
 impl NodeHash {
+    /// Returns the `NodeHash` of an encoded node (encoded using the NodeEncoder)
+    pub fn from_encoded_raw(encoded: Vec<u8>) -> NodeHash {
+        if encoded.len() >= 32 {
+            let hash = Keccak256::new_with_prefix(&encoded).finalize();
+            NodeHash::Hashed(H256::from_slice(hash.as_slice()))
+        } else {
+            NodeHash::Inline(encoded)
+        }
+    }
     /// Returns the finalized hash
     /// NOTE: This will hash smaller nodes, only use to get the final root hash, not for intermediate node hashes
     pub fn finalize(self) -> H256 {
@@ -240,15 +249,6 @@ impl NodeEncoder {
         } else {
             self.write_len(0x80, 0xB7, value.len());
             self.write_raw(value);
-        }
-    }
-
-    pub fn hash(self) -> NodeHash {
-        if self.encoded.len() >= 32 {
-            let hash = Keccak256::new_with_prefix(&self.encoded).finalize();
-            NodeHash::Hashed(H256::from_slice(hash.as_slice()))
-        } else {
-            NodeHash::Inline(self.encoded.clone())
         }
     }
 

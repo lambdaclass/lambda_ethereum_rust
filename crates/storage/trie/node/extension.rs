@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::nibble::NibbleVec;
-use crate::trie::node_hash::{NodeHash, NodeEncoder, PathKind};
+use crate::trie::node_hash::{NodeEncoder, NodeHash, PathKind};
 use crate::trie::state::TrieState;
 use crate::trie::ValueRLP;
 
@@ -162,6 +162,10 @@ impl ExtensionNode {
     }
 
     pub fn compute_hash(&self) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw())
+    }
+
+    pub fn encode_raw(&self) -> Vec<u8> {
         let child_hash = &self.child;
         let prefix_len = NodeEncoder::path_len(self.prefix.len());
         let child_len = match child_hash {
@@ -176,7 +180,7 @@ impl ExtensionNode {
             NodeHash::Inline(x) => encoder.write_raw(x),
             NodeHash::Hashed(x) => encoder.write_bytes(&x.0),
         }
-        encoder.hash()
+        encoder.finalize()
     }
 
     /// Inserts the node into the state and returns its hash

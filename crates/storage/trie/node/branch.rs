@@ -260,8 +260,11 @@ impl BranchNode {
         Ok((new_node, value))
     }
 
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw())
+    }
+
+    pub fn encode_raw(&self) -> Vec<u8> {
         let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
             if node_hash.is_valid() {
                 match node_hash {
@@ -301,7 +304,7 @@ impl BranchNode {
             Some(value) => encoder.write_bytes(value),
             None => encoder.write_bytes(&[]),
         }
-        encoder.hash()
+        encoder.finalize()
     }
 
     /// Inserts the node into the state and returns its hash

@@ -118,7 +118,13 @@ impl LeafNode {
         })
     }
 
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, offset: usize) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw(offset))
+    }
+
+    /// Encodes the node given the offset in the path traversed before reaching this node
+    pub fn encode_raw(&self, offset: usize) -> Vec<u8> {
         let encoded_value = &self.value;
         let encoded_path = &self.path;
 
@@ -135,7 +141,7 @@ impl LeafNode {
         encoder.write_list_header(path_len + value_len);
         encoder.write_path_slice(&path, PathKind::Leaf);
         encoder.write_bytes(encoded_value);
-        encoder.hash()
+        encoder.finalize()
     }
 
     /// Inserts the node into the state and returns its hash
