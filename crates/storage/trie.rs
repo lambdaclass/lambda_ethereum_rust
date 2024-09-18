@@ -759,6 +759,23 @@ mod test {
 
         }
 
+        #[test]
+        fn proptest_compare_proof(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+
+            for val in data.iter(){
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            let _ = cita_trie.root();
+            for val in data.iter(){
+                let proof = trie.get_proof(val).unwrap();
+                let cita_proof = cita_trie.get_proof(val).unwrap();
+                prop_assert_eq!(proof, cita_proof);
+            }
+        }
+
     }
 
     fn cita_trie() -> CitaTrie<CitaMemoryDB, HasherKeccak> {
