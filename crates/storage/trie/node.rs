@@ -88,9 +88,9 @@ impl Node {
         node_path: &mut Vec<Vec<u8>>,
     ) -> Result<(), StoreError> {
         match self {
-            Node::Branch(n) => todo!(),
-            Node::Extension(n) => todo!(),
-            Node::Leaf(n) => n.get_path(path, node_path),
+            Node::Branch(n) => n.get_path(state, path, node_path),
+            Node::Extension(n) => n.get_path(state, path, node_path),
+            Node::Leaf(_) => Ok(()),
         }
     }
 

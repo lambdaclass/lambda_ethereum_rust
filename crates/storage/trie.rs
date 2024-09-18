@@ -136,6 +136,10 @@ impl Trie {
         let Some(root) = &self.root else {
             return Ok(node_path);
         };
+        // If the root is an inlined leaf, return it
+        if let NodeHash::Inline(node) = root {
+            return Ok(vec![node.to_vec()]);
+        }
         let root_node = self
             .state
             .get_node(root.clone())?

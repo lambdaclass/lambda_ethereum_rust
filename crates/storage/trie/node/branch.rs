@@ -313,6 +313,35 @@ impl BranchNode {
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
+
+    pub fn get_path(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        // TODO: Check the case in which the branch contains the path
+        // Check the corresponding choice and delegate accordingly if present.
+        if let Some(choice) = path.next().map(usize::from) {
+            // Add self to node_path (if not inlined in parent)
+            let encoded = self.encode_raw();
+            if dbg!(encoded.len()) >= 32 {
+                node_path.push(encoded);
+            };
+            // Continue to child
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
+                let child_node = state
+                    .get_node(child_hash.clone())?
+                    .expect("inconsistent internal tree structure");
+                child_node.get_path(state, path, node_path)?;
+            }
+        }
+        // else {
+        //     // Return internal value if present.
+        // }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
