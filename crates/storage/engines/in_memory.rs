@@ -112,6 +112,10 @@ impl StoreEngine for Store {
         Ok(())
     }
 
+    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+        Ok(self.transaction_pool.get(&hash).cloned())
+    }
+
     fn add_receipt(
         &mut self,
         block_number: BlockNumber,

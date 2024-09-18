@@ -62,6 +62,9 @@ pub trait StoreEngine: Debug + Send {
         transaction: Transaction,
     ) -> Result<(), StoreError>;
 
+    // Get a transaction from pool table
+    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError>;
+
     /// Add receipt
     fn add_receipt(
         &mut self,

@@ -14,6 +14,10 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     Ok(hash)
 }
 
+pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
+    Ok(store.get_transaction_from_pool(hash)?)
+}
+
 /*
 
 Stateless validations

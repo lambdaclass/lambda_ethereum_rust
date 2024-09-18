@@ -166,6 +166,10 @@ impl StoreEngine for Store {
         Ok(())
     }
 
+    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+        Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
+    }
+
     fn add_storage_at(
         &mut self,
         address: Address,
