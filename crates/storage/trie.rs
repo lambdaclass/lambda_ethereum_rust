@@ -824,11 +824,23 @@ mod test {
         let mut cita_trie = cita_trie();
         let mut trie = Trie::new_temp();
         cita_trie
-            .insert(vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0], vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+            .insert(
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            )
             .unwrap();
-        trie.insert(vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0], vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0]).unwrap();
-        let cita_proof = cita_trie.get_proof(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0]).unwrap();
-        let trie_proof = trie.get_proof(&vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0]).unwrap();
+        trie.insert(
+            vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        )
+        .unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie
+            .get_proof(&vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            .unwrap();
+        let trie_proof = trie
+            .get_proof(&vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            .unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 }

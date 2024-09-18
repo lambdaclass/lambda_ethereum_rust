@@ -90,7 +90,7 @@ impl Node {
         match self {
             Node::Branch(n) => n.get_path(state, path, node_path),
             Node::Extension(n) => n.get_path(state, path, node_path),
-            Node::Leaf(_) => Ok(()),
+            Node::Leaf(n) => n.get_path(path, node_path),
         }
     }
 

@@ -155,6 +155,17 @@ impl LeafNode {
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
     }
+
+    pub fn get_path(
+        &self,
+        path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        if self.path == path.data() {
+            node_path.push(self.encode_raw(path.offset()));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
