@@ -524,13 +524,13 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
     conn.send(status).await;
 
     // TODO: implement listen loop instead
-    info!("Sending Ping RLPxMessage");
+    debug!("Sending Ping RLPxMessage");
     // Send Ping
     conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
 
-    info!("Awaiting Pong RLPxMessage");
+    debug!("Awaiting Pong RLPxMessage");
     let pong = conn.receive().await;
-    info!("Received RLPxMessage: {:?}", pong);
+    debug!("Received RLPxMessage: {:?}", pong);
 
     conn.receive().await;
 }
