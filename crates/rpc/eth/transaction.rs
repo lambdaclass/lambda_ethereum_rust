@@ -513,8 +513,9 @@ impl RpcHandler for SendRawTransactionRequest {
         Ok(transaction)
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        //TODO: We have to add the transaction to the mempool here
-        //TODO: We have to check what to do with the extra data on blob transactions
+        //TODO: Here we are discarding the Blob Transaction's sidecard.
+        // but in the future we will have to add it to the mempool, maybe handling it differently
+        // from any other transaction
         let tx = self.to_transaction();
 
         let hash = mempool::add_transaction(tx, storage)?;
