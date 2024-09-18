@@ -88,6 +88,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
 
     try_join!(server_handler, revalidation_handler, lookup_handler).unwrap();
 }
+
 async fn discover_peers_server(
     udp_addr: SocketAddr,
     udp_socket: Arc<UdpSocket>,
@@ -208,7 +209,6 @@ async fn discover_peers_server(
                             ));
                             let mut buf = Vec::new();
                             neighbors.encode_with_header(&mut buf, &signer);
-                            // we are going to send the nodes in four request as not to
                             udp_socket.send_to(&buf, from).await.unwrap();
                         }
                     } else {
@@ -235,6 +235,9 @@ async fn discover_peers_server(
                             debug!("Storing neighbors in our table!");
                             req.nodes_sent = nodes_sent;
                             nodes_to_insert = Some(nodes.clone());
+                            if let Some(tx) = &req.tx {
+                                let _ = tx.send(nodes.clone());
+                            }
                         } else {
                             debug!("Ignoring neighbors message as the client sent more than the allowed nodes");
                         }
@@ -351,7 +354,7 @@ async fn peers_revalidation(
     }
 }
 
-const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 10;
+const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 30;
 
 /// Starts a tokio scheduler that:
 /// - performs random lookups to discover new nodes. Currently this is configure to run every `PEERS_RANDOM_LOOKUP_TIME_IN_MIN`
@@ -362,6 +365,7 @@ const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 10;
 /// 1. We send a find_node that is closest to our public key
 /// 2. We select the 3 closest peers that we haven't select previously
 /// 3. We send a find_node request to each one of them concurrently
+/// 4. We do that recursively until we have asked to all the neighbors return
 ///
 /// To each find_node request it will correspond (or it should) a neighbors response
 /// where we will decide whether we insert the node or not (at least it will be added to the replacement list).
@@ -376,34 +380,82 @@ async fn peers_lookup(
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
 
-    // here we store the peers that we have already send a find_node request
-    let mut asked_peers: HashSet<H512> = HashSet::default();
-
     interval.tick().await;
     loop {
         interval.tick().await;
 
+        let mut handlers = vec![];
+
         // lookup closest to our pub key
-        lookup(
+        handlers.push(tokio::spawn(recursive_lookup(
             udp_socket.clone(),
             table.clone(),
-            &signer,
+            signer.clone(),
             local_node_id,
-            &mut asked_peers,
-        )
-        .await;
+            local_node_id,
+        )));
 
         // lookup closest to 3 random keys
         for _ in 0..3 {
             let random_pub_key = &SigningKey::random(&mut OsRng);
-            lookup(
+            handlers.push(tokio::spawn(recursive_lookup(
                 udp_socket.clone(),
                 table.clone(),
-                &signer,
+                signer.clone(),
                 node_id_from_signing_key(random_pub_key),
-                &mut asked_peers,
-            )
-            .await;
+                local_node_id,
+            )));
+        }
+
+        for handle in handlers {
+            let _ = try_join!(handle);
+        }
+    }
+}
+
+async fn recursive_lookup(
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    target: H512,
+    local_node_id: H512,
+) {
+    let mut asked_peers = HashSet::default();
+    // lookups start with the closest from our table
+    let closest_nodes = table.lock().await.get_closest_nodes(target);
+    let mut seen_peers: HashSet<H512> = HashSet::default();
+
+    for node in &closest_nodes {
+        seen_peers.insert(node.node_id);
+    }
+
+    let mut peers_to_ask: Vec<Node> = closest_nodes;
+
+    loop {
+        let (nodes_found, queries) = lookup(
+            udp_socket.clone(),
+            table.clone(),
+            &signer,
+            target,
+            &mut asked_peers,
+            &peers_to_ask,
+        )
+        .await;
+
+        // only push the peers that are not already in the array
+        for node in nodes_found {
+            if !seen_peers.contains(&node.node_id) {
+                seen_peers.insert(node.node_id);
+                if node.node_id != local_node_id {
+                    peers_to_ask.push(node);
+                }
+            }
+        }
+
+        // the lookup finishes when there are no more queries to do
+        // that happens when we have asked all the peers
+        if queries == 0 {
+            break;
         }
     }
 }
@@ -414,32 +466,53 @@ async fn lookup(
     signer: &SigningKey,
     target: H512,
     asked_peers: &mut HashSet<H512>,
-) {
+    nodes_to_ask: &Vec<Node>,
+) -> (Vec<Node>, u32) {
     let alpha = 3;
-    let closest_nodes = table.lock().await.get_closest_nodes(target);
     let mut queries = 0;
-    for node in closest_nodes {
+    let mut nodes = vec![];
+
+    for node in nodes_to_ask {
         if !asked_peers.contains(&node.node_id) {
-            find_node(
+            #[allow(unused_assignments)]
+            let mut rx = None;
+            {
+                let mut table = table.lock().await;
+                let peer = table.get_by_node_id_mut(node.node_id);
+                if let Some(peer) = peer {
+                    // if the peer has an ongoing find_node request, don't query
+                    if peer.find_node_request.is_some() {
+                        continue;
+                    }
+                    let (tx, receiver) = tokio::sync::mpsc::unbounded_channel::<Vec<Node>>();
+                    peer.new_find_node_request_with_sender(tx);
+                    rx = Some(receiver);
+                } else {
+                    // if peer isn't inserted to table, then we won't query him
+                    continue;
+                }
+            }
+
+            queries += 1;
+            asked_peers.insert(node.node_id);
+
+            let mut found_nodes = find_node_and_wait_for_response(
                 &udp_socket,
                 SocketAddr::new(node.ip, node.udp_port),
                 signer,
                 target,
+                &mut rx.unwrap(),
             )
             .await;
-            let mut table = table.lock().await;
-            let peer = table.get_by_node_id_mut(node.node_id);
-            if let Some(peer) = peer {
-                peer.new_find_node_request();
-            }
-            asked_peers.insert(node.node_id);
-            queries += 1;
+            nodes.append(&mut found_nodes);
         }
 
         if queries == alpha {
             break;
         }
     }
+
+    (nodes, queries)
 }
 
 /// Sends a ping to the addr
@@ -488,6 +561,7 @@ async fn ping(
     None
 }
 
+#[allow(unused)]
 async fn find_node(
     socket: &UdpSocket,
     to_addr: SocketAddr,
@@ -506,6 +580,36 @@ async fn find_node(
     msg.encode_with_header(&mut buf, signer);
 
     socket.send_to(&buf, to_addr).await.unwrap();
+}
+
+async fn find_node_and_wait_for_response(
+    socket: &UdpSocket,
+    to_addr: SocketAddr,
+    signer: &SigningKey,
+    target_node_id: H512,
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Vec<Node>>,
+) -> Vec<Node> {
+    let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let msg: discv4::Message =
+        discv4::Message::FindNode(FindNodeMessage::new(target_node_id, expiration));
+
+    let mut buf = Vec::new();
+    msg.encode_with_header(&mut buf, signer);
+    socket.send_to(&buf, to_addr).await.unwrap();
+
+    let mut nodes = vec![];
+    loop {
+        let res = rx.recv().await;
+        if let Some(mut found_nodes) = res {
+            nodes.append(&mut found_nodes);
+        } else {
+            return nodes;
+        }
+    }
 }
 
 async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: &SigningKey) {
@@ -659,7 +763,7 @@ mod tests {
         let node = Node {
             ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             tcp_port: 0,
-            udp_port: 0,
+            udp_port: 8002,
             node_id,
         };
         table
@@ -837,6 +941,8 @@ mod tests {
      * - We'll insert random nodes to the server `a`` to fill its table
      * - We'll forcedly run `lookup` and validate that a `find_node` request was sent
      *   by checking that new nodes have been inserted to the table
+     *
+     * This test for only one lookup, and not recursively.
      */
     async fn discovery_server_lookup() {
         let addr_a = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8002);
@@ -893,13 +999,14 @@ mod tests {
 
         // now we are going to run a lookup with us as the target
         let closets_peers_to_b_from_a = table_a.lock().await.get_closest_nodes(node_id_b);
-        let mut asked_peers = HashSet::default();
+        let nodes_to_ask = table_b.lock().await.get_closest_nodes(node_id_b);
         lookup(
             udp_socket_b.clone(),
             table_b.clone(),
             &signer_b,
             node_id_b,
-            &mut asked_peers,
+            &mut HashSet::default(),
+            &nodes_to_ask,
         )
         .await;
 

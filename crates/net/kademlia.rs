@@ -4,6 +4,7 @@ use crate::{
 };
 use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
+use tokio::sync::mpsc::UnboundedSender;
 
 pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
@@ -266,6 +267,10 @@ impl PeerData {
 
     pub fn new_find_node_request(&mut self) {
         self.find_node_request = Some(FindNodeRequest::default());
+    }
+
+    pub fn new_find_node_request_with_sender(&mut self, sender: UnboundedSender<Vec<Node>>) {
+        self.find_node_request = Some(FindNodeRequest::new_with_sender(sender));
     }
 }
 
