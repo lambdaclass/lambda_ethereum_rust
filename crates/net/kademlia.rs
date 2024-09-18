@@ -30,6 +30,7 @@ impl KademliaTable {
         }
     }
 
+    #[allow(unused)]
     pub fn buckets(&self) -> &Vec<Bucket> {
         &self.buckets
     }

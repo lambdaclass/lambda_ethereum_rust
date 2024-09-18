@@ -197,12 +197,19 @@ async fn discover_peers_server(
                             table.get_closest_nodes(msg.target)
                         };
                         let expiration = get_expiration(20);
-                        let neighbors =
-                            discv4::Message::Neighbors(NeighborsMessage::new(nodes, expiration));
-                        let mut buf = Vec::new();
-                        neighbors.encode_with_header(&mut buf, &signer);
                         debug!("Sending neighbors!");
-                        udp_socket.send_to(&buf, from).await.unwrap();
+                        // we are sending the neighbors in 4 different messages as not to exceed the
+                        // maximum packet size
+                        for i in 0..4 {
+                            let neighbors = discv4::Message::Neighbors(NeighborsMessage::new(
+                                nodes[i * 4..i * 4 + 4].to_vec(),
+                                expiration,
+                            ));
+                            let mut buf = Vec::new();
+                            neighbors.encode_with_header(&mut buf, &signer);
+                            // we are going to send the nodes in four request as not to
+                            udp_socket.send_to(&buf, from).await.unwrap();
+                        }
                     } else {
                         debug!("Ignoring find node message as the node isn't proven!");
                     }
@@ -895,7 +902,7 @@ mod tests {
         .await;
 
         // find_node sent, allow some time for `a` to respond
-        sleep(Duration::from_secs(30)).await;
+        sleep(Duration::from_secs(2)).await;
 
         // now all peers should've been inserted
         for peer in closets_peers_to_b_from_a {
