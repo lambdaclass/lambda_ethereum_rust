@@ -83,12 +83,15 @@ async fn main() {
 
     let project_dir = ProjectDirs::from("com", "lambdaclass", "ethereum_rust")
         .expect("couldn't find home directory");
-    let default_data_dir = project_dir.data_local_dir()
+    let default_data_dir = project_dir
+        .data_local_dir()
         .to_str()
         .expect("invalid data directory")
         .to_owned();
 
-    let data_dir = matches.get_one::<String>("datadir").unwrap_or(&default_data_dir);
+    let data_dir = matches
+        .get_one::<String>("datadir")
+        .unwrap_or(&default_data_dir);
     let mut store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
