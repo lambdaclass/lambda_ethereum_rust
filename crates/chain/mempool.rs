@@ -1,7 +1,6 @@
+use crate::error::MempoolError;
 use ethereum_rust_core::{types::Transaction, H256};
 use ethereum_rust_storage::Store;
-mod error;
-pub use error::MempoolError;
 
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
     // Validate transaction

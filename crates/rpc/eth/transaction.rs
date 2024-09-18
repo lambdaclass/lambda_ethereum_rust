@@ -13,7 +13,7 @@ use ethereum_rust_core::{
     H256, U256,
 };
 
-use ethereum_rust_pool as mempool;
+use ethereum_rust_chain::mempool;
 use ethereum_rust_storage::Store;
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
