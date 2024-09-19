@@ -374,11 +374,11 @@ const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 30;
 ///    - Peers that have already been asked for nodes
 ///    - Peers that have been already seen
 ///    - Potential peers to query for nodes: a vector of up to 16 entries holding the closest peers to the pubkey.
-///    This vector is initially filled with nodes from our table.
+///      This vector is initially filled with nodes from our table.
 /// 3. We send a `find_node` to the closest 3 nodes (that we have not yet asked) from the pubkey.
 /// 4. We wait for the neighbors response and pushed or replace those that are closer to the potential peers.
 /// 5. We select three other nodes from the potential peers vector and do the same until one lookup
-///   doesn't have any node to ask.
+///    doesn't have any node to ask.
 ///
 /// See more https://github.com/ethereum/devp2p/blob/master/discv4.md#recursive-lookup
 async fn peers_lookup(
