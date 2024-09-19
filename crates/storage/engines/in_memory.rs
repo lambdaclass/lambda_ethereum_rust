@@ -1,7 +1,7 @@
 use crate::{error::StoreError, trie::Trie};
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{
@@ -23,6 +23,8 @@ pub struct Store {
     account_storages: HashMap<Address, HashMap<H256, U256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
+    // Stores pooled transactions by their hashes
+    transaction_pool: HashMap<H256, Transaction>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
     state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
 }
@@ -99,6 +101,19 @@ impl StoreEngine for Store {
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
         Ok(self.transaction_locations.get(&transaction_hash).copied())
+    }
+
+    fn add_transaction_to_pool(
+        &mut self,
+        hash: H256,
+        transaction: Transaction,
+    ) -> Result<(), StoreError> {
+        self.transaction_pool.insert(hash, transaction);
+        Ok(())
+    }
+
+    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+        Ok(self.transaction_pool.get(&hash).cloned())
     }
 
     fn add_receipt(
