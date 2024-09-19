@@ -108,11 +108,12 @@ fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
 /// Panics if any comparison fails
 /// Tests that previously failed the validation stage shouldn't be executed with this function.
 fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
+    let latest_block_number = db.get_latest_block_number().unwrap().unwrap();
     for (addr, account) in &test.post_state {
         let expected_account: CoreAccount = account.clone().into();
         // Check info
         let db_account_info = db
-            .get_account_info(db.get_latest_block_number().unwrap().unwrap(), *addr)
+            .get_account_info(latest_block_number, *addr)
             .expect("Failed to read from DB")
             .unwrap_or_else(|| {
                 panic!("Account info for address {addr} not found in DB, test:{test_key}")
@@ -136,7 +137,7 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
         // Check storage
         for (key, value) in expected_account.storage {
             let db_storage_value = db
-                .get_storage_at(*addr, key)
+                .get_storage_at(latest_block_number, *addr, key)
                 .expect("Failed to read from DB")
                 .unwrap_or_else(|| {
                     panic!("Storage missing for address {addr} key {key} in DB test:{test_key}")
