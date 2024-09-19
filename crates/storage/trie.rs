@@ -130,6 +130,9 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
+    /// Obtain a merkle proof for the given path.
+    /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
+    /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
     pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, StoreError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();

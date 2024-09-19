@@ -156,6 +156,7 @@ impl LeafNode {
         Ok(hash)
     }
 
+    /// Encodes the node and appends it to `node_path` if the encoded node is 32 or more bytes long
     pub fn get_path(
         &self,
         path: NibbleSlice,

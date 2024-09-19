@@ -260,10 +260,12 @@ impl BranchNode {
         Ok((new_node, value))
     }
 
+    /// Computes the node's hash
     pub fn compute_hash(&self) -> NodeHash {
         NodeHash::from_encoded_raw(self.encode_raw())
     }
 
+    /// Encodes the node
     pub fn encode_raw(&self) -> Vec<u8> {
         let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
             if node_hash.is_valid() {
@@ -314,6 +316,9 @@ impl BranchNode {
         Ok(hash)
     }
 
+    /// Traverses own subtrie until reaching the node containing `path`
+    /// Appends all encoded nodes traversed to `node_path` (including self)
+    /// Only nodes with encoded len over or equal to 32 bytes are included
     pub fn get_path(
         &self,
         state: &TrieState,

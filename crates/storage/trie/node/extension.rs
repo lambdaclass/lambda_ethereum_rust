@@ -161,10 +161,12 @@ impl ExtensionNode {
         }
     }
 
+    /// Computes the node's hash
     pub fn compute_hash(&self) -> NodeHash {
         NodeHash::from_encoded_raw(self.encode_raw())
     }
 
+    /// Encodes the node
     pub fn encode_raw(&self) -> Vec<u8> {
         let child_hash = &self.child;
         let prefix_len = NodeEncoder::path_len(self.prefix.len());
@@ -190,6 +192,9 @@ impl ExtensionNode {
         Ok(hash)
     }
 
+    /// Traverses own subtrie until reaching the node containing `path`
+    /// Appends all encoded nodes traversed to `node_path` (including self)
+    /// Only nodes with encoded len over or equal to 32 bytes are included
     pub fn get_path(
         &self,
         state: &TrieState,
