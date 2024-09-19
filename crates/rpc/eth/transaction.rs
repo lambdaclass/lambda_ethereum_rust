@@ -1,6 +1,9 @@
 use crate::{
     eth::block,
-    types::{block_identifier::BlockIdentifier, transaction::RpcTransaction},
+    types::{
+        block_identifier::BlockIdentifier,
+        transaction::{RpcTransaction, SendRawTransactionRequest},
+    },
     utils::RpcErr,
     RpcHandler,
 };
@@ -10,6 +13,7 @@ use ethereum_rust_core::{
     H256, U256,
 };
 
+use ethereum_rust_chain::mempool;
 use ethereum_rust_storage::Store;
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
@@ -489,5 +493,32 @@ fn simulate_tx(
         }),
         ExecutionResult::Halt { reason, gas_used } => Err(RpcErr::Halt { reason, gas_used }),
         success => Ok(success),
+    }
+}
+
+impl RpcHandler for SendRawTransactionRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<SendRawTransactionRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+
+        let str_data = serde_json::from_value::<String>(params[0].clone())?;
+        let str_data = str_data.strip_prefix("0x").ok_or(RpcErr::BadParams)?;
+        let data = hex::decode(str_data).map_err(|_| RpcErr::BadParams)?;
+
+        let transaction =
+            SendRawTransactionRequest::decode_canonical(&data).map_err(|_| RpcErr::BadParams)?;
+
+        Ok(transaction)
+    }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        //TODO: Here we are discarding the Blob Transaction's sidecard.
+        // but in the future we will have to add it to the mempool, maybe handling it differently
+        // from any other transaction
+        let tx = self.to_transaction();
+
+        let hash = mempool::add_transaction(tx, storage)?;
+        serde_json::to_value(format!("{:#x}", hash)).map_err(|_| RpcErr::Internal)
     }
 }

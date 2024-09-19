@@ -2,7 +2,7 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    ReceiptRLP, TransactionHashRLP,
+    ReceiptRLP, TransactionHashRLP, TransactionRLP,
 };
 use crate::trie::Trie;
 use anyhow::Result;
@@ -10,7 +10,7 @@ use bytes::Bytes;
 use ethereum_rust_core::rlp::decode::RLPDecode;
 use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
@@ -155,6 +155,19 @@ impl StoreEngine for Store {
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
         self.read::<TransactionLocations>(transaction_hash.into())
+    }
+
+    fn add_transaction_to_pool(
+        &mut self,
+        hash: H256,
+        transaction: Transaction,
+    ) -> Result<(), StoreError> {
+        self.write::<TransactionPool>(hash.into(), transaction.into())?;
+        Ok(())
+    }
+
+    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+        Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
     fn add_storage_at(
@@ -369,6 +382,11 @@ table!(
 );
 
 table!(
+    /// Transaction pool trable.
+    ( TransactionPool ) TransactionHashRLP => TransactionRLP
+);
+
+table!(
     /// Stores chain data, each value is unique and stored as its rlp encoding
     /// See [ChainDataIndex] for available chain values
     ( ChainData ) ChainDataIndex => Vec<u8>
@@ -470,6 +488,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(AccountCodes),
         table_info!(Receipts),
         table_info!(TransactionLocations),
+        table_info!(TransactionPool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),
     ]
