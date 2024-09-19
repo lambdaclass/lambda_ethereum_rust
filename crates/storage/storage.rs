@@ -606,7 +606,7 @@ impl Store {
         let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
             return Ok(None);
         };
-        Some(state_trie.get_proof(&address.encode_to_vec())).transpose()
+        Some(state_trie.get_proof(&hash_address(address))).transpose()
     }
 
     /// Constructs a merkle proof for the given storage_key in a storage_trie with a known root
@@ -621,7 +621,7 @@ impl Store {
             .lock()
             .unwrap()
             .open_storage_trie(address, storage_root);
-        trie.get_proof(&storage_key.encode_to_vec())
+        trie.get_proof(&hash_key(storage_key))
     }
 }
 
