@@ -265,6 +265,7 @@ impl PeerData {
         }
     }
 
+    #[allow(unused)]
     pub fn new_find_node_request(&mut self) {
         self.find_node_request = Some(FindNodeRequest::default());
     }

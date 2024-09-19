@@ -7,8 +7,8 @@ use std::{
 
 use bootnode::BootNode;
 use discv4::{
-    get_expiration, is_expired, time_since_in_hs, FindNodeMessage, Message, NeighborsMessage,
-    Packet, PingMessage, PongMessage,
+    get_expiration, is_expired, time_now_unix, time_since_in_hs, FindNodeMessage, Message,
+    NeighborsMessage, Packet, PingMessage, PongMessage,
 };
 use ethereum_rust_core::{H256, H512};
 use k256::{
@@ -228,6 +228,11 @@ async fn discover_peers_server(
                 let mut table = table.lock().await;
                 if let Some(node) = table.get_by_node_id_mut(packet.get_node_id()) {
                     if let Some(req) = &mut node.find_node_request {
+                        if time_now_unix().saturating_sub(req.sent_at) >= 60 {
+                            debug!("Ignoring neighbors message as the find_node request expires after one minute");
+                            node.find_node_request = None;
+                            continue;
+                        }
                         let nodes = &neighbors_msg.nodes;
                         let nodes_sent = req.nodes_sent + nodes.len();
 
@@ -450,6 +455,7 @@ async fn recursive_lookup(
     let closest_nodes = table.lock().await.get_closest_nodes(target);
     let mut seen_peers: HashSet<H512> = HashSet::default();
 
+    seen_peers.insert(local_node_id);
     for node in &closest_nodes {
         seen_peers.insert(node.node_id);
     }
@@ -467,14 +473,13 @@ async fn recursive_lookup(
         )
         .await;
 
-        // only push the peers that have not been seen (that is those who have not been yet pushed)
-        // this also account for those peers that were in the array but have been replaced for closer peers
+        // only push the peers that have not been seen
+        // that is those who have not been yet pushed, which also accounts for
+        // those peers that were in the array but have been replaced for closer peers
         for node in nodes_found {
             if !seen_peers.contains(&node.node_id) {
                 seen_peers.insert(node.node_id);
-                if node.node_id != local_node_id {
-                    peers_to_ask_push(&mut peers_to_ask, target, node);
-                }
+                peers_to_ask_push(&mut peers_to_ask, target, node);
             }
         }
 
@@ -587,27 +592,6 @@ async fn ping(
     None
 }
 
-#[allow(unused)]
-async fn find_node(
-    socket: &UdpSocket,
-    to_addr: SocketAddr,
-    signer: &SigningKey,
-    target_node_id: H512,
-) {
-    let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-
-    let msg: discv4::Message =
-        discv4::Message::FindNode(FindNodeMessage::new(target_node_id, expiration));
-
-    let mut buf = Vec::new();
-    msg.encode_with_header(&mut buf, signer);
-
-    socket.send_to(&buf, to_addr).await.unwrap();
-}
-
 async fn find_node_and_wait_for_response(
     socket: &UdpSocket,
     to_addr: SocketAddr,
@@ -629,8 +613,8 @@ async fn find_node_and_wait_for_response(
 
     let mut nodes = vec![];
 
-    // wait as much as two seconds for the response
     loop {
+        // wait as much as two seconds for the response
         match tokio::time::timeout(Duration::from_secs(2), request_receiver.recv()).await {
             Ok(Some(mut found_nodes)) => {
                 nodes.append(&mut found_nodes);
@@ -642,6 +626,7 @@ async fn find_node_and_wait_for_response(
                 return nodes;
             }
             Err(_) => {
+                // timeout expired
                 return nodes;
             }
         }

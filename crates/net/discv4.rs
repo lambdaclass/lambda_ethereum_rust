@@ -307,8 +307,6 @@ pub struct FindNodeRequest {
     /// we keep track of this number since we will accept neighbor messages until the max_per_bucket
     pub nodes_sent: usize,
     /// unix timestamp tracking when we have sent the request
-    #[allow(unused)]
-    // todo use this field to invalidate if it took too much time
     pub sent_at: u64,
     /// a tokio sender, useful to wait for the response in lookups
     pub tx: Option<tokio::sync::mpsc::UnboundedSender<Vec<Node>>>,
