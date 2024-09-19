@@ -1,7 +1,16 @@
-use crate::error::MempoolError;
 use ethereum_rust_core::{
-    types::{BlockHeader, ChainConfig, Transaction, MAX_INITCODE_SIZE},
+    types::{BlockHeader, ChainConfig, Transaction},
     H256,
+};
+
+use crate::{
+    constants::{
+        MAX_INITCODE_SIZE, MIN_BASE_FEE_PER_BLOB_GAS, TX_ACCESS_LIST_ADDRESS_GAS,
+        TX_ACCESS_LIST_STORAGE_KEY_GAS, TX_CREATE_GAS_COST, TX_DATA_NON_ZERO_GAS,
+        TX_DATA_NON_ZERO_GAS_EIP2028, TX_DATA_ZERO_GAS_COST, TX_GAS_COST,
+        TX_INIT_CODE_WORD_GAS_COST,
+    },
+    error::MempoolError,
 };
 use ethereum_rust_storage::Store;
 
@@ -20,36 +29,6 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
 pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
     Ok(store.get_transaction_from_pool(hash)?)
 }
-
-// Gas cost for each non zero byte on transaction data
-pub const TX_DATA_NON_ZERO_GAS: u64 = 68;
-// Gas cost for each non zero byte on transaction data, modified on [EIP-2028](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2028.md)
-pub const TX_DATA_NON_ZERO_GAS_EIP2028: u64 = 16;
-
-// Minimum base fee per blob [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)
-pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
-
-//TODO: THIS ALL SHOULD BE MOVED TO chain/constants
-
-// YELLOW PAPER CONSTANTS
-
-/// Base gas cost for each non contract creating transaction
-pub const TX_GAS_COST: u64 = 21000;
-
-/// Base gas cost for each contract creating transaction
-pub const TX_CREATE_GAS_COST: u64 = 53000;
-
-// Gas cost for each zero byte on transaction data
-pub const TX_DATA_ZERO_GAS_COST: u64 = 4;
-
-// Gas cost for each init code word on transaction data
-pub const TX_INIT_CODE_WORD_GAS_COST: u64 = 2;
-
-// Gas cost for each init code word on transaction data
-pub const TX_ACCESS_LIST_ADDRESS_GAS: u64 = 2400;
-
-// Gas cost for each init code word on transaction data
-pub const TX_ACCESS_LIST_STORAGE_KEY_GAS: u64 = 1900;
 
 /*
 
@@ -86,6 +65,7 @@ Stateful validations
 5. Ensure the transactor is able to add a new transaction. The number of transactions sent by an account may be limited by a certain configured value
 
 */
+
 fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolError> {
     // TODO: Add validations here
     let header_no = store
@@ -193,6 +173,7 @@ fn transaction_intrinsic_gas(
 
 #[cfg(test)]
 mod tests {
+    use crate::constants::MAX_INITCODE_SIZE;
     use crate::error::MempoolError;
     use crate::mempool::{
         TX_ACCESS_LIST_ADDRESS_GAS, TX_ACCESS_LIST_STORAGE_KEY_GAS, TX_CREATE_GAS_COST,
@@ -205,7 +186,6 @@ mod tests {
     };
     use ethereum_rust_core::types::{
         BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
-        MAX_INITCODE_SIZE,
     };
     use ethereum_rust_core::{Address, Bytes, H256, U256};
     use ethereum_rust_storage::EngineType;
