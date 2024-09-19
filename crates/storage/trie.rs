@@ -777,6 +777,35 @@ mod test {
         }
 
         #[test]
+        fn proptest_compare_proof_with_removals(mut data in vec((vec(any::<u8>(), 5..100), any::<bool>()), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+            // Remove duplicate values with different expected status
+            data.sort_by_key(|(val, _)| val.clone());
+            data.dedup_by_key(|(val, _)| val.clone());
+            // Insertions
+            for (val, _) in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for (val, should_remove) in data.iter() {
+                if *should_remove {
+                    trie.remove(val.clone()).unwrap();
+                    cita_trie.remove(val).unwrap();
+                }
+            }
+            // Compare proofs
+            let _ = cita_trie.root();
+            for (val, _) in data.iter() {
+                let proof = trie.get_proof(val).unwrap();
+                let cita_proof = cita_trie.get_proof(val).unwrap();
+                prop_assert_eq!(proof, cita_proof);
+            }
+        }
+
+
+        #[test]
         // The previous test needs to sort the input values in order to get rid of duplicate entries, leading to ordered insertions
         // This check has a fixed way of determining wether a value should be removed but doesn't require ordered insertions
         fn proptest_compare_proof_with_removals_unsorted(data in btree_set(vec(any::<u8>(), 5..100), 1..100)) {
