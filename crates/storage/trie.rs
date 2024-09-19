@@ -854,7 +854,7 @@ mod test {
             .insert(b"duck".to_vec(), b"duckling".to_vec())
             .unwrap();
         trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
-        let cita_proof = cita_trie.get_proof(&b"duck".to_vec()).unwrap();
+        let cita_proof = cita_trie.get_proof(b"duck".as_ref()).unwrap();
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
@@ -873,7 +873,7 @@ mod test {
         trie.insert(b"duck".to_vec(), b"duck".to_vec()).unwrap();
         trie.insert(b"goose".to_vec(), b"goose".to_vec()).unwrap();
         let _ = cita_trie.root();
-        let cita_proof = cita_trie.get_proof(&b"duck".to_vec()).unwrap();
+        let cita_proof = cita_trie.get_proof(b"duck".as_ref()).unwrap();
         let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
@@ -896,7 +896,7 @@ mod test {
         .unwrap();
         let _ = cita_trie.root();
         let cita_proof = cita_trie
-            .get_proof(&vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            .get_proof(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
             .unwrap();
         let trie_proof = trie
             .get_proof(&vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -917,7 +917,7 @@ mod test {
         trie.insert(vec![183, 0, 0, 0, 0, 0], vec![183, 0, 0, 0, 0, 0])
             .unwrap();
         let _ = cita_trie.root();
-        let cita_proof = cita_trie.get_proof(&vec![183]).unwrap();
+        let cita_proof = cita_trie.get_proof(&[183]).unwrap();
         let trie_proof = trie.get_proof(&vec![183]).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
