@@ -62,10 +62,14 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
-    // TODO implement this right
-    if let Some(b) = bootnodes.first() {
-        ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
-    };
+    discovery_startup(
+        udp_addr,
+        udp_socket.clone(),
+        table.clone(),
+        signer.clone(),
+        bootnodes,
+    )
+    .await;
 
     let server_handler = tokio::spawn(discover_peers_server(
         udp_addr,
@@ -272,6 +276,31 @@ async fn discover_peers_server(
             }
             _ => {}
         }
+    }
+}
+
+/// This is a really basic startup and should be improved when we have the nodes stored in the db
+/// currently, since we are not storing nodes, the only way to have startup nodes is by providing
+/// an array of bootnodes.
+async fn discovery_startup(
+    udp_addr: SocketAddr,
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    bootnodes: Vec<BootNode>,
+) {
+    for bootnode in bootnodes {
+        table.lock().await.insert_node(Node {
+            ip: bootnode.socket_address.ip(),
+            udp_port: bootnode.socket_address.port(),
+            tcp_port: 0,
+            node_id: bootnode.node_id,
+        });
+        let ping_hash = ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
+        table
+            .lock()
+            .await
+            .update_peer_ping(bootnode.node_id, ping_hash);
     }
 }
 
