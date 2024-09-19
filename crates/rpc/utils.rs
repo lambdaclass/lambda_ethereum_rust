@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::authentication::AuthenticationError;
-use ethereum_rust_chain::error::MempoolError;
+use ethereum_rust_blockchain::error::MempoolError;
 
 #[derive(Debug)]
 pub enum RpcErr {

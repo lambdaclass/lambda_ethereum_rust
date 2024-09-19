@@ -1,5 +1,5 @@
 [package]
-name = "ethereum_rust-chain"
+name = "ethereum_rust-blockchain"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,4 +13,4 @@ ethereum_rust-evm.workspace = true
 
 
 [lib]
-path = "./chain.rs"
+path = "./blockchain.rs"
