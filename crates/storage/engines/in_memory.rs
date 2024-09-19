@@ -3,7 +3,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H256};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -11,6 +11,8 @@ use std::{
 };
 
 use super::api::StoreEngine;
+
+pub type NodeMap = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
 
 #[derive(Default)]
 pub struct Store {
@@ -20,13 +22,13 @@ pub struct Store {
     headers: HashMap<BlockNumber, BlockHeader>,
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
-    account_storages: HashMap<Address, HashMap<H256, U256>>,
     // Maps transaction hashes to their block number and index within the block
     transaction_locations: HashMap<H256, (BlockNumber, Index)>,
     // Stores pooled transactions by their hashes
     transaction_pool: HashMap<H256, Transaction>,
     receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
-    state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+    state_trie_nodes: NodeMap,
+    storage_trie_nodes: HashMap<Address, NodeMap>,
 }
 
 #[derive(Default)]
@@ -148,46 +150,6 @@ impl StoreEngine for Store {
         Ok(self.account_codes.get(&code_hash).cloned())
     }
 
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        let entry = self.account_storages.entry(address).or_default();
-        entry.insert(storage_key, storage_value);
-        Ok(())
-    }
-
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<U256>, StoreError> {
-        Ok(self
-            .account_storages
-            .get(&address)
-            .and_then(|entry| entry.get(&storage_key).cloned()))
-    }
-
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
-        self.account_storages.remove(&address);
-        Ok(())
-    }
-
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        Ok(Box::new(
-            self.account_storages
-                .get(&address)
-                .cloned()
-                .into_iter()
-                .flatten(),
-        ))
-    }
-
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         // Store cancun timestamp
         self.chain_data.chain_config = Some(*chain_config);
@@ -266,6 +228,12 @@ impl StoreEngine for Store {
         ));
         let trie = Trie::new(db);
         Ok(trie)
+    }
+
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
+        let trie_backend = self.storage_trie_nodes.entry(address).or_default();
+        let db = Box::new(crate::trie::InMemoryTrieDB::new(trie_backend.clone()));
+        Trie::open(db, storage_root)
     }
 }
 

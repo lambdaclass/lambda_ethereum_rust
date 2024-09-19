@@ -45,6 +45,7 @@ impl revm::Database for StoreWrapper {
         Ok(self
             .store
             .get_storage_at(
+                self.block_number,
                 CoreAddress::from(address.0.as_ref()),
                 CoreH256::from(index.to_be_bytes()),
             )?
