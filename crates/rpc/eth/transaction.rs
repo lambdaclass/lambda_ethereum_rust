@@ -228,22 +228,17 @@ impl RpcHandler for GetTransactionReceiptRequest {
             "Requested receipt for transaction {}",
             self.transaction_hash,
         );
-        let (block_number, _block_hash, index) =
+        let (block_number, block_hash, index) =
             match storage.get_transaction_location(self.transaction_hash)? {
                 Some(location) => location,
                 _ => return Ok(Value::Null),
             };
-        // TODO(#422): this could improve with a `get_block_by_hash` function.
-        let block_header = match storage.get_block_header(block_number)? {
-            Some(block_header) => block_header,
-            _ => return Ok(Value::Null),
-        };
-        let block_body = match storage.get_block_body(block_number)? {
-            Some(block_body) => block_body,
-            _ => return Ok(Value::Null),
+        let block = match storage.get_block_by_hash(block_hash)? {
+            Some(block) => block,
+            None => return Ok(Value::Null),
         };
         let receipts =
-            block::get_all_block_rpc_receipts(block_number, block_header, block_body, &storage)?;
+            block::get_all_block_rpc_receipts(block_number, block.header, block.body, &storage)?;
         serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
     }
 }

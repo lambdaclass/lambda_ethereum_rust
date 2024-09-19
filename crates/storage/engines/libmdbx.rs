@@ -121,6 +121,13 @@ impl StoreEngine for Store {
         Ok(self.read::<Bodies>(block_hash.into())?.map(|b| b.to()))
     }
 
+    fn get_block_header_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        Ok(self.read::<Headers>(block_hash.into())?.map(|b| b.to()))
+    }
+
     fn add_block_number(
         &mut self,
         block_hash: BlockHash,

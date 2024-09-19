@@ -283,6 +283,13 @@ impl StoreEngine for Store {
         Ok(self.bodies.get(&block_hash).cloned())
     }
 
+    fn get_block_header_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        Ok(self.headers.get(&block_hash).cloned())
+    }
+
     fn set_canonical_block(
         &mut self,
         number: BlockNumber,

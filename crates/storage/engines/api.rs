@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::fmt::Debug;
@@ -36,6 +36,11 @@ pub trait StoreEngine: Debug + Send {
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockBody>, StoreError>;
+
+    fn get_block_header_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockHeader>, StoreError>;
 
     /// Add block number for a given hash
     fn add_block_number(
@@ -108,6 +113,18 @@ pub trait StoreEngine: Debug + Send {
             .try_into()
             .ok()
             .and_then(|index: usize| block_body.transactions.get(index).cloned()))
+    }
+
+    fn get_block_by_hash(&self, block_hash: BlockHash) -> Result<Option<Block>, StoreError> {
+        let header = match self.get_block_header_by_hash(block_hash)? {
+            Some(header) => header,
+            None => return Ok(None),
+        };
+        let body = match self.get_block_body_by_hash(block_hash)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(Some(Block { header, body }))
     }
 
     // Add storage value

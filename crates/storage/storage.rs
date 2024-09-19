@@ -440,6 +440,10 @@ impl Store {
             .get_transaction_by_location(block_hash, index)
     }
 
+    pub fn get_block_by_hash(&self, block_hash: H256) -> Result<Option<Block>, StoreError> {
+        self.engine.lock().unwrap().get_block_by_hash(block_hash)
+    }
+
     pub fn get_storage_at(
         &self,
         address: Address,
