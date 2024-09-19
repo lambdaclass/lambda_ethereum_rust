@@ -199,20 +199,18 @@ impl RpcHandler for GetTransactionByHashRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested transaction with hash: {}", self.transaction_hash,);
+        let (block_number, block_hash, index) =
+            match storage.get_transaction_location(self.transaction_hash)? {
+                Some(location) => location,
+                _ => return Ok(Value::Null),
+            };
+
         let transaction: ethereum_rust_core::types::Transaction =
-            match storage.get_transaction_by_hash(self.transaction_hash)? {
+            match storage.get_transaction_by_location(block_hash, index)? {
                 Some(transaction) => transaction,
                 _ => return Ok(Value::Null),
             };
-        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
-            Some(location) => location,
-            _ => return Ok(Value::Null),
-        };
-        let block_header = match storage.get_block_header(block_number)? {
-            Some(header) => header,
-            _ => return Ok(Value::Null),
-        };
-        let block_hash = block_header.compute_block_hash();
+
         let transaction =
             RpcTransaction::build(transaction, block_number, block_hash, index as usize);
         serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
@@ -234,20 +232,17 @@ impl RpcHandler for GetTransactionReceiptRequest {
             "Requested receipt for transaction {}",
             self.transaction_hash,
         );
-        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
-            Some(location) => location,
-            _ => return Ok(Value::Null),
-        };
-        let block_header = match storage.get_block_header(block_number)? {
-            Some(block_header) => block_header,
-            _ => return Ok(Value::Null),
-        };
-        let block_body = match storage.get_block_body(block_number)? {
-            Some(block_body) => block_body,
-            _ => return Ok(Value::Null),
+        let (block_number, block_hash, index) =
+            match storage.get_transaction_location(self.transaction_hash)? {
+                Some(location) => location,
+                _ => return Ok(Value::Null),
+            };
+        let block = match storage.get_block_by_hash(block_hash)? {
+            Some(block) => block,
+            None => return Ok(Value::Null),
         };
         let receipts =
-            block::get_all_block_rpc_receipts(block_number, block_header, block_body, &storage)?;
+            block::get_all_block_rpc_receipts(block_number, block.header, block.body, &storage)?;
         serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
     }
 }
