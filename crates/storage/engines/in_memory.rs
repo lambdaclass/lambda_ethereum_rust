@@ -118,7 +118,7 @@ impl StoreEngine for Store {
             .and_then(|v| {
                 v.iter()
                     .find(|(number, hash, _index)| self.canonical_hashes.get(number) == Some(hash))
-                    .map(|a| a.clone())
+                    .copied()
             }))
     }
 
