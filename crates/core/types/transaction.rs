@@ -585,6 +585,24 @@ impl Transaction {
         }
     }
 
+    pub fn is_contract_creation(&self) -> bool {
+        match &self {
+            Transaction::LegacyTransaction(t) => matches!(t.to, TxKind::Create),
+            Transaction::EIP2930Transaction(t) => matches!(t.to, TxKind::Create),
+            Transaction::EIP1559Transaction(t) => matches!(t.to, TxKind::Create),
+            Transaction::EIP4844Transaction(_) => false,
+        }
+    }
+
+    pub fn max_fee_per_gas(&self) -> Option<u64> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::EIP2930Transaction(_tx) => None,
+            Transaction::EIP1559Transaction(tx) => Some(tx.max_fee_per_gas),
+            Transaction::EIP4844Transaction(tx) => Some(tx.max_fee_per_gas),
+        }
+    }
+
     pub fn compute_hash(&self) -> H256 {
         keccak_hash::keccak(self.encode_canonical_to_vec())
     }

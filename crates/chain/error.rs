@@ -37,6 +37,20 @@ pub enum InvalidBlockError {
 
 #[derive(Debug, Error)]
 pub enum MempoolError {
+    #[error("No block header")]
+    NoBlockHeaderError,
     #[error("DB error: {0}")]
     StoreError(#[from] StoreError),
+    #[error("Transaction max init code size exceeded")]
+    TxMaxInitCodeSizeError,
+    #[error("Transaction value is negative")]
+    TxValueNegativeError,
+    #[error("Transaction gas limit exceeded")]
+    TxGasLimitExceededError,
+    #[error("Transaction priority fee above gas fee")]
+    TxGasOverflowError,
+    #[error("Transaction intrinsic gas overflow")]
+    TxTipAboveFeeCapError,
+    #[error("Transaction intrinsic gas cost above gas limit")]
+    TxIntrinsicGasCostAboveLimitError,
 }

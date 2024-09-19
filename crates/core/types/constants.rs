@@ -13,3 +13,8 @@ pub const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = 3338477; // Defined in [EIP-4844]
 pub const BYTES_PER_FIELD_ELEMENT: usize = 32;
 pub const FIELD_ELEMENTS_PER_BLOB: usize = 4096;
 pub const BYTES_PER_BLOB: usize = BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB;
+
+// Defined in [EIP-170](https://eips.ethereum.org/EIPS/eip-170)
+pub const MAX_CODE_SIZE: usize = 0x6000;
+// Defined in [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860)
+pub const MAX_INITCODE_SIZE: usize = 2 * MAX_CODE_SIZE;
