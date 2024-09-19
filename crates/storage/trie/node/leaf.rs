@@ -162,7 +162,11 @@ impl LeafNode {
         node_path: &mut Vec<Vec<u8>>,
     ) -> Result<(), StoreError> {
         if self.path == path.data() {
-            node_path.push(self.encode_raw(path.offset()));
+            let encoded = self.encode_raw(path.offset());
+            // Inlined node would have already been committed?
+            if encoded.len() >= 32 {
+                node_path.push(encoded);
+            }
         }
         Ok(())
     }

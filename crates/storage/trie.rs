@@ -843,4 +843,22 @@ mod test {
             .unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
+
+    #[test]
+    fn get_proof_path_in_branch() {
+        // Trie -> Extension[Branch[ [Leaf[[183,0,0,0,0,0]]], [183]]]
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie.insert(vec![183], vec![183]).unwrap();
+        cita_trie
+            .insert(vec![183, 0, 0, 0, 0, 0], vec![183, 0, 0, 0, 0, 0])
+            .unwrap();
+        trie.insert(vec![183], vec![183]).unwrap();
+        trie.insert(vec![183, 0, 0, 0, 0, 0], vec![183, 0, 0, 0, 0, 0])
+            .unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie.get_proof(&vec![183]).unwrap();
+        let trie_proof = trie.get_proof(&vec![183]).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
 }
