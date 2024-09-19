@@ -62,15 +62,6 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
-    discovery_startup(
-        udp_addr,
-        udp_socket.clone(),
-        table.clone(),
-        signer.clone(),
-        bootnodes,
-    )
-    .await;
-
     let server_handler = tokio::spawn(discover_peers_server(
         udp_addr,
         udp_socket.clone(),
@@ -84,10 +75,23 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         signer.clone(),
         REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
     ));
+
+    discovery_startup(
+        udp_addr,
+        udp_socket.clone(),
+        table.clone(),
+        signer.clone(),
+        bootnodes,
+    )
+    .await;
+
+    // a first initial lookup runs without waiting for the interval
+    // so we need to allow some time to the pinged peers to ping us back and acknowledge us
+    tokio::time::sleep(Duration::from_secs(10)).await;
     let lookup_handler = tokio::spawn(peers_lookup(
         udp_socket.clone(),
         table.clone(),
-        signer,
+        signer.clone(),
         local_node_id,
         PEERS_RANDOM_LOOKUP_TIME_IN_MIN as u64 * 60,
     ));
@@ -426,6 +430,8 @@ async fn peers_lookup(
         // so as soon as the server starts we'll do a lookup with the seeder nodes.
         interval.tick().await;
 
+        debug!("Starting lookup");
+
         let mut handlers = vec![];
 
         // lookup closest to our pub key
@@ -452,6 +458,8 @@ async fn peers_lookup(
         for handle in handlers {
             let _ = try_join!(handle);
         }
+
+        debug!("Lookup finished");
     }
 }
 
