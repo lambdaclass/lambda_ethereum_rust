@@ -185,11 +185,9 @@ impl StoreEngine for InMemoryStoreEngine {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        if let Some(hash) = self.0.lock().unwrap().canonical_hashes.get(&block_number) {
-            Ok(self
-                .0
-                .lock()
-                .unwrap()
+        let store = self.0.lock().unwrap();
+        if let Some(hash) = store.canonical_hashes.get(&block_number) {
+            Ok(store
                 .receipts
                 .get(hash)
                 .and_then(|entry| entry.get(&index))
