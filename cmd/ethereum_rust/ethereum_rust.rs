@@ -6,6 +6,8 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use tokio_util::sync::{CancellationToken};
+use tokio_util::task::TaskTracker;
 use std::{
     fs::File,
     io,
@@ -111,6 +113,8 @@ async fn main() {
         node_id: local_node_id,
     };
 
+    let stop_token = CancellationToken::new();
+    let supervisor = TaskTracker::new();
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
@@ -120,8 +124,30 @@ async fn main() {
     );
     let networking =
         ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
-
-    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
+    {
+        let token = stop_token.clone();
+        let tracker = supervisor.clone();
+        tracker.spawn(async move {
+            rpc_api.await;
+            tokio::select! {
+                () = token.cancelled() => {
+                    info!("[RPC API] Shutting down")
+                }
+            }
+        });
+    }
+    {
+        let cloned = supervisor.clone();
+        cloned.clone().spawn(
+            async move {
+                tokio::signal::ctrl_c().await.expect("Failed to install Ctrl-c");
+                cloned.close();
+                stop_token.cancel();
+            }
+        );
+    }
+    supervisor.clone().wait().await;
+    info!("Server shutting down!");
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
