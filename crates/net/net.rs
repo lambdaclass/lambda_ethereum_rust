@@ -367,13 +367,18 @@ const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 30;
 /// **Random lookups**
 ///
 /// Random lookups work in the following manner:
-/// 1. We send a find_node that is closest to our public key
-/// 2. We select the 3 closest peers that we haven't select previously
-/// 3. We send a find_node request to each one of them concurrently
-/// 4. We do that recursively until we have asked to all the neighbors return
-///
-/// To each find_node request it will correspond (or it should) a neighbors response
-/// where we will decide whether we insert the node or not (at least it will be added to the replacement list).
+/// 1. Every 30min we spawn three concurrent lookups: one closest to our pubkey
+///    and three other closest to random generated pubkeys.
+/// 2. Every lookup starts with the closest nodes from our table.
+///    Each lookup keeps track of:
+///    - Peers that have already been asked for nodes
+///    - Peers that have been already seen
+///    - Potential peers to query for nodes: a vector of up to 16 entries holding the closest peers to the pubkey.
+///    This vector is initially filled with nodes from our table.
+/// 3. We send a `find_node` to the closest 3 nodes (that we have not yet asked) from the pubkey.
+/// 4. We wait for the neighbors response and pushed or replace those that are closer to the potential peers.
+/// 5. We select three other nodes from the potential peers vector and do the same until one lookup
+///   doesn't have any node to ask.
 ///
 /// See more https://github.com/ethereum/devp2p/blob/master/discv4.md#recursive-lookup
 async fn peers_lookup(
@@ -415,31 +420,6 @@ async fn peers_lookup(
         for handle in handlers {
             let _ = try_join!(handle);
         }
-    }
-}
-
-fn peers_to_ask_push(peers_to_ask: &mut Vec<Node>, target: H512, node: Node) {
-    let distance = bucket_number(target, node.node_id);
-
-    if peers_to_ask.len() < MAX_NODES_PER_BUCKET {
-        peers_to_ask.push(node);
-        return;
-    }
-
-    // replace this node for the one whose distance to the target is the highest
-    let (mut idx_to_replace, mut highest_distance) = (None, 0);
-
-    for (i, peer) in peers_to_ask.iter().enumerate() {
-        let current_distance = bucket_number(peer.node_id, target);
-
-        if distance < current_distance && current_distance >= highest_distance {
-            highest_distance = current_distance;
-            idx_to_replace = Some(i);
-        }
-    }
-
-    if let Some(idx) = idx_to_replace {
-        peers_to_ask[idx] = node;
     }
 }
 
@@ -544,6 +524,31 @@ async fn lookup(
     }
 
     (nodes, queries)
+}
+
+fn peers_to_ask_push(peers_to_ask: &mut Vec<Node>, target: H512, node: Node) {
+    let distance = bucket_number(target, node.node_id);
+
+    if peers_to_ask.len() < MAX_NODES_PER_BUCKET {
+        peers_to_ask.push(node);
+        return;
+    }
+
+    // replace this node for the one whose distance to the target is the highest
+    let (mut idx_to_replace, mut highest_distance) = (None, 0);
+
+    for (i, peer) in peers_to_ask.iter().enumerate() {
+        let current_distance = bucket_number(peer.node_id, target);
+
+        if distance < current_distance && current_distance >= highest_distance {
+            highest_distance = current_distance;
+            idx_to_replace = Some(i);
+        }
+    }
+
+    if let Some(idx) = idx_to_replace {
+        peers_to_ask[idx] = node;
+    }
 }
 
 /// Sends a ping to the addr

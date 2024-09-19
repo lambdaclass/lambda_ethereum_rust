@@ -308,7 +308,8 @@ pub struct FindNodeRequest {
     pub nodes_sent: usize,
     /// unix timestamp tracking when we have sent the request
     pub sent_at: u64,
-    /// a tokio sender, useful to wait for the response in lookups
+    /// if present, server will send the nodes through this channel when receiving neighbors
+    /// useful to wait for the response in lookups
     pub tx: Option<tokio::sync::mpsc::UnboundedSender<Vec<Node>>>,
 }
 
