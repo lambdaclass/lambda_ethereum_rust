@@ -109,14 +109,12 @@ impl RpcHandler for GetStorageAtRequest {
             self.storage_slot, self.address, self.block
         );
 
-        // TODO: implement historical querying
-        let is_latest = self.block.is_latest(&storage)?;
-        if !is_latest {
-            return Err(RpcErr::Internal);
-        }
+        let Some(block_number) = self.block.resolve_block_number(&storage)? else {
+            return Err(RpcErr::Internal); // Should we return Null here?
+        };
 
         let storage_value = storage
-            .get_storage_at(self.address, self.storage_slot)?
+            .get_storage_at(block_number, self.address, self.storage_slot)?
             .unwrap_or_default();
         let storage_value = H256::from_uint(&storage_value);
         serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)

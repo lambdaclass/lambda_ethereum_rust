@@ -15,7 +15,9 @@ use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
 pub use self::db::TrieDB;
-pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB};
+pub use self::db::{
+    in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
+};
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
