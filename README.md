@@ -71,6 +71,13 @@ To stop the localnet:
 ```bash
 make stop-localnet
 ```
+
+You can also run the node using the standalone CLI:
+```bash
+cargo run --bin ethereum_rust -- --network test_data/genesis-kurtosis.json
+```
+The `network` argument is mandatory, as it defines the parameters of the chain.
+
 ## Roadmap
 
 ### Milestone 1: RPC Node

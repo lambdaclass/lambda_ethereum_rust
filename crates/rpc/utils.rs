@@ -102,9 +102,16 @@ pub enum RpcNamespace {
     Debug,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RpcRequestId {
+    Number(i32),
+    String(String),
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcRequest {
-    pub id: i32,
+    pub id: RpcRequestId,
     pub jsonrpc: String,
     pub method: String,
     pub params: Option<Vec<Value>>,
@@ -137,14 +144,14 @@ pub struct RpcErrorMetadata {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcSuccessResponse {
-    pub id: i32,
+    pub id: RpcRequestId,
     pub jsonrpc: String,
     pub result: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcErrorResponse {
-    pub id: i32,
+    pub id: RpcRequestId,
     pub jsonrpc: String,
     pub error: RpcErrorMetadata,
 }
