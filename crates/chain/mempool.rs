@@ -1,7 +1,7 @@
 use crate::error::MempoolError;
 use ethereum_rust_core::{
     types::{BlockHeader, ChainConfig, Transaction, MAX_INITCODE_SIZE},
-    H256, U256,
+    H256,
 };
 use ethereum_rust_storage::Store;
 
@@ -25,6 +25,9 @@ pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, 
 pub const TX_DATA_NON_ZERO_GAS: u64 = 68;
 // Gas cost for each non zero byte on transaction data, modified on [EIP-2028](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2028.md)
 pub const TX_DATA_NON_ZERO_GAS_EIP2028: u64 = 16;
+
+// Minimum base fee per blob [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)
+pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
 
 //TODO: THIS ALL SHOULD BE MOVED TO chain/constants
 
@@ -50,24 +53,18 @@ pub const TX_ACCESS_LIST_STORAGE_KEY_GAS: u64 = 1900;
 
 /*
 
+SOME VALIDATIONS THAT WE COULD INCLUDE
+
 Stateless validations
 
 1. This transaction is valid on current mempool
-2. Transaction's encoded size is smaller than maximum allowed
-3. The transaction type (TxType) is allowed on current mempool
-4. If the transaction creates a new contract, the init code should be smaller than a certain maximum
-5. The transacion's value is positive
-6. The block's header gas limit is higher than the transaction's gas limit
-7. Sanity checks for extremly large numbers on the gas fee and gas tip
-8. maxFeePerGas is greater or equal than maxPriorityFeePerGas
-9. Make sure the transaction is signed properly
-10. Ensure the transaction has more gas than the bare minimum needed to cover the transaction metadata, which includes:
-    - Data len
-    - Access lists
-    - Is contract creation
-11. Ensure the maxPriorityFeePerGas is high enough to cover the requirement of the calling pool (the minimum to be included in)
-12. Ensure the blob fee cap satisfies the minimum blob gas price
-13. Ensure a Blob Transaction comes with its sidecar:
+    -> Depends on mempool transaction filtering logic
+2. Ensure the maxPriorityFeePerGas is high enough to cover the requirement of the calling pool (the minimum to be included in)
+    -> Depends on mempool transaction filtering logic
+3. Transaction's encoded size is smaller than maximum allowed
+    -> I think that this is not in the spec, but it may be a good idea
+4. Make sure the transaction is signed properly
+5. Ensure a Blob Transaction comes with its sidecar:
   1. Validate number of BlobHashes is positive
   2. Validate number of BlobHashes is less than the maximum allowed per block,
      which may be computed as `maxBlobGasPerBlock / blobTxBlobGasPerBlob`
@@ -78,21 +75,19 @@ Stateless validations
   4. Validate that the hashes matches with the commitments, performing a `kzg4844` hash.
   5. Verify the blob proofs with the `kzg4844`
 
-
 Stateful validations
 
 1. Ensure transaction nonce is higher than the `from` address stored nonce
 2. Certain pools do not allow for nonce gaps. Ensure a gap is not produced (that is, the transaction nonce is exactly the following of the stored one)
 3. Ensure the transactor has enough funds to cover transaction cost:
     - Transaction cost is calculated as `(gas * gasPrice) + (blobGas * blobGasPrice) + value`
- 4. In case of transaction reorg, ensure the transactor has enough funds to cover for transaction replacements without overdrafts.
-    - This is done by comparing the total spent gas of the transactor from all pooled transactions, and accounting for the necessary gas spenditure if any of those transactions is replaced.
- 5. Ensure the transactor is able to add a new transaction. The number of transactions sent by an account may be limited by a certain configured value
+4. In case of transaction reorg, ensure the transactor has enough funds to cover for transaction replacements without overdrafts.
+- This is done by comparing the total spent gas of the transactor from all pooled transactions, and accounting for the necessary gas spenditure if any of those transactions is replaced.
+5. Ensure the transactor is able to add a new transaction. The number of transactions sent by an account may be limited by a certain configured value
 
 */
 fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolError> {
     // TODO: Add validations here
-
     let header_no = store
         .get_latest_block_number()?
         .ok_or(MempoolError::NoBlockHeaderError)?;
@@ -100,8 +95,6 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
         .get_block_header(header_no)?
         .ok_or(MempoolError::NoBlockHeaderError)?;
     let config = store.get_chain_config()?;
-
-    // NOTE: We could add a tx size limit here, but it's not in the actual spec
 
     // Check init code size
     if config.is_shanghai_activated(header.timestamp)
@@ -124,6 +117,14 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     // Check that the gas limit is covers the gas needs for transaction metadata.
     if tx.gas_limit() < transaction_intrinsic_gas(tx, &header, &config)? {
         return Err(MempoolError::TxIntrinsicGasCostAboveLimitError);
+    }
+
+    // Check that the specified blob gas fee is above the minimum value
+    if let Some(fee) = tx.max_fee_per_blob_gas() {
+        // Blob tx
+        if fee < MIN_BASE_FEE_PER_BLOB_GAS.into() {
+            return Err(MempoolError::TxBlobBaseFeeTooLowError);
+        }
     }
 
     Ok(())
@@ -203,7 +204,8 @@ mod tests {
         add_transaction, get_transaction, transaction_intrinsic_gas, validate_transaction,
     };
     use ethereum_rust_core::types::{
-        BlockHeader, ChainConfig, EIP1559Transaction, Transaction, TxKind, MAX_INITCODE_SIZE,
+        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
+        MAX_INITCODE_SIZE,
     };
     use ethereum_rust_core::{Address, Bytes, H256, U256};
     use ethereum_rust_storage::EngineType;
@@ -272,7 +274,7 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: 100_000,
-            to: TxKind::Call(Address::zero()),
+            to: TxKind::Call(Address::from_low_u64_be(1)),
             value: U256::zero(),
             data: Bytes::default(),
             access_list: Default::default(),
@@ -296,10 +298,10 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: 100_000,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
-            data: Bytes::default(),            // No data
-            access_list: Default::default(),   // No access list
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
+            data: Bytes::default(),                        // No data
+            access_list: Default::default(),               // No access list
             ..Default::default()
         };
 
@@ -342,10 +344,10 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: 100_000,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
             data: Bytes::from(vec![0x0, 0x1, 0x1, 0x0, 0x1, 0x1]), // 6 bytes of data
-            access_list: Default::default(),   // No access list
+            access_list: Default::default(),               // No access list
             ..Default::default()
         };
 
@@ -365,10 +367,10 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: 100_000,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
             data: Bytes::from(vec![0x0, 0x1, 0x1, 0x0, 0x1, 0x1]), // 6 bytes of data
-            access_list: Default::default(),   // No access list
+            access_list: Default::default(),               // No access list
             ..Default::default()
         };
 
@@ -449,9 +451,9 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: 100_000,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
-            data: Bytes::default(),            // No data
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
+            data: Bytes::default(),                        // No data
             access_list,
             ..Default::default()
         };
@@ -501,10 +503,10 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: 100_000_001,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
-            data: Bytes::default(),            // No data
-            access_list: Default::default(),   // No access list
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
+            data: Bytes::default(),                        // No data
+            access_list: Default::default(),               // No access list
             ..Default::default()
         };
 
@@ -527,10 +529,10 @@ mod tests {
             max_priority_fee_per_gas: 101,
             max_fee_per_gas: 100,
             gas_limit: 50_000_000,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
-            data: Bytes::default(),            // No data
-            access_list: Default::default(),   // No access list
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
+            data: Bytes::default(),                        // No data
+            access_list: Default::default(),               // No access list
             ..Default::default()
         };
 
@@ -554,10 +556,10 @@ mod tests {
             max_priority_fee_per_gas: 0,
             max_fee_per_gas: 0,
             gas_limit: intrinsic_gas_cost - 1,
-            to: TxKind::Call(Address::zero()), // Normal tx
-            value: U256::zero(),               // Value zero
-            data: Bytes::default(),            // No data
-            access_list: Default::default(),   // No access list
+            to: TxKind::Call(Address::from_low_u64_be(1)), // Normal tx
+            value: U256::zero(),                           // Value zero
+            data: Bytes::default(),                        // No data
+            access_list: Default::default(),               // No access list
             ..Default::default()
         };
 
@@ -566,6 +568,32 @@ mod tests {
         assert!(matches!(
             validation,
             Err(MempoolError::TxIntrinsicGasCostAboveLimitError)
+        ));
+    }
+
+    #[test]
+    fn transaction_with_blob_base_fee_below_min_should_fail() {
+        let (config, header) = build_basic_config_and_header(false, false);
+        let store = setup_storage(config, header).expect("Storage setup");
+
+        let tx = EIP4844Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            max_fee_per_blob_gas: 0.into(),
+            gas: 15_000_000,
+            to: Address::from_low_u64_be(1), // Normal tx
+            value: U256::zero(),             // Value zero
+            data: Bytes::default(),          // No data
+            access_list: Default::default(), // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP4844Transaction(tx);
+        let validation = validate_transaction(&tx, store);
+        assert!(matches!(
+            validation,
+            Err(MempoolError::TxBlobBaseFeeTooLowError)
         ));
     }
 }
