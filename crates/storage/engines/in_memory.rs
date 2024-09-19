@@ -50,7 +50,6 @@ impl StoreEngine for InMemoryStoreEngine {
         Ok(Self::default())
     }
 
-    #[cfg(test)]
     fn new_temp() -> Result<Self, StoreError> {
         Ok(Self::default())
     }

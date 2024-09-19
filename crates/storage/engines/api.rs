@@ -12,7 +12,6 @@ pub trait StoreEngine: Debug + Send + Sync + Clone + std::panic::UnwindSafe {
     /// Creates a new engine on a given path
     fn new(path: &str) -> Result<Self, StoreError>;
 
-    #[cfg(test)]
     /// Creates a new engine on a temporary path, for testing purposes
     fn new_temp() -> Result<Self, StoreError>;
 

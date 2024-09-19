@@ -66,7 +66,6 @@ impl StoreEngine for LibmdbxStoreEngine {
         })
     }
 
-    #[cfg(test)]
     fn new_temp() -> Result<Self, StoreError> {
         Ok(Self {
             db: Arc::new(init_db(None::<&str>)),

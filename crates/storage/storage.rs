@@ -22,7 +22,6 @@ pub use engines::{api::StoreEngine, in_memory::InMemoryStoreEngine, libmdbx::Lib
 
 #[derive(Debug, Clone)]
 pub struct Store<E: StoreEngine> {
-    // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
     engine: E,
 }
 
@@ -67,7 +66,6 @@ impl<E: StoreEngine> Store<E> {
         })
     }
 
-    #[cfg(test)]
     pub fn new_temp() -> Result<Self, StoreError> {
         Ok(Self {
             engine: E::new_temp()?,
