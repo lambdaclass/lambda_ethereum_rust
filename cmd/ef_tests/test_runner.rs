@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use crate::types::{BlockWithRLP, TestUnit};
-use ethereum_rust_chain::add_block;
+use ethereum_rust_blockchain::add_block;
 use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
