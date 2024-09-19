@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     net::SocketAddr,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -296,7 +295,7 @@ async fn peers_revalidation(
                     }
                 }
 
-                if peer.liveness <= 0 {
+                if peer.liveness == 0 {
                     let new_peer = table.lock().await.replace_peer(peer.node.node_id);
                     if let Some(new_peer) = new_peer {
                         let ping_hash = ping(
