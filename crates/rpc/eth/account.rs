@@ -4,7 +4,7 @@ use tracing::info;
 
 use crate::types::block_identifier::BlockIdentifierOrHash;
 use crate::{utils::RpcErr, RpcHandler};
-use ethereum_rust_core::{Address, BigEndianHash, H256};
+use ethereum_rust_core::{Address, BigEndianHash, H256, U256};
 
 pub struct GetBalanceRequest {
     pub address: Address,
@@ -153,7 +153,20 @@ impl RpcHandler for GetTransactionCountRequest {
 
 impl RpcHandler for GetProofRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        todo!()
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 3 {
+            return Err(RpcErr::BadParams);
+        };
+        let storage_keys: Vec<U256> = serde_json::from_value(params[1].clone())?;
+        let storage_keys = storage_keys
+            .iter()
+            .map(|key| H256::from_uint(key))
+            .collect();
+        Ok(GetProofRequest {
+            address: serde_json::from_value(params[0].clone())?,
+            storage_keys,
+            block: BlockIdentifierOrHash::parse(params[2].clone(), 2)?,
+        })
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
