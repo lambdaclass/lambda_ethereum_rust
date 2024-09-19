@@ -421,8 +421,9 @@ async fn peers_lookup(
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
 
-    interval.tick().await;
     loop {
+        // Notice that the first tick is immediate,
+        // so as soon as the server starts we'll do a lookup with the seeder nodes.
         interval.tick().await;
 
         let mut handlers = vec![];
