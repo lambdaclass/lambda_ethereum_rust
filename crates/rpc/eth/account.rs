@@ -157,10 +157,7 @@ impl RpcHandler for GetProofRequest {
             return Err(RpcErr::BadParams);
         };
         let storage_keys: Vec<U256> = serde_json::from_value(params[1].clone())?;
-        let storage_keys = storage_keys
-            .iter()
-            .map(|key| H256::from_uint(key))
-            .collect();
+        let storage_keys = storage_keys.iter().map(H256::from_uint).collect();
         Ok(GetProofRequest {
             address: serde_json::from_value(params[0].clone())?,
             storage_keys,
