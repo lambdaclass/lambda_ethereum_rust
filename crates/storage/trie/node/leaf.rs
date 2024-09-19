@@ -322,7 +322,7 @@ mod test {
     }
 
     #[test]
-    fn patito() {
+    fn compute_hash() {
         let node = LeafNode::new(b"key".to_vec(), b"value".to_vec());
         let node_hash_ref = node.compute_hash(0);
         assert_eq!(
