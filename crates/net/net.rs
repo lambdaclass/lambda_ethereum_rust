@@ -614,9 +614,13 @@ async fn find_node_and_wait_for_response(
 
     let mut buf = Vec::new();
     msg.encode_with_header(&mut buf, signer);
-    socket.send_to(&buf, to_addr).await.unwrap();
+    let res = socket.send_to(&buf, to_addr).await;
 
     let mut nodes = vec![];
+
+    if res.is_err() {
+        return nodes;
+    }
 
     loop {
         // wait as much as 5 seconds for the response
@@ -654,7 +658,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let pong: discv4::Message = discv4::Message::Pong(PongMessage::new(to, ping_hash, expiration));
 
     pong.encode_with_header(&mut buf, signer);
-    socket.send_to(&buf, to_addr).await.unwrap();
+    let _ = socket.send_to(&buf, to_addr).await;
 }
 
 async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
