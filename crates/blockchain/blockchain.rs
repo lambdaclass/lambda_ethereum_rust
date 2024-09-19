@@ -1,10 +1,11 @@
 pub mod constants;
 pub mod error;
+pub mod mempool;
 use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK};
 use error::{ChainError, InvalidBlockError};
 use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
-    BlockHeader, BlockNumber, EIP4844Transaction, Receipt, Transaction,
+    BlockHash, BlockHeader, EIP4844Transaction, Receipt, Transaction,
 };
 use ethereum_rust_core::H256;
 
@@ -48,8 +49,12 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;
 
+    let block_hash = block.header.compute_block_hash();
     store_block(storage, block.clone())?;
-    store_receipts(storage, receipts, block.header.number)?;
+    store_receipts(storage, receipts, block_hash)?;
+
+    // TODO(#350): This should happen in forkchoiceUpdates, not every time a block is added.
+    storage.set_canonical_block(block.header.number, block_hash)?;
 
     Ok(())
 }
@@ -76,10 +81,10 @@ pub fn store_block(storage: &Store, block: Block) -> Result<(), ChainError> {
 pub fn store_receipts(
     storage: &Store,
     receipts: Vec<Receipt>,
-    block_number: BlockNumber,
+    block_hash: BlockHash,
 ) -> Result<(), ChainError> {
     for (index, receipt) in receipts.into_iter().enumerate() {
-        storage.add_receipt(block_number, index as u64, receipt)?;
+        storage.add_receipt(block_hash, index as u64, receipt)?;
     }
     Ok(())
 }

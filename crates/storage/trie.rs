@@ -15,7 +15,9 @@ use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
 pub use self::db::TrieDB;
-pub use self::db::{in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB};
+pub use self::db::{
+    in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
+};
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 use crate::error::StoreError;
 
@@ -128,6 +130,28 @@ impl Trie {
             .as_ref()
             .map(|root| root.clone().finalize())
             .unwrap_or(*EMPTY_TRIE_HASH))
+    }
+
+    /// Obtain a merkle proof for the given path.
+    /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
+    /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
+    #[allow(unused)]
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, StoreError> {
+        // Will store all the encoded nodes traversed until reaching the node containing the path
+        let mut node_path = Vec::new();
+        let Some(root) = &self.root else {
+            return Ok(node_path);
+        };
+        // If the root is inlined, add it to the node_path
+        if let NodeHash::Inline(node) = root {
+            node_path.push(node.to_vec());
+        }
+        let root_node = self
+            .state
+            .get_node(root.clone())?
+            .expect("inconsistent tree structure");
+        root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        Ok(node_path)
     }
 
     #[cfg(test)]
@@ -741,6 +765,83 @@ mod test {
 
         }
 
+        #[test]
+        fn proptest_compare_proof(data in btree_set(vec(any::<u8>(), 1..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+
+            for val in data.iter(){
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            let _ = cita_trie.root();
+            for val in data.iter(){
+                let proof = trie.get_proof(val).unwrap();
+                let cita_proof = cita_trie.get_proof(val).unwrap();
+                prop_assert_eq!(proof, cita_proof);
+            }
+        }
+
+        #[test]
+        fn proptest_compare_proof_with_removals(mut data in vec((vec(any::<u8>(), 5..100), any::<bool>()), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+            // Remove duplicate values with different expected status
+            data.sort_by_key(|(val, _)| val.clone());
+            data.dedup_by_key(|(val, _)| val.clone());
+            // Insertions
+            for (val, _) in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for (val, should_remove) in data.iter() {
+                if *should_remove {
+                    trie.remove(val.clone()).unwrap();
+                    cita_trie.remove(val).unwrap();
+                }
+            }
+            // Compare proofs
+            let _ = cita_trie.root();
+            for (val, _) in data.iter() {
+                let proof = trie.get_proof(val).unwrap();
+                let cita_proof = cita_trie.get_proof(val).unwrap();
+                prop_assert_eq!(proof, cita_proof);
+            }
+        }
+
+
+        #[test]
+        // The previous test needs to sort the input values in order to get rid of duplicate entries, leading to ordered insertions
+        // This check has a fixed way of determining wether a value should be removed but doesn't require ordered insertions
+        fn proptest_compare_proof_with_removals_unsorted(data in btree_set(vec(any::<u8>(), 5..100), 1..100)) {
+            let mut trie = Trie::new_temp();
+            let mut cita_trie = cita_trie();
+            // Remove all values that have an odd first value
+            let remove = |value: &Vec<u8>| -> bool {
+                value.first().is_some_and(|v| v % 2 != 0)
+            };
+            // Insertions
+            for val in data.iter() {
+                trie.insert(val.clone(), val.clone()).unwrap();
+                cita_trie.insert(val.clone(), val.clone()).unwrap();
+            }
+            // Removals
+            for val in data.iter() {
+                if remove(val) {
+                    trie.remove(val.clone()).unwrap();
+                    cita_trie.remove(val).unwrap();
+                }
+            }
+            // Compare proofs
+            let _ = cita_trie.root();
+            for val in data.iter() {
+                let proof = trie.get_proof(val).unwrap();
+                let cita_proof = cita_trie.get_proof(val).unwrap();
+                prop_assert_eq!(proof, cita_proof);
+            }
+        }
+
     }
 
     fn cita_trie() -> CitaTrie<CitaMemoryDB, HasherKeccak> {
@@ -748,5 +849,88 @@ mod test {
         let hasher = Arc::new(HasherKeccak::new());
 
         CitaTrie::new(Arc::clone(&memdb), Arc::clone(&hasher))
+    }
+
+    #[test]
+    fn get_proof_one_leaf() {
+        // Trie -> Leaf["duck"]
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie
+            .insert(b"duck".to_vec(), b"duckling".to_vec())
+            .unwrap();
+        trie.insert(b"duck".to_vec(), b"duckling".to_vec()).unwrap();
+        let cita_proof = cita_trie.get_proof(b"duck".as_ref()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn get_proof_two_leaves() {
+        // Trie -> Extension[Branch[Leaf["duck"] Leaf["goose"]]]
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie
+            .insert(b"duck".to_vec(), b"duck".to_vec())
+            .unwrap();
+        cita_trie
+            .insert(b"goose".to_vec(), b"goose".to_vec())
+            .unwrap();
+        trie.insert(b"duck".to_vec(), b"duck".to_vec()).unwrap();
+        trie.insert(b"goose".to_vec(), b"goose".to_vec()).unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie.get_proof(b"duck".as_ref()).unwrap();
+        let trie_proof = trie.get_proof(&b"duck".to_vec()).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn get_proof_one_big_leaf() {
+        // Trie -> Leaf[[0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+        let val = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie.insert(val.clone(), val.clone()).unwrap();
+        trie.insert(val.clone(), val.clone()).unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie.get_proof(&val).unwrap();
+        let trie_proof = trie.get_proof(&val).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn get_proof_path_in_branch() {
+        // Trie -> Extension[Branch[ [Leaf[[183,0,0,0,0,0]]], [183]]]
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie.insert(vec![183], vec![183]).unwrap();
+        cita_trie
+            .insert(vec![183, 0, 0, 0, 0, 0], vec![183, 0, 0, 0, 0, 0])
+            .unwrap();
+        trie.insert(vec![183], vec![183]).unwrap();
+        trie.insert(vec![183, 0, 0, 0, 0, 0], vec![183, 0, 0, 0, 0, 0])
+            .unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie.get_proof(&[183]).unwrap();
+        let trie_proof = trie.get_proof(&vec![183]).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
+
+    #[test]
+    fn get_proof_removed_value() {
+        let a = vec![5, 0, 0, 0, 0];
+        let b = vec![6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie.insert(a.clone(), a.clone()).unwrap();
+        cita_trie.insert(b.clone(), b.clone()).unwrap();
+        trie.insert(a.clone(), a.clone()).unwrap();
+        trie.insert(b.clone(), b.clone()).unwrap();
+        trie.remove(a.clone()).unwrap();
+        cita_trie.remove(&a).unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie.get_proof(&a).unwrap();
+        let trie_proof = trie.get_proof(&a).unwrap();
+        assert_eq!(cita_proof, trie_proof);
     }
 }

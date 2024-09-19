@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethereum_rust_chain::add_block;
+use ethereum_rust_blockchain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;

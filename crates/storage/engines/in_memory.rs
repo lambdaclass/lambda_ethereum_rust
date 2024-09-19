@@ -1,9 +1,9 @@
 use crate::{error::StoreError, trie::Trie};
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H256};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -12,19 +12,24 @@ use std::{
 
 use super::api::StoreEngine;
 
+pub type NodeMap = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
+
 #[derive(Default)]
 pub struct Store {
     chain_data: ChainData,
     block_numbers: HashMap<BlockHash, BlockNumber>,
-    bodies: HashMap<BlockNumber, BlockBody>,
-    headers: HashMap<BlockNumber, BlockHeader>,
+    canonical_hashes: HashMap<BlockNumber, BlockHash>,
+    bodies: HashMap<BlockHash, BlockBody>,
+    headers: HashMap<BlockHash, BlockHeader>,
     // Maps code hashes to code
     account_codes: HashMap<H256, Bytes>,
-    account_storages: HashMap<Address, HashMap<H256, U256>>,
-    // Maps transaction hashes to their block number and index within the block
-    transaction_locations: HashMap<H256, (BlockNumber, Index)>,
-    receipts: HashMap<BlockNumber, HashMap<Index, Receipt>>,
-    state_trie_nodes: Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>,
+    // Maps transaction hashes to their blocks (height+hash) and index within the blocks.
+    transaction_locations: HashMap<H256, Vec<(BlockNumber, BlockHash, Index)>>,
+    // Stores pooled transactions by their hashes
+    transaction_pool: HashMap<H256, Transaction>,
+    receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
+    state_trie_nodes: NodeMap,
+    storage_trie_nodes: HashMap<Address, NodeMap>,
 }
 
 #[derive(Default)]
@@ -45,28 +50,36 @@ impl Store {
 
 impl StoreEngine for Store {
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
-        Ok(self.headers.get(&block_number).cloned())
+        if let Some(hash) = self.canonical_hashes.get(&block_number) {
+            Ok(self.headers.get(hash).cloned())
+        } else {
+            Ok(None)
+        }
     }
 
     fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError> {
-        Ok(self.bodies.get(&block_number).cloned())
+        if let Some(hash) = self.canonical_hashes.get(&block_number) {
+            Ok(self.bodies.get(hash).cloned())
+        } else {
+            Ok(None)
+        }
     }
 
     fn add_block_header(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
-        self.headers.insert(block_number, block_header);
+        self.headers.insert(block_hash, block_header);
         Ok(())
     }
 
     fn add_block_body(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError> {
-        self.bodies.insert(block_number, block_body);
+        self.bodies.insert(block_hash, block_body);
         Ok(())
     }
 
@@ -87,27 +100,50 @@ impl StoreEngine for Store {
         &mut self,
         transaction_hash: H256,
         block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
         self.transaction_locations
-            .insert(transaction_hash, (block_number, index));
+            .entry(transaction_hash)
+            .or_default()
+            .push((block_number, block_hash, index));
         Ok(())
     }
 
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
-        Ok(self.transaction_locations.get(&transaction_hash).copied())
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
+        Ok(self
+            .transaction_locations
+            .get(&transaction_hash)
+            .and_then(|v| {
+                v.iter()
+                    .find(|(number, hash, _index)| self.canonical_hashes.get(number) == Some(hash))
+                    .copied()
+            }))
+    }
+
+    fn add_transaction_to_pool(
+        &mut self,
+        hash: H256,
+        transaction: Transaction,
+    ) -> Result<(), StoreError> {
+        self.transaction_pool.insert(hash, transaction);
+        Ok(())
+    }
+
+    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+        Ok(self.transaction_pool.get(&hash).cloned())
     }
 
     fn add_receipt(
         &mut self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
-        let entry = self.receipts.entry(block_number).or_default();
+        let entry = self.receipts.entry(block_hash).or_default();
         entry.insert(index, receipt);
         Ok(())
     }
@@ -117,11 +153,15 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        Ok(self
-            .receipts
-            .get(&block_number)
-            .and_then(|entry| entry.get(&index))
-            .cloned())
+        if let Some(hash) = self.canonical_hashes.get(&block_number) {
+            Ok(self
+                .receipts
+                .get(hash)
+                .and_then(|entry| entry.get(&index))
+                .cloned())
+        } else {
+            Ok(None)
+        }
     }
 
     fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -131,46 +171,6 @@ impl StoreEngine for Store {
 
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
         Ok(self.account_codes.get(&code_hash).cloned())
-    }
-
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        let entry = self.account_storages.entry(address).or_default();
-        entry.insert(storage_key, storage_value);
-        Ok(())
-    }
-
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<U256>, StoreError> {
-        Ok(self
-            .account_storages
-            .get(&address)
-            .and_then(|entry| entry.get(&storage_key).cloned()))
-    }
-
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
-        self.account_storages.remove(&address);
-        Ok(())
-    }
-
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        Ok(Box::new(
-            self.account_storages
-                .get(&address)
-                .cloned()
-                .into_iter()
-                .flatten(),
-        ))
     }
 
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
@@ -251,6 +251,35 @@ impl StoreEngine for Store {
         ));
         let trie = Trie::new(db);
         Ok(trie)
+    }
+
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
+        let trie_backend = self.storage_trie_nodes.entry(address).or_default();
+        let db = Box::new(crate::trie::InMemoryTrieDB::new(trie_backend.clone()));
+        Trie::open(db, storage_root)
+    }
+
+    fn get_block_body_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockBody>, StoreError> {
+        Ok(self.bodies.get(&block_hash).cloned())
+    }
+
+    fn get_block_header_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        Ok(self.headers.get(&block_hash).cloned())
+    }
+
+    fn set_canonical_block(
+        &mut self,
+        number: BlockNumber,
+        hash: BlockHash,
+    ) -> Result<(), StoreError> {
+        self.canonical_hashes.insert(number, hash);
+        Ok(())
     }
 }
 

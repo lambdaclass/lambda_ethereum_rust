@@ -1,4 +1,4 @@
-use ethereum_rust_chain::constants::MAX_BLOB_GAS_PER_BLOCK;
+use ethereum_rust_blockchain::constants::MAX_BLOB_GAS_PER_BLOCK;
 use ethereum_rust_core::types::{Block, Transaction};
 use serde::Serialize;
 use serde_json::Value;
