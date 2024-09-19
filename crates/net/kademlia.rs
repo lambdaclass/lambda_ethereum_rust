@@ -4,13 +4,14 @@ use crate::{
 };
 use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
+use tokio::sync::mpsc::UnboundedSender;
 
 pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
 const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
 #[derive(Clone, Debug, Default)]
-struct Bucket {
+pub struct Bucket {
     pub peers: Vec<PeerData>,
     pub replacements: Vec<PeerData>,
 }
@@ -28,6 +29,11 @@ impl KademliaTable {
             local_node_id,
             buckets,
         }
+    }
+
+    #[allow(unused)]
+    pub fn buckets(&self) -> &Vec<Bucket> {
+        &self.buckets
     }
 
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
@@ -49,9 +55,9 @@ impl KademliaTable {
     /// Will try to insert a node into the table. If the table is full then it pushes it to the replacement list.
     /// # Returns
     /// A tuple containing:
-    ///     1. PeerData
+    ///     1. PeerData: none if the peer was already in the table or as a potential replacement
     ///     2. A bool indicating if the node was inserted to the table
-    pub fn insert_node(&mut self, node: Node) -> (PeerData, bool) {
+    pub fn insert_node(&mut self, node: Node) -> (Option<PeerData>, bool) {
         let node_id = node.node_id;
         let bucket_idx = bucket_number(node_id, self.local_node_id);
 
@@ -59,21 +65,41 @@ impl KademliaTable {
     }
 
     #[cfg(test)]
-    fn insert_node_on_custom_bucket(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
+    pub fn insert_node_on_custom_bucket(
+        &mut self,
+        node: Node,
+        bucket_idx: usize,
+    ) -> (Option<PeerData>, bool) {
         self.insert_node_inner(node, bucket_idx)
     }
 
-    fn insert_node_inner(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
+    fn insert_node_inner(&mut self, node: Node, bucket_idx: usize) -> (Option<PeerData>, bool) {
         let node_id = node.node_id;
+
+        let peer_already_in_table = self.buckets[bucket_idx]
+            .peers
+            .iter()
+            .any(|p| p.node.node_id == node_id);
+        if peer_already_in_table {
+            return (None, false);
+        }
+        let peer_already_in_replacements = self.buckets[bucket_idx]
+            .replacements
+            .iter()
+            .any(|p| p.node.node_id == node_id);
+        if peer_already_in_replacements {
+            return (None, false);
+        }
+
         let peer = PeerData::new(node, time_now_unix(), 0, false);
 
         if self.buckets[bucket_idx].peers.len() == MAX_NODES_PER_BUCKET {
             self.insert_as_replacement(&peer, bucket_idx);
-            (peer, false)
+            (Some(peer), false)
         } else {
             self.remove_from_replacements(node_id, bucket_idx);
             self.buckets[bucket_idx].peers.push(peer.clone());
-            (peer, true)
+            (Some(peer), true)
         }
     }
 
@@ -175,7 +201,7 @@ impl KademliaTable {
     }
 
     #[cfg(test)]
-    fn replace_peer_on_custom_bucket(
+    pub fn replace_peer_on_custom_bucket(
         &mut self,
         node_id: H512,
         bucket_idx: usize,
@@ -239,8 +265,13 @@ impl PeerData {
         }
     }
 
+    #[allow(unused)]
     pub fn new_find_node_request(&mut self) {
         self.find_node_request = Some(FindNodeRequest::default());
+    }
+
+    pub fn new_find_node_request_with_sender(&mut self, sender: UnboundedSender<Vec<Node>>) {
+        self.find_node_request = Some(FindNodeRequest::new_with_sender(sender));
     }
 }
 
@@ -267,7 +298,7 @@ mod tests {
     fn insert_random_node_on_custom_bucket(
         table: &mut KademliaTable,
         bucket_idx: usize,
-    ) -> (PeerData, bool) {
+    ) -> (Option<PeerData>, bool) {
         let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         let node = Node {
             ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
@@ -361,6 +392,7 @@ mod tests {
 
         let (first_node, inserted_to_table) =
             insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let first_node = first_node.unwrap();
         assert!(!inserted_to_table);
 
         // here we are forcingly pushing to the first bucket, that is, the distance might
@@ -379,6 +411,7 @@ mod tests {
 
         // push one more element, this should replace the first one pushed
         let (last, inserted_to_table) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let last = last.unwrap();
         assert!(!inserted_to_table);
 
         let bucket = &table.buckets[bucket_idx];
@@ -399,6 +432,7 @@ mod tests {
 
         let (replacement_peer, inserted_to_table) =
             insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let replacement_peer = replacement_peer.unwrap();
         assert!(!inserted_to_table);
 
         let node_id_to_replace = table.buckets[bucket_idx].peers[0].node.node_id;
