@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::authentication::AuthenticationError;
+use ethereum_rust_chain::error::MempoolError;
 
 #[derive(Debug)]
 pub enum RpcErr {
@@ -95,6 +96,14 @@ impl From<serde_json::Error> for RpcErr {
     }
 }
 
+// TODO: Actually return different errors for each case
+// here we are returning a BadParams error
+impl From<MempoolError> for RpcErr {
+    fn from(_: MempoolError) -> Self {
+        Self::BadParams
+    }
+}
+
 pub enum RpcNamespace {
     Engine,
     Eth,
@@ -102,9 +111,16 @@ pub enum RpcNamespace {
     Debug,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RpcRequestId {
+    Number(i32),
+    String(String),
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcRequest {
-    pub id: i32,
+    pub id: RpcRequestId,
     pub jsonrpc: String,
     pub method: String,
     pub params: Option<Vec<Value>>,
@@ -137,14 +153,14 @@ pub struct RpcErrorMetadata {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcSuccessResponse {
-    pub id: i32,
+    pub id: RpcRequestId,
     pub jsonrpc: String,
     pub result: Value,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcErrorResponse {
-    pub id: i32,
+    pub id: RpcRequestId,
     pub jsonrpc: String,
     pub error: RpcErrorMetadata,
 }
