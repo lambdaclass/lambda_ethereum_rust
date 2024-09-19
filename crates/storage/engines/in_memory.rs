@@ -7,7 +7,7 @@ use ethereum_types::{Address, H256};
 use std::{
     collections::HashMap,
     fmt::Debug,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use super::api::StoreEngine;
@@ -45,6 +45,12 @@ struct ChainData {
     pending_block_number: Option<BlockNumber>,
 }
 
+impl InMemoryStoreEngine {
+    fn inner(&self) -> MutexGuard<'_, StoreInner> {
+        self.0.lock().unwrap()
+    }
+}
+
 impl StoreEngine for InMemoryStoreEngine {
     fn new(_path: &str) -> Result<Self, StoreError> {
         Ok(Self::default())
@@ -55,7 +61,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
-        let store = self.0.lock().unwrap();
+        let store = self.inner();
         if let Some(hash) = store.canonical_hashes.get(&block_number) {
             Ok(store.headers.get(hash).cloned())
         } else {
@@ -64,7 +70,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError> {
-        let store = self.0.lock().unwrap();
+        let store = self.inner();
         if let Some(hash) = store.canonical_hashes.get(&block_number) {
             Ok(store.bodies.get(hash).cloned())
         } else {
@@ -90,7 +96,7 @@ impl StoreEngine for InMemoryStoreEngine {
         block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError> {
-        self.0.lock().unwrap().bodies.insert(block_hash, block_body);
+        self.inner().bodies.insert(block_hash, block_body);
         Ok(())
     }
 
@@ -138,7 +144,7 @@ impl StoreEngine for InMemoryStoreEngine {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
-        let store = self.0.lock().unwrap();
+        let store = self.inner();
         Ok(store
             .transaction_locations
             .get(&transaction_hash)
@@ -163,7 +169,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
-        Ok(self.0.lock().unwrap().transaction_pool.get(&hash).cloned())
+        Ok(self.inner().transaction_pool.get(&hash).cloned())
     }
 
     fn add_receipt(
@@ -172,7 +178,7 @@ impl StoreEngine for InMemoryStoreEngine {
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
-        let mut store = self.0.lock().unwrap();
+        let mut store = self.inner();
         let entry = store.receipts.entry(block_hash).or_default();
         entry.insert(index, receipt);
         Ok(())
@@ -183,7 +189,7 @@ impl StoreEngine for InMemoryStoreEngine {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        let store = self.0.lock().unwrap();
+        let store = self.inner();
         if let Some(hash) = store.canonical_hashes.get(&block_number) {
             Ok(store
                 .receipts
@@ -196,7 +202,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
-        self.0.lock().unwrap().account_codes.insert(code_hash, code);
+        self.inner().account_codes.insert(code_hash, code);
         Ok(())
     }
 
@@ -212,12 +218,12 @@ impl StoreEngine for InMemoryStoreEngine {
 
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         // Store cancun timestamp
-        self.0.lock().unwrap().chain_data.chain_config = Some(*chain_config);
+        self.inner().chain_data.chain_config = Some(*chain_config);
         Ok(())
     }
 
     fn get_chain_config(&self) -> Result<ChainConfig, StoreError> {
-        Ok(self.0.lock().unwrap().chain_data.chain_config.unwrap())
+        Ok(self.inner().chain_data.chain_config.unwrap())
     }
 
     fn update_earliest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -231,7 +237,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        Ok(self.0.lock().unwrap().chain_data.earliest_block_number)
+        Ok(self.inner().chain_data.earliest_block_number)
     }
 
     fn update_finalized_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -245,7 +251,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        Ok(self.0.lock().unwrap().chain_data.finalized_block_number)
+        Ok(self.inner().chain_data.finalized_block_number)
     }
 
     fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -259,7 +265,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        Ok(self.0.lock().unwrap().chain_data.safe_block_number)
+        Ok(self.inner().chain_data.safe_block_number)
     }
 
     fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -273,7 +279,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        Ok(self.0.lock().unwrap().chain_data.latest_block_number)
+        Ok(self.inner().chain_data.latest_block_number)
     }
 
     fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -287,7 +293,7 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        Ok(self.0.lock().unwrap().chain_data.pending_block_number)
+        Ok(self.inner().chain_data.pending_block_number)
     }
 
     fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
@@ -295,7 +301,7 @@ impl StoreEngine for InMemoryStoreEngine {
             return Ok(None);
         };
         let db = Box::new(crate::trie::InMemoryTrieDB::new(
-            self.0.lock().unwrap().state_trie_nodes.clone(),
+            self.inner().state_trie_nodes.clone(),
         ));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
@@ -303,14 +309,14 @@ impl StoreEngine for InMemoryStoreEngine {
 
     fn new_state_trie(&self) -> Result<Trie, StoreError> {
         let db = Box::new(crate::trie::InMemoryTrieDB::new(
-            self.0.lock().unwrap().state_trie_nodes.clone(),
+            self.inner().state_trie_nodes.clone(),
         ));
         let trie = Trie::new(db);
         Ok(trie)
     }
 
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
-        let mut store = self.0.lock().unwrap();
+        let mut store = self.inner();
         let trie_backend = store.storage_trie_nodes.entry(address).or_default();
         let db = Box::new(crate::trie::InMemoryTrieDB::new(trie_backend.clone()));
         Trie::open(db, storage_root)
@@ -320,18 +326,18 @@ impl StoreEngine for InMemoryStoreEngine {
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockBody>, StoreError> {
-        Ok(self.0.lock().unwrap().bodies.get(&block_hash).cloned())
+        Ok(self.inner().bodies.get(&block_hash).cloned())
     }
 
     fn get_block_header_by_hash(
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        Ok(self.0.lock().unwrap().headers.get(&block_hash).cloned())
+        Ok(self.inner().headers.get(&block_hash).cloned())
     }
 
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
-        self.0.lock().unwrap().canonical_hashes.insert(number, hash);
+        self.inner().canonical_hashes.insert(number, hash);
         Ok(())
     }
 }
