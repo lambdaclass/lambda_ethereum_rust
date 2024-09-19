@@ -207,6 +207,6 @@ impl RpcHandler for GetProofRequest {
             storage_hash: account.storage_root,
             storage_proof: storage_proofs,
         };
-        todo!()
+        serde_json::to_value(account_proof).map_err(|_| RpcErr::Internal)
     }
 }
