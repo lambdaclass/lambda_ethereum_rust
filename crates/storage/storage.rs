@@ -109,14 +109,14 @@ impl Store {
 
     pub fn add_block_header(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
         self.engine
             .clone()
             .lock()
             .unwrap()
-            .add_block_header(block_number, block_header)
+            .add_block_header(block_hash, block_header)
     }
 
     pub fn get_block_header(
@@ -132,14 +132,14 @@ impl Store {
 
     pub fn add_block_body(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError> {
         self.engine
             .clone()
             .lock()
             .unwrap()
-            .add_block_body(block_number, block_body)
+            .add_block_body(block_hash, block_body)
     }
 
     pub fn get_block_body(
@@ -180,18 +180,21 @@ impl Store {
         &self,
         transaction_hash: H256,
         block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .add_transaction_location(transaction_hash, block_number, index)
+        self.engine.lock().unwrap().add_transaction_location(
+            transaction_hash,
+            block_number,
+            block_hash,
+            index,
+        )
     }
 
     pub fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
         self.engine
             .lock()
             .unwrap()
@@ -352,7 +355,7 @@ impl Store {
 
     pub fn add_receipt(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
@@ -360,7 +363,7 @@ impl Store {
             .clone()
             .lock()
             .unwrap()
-            .add_receipt(block_number, index, receipt)
+            .add_receipt(block_hash, index, receipt)
     }
 
     pub fn get_receipt(
@@ -380,9 +383,9 @@ impl Store {
         let header = block.header;
         let number = header.number;
         let hash = header.compute_block_hash();
-        self.add_transaction_locations(&block.body.transactions, number)?;
-        self.add_block_body(number, block.body)?;
-        self.add_block_header(number, header)?;
+        self.add_transaction_locations(&block.body.transactions, number, hash)?;
+        self.add_block_body(hash, block.body)?;
+        self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
         self.update_latest_block_number(number)
     }
@@ -391,11 +394,13 @@ impl Store {
         &self,
         transactions: &[Transaction],
         block_number: BlockNumber,
+        block_hash: BlockHash,
     ) -> Result<(), StoreError> {
         for (index, transaction) in transactions.iter().enumerate() {
             self.add_transaction_location(
                 transaction.compute_hash(),
                 block_number,
+                block_hash,
                 index as Index,
             )?;
         }
@@ -409,8 +414,10 @@ impl Store {
         let genesis_block = genesis.get_block();
         let genesis_block_number = genesis_block.header.number;
 
+        let genesis_hash = genesis_block.header.compute_block_hash();
+
         if let Some(header) = self.get_block_header(genesis_block_number)? {
-            if header.compute_block_hash() == genesis_block.header.compute_block_hash() {
+            if header.compute_block_hash() == genesis_hash {
                 info!("Received genesis file matching a previously stored one, nothing to do");
                 return Ok(());
             } else {
@@ -425,6 +432,7 @@ impl Store {
         // Store genesis block
         self.update_earliest_block_number(genesis_block_number)?;
         self.add_block(genesis_block)?;
+        self.set_canonical_block(genesis_block_number, genesis_hash)?;
 
         // Set chain config
         self.set_chain_config(&genesis.config)
@@ -438,6 +446,21 @@ impl Store {
             .lock()
             .unwrap()
             .get_transaction_by_hash(transaction_hash)
+    }
+
+    pub fn get_transaction_by_location(
+        &self,
+        block_hash: BlockHash,
+        index: u64,
+    ) -> Result<Option<Transaction>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_transaction_by_location(block_hash, index)
+    }
+
+    pub fn get_block_by_hash(&self, block_hash: H256) -> Result<Option<Block>, StoreError> {
+        self.engine.lock().unwrap().get_block_by_hash(block_hash)
     }
 
     pub fn get_storage_at(
@@ -524,6 +547,16 @@ impl Store {
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
     }
+    pub fn set_canonical_block(
+        &self,
+        number: BlockNumber,
+        hash: BlockHash,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .set_canonical_block(number, hash)
+    }
 
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
@@ -609,6 +642,7 @@ mod tests {
         run_test(&test_store_block, engine_type);
         run_test(&test_store_block_number, engine_type);
         run_test(&test_store_transaction_location, engine_type);
+        run_test(&test_store_transaction_location_not_canonical, engine_type);
         run_test(&test_store_block_receipt, engine_type);
         run_test(&test_store_account_code, engine_type);
         run_test(&test_store_block_tags, engine_type);
@@ -646,13 +680,11 @@ mod tests {
     fn test_store_block(store: Store) {
         let (block_header, block_body) = create_block_for_testing();
         let block_number = 6;
+        let hash = block_header.compute_block_hash();
 
-        store
-            .add_block_header(block_number, block_header.clone())
-            .unwrap();
-        store
-            .add_block_body(block_number, block_body.clone())
-            .unwrap();
+        store.add_block_header(hash, block_header.clone()).unwrap();
+        store.add_block_body(hash, block_body.clone()).unwrap();
+        store.set_canonical_block(block_number, hash).unwrap();
 
         let stored_header = store.get_block_header(block_number).unwrap().unwrap();
         let stored_body = store.get_block_body(block_number).unwrap().unwrap();
@@ -726,19 +758,42 @@ mod tests {
 
     fn test_store_transaction_location(store: Store) {
         let transaction_hash = H256::random();
+        let block_hash = H256::random();
         let block_number = 6;
         let index = 3;
 
         store
-            .add_transaction_location(transaction_hash, block_number, index)
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
             .unwrap();
+
+        store.set_canonical_block(block_number, block_hash).unwrap();
 
         let stored_location = store
             .get_transaction_location(transaction_hash)
             .unwrap()
             .unwrap();
 
-        assert_eq!(stored_location, (block_number, index));
+        assert_eq!(stored_location, (block_number, block_hash, index));
+    }
+
+    fn test_store_transaction_location_not_canonical(store: Store) {
+        let transaction_hash = H256::random();
+        let block_hash = H256::random();
+        let block_number = 6;
+        let index = 3;
+
+        store
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
+            .unwrap();
+
+        store
+            .set_canonical_block(block_number, H256::random())
+            .unwrap();
+
+        assert_eq!(
+            store.get_transaction_location(transaction_hash).unwrap(),
+            None
+        )
     }
 
     fn test_store_block_receipt(store: Store) {
@@ -751,10 +806,13 @@ mod tests {
         };
         let block_number = 6;
         let index = 4;
+        let block_hash = H256::random();
 
         store
-            .add_receipt(block_number, index, receipt.clone())
+            .add_receipt(block_hash, index, receipt.clone())
             .unwrap();
+
+        store.set_canonical_block(block_number, block_hash).unwrap();
 
         let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
 
