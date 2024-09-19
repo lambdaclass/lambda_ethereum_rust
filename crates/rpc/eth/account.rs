@@ -2,7 +2,7 @@ use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::info;
 
-use crate::types::account_proof::AccountProof;
+use crate::types::account_proof::{AccountProof, StorageProof};
 use crate::types::block_identifier::BlockIdentifierOrHash;
 use crate::{utils::RpcErr, RpcHandler};
 use ethereum_rust_core::{Address, BigEndianHash, H256, U256};
@@ -184,7 +184,20 @@ impl RpcHandler for GetProofRequest {
             return Err(RpcErr::Internal);
         };
         // Create storage proofs for all provided storage keys
-
+        let mut storage_proofs = Vec::new();
+        for storage_key in self.storage_keys.iter() {
+            let value = storage
+                .get_storage_at(block_number, self.address, *storage_key)?
+                .unwrap_or_default();
+            let proof =
+                storage.get_storage_proof(self.address, account.storage_root, storage_key)?;
+            let storage_proof = StorageProof {
+                key: storage_key.into_uint(),
+                proof,
+                value,
+            };
+            storage_proofs.push(storage_proof);
+        }
         let account_proof = AccountProof {
             account_proof,
             address: self.address,
@@ -192,7 +205,7 @@ impl RpcHandler for GetProofRequest {
             code_hash: account.code_hash,
             nonce: account.nonce,
             storage_hash: account.storage_root,
-            storage_proof: vec![],
+            storage_proof: storage_proofs,
         };
         todo!()
     }

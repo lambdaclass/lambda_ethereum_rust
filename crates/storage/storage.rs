@@ -608,6 +608,21 @@ impl Store {
         };
         Some(state_trie.get_proof(&address.encode_to_vec())).transpose()
     }
+
+    /// Constructs a merkle proof for the given storage_key in a storage_trie with a known root
+    pub fn get_storage_proof(
+        &self,
+        address: Address,
+        storage_root: H256,
+        storage_key: &H256,
+    ) -> Result<Vec<Vec<u8>>, StoreError> {
+        let trie = self
+            .engine
+            .lock()
+            .unwrap()
+            .open_storage_trie(address, storage_root);
+        trie.get_proof(&storage_key.encode_to_vec())
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {
