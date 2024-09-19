@@ -27,6 +27,12 @@ pub struct GetTransactionCountRequest {
     pub block: BlockIdentifierOrHash,
 }
 
+pub struct GetProofRequest {
+    pub address: Address,
+    pub storage_keys: Vec<H256>,
+    pub block: BlockIdentifierOrHash,
+}
+
 impl RpcHandler for GetBalanceRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<GetBalanceRequest, RpcErr> {
         let params = params.as_ref().ok_or(RpcErr::BadParams)?;
@@ -142,5 +148,15 @@ impl RpcHandler for GetTransactionCountRequest {
             .unwrap_or_default();
 
         serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetProofRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        todo!()
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        todo!()
     }
 }
