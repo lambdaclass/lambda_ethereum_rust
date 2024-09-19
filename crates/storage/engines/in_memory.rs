@@ -55,16 +55,18 @@ impl StoreEngine for InMemoryStoreEngine {
     }
 
     fn get_block_header(&self, block_number: u64) -> Result<Option<BlockHeader>, StoreError> {
-        if let Some(hash) = self.0.lock().unwrap().canonical_hashes.get(&block_number) {
-            Ok(self.0.lock().unwrap().headers.get(hash).cloned())
+        let store = self.0.lock().unwrap();
+        if let Some(hash) = store.canonical_hashes.get(&block_number) {
+            Ok(store.headers.get(hash).cloned())
         } else {
             Ok(None)
         }
     }
 
     fn get_block_body(&self, block_number: u64) -> Result<Option<BlockBody>, StoreError> {
-        if let Some(hash) = self.0.lock().unwrap().canonical_hashes.get(&block_number) {
-            Ok(self.0.lock().unwrap().bodies.get(hash).cloned())
+        let store = self.0.lock().unwrap();
+        if let Some(hash) = store.canonical_hashes.get(&block_number) {
+            Ok(store.bodies.get(hash).cloned())
         } else {
             Ok(None)
         }
