@@ -76,8 +76,8 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         udp_addr,
         udp_socket.clone(),
         table.clone(),
-        signer,
-        REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
+        signer.clone(),
+        REVALIDATION_INTERVAL_IN_SECONDS as u64,
     ));
 
     try_join!(server_handler, revalidation_handler).unwrap();
@@ -118,7 +118,7 @@ async fn discover_peers_server(
                 };
                 if let Some(peer) = node {
                     // send a a ping to get an endpoint proof
-                    if time_since_in_hs(peer.last_ping) > 12 {
+                    if time_since_in_hs(peer.last_ping) >= PROOF_EXPIRATION_IN_HS as u64 {
                         let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                         if let Some(hash) = hash {
                             table
@@ -164,7 +164,7 @@ async fn discover_peers_server(
                         continue;
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
-                        table.lock().await.mark_peer_as_proven(peer.node.node_id);
+                        table.lock().await.pong_answered(peer.node.node_id);
                     } else {
                         debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -246,7 +246,7 @@ async fn discover_peers_server(
     }
 }
 
-const REVALIDATION_INTERVAL_IN_MINUTES: usize = 10; // this is just an arbitrary number, maybe we should get this from some kind of cfg
+const REVALIDATION_INTERVAL_IN_SECONDS: usize = 30; // this is just an arbitrary number, maybe we should get this from some kind of cfg
 const PROOF_EXPIRATION_IN_HS: usize = 12;
 
 /// Starts a tokio scheduler that:
@@ -256,8 +256,13 @@ const PROOF_EXPIRATION_IN_HS: usize = 12;
 /// **Peer revalidation**
 ///
 /// Peers revalidation works in the following manner:
-/// 1. If the last ping has happened `PROOF_EXPIRATION_TIME_IN_HS`hs ago, we invalidate and send a ping to re-validate the endpoint proof
-/// 2. In the next iteration, we check if the node has responded. If not, then we delete it and insert a new one from the replacements table
+/// 1. Every `REVALIDATION_INTERVAL_IN_SECONDS` we ping all of our peers
+/// 2. In the next iteration we check if they have answered
+///    - if they have: we increment the liveness field by one
+///    - otherwise we decrement it by the current value / 3.
+/// 3. If the liveness field is 0, then we delete it and insert a new one from the replacements table
+///
+/// See more https://github.com/ethereum/devp2p/blob/master/discv4.md#kademlia-table
 async fn peers_revalidation(
     udp_addr: SocketAddr,
     udp_socket: Arc<UdpSocket>,
@@ -267,10 +272,6 @@ async fn peers_revalidation(
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
 
-    // peers whose proof expired and we pinged them to revalidate them
-    // we expect them to be proven by the next iteration otherwise we remove them
-    let mut previously_pinged_peers: HashSet<H512> = HashSet::default();
-
     // first tick starts immediately
     interval.tick().await;
 
@@ -278,57 +279,52 @@ async fn peers_revalidation(
         interval.tick().await;
         debug!("Running peer revalidation");
 
-        let peers = {
-            let mut table = table.lock().await;
-            table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60 * 60)
+        let buckets = {
+            let table = table.lock().await;
+            table.buckets().clone()
         };
-        let mut peers_pending_revalidation: HashSet<H512> = HashSet::default();
 
-        for peer in peers {
-            if previously_pinged_peers.contains(&peer.node.node_id) {
-                // Peer did not respond, replace it with a new peer from the replacements table
-                if !peer.is_proven {
-                    let new_peer = {
+        for (bucket_idx, bucket) in buckets.iter().enumerate() {
+            for (peer_idx, peer) in bucket.peers.iter().enumerate() {
+                if let Some(has_answered) = peer.revalidation {
+                    if !has_answered {
                         let mut table = table.lock().await;
-                        table.replace_peer(peer.node.node_id)
-                    };
-                    debug!(
-                        "Replacing peer {} with {:?} from table as it hasn't pinged back!",
-                        peer.node.node_id, new_peer
-                    );
-                    if let Some(peer) = new_peer {
+                        table.buckets_mut()[bucket_idx].peers[peer_idx].decrement_liveness();
+                    } else {
+                        let mut table = table.lock().await;
+                        table.buckets_mut()[bucket_idx].peers[peer_idx].increment_liveness();
+                    }
+                }
+
+                if peer.liveness <= 0 {
+                    let new_peer = table.lock().await.replace_peer(peer.node.node_id);
+                    if let Some(new_peer) = new_peer {
                         let ping_hash = ping(
                             &udp_socket,
                             udp_addr,
-                            SocketAddr::new(peer.node.ip, peer.node.udp_port),
+                            SocketAddr::new(new_peer.node.ip, new_peer.node.udp_port),
                             &signer,
                         )
                         .await;
                         let mut table = table.lock().await;
-                        table.update_peer_ping(peer.node.node_id, ping_hash);
-                        peers_pending_revalidation.insert(peer.node.node_id);
+                        table.update_peer_ping(new_peer.node.node_id, ping_hash);
                     }
+                    continue;
                 }
-                continue;
-            }
 
-            let ping_hash = ping(
-                &udp_socket,
-                udp_addr,
-                SocketAddr::new(peer.node.ip, peer.node.udp_port),
-                &signer,
-            )
-            .await;
-            let mut table = table.lock().await;
-            table.update_peer_ping(peer.node.node_id, ping_hash);
-            peers_pending_revalidation.insert(peer.node.node_id);
-            debug!(
-                "Pinging peer {:?} to re-validate endpoint proof!",
-                peer.node.node_id
-            );
+                let ping_hash = ping(
+                    &udp_socket,
+                    udp_addr,
+                    SocketAddr::new(peer.node.ip, peer.node.udp_port),
+                    &signer,
+                )
+                .await;
+                let mut table = table.lock().await;
+                table.update_peer_ping_with_revalidation(peer.node.node_id, ping_hash);
+                debug!("Pinging peer {:?} to re-validate!", peer.node.node_id);
+            }
         }
 
-        previously_pinged_peers = peers_pending_revalidation;
         debug!("Peer revalidation finished");
     }
 }

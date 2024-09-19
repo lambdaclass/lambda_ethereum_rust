@@ -10,7 +10,7 @@ const NUMBER_OF_BUCKETS: usize = 256;
 const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
 #[derive(Clone, Debug, Default)]
-struct Bucket {
+pub struct Bucket {
     pub peers: Vec<PeerData>,
     pub replacements: Vec<PeerData>,
 }
@@ -28,6 +28,15 @@ impl KademliaTable {
             local_node_id,
             buckets,
         }
+    }
+
+    #[allow(unused)]
+    pub fn buckets(&self) -> &Vec<Bucket> {
+        &self.buckets
+    }
+
+    pub fn buckets_mut(&mut self) -> &mut Vec<Bucket> {
+        &mut self.buckets
     }
 
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
@@ -119,7 +128,7 @@ impl KademliaTable {
         nodes.iter().map(|a| a.0).collect()
     }
 
-    pub fn mark_peer_as_proven(&mut self, node_id: H512) {
+    pub fn pong_answered(&mut self, node_id: H512) {
         let peer = self.get_by_node_id_mut(node_id);
         if peer.is_none() {
             return;
@@ -129,6 +138,9 @@ impl KademliaTable {
         peer.is_proven = true;
         peer.last_pong = time_now_unix();
         peer.last_ping_hash = None;
+        if peer.revalidation.is_some() {
+            peer.revalidation = Some(true);
+        }
     }
 
     pub fn update_peer_ping(&mut self, node_id: H512, ping_hash: Option<H256>) {
@@ -138,11 +150,23 @@ impl KademliaTable {
         }
 
         let peer = peer.unwrap();
-        peer.is_proven = false;
         peer.last_ping_hash = ping_hash;
         peer.last_ping = time_now_unix();
     }
 
+    pub fn update_peer_ping_with_revalidation(&mut self, node_id: H512, ping_hash: Option<H256>) {
+        let peer = self.get_by_node_id_mut(node_id);
+        if peer.is_none() {
+            return;
+        }
+
+        let peer = peer.unwrap();
+        peer.last_ping_hash = ping_hash;
+        peer.last_ping = time_now_unix();
+        peer.revalidation = Some(false);
+    }
+
+    #[allow(unused)]
     /// ## Returns
     /// The peers whose pong back is past the since. Since is given in seconds and it is not an actual data
     /// but a Duration.
@@ -225,6 +249,10 @@ pub struct PeerData {
     pub last_ping_hash: Option<H256>,
     pub is_proven: bool,
     pub find_node_request: Option<FindNodeRequest>,
+    /// a ration to track the peers's ping responses
+    pub liveness: u16,
+    /// if a revalidation was sent to the peer, the bool marks if it has answered
+    pub revalidation: Option<bool>,
 }
 
 impl PeerData {
@@ -234,13 +262,23 @@ impl PeerData {
             last_ping,
             last_pong,
             is_proven,
+            liveness: 1,
             last_ping_hash: None,
             find_node_request: None,
+            revalidation: None,
         }
     }
 
     pub fn new_find_node_request(&mut self) {
         self.find_node_request = Some(FindNodeRequest::default());
+    }
+
+    pub fn increment_liveness(&mut self) {
+        self.liveness += 1;
+    }
+
+    pub fn decrement_liveness(&mut self) {
+        self.liveness /= 3;
     }
 }
 
