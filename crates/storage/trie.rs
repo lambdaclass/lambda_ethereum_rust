@@ -892,4 +892,22 @@ mod test {
         let trie_proof = trie.get_proof(&vec![183]).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
+
+    #[test]
+    fn get_proof_removed_value() {
+        let a = vec![5, 0, 0, 0, 0];
+        let b = vec![6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut cita_trie = cita_trie();
+        let mut trie = Trie::new_temp();
+        cita_trie.insert(a.clone(), a.clone()).unwrap();
+        cita_trie.insert(b.clone(), b.clone()).unwrap();
+        trie.insert(a.clone(), a.clone()).unwrap();
+        trie.insert(b.clone(), b.clone()).unwrap();
+        trie.remove(a.clone()).unwrap();
+        cita_trie.remove(&a).unwrap();
+        let _ = cita_trie.root();
+        let cita_proof = cita_trie.get_proof(&a).unwrap();
+        let trie_proof = trie.get_proof(&a).unwrap();
+        assert_eq!(cita_proof, trie_proof);
+    }
 }
