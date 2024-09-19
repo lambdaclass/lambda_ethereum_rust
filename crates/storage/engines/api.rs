@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H256};
 use std::fmt::Debug;
 
 use crate::{error::StoreError, trie::Trie};
@@ -137,30 +137,6 @@ pub trait StoreEngine: Debug + Send {
         Ok(Some(Block { header, body }))
     }
 
-    // Add storage value
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError>;
-
-    // Obtain storage value
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> Result<Option<U256>, StoreError>;
-
-    // Add storage value
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError>;
-
-    // Get full account storage
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError>;
-
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
@@ -208,6 +184,11 @@ pub trait StoreEngine: Debug + Send {
     // Obtain a world state from an empty root
     // This method should be used when creating the genesis world state
     fn new_state_trie(&self) -> Result<Trie, StoreError>;
+
+    // Obtain a storage trie from the given address and storage_root
+    // Doesn't check if the account is stored
+    // Used for internal store operations
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie;
 
     // Get the canonical block hash for a given block number.
     fn set_canonical_block(

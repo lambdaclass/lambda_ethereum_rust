@@ -1,8 +1,8 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, AddressRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
+    Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
 use crate::trie::Trie;
 use anyhow::Result;
@@ -54,17 +54,6 @@ impl Store {
     fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
-    }
-
-    // Helper method to remove an entry from a libmdbx table
-    fn remove<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<(), StoreError> {
-        let txn = self
-            .db
-            .begin_readwrite()
-            .map_err(StoreError::LibmdbxError)?;
-        txn.delete::<T>(key, None)
-            .map_err(StoreError::LibmdbxError)?;
-        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_block_hash_by_block_number(
@@ -215,35 +204,6 @@ impl StoreEngine for Store {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
-    fn add_storage_at(
-        &mut self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        self.write::<AccountStorages>(address.into(), (storage_key.into(), storage_value.into()))
-    }
-
-    fn get_storage_at(
-        &self,
-        address: Address,
-        storage_key: H256,
-    ) -> std::result::Result<Option<U256>, StoreError> {
-        // Read storage from mdbx
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let mut cursor = txn
-            .cursor::<AccountStorages>()
-            .map_err(StoreError::LibmdbxError)?;
-        Ok(cursor
-            .seek_value(address.into(), storage_key.into())
-            .map_err(StoreError::LibmdbxError)?
-            .map(|s| s.1.into()))
-    }
-
-    fn remove_account_storage(&mut self, address: Address) -> Result<(), StoreError> {
-        self.remove::<AccountStorages>(address.into())
-    }
-
     /// Stores the chain config serialized as json
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         self.write::<ChainData>(
@@ -264,21 +224,6 @@ impl StoreEngine for Store {
                 Ok(chain_config)
             }
         }
-    }
-
-    fn account_storage_iter(
-        &mut self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let cursor = txn
-            .cursor::<AccountStorages>()
-            .map_err(StoreError::LibmdbxError)?;
-        let iter = cursor
-            .walk_key(address.into(), None)
-            .map_while(|res| res.ok().map(|(key, value)| (key.into(), value.into())));
-        // We need to collect here so the resulting iterator doesn't read from the cursor itself
-        Ok(Box::new(iter.collect::<Vec<_>>().into_iter()))
     }
 
     fn update_earliest_block_number(
@@ -386,6 +331,14 @@ impl StoreEngine for Store {
         Ok(trie)
     }
 
+    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
+        let db = Box::new(crate::trie::LibmdbxDupsortTrieDB::<
+            StorageTriesNodes,
+            [u8; 20],
+        >::new(self.db.clone(), address.0));
+        Trie::open(db, storage_root)
+    }
+
     fn set_canonical_block(
         &mut self,
         number: BlockNumber,
@@ -421,10 +374,6 @@ table!(
     /// Block bodies table.
     ( Bodies ) BlockHashRLP => BlockBodyRLP
 );
-dupsort!(
-    /// Account storages table.
-    ( AccountStorages ) AddressRLP => (AccountStorageKeyBytes, AccountStorageValueBytes) [AccountStorageKeyBytes]
-);
 table!(
     /// Account codes table.
     ( AccountCodes ) AccountCodeHashRLP => AccountCodeRLP
@@ -433,6 +382,12 @@ table!(
 dupsort!(
     /// Receipts table.
     ( Receipts ) TupleRLP<BlockHash, Index>[Index] => ReceiptRLP
+);
+
+dupsort!(
+    /// Table containing all storage trie's nodes
+    /// Each node is stored by address and node hash in order to keep different storage trie's nodes separate
+    ( StorageTriesNodes ) ([u8;20], [u8;33])[[u8;20]] => Vec<u8>
 );
 
 dupsort!(
@@ -543,13 +498,13 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(BlockNumbers),
         table_info!(Headers),
         table_info!(Bodies),
-        table_info!(AccountStorages),
         table_info!(AccountCodes),
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(TransactionPool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),
+        table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
     ]
     .into_iter()
