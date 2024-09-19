@@ -511,6 +511,32 @@ impl Store {
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
     }
+
+    pub fn get_account_state(
+        &self,
+        block_number: BlockNumber,
+        address: Address,
+    ) -> Result<Option<AccountState>, StoreError> {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+            return Ok(None);
+        };
+        let hashed_address = hash_address(&address);
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        Ok(Some(AccountState::decode(&encoded_state)?))
+    }
+
+    pub fn get_account_proof(
+        &self,
+        block_number: BlockNumber,
+        address: &Address,
+    ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+            return Ok(None);
+        };
+        Some(state_trie.get_proof(&address.encode_to_vec())).transpose()
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {
