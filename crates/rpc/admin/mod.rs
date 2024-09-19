@@ -1,6 +1,6 @@
 use ethereum_rust_core::types::ChainConfig;
 use ethereum_rust_net::types::Node;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ enum Protocol {
     Eth(ChainConfig),
 }
 
-pub fn node_info(storage: Store, local_node: Node) -> Result<Value, RpcErr> {
+pub fn node_info<E: StoreEngine>(storage: Store<E>, local_node: Node) -> Result<Value, RpcErr> {
     let enode_url = local_node.enode_url();
     let mut protocols = HashMap::new();
 

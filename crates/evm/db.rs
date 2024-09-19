@@ -1,16 +1,16 @@
 use ethereum_rust_core::{types::BlockNumber, Address as CoreAddress, H256 as CoreH256};
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{error::StoreError, Store, StoreEngine};
 use revm::primitives::{
     AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
     Bytes as RevmBytes, B256 as RevmB256, U256 as RevmU256,
 };
 
-pub struct StoreWrapper {
-    pub store: Store,
+pub struct StoreWrapper<E: StoreEngine> {
+    pub store: Store<E>,
     pub block_number: BlockNumber,
 }
 
-impl revm::Database for StoreWrapper {
+impl<E: StoreEngine> revm::Database for StoreWrapper<E> {
     type Error = StoreError;
 
     fn basic(&mut self, address: RevmAddress) -> Result<Option<RevmAccountInfo>, Self::Error> {

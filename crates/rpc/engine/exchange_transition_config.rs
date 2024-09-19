@@ -1,5 +1,5 @@
 use ethereum_rust_core::{serde_utils, H256};
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{info, warn};
@@ -43,7 +43,7 @@ impl RpcHandler for ExchangeTransitionConfigV1Req {
         Ok(ExchangeTransitionConfigV1Req { payload })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Received new engine request: {self}");
         let payload = &self.payload;
 

@@ -24,17 +24,12 @@ use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
 
-pub struct Store {
+#[derive(Clone)]
+pub struct LibmdbxStoreEngine {
     db: Arc<Database>,
 }
 
-impl Store {
-    pub fn new(path: &str) -> Result<Self, StoreError> {
-        Ok(Self {
-            db: Arc::new(init_db(Some(path))),
-        })
-    }
-
+impl LibmdbxStoreEngine {
     // Helper method to write into a libmdbx table
     fn write<T: libmdbx::orm::Table>(
         &self,
@@ -64,12 +59,25 @@ impl Store {
     }
 }
 
-impl StoreEngine for Store {
+impl StoreEngine for LibmdbxStoreEngine {
+    fn new(path: &str) -> Result<Self, StoreError> {
+        Ok(Self {
+            db: Arc::new(init_db(Some(path))),
+        })
+    }
+
+    #[cfg(test)]
+    fn new_temp() -> Result<Self, StoreError> {
+        Ok(Self {
+            db: Arc::new(init_db(None::<&str>)),
+        })
+    }
+
     fn add_block_header(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         block_header: BlockHeader,
-    ) -> std::result::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.write::<Headers>(block_hash.into(), block_header.into())
     }
 
@@ -85,17 +93,14 @@ impl StoreEngine for Store {
     }
 
     fn add_block_body(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         block_body: BlockBody,
-    ) -> std::result::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.write::<Bodies>(block_hash.into(), block_body.into())
     }
 
-    fn get_block_body(
-        &self,
-        block_number: BlockNumber,
-    ) -> std::result::Result<Option<BlockBody>, StoreError> {
+    fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError> {
         if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
             self.get_block_body_by_hash(hash)
         } else {
@@ -118,21 +123,18 @@ impl StoreEngine for Store {
     }
 
     fn add_block_number(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         block_number: BlockNumber,
-    ) -> std::result::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.write::<BlockNumbers>(block_hash.into(), block_number)
     }
 
-    fn get_block_number(
-        &self,
-        block_hash: BlockHash,
-    ) -> std::result::Result<Option<BlockNumber>, StoreError> {
+    fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
         self.read::<BlockNumbers>(block_hash.into())
     }
 
-    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
+    fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.write::<AccountCodes>(code_hash.into(), code.into())
     }
 
@@ -141,7 +143,7 @@ impl StoreEngine for Store {
     }
 
     fn add_receipt(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
@@ -162,7 +164,7 @@ impl StoreEngine for Store {
     }
 
     fn add_transaction_location(
-        &mut self,
+        &self,
         transaction_hash: H256,
         block_number: BlockNumber,
         block_hash: BlockHash,
@@ -192,7 +194,7 @@ impl StoreEngine for Store {
     }
 
     fn add_transaction_to_pool(
-        &mut self,
+        &self,
         hash: H256,
         transaction: Transaction,
     ) -> Result<(), StoreError> {
@@ -205,7 +207,7 @@ impl StoreEngine for Store {
     }
 
     /// Stores the chain config serialized as json
-    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError> {
+    fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::ChainConfig,
             serde_json::to_string(chain_config)
@@ -226,10 +228,7 @@ impl StoreEngine for Store {
         }
     }
 
-    fn update_earliest_block_number(
-        &mut self,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError> {
+    fn update_earliest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::EarliestBlockNumber,
             block_number.encode_to_vec(),
@@ -245,10 +244,7 @@ impl StoreEngine for Store {
         }
     }
 
-    fn update_finalized_block_number(
-        &mut self,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError> {
+    fn update_finalized_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::FinalizedBlockNumber,
             block_number.encode_to_vec(),
@@ -264,7 +260,7 @@ impl StoreEngine for Store {
         }
     }
 
-    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+    fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::SafeBlockNumber,
             block_number.encode_to_vec(),
@@ -280,7 +276,7 @@ impl StoreEngine for Store {
         }
     }
 
-    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+    fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::LatestBlockNumber,
             block_number.encode_to_vec(),
@@ -296,7 +292,7 @@ impl StoreEngine for Store {
         }
     }
 
-    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError> {
+    fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::PendingBlockNumber,
             block_number.encode_to_vec(),
@@ -331,7 +327,7 @@ impl StoreEngine for Store {
         Ok(trie)
     }
 
-    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie {
+    fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
         let db = Box::new(crate::trie::LibmdbxDupsortTrieDB::<
             StorageTriesNodes,
             [u8; 20],
@@ -339,16 +335,12 @@ impl StoreEngine for Store {
         Trie::open(db, storage_root)
     }
 
-    fn set_canonical_block(
-        &mut self,
-        number: BlockNumber,
-        hash: BlockHash,
-    ) -> Result<(), StoreError> {
+    fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
         self.write::<CanonicalBlockHashes>(number, hash.into())
     }
 }
 
-impl Debug for Store {
+impl Debug for LibmdbxStoreEngine {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Libmdbx Store").finish()
     }

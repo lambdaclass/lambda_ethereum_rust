@@ -4,7 +4,7 @@ use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
-use ethereum_rust_storage::{EngineType, Store};
+use ethereum_rust_storage::{LibmdbxStoreEngine, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::{
     fs::File,
@@ -80,9 +80,10 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let mut store = match matches.get_one::<String>("datadir") {
-        Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir, EngineType::Libmdbx),
-        _ => Store::new("storage.db", EngineType::InMemory),
+    let store: Store<LibmdbxStoreEngine> = match matches.get_one::<String>("datadir") {
+        Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir),
+        // TODO: A PR is in the works that will add a proper default location in this case
+        _ => Store::new("temp.db"),
     }
     .expect("Failed to create Store");
 

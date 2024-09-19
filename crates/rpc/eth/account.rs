@@ -1,4 +1,4 @@
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 use serde_json::Value;
 use tracing::info;
 
@@ -38,7 +38,7 @@ impl RpcHandler for GetBalanceRequest {
             block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested balance of account {} at block {}",
             self.address, self.block
@@ -66,7 +66,7 @@ impl RpcHandler for GetCodeRequest {
             block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested code of account {} at block {}",
             self.address, self.block
@@ -96,7 +96,7 @@ impl RpcHandler for GetStorageAtRequest {
             block: BlockIdentifierOrHash::parse(params[2].clone(), 2)?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested storage sot {} of account {} at block {}",
             self.storage_slot, self.address, self.block
@@ -125,7 +125,7 @@ impl RpcHandler for GetTransactionCountRequest {
             block: BlockIdentifierOrHash::parse(params[1].clone(), 1)?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested nonce of account {} at block {}",
             self.address, self.block

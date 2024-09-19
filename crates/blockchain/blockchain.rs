@@ -13,7 +13,7 @@ use ethereum_rust_evm::{
     evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
 };
 use ethereum_rust_storage::error::StoreError;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 
 //TODO: Implement a struct Chain or BlockChain to encapsulate
 //functionality and canonical chain state and config
@@ -24,7 +24,7 @@ use ethereum_rust_storage::Store;
 /// This is:
 /// - The parent_hash field on the block header is the hash of the head of the canonical chain
 /// - The block's number is the latest block number of the canonical chain+1
-pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
+pub fn add_block<E: StoreEngine>(block: &Block, storage: &Store<E>) -> Result<(), ChainError> {
     //TODO: Eventually we should be able to handle blocks
     //which are not directly extending the canonical chain
     extends_canonical_chain(block, storage)?;
@@ -59,7 +59,10 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     Ok(())
 }
 
-pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), ChainError> {
+pub fn extends_canonical_chain<E: StoreEngine>(
+    block: &Block,
+    storage: &Store<E>,
+) -> Result<(), ChainError> {
     let latest_block_number = storage
         .get_latest_block_number()?
         .ok_or(ChainError::StoreError(StoreError::Custom(
@@ -73,13 +76,13 @@ pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), Cha
     }
 }
 /// Stores block and header in the database
-pub fn store_block(storage: &Store, block: Block) -> Result<(), ChainError> {
+pub fn store_block<E: StoreEngine>(storage: &Store<E>, block: Block) -> Result<(), ChainError> {
     storage.add_block(block)?;
     Ok(())
 }
 
-pub fn store_receipts(
-    storage: &Store,
+pub fn store_receipts<E: StoreEngine>(
+    storage: &Store<E>,
     receipts: Vec<Receipt>,
     block_hash: BlockHash,
 ) -> Result<(), ChainError> {
@@ -104,7 +107,7 @@ pub fn validate_state_root(
     }
 }
 
-pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
+pub fn latest_valid_hash<E: StoreEngine>(storage: &Store<E>) -> Result<H256, ChainError> {
     if let Some(latest_block_number) = storage.get_latest_block_number()? {
         if let Some(latest_valid_header) = storage.get_block_header(latest_block_number)? {
             let latest_valid_hash = latest_valid_header.compute_block_hash();
@@ -118,9 +121,9 @@ pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
 
 /// Validates if the provided block could be the new head of the chain, and returns the
 /// parent_header in that case
-pub fn find_parent_header(
+pub fn find_parent_header<E: StoreEngine>(
     block_header: &BlockHeader,
-    storage: &Store,
+    storage: &Store<E>,
 ) -> Result<BlockHeader, ChainError> {
     let parent_hash = block_header.parent_hash;
     let parent_number = storage.get_block_number(parent_hash)?;
@@ -141,10 +144,10 @@ pub fn find_parent_header(
 /// Performs pre-execution validation of the block's header values in reference to the parent_header
 /// Verifies that blob gas fields in the header are correct in reference to the block's body.
 /// If a block passes this check, execution will still fail with execute_block when a transaction runs out of gas
-pub fn validate_block(
+pub fn validate_block<E: StoreEngine>(
     block: &Block,
     parent_header: &BlockHeader,
-    state: &EvmState,
+    state: &EvmState<E>,
 ) -> Result<(), ChainError> {
     let spec = spec_id(state.database(), block.header.timestamp).unwrap();
 

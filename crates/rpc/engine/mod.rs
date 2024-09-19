@@ -3,6 +3,7 @@ pub mod fork_choice;
 pub mod payload;
 
 use crate::{RpcErr, RpcHandler, Store};
+use ethereum_rust_storage::StoreEngine;
 use serde_json::{json, Value};
 
 pub type ExchangeCapabilitiesRequest = Vec<String>;
@@ -17,7 +18,7 @@ impl RpcHandler for ExchangeCapabilitiesRequest {
             .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))
     }
 
-    fn handle(&self, _storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, _storage: Store<E>) -> Result<Value, RpcErr> {
         Ok(json!(*self))
     }
 }

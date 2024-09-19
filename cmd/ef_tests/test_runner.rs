@@ -6,7 +6,7 @@ use ethereum_rust_core::{
     rlp::decode::RLPDecode,
     types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
 };
-use ethereum_rust_storage::{EngineType, Store};
+use ethereum_rust_storage::{InMemoryStoreEngine, Store, StoreEngine};
 
 pub fn run_ef_test(test_key: &str, test: &TestUnit) {
     // check that the decoded genesis block header matches the deserialized one
@@ -78,9 +78,9 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
 }
 
 /// Creats a new in-memory store and adds the genesis state
-pub fn build_store_for_test(test: &TestUnit) -> Store {
-    let mut store =
-        Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
+pub fn build_store_for_test(test: &TestUnit) -> Store<InMemoryStoreEngine> {
+    let store =
+        Store::<InMemoryStoreEngine>::new("store.db").expect("Failed to build DB for testing");
     let genesis = test.get_genesis();
     store
         .add_initial_state(genesis)
@@ -90,7 +90,7 @@ pub fn build_store_for_test(test: &TestUnit) -> Store {
 
 /// Checks db is correct after setting up initial state
 /// Panics if any comparison fails
-fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
+fn check_prestate_against_db<E: StoreEngine>(test_key: &str, test: &TestUnit, db: &Store<E>) {
     let block_number = test.genesis_block_header.number.low_u64();
     let db_block_header = db.get_block_header(block_number).unwrap().unwrap();
     let computed_genesis_block_hash = db_block_header.compute_block_hash();
@@ -107,7 +107,7 @@ fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
 /// Checks that all accounts in the post-state are present and have the correct values in the DB
 /// Panics if any comparison fails
 /// Tests that previously failed the validation stage shouldn't be executed with this function.
-fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
+fn check_poststate_against_db<E: StoreEngine>(test_key: &str, test: &TestUnit, db: &Store<E>) {
     let latest_block_number = db.get_latest_block_number().unwrap().unwrap();
     for (addr, account) in &test.post_state {
         let expected_account: CoreAccount = account.clone().into();

@@ -6,7 +6,7 @@ use tracing::info;
 
 use crate::{types::block_identifier::BlockIdentifier, utils::RpcErr, RpcHandler};
 use ethereum_rust_core::types::calculate_base_fee_per_blob_gas;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 
 #[derive(Clone, Debug)]
 pub struct FeeHistoryRequest {
@@ -57,7 +57,7 @@ impl RpcHandler for FeeHistoryRequest {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested fee history for {} blocks starting from {}",
             self.block_count, self.newest_block
@@ -130,8 +130,8 @@ impl RpcHandler for FeeHistoryRequest {
 }
 
 impl FeeHistoryRequest {
-    fn get_range(
-        storage: &Store,
+    fn get_range<E: StoreEngine>(
+        storage: &Store<E>,
         block_num: u64,
         finish_block: &BlockIdentifier,
     ) -> Result<(u64, u64), RpcErr> {

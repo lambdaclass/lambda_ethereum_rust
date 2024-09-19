@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use ethereum_rust_core::types::{BlockHash, BlockHeader, BlockNumber};
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{error::StoreError, Store, StoreEngine};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -31,7 +31,10 @@ pub enum BlockTag {
 }
 
 impl BlockIdentifier {
-    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
+    pub fn resolve_block_number<E: StoreEngine>(
+        &self,
+        storage: &Store<E>,
+    ) -> Result<Option<BlockNumber>, StoreError> {
         match self {
             BlockIdentifier::Number(num) => Ok(Some(*num)),
             BlockIdentifier::Tag(tag) => match tag {
@@ -64,7 +67,10 @@ impl BlockIdentifier {
         Ok(BlockIdentifier::Number(block_number))
     }
 
-    pub fn resolve_block_header(&self, storage: &Store) -> Result<Option<BlockHeader>, StoreError> {
+    pub fn resolve_block_header<E: StoreEngine>(
+        &self,
+        storage: &Store<E>,
+    ) -> Result<Option<BlockHeader>, StoreError> {
         match self.resolve_block_number(storage)? {
             Some(block_number) => storage.get_block_header(block_number),
             _ => Ok(None),
@@ -74,7 +80,10 @@ impl BlockIdentifier {
 
 impl BlockIdentifierOrHash {
     #[allow(unused)]
-    pub fn resolve_block_number(&self, storage: &Store) -> Result<Option<BlockNumber>, StoreError> {
+    pub fn resolve_block_number<E: StoreEngine>(
+        &self,
+        storage: &Store<E>,
+    ) -> Result<Option<BlockNumber>, StoreError> {
         match self {
             BlockIdentifierOrHash::Identifier(id) => id.resolve_block_number(storage),
             BlockIdentifierOrHash::Hash(block_hash) => storage.get_block_number(*block_hash),
@@ -95,7 +104,7 @@ impl BlockIdentifierOrHash {
     }
 
     #[allow(unused)]
-    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
+    pub fn is_latest<E: StoreEngine>(&self, storage: &Store<E>) -> Result<bool, StoreError> {
         if self == &BlockTag::Latest {
             return Ok(true);
         }

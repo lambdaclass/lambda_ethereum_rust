@@ -12,7 +12,7 @@ use ethereum_rust_core::{
     },
     Address, BigEndianHash, H256, U256,
 };
-use ethereum_rust_storage::{error::StoreError, AccountUpdate, Store};
+use ethereum_rust_storage::{error::StoreError, AccountUpdate, Store, StoreEngine};
 use lazy_static::lazy_static;
 use revm::{
     db::{states::bundle_state::BundleRetention, AccountStatus},
@@ -37,17 +37,20 @@ type AccessList = Vec<(Address, Vec<H256>)>;
 
 /// State used when running the EVM
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
-pub struct EvmState(revm::db::State<StoreWrapper>);
+pub struct EvmState<E: StoreEngine>(revm::db::State<StoreWrapper<E>>);
 
-impl EvmState {
+impl<E: StoreEngine> EvmState<E> {
     /// Get a reference to inner `Store` database
-    pub fn database(&self) -> &Store {
+    pub fn database(&self) -> &Store<E> {
         &self.0.database.store
     }
 }
 
 /// Executes all transactions in a block and returns their receipts.
-pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
+pub fn execute_block<E: StoreEngine>(
+    block: &Block,
+    state: &mut EvmState<E>,
+) -> Result<Vec<Receipt>, EvmError> {
     let block_header = &block.header;
     let spec_id = spec_id(state.database(), block_header.timestamp)?;
     //eip 4788: execute beacon_root_contract_call before block transactions
@@ -77,10 +80,10 @@ pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>
 }
 
 // Executes a single tx, doesn't perform state transitions
-pub fn execute_tx(
+pub fn execute_tx<E: StoreEngine>(
     tx: &Transaction,
     header: &BlockHeader,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
@@ -89,10 +92,10 @@ pub fn execute_tx(
 }
 
 // Executes a single GenericTransaction, doesn't commit the result or perform state transitions
-pub fn simulate_tx_from_generic(
+pub fn simulate_tx_from_generic<E: StoreEngine>(
     tx: &GenericTransaction,
     header: &BlockHeader,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let block_env = block_env(header);
@@ -117,10 +120,10 @@ fn adjust_disabled_base_fee(
 }
 
 /// Runs EVM, doesn't perform state transitions, but stores them
-fn run_evm(
+fn run_evm<E: StoreEngine>(
     tx_env: TxEnv,
     block_env: BlockEnv,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
@@ -141,10 +144,10 @@ fn run_evm(
 }
 
 /// Runs the transaction and returns the access list and estimated gas use (when running the tx with said access list)
-pub fn create_access_list(
+pub fn create_access_list<E: StoreEngine>(
     tx: &GenericTransaction,
     header: &BlockHeader,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, AccessList), EvmError> {
     let mut tx_env = tx_env_from_generic(tx, header.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE));
@@ -185,10 +188,10 @@ pub fn create_access_list(
 }
 
 /// Runs the transaction and returns the access list for it
-fn create_access_list_inner(
+fn create_access_list_inner<E: StoreEngine>(
     tx_env: TxEnv,
     block_env: BlockEnv,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<(ExecutionResult, RevmAccessList), EvmError> {
     let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
@@ -213,10 +216,10 @@ fn create_access_list_inner(
 }
 
 /// Runs the transaction and returns the result, but does not commit it.
-fn run_without_commit(
+fn run_without_commit<E: StoreEngine>(
     tx_env: TxEnv,
     mut block_env: BlockEnv,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     adjust_disabled_base_fee(
@@ -242,7 +245,7 @@ fn run_without_commit(
 
 /// Merges transitions stored when executing transactions and returns the resulting account updates
 /// Doesn't update the DB
-pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
+pub fn get_state_transitions<E: StoreEngine>(state: &mut EvmState<E>) -> Vec<AccountUpdate> {
     state.0.merge_transitions(BundleRetention::PlainState);
     let bundle = state.0.take_bundle();
     // Update accounts
@@ -309,8 +312,8 @@ pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
 }
 
 /// Processes a block's withdrawals, updating the account balances in the state
-pub fn process_withdrawals(
-    state: &mut EvmState,
+pub fn process_withdrawals<E: StoreEngine>(
+    state: &mut EvmState<E>,
     withdrawals: &[Withdrawal],
 ) -> Result<(), StoreError> {
     //balance_increments is a vector of tuples (Address, increment as u128)
@@ -330,7 +333,7 @@ pub fn process_withdrawals(
 }
 
 /// Builds EvmState from a Store
-pub fn evm_state(store: Store, block_number: BlockNumber) -> EvmState {
+pub fn evm_state<E: StoreEngine>(store: Store<E>, block_number: BlockNumber) -> EvmState<E> {
     EvmState(
         revm::db::State::builder()
             .with_database(StoreWrapper {
@@ -345,8 +348,8 @@ pub fn evm_state(store: Store, block_number: BlockNumber) -> EvmState {
 
 /// Calls the eip4788 beacon block root system call contract
 /// As of the Cancun hard-fork, parent_beacon_block_root needs to be present in the block header.
-pub fn beacon_root_contract_call(
-    state: &mut EvmState,
+pub fn beacon_root_contract_call<E: StoreEngine>(
+    state: &mut EvmState<E>,
     header: &BlockHeader,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
@@ -493,9 +496,9 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
 }
 
 // Creates an AccessListInspector that will collect the accesses used by the evm execution
-fn access_list_inspector(
+fn access_list_inspector<E: StoreEngine>(
     tx_env: &TxEnv,
-    state: &mut EvmState,
+    state: &mut EvmState<E>,
     spec_id: SpecId,
 ) -> Result<AccessListInspector, EvmError> {
     // Access list provided by the transaction
@@ -535,7 +538,10 @@ fn access_list_inspector(
 
 /// Returns the spec id according to the block timestamp and the stored chain config
 /// WARNING: Assumes at least Merge fork is active
-pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
+pub fn spec_id<E: StoreEngine>(
+    store: &Store<E>,
+    block_timestamp: u64,
+) -> Result<SpecId, StoreError> {
     let chain_config = store.get_chain_config()?;
     let spec = match chain_config.get_fork(block_timestamp) {
         ForkId::Cancun => SpecId::CANCUN,

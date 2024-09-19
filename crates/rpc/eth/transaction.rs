@@ -14,7 +14,7 @@ use ethereum_rust_core::{
 };
 
 use ethereum_rust_blockchain::mempool;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
 use serde::Serialize;
@@ -88,7 +88,7 @@ impl RpcHandler for CallRequest {
             block,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         let block = self.block.clone().unwrap_or_default();
         info!("Requested call on block: {}", block);
         let header = match block.resolve_block_header(&storage)? {
@@ -118,7 +118,7 @@ impl RpcHandler for GetTransactionByBlockNumberAndIndexRequest {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested transaction at index: {} of block with number: {}",
             self.transaction_index, self.block,
@@ -164,7 +164,7 @@ impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
                 .map_err(|_| RpcErr::BadParams)?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested transaction at index: {} of block with hash: {}",
             self.transaction_index, self.block,
@@ -197,7 +197,7 @@ impl RpcHandler for GetTransactionByHashRequest {
             transaction_hash: serde_json::from_value(params[0].clone())?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested transaction with hash: {}", self.transaction_hash,);
         let (block_number, block_hash, index) =
             match storage.get_transaction_location(self.transaction_hash)? {
@@ -227,7 +227,7 @@ impl RpcHandler for GetTransactionReceiptRequest {
             transaction_hash: serde_json::from_value(params[0].clone())?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested receipt for transaction {}",
             self.transaction_hash,
@@ -263,7 +263,7 @@ impl RpcHandler for CreateAccessListRequest {
             block,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         let block = self.block.clone().unwrap_or_default();
         info!("Requested access list creation for tx on block: {}", block);
         let block_number = match block.resolve_block_number(&storage)? {
@@ -340,7 +340,7 @@ impl RpcHandler for GetRawTransaction {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         let tx = storage.get_transaction_by_hash(self.transaction_hash)?;
 
         let tx = match tx {
@@ -369,7 +369,7 @@ impl RpcHandler for EstimateGasRequest {
             block,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         let block = self.block.clone().unwrap_or_default();
         info!("Requested estimate on block: {}", block);
         let block_header = match block.resolve_block_header(&storage)? {
@@ -453,10 +453,10 @@ impl RpcHandler for EstimateGasRequest {
     }
 }
 
-fn recap_with_account_balances(
+fn recap_with_account_balances<E: StoreEngine>(
     highest_gas_limit: u64,
     transaction: &GenericTransaction,
-    storage: &Store,
+    storage: &Store<E>,
     block_number: BlockNumber,
 ) -> Result<u64, RpcErr> {
     let account_balance = storage
@@ -468,10 +468,10 @@ fn recap_with_account_balances(
     Ok(highest_gas_limit.min(account_gas.as_u64()))
 }
 
-fn simulate_tx(
+fn simulate_tx<E: StoreEngine>(
     transaction: &GenericTransaction,
     block_header: &BlockHeader,
-    storage: Store,
+    storage: Store<E>,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, RpcErr> {
     match ethereum_rust_evm::simulate_tx_from_generic(
@@ -507,7 +507,7 @@ impl RpcHandler for SendRawTransactionRequest {
 
         Ok(transaction)
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         //TODO: Here we are discarding the Blob Transaction's sidecard.
         // but in the future we will have to add it to the mempool, maybe handling it differently
         // from any other transaction

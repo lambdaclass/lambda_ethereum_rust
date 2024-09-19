@@ -43,11 +43,11 @@ mod utils;
 
 use axum::extract::State;
 use ethereum_rust_net::types::Node;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 
 #[derive(Debug, Clone)]
-pub struct RpcApiContext {
-    storage: Store,
+pub struct RpcApiContext<E: StoreEngine> {
+    storage: Store<E>,
     jwt_secret: Bytes,
     local_p2p_node: Node,
 }
@@ -55,18 +55,18 @@ pub struct RpcApiContext {
 trait RpcHandler: Sized {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr>;
 
-    fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    fn call<E: StoreEngine>(req: &RpcRequest, storage: Store<E>) -> Result<Value, RpcErr> {
         let request = Self::parse(&req.params)?;
         request.handle(storage)
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr>;
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr>;
 }
 
-pub async fn start_api(
+pub async fn start_api<E: StoreEngine + 'static>(
     http_addr: SocketAddr,
     authrpc_addr: SocketAddr,
-    storage: Store,
+    storage: Store<E>,
     jwt_secret: Bytes,
     local_p2p_node: Node,
 ) {
@@ -105,8 +105,8 @@ async fn shutdown_signal() {
         .expect("failed to install Ctrl+C handler");
 }
 
-pub async fn handle_http_request(
-    State(service_context): State<RpcApiContext>,
+pub async fn handle_http_request<E: StoreEngine>(
+    State(service_context): State<RpcApiContext<E>>,
     body: String,
 ) -> Json<Value> {
     let storage = service_context.storage;
@@ -116,8 +116,8 @@ pub async fn handle_http_request(
     rpc_response(req.id, res)
 }
 
-pub async fn handle_authrpc_request(
-    State(service_context): State<RpcApiContext>,
+pub async fn handle_authrpc_request<E: StoreEngine>(
+    State(service_context): State<RpcApiContext<E>>,
     auth_header: Option<TypedHeader<Authorization<Bearer>>>,
     body: String,
 ) -> Json<Value> {
@@ -135,9 +135,9 @@ pub async fn handle_authrpc_request(
 }
 
 /// Handle requests that can come from either clients or other users
-pub fn map_http_requests(
+pub fn map_http_requests<E: StoreEngine>(
     req: &RpcRequest,
-    storage: Store,
+    storage: Store<E>,
     local_p2p_node: Node,
 ) -> Result<Value, RpcErr> {
     match req.namespace() {
@@ -149,7 +149,10 @@ pub fn map_http_requests(
 }
 
 /// Handle requests from consensus client
-pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_authrpc_requests<E: StoreEngine>(
+    req: &RpcRequest,
+    storage: Store<E>,
+) -> Result<Value, RpcErr> {
     match req.namespace() {
         Ok(RpcNamespace::Engine) => map_engine_requests(req, storage),
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
@@ -157,7 +160,10 @@ pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, R
     }
 }
 
-pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_eth_requests<E: StoreEngine>(
+    req: &RpcRequest,
+    storage: Store<E>,
+) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "eth_chainId" => ChainId::call(req, storage),
         "eth_syncing" => Syncing::call(req, storage),
@@ -191,7 +197,10 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
     }
 }
 
-pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_debug_requests<E: StoreEngine>(
+    req: &RpcRequest,
+    storage: Store<E>,
+) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "debug_getRawHeader" => GetRawHeaderRequest::call(req, storage),
         "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
@@ -201,7 +210,10 @@ pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rpc
     }
 }
 
-pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_engine_requests<E: StoreEngine>(
+    req: &RpcRequest,
+    storage: Store<E>,
+) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "engine_exchangeCapabilities" => ExchangeCapabilitiesRequest::call(req, storage),
         "engine_forkchoiceUpdatedV3" => ForkChoiceUpdatedV3::call(req, storage),
@@ -213,9 +225,9 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
     }
 }
 
-pub fn map_admin_requests(
+pub fn map_admin_requests<E: StoreEngine>(
     req: &RpcRequest,
-    storage: Store,
+    storage: Store<E>,
     local_p2p_node: Node,
 ) -> Result<Value, RpcErr> {
     match req.method.as_str() {
@@ -252,7 +264,7 @@ where
 mod tests {
     use ethereum_rust_core::types::{ChainConfig, Genesis};
     use ethereum_rust_core::H512;
-    use ethereum_rust_storage::EngineType;
+    use ethereum_rust_storage::InMemoryStoreEngine;
     use std::fs::File;
     use std::io::BufReader;
     use std::str::FromStr;
@@ -270,8 +282,7 @@ mod tests {
         let body = r#"{"jsonrpc":"2.0", "method":"admin_nodeInfo", "params":[], "id":1}"#;
         let request: RpcRequest = serde_json::from_str(body).unwrap();
         let local_p2p_node = example_p2p_node();
-        let storage =
-            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        let storage = Store::<InMemoryStoreEngine>::new_temp().expect("Failed to create test DB");
         storage.set_chain_config(&example_chain_config()).unwrap();
         let result = map_http_requests(&request, storage, local_p2p_node);
         let rpc_response = rpc_response(request.id, result);
@@ -296,8 +307,7 @@ mod tests {
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","nonce":"0x0","to":"0x0100000000000000000000000000000000000000","value":"0xa"},"0x00"]}"#;
         let request: RpcRequest = serde_json::from_str(body).unwrap();
         // Setup initial storage
-        let mut storage =
-            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        let storage = Store::<InMemoryStoreEngine>::new_temp().expect("Failed to create test DB");
         let genesis = read_execution_api_genesis_file();
         storage
             .add_initial_state(genesis)
@@ -319,8 +329,7 @@ mod tests {
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"eth_createAccessList","params":[{"from":"0x0c2c51a0990aee1d73c1228de158688341557508","gas":"0xea60","gasPrice":"0x44103f2","input":"0x010203040506","nonce":"0x0","to":"0x7dcd17433742f4c0ca53122ab541d0ba67fc27df"},"0x00"]}"#;
         let request: RpcRequest = serde_json::from_str(body).unwrap();
         // Setup initial storage
-        let mut storage =
-            Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
+        let storage = Store::<InMemoryStoreEngine>::new_temp().expect("Failed to create test DB");
         let genesis = read_execution_api_genesis_file();
         storage
             .add_initial_state(genesis)

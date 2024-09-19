@@ -1,4 +1,4 @@
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 use serde_json::{json, Value};
 
 use crate::{
@@ -25,7 +25,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         // Just a minimal implementation to pass rpc-compat Hive tests.
         // TODO (#50): Implement `engine_forkchoiceUpdatedV3`
         let safe = storage.get_block_number(self.fork_choice_state.safe_block_hash);

@@ -2,7 +2,7 @@ use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::ForkId;
 use ethereum_rust_core::H256;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 use serde_json::Value;
 use tracing::{info, warn};
 
@@ -30,7 +30,7 @@ impl RpcHandler for NewPayloadV3Request {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         let block_hash = self.payload.block_hash;
         info!("Received new payload with block hash: {block_hash}");
 

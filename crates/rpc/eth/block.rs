@@ -18,7 +18,7 @@ use ethereum_rust_core::{
         Receipt,
     },
 };
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{Store, StoreEngine};
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,
@@ -65,7 +65,7 @@ impl RpcHandler for GetBlockByNumberRequest {
             hydrated: serde_json::from_value(params[1].clone())?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested block with number: {}", self.block);
         let block_number = match self.block.resolve_block_number(&storage)? {
             Some(block_number) => block_number,
@@ -96,7 +96,7 @@ impl RpcHandler for GetBlockByHashRequest {
             hydrated: serde_json::from_value(params[1].clone())?,
         })
     }
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested block with hash: {}", self.block);
         let block_number = match storage.get_block_number(self.block)? {
             Some(number) => number,
@@ -126,7 +126,7 @@ impl RpcHandler for GetBlockTransactionCountRequest {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested transaction count for block with number: {}",
             self.block
@@ -156,7 +156,7 @@ impl RpcHandler for GetBlockReceiptsRequest {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested receipts for block with number: {}", self.block);
         let block_number = match self.block.resolve_block_number(&storage)? {
             Some(block_number) => block_number,
@@ -186,7 +186,7 @@ impl RpcHandler for GetRawHeaderRequest {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!(
             "Requested raw header for block with identifier: {}",
             self.block
@@ -216,7 +216,7 @@ impl RpcHandler for GetRawBlockRequest {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested raw block: {}", self.block);
         let block_number = match self.block.resolve_block_number(&storage)? {
             Some(block_number) => block_number,
@@ -246,7 +246,7 @@ impl RpcHandler for GetRawReceipts {
         })
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         let block_number = match self.block.resolve_block_number(&storage)? {
             Some(block_number) => block_number,
             _ => return Ok(Value::Null),
@@ -270,7 +270,7 @@ impl RpcHandler for BlockNumberRequest {
         Ok(Self {})
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested latest block number");
         match storage.get_latest_block_number() {
             Ok(Some(block_number)) => {
@@ -286,7 +286,7 @@ impl RpcHandler for GetBlobBaseFee {
         Ok(Self {})
     }
 
-    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+    fn handle<E: StoreEngine>(&self, storage: Store<E>) -> Result<Value, RpcErr> {
         info!("Requested blob gas price");
         match storage.get_latest_block_number() {
             Ok(Some(block_number)) => {
@@ -306,11 +306,11 @@ impl RpcHandler for GetBlobBaseFee {
     }
 }
 
-pub fn get_all_block_rpc_receipts(
+pub fn get_all_block_rpc_receipts<E: StoreEngine>(
     block_number: BlockNumber,
     header: BlockHeader,
     body: BlockBody,
-    storage: &Store,
+    storage: &Store<E>,
 ) -> Result<Vec<RpcReceipt>, RpcErr> {
     let mut receipts = Vec::new();
     // Check if this is the genesis block
@@ -349,11 +349,11 @@ pub fn get_all_block_rpc_receipts(
     Ok(receipts)
 }
 
-pub fn get_all_block_receipts(
+pub fn get_all_block_receipts<E: StoreEngine>(
     block_number: BlockNumber,
     header: BlockHeader,
     body: BlockBody,
-    storage: &Store,
+    storage: &Store<E>,
 ) -> Result<Vec<Receipt>, RpcErr> {
     let mut receipts = Vec::new();
     // Check if this is the genesis block
