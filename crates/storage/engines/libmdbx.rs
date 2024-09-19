@@ -1,8 +1,8 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    ReceiptRLP, TransactionHashRLP, TransactionRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
+    TransactionHashRLP, TransactionRLP,
 };
 use crate::trie::Trie;
 use anyhow::Result;
@@ -145,7 +145,7 @@ impl StoreEngine for Store {
     ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
         self.read::<TransactionLocations>(transaction_hash.into())
     }
-    
+
     fn add_transaction_to_pool(
         &mut self,
         hash: H256,
