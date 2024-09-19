@@ -885,26 +885,14 @@ mod test {
     #[test]
     fn get_proof_one_big_leaf() {
         // Trie -> Leaf[[0,0,0,0,0,0,0,0,0,0,0,0,0,0]]
+        let val = vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let mut cita_trie = cita_trie();
         let mut trie = Trie::new_temp();
-        cita_trie
-            .insert(
-                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            )
-            .unwrap();
-        trie.insert(
-            vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        )
-        .unwrap();
+        cita_trie.insert(val.clone(), val.clone()).unwrap();
+        trie.insert(val.clone(), val.clone()).unwrap();
         let _ = cita_trie.root();
-        let cita_proof = cita_trie
-            .get_proof(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-            .unwrap();
-        let trie_proof = trie
-            .get_proof(&vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-            .unwrap();
+        let cita_proof = cita_trie.get_proof(&val).unwrap();
+        let trie_proof = trie.get_proof(&val).unwrap();
         assert_eq!(cita_proof, trie_proof);
     }
 
