@@ -619,8 +619,8 @@ async fn find_node_and_wait_for_response(
     let mut nodes = vec![];
 
     loop {
-        // wait as much as two seconds for the response
-        match tokio::time::timeout(Duration::from_secs(2), request_receiver.recv()).await {
+        // wait as much as 5 seconds for the response
+        match tokio::time::timeout(Duration::from_secs(5), request_receiver.recv()).await {
             Ok(Some(mut found_nodes)) => {
                 nodes.append(&mut found_nodes);
                 if nodes.len() == MAX_NODES_PER_BUCKET {
