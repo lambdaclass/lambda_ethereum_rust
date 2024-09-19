@@ -138,17 +138,13 @@ impl StoreEngine for InMemoryStoreEngine {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
-        Ok(self
-            .0
-            .lock()
-            .unwrap()
+        let store = self.0.lock().unwrap();
+        Ok(store
             .transaction_locations
             .get(&transaction_hash)
             .and_then(|v| {
                 v.iter()
-                    .find(|(number, hash, _index)| {
-                        self.0.lock().unwrap().canonical_hashes.get(number) == Some(hash)
-                    })
+                    .find(|(number, hash, _index)| store.canonical_hashes.get(number) == Some(hash))
                     .copied()
             }))
     }
