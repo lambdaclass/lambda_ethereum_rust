@@ -103,11 +103,6 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
 
     // NOTE: We could add a tx size limit here, but it's not in the actual spec
 
-    // Check transaction value is positive
-    if tx.value() < U256::zero() {
-        return Err(MempoolError::TxValueNegativeError);
-    }
-
     // Check init code size
     if config.is_shanghai_activated(header.timestamp)
         && tx.is_contract_creation()
@@ -127,10 +122,7 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     }
 
     // Check that the gas limit is covers the gas needs for transaction metadata.
-    let intrinsic = transaction_intrinsic_gas(tx, &header, &config)?;
-    let gas_limit = tx.gas_limit();
-    if gas_limit < intrinsic {
-        println!("Gas limit is {gas_limit} and intrinsic consumption is {intrinsic}");
+    if tx.gas_limit() < transaction_intrinsic_gas(tx, &header, &config)? {
         return Err(MempoolError::TxIntrinsicGasCostAboveLimitError);
     }
 
