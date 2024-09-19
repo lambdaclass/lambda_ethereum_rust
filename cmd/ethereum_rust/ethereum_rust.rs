@@ -83,7 +83,7 @@ async fn main() {
     let store: Store<LibmdbxStoreEngine> = match matches.get_one::<String>("datadir") {
         Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir),
         // TODO: A PR is in the works that will add a proper default location in this case
-        _ => Store::new("temp.db"),
+        _ => Store::new_temp(),
     }
     .expect("Failed to create Store");
 
