@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use bytes::Bytes;
 use ethereum_rust_core::{
     rlp::{decode::RLPDecode, encode::RLPEncode},
-    types::{BlockBody, BlockHash, BlockHeader, Receipt},
+    types::{BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
     Address, H256,
 };
 #[cfg(feature = "libmdbx")]
@@ -24,6 +24,7 @@ pub type ReceiptRLP = Rlp<Receipt>;
 
 // Transaction types
 pub type TransactionHashRLP = Rlp<H256>;
+pub type TransactionRLP = Rlp<Transaction>;
 
 // Wrapper for tuples. Used mostly for indexed keys.
 pub type TupleRLP<A, B> = Rlp<(A, B)>;

@@ -34,3 +34,9 @@ pub enum InvalidBlockError {
     #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
 }
+
+#[derive(Debug, Error)]
+pub enum MempoolError {
+    #[error("DB error: {0}")]
+    StoreError(#[from] StoreError),
+}
