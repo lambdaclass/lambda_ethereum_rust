@@ -429,6 +429,17 @@ impl Store {
             .add_storage_at(address, storage_key, storage_value)
     }
 
+    pub fn get_transaction_by_location(
+        &self,
+        block_hash: BlockHash,
+        index: u64,
+    ) -> Result<Option<Transaction>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_transaction_by_location(block_hash, index)
+    }
+
     pub fn get_storage_at(
         &self,
         address: Address,

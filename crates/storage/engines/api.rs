@@ -89,9 +89,17 @@ pub trait StoreEngine: Debug + Send {
     ) -> Result<Option<Transaction>, StoreError> {
         let (_block_number, block_hash, index) =
             match self.get_transaction_location(transaction_hash)? {
-                Some(locations) => locations,
+                Some(location) => location,
                 None => return Ok(None),
             };
+        self.get_transaction_by_location(block_hash, index)
+    }
+
+    fn get_transaction_by_location(
+        &self,
+        block_hash: H256,
+        index: u64,
+    ) -> Result<Option<Transaction>, StoreError> {
         let block_body = match self.get_block_body_by_hash(block_hash)? {
             Some(body) => body,
             None => return Ok(None),

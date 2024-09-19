@@ -195,17 +195,18 @@ impl RpcHandler for GetTransactionByHashRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested transaction with hash: {}", self.transaction_hash,);
-        // TODO(#421): with a `get_transaction_by_location` we could avoid fetching the location twice.
-        let transaction: ethereum_rust_core::types::Transaction =
-            match storage.get_transaction_by_hash(self.transaction_hash)? {
-                Some(transaction) => transaction,
-                _ => return Ok(Value::Null),
-            };
         let (block_number, block_hash, index) =
             match storage.get_transaction_location(self.transaction_hash)? {
                 Some(location) => location,
                 _ => return Ok(Value::Null),
             };
+
+        let transaction: ethereum_rust_core::types::Transaction =
+            match storage.get_transaction_by_location(block_hash, index)? {
+                Some(transaction) => transaction,
+                _ => return Ok(Value::Null),
+            };
+
         let transaction =
             RpcTransaction::build(transaction, block_number, block_hash, index as usize);
         serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
