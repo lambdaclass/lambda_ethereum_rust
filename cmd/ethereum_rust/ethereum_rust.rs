@@ -6,8 +6,6 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
-use tokio_util::sync::{CancellationToken};
-use tokio_util::task::TaskTracker;
 use std::future::IntoFuture;
 use std::{
     fs::File,
