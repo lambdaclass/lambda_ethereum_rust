@@ -9,7 +9,7 @@ lint:
 
 CRATE ?= *
 test:
-	RUST_BACKTRACE=1 cargo test -p '$(CRATE)'
+	cargo test -p '$(CRATE)'
 
 clean:  clean-vectors
 	cargo clean
