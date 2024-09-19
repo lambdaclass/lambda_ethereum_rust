@@ -195,24 +195,17 @@ impl RpcHandler for GetTransactionByHashRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested transaction with hash: {}", self.transaction_hash,);
+        // TODO(#421): with a `get_transaction_by_location` we could avoid fetching the location twice.
         let transaction: ethereum_rust_core::types::Transaction =
             match storage.get_transaction_by_hash(self.transaction_hash)? {
                 Some(transaction) => transaction,
                 _ => return Ok(Value::Null),
             };
-        let (block_hash, index) = match storage.get_transaction_location(self.transaction_hash)? {
-            Some(location) => location,
-            _ => return Ok(Value::Null),
-        };
-        let block_number = match storage.get_block_number(block_hash)? {
-            Some(number) => number,
-            _ => return Ok(Value::Null),
-        };
-        let block_header = match storage.get_block_header(block_number)? {
-            Some(header) => header,
-            _ => return Ok(Value::Null),
-        };
-        let block_hash = block_header.compute_block_hash();
+        let (block_number, block_hash, index) =
+            match storage.get_transaction_location(self.transaction_hash)? {
+                Some(location) => location,
+                _ => return Ok(Value::Null),
+            };
         let transaction =
             RpcTransaction::build(transaction, block_number, block_hash, index as usize);
         serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
@@ -234,14 +227,12 @@ impl RpcHandler for GetTransactionReceiptRequest {
             "Requested receipt for transaction {}",
             self.transaction_hash,
         );
-        let (block_hash, index) = match storage.get_transaction_location(self.transaction_hash)? {
-            Some(location) => location,
-            _ => return Ok(Value::Null),
-        };
-        let block_number = match storage.get_block_number(block_hash)? {
-            Some(number) => number,
-            _ => return Ok(Value::Null),
-        };
+        let (block_number, _block_hash, index) =
+            match storage.get_transaction_location(self.transaction_hash)? {
+                Some(location) => location,
+                _ => return Ok(Value::Null),
+            };
+        // TODO(#422): this could improve with a `get_block_by_hash` function.
         let block_header = match storage.get_block_header(block_number)? {
             Some(block_header) => block_header,
             _ => return Ok(Value::Null),

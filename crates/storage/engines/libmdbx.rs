@@ -181,7 +181,7 @@ impl StoreEngine for Store {
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockHash, Index)>, StoreError> {
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         let cursor = txn
             .cursor::<TransactionLocations>()
@@ -192,8 +192,7 @@ impl StoreEngine for Store {
             .find(|(number, hash, _index)| {
                 self.get_block_hash_by_block_number(*number)
                     .is_ok_and(|o| o == Some(*hash))
-            })
-            .map(|(_number, hash, index)| (hash, index)))
+            }))
     }
 
     fn add_storage_at(
@@ -367,7 +366,7 @@ impl StoreEngine for Store {
         Ok(trie)
     }
 
-    fn set_canonical_block_hash(
+    fn set_canonical_block(
         &mut self,
         number: BlockNumber,
         hash: BlockHash,

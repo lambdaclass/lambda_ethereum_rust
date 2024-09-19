@@ -109,14 +109,14 @@ impl StoreEngine for Store {
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockHash, Index)>, StoreError> {
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
         Ok(self
             .transaction_locations
             .get(&transaction_hash)
             .and_then(|v| {
                 v.iter()
                     .find(|(number, hash, _index)| self.canonical_hashes.get(number) == Some(hash))
-                    .map(|(_number, hash, index)| (*hash, *index))
+                    .map(|a| a.clone())
             }))
     }
 
@@ -283,7 +283,7 @@ impl StoreEngine for Store {
         Ok(self.bodies.get(&block_hash).cloned())
     }
 
-    fn set_canonical_block_hash(
+    fn set_canonical_block(
         &mut self,
         number: BlockNumber,
         hash: BlockHash,

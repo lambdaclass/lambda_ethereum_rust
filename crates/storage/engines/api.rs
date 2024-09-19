@@ -60,7 +60,7 @@ pub trait StoreEngine: Debug + Send {
     fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockHash, Index)>, StoreError>;
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError>;
 
     /// Add receipt
     fn add_receipt(
@@ -87,10 +87,11 @@ pub trait StoreEngine: Debug + Send {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<Transaction>, StoreError> {
-        let (block_hash, index) = match self.get_transaction_location(transaction_hash)? {
-            Some(locations) => locations,
-            None => return Ok(None),
-        };
+        let (_block_number, block_hash, index) =
+            match self.get_transaction_location(transaction_hash)? {
+                Some(locations) => locations,
+                None => return Ok(None),
+            };
         let block_body = match self.get_block_body_by_hash(block_hash)? {
             Some(body) => body,
             None => return Ok(None),
@@ -174,7 +175,7 @@ pub trait StoreEngine: Debug + Send {
     fn new_state_trie(&self) -> Result<Trie, StoreError>;
 
     // Get the canonical block hash for a given block number.
-    fn set_canonical_block_hash(
+    fn set_canonical_block(
         &mut self,
         number: BlockNumber,
         hash: BlockHash,

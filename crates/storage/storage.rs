@@ -192,7 +192,7 @@ impl Store {
     pub fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockHash, Index)>, StoreError> {
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
         self.engine
             .lock()
             .unwrap()
@@ -401,7 +401,7 @@ impl Store {
         // Store genesis block
         self.update_earliest_block_number(genesis_block_number)?;
         self.add_block(genesis_block)?;
-        self.set_canonical_block_hash(genesis_block_number, genesis_hash)?;
+        self.set_canonical_block(genesis_block_number, genesis_hash)?;
 
         // Set chain config
         self.set_chain_config(&genesis.config)
@@ -519,7 +519,7 @@ impl Store {
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
     }
-    pub fn set_canonical_block_hash(
+    pub fn set_canonical_block(
         &self,
         number: BlockNumber,
         hash: BlockHash,
@@ -527,7 +527,7 @@ impl Store {
         self.engine
             .lock()
             .unwrap()
-            .set_canonical_block_hash(number, hash)
+            .set_canonical_block(number, hash)
     }
 }
 
@@ -628,7 +628,7 @@ mod tests {
 
         store.add_block_header(hash, block_header.clone()).unwrap();
         store.add_block_body(hash, block_body.clone()).unwrap();
-        store.set_canonical_block_hash(block_number, hash).unwrap();
+        store.set_canonical_block(block_number, hash).unwrap();
 
         let stored_header = store.get_block_header(block_number).unwrap().unwrap();
         let stored_body = store.get_block_body(block_number).unwrap().unwrap();
@@ -710,16 +710,14 @@ mod tests {
             .add_transaction_location(transaction_hash, block_number, block_hash, index)
             .unwrap();
 
-        store
-            .set_canonical_block_hash(block_number, block_hash)
-            .unwrap();
+        store.set_canonical_block(block_number, block_hash).unwrap();
 
         let stored_location = store
             .get_transaction_location(transaction_hash)
             .unwrap()
             .unwrap();
 
-        assert_eq!(stored_location, (block_hash, index));
+        assert_eq!(stored_location, (block_number, block_hash, index));
     }
 
     fn test_store_transaction_location_not_canonical(store: Store) {
@@ -733,7 +731,7 @@ mod tests {
             .unwrap();
 
         store
-            .set_canonical_block_hash(block_number, H256::random())
+            .set_canonical_block(block_number, H256::random())
             .unwrap();
 
         assert_eq!(
@@ -758,9 +756,7 @@ mod tests {
             .add_receipt(block_hash, index, receipt.clone())
             .unwrap();
 
-        store
-            .set_canonical_block_hash(block_number, block_hash)
-            .unwrap();
+        store.set_canonical_block(block_number, block_hash).unwrap();
 
         let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
 
