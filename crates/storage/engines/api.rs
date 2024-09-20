@@ -3,15 +3,15 @@ use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256};
-use std::fmt::Debug;
+use std::{fmt::Debug, panic::RefUnwindSafe};
 
 use crate::error::StoreError;
 use ethereum_rust_trie::Trie;
 
-pub trait StoreEngine: Debug + Send {
+pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     /// Add block header
     fn add_block_header(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError>;
@@ -24,7 +24,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Add block body
     fn add_block_body(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError>;
@@ -45,7 +45,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Add block number for a given hash
     fn add_block_number(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         block_number: BlockNumber,
     ) -> Result<(), StoreError>;
@@ -55,7 +55,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Store transaction location (block number and index of the transaction within the block)
     fn add_transaction_location(
-        &mut self,
+        &self,
         transaction_hash: H256,
         block_number: BlockNumber,
         block_hash: BlockHash,
@@ -70,7 +70,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Store transaction into pool table
     fn add_transaction_to_pool(
-        &mut self,
+        &self,
         hash: H256,
         transaction: Transaction,
     ) -> Result<(), StoreError>;
@@ -80,7 +80,7 @@ pub trait StoreEngine: Debug + Send {
 
     /// Add receipt
     fn add_receipt(
-        &mut self,
+        &self,
         block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
@@ -94,7 +94,7 @@ pub trait StoreEngine: Debug + Send {
     ) -> Result<Option<Receipt>, StoreError>;
 
     /// Add account code
-    fn add_account_code(&mut self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
+    fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
 
     /// Obtain account code via code hash
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError>;
@@ -140,41 +140,37 @@ pub trait StoreEngine: Debug + Send {
 
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present
-    fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
+    fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError>;
 
     /// Returns the stored chain configuration
     fn get_chain_config(&self) -> Result<ChainConfig, StoreError>;
 
     // Update earliest block number
-    fn update_earliest_block_number(&mut self, block_number: BlockNumber)
-        -> Result<(), StoreError>;
+    fn update_earliest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError>;
 
     // Obtain earliest block number
     fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Update finalized block number
-    fn update_finalized_block_number(
-        &mut self,
-        block_number: BlockNumber,
-    ) -> Result<(), StoreError>;
+    fn update_finalized_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError>;
 
     // Obtain finalized block number
     fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Update safe block number
-    fn update_safe_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+    fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError>;
 
     // Obtain safe block number
     fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Update latest block number
-    fn update_latest_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+    fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError>;
 
     // Obtain latest block number
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Update pending block number
-    fn update_pending_block_number(&mut self, block_number: BlockNumber) -> Result<(), StoreError>;
+    fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError>;
 
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
@@ -189,12 +185,8 @@ pub trait StoreEngine: Debug + Send {
     // Obtain a storage trie from the given address and storage_root
     // Doesn't check if the account is stored
     // Used for internal store operations
-    fn open_storage_trie(&mut self, address: Address, storage_root: H256) -> Trie;
+    fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie;
 
     // Get the canonical block hash for a given block number.
-    fn set_canonical_block(
-        &mut self,
-        number: BlockNumber,
-        hash: BlockHash,
-    ) -> Result<(), StoreError>;
+    fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
 }
