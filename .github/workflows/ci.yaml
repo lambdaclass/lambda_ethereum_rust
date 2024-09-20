@@ -69,7 +69,7 @@ jobs:
           SLEEP_TIME=30
           echo "Sleeping for $SLEEP_TIME seconds..."
           sleep $SLEEP_TIME
-          grep 'Server shutting down' output.txt
+          grep 'Server shut down' output.txt
 
 
   docker-build:
