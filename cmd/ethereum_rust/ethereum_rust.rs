@@ -80,7 +80,7 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let mut store = match matches.get_one::<String>("datadir") {
+    let store = match matches.get_one::<String>("datadir") {
         Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir, EngineType::Libmdbx),
         _ => Store::new("storage.db", EngineType::InMemory),
     }
