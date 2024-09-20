@@ -21,9 +21,6 @@ pub enum TopicFilter {
     Topics(Vec<Option<H256>>),
 }
 
-// TODO: This struct should be using serde,
-// but I couldn't get it to work, the culprit
-// seems to be BlockIdentifier enum.
 #[derive(Debug)]
 #[allow(non_snake_case)]
 pub struct LogsRequest {
