@@ -142,10 +142,10 @@ impl RpcHandler for LogsRequest {
         // Now that we have the logs filtered by address,
         // we still need to filter by topics if it was a given parameter.
 
-        let filtered_logs = match self.topics.len() {
-            0 => logs,
-            _ => logs
-                .into_iter()
+        let filtered_logs = if self.topics.len() == 0 {
+            logs
+        } else {
+            logs.into_iter()
                 .filter(|rpc_log| {
                     if self.topics.len() > rpc_log.log.topics.len() {
                         return false;
@@ -172,7 +172,7 @@ impl RpcHandler for LogsRequest {
                     }
                     true
                 })
-                .collect::<Vec<RpcLog>>(),
+                .collect::<Vec<RpcLog>>()
         };
 
         serde_json::to_value(filtered_logs).map_err(|_| RpcErr::Internal)
