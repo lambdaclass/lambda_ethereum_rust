@@ -62,11 +62,6 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
-    // TODO implement this right
-    if let Some(b) = bootnodes.first() {
-        ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
-    };
-
     let server_handler = tokio::spawn(discover_peers_server(
         udp_addr,
         udp_socket.clone(),
@@ -80,10 +75,23 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         signer.clone(),
         REVALIDATION_INTERVAL_IN_SECONDS as u64,
     ));
+
+    discovery_startup(
+        udp_addr,
+        udp_socket.clone(),
+        table.clone(),
+        signer.clone(),
+        bootnodes,
+    )
+    .await;
+
+    // a first initial lookup runs without waiting for the interval
+    // so we need to allow some time to the pinged peers to ping us back and acknowledge us
+    tokio::time::sleep(Duration::from_secs(10)).await;
     let lookup_handler = tokio::spawn(peers_lookup(
         udp_socket.clone(),
         table.clone(),
-        signer,
+        signer.clone(),
         local_node_id,
         PEERS_RANDOM_LOOKUP_TIME_IN_MIN as u64 * 60,
     ));
@@ -275,6 +283,32 @@ async fn discover_peers_server(
     }
 }
 
+// this is just an arbitrary number, maybe we should get this from some kind of cfg
+/// This is a really basic startup and should be improved when we have the nodes stored in the db
+/// currently, since we are not storing nodes, the only way to have startup nodes is by providing
+/// an array of bootnodes.
+async fn discovery_startup(
+    udp_addr: SocketAddr,
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    bootnodes: Vec<BootNode>,
+) {
+    for bootnode in bootnodes {
+        table.lock().await.insert_node(Node {
+            ip: bootnode.socket_address.ip(),
+            udp_port: bootnode.socket_address.port(),
+            tcp_port: 0,
+            node_id: bootnode.node_id,
+        });
+        let ping_hash = ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
+        table
+            .lock()
+            .await
+            .update_peer_ping(bootnode.node_id, ping_hash);
+    }
+}
+
 const REVALIDATION_INTERVAL_IN_SECONDS: usize = 30; // this is just an arbitrary number, maybe we should get this from some kind of cfg
 const PROOF_EXPIRATION_IN_HS: usize = 12;
 
@@ -394,9 +428,12 @@ async fn peers_lookup(
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
 
-    interval.tick().await;
     loop {
+        // Notice that the first tick is immediate,
+        // so as soon as the server starts we'll do a lookup with the seeder nodes.
         interval.tick().await;
+
+        debug!("Starting lookup");
 
         let mut handlers = vec![];
 
@@ -424,6 +461,8 @@ async fn peers_lookup(
         for handle in handlers {
             let _ = try_join!(handle);
         }
+
+        debug!("Lookup finished");
     }
 }
 

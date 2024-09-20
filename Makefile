@@ -85,7 +85,7 @@ TEST_PATTERN ?= /
 run-hive: build_image setup-hive
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
 
-run-hive-debug: build_image
+run-hive-debug: build_image setup-hive
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)" --docker.output
 
 clean-hive-logs:
