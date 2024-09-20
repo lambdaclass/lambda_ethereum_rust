@@ -1,4 +1,3 @@
-use ethereum_rust_core::types::{BlockHash, BlockNumber};
 use ethereum_rust_storage::Store;
 use serde_json::{json, Value};
 
