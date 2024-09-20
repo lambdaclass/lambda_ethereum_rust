@@ -15,7 +15,17 @@ In contrast, our philosophy is rooted in simplicity:
 2. Prioritize clarity
 3. Embrace simplicity in design
 
-We believe this approach is the best way to build a client that is both fast and resilient. By adhering to these principles, we will be able to iterate fast and explore next-generation features early, either from the Ethereum roadmap or from innovations from the L2s.
+We believe this approach is the best way to build a client that is both fast and resilient. By adhering to these principles, we will be able to iterate fast and explore next-generation features early, either from the Ethereum roadmap or from innovations from the L2s. 
+
+## Quick Start
+![Demo][./demo.png]
+You'll need docker, docker compose and rust 1.81, simply run:
+```shell
+make
+```
+This will:
+- Start [ethereum package][https://github.com/ethpandaops/ethereum-package], a private testnet on which multiple ethereum clients can interact.
+- Start our execution client, and make it interact with the others.
 
 ## Usage
 
@@ -44,7 +54,7 @@ make test
 
 ### Run
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `just` target. Make sure to fetch it like follows:
+To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `make` target. Make sure to fetch it like follows:
 
 ```bash
 make checkout-ethereum-package

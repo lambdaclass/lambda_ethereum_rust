@@ -1,6 +1,9 @@
 .PHONY: build lint test clean run_image build_image download-test-vectors clean-vectors \
 	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs
 
+default: ethereum-package checkout-ethereum-package localnet
+	docker logs -f $(docker ps -q --filter ancestor=ethereum_rust)
+
 build:
 	cargo build --workspace
 
