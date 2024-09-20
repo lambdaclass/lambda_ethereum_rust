@@ -56,20 +56,18 @@ impl ForkId {
 fn update_checksum(forks: Vec<Option<u64>>, hasher: &mut Hasher, head: u64) -> u64 {
     let mut last_included = 0;
 
-    for activation_time in forks {
-        if let Some(activation) = activation_time {
-            if activation <= head {
-                if activation != last_included {
-                    hasher.update(&activation.to_be_bytes());
-                    last_included = activation;
-                }
-            } else {
-                // fork_next found
-                return activation;
+    for activation in forks.into_iter().flatten() {
+        if activation <= head {
+            if activation != last_included {
+                hasher.update(&activation.to_be_bytes());
+                last_included = activation;
             }
+        } else {
+            // fork_next found
+            return activation;
         }
     }
-    return 0;
+    0
 }
 
 impl RLPEncode for ForkId {
