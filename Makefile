@@ -56,7 +56,7 @@ ethereum-package:
 
 checkout-ethereum-package: ethereum-package
 	cd ethereum-package && \
-		git fetch --shallow-since=$(ETHEREUM_PACKAGE_SHALLOW_SINCE) && \
+		git fetch && \
 		git checkout $(ETHEREUM_PACKAGE_REVISION)
 
 localnet: build_image
