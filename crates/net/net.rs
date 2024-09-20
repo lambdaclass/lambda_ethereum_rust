@@ -65,11 +65,6 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
     let local_node_id = node_id_from_signing_key(&signer);
     let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
-    // TODO implement this right
-    if let Some(b) = bootnodes.first() {
-        ping(&udp_socket, udp_addr, b.socket_address, &signer).await;
-    };
-
     let server_handler = tokio::spawn(discover_peers_server(
         udp_addr,
         udp_socket.clone(),
@@ -81,12 +76,25 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         udp_socket.clone(),
         table.clone(),
         signer.clone(),
-        REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
+        REVALIDATION_INTERVAL_IN_SECONDS as u64,
     ));
+
+    discovery_startup(
+        udp_addr,
+        udp_socket.clone(),
+        table.clone(),
+        signer.clone(),
+        bootnodes,
+    )
+    .await;
+
+    // a first initial lookup runs without waiting for the interval
+    // so we need to allow some time to the pinged peers to ping us back and acknowledge us
+    tokio::time::sleep(Duration::from_secs(10)).await;
     let lookup_handler = tokio::spawn(peers_lookup(
         udp_socket.clone(),
         table.clone(),
-        signer,
+        signer.clone(),
         local_node_id,
         PEERS_RANDOM_LOOKUP_TIME_IN_MIN as u64 * 60,
     ));
@@ -130,7 +138,7 @@ async fn discover_peers_server(
                 };
                 if let Some(peer) = node {
                     // send a a ping to get an endpoint proof
-                    if time_since_in_hs(peer.last_ping) > 12 {
+                    if time_since_in_hs(peer.last_ping) >= PROOF_EXPIRATION_IN_HS as u64 {
                         let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                         if let Some(hash) = hash {
                             table
@@ -177,7 +185,7 @@ async fn discover_peers_server(
                         continue;
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
-                        table.lock().await.mark_peer_as_proven(peer.node.node_id);
+                        table.lock().await.pong_answered(peer.node.node_id);
                     } else {
                         debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -278,7 +286,33 @@ async fn discover_peers_server(
     }
 }
 
-const REVALIDATION_INTERVAL_IN_MINUTES: usize = 10; // this is just an arbitrary number, maybe we should get this from some kind of cfg
+// this is just an arbitrary number, maybe we should get this from some kind of cfg
+/// This is a really basic startup and should be improved when we have the nodes stored in the db
+/// currently, since we are not storing nodes, the only way to have startup nodes is by providing
+/// an array of bootnodes.
+async fn discovery_startup(
+    udp_addr: SocketAddr,
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    bootnodes: Vec<BootNode>,
+) {
+    for bootnode in bootnodes {
+        table.lock().await.insert_node(Node {
+            ip: bootnode.socket_address.ip(),
+            udp_port: bootnode.socket_address.port(),
+            tcp_port: 0,
+            node_id: bootnode.node_id,
+        });
+        let ping_hash = ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
+        table
+            .lock()
+            .await
+            .update_peer_ping(bootnode.node_id, ping_hash);
+    }
+}
+
+const REVALIDATION_INTERVAL_IN_SECONDS: usize = 30; // this is just an arbitrary number, maybe we should get this from some kind of cfg
 const PROOF_EXPIRATION_IN_HS: usize = 12;
 
 /// Starts a tokio scheduler that:
@@ -287,8 +321,13 @@ const PROOF_EXPIRATION_IN_HS: usize = 12;
 /// **Peer revalidation**
 ///
 /// Peers revalidation works in the following manner:
-/// 1. If the last ping has happened `PROOF_EXPIRATION_TIME_IN_HS`hs ago, we invalidate and send a ping to re-validate the endpoint proof
-/// 2. In the next iteration, we check if the node has responded. If not, then we delete it and insert a new one from the replacements table
+/// 1. Every `REVALIDATION_INTERVAL_IN_SECONDS` we ping the 3 least recently pinged peers
+/// 2. In the next iteration we check if they have answered
+///    - if they have: we increment the liveness field by one
+///    - otherwise we decrement it by the current value / 3.
+/// 3. If the liveness field is 0, then we delete it and insert a new one from the replacements table
+///
+/// See more https://github.com/ethereum/devp2p/blob/master/discv4.md#kademlia-table
 async fn peers_revalidation(
     udp_addr: SocketAddr,
     udp_socket: Arc<UdpSocket>,
@@ -297,9 +336,7 @@ async fn peers_revalidation(
     interval_time_in_seconds: u64,
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
-
-    // peers whose proof expired and we pinged them to revalidate them
-    // we expect them to be proven by the next iteration otherwise we remove them
+    // peers we have pinged in the previous iteration
     let mut previously_pinged_peers: HashSet<H512> = HashSet::default();
 
     // first tick starts immediately
@@ -309,40 +346,42 @@ async fn peers_revalidation(
         interval.tick().await;
         debug!("Running peer revalidation");
 
-        let peers = {
+        // first check that the peers we ping have responded
+        for node_id in previously_pinged_peers {
             let mut table = table.lock().await;
-            table.get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60 * 60)
-        };
-        let mut peers_pending_revalidation: HashSet<H512> = HashSet::default();
+            let peer = table.get_by_node_id_mut(node_id).unwrap();
 
-        for peer in peers {
-            if previously_pinged_peers.contains(&peer.node.node_id) {
-                // Peer did not respond, replace it with a new peer from the replacements table
-                if !peer.is_proven {
-                    let new_peer = {
-                        let mut table = table.lock().await;
-                        table.replace_peer(peer.node.node_id)
-                    };
-                    debug!(
-                        "Replacing peer {} with {:?} from table as it hasn't pinged back!",
-                        peer.node.node_id, new_peer
-                    );
-                    if let Some(peer) = new_peer {
-                        let ping_hash = ping(
-                            &udp_socket,
-                            udp_addr,
-                            SocketAddr::new(peer.node.ip, peer.node.udp_port),
-                            &signer,
-                        )
-                        .await;
-                        let mut table = table.lock().await;
-                        table.update_peer_ping(peer.node.node_id, ping_hash);
-                        peers_pending_revalidation.insert(peer.node.node_id);
-                    }
+            if let Some(has_answered) = peer.revalidation {
+                if has_answered {
+                    peer.increment_liveness();
+                } else {
+                    peer.decrement_liveness();
                 }
-                continue;
             }
 
+            peer.revalidation = None;
+
+            if peer.liveness == 0 {
+                let new_peer = table.replace_peer(node_id);
+                if let Some(new_peer) = new_peer {
+                    let ping_hash = ping(
+                        &udp_socket,
+                        udp_addr,
+                        SocketAddr::new(new_peer.node.ip, new_peer.node.udp_port),
+                        &signer,
+                    )
+                    .await;
+                    table.update_peer_ping(new_peer.node.node_id, ping_hash);
+                }
+            }
+        }
+
+        // now send a ping to the least recently pinged peers
+        // this might be too expensive to run if our table is filled
+        // maybe we could just pick them randomly
+        let peers = table.lock().await.get_least_recently_pinged_peers(3);
+        previously_pinged_peers = HashSet::default();
+        for peer in peers {
             let ping_hash = ping(
                 &udp_socket,
                 udp_addr,
@@ -351,15 +390,12 @@ async fn peers_revalidation(
             )
             .await;
             let mut table = table.lock().await;
-            table.update_peer_ping(peer.node.node_id, ping_hash);
-            peers_pending_revalidation.insert(peer.node.node_id);
-            debug!(
-                "Pinging peer {:?} to re-validate endpoint proof!",
-                peer.node.node_id
-            );
+            table.update_peer_ping_with_revalidation(peer.node.node_id, ping_hash);
+            previously_pinged_peers.insert(peer.node.node_id);
+
+            debug!("Pinging peer {:?} to re-validate!", peer.node.node_id);
         }
 
-        previously_pinged_peers = peers_pending_revalidation;
         debug!("Peer revalidation finished");
     }
 }
@@ -395,9 +431,12 @@ async fn peers_lookup(
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
 
-    interval.tick().await;
     loop {
+        // Notice that the first tick is immediate,
+        // so as soon as the server starts we'll do a lookup with the seeder nodes.
         interval.tick().await;
+
+        debug!("Starting lookup");
 
         let mut handlers = vec![];
 
@@ -425,6 +464,8 @@ async fn peers_lookup(
         for handle in handlers {
             let _ = try_join!(handle);
         }
+
+        debug!("Lookup finished");
     }
 }
 
@@ -786,10 +827,12 @@ pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use discv4::time_now_unix;
     use kademlia::bucket_number;
     use rand::rngs::OsRng;
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::{
+        collections::HashSet,
+        net::{IpAddr, Ipv4Addr},
+    };
     use tokio::time::sleep;
 
     async fn insert_random_node_on_custom_bucket(
@@ -878,19 +921,18 @@ mod tests {
      * - We'll start two discovery servers (`a` & `b`) to ping between each other
      * - We'll make `b` ping `a`, and validate that the connection is right
      * - Then we'll wait for a revalidation where we expect everything to be the same
-     * - Then we'll forcedly change the last_pong of `a` peer in `b` table
-     *   such that in the next revalidation `b` re-validates `a`
-     * - Finally, we'll forcedly change the last_pong as before but this time we won't answer from `a`.
-     *   In this case, we expect that `b` first tries to re-validate `a`
-     *   but in the next as `a` does not respond, `b` should removes `a` from its bucket.
-     *
+     * - We'll do this five 5 more times
+     * - Then we'll stop server `a` so that it doesn't respond to re-validations
+     * - We expect server `b` to remove node `a` from its table after 3 re-validations
      * To make this run faster, we'll change the revalidation time to be every 2secs
      */
-    async fn discovery_server_e2e() {
-        // start server `a`
+    async fn discovery_server_revalidation() {
         let mut server_a = start_mock_discovery_server(7998, true).await;
         let mut server_b = start_mock_discovery_server(7999, true).await;
 
+        connect_servers(&mut server_a, &mut server_b).await;
+
+        // start revalidation server
         tokio::spawn(peers_revalidation(
             server_b.addr,
             server_b.udp_socket.clone(),
@@ -899,96 +941,43 @@ mod tests {
             2,
         ));
 
-        connect_servers(&mut server_a, &mut server_b).await;
-
-        // server_a should've received the ping, and now we expect a pong to be received
-        // so it should be proven
-        {
+        for _ in 0..5 {
+            sleep(Duration::from_millis(2500)).await;
+            // by now, b should've send a revalidation to a
             let table = server_b.table.lock().await;
-            let peer = table.get_by_node_id(server_a.node_id).unwrap();
-            assert!(peer.is_proven);
-            assert!(peer.last_ping_hash.is_none());
+            let node = table.get_by_node_id(server_a.node_id).unwrap();
+            assert!(node.revalidation.is_some());
         }
 
-        // now we wait 2 seconds, so that a revalidation runs, we expect everything to be the same
-        sleep(Duration::from_secs(2)).await;
+        // make sure that `a` has responded too all the re-validations
+        // we can do that by checking the liveness
         {
             let table = server_b.table.lock().await;
-            let peer = table.get_by_node_id(server_a.node_id).unwrap();
-            assert!(peer.is_proven);
-            assert!(peer.last_ping_hash.is_none());
+            let node = table.get_by_node_id(server_a.node_id).unwrap();
+            assert_eq!(node.liveness, 6);
         }
 
-        // now we are going to change the last pong to be from more than 24hs ago
-        // we expect everything to stay the same after the revalidation
+        // now, stopping server `a` is not trivial
+        // so we'll instead change its port, so that no one responds
         {
             let mut table = server_b.table.lock().await;
-            let peer = table.get_by_node_id_mut(server_a.node_id).unwrap();
-            peer.last_pong = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            peer.last_ping = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
+            let node = table.get_by_node_id_mut(server_a.node_id).unwrap();
+            node.node.udp_port = 0;
         }
 
-        sleep(Duration::from_secs(3)).await;
-        {
+        // now the liveness field should start decreasing until it gets to 0
+        // which should happen in 3 re-validations
+        for _ in 0..2 {
+            sleep(Duration::from_millis(2500)).await;
             let table = server_b.table.lock().await;
-            let peer = table.get_by_node_id(server_a.node_id).unwrap();
-            assert!(peer.is_proven);
-            assert!(peer.last_ping_hash.is_none());
+            let node = table.get_by_node_id(server_a.node_id).unwrap();
+            assert!(node.revalidation.is_some());
         }
+        sleep(Duration::from_millis(2500)).await;
 
-        // though we expect the revalidation, to send the ping
-        // we can make sure it has run by checking that the last ping and pong are recent
-        {
-            let mut table = server_b.table.lock().await;
-            let peer = table.get_by_node_id_mut(server_a.node_id).unwrap();
-
-            assert!(
-                time_now_unix().saturating_sub(peer.last_ping) <= Duration::from_secs(10).as_secs()
-            );
-            assert!(
-                time_now_unix().saturating_sub(peer.last_pong) <= Duration::from_secs(10).as_secs()
-            );
-        }
-
-        // finally, we'll change the port of the server `a` so that no one responds and the peer is removed
-        {
-            let mut table = server_b.table.lock().await;
-            let peer = table.get_by_node_id_mut(server_a.node_id).unwrap();
-            peer.node.udp_port = 0;
-            peer.last_pong = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            peer.last_ping = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-        }
-
-        // first it will try to send a revalidation
-        sleep(Duration::from_secs(3)).await;
-        {
-            let table = server_b.table.lock().await;
-            let peer = table.get_by_node_id(server_a.node_id).unwrap();
-            assert!(!peer.is_proven);
-            assert!(
-                time_now_unix().saturating_sub(peer.last_ping) <= Duration::from_secs(10).as_secs()
-            );
-        }
-
-        // but it won't respond, so it should not exist anymore
-        sleep(Duration::from_secs(2)).await;
-        {
-            let table = server_b.table.lock().await;
-            let peer = table.get_by_node_id(server_a.node_id);
-            assert!(peer.is_none());
-        }
+        // finally, `a`` should not exist anymore
+        let table = server_b.table.lock().await;
+        assert!(table.get_by_node_id(server_a.node_id).is_none());
     }
 
     #[tokio::test]
@@ -1030,6 +1019,7 @@ mod tests {
             .lock()
             .await
             .get_closest_nodes(server_b.node_id);
+
         lookup(
             server_b.udp_socket.clone(),
             server_b.table.clone(),
