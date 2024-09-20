@@ -62,7 +62,7 @@ jobs:
         run: |
           make test
 
-      - name: Server shuts-down with SIGINT received.
+      - name: Server shuts-down with Ctrl-c.
         run: |
           cargo build --profile=test
           cargo run --profile=test -- --network=test_data/genesis-execution-api.json &
