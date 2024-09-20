@@ -130,6 +130,17 @@ impl Store {
             .get_block_header(block_number)
     }
 
+    pub fn get_block_header_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        self.engine
+            .clone()
+            .lock()
+            .unwrap()
+            .get_block_header_by_hash(block_hash)
+    }
+
     pub fn add_block_body(
         &self,
         block_hash: BlockHash,
@@ -547,6 +558,7 @@ impl Store {
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.lock().unwrap().get_pending_block_number()
     }
+
     pub fn set_canonical_block(
         &self,
         number: BlockNumber,
@@ -556,6 +568,32 @@ impl Store {
             .lock()
             .unwrap()
             .set_canonical_block(number, hash)
+    }
+
+    pub fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        self.engine
+            .lock()
+            .unwrap()
+            .get_canonical_block_hash(block_number)
+    }
+
+    pub fn is_canonical(
+        &self,
+        block_number: BlockNumber,
+        block_hash: BlockHash,
+    ) -> Result<bool, StoreError> {
+        match self
+            .engine
+            .lock()
+            .unwrap()
+            .get_canonical_block_hash(block_number)?
+        {
+            Some(hash) if hash == block_hash => Ok(true),
+            _ => Ok(false),
+        }
     }
 
     // Obtain the storage trie for the given account on the given block

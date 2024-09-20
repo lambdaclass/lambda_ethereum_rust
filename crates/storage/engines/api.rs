@@ -137,6 +137,11 @@ pub trait StoreEngine: Debug + Send {
         Ok(Some(Block { header, body }))
     }
 
+    fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError>;
+
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present
     fn set_chain_config(&mut self, chain_config: &ChainConfig) -> Result<(), StoreError>;
