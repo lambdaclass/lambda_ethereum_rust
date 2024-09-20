@@ -13,7 +13,10 @@ use engine::{
     payload::NewPayloadV3Request, ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
+    account::{
+        GetBalanceRequest, GetCodeRequest, GetProofRequest, GetStorageAtRequest,
+        GetTransactionCountRequest,
+    },
     block::{
         BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
         GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
@@ -187,6 +190,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
+        "eth_getProof" => GetProofRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
