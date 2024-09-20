@@ -64,6 +64,7 @@ jobs:
 
       - name: Server shuts-down with SIGINT received.
         run: |
+          cargo build --profile=test
           cargo run --profile=test -- --network=test_data/genesis-execution-api.json &
           sleep 3
           pkill -INT ethereum_rust
