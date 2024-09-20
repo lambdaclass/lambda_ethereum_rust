@@ -5,26 +5,26 @@ The network crate handles the ethereum networking protocols. This involves:
 - [Discovery protocol](#discovery-protocol): build on top of udp and it is how we discover new nodes.
 - devP2P: sits on top of tcp and is where the actual blockchain information exchange happens.
 
-The oficial spec can be found [here](https://github.com/ethereum/devp2p/tree/master).
+The official spec can be found [here](https://github.com/ethereum/devp2p/tree/master).
 
 ## Discovery protocol
 
-In the next section we'll be looking at the discovery protocol (discv4 to be more specific) and the way we have it setup. There are many points of improvements and here we discuss some possible solutions to them.
+In the next section, we'll be looking at the discovery protocol (discv4 to be more specific) and the way we have it set up. There are many points for improvement and here we discuss some possible solutions to them.
 
-At startup the discovery server launches three concurrent tokio tasks:
+At startup, the discovery server launches three concurrent tokio tasks:
 
-- The listen loop for incoming request.
+- The listen loop for incoming requests.
 - A revalidation loop to ensure peers remain responsive.
 - A recursive lookup loop to request new peers and keep our table filled.
 
-Before starting these tasks start, we run a [startup](#start-up) process to connect to an array of initial nodes.
+Before starting these tasks, we run a [startup](#startup) process to connect to an array of initial nodes.
 
-Before diving into what each task does, first we need to understand how we are storing our nodes. Nodes are stored in a in-memory matrix which we call a [Kademlia table](https://github.com/lambdaclass/ethereum_rust/blob/main/crates/net/kademlia.rs#L20-L23), though it isn't really a Kademlia table as we don't thoroughly follow the spec but we take it as a reference, you can read more [here](https://en.wikipedia.org/wiki/Kademlia). This table holds:
+Before diving into what each task does, first, we need to understand how we are storing our nodes. Nodes are stored in an in-memory matrix which we call a [Kademlia table](https://github.com/lambdaclass/ethereum_rust/blob/main/crates/net/kademlia.rs#L20-L23), though it isn't really a Kademlia table as we don't thoroughly follow the spec but we take it as a reference, you can read more [here](https://en.wikipedia.org/wiki/Kademlia). This table holds:
 
-- Our `node_id`: `node_id`s are derived from the public key. They are in fact the 64 bytes starting from index 1 of the encoded pub key.
+- Our `node_id`: `node_id`s are derived from the public key. They are the 64 bytes starting from index 1 of the encoded pub key.
 - A vector of 256 `bucket`s which holds:
   - `peers`: a vector of 16 elements of type `PeersData` where we save the node record and other related data that we'll see later.
-  - `replacements`: a vector of 16 elements of `PeersData` that are not actually connected to us, but we consider them as potential replacement for those nodes that have disconnected from us.
+  - `replacements`: a vector of 16 elements of `PeersData` that are not connected to us, but we consider them as potential replacements for those nodes that have disconnected from us.
 
 Peers are not assigned to any bucket but they are assigned based on its $0 \le \text{distance} \le 255$ to our `node_id`. Distance is defined by:
 
@@ -38,7 +38,7 @@ pub fn distance(node_id_1: H512, node_id_2: H512) -> usize {
 }
 ```
 
-### Start up
+### Startup
 
 Before starting the server, we do a startup where we connect to an array of seeders or bootnodes. This involves:
 
@@ -46,7 +46,7 @@ Before starting the server, we do a startup where we connect to an array of seed
 - Inserting them into our table
 - Pinging them to notify our presence, so they acknowledge us.
 
-This startup is far from being completed. The current state allows us to do basic tests and connection. Later, we want to do a real startup by first trying to connect to those nodes we were previously connected. For that we'd need to store nodes on the database. If those nodes aren't enough to fill our table, then we also ping some bootnodes, which could be hardcoded or received through the cli. Current issues are opened regarding [startup](https://github.com/lambdaclass/ethereum_rust/issues/398) and [nodes db](DB_LINK).
+This startup is far from being completed. The current state allows us to do basic tests and connections. Later, we want to do a real startup by first trying to connect to those nodes we were previously connected. For that, we'd need to store nodes on the database. If those nodes aren't enough to fill our table, then we also ping some bootnodes, which could be hardcoded or received through the cli. Current issues are opened regarding [startup](https://github.com/lambdaclass/ethereum_rust/issues/398) and [nodes db](DB_LINK).
 
 ### Listen loop
 
@@ -54,8 +54,8 @@ The listen loop handles messages sent to our socket. The spec defines 6 types of
 
 - **Ping**: Responds with a `pong` message. If the peer is not in our table we add him, though if already have it filled, then we add it as a replacement for that bucket. If it was inserted we send a `ping from our end to get an endpoint proof.
 - **Pong**: Verifies the `pong` corresponds to a previously sent `ping`, if so we mark the peer as proven..
-- **FindNodes**: Responds with a `neighbors` message which contains as much the 16 closest nodes from the given target. A target is a pubkey provided by the peer in the message. The response can't be send in one packet as it might exceed the discv4 max packet size. So we split it in different packets.
-- **Neighbors**: First we verify that we have sent the corresponding `find_node` message. If so, we received the peers , store and ping them.
+- **FindNodes**: Responds with a `neighbors` message that contains as many as the 16 closest nodes from the given target. A target is a pubkey provided by the peer in the message. The response can't be sent in one packet as it might exceed the discv4 max packet size. So we split it into different packets.
+- **Neighbors**: First we verify that we have sent the corresponding `find_node` message. If so, we receive the peers, store them, and ping them.
 - **ENRRequest**: currently not implemented see [here](https://github.com/lambdaclass/ethereum_rust/issues/432).
 - **ENRResponse**: same as above.
 
@@ -69,12 +69,12 @@ Re-validations are tasks that are implemented as intervals, that is: they run an
    - otherwise: we decrement it by the livenes by / 3.
 3. If the liveness field is 0, we delete it and insert a new one from the replacements table.
 
-Liveness is a field that provides us with a good criteria of which nodes are connected and we "trust" more. This trustiness is useful when deciding if we want to store this node in the database to use it a future seeder or when establishing a connection in p2p.
+Liveness is a field that provides us with good criteria of which nodes are connected and we "trust" more. This trustiness is useful when deciding if we want to store this node in the database to use it as a future seeder or when establishing a connection in p2p.
 
 Re-validations are another point of potential improvement. While it may be fine for now to keep simplicity at max, pinging the last recently pinged peers becomes quite expensive as the number of peers in the table increases. And it also isn't very "just" in selecting nodes so that they get their liveness increased so we trust them more and we might consider them as a seeder. A possible improvement could be:
 
-- Keep two list: one for nodes that have already been pinged, and another one for nodes that haven not yet been revalidated. Let's call the former "a" and the second "b".
-- At the beginning all nodes would belong to "a" and whenever we insert a new node, they would be pushed to "a".
+- Keep two lists: one for nodes that have already been pinged, and another one for nodes that have not yet been revalidated. Let's call the former "a" and the second "b".
+- In the beginning, all nodes would belong to "a" and whenever we insert a new node, they would be pushed to "a".
 - We would have two intervals: one for pinging "a" and another for pinging to nodes in "b". The "b" would be quicker, as no initial validation has been done.
 - When picking a node to ping, we would do it randomly, which is the best form of justice for a node to become trusted by us.
 - When a node from `b` responds successfully, we move it to `a`, and when one from `a` does not respond, we move it to `b`.
@@ -83,7 +83,7 @@ Re-validations are another point of potential improvement. While it may be fine 
 
 Recursive lookups are as with re-validations implemented as intervals. Their current flow is as follows:
 
-1. Every 30min we spawn three concurrent lookups: one closest to our pubkey and three others closest to a random generated pubkeys.
+1. Every 30min we spawn three concurrent lookups: one closest to our pubkey and three others closest to randomly generated pubkeys.
 2. Every lookup starts with the closest nodes from our table. Each lookup keeps track of:
    - Peers that have already been asked for nodes
    - Peers that have been already seen
@@ -96,7 +96,7 @@ Recursive lookups are as with re-validations implemented as intervals. Their cur
 
 Finally, here is an example of how you could build a network and see how they connect each other:
 
-We'll have three nodes: `a`, `b` and `c`, we'll start `a`, then `b` setting `a` as a bootnode and finally we'll start `c` with `b` as bootnode we should see that `c` connects to both `a` and `b` and so all the network should be connected.
+We'll have three nodes: `a`, `b`, and `c`, we'll start `a`, then `b` setting `a` as a bootnode, and finally we'll start `c` with `b` as bootnode we should see that `c` connects to both `a` and `b` and so all the network should be connected.
 
 **node a**:
 `cargo run --bin ethereum_rust --network test_data/kurtosis.json`
