@@ -1,4 +1,12 @@
-use crate::error::MempoolError;
+use crate::{
+    constants::{
+        MAX_INITCODE_SIZE, MIN_BASE_FEE_PER_BLOB_GAS, TX_ACCESS_LIST_ADDRESS_GAS,
+        TX_ACCESS_LIST_STORAGE_KEY_GAS, TX_CREATE_GAS_COST, TX_DATA_NON_ZERO_GAS,
+        TX_DATA_NON_ZERO_GAS_EIP2028, TX_DATA_ZERO_GAS_COST, TX_GAS_COST,
+        TX_INIT_CODE_WORD_GAS_COST,
+    },
+    error::MempoolError,
+};
 use ethereum_rust_core::{
     types::{BlockHeader, ChainConfig, Transaction},
     H256,
@@ -21,61 +29,18 @@ pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, 
     Ok(store.get_transaction_from_pool(hash)?)
 }
 
-// Minimum base fee per blob [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)
-pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
-
-// Defined in [EIP-170](https://eips.ethereum.org/EIPS/eip-170)
-pub const MAX_CODE_SIZE: usize = 0x6000;
-// Defined in [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860)
-pub const MAX_INITCODE_SIZE: usize = 2 * MAX_CODE_SIZE;
-
-// Gas cost for each non zero byte on transaction data
-pub const TX_DATA_NON_ZERO_GAS: u64 = 68;
-// Gas cost for each non zero byte on transaction data, modified on [EIP-2028](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2028.md)
-pub const TX_DATA_NON_ZERO_GAS_EIP2028: u64 = 16;
-
-//TODO: THIS ALL SHOULD BE MOVED TO chain/constants
-
-// YELLOW PAPER CONSTANTS
-
-/// Base gas cost for each non contract creating transaction
-pub const TX_GAS_COST: u64 = 21000;
-
-/// Base gas cost for each contract creating transaction
-pub const TX_CREATE_GAS_COST: u64 = 53000;
-
-// Gas cost for each zero byte on transaction data
-pub const TX_DATA_ZERO_GAS_COST: u64 = 4;
-
-// Gas cost for each init code word on transaction data
-pub const TX_INIT_CODE_WORD_GAS_COST: u64 = 2;
-
-// Gas cost for each init code word on transaction data
-pub const TX_ACCESS_LIST_ADDRESS_GAS: u64 = 2400;
-
-// Gas cost for each init code word on transaction data
-pub const TX_ACCESS_LIST_STORAGE_KEY_GAS: u64 = 1900;
-
 /*
 
+SOME VALIDATIONS THAT WE COULD INCLUDE
 Stateless validations
-
 1. This transaction is valid on current mempool
-2. Transaction's encoded size is smaller than maximum allowed
-3. The transaction type (TxType) is allowed on current mempool
-4. If the transaction creates a new contract, the init code should be smaller than a certain maximum
-5. The transacion's value is positive
-6. The block's header gas limit is higher than the transaction's gas limit
-7. Sanity checks for extremly large numbers on the gas fee and gas tip
-8. maxFeePerGas is greater or equal than maxPriorityFeePerGas
-9. Make sure the transaction is signed properly
-10. Ensure the transaction has more gas than the bare minimum needed to cover the transaction metadata, which includes:
-    - Data len
-    - Access lists
-    - Is contract creation
-11. Ensure the maxPriorityFeePerGas is high enough to cover the requirement of the calling pool (the minimum to be included in)
-12. Ensure the blob fee cap satisfies the minimum blob gas price
-13. Ensure a Blob Transaction comes with its sidecar:
+    -> Depends on mempool transaction filtering logic
+2. Ensure the maxPriorityFeePerGas is high enough to cover the requirement of the calling pool (the minimum to be included in)
+    -> Depends on mempool transaction filtering logic
+3. Transaction's encoded size is smaller than maximum allowed
+    -> I think that this is not in the spec, but it may be a good idea
+4. Make sure the transaction is signed properly
+5. Ensure a Blob Transaction comes with its sidecar:
   1. Validate number of BlobHashes is positive
   2. Validate number of BlobHashes is less than the maximum allowed per block,
      which may be computed as `maxBlobGasPerBlock / blobTxBlobGasPerBlob`
@@ -85,17 +50,14 @@ Stateless validations
     - The number of proofs
   4. Validate that the hashes matches with the commitments, performing a `kzg4844` hash.
   5. Verify the blob proofs with the `kzg4844`
-
-
 Stateful validations
-
 1. Ensure transaction nonce is higher than the `from` address stored nonce
 2. Certain pools do not allow for nonce gaps. Ensure a gap is not produced (that is, the transaction nonce is exactly the following of the stored one)
 3. Ensure the transactor has enough funds to cover transaction cost:
     - Transaction cost is calculated as `(gas * gasPrice) + (blobGas * blobGasPrice) + value`
- 4. In case of transaction reorg, ensure the transactor has enough funds to cover for transaction replacements without overdrafts.
-    - This is done by comparing the total spent gas of the transactor from all pooled transactions, and accounting for the necessary gas spenditure if any of those transactions is replaced.
- 5. Ensure the transactor is able to add a new transaction. The number of transactions sent by an account may be limited by a certain configured value
+4. In case of transaction reorg, ensure the transactor has enough funds to cover for transaction replacements without overdrafts.
+- This is done by comparing the total spent gas of the transactor from all pooled transactions, and accounting for the necessary gas spenditure if any of those transactions is replaced.
+5. Ensure the transactor is able to add a new transaction. The number of transactions sent by an account may be limited by a certain configured value
 
 */
 
