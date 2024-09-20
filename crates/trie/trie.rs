@@ -9,7 +9,6 @@ mod state;
 #[cfg(test)]
 mod test_utils;
 
-use db::in_memory::SimplifiedInMemoryTrieDB;
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
@@ -159,11 +158,22 @@ impl Trie {
     pub fn compute_hash_from_unsorted_iter(
         iter: impl Iterator<Item = (PathRLP, ValueRLP)>,
     ) -> H256 {
-        // TODO: See if we can replace it with NullTrieDB as we will only be using the cache
-        let trie_db = SimplifiedInMemoryTrieDB::default();
-        let mut trie = Trie::new(Box::new(trie_db));
+        // We will only be using the trie's cache so we don't need a working DB
+        struct NullTrieDB;
+
+        impl TrieDB for NullTrieDB {
+            fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
+                Ok(None)
+            }
+
+            fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
+                Ok(())
+            }
+        }
+
+        let mut trie = Trie::new(Box::new(NullTrieDB));
         for (path, value) in iter {
-            // Unwraping here won't panic as our in_memory trie DB won't fails
+            // Unwraping here won't panic as our in_memory trie DB won't fail
             trie.insert(path, value).unwrap();
         }
         trie.root
