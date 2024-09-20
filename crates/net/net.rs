@@ -284,7 +284,7 @@ const PROOF_EXPIRATION_IN_HS: usize = 12;
 /// **Peer revalidation**
 ///
 /// Peers revalidation works in the following manner:
-/// 1. Every `REVALIDATION_INTERVAL_IN_SECONDS` we ping all of our peers
+/// 1. Every `REVALIDATION_INTERVAL_IN_SECONDS` we ping the 3 least recently pinged peers
 /// 2. In the next iteration we check if they have answered
 ///    - if they have: we increment the liveness field by one
 ///    - otherwise we decrement it by the current value / 3.
@@ -299,6 +299,8 @@ async fn peers_revalidation(
     interval_time_in_seconds: u64,
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
+    // peers we have pinged in the previous iteration
+    let mut previously_pinged_peers: HashSet<H512> = HashSet::default();
 
     // first tick starts immediately
     interval.tick().await;
@@ -307,50 +309,51 @@ async fn peers_revalidation(
         interval.tick().await;
         debug!("Running peer revalidation");
 
-        let buckets = {
-            let table = table.lock().await;
-            table.buckets().clone()
-        };
+        // first check that the peers we ping have responded
+        for node_id in previously_pinged_peers.iter() {
+            let mut table = table.lock().await;
+            let peer = table.get_by_node_id_mut(node_id.clone()).unwrap();
 
-        for (bucket_idx, bucket) in buckets.iter().enumerate() {
-            for (peer_idx, peer) in bucket.peers.iter().enumerate() {
-                if let Some(has_answered) = peer.revalidation {
-                    if !has_answered {
-                        let mut table = table.lock().await;
-                        table.buckets_mut()[bucket_idx].peers[peer_idx].decrement_liveness();
-                    } else {
-                        let mut table = table.lock().await;
-                        table.buckets_mut()[bucket_idx].peers[peer_idx].increment_liveness();
-                    }
+            if let Some(has_answered) = peer.revalidation {
+                if has_answered {
+                    peer.increment_liveness();
+                } else {
+                    peer.decrement_liveness();
                 }
-
-                if peer.liveness == 0 {
-                    let new_peer = table.lock().await.replace_peer(peer.node.node_id);
-                    if let Some(new_peer) = new_peer {
-                        let ping_hash = ping(
-                            &udp_socket,
-                            udp_addr,
-                            SocketAddr::new(new_peer.node.ip, new_peer.node.udp_port),
-                            &signer,
-                        )
-                        .await;
-                        let mut table = table.lock().await;
-                        table.update_peer_ping(new_peer.node.node_id, ping_hash);
-                    }
-                    continue;
-                }
-
-                let ping_hash = ping(
-                    &udp_socket,
-                    udp_addr,
-                    SocketAddr::new(peer.node.ip, peer.node.udp_port),
-                    &signer,
-                )
-                .await;
-                let mut table = table.lock().await;
-                table.update_peer_ping_with_revalidation(peer.node.node_id, ping_hash);
-                debug!("Pinging peer {:?} to re-validate!", peer.node.node_id);
             }
+
+            if peer.liveness == 0 {
+                let new_peer = table.replace_peer(node_id.clone());
+                if let Some(new_peer) = new_peer {
+                    let ping_hash = ping(
+                        &udp_socket,
+                        udp_addr,
+                        SocketAddr::new(new_peer.node.ip, new_peer.node.udp_port),
+                        &signer,
+                    )
+                    .await;
+                    table.update_peer_ping(new_peer.node.node_id, ping_hash);
+                }
+            }
+        }
+
+        // now send a ping to the least recently pinged peers
+        // this might be too expensive to run if our table is filled
+        // maybe we could just pick them randomly
+        let peers = table.lock().await.get_least_recently_pinged_peers(3);
+        for peer in peers {
+            let ping_hash = ping(
+                &udp_socket,
+                udp_addr,
+                SocketAddr::new(peer.node.ip, peer.node.udp_port),
+                &signer,
+            )
+            .await;
+            let mut table = table.lock().await;
+            table.update_peer_ping_with_revalidation(peer.node.node_id, ping_hash);
+            previously_pinged_peers.insert(peer.node.node_id);
+
+            debug!("Pinging peer {:?} to re-validate!", peer.node.node_id);
         }
 
         debug!("Peer revalidation finished");

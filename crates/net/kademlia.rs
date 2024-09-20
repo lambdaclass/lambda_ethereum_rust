@@ -187,20 +187,25 @@ impl KademliaTable {
         peer.revalidation = Some(false);
     }
 
-    #[allow(unused)]
     /// ## Returns
-    /// The peers whose pong back is past the since. Since is given in seconds and it is not an actual data
-    /// but a Duration.
+    /// The a vector of length of the provided `limit` of the peers who have the highest `last_ping` timestamp,
+    /// that is, those peers that were pinged least recently
     ///
-    /// ### Example
-    /// table.get_pinged_peers_since(24 * 60 * 60) // this would return the peers that haven't ponged for 24hs
-    pub fn get_pinged_peers_since(&mut self, since: u64) -> Vec<PeerData> {
+    /// ## Dev note:
+    /// This function could be improved
+    pub fn get_least_recently_pinged_peers(&mut self, limit: usize) -> Vec<PeerData> {
         let mut peers = vec![];
 
         for bucket in &self.buckets {
             for peer in &bucket.peers {
-                if time_now_unix().saturating_sub(peer.last_pong) >= since {
+                if peers.len() < limit {
                     peers.push(peer.clone());
+                } else {
+                    for other_peer in &mut peers {
+                        if peer.last_ping > other_peer.last_ping {
+                            *other_peer = peer.clone();
+                        }
+                    }
                 }
             }
         }
@@ -358,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn get_peers_since_should_return_the_right_peers() {
+    fn get_least_recently_pinged_peers_should_return_the_right_peers() {
         let mut table = get_test_table();
         let node_1_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         {
@@ -407,7 +412,7 @@ mod tests {
 
         // we expect the node_1 & node_2 to be returned here
         let peers: Vec<H512> = table
-            .get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60 * 60)
+            .get_least_recently_pinged_peers(2)
             .iter()
             .map(|p| p.node.node_id)
             .collect();
