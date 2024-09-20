@@ -4,6 +4,7 @@ mod node;
 mod node_hash;
 mod rlp;
 mod state;
+mod error;
 
 #[cfg(test)]
 mod test_utils;
@@ -14,12 +15,11 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-pub use self::db::TrieDB;
-pub use self::db::{
+pub use self::db::{ TrieDB,
     in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
 };
+pub use self::error::TrieError;
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
-use crate::error::StoreError;
 
 use lazy_static::lazy_static;
 
@@ -66,7 +66,7 @@ impl Trie {
     }
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
-    pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, TrieError> {
         if let Some(root) = &self.root {
             let root_node = self
                 .state
@@ -79,7 +79,7 @@ impl Trie {
     }
 
     /// Insert an RLP-encoded value into the trie.
-    pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
+    pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), TrieError> {
         let root = self.root.take();
         if let Some(root_node) = root
             .map(|root| self.state.get_node(root))
@@ -100,7 +100,7 @@ impl Trie {
 
     /// Remove a value from the trie given its RLP-encoded path.
     /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
-    pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, TrieError> {
         let root = self.root.take();
         if let Some(root) = root {
             let root_node = self
@@ -121,7 +121,7 @@ impl Trie {
     /// Return the hash of the trie's root node.
     /// Returns keccak(RLP_NULL) if the trie is empty
     /// Also commits changes to the DB
-    pub fn hash(&mut self) -> Result<H256, StoreError> {
+    pub fn hash(&mut self) -> Result<H256, TrieError> {
         if let Some(ref root) = self.root {
             self.state.commit(root)?;
         }
@@ -135,7 +135,7 @@ impl Trie {
     /// Obtain a merkle proof for the given path.
     /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
     /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
-    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, StoreError> {
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();
         let Some(root) = &self.root else {
@@ -165,7 +165,7 @@ impl Trie {
 mod test {
     use std::sync::Arc;
 
-    use crate::trie::test_utils::TestNodes;
+    use crate::test_utils::TestNodes;
 
     use super::*;
     // Rename imports to avoid potential name clashes

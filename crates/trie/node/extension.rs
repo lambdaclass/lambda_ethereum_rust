@@ -1,9 +1,9 @@
-use crate::error::StoreError;
-use crate::trie::nibble::NibbleSlice;
-use crate::trie::nibble::NibbleVec;
-use crate::trie::node_hash::{NodeEncoder, NodeHash, PathKind};
-use crate::trie::state::TrieState;
-use crate::trie::ValueRLP;
+use crate::error::TrieError;
+use crate::nibble::NibbleSlice;
+use crate::nibble::NibbleVec;
+use crate::node_hash::{NodeEncoder, NodeHash, PathKind};
+use crate::state::TrieState;
+use crate::ValueRLP;
 
 use super::{BranchNode, LeafNode, Node};
 
@@ -26,7 +26,7 @@ impl ExtensionNode {
         &self,
         state: &TrieState,
         mut path: NibbleSlice,
-    ) -> Result<Option<ValueRLP>, StoreError> {
+    ) -> Result<Option<ValueRLP>, TrieError> {
         // If the path is prefixed by this node's prefix, delegate to its child.
         // Otherwise, no value is present.
         if path.skip_prefix(&self.prefix) {
@@ -46,7 +46,7 @@ impl ExtensionNode {
         state: &mut TrieState,
         mut path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<Node, StoreError> {
+    ) -> Result<Node, TrieError> {
         /* Possible flow paths (there are duplicates between different prefix lengths):
             Extension { prefix, child } -> Extension { prefix , child' } (insert into child)
             Extension { prefixL+C+prefixR, child } -> Extension { prefixL, Branch { [ Extension { prefixR, child }, ..], Path, Value} } (if path fully traversed)
@@ -118,7 +118,7 @@ impl ExtensionNode {
         mut self,
         state: &mut TrieState,
         mut path: NibbleSlice,
-    ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+    ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         /* Possible flow paths:
             Extension { prefix, child } -> Extension { prefix, child } (no removal)
             Extension { prefix, child } -> None (If child.remove = None)
@@ -186,7 +186,7 @@ impl ExtensionNode {
     }
 
     /// Inserts the node into the state and returns its hash
-    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, TrieError> {
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
@@ -200,7 +200,7 @@ impl ExtensionNode {
         state: &TrieState,
         mut path: NibbleSlice,
         node_path: &mut Vec<Vec<u8>>,
-    ) -> Result<(), StoreError> {
+    ) -> Result<(), TrieError> {
         // Add self to node_path (if not inlined in parent)
         let encoded = self.encode_raw();
         if encoded.len() >= 32 {
@@ -222,7 +222,7 @@ mod test {
     use super::*;
     use crate::{
         pmt_node,
-        trie::{nibble::Nibble, Trie},
+        {nibble::Nibble, Trie},
     };
 
     #[test]

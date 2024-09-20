@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::error::StoreError;
+use crate::error::TrieError;
 use libmdbx::orm::{Database, Table};
 
 /// Libmdbx implementation for the TrieDB trait, with get and put operations.
@@ -27,19 +27,19 @@ impl<T> TrieDB for LibmdbxTrieDB<T>
 where
     T: Table<Key = Vec<u8>, Value = Vec<u8>>,
 {
-    fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, StoreError> {
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        txn.get::<T>(key).map_err(StoreError::LibmdbxError)
+    fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
+        let txn = self.db.begin_read().map_err(TrieError::LibmdbxError)?;
+        txn.get::<T>(key).map_err(TrieError::LibmdbxError)
     }
 
-    fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), StoreError> {
+    fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), TrieError> {
         let txn = self
             .db
             .begin_readwrite()
-            .map_err(StoreError::LibmdbxError)?;
+            .map_err(TrieError::LibmdbxError)?;
         txn.upsert::<T>(key, value)
-            .map_err(StoreError::LibmdbxError)?;
-        txn.commit().map_err(StoreError::LibmdbxError)
+            .map_err(TrieError::LibmdbxError)?;
+        txn.commit().map_err(TrieError::LibmdbxError)
     }
 }
 
@@ -48,7 +48,7 @@ mod test {
     use std::sync::Arc;
 
     use super::LibmdbxTrieDB;
-    use crate::trie::test_utils::new_db;
+    use crate::test_utils::new_db;
     use libmdbx::{
         orm::{table, Database},
         table_info,
@@ -58,7 +58,7 @@ mod test {
         ( Nodes )  Vec<u8> => Vec<u8>
     );
 
-    use crate::trie::TrieDB;
+    use crate::TrieDB;
 
     #[test]
     fn simple_addition() {
