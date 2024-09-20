@@ -8,7 +8,7 @@ use crate::{
         encode::RLPEncode,
         structs::{Decoder, Encoder},
     },
-    types::Receipt,
+    types::{Receipt, Transaction},
     Address, H256, U256,
 };
 use bytes::Bytes;
@@ -19,8 +19,6 @@ use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 
 use std::cmp::{max, Ordering};
-
-use super::Transaction;
 
 pub type BlockNumber = u64;
 pub type BlockHash = H256;

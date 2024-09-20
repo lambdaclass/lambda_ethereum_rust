@@ -11,6 +11,7 @@ use discv4::{
     Packet, PingMessage, PongMessage,
 };
 use ethereum_rust_core::{H256, H512};
+use ethereum_rust_storage::Store;
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
@@ -19,6 +20,7 @@ use k256::{
 use kademlia::{KademliaTable, PeerData, MAX_NODES_PER_BUCKET};
 use rlpx::{
     connection::{RLPxConnection, SUPPORTED_CAPABILITIES},
+    eth::StatusMessage,
     handshake::RLPxLocalClient,
     message::Message as RLPxMessage,
     p2p,
@@ -46,12 +48,13 @@ pub async fn start_network(
     tcp_addr: SocketAddr,
     bootnodes: Vec<BootNode>,
     signer: SigningKey,
+    storage: Store,
 ) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
 
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
-    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer));
+    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer, storage));
 
     try_join!(discovery_handle, server_handle).unwrap();
 }
@@ -426,7 +429,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     socket.send_to(&buf, to_addr).await.unwrap();
 }
 
-async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
+async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
     let secret_key: SecretKey = signer.clone().into();
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
@@ -518,10 +521,14 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey) {
 
     // Receive and send the same status msg.
     // TODO: calculate status msg instead
-    let status = conn.receive().await;
-    debug!("Received RLPxMessage: {:?}", status);
-    // Send status
-    conn.send(status).await;
+    let received_status = conn.receive().await;
+    debug!("Received RLPxMessage: {:?}", received_status);
+    if let RLPxMessage::Status(_received) = received_status {
+        if let Ok(response_status) = StatusMessage::build_from(&storage) {
+            let response_status = RLPxMessage::Status(response_status);
+            conn.send(response_status).await;
+        }
+    }
 
     // TODO: implement listen loop instead
     info!("Sending Ping RLPxMessage");

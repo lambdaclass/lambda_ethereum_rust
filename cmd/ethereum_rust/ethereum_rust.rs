@@ -114,12 +114,17 @@ async fn main() {
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
-        store,
+        store.clone(),
         jwt_secret,
         local_p2p_node,
     );
-    let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
+    let networking = ethereum_rust_net::start_network(
+        udp_socket_addr,
+        tcp_socket_addr,
+        bootnodes,
+        signer,
+        store,
+    );
 
     try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
 }
