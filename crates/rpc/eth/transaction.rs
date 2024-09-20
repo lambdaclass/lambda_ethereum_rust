@@ -1,6 +1,9 @@
 use crate::{
     eth::block,
-    types::{block_identifier::BlockIdentifier, transaction::RpcTransaction},
+    types::{
+        block_identifier::BlockIdentifier,
+        transaction::{RpcTransaction, SendRawTransactionRequest},
+    },
     utils::RpcErr,
     RpcHandler,
 };
@@ -10,6 +13,7 @@ use ethereum_rust_core::{
     H256, U256,
 };
 
+use ethereum_rust_blockchain::mempool;
 use ethereum_rust_storage::Store;
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
@@ -195,20 +199,18 @@ impl RpcHandler for GetTransactionByHashRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested transaction with hash: {}", self.transaction_hash,);
+        let (block_number, block_hash, index) =
+            match storage.get_transaction_location(self.transaction_hash)? {
+                Some(location) => location,
+                _ => return Ok(Value::Null),
+            };
+
         let transaction: ethereum_rust_core::types::Transaction =
-            match storage.get_transaction_by_hash(self.transaction_hash)? {
+            match storage.get_transaction_by_location(block_hash, index)? {
                 Some(transaction) => transaction,
                 _ => return Ok(Value::Null),
             };
-        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
-            Some(location) => location,
-            _ => return Ok(Value::Null),
-        };
-        let block_header = match storage.get_block_header(block_number)? {
-            Some(header) => header,
-            _ => return Ok(Value::Null),
-        };
-        let block_hash = block_header.compute_block_hash();
+
         let transaction =
             RpcTransaction::build(transaction, block_number, block_hash, index as usize);
         serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
@@ -230,20 +232,17 @@ impl RpcHandler for GetTransactionReceiptRequest {
             "Requested receipt for transaction {}",
             self.transaction_hash,
         );
-        let (block_number, index) = match storage.get_transaction_location(self.transaction_hash)? {
-            Some(location) => location,
-            _ => return Ok(Value::Null),
-        };
-        let block_header = match storage.get_block_header(block_number)? {
-            Some(block_header) => block_header,
-            _ => return Ok(Value::Null),
-        };
-        let block_body = match storage.get_block_body(block_number)? {
-            Some(block_body) => block_body,
-            _ => return Ok(Value::Null),
+        let (block_number, block_hash, index) =
+            match storage.get_transaction_location(self.transaction_hash)? {
+                Some(location) => location,
+                _ => return Ok(Value::Null),
+            };
+        let block = match storage.get_block_by_hash(block_hash)? {
+            Some(block) => block,
+            None => return Ok(Value::Null),
         };
         let receipts =
-            block::get_all_block_rpc_receipts(block_number, block_header, block_body, &storage)?;
+            block::get_all_block_rpc_receipts(block_number, block.header, block.body, &storage)?;
         serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
     }
 }
@@ -489,5 +488,32 @@ fn simulate_tx(
         }),
         ExecutionResult::Halt { reason, gas_used } => Err(RpcErr::Halt { reason, gas_used }),
         success => Ok(success),
+    }
+}
+
+impl RpcHandler for SendRawTransactionRequest {
+    fn parse(params: &Option<Vec<Value>>) -> Result<SendRawTransactionRequest, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+
+        let str_data = serde_json::from_value::<String>(params[0].clone())?;
+        let str_data = str_data.strip_prefix("0x").ok_or(RpcErr::BadParams)?;
+        let data = hex::decode(str_data).map_err(|_| RpcErr::BadParams)?;
+
+        let transaction =
+            SendRawTransactionRequest::decode_canonical(&data).map_err(|_| RpcErr::BadParams)?;
+
+        Ok(transaction)
+    }
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        //TODO: Here we are discarding the Blob Transaction's sidecard.
+        // but in the future we will have to add it to the mempool, maybe handling it differently
+        // from any other transaction
+        let tx = self.to_transaction();
+
+        let hash = mempool::add_transaction(tx, storage)?;
+        serde_json::to_value(format!("{:#x}", hash)).map_err(|_| RpcErr::Internal)
     }
 }

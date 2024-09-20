@@ -2,7 +2,7 @@ use crate::{
     error::StoreError,
     trie::{
         nibble::{Nibble, NibbleSlice, NibbleVec},
-        node_hash::{NodeHash, NodeHasher},
+        node_hash::{NodeEncoder, NodeHash},
         state::TrieState,
         PathRLP, ValueRLP,
     },
@@ -260,8 +260,13 @@ impl BranchNode {
         Ok((new_node, value))
     }
 
-    /// Computes the node's hash given the offset in the path traversed before reaching this node
+    /// Computes the node's hash
     pub fn compute_hash(&self) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw())
+    }
+
+    /// Encodes the node
+    pub fn encode_raw(&self) -> Vec<u8> {
         let hash_choice = |node_hash: &NodeHash| -> (Vec<u8>, usize) {
             if node_hash.is_valid() {
                 match node_hash {
@@ -279,29 +284,29 @@ impl BranchNode {
             .iter()
             .map(|x| match x {
                 (_, 0) => 1,
-                (x, 32) => NodeHasher::bytes_len(32, x[0]),
+                (x, 32) => NodeEncoder::bytes_len(32, x[0]),
                 (_, y) => *y,
             })
             .sum();
         if let Some(value) = encoded_value {
             children_len +=
-                NodeHasher::bytes_len(value.len(), value.first().copied().unwrap_or_default());
+                NodeEncoder::bytes_len(value.len(), value.first().copied().unwrap_or_default());
         } else {
             children_len += 1;
         }
 
-        let mut hasher = NodeHasher::new();
-        hasher.write_list_header(children_len);
+        let mut encoder = NodeEncoder::new();
+        encoder.write_list_header(children_len);
         children.iter().for_each(|(x, len)| match len {
-            0 => hasher.write_bytes(&[]),
-            32 => hasher.write_bytes(x),
-            _ => hasher.write_raw(x),
+            0 => encoder.write_bytes(&[]),
+            32 => encoder.write_bytes(x),
+            _ => encoder.write_raw(x),
         });
         match encoded_value {
-            Some(value) => hasher.write_bytes(value),
-            None => hasher.write_bytes(&[]),
+            Some(value) => encoder.write_bytes(value),
+            None => encoder.write_bytes(&[]),
         }
-        hasher.finalize()
+        encoder.finalize()
     }
 
     /// Inserts the node into the state and returns its hash
@@ -309,6 +314,34 @@ impl BranchNode {
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
+    }
+
+    /// Traverses own subtrie until reaching the node containing `path`
+    /// Appends all encoded nodes traversed to `node_path` (including self)
+    /// Only nodes with encoded len over or equal to 32 bytes are included
+    pub fn get_path(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        // Add self to node_path (if not inlined in parent)
+        let encoded = self.encode_raw();
+        if encoded.len() >= 32 {
+            node_path.push(encoded);
+        };
+        // Check the corresponding choice and delegate accordingly if present.
+        if let Some(choice) = path.next().map(usize::from) {
+            // Continue to child
+            let child_hash = &self.choices[choice];
+            if child_hash.is_valid() {
+                let child_node = state
+                    .get_node(child_hash.clone())?
+                    .expect("inconsistent internal tree structure");
+                child_node.get_path(state, path, node_path)?;
+            }
+        }
+        Ok(())
     }
 }
 

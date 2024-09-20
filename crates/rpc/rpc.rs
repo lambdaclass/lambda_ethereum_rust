@@ -1,6 +1,7 @@
 use crate::authentication::authenticate;
 use bytes::Bytes;
 use std::{future::IntoFuture, net::SocketAddr};
+use types::transaction::SendRawTransactionRequest;
 
 use axum::{routing::post, Json, Router};
 use axum_extra::{
@@ -187,6 +188,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_getLogs" => LogsRequest::call(req, storage),
+        "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }

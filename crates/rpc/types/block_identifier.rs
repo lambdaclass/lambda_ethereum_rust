@@ -85,19 +85,6 @@ impl BlockIdentifierOrHash {
         }
     }
 
-    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
-        if self == &BlockTag::Latest {
-            return Ok(true);
-        }
-
-        let result = self.resolve_block_number(storage)?;
-        let latest = storage.get_latest_block_number()?;
-        match (result, latest) {
-            (Some(result), Some(latest)) => Ok(result == latest),
-            _ => Ok(false),
-        }
-    }
-
     pub fn parse(serde_value: Value, arg_index: u64) -> Result<BlockIdentifierOrHash, RpcErr> {
         // Parse as BlockHash
         if let Some(block_hash) = serde_json::from_value::<String>(serde_value.clone())
@@ -108,6 +95,20 @@ impl BlockIdentifierOrHash {
         } else {
             // Parse as BlockIdentifier
             BlockIdentifier::parse(serde_value, arg_index).map(BlockIdentifierOrHash::Identifier)
+        }
+    }
+
+    #[allow(unused)]
+    pub fn is_latest(&self, storage: &Store) -> Result<bool, StoreError> {
+        if self == &BlockTag::Latest {
+            return Ok(true);
+        }
+
+        let result = self.resolve_block_number(storage)?;
+        let latest = storage.get_latest_block_number()?;
+        match (result, latest) {
+            (Some(result), Some(latest)) => Ok(result == latest),
+            _ => Ok(false),
         }
     }
 }

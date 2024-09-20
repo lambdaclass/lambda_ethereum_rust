@@ -1,5 +1,5 @@
-use ethereum_rust_chain::error::ChainError;
-use ethereum_rust_chain::{add_block, latest_valid_hash};
+use ethereum_rust_blockchain::error::ChainError;
+use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::ForkId;
 use ethereum_rust_core::H256;
 use ethereum_rust_storage::Store;

@@ -142,7 +142,7 @@ impl RpcHandler for LogsRequest {
         // Now that we have the logs filtered by address,
         // we still need to filter by topics if it was a given parameter.
 
-        let filtered_logs = if self.topics.len() == 0 {
+        let filtered_logs = if self.topics.is_empty() {
             logs
         } else {
             logs.into_iter()
