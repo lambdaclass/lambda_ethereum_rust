@@ -190,17 +190,14 @@ impl Genesis {
     }
 
     pub fn compute_state_root(&self) -> H256 {
-        let to_trie_input =
-            |(address, account): (&Address, &GenesisAccount)| -> (Vec<u8>, Vec<u8>) {
-                (
-                    Keccak256::new_with_prefix(address.to_fixed_bytes())
-                        .finalize()
-                        .to_vec(),
-                    AccountState::from(account).encode_to_vec(),
-                )
-            };
-
-        let iter = self.alloc.iter().map(to_trie_input);
+        let iter = self.alloc.iter().map(|(addr, account)| {
+            (
+                Keccak256::new_with_prefix(addr.to_fixed_bytes())
+                    .finalize()
+                    .to_vec(),
+                AccountState::from(account).encode_to_vec(),
+            )
+        });
         Trie::compute_hash_from_unsorted_iter(iter)
     }
 }
