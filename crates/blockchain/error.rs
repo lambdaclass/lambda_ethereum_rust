@@ -43,8 +43,6 @@ pub enum MempoolError {
     StoreError(#[from] StoreError),
     #[error("Transaction max init code size exceeded")]
     TxMaxInitCodeSizeError,
-    #[error("Transaction value is negative")]
-    TxValueNegativeError,
     #[error("Transaction gas limit exceeded")]
     TxGasLimitExceededError,
     #[error("Transaction priority fee above gas fee")]
