@@ -5,7 +5,7 @@ use ethereum_types::{H256, U256};
 use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::{Digest as _, Keccak256};
 
-use crate::rlp::{
+use ethereum_rust_rlp::{
     constants::RLP_NULL,
     decode::RLPDecode,
     encode::RLPEncode,

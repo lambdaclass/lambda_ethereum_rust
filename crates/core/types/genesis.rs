@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
-use crate::rlp::encode::RLPEncode;
+use ethereum_rust_rlp::encode::RLPEncode;
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
@@ -189,28 +189,23 @@ impl Genesis {
     pub fn compute_state_root(&self) -> H256 {
         let mut state_trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
 
-        for (address, genesis_account) in self.alloc.iter() {
-            // Key: Keccak(address)
-            let k = Keccak256::new_with_prefix(address.to_fixed_bytes())
-                .finalize()
-                .to_vec();
-
+        let to_trie_input = |(address, account)| -> (Vec<u8>, Vec<u8>) {
             let info = AccountInfo {
-                code_hash: code_hash(&genesis_account.code),
-                balance: genesis_account.balance,
-                nonce: genesis_account.nonce,
+                code_hash: code_hash(&account.code),
+                balance: account.balance,
+                nonce: account.nonce,
             };
+            (Keccak256::new_with_prefix(address.to_fixed_bytes())
+            .finalize()
+            .to_vec(),
+            AccountState::from_info_and_storage(&info, &account.storage).encode_to_vec()
+        )
 
-            // Value: account
-            let mut v = Vec::new();
-            AccountState::from_info_and_storage(&info, &genesis_account.storage).encode(&mut v);
-            state_trie.insert(k, v);
-        }
-        // TODO check if sorting by key and using
-        // PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter is more efficient
+        };
 
-        let &root = state_trie.compute_hash();
-        H256(root.into())
+        let iter = self.alloc.iter().map(to_trie_input);
+
+        
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::rlp::{
+use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,

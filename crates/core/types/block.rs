@@ -2,19 +2,16 @@ use super::{
     BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
     GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
 };
+use ethereum_rust_rlp::{
+    decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError, structs::{Decoder, Encoder}
+};
 use crate::{
-    rlp::{
-        decode::RLPDecode,
-        encode::RLPEncode,
-        structs::{Decoder, Encoder},
-    },
     types::Receipt,
     Address, H256, U256,
 };
 use bytes::Bytes;
 use ethereum_types::Bloom;
 use keccak_hash::keccak;
-use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::{Deserialize, Serialize};
 use sha3::Keccak256;
 
@@ -48,7 +45,7 @@ impl RLPEncode for Block {
 }
 
 impl RLPDecode for Block {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (header, decoder) = decoder.decode_field("header")?;
         let (transactions, decoder) = decoder.decode_field("transactions")?;
@@ -132,7 +129,7 @@ impl RLPEncode for BlockHeader {
 }
 
 impl RLPDecode for BlockHeader {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (parent_hash, decoder) = decoder.decode_field("parent_hash")?;
         let (ommers_hash, decoder) = decoder.decode_field("ommers_hash")?;
@@ -249,7 +246,7 @@ impl RLPEncode for BlockBody {
 }
 
 impl RLPDecode for BlockBody {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (transactions, decoder) = decoder.decode_field("transactions")?;
         let (ommers, decoder) = decoder.decode_field("ommers")?;
@@ -297,7 +294,7 @@ impl RLPEncode for Withdrawal {
 }
 
 impl RLPDecode for Withdrawal {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), crate::rlp::error::RLPDecodeError> {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (index, decoder) = decoder.decode_field("index")?;
         let (validator_index, decoder) = decoder.decode_field("validator_index")?;

@@ -211,7 +211,7 @@ impl<'a> Encoder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::rlp::{
+    use crate::{
         decode::RLPDecode,
         encode::RLPEncode,
         structs::{Decoder, Encoder},
