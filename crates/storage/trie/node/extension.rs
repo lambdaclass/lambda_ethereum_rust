@@ -1,7 +1,7 @@
 use crate::error::StoreError;
 use crate::trie::nibble::NibbleSlice;
 use crate::trie::nibble::NibbleVec;
-use crate::trie::node_hash::{NodeHash, NodeHasher, PathKind};
+use crate::trie::node_hash::{NodeEncoder, NodeHash, PathKind};
 use crate::trie::state::TrieState;
 use crate::trie::ValueRLP;
 
@@ -161,22 +161,28 @@ impl ExtensionNode {
         }
     }
 
+    /// Computes the node's hash
     pub fn compute_hash(&self) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw())
+    }
+
+    /// Encodes the node
+    pub fn encode_raw(&self) -> Vec<u8> {
         let child_hash = &self.child;
-        let prefix_len = NodeHasher::path_len(self.prefix.len());
+        let prefix_len = NodeEncoder::path_len(self.prefix.len());
         let child_len = match child_hash {
             NodeHash::Inline(ref x) => x.len(),
-            NodeHash::Hashed(x) => NodeHasher::bytes_len(32, x[0]),
+            NodeHash::Hashed(x) => NodeEncoder::bytes_len(32, x[0]),
         };
 
-        let mut hasher = NodeHasher::new();
-        hasher.write_list_header(prefix_len + child_len);
-        hasher.write_path_vec(&self.prefix, PathKind::Extension);
+        let mut encoder = NodeEncoder::new();
+        encoder.write_list_header(prefix_len + child_len);
+        encoder.write_path_vec(&self.prefix, PathKind::Extension);
         match child_hash {
-            NodeHash::Inline(x) => hasher.write_raw(x),
-            NodeHash::Hashed(x) => hasher.write_bytes(&x.0),
+            NodeHash::Inline(x) => encoder.write_raw(x),
+            NodeHash::Hashed(x) => encoder.write_bytes(&x.0),
         }
-        hasher.finalize()
+        encoder.finalize()
     }
 
     /// Inserts the node into the state and returns its hash
@@ -184,6 +190,30 @@ impl ExtensionNode {
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
+    }
+
+    /// Traverses own subtrie until reaching the node containing `path`
+    /// Appends all encoded nodes traversed to `node_path` (including self)
+    /// Only nodes with encoded len over or equal to 32 bytes are included
+    pub fn get_path(
+        &self,
+        state: &TrieState,
+        mut path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        // Add self to node_path (if not inlined in parent)
+        let encoded = self.encode_raw();
+        if encoded.len() >= 32 {
+            node_path.push(encoded);
+        };
+        // Continue to child
+        if path.skip_prefix(&self.prefix) {
+            let child_node = state
+                .get_node(self.child.clone())?
+                .expect("inconsistent internal tree structure");
+            child_node.get_path(state, path, node_path)?;
+        }
+        Ok(())
     }
 }
 

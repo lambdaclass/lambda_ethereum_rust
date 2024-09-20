@@ -7,8 +7,8 @@ use std::{
 
 use bootnode::BootNode;
 use discv4::{
-    get_expiration, is_expired, time_since_in_hs, FindNodeMessage, Message, NeighborsMessage,
-    Packet, PingMessage, PongMessage,
+    get_expiration, is_expired, time_now_unix, time_since_in_hs, FindNodeMessage, Message,
+    NeighborsMessage, Packet, PingMessage, PongMessage,
 };
 use ethereum_rust_core::{H256, H512};
 use ethereum_rust_storage::Store;
@@ -17,7 +17,8 @@ use k256::{
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
     SecretKey,
 };
-use kademlia::{KademliaTable, PeerData, MAX_NODES_PER_BUCKET};
+use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
+use rand::rngs::OsRng;
 use rlpx::{
     connection::{RLPxConnection, SUPPORTED_CAPABILITIES},
     eth::StatusMessage,
@@ -79,12 +80,20 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         udp_addr,
         udp_socket.clone(),
         table.clone(),
-        signer,
+        signer.clone(),
         REVALIDATION_INTERVAL_IN_MINUTES as u64 * 60,
     ));
+    let lookup_handler = tokio::spawn(peers_lookup(
+        udp_socket.clone(),
+        table.clone(),
+        signer,
+        local_node_id,
+        PEERS_RANDOM_LOOKUP_TIME_IN_MIN as u64 * 60,
+    ));
 
-    try_join!(server_handler, revalidation_handler).unwrap();
+    try_join!(server_handler, revalidation_handler, lookup_handler).unwrap();
 }
+
 async fn discover_peers_server(
     udp_addr: SocketAddr,
     udp_socket: Arc<UdpSocket>,
@@ -143,7 +152,8 @@ async fn discover_peers_server(
                     };
                     let hash = ping(&udp_socket, udp_addr, from, &signer).await;
                     if let Some(hash) = hash {
-                        if inserted_to_table {
+                        if inserted_to_table && peer.is_some() {
+                            let peer = peer.unwrap();
                             table
                                 .lock()
                                 .await
@@ -190,15 +200,22 @@ async fn discover_peers_server(
                     if node.is_proven {
                         let nodes = {
                             let table = table.lock().await;
-                            table.get_closest_nodes(node.node.node_id)
+                            table.get_closest_nodes(msg.target)
                         };
+                        let nodes_chunks = nodes.chunks(4);
                         let expiration = get_expiration(20);
-                        let neighbors =
-                            discv4::Message::Neighbors(NeighborsMessage::new(nodes, expiration));
-                        let mut buf = Vec::new();
-                        neighbors.encode_with_header(&mut buf, &signer);
                         debug!("Sending neighbors!");
-                        udp_socket.send_to(&buf, from).await.unwrap();
+                        // we are sending the neighbors in 4 different messages as not to exceed the
+                        // maximum packet size
+                        for nodes in nodes_chunks {
+                            let neighbors = discv4::Message::Neighbors(NeighborsMessage::new(
+                                nodes.to_vec(),
+                                expiration,
+                            ));
+                            let mut buf = Vec::new();
+                            neighbors.encode_with_header(&mut buf, &signer);
+                            udp_socket.send_to(&buf, from).await.unwrap();
+                        }
                     } else {
                         debug!("Ignoring find node message as the node isn't proven!");
                     }
@@ -216,6 +233,11 @@ async fn discover_peers_server(
                 let mut table = table.lock().await;
                 if let Some(node) = table.get_by_node_id_mut(packet.get_node_id()) {
                     if let Some(req) = &mut node.find_node_request {
+                        if time_now_unix().saturating_sub(req.sent_at) >= 60 {
+                            debug!("Ignoring neighbors message as the find_node request expires after one minute");
+                            node.find_node_request = None;
+                            continue;
+                        }
                         let nodes = &neighbors_msg.nodes;
                         let nodes_sent = req.nodes_sent + nodes.len();
 
@@ -223,6 +245,9 @@ async fn discover_peers_server(
                             debug!("Storing neighbors in our table!");
                             req.nodes_sent = nodes_sent;
                             nodes_to_insert = Some(nodes.clone());
+                            if let Some(tx) = &req.tx {
+                                let _ = tx.send(nodes.clone());
+                            }
                         } else {
                             debug!("Ignoring neighbors message as the client sent more than the allowed nodes");
                         }
@@ -238,9 +263,13 @@ async fn discover_peers_server(
 
                 if let Some(nodes) = nodes_to_insert {
                     for node in nodes {
-                        table.insert_node(node);
-                        let node_addr = SocketAddr::new(node.ip.to_canonical(), node.udp_port);
-                        ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                        let (peer, inserted_to_table) = table.insert_node(node);
+                        if inserted_to_table && peer.is_some() {
+                            let peer = peer.unwrap();
+                            let node_addr = SocketAddr::new(peer.node.ip, peer.node.udp_port);
+                            let ping_hash = ping(&udp_socket, udp_addr, node_addr, &signer).await;
+                            table.update_peer_ping(peer.node.node_id, ping_hash);
+                        };
                     }
                 }
             }
@@ -254,7 +283,6 @@ const PROOF_EXPIRATION_IN_HS: usize = 12;
 
 /// Starts a tokio scheduler that:
 /// - performs periodic revalidation of the current nodes (sends a ping to the old nodes). Currently this is configured to happen every [`REVALIDATION_INTERVAL_IN_MINUTES`]
-/// - performs random lookups to discover new nodes (not yet implemented)
 ///
 /// **Peer revalidation**
 ///
@@ -336,6 +364,198 @@ async fn peers_revalidation(
     }
 }
 
+const PEERS_RANDOM_LOOKUP_TIME_IN_MIN: usize = 30;
+
+/// Starts a tokio scheduler that:
+/// - performs random lookups to discover new nodes. Currently this is configure to run every `PEERS_RANDOM_LOOKUP_TIME_IN_MIN`
+///
+/// **Random lookups**
+///
+/// Random lookups work in the following manner:
+/// 1. Every 30min we spawn three concurrent lookups: one closest to our pubkey
+///    and three other closest to random generated pubkeys.
+/// 2. Every lookup starts with the closest nodes from our table.
+///    Each lookup keeps track of:
+///    - Peers that have already been asked for nodes
+///    - Peers that have been already seen
+///    - Potential peers to query for nodes: a vector of up to 16 entries holding the closest peers to the pubkey.
+///      This vector is initially filled with nodes from our table.
+/// 3. We send a `find_node` to the closest 3 nodes (that we have not yet asked) from the pubkey.
+/// 4. We wait for the neighbors response and pushed or replace those that are closer to the potential peers.
+/// 5. We select three other nodes from the potential peers vector and do the same until one lookup
+///    doesn't have any node to ask.
+///
+/// See more https://github.com/ethereum/devp2p/blob/master/discv4.md#recursive-lookup
+async fn peers_lookup(
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    local_node_id: H512,
+    interval_time_in_seconds: u64,
+) {
+    let mut interval = tokio::time::interval(Duration::from_secs(interval_time_in_seconds));
+
+    interval.tick().await;
+    loop {
+        interval.tick().await;
+
+        let mut handlers = vec![];
+
+        // lookup closest to our pub key
+        handlers.push(tokio::spawn(recursive_lookup(
+            udp_socket.clone(),
+            table.clone(),
+            signer.clone(),
+            local_node_id,
+            local_node_id,
+        )));
+
+        // lookup closest to 3 random keys
+        for _ in 0..3 {
+            let random_pub_key = &SigningKey::random(&mut OsRng);
+            handlers.push(tokio::spawn(recursive_lookup(
+                udp_socket.clone(),
+                table.clone(),
+                signer.clone(),
+                node_id_from_signing_key(random_pub_key),
+                local_node_id,
+            )));
+        }
+
+        for handle in handlers {
+            let _ = try_join!(handle);
+        }
+    }
+}
+
+async fn recursive_lookup(
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: SigningKey,
+    target: H512,
+    local_node_id: H512,
+) {
+    let mut asked_peers = HashSet::default();
+    // lookups start with the closest from our table
+    let closest_nodes = table.lock().await.get_closest_nodes(target);
+    let mut seen_peers: HashSet<H512> = HashSet::default();
+
+    seen_peers.insert(local_node_id);
+    for node in &closest_nodes {
+        seen_peers.insert(node.node_id);
+    }
+
+    let mut peers_to_ask: Vec<Node> = closest_nodes;
+
+    loop {
+        let (nodes_found, queries) = lookup(
+            udp_socket.clone(),
+            table.clone(),
+            &signer,
+            target,
+            &mut asked_peers,
+            &peers_to_ask,
+        )
+        .await;
+
+        // only push the peers that have not been seen
+        // that is those who have not been yet pushed, which also accounts for
+        // those peers that were in the array but have been replaced for closer peers
+        for node in nodes_found {
+            if !seen_peers.contains(&node.node_id) {
+                seen_peers.insert(node.node_id);
+                peers_to_ask_push(&mut peers_to_ask, target, node);
+            }
+        }
+
+        // the lookup finishes when there are no more queries to do
+        // that happens when we have asked all the peers
+        if queries == 0 {
+            break;
+        }
+    }
+}
+
+async fn lookup(
+    udp_socket: Arc<UdpSocket>,
+    table: Arc<Mutex<KademliaTable>>,
+    signer: &SigningKey,
+    target: H512,
+    asked_peers: &mut HashSet<H512>,
+    nodes_to_ask: &Vec<Node>,
+) -> (Vec<Node>, u32) {
+    let alpha = 3;
+    let mut queries = 0;
+    let mut nodes = vec![];
+
+    for node in nodes_to_ask {
+        if !asked_peers.contains(&node.node_id) {
+            #[allow(unused_assignments)]
+            let mut rx = None;
+            {
+                let mut table = table.lock().await;
+                let peer = table.get_by_node_id_mut(node.node_id);
+                if let Some(peer) = peer {
+                    // if the peer has an ongoing find_node request, don't query
+                    if peer.find_node_request.is_some() {
+                        continue;
+                    }
+                    let (tx, receiver) = tokio::sync::mpsc::unbounded_channel::<Vec<Node>>();
+                    peer.new_find_node_request_with_sender(tx);
+                    rx = Some(receiver);
+                } else {
+                    // if peer isn't inserted to table, don't query
+                    continue;
+                }
+            }
+
+            queries += 1;
+            asked_peers.insert(node.node_id);
+
+            let mut found_nodes = find_node_and_wait_for_response(
+                &udp_socket,
+                SocketAddr::new(node.ip, node.udp_port),
+                signer,
+                target,
+                &mut rx.unwrap(),
+            )
+            .await;
+            nodes.append(&mut found_nodes);
+        }
+
+        if queries == alpha {
+            break;
+        }
+    }
+
+    (nodes, queries)
+}
+
+fn peers_to_ask_push(peers_to_ask: &mut Vec<Node>, target: H512, node: Node) {
+    let distance = bucket_number(target, node.node_id);
+
+    if peers_to_ask.len() < MAX_NODES_PER_BUCKET {
+        peers_to_ask.push(node);
+        return;
+    }
+
+    // replace this node for the one whose distance to the target is the highest
+    let (mut idx_to_replace, mut highest_distance) = (None, 0);
+
+    for (i, peer) in peers_to_ask.iter().enumerate() {
+        let current_distance = bucket_number(peer.node_id, target);
+
+        if distance < current_distance && current_distance >= highest_distance {
+            highest_distance = current_distance;
+            idx_to_replace = Some(i);
+        }
+    }
+
+    if let Some(idx) = idx_to_replace {
+        peers_to_ask[idx] = node;
+    }
+}
+
 /// Sends a ping to the addr
 /// # Returns
 /// an optional hash corresponding to the message header hash to account if the send was successful
@@ -382,32 +602,49 @@ async fn ping(
     None
 }
 
-#[allow(unused)]
-async fn find_node(
+async fn find_node_and_wait_for_response(
     socket: &UdpSocket,
     to_addr: SocketAddr,
     signer: &SigningKey,
-    peer: &mut PeerData,
-) {
-    let public_key = PublicKey::from(signer.verifying_key());
-    let encoded = public_key.to_encoded_point(false);
-    let bytes = encoded.as_bytes();
-    debug_assert_eq!(bytes[0], 4);
-
-    let target = H512::from_slice(&bytes[1..]);
-
+    target_node_id: H512,
+    request_receiver: &mut tokio::sync::mpsc::UnboundedReceiver<Vec<Node>>,
+) -> Vec<Node> {
     let expiration: u64 = (SystemTime::now() + Duration::from_secs(20))
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
 
-    let msg: discv4::Message = discv4::Message::FindNode(FindNodeMessage::new(target, expiration));
+    let msg: discv4::Message =
+        discv4::Message::FindNode(FindNodeMessage::new(target_node_id, expiration));
 
     let mut buf = Vec::new();
     msg.encode_with_header(&mut buf, signer);
+    let res = socket.send_to(&buf, to_addr).await;
 
-    socket.send_to(&buf, to_addr).await.unwrap();
-    peer.new_find_node_request();
+    let mut nodes = vec![];
+
+    if res.is_err() {
+        return nodes;
+    }
+
+    loop {
+        // wait as much as 5 seconds for the response
+        match tokio::time::timeout(Duration::from_secs(5), request_receiver.recv()).await {
+            Ok(Some(mut found_nodes)) => {
+                nodes.append(&mut found_nodes);
+                if nodes.len() == MAX_NODES_PER_BUCKET {
+                    return nodes;
+                };
+            }
+            Ok(None) => {
+                return nodes;
+            }
+            Err(_) => {
+                // timeout expired
+                return nodes;
+            }
+        }
+    }
 }
 
 async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: &SigningKey) {
@@ -426,7 +663,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let pong: discv4::Message = discv4::Message::Pong(PongMessage::new(to, ping_hash, expiration));
 
     pong.encode_with_header(&mut buf, signer);
-    socket.send_to(&buf, to_addr).await.unwrap();
+    let _ = socket.send_to(&buf, to_addr).await;
 }
 
 async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
@@ -533,9 +770,9 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
     // Send Ping
     conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
 
-    info!("Awaiting Pong RLPxMessage");
+    debug!("Awaiting Pong RLPxMessage");
     let pong = conn.receive().await;
-    info!("Received RLPxMessage: {:?}", pong);
+    debug!("Received RLPxMessage: {:?}", pong);
 
     conn.receive().await;
 }
@@ -550,10 +787,91 @@ pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
 mod tests {
     use super::*;
     use discv4::time_now_unix;
-    use k256::ecdsa::SigningKey;
+    use kademlia::bucket_number;
     use rand::rngs::OsRng;
     use std::net::{IpAddr, Ipv4Addr};
     use tokio::time::sleep;
+
+    async fn insert_random_node_on_custom_bucket(
+        table: Arc<Mutex<KademliaTable>>,
+        bucket_idx: usize,
+    ) {
+        let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
+        let node = Node {
+            ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            tcp_port: 0,
+            udp_port: 0,
+            node_id,
+        };
+        table
+            .lock()
+            .await
+            .insert_node_on_custom_bucket(node, bucket_idx);
+    }
+
+    async fn fill_table_with_random_nodes(table: Arc<Mutex<KademliaTable>>) {
+        for i in 0..256 {
+            for _ in 0..16 {
+                insert_random_node_on_custom_bucket(table.clone(), i).await;
+            }
+        }
+    }
+
+    struct MockServer {
+        pub addr: SocketAddr,
+        pub signer: SigningKey,
+        pub table: Arc<Mutex<KademliaTable>>,
+        pub node_id: H512,
+        pub udp_socket: Arc<UdpSocket>,
+    }
+
+    async fn start_mock_discovery_server(udp_port: u16, should_start_server: bool) -> MockServer {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), udp_port);
+        let signer = SigningKey::random(&mut OsRng);
+        let udp_socket = Arc::new(UdpSocket::bind(addr).await.unwrap());
+        let node_id = node_id_from_signing_key(&signer);
+        let table = Arc::new(Mutex::new(KademliaTable::new(node_id)));
+
+        if should_start_server {
+            tokio::spawn(discover_peers_server(
+                addr,
+                udp_socket.clone(),
+                table.clone(),
+                signer.clone(),
+            ));
+        }
+
+        MockServer {
+            addr,
+            signer,
+            table,
+            node_id,
+            udp_socket,
+        }
+    }
+
+    /// connects two mock servers by pinging a to b
+    async fn connect_servers(server_a: &mut MockServer, server_b: &mut MockServer) {
+        let ping_hash = ping(
+            &server_a.udp_socket,
+            server_a.addr,
+            server_b.addr,
+            &server_a.signer,
+        )
+        .await;
+        {
+            let mut table = server_a.table.lock().await;
+            table.insert_node(Node {
+                ip: server_b.addr.ip(),
+                udp_port: server_b.addr.port(),
+                tcp_port: 0,
+                node_id: server_b.node_id,
+            });
+            table.update_peer_ping(server_b.node_id, ping_hash);
+        }
+        // allow some time for the server to respond
+        sleep(Duration::from_secs(1)).await;
+    }
 
     #[tokio::test]
     /** This is a end to end test on the discovery server, the idea is as follows:
@@ -570,57 +888,24 @@ mod tests {
      */
     async fn discovery_server_e2e() {
         // start server `a`
-        let addr_a = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
-        let signer_a = SigningKey::random(&mut OsRng);
-        let node_id_a = node_id_from_signing_key(&signer_a);
-        tokio::spawn(discover_peers(addr_a, signer_a.clone(), vec![]));
+        let mut server_a = start_mock_discovery_server(7998, true).await;
+        let mut server_b = start_mock_discovery_server(7999, true).await;
 
-        // for server `b` we won't use discover_peers fn
-        // since we want to have access to the table to force some changes
-        let addr_b = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8001);
-        let signer_b = SigningKey::random(&mut OsRng);
-        let udp_socket = Arc::new(UdpSocket::bind(addr_b).await.unwrap());
-        let local_node_id = node_id_from_signing_key(&signer_b);
-        let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
-
-        tokio::spawn(discover_peers_server(
-            addr_b,
-            udp_socket.clone(),
-            table.clone(),
-            signer_b.clone(),
-        ));
         tokio::spawn(peers_revalidation(
-            addr_b,
-            udp_socket.clone(),
-            table.clone(),
-            signer_b.clone(),
+            server_b.addr,
+            server_b.udp_socket.clone(),
+            server_b.table.clone(),
+            server_b.signer.clone(),
             2,
         ));
 
-        let ping_hash = ping(&udp_socket, addr_b, addr_a, &signer_b).await;
-        {
-            let mut table = table.lock().await;
-            table.insert_node(Node {
-                ip: addr_a.ip(),
-                udp_port: addr_a.port(),
-                tcp_port: 0,
-                node_id: node_id_a,
-            });
-            let peer = table
-                .get_by_node_id_mut(node_id_from_signing_key(&signer_a))
-                .unwrap();
-            peer.last_ping_hash = ping_hash;
-            peer.last_ping = time_now_unix();
-        }
-
-        // allow some time for server `a` to respond
-        sleep(Duration::from_secs(1)).await;
+        connect_servers(&mut server_a, &mut server_b).await;
 
         // server_a should've received the ping, and now we expect a pong to be received
         // so it should be proven
         {
-            let table = table.lock().await;
-            let peer = table.get_by_node_id(node_id_a).unwrap();
+            let table = server_b.table.lock().await;
+            let peer = table.get_by_node_id(server_a.node_id).unwrap();
             assert!(peer.is_proven);
             assert!(peer.last_ping_hash.is_none());
         }
@@ -628,8 +913,8 @@ mod tests {
         // now we wait 2 seconds, so that a revalidation runs, we expect everything to be the same
         sleep(Duration::from_secs(2)).await;
         {
-            let table = table.lock().await;
-            let peer = table.get_by_node_id(node_id_a).unwrap();
+            let table = server_b.table.lock().await;
+            let peer = table.get_by_node_id(server_a.node_id).unwrap();
             assert!(peer.is_proven);
             assert!(peer.last_ping_hash.is_none());
         }
@@ -637,10 +922,8 @@ mod tests {
         // now we are going to change the last pong to be from more than 24hs ago
         // we expect everything to stay the same after the revalidation
         {
-            let mut table = table.lock().await;
-            let peer = table
-                .get_by_node_id_mut(node_id_from_signing_key(&signer_a))
-                .unwrap();
+            let mut table = server_b.table.lock().await;
+            let peer = table.get_by_node_id_mut(server_a.node_id).unwrap();
             peer.last_pong = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -653,8 +936,8 @@ mod tests {
 
         sleep(Duration::from_secs(3)).await;
         {
-            let table = table.lock().await;
-            let peer = table.get_by_node_id(node_id_a).unwrap();
+            let table = server_b.table.lock().await;
+            let peer = table.get_by_node_id(server_a.node_id).unwrap();
             assert!(peer.is_proven);
             assert!(peer.last_ping_hash.is_none());
         }
@@ -662,8 +945,8 @@ mod tests {
         // though we expect the revalidation, to send the ping
         // we can make sure it has run by checking that the last ping and pong are recent
         {
-            let mut table = table.lock().await;
-            let peer = table.get_by_node_id_mut(node_id_a).unwrap();
+            let mut table = server_b.table.lock().await;
+            let peer = table.get_by_node_id_mut(server_a.node_id).unwrap();
 
             assert!(
                 time_now_unix().saturating_sub(peer.last_ping) <= Duration::from_secs(10).as_secs()
@@ -675,10 +958,8 @@ mod tests {
 
         // finally, we'll change the port of the server `a` so that no one responds and the peer is removed
         {
-            let mut table = table.lock().await;
-            let peer = table
-                .get_by_node_id_mut(node_id_from_signing_key(&signer_a))
-                .unwrap();
+            let mut table = server_b.table.lock().await;
+            let peer = table.get_by_node_id_mut(server_a.node_id).unwrap();
             peer.node.udp_port = 0;
             peer.last_pong = (SystemTime::now() - Duration::from_secs(24 * 60 * 60))
                 .duration_since(UNIX_EPOCH)
@@ -693,8 +974,8 @@ mod tests {
         // first it will try to send a revalidation
         sleep(Duration::from_secs(3)).await;
         {
-            let table = table.lock().await;
-            let peer = table.get_by_node_id(node_id_a).unwrap();
+            let table = server_b.table.lock().await;
+            let peer = table.get_by_node_id(server_a.node_id).unwrap();
             assert!(!peer.is_proven);
             assert!(
                 time_now_unix().saturating_sub(peer.last_ping) <= Duration::from_secs(10).as_secs()
@@ -704,9 +985,135 @@ mod tests {
         // but it won't respond, so it should not exist anymore
         sleep(Duration::from_secs(2)).await;
         {
-            let table = table.lock().await;
-            let peer = table.get_by_node_id(node_id_a);
+            let table = server_b.table.lock().await;
+            let peer = table.get_by_node_id(server_a.node_id);
             assert!(peer.is_none());
+        }
+    }
+
+    #[tokio::test]
+    /** This test tests the lookup function, the idea is as follows:
+     * - We'll start two discovery servers (`a` & `b`) that will connect between each other
+     * - We'll insert random nodes to the server `a`` to fill its table
+     * - We'll forcedly run `lookup` and validate that a `find_node` request was sent
+     *   by checking that new nodes have been inserted to the table
+     *
+     * This test for only one lookup, and not recursively.
+     */
+    async fn discovery_server_lookup() {
+        let mut server_a = start_mock_discovery_server(8000, true).await;
+        let mut server_b = start_mock_discovery_server(8001, true).await;
+
+        fill_table_with_random_nodes(server_a.table.clone()).await;
+
+        // before making the connection, remove a node from the `b` bucket. Otherwise it won't be added
+        let b_bucket = bucket_number(server_a.node_id, server_b.node_id);
+        let node_id_to_remove = server_a.table.lock().await.buckets()[b_bucket].peers[0]
+            .node
+            .node_id;
+        server_a
+            .table
+            .lock()
+            .await
+            .replace_peer_on_custom_bucket(node_id_to_remove, b_bucket);
+
+        connect_servers(&mut server_a, &mut server_b).await;
+
+        // now we are going to run a lookup with us as the target
+        let closets_peers_to_b_from_a = server_a
+            .table
+            .lock()
+            .await
+            .get_closest_nodes(server_b.node_id);
+        let nodes_to_ask = server_b
+            .table
+            .lock()
+            .await
+            .get_closest_nodes(server_b.node_id);
+        lookup(
+            server_b.udp_socket.clone(),
+            server_b.table.clone(),
+            &server_b.signer,
+            server_b.node_id,
+            &mut HashSet::default(),
+            &nodes_to_ask,
+        )
+        .await;
+
+        // find_node sent, allow some time for `a` to respond
+        sleep(Duration::from_secs(2)).await;
+
+        // now all peers should've been inserted
+        for peer in closets_peers_to_b_from_a {
+            let table = server_b.table.lock().await;
+            assert!(table.get_by_node_id(peer.node_id).is_some());
+        }
+    }
+
+    #[tokio::test]
+    /** This test tests the lookup function, the idea is as follows:
+     * - We'll start four discovery servers (`a`, `b`, `c` & `d`)
+     * - `a` will be connected to `b`, `b` will be connected to `c` and `c` will be connected to `d`.
+     * - The server `d` will have its table filled with mock nodes
+     * - We'll run a recursive lookup on server `a` and we expect to end with `b`, `c`, `d` and its mock nodes
+     */
+    async fn discovery_server_recursive_lookup() {
+        let mut server_a = start_mock_discovery_server(8002, true).await;
+        let mut server_b = start_mock_discovery_server(8003, true).await;
+        let mut server_c = start_mock_discovery_server(8004, true).await;
+        let mut server_d = start_mock_discovery_server(8005, true).await;
+
+        connect_servers(&mut server_a, &mut server_b).await;
+        connect_servers(&mut server_b, &mut server_c).await;
+        connect_servers(&mut server_c, &mut server_d).await;
+
+        // now we fill the server_d table with 3 random nodes
+        // the reason we don't put more is because this nodes won't respond (as they don't are not real servers)
+        // and so we will have to wait for the timeout on each node, which will only slow down the test
+        for _ in 0..3 {
+            insert_random_node_on_custom_bucket(server_d.table.clone(), 0).await;
+        }
+
+        let mut expected_peers = vec![];
+        expected_peers.extend(
+            server_b
+                .table
+                .lock()
+                .await
+                .get_closest_nodes(server_a.node_id),
+        );
+        expected_peers.extend(
+            server_c
+                .table
+                .lock()
+                .await
+                .get_closest_nodes(server_a.node_id),
+        );
+        expected_peers.extend(
+            server_d
+                .table
+                .lock()
+                .await
+                .get_closest_nodes(server_a.node_id),
+        );
+
+        // we'll run a recursive lookup closest to the server itself
+        recursive_lookup(
+            server_a.udp_socket.clone(),
+            server_a.table.clone(),
+            server_a.signer.clone(),
+            server_a.node_id,
+            server_a.node_id,
+        )
+        .await;
+
+        for peer in expected_peers {
+            assert!(server_a
+                .table
+                .lock()
+                .await
+                .get_by_node_id(peer.node_id)
+                .is_some());
         }
     }
 }

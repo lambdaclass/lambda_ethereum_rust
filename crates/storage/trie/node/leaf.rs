@@ -3,7 +3,7 @@ use crate::{
     trie::{
         nibble::NibbleSlice,
         node::BranchNode,
-        node_hash::{NodeHash, NodeHasher, PathKind},
+        node_hash::{NodeEncoder, NodeHash, PathKind},
         state::TrieState,
         PathRLP, ValueRLP,
     },
@@ -118,24 +118,30 @@ impl LeafNode {
         })
     }
 
+    /// Computes the node's hash given the offset in the path traversed before reaching this node
     pub fn compute_hash(&self, offset: usize) -> NodeHash {
+        NodeHash::from_encoded_raw(self.encode_raw(offset))
+    }
+
+    /// Encodes the node given the offset in the path traversed before reaching this node
+    pub fn encode_raw(&self, offset: usize) -> Vec<u8> {
         let encoded_value = &self.value;
         let encoded_path = &self.path;
 
         let mut path = NibbleSlice::new(encoded_path);
         path.offset_add(offset);
 
-        let path_len = NodeHasher::path_len(path.len());
-        let value_len = NodeHasher::bytes_len(
+        let path_len = NodeEncoder::path_len(path.len());
+        let value_len = NodeEncoder::bytes_len(
             encoded_value.len(),
             encoded_value.first().copied().unwrap_or_default(),
         );
 
-        let mut hasher = NodeHasher::new();
-        hasher.write_list_header(path_len + value_len);
-        hasher.write_path_slice(&path, PathKind::Leaf);
-        hasher.write_bytes(encoded_value);
-        hasher.finalize()
+        let mut encoder = crate::trie::node_hash::NodeEncoder::new();
+        encoder.write_list_header(path_len + value_len);
+        encoder.write_path_slice(&path, PathKind::Leaf);
+        encoder.write_bytes(encoded_value);
+        encoder.finalize()
     }
 
     /// Inserts the node into the state and returns its hash
@@ -148,6 +154,19 @@ impl LeafNode {
         let hash = self.compute_hash(path_offset);
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
+    }
+
+    /// Encodes the node and appends it to `node_path` if the encoded node is 32 or more bytes long
+    pub fn get_path(
+        &self,
+        path: NibbleSlice,
+        node_path: &mut Vec<Vec<u8>>,
+    ) -> Result<(), StoreError> {
+        let encoded = self.encode_raw(path.offset());
+        if encoded.len() >= 32 {
+            node_path.push(encoded);
+        }
+        Ok(())
     }
 }
 

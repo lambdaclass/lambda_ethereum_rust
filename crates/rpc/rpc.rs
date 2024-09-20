@@ -1,6 +1,7 @@
 use crate::authentication::authenticate;
 use bytes::Bytes;
 use std::{future::IntoFuture, net::SocketAddr};
+use types::transaction::SendRawTransactionRequest;
 
 use axum::{routing::post, Json, Router};
 use axum_extra::{
@@ -8,18 +9,20 @@ use axum_extra::{
     TypedHeader,
 };
 use engine::{
-    exchange_transition_config::ExchangeTransitionConfigV1Req,
-    fork_choice::{self, ForkChoiceUpdatedV3},
-    payload::{self, NewPayloadV3Request},
-    ExchangeCapabilitiesRequest,
+    exchange_transition_config::ExchangeTransitionConfigV1Req, fork_choice::ForkChoiceUpdatedV3,
+    payload::NewPayloadV3Request, ExchangeCapabilitiesRequest,
 };
 use eth::{
-    account::{GetBalanceRequest, GetCodeRequest, GetStorageAtRequest, GetTransactionCountRequest},
-    block::{
-        self, GetBlockByHashRequest, GetBlockByNumberRequest, GetBlockReceiptsRequest,
-        GetBlockTransactionCountRequest, GetRawBlockRequest, GetRawHeaderRequest, GetRawReceipts,
+    account::{
+        GetBalanceRequest, GetCodeRequest, GetProofRequest, GetStorageAtRequest,
+        GetTransactionCountRequest,
     },
-    client,
+    block::{
+        BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
+        GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
+        GetRawHeaderRequest, GetRawReceipts,
+    },
+    client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -159,8 +162,8 @@ pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, R
 
 pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
-        "eth_chainId" => client::chain_id(storage),
-        "eth_syncing" => client::syncing(),
+        "eth_chainId" => ChainId::call(req, storage),
+        "eth_syncing" => Syncing::call(req, storage),
         "eth_getBlockByNumber" => GetBlockByNumberRequest::call(req, storage),
         "eth_getBlockByHash" => GetBlockByHashRequest::call(req, storage),
         "eth_getBalance" => GetBalanceRequest::call(req, storage),
@@ -180,12 +183,14 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_getTransactionByHash" => GetTransactionByHashRequest::call(req, storage),
         "eth_getTransactionReceipt" => GetTransactionReceiptRequest::call(req, storage),
         "eth_createAccessList" => CreateAccessListRequest::call(req, storage),
-        "eth_blockNumber" => block::block_number(storage),
+        "eth_blockNumber" => BlockNumberRequest::call(req, storage),
         "eth_call" => CallRequest::call(req, storage),
-        "eth_blobBaseFee" => block::get_blob_base_fee(&storage),
+        "eth_blobBaseFee" => GetBlobBaseFee::call(req, storage),
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
+        "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
+        "eth_getProof" => GetProofRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
@@ -202,26 +207,9 @@ pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rpc
 
 pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
     match req.method.as_str() {
-        "engine_exchangeCapabilities" => {
-            let capabilities: ExchangeCapabilitiesRequest = req
-                .params
-                .as_ref()
-                .ok_or(RpcErr::BadParams)?
-                .first()
-                .ok_or(RpcErr::BadParams)
-                .and_then(|v| serde_json::from_value(v.clone()).map_err(|_| RpcErr::BadParams))?;
-            engine::exchange_capabilities(&capabilities)
-        }
-
-        "engine_forkchoiceUpdatedV3" => {
-            let request = ForkChoiceUpdatedV3::parse(&req.params)?;
-            fork_choice::forkchoice_updated_v3(request, storage)
-        }
-        "engine_newPayloadV3" => {
-            let request = NewPayloadV3Request::parse(&req.params)?;
-            serde_json::to_value(payload::new_payload_v3(request, storage)?)
-                .map_err(|_| RpcErr::Internal)
-        }
+        "engine_exchangeCapabilities" => ExchangeCapabilitiesRequest::call(req, storage),
+        "engine_forkchoiceUpdatedV3" => ForkChoiceUpdatedV3::call(req, storage),
+        "engine_newPayloadV3" => NewPayloadV3Request::call(req, storage),
         "engine_exchangeTransitionConfigurationV1" => {
             ExchangeTransitionConfigV1Req::call(req, storage)
         }
