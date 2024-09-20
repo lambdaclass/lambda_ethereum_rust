@@ -8,9 +8,8 @@ use std::collections::HashMap;
 use ethereum_rust_rlp::encode::RLPEncode;
 
 use super::{
-    code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
-    AccountInfo, AccountState, Block, BlockBody, BlockHeader, BlockNumber, DEFAULT_OMMERS_HASH,
-    INITIAL_BASE_FEE,
+    compute_receipts_root, compute_transactions_root, compute_withdrawals_root, AccountState,
+    Block, BlockBody, BlockHeader, BlockNumber, DEFAULT_OMMERS_HASH, INITIAL_BASE_FEE,
 };
 
 #[allow(unused)]
@@ -193,16 +192,11 @@ impl Genesis {
     pub fn compute_state_root(&self) -> H256 {
         let to_trie_input =
             |(address, account): (&Address, &GenesisAccount)| -> (Vec<u8>, Vec<u8>) {
-                let info = AccountInfo {
-                    code_hash: code_hash(&account.code),
-                    balance: account.balance,
-                    nonce: account.nonce,
-                };
                 (
                     Keccak256::new_with_prefix(address.to_fixed_bytes())
                         .finalize()
                         .to_vec(),
-                    AccountState::from_info_and_storage(&info, &account.storage).encode_to_vec(),
+                    AccountState::from(account).encode_to_vec(),
                 )
             };
 

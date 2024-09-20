@@ -153,16 +153,13 @@ pub fn compute_storage_root(storage: &HashMap<H256, U256>) -> H256 {
     Trie::compute_hash_from_unsorted_iter(iter)
 }
 
-impl AccountState {
-    pub fn from_info_and_storage(
-        info: &AccountInfo,
-        storage: &HashMap<H256, U256>,
-    ) -> AccountState {
+impl From<&GenesisAccount> for AccountState {
+    fn from(value: &GenesisAccount) -> Self {
         AccountState {
-            nonce: info.nonce,
-            balance: info.balance,
-            storage_root: compute_storage_root(storage),
-            code_hash: info.code_hash,
+            nonce: value.nonce,
+            balance: value.balance,
+            storage_root: compute_storage_root(&value.storage),
+            code_hash: code_hash(&value.code),
         }
     }
 }
