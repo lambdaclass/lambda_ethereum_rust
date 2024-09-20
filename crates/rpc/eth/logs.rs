@@ -39,7 +39,7 @@ impl RpcHandler for LogsRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let param = param.as_object().ok_or(RpcErr::BadParams)?;
+                let param = param.as_object().ok_or_else(|| RpcErr::BadParams)?;
                 let from_block = {
                     if let Some(param) = param.get("fromBlock") {
                         BlockIdentifier::parse(param.clone(), 0)?
@@ -83,10 +83,10 @@ impl RpcHandler for LogsRequest {
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let Ok(Some(from)) = self.from_block.resolve_block_number(&storage) else {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::WrongParam("fromBlock".to_string()));
         };
         let Ok(Some(to)) = self.to_block.resolve_block_number(&storage) else {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::WrongParam("toBlock".to_string()));
         };
 
         let address_filter: BTreeSet<_> = match &self.address_filters {
