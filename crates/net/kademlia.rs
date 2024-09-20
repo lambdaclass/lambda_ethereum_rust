@@ -155,9 +155,7 @@ impl KademliaTable {
         peer.is_proven = true;
         peer.last_pong = time_now_unix();
         peer.last_ping_hash = None;
-        if peer.revalidation.is_some() {
-            peer.revalidation = Some(true);
-        }
+        peer.revalidation = peer.revalidation.and(Some(true));
     }
 
     pub fn update_peer_ping(&mut self, node_id: H512, ping_hash: Option<H256>) {
@@ -172,12 +170,10 @@ impl KademliaTable {
     }
 
     pub fn update_peer_ping_with_revalidation(&mut self, node_id: H512, ping_hash: Option<H256>) {
-        let peer = self.get_by_node_id_mut(node_id);
-        if peer.is_none() {
+        let Some(peer) = self.get_by_node_id_mut(node_id) else {
             return;
-        }
+        };
 
-        let peer = peer.unwrap();
         peer.last_ping_hash = ping_hash;
         peer.last_ping = time_now_unix();
         peer.revalidation = Some(false);
@@ -185,10 +181,12 @@ impl KademliaTable {
 
     /// ## Returns
     /// The a vector of length of the provided `limit` of the peers who have the highest `last_ping` timestamp,
-    /// that is, those peers that were pinged least recently
+    /// that is, those peers that were pinged least recently. Careful with the `limit` param, as a
+    /// it might get expensive.
     ///
     /// ## Dev note:
-    /// This function could be improved
+    /// This function should be improved:
+    /// We might keep the `peers` list sorted by last_ping as we would avoid unnecessary loops
     pub fn get_least_recently_pinged_peers(&mut self, limit: usize) -> Vec<PeerData> {
         let mut peers = vec![];
 
@@ -200,6 +198,7 @@ impl KademliaTable {
                     for other_peer in &mut peers {
                         if peer.last_ping > other_peer.last_ping {
                             *other_peer = peer.clone();
+                            break;
                         }
                     }
                 }
