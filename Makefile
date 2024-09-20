@@ -2,7 +2,7 @@
 	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs
 
 default: ethereum-package checkout-ethereum-package localnet
-	docker logs -f $(docker ps -q --filter ancestor=ethereum_rust)
+	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
 
 build:
 	cargo build --workspace
@@ -27,7 +27,8 @@ $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfi
 	docker build -t ethereum_rust .
 	touch $(STAMP_FILE)
 
-build_image: $(STAMP_FILE)
+build_image:
+	docker build -t ethereum_rust.
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz

@@ -17,7 +17,7 @@ In contrast, our philosophy is rooted in simplicity:
 
 We believe this approach is the best way to build a client that is both fast and resilient. By adhering to these principles, we will be able to iterate fast and explore next-generation features early, either from the Ethereum roadmap or from innovations from the L2s. 
 
-## Quick Start
+## Quick Start (localnet)
 ![Demo][./demo.png]
 You'll need docker, docker compose and rust 1.81.
 ### Mac
@@ -34,40 +34,52 @@ This will:
 - Start [ethereum package][https://github.com/ethpandaops/ethereum-package], a private testnet on which multiple ethereum clients can interact.
 - Start our execution client, and make it interact with the others.
 
-## Usage
+## Dev Setup
 
 ### Build
+To build the node, you will need the rust toolchain, which you can install from rustup:
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
-To build the main executable and its crates, run:
+You can now build the project:
 ```bash
 make build
 ```
 
-### Test
-Note: To execute EF tests, the test fixtures are required. To download them, run:
-```bash
-make download-test-vectors
-```
-
-To run the tests from a crate, run:
-```bash
-make test CRATE=<crate>
-```
-
-Or just run all the tests:
+### Testing
+For testing, we're using the following.
+##### Ethereum Foundation Tests
+These are the official execution spec tests, tests that should be implementation agnostic, you can run them like this:
 ```bash
 make test
 ```
+This will previously download it from the [official execution spec tests repo][https://github.com/ethereum/execution-spec-tests/] and run them with our glue code
+under [cancun.rs][./cmd/ef_tests/tests/cancun.rs].
 
-### Run
+##### Crate Specific Tests
+The second kind are each crate tests, you can run it like this:
+```bash
+make test CRATE=<crate>
+```
+##### Hive Tests
+Finally, we have End-to-End tests with hive.
+Hive is a system which simply sends RPC commands to our node,
+and expects a certain response. You can read more about it [here][https://github.com/ethereum/hive/blob/master/docs/overview.md].
+And you can run this set of tests with:
+```bash
+make run-hive-debug ethereum/rpc-compat
+```
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `make` target. Make sure to fetch it like follows:
+### Run locally
+
+To run a localnet, we'll use our fork of [ethPandaOps' Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `make` target. Make sure to fetch it like follows:
 
 ```bash
 make checkout-ethereum-package
 ```
 
-Let's now install kurtosis:
+If you haven't yet, install Kurtosis:
 
 ```bash
 # Make sure to have docker installed
@@ -77,14 +89,14 @@ brew install kurtosis-tech/tap/kurtosis-cli
 ```
 
 To run the localnet:
-
 ```bash
 # Ethereum package is included in the repo as a make target.
 make localnet
 ```
+Here, we setup kurtosis and make it run with our node inside a docker file.
+The config in charge of doing this is in [network_params.yml][./test_data/network_params.yaml]
 
 To stop the localnet:
-
 ```bash
 make stop-localnet
 ```
@@ -96,10 +108,9 @@ cargo run --bin ethereum_rust -- --network test_data/genesis-kurtosis.json
 The `network` argument is mandatory, as it defines the parameters of the chain.
 For more information about the different cli arguments check out the next section.
 
-### CLI Documentation
+### CLI Commands
 
 Ethereum Rust supports the following command line arguments:
-
 * `--network <FILE>`: Receives a `Genesis` struct in json format. This is the only argument which is required. You can look at some example genesis files at `test_data/genesis*`.
 * `--datadir <DIRECTORY>`: Receives the name of the directory where the Database is located.
 * `--import <FILE>`: Receives an rlp encoded `Chain` object (aka a list of `Block`s). You can look at the example chain file at `test_data/chain.rlp`.
