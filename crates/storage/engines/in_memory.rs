@@ -78,11 +78,7 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
-            .headers
-            .insert(block_hash, block_header);
+        self.inner().headers.insert(block_hash, block_header);
         Ok(())
     }
 
@@ -100,22 +96,12 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
         block_number: BlockNumber,
     ) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
-            .block_numbers
-            .insert(block_hash, block_number);
+        self.inner().block_numbers.insert(block_hash, block_number);
         Ok(())
     }
 
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
-        Ok(self
-            .0
-            .lock()
-            .unwrap()
-            .block_numbers
-            .get(&block_hash)
-            .copied())
+        Ok(self.inner().block_numbers.get(&block_hash).copied())
     }
 
     fn add_transaction_location(
@@ -125,9 +111,7 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
+        self.inner()
             .transaction_locations
             .entry(transaction_hash)
             .or_default()
@@ -155,11 +139,7 @@ impl StoreEngine for Store {
         hash: H256,
         transaction: Transaction,
     ) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
-            .transaction_pool
-            .insert(hash, transaction);
+        self.inner().transaction_pool.insert(hash, transaction);
         Ok(())
     }
 
@@ -202,13 +182,7 @@ impl StoreEngine for Store {
     }
 
     fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
-        Ok(self
-            .0
-            .lock()
-            .unwrap()
-            .account_codes
-            .get(&code_hash)
-            .cloned())
+        Ok(self.inner().account_codes.get(&code_hash).cloned())
     }
 
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
@@ -222,9 +196,7 @@ impl StoreEngine for Store {
     }
 
     fn update_earliest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
+        self.inner()
             .chain_data
             .earliest_block_number
             .replace(block_number);
@@ -236,9 +208,7 @@ impl StoreEngine for Store {
     }
 
     fn update_finalized_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
+        self.inner()
             .chain_data
             .finalized_block_number
             .replace(block_number);
@@ -250,9 +220,7 @@ impl StoreEngine for Store {
     }
 
     fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
+        self.inner()
             .chain_data
             .safe_block_number
             .replace(block_number);
@@ -264,9 +232,7 @@ impl StoreEngine for Store {
     }
 
     fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
+        self.inner()
             .chain_data
             .latest_block_number
             .replace(block_number);
@@ -278,9 +244,7 @@ impl StoreEngine for Store {
     }
 
     fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.0
-            .lock()
-            .unwrap()
+        self.inner()
             .chain_data
             .pending_block_number
             .replace(block_number);
