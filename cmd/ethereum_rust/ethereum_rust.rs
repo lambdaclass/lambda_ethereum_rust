@@ -131,7 +131,7 @@ async fn main() {
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            info!("Server shutting down!");
+            info!("Server shut down!");
             return;
         }
     }
