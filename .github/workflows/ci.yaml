@@ -62,6 +62,17 @@ jobs:
         run: |
           make test
 
+      - name: Server shuts-down with SIGINT received.
+        run: |
+          cargo run --profile=test -- --network=test_data/genesis-execution-api.json &
+          sleep 3
+          pkill -INT ethereum_rust
+          sleep 3
+          pgrep -f ethereum_rust
+          test $? -eq 1
+          $?
+
+
   docker-build:
     name: Build Docker image
     runs-on: ubuntu-latest
