@@ -582,6 +582,47 @@ impl Store {
                 .open_storage_trie(address, storage_root),
         ))
     }
+
+    pub fn get_account_state(
+        &self,
+        block_number: BlockNumber,
+        address: Address,
+    ) -> Result<Option<AccountState>, StoreError> {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+            return Ok(None);
+        };
+        let hashed_address = hash_address(&address);
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        Ok(Some(AccountState::decode(&encoded_state)?))
+    }
+
+    pub fn get_account_proof(
+        &self,
+        block_number: BlockNumber,
+        address: &Address,
+    ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+            return Ok(None);
+        };
+        Some(state_trie.get_proof(&hash_address(address))).transpose()
+    }
+
+    /// Constructs a merkle proof for the given storage_key in a storage_trie with a known root
+    pub fn get_storage_proof(
+        &self,
+        address: Address,
+        storage_root: H256,
+        storage_key: &H256,
+    ) -> Result<Vec<Vec<u8>>, StoreError> {
+        let trie = self
+            .engine
+            .lock()
+            .unwrap()
+            .open_storage_trie(address, storage_root);
+        trie.get_proof(&hash_key(storage_key))
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {
