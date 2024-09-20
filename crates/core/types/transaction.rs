@@ -22,7 +22,7 @@ pub enum Transaction {
     EIP4844Transaction(EIP4844Transaction),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct LegacyTransaction {
     pub nonce: u64,
     pub gas_price: u64,
@@ -37,7 +37,7 @@ pub struct LegacyTransaction {
     pub s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP2930Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -52,7 +52,7 @@ pub struct EIP2930Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -157,9 +157,10 @@ impl RLPDecode for Transaction {
 }
 
 /// The transaction's kind: call or create.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum TxKind {
     Call(Address),
+    #[default]
     Create,
 }
 

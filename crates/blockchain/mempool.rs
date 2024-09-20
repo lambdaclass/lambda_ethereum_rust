@@ -1,7 +1,7 @@
 use crate::error::MempoolError;
 use ethereum_rust_core::{
     types::{BlockHeader, ChainConfig, Transaction},
-    H256, U256,
+    H256,
 };
 use ethereum_rust_storage::Store;
 
@@ -194,4 +194,391 @@ fn transaction_intrinsic_gas(
         .ok_or(MempoolError::TxGasOverflowError)?;
 
     Ok(gas)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::MempoolError;
+    use crate::mempool::{
+        MAX_INITCODE_SIZE, TX_ACCESS_LIST_ADDRESS_GAS, TX_ACCESS_LIST_STORAGE_KEY_GAS,
+        TX_CREATE_GAS_COST, TX_DATA_NON_ZERO_GAS, TX_DATA_NON_ZERO_GAS_EIP2028,
+        TX_DATA_ZERO_GAS_COST, TX_GAS_COST, TX_INIT_CODE_WORD_GAS_COST,
+    };
+
+    use super::{
+        add_transaction, get_transaction, transaction_intrinsic_gas, validate_transaction,
+    };
+    use ethereum_rust_core::types::{
+        BlockHeader, ChainConfig, EIP1559Transaction, Transaction, TxKind,
+    };
+    use ethereum_rust_core::{Address, Bytes, H256, U256};
+    use ethereum_rust_storage::EngineType;
+    use ethereum_rust_storage::{error::StoreError, Store};
+
+    fn setup_storage(config: ChainConfig, header: BlockHeader) -> Result<Store, StoreError> {
+        let store = Store::new("test", EngineType::InMemory)?;
+        let block_number = header.number;
+        let block_hash = header.compute_block_hash();
+        store.add_block_header(block_hash, header)?;
+        store.set_canonical_block(block_number, block_hash)?;
+        store.update_latest_block_number(block_number)?;
+        store.set_chain_config(&config)?;
+
+        Ok(store)
+    }
+
+    fn tx_equal(t1: Transaction, t2: Transaction) -> bool {
+        t1.nonce() == t2.nonce()
+            && t1.max_priority_fee().unwrap_or_default()
+                == t2.max_priority_fee().unwrap_or_default()
+            && t1.max_fee_per_gas().unwrap_or_default() == t2.max_fee_per_gas().unwrap_or_default()
+            && t1.gas_limit() == t2.gas_limit()
+            && t1.value() == t2.value()
+            && *t1.data() == *t2.data()
+    }
+
+    fn build_basic_config_and_header(
+        istanbul_active: bool,
+        shanghai_active: bool,
+    ) -> (ChainConfig, BlockHeader) {
+        let config = ChainConfig {
+            shanghai_time: Some(if shanghai_active { 1 } else { 10 }),
+            istanbul_block: Some(if istanbul_active { 1 } else { 10 }),
+            ..Default::default()
+        };
+
+        let header = BlockHeader {
+            number: 5,
+            timestamp: 5,
+            gas_limit: 100_000_000,
+            gas_used: 0,
+            ..Default::default()
+        };
+
+        (config, header)
+    }
+
+    #[test]
+    fn store_and_fetch_transaction_happy_path() {
+        let config = ChainConfig {
+            shanghai_time: Some(10),
+            ..Default::default()
+        };
+
+        let header = BlockHeader {
+            number: 123,
+            gas_limit: 30_000_000,
+            gas_used: 0,
+            timestamp: 20,
+            ..Default::default()
+        };
+
+        let store = setup_storage(config, header).expect("Setup failed: ");
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Call(Address::zero()),
+            value: U256::zero(),
+            data: Bytes::default(),
+            access_list: Default::default(),
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let hash = add_transaction(tx.clone(), store.clone()).expect("Add transaction");
+        let ret_tx = get_transaction(hash, store)
+            .map_err(|e| {
+                println!("Explodes here: {e}");
+                e
+            })
+            .expect("Get transaction");
+        assert!(ret_tx.is_some());
+        let ret_tx = ret_tx.unwrap();
+        assert!(tx_equal(tx, ret_tx))
+    }
+
+    #[test]
+    fn normal_transaction_intrinsic_gas() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::default(),            // No data
+            access_list: Default::default(),   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost = TX_GAS_COST;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn create_transaction_intrinsic_gas() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Create,              // Create tx
+            value: U256::zero(),             // Value zero
+            data: Bytes::default(),          // No data
+            access_list: Default::default(), // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost = TX_CREATE_GAS_COST;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn transaction_intrinsic_data_gas_pre_istanbul() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::from(vec![0x0, 0x1, 0x1, 0x0, 0x1, 0x1]), // 6 bytes of data
+            access_list: Default::default(),   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost = TX_GAS_COST + 2 * TX_DATA_ZERO_GAS_COST + 4 * TX_DATA_NON_ZERO_GAS;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn transaction_intrinsic_data_gas_post_istanbul() {
+        let (config, header) = build_basic_config_and_header(true, false);
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::from(vec![0x0, 0x1, 0x1, 0x0, 0x1, 0x1]), // 6 bytes of data
+            access_list: Default::default(),   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost =
+            TX_GAS_COST + 2 * TX_DATA_ZERO_GAS_COST + 4 * TX_DATA_NON_ZERO_GAS_EIP2028;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn transaction_create_intrinsic_gas_pre_shanghai() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let n_words: u64 = 10;
+        let n_bytes: u64 = 32 * n_words - 3; // Test word rounding
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Create,                                // Create tx
+            value: U256::zero(),                               // Value zero
+            data: Bytes::from(vec![0x1_u8; n_bytes as usize]), // Bytecode data
+            access_list: Default::default(),                   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost = TX_CREATE_GAS_COST + n_bytes * TX_DATA_NON_ZERO_GAS;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn transaction_create_intrinsic_gas_post_shanghai() {
+        let (config, header) = build_basic_config_and_header(false, true);
+
+        let n_words: u64 = 10;
+        let n_bytes: u64 = 32 * n_words - 3; // Test word rounding
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Create,                                // Create tx
+            value: U256::zero(),                               // Value zero
+            data: Bytes::from(vec![0x1_u8; n_bytes as usize]), // Bytecode data
+            access_list: Default::default(),                   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost = TX_CREATE_GAS_COST
+            + n_bytes * TX_DATA_NON_ZERO_GAS
+            + n_words * TX_INIT_CODE_WORD_GAS_COST;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn transaction_intrinsic_gas_access_list() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let access_list = vec![
+            (Address::zero(), vec![H256::default(); 10]),
+            (Address::zero(), vec![]),
+            (Address::zero(), vec![H256::default(); 5]),
+        ];
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::default(),            // No data
+            access_list,
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let expected_gas_cost =
+            TX_GAS_COST + 3 * TX_ACCESS_LIST_ADDRESS_GAS + 15 * TX_ACCESS_LIST_STORAGE_KEY_GAS;
+        let intrinsic_gas =
+            transaction_intrinsic_gas(&tx, &header, &config).expect("Intrinsic gas");
+        assert_eq!(intrinsic_gas, expected_gas_cost);
+    }
+
+    #[test]
+    fn transaction_with_big_init_code_in_shanghai_fails() {
+        let (config, header) = build_basic_config_and_header(false, true);
+
+        let store = setup_storage(config, header).expect("Storage setup");
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 99_000_000,
+            to: TxKind::Create,                                  // Create tx
+            value: U256::zero(),                                 // Value zero
+            data: Bytes::from(vec![0x1; MAX_INITCODE_SIZE + 1]), // Large init code
+            access_list: Default::default(),                     // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let validation = validate_transaction(&tx, store);
+        assert!(matches!(
+            validation,
+            Err(MempoolError::TxMaxInitCodeSizeError)
+        ));
+    }
+
+    #[test]
+    fn transaction_with_gas_limit_higher_than_of_the_block_should_fail() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let store = setup_storage(config, header).expect("Storage setup");
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: 100_000_001,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::default(),            // No data
+            access_list: Default::default(),   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let validation = validate_transaction(&tx, store);
+        assert!(matches!(
+            validation,
+            Err(MempoolError::TxGasLimitExceededError)
+        ));
+    }
+
+    #[test]
+    fn transaction_with_priority_fee_higher_than_gas_fee_should_fail() {
+        let (config, header) = build_basic_config_and_header(false, false);
+
+        let store = setup_storage(config, header).expect("Storage setup");
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 101,
+            max_fee_per_gas: 100,
+            gas_limit: 50_000_000,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::default(),            // No data
+            access_list: Default::default(),   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let validation = validate_transaction(&tx, store);
+        assert!(matches!(
+            validation,
+            Err(MempoolError::TxTipAboveFeeCapError)
+        ));
+    }
+
+    #[test]
+    fn transaction_with_gas_limit_lower_than_intrinsic_gas_should_fail() {
+        let (config, header) = build_basic_config_and_header(false, false);
+        let store = setup_storage(config, header).expect("Storage setup");
+
+        let intrinsic_gas_cost = TX_GAS_COST;
+
+        let tx = EIP1559Transaction {
+            nonce: 3,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 0,
+            gas_limit: intrinsic_gas_cost - 1,
+            to: TxKind::Call(Address::zero()), // Normal tx
+            value: U256::zero(),               // Value zero
+            data: Bytes::default(),            // No data
+            access_list: Default::default(),   // No access list
+            ..Default::default()
+        };
+
+        let tx = Transaction::EIP1559Transaction(tx);
+        let validation = validate_transaction(&tx, store);
+        assert!(matches!(
+            validation,
+            Err(MempoolError::TxIntrinsicGasCostAboveLimitError)
+        ));
+    }
 }
