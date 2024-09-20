@@ -312,7 +312,7 @@ async fn peers_revalidation(
         // first check that the peers we ping have responded
         for node_id in previously_pinged_peers.iter() {
             let mut table = table.lock().await;
-            let peer = table.get_by_node_id_mut(node_id.clone()).unwrap();
+            let peer = table.get_by_node_id_mut(*node_id).unwrap();
 
             if let Some(has_answered) = peer.revalidation {
                 if has_answered {
@@ -323,7 +323,7 @@ async fn peers_revalidation(
             }
 
             if peer.liveness == 0 {
-                let new_peer = table.replace_peer(node_id.clone());
+                let new_peer = table.replace_peer(*node_id);
                 if let Some(new_peer) = new_peer {
                     let ping_hash = ping(
                         &udp_socket,

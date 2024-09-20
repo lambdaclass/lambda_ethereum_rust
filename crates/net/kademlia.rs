@@ -36,10 +36,6 @@ impl KademliaTable {
         &self.buckets
     }
 
-    pub fn buckets_mut(&mut self) -> &mut Vec<Bucket> {
-        &mut self.buckets
-    }
-
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
         let bucket = &self.buckets[bucket_number(node_id, self.local_node_id)];
         bucket
