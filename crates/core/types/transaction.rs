@@ -68,7 +68,7 @@ pub struct EIP1559Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP4844Transaction {
     pub chain_id: u64,
     pub nonce: u64,

@@ -51,4 +51,6 @@ pub enum MempoolError {
     TxTipAboveFeeCapError,
     #[error("Transaction intrinsic gas cost above gas limit")]
     TxIntrinsicGasCostAboveLimitError,
+    #[error("Transaction blob base fee too low")]
+    TxBlobBaseFeeTooLowError,
 }
