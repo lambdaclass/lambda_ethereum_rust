@@ -9,6 +9,7 @@ mod error;
 #[cfg(test)]
 mod test_utils;
 
+use db::in_memory::SimplifiedInMemoryTrieDB;
 use ethereum_rust_core::rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
@@ -151,6 +152,21 @@ impl Trie {
             .expect("inconsistent tree structure");
         root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
         Ok(node_path)
+    }
+
+    /// Builds an in-memory trie from the given elements and returns its hash
+    pub fn compute_hash_from_unsorted_iter(iter: impl Iterator<Item = (PathRLP, ValueRLP)>) -> Result<H256, TrieError> {
+        // TODO: See if we can replace it with NullTrieDB as we will only be using the cache
+        let trie_db = SimplifiedInMemoryTrieDB::default();
+        let mut trie = Trie::new(Box::new(trie_db));
+        for (path, value) in iter {
+            trie.insert(path, value)?;
+        }
+        Ok(trie
+            .root
+            .as_ref()
+            .map(|root| root.clone().finalize())
+            .unwrap_or(*EMPTY_TRIE_HASH))
     }
 
     #[cfg(test)]
