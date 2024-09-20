@@ -19,10 +19,17 @@ We believe this approach is the best way to build a client that is both fast and
 
 ## Quick Start
 ![Demo][./demo.png]
-You'll need docker, docker compose and rust 1.81, simply run:
+You'll need docker, docker compose and rust 1.81.
+### Mac
+```shell
+brew install kurtosis-tech/tap/kurtosis-cli && make
+```
+### Linux
+[Install kurtosis][https://docs.kurtosis.com/install/#ii-install-the-cli] and run:
 ```shell
 make
 ```
+
 This will:
 - Start [ethereum package][https://github.com/ethpandaops/ethereum-package], a private testnet on which multiple ethereum clients can interact.
 - Start our execution client, and make it interact with the others.
