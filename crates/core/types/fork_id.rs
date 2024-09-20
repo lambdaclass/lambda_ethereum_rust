@@ -15,7 +15,7 @@ use super::BlockHash;
 
 #[derive(Debug)]
 pub struct ForkId {
-    pub fork_hash: H32,
+    fork_hash: H32,
     fork_next: BlockNumber,
 }
 

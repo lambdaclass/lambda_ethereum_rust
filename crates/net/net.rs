@@ -519,8 +519,6 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
 
     info!("Completed Hello roundtrip!");
 
-    // Receive and send the same status msg.
-    // TODO: calculate status msg instead
     let received_status = conn.receive().await;
     debug!("Received RLPxMessage: {:?}", received_status);
     if let RLPxMessage::Status(_received) = received_status {
