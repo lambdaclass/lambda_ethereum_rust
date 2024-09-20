@@ -51,9 +51,8 @@ ETHEREUM_PACKAGE_REVISION := c7952d75d72159d03aec423b46797df2ded11f99
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
-ETHEREUM_PACKAGE_SHALLOW_SINCE := 2024-08-23
 ethereum-package:
-	git clone --single-branch --branch ethereum-rust-integration --shallow-since=$(ETHEREUM_PACKAGE_SHALLOW_SINCE) https://github.com/lambdaclass/ethereum-package
+	git clone --single-branch --branch ethereum-rust-integration https://github.com/lambdaclass/ethereum-package
 
 checkout-ethereum-package: ethereum-package
 	cd ethereum-package && \
