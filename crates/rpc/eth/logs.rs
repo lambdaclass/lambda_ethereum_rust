@@ -39,7 +39,7 @@ impl RpcHandler for LogsRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let param = param.as_object().ok_or_else(|| RpcErr::BadParams)?;
+                let param = param.as_object().ok_or(RpcErr::BadParams)?;
                 let from_block = {
                     if let Some(param) = param.get("fromBlock") {
                         BlockIdentifier::parse(param.clone(), 0)?
@@ -142,35 +142,38 @@ impl RpcHandler for LogsRequest {
         // Now that we have the logs filtered by address,
         // we still need to filter by topics if it was a given parameter.
 
-        let filtered_logs = logs
-            .into_iter()
-            .filter(|rpc_log| {
-                if self.topics.len() > rpc_log.log.topics.len() {
-                    return false;
-                }
-                for (i, topic_filter) in self.topics.iter().enumerate() {
-                    match topic_filter {
-                        TopicFilter::Topic(t) => {
-                            if let Some(topic) = t {
-                                if rpc_log.log.topics[i] != *topic {
+        let filtered_logs = match self.topics.len() {
+            0 => logs,
+            _ => logs
+                .into_iter()
+                .filter(|rpc_log| {
+                    if self.topics.len() > rpc_log.log.topics.len() {
+                        return false;
+                    }
+                    for (i, topic_filter) in self.topics.iter().enumerate() {
+                        match topic_filter {
+                            TopicFilter::Topic(t) => {
+                                if let Some(topic) = t {
+                                    if rpc_log.log.topics[i] != *topic {
+                                        return false;
+                                    }
+                                }
+                            }
+                            TopicFilter::Topics(sub_topics) => {
+                                if !sub_topics.is_empty()
+                                    && !sub_topics
+                                        .iter()
+                                        .any(|st| st.map_or(true, |t| rpc_log.log.topics[i] == t))
+                                {
                                     return false;
                                 }
                             }
                         }
-                        TopicFilter::Topics(sub_topics) => {
-                            if !sub_topics.is_empty()
-                                && !sub_topics
-                                    .iter()
-                                    .any(|st| st.map_or(true, |t| rpc_log.log.topics[i] == t))
-                            {
-                                return false;
-                            }
-                        }
                     }
-                }
-                true
-            })
-            .collect::<Vec<RpcLog>>();
+                    true
+                })
+                .collect::<Vec<RpcLog>>(),
+        };
 
         serde_json::to_value(filtered_logs).map_err(|_| RpcErr::Internal)
     }
