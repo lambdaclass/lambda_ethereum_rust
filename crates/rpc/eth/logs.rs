@@ -6,7 +6,7 @@ use ethereum_rust_core::{H160, H256};
 use ethereum_rust_storage::Store;
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum AddressFilter {
@@ -89,10 +89,10 @@ impl RpcHandler for LogsRequest {
             return Err(RpcErr::WrongParam("toBlock".to_string()));
         };
 
-        let address_filter: BTreeSet<_> = match &self.address_filters {
+        let address_filter: HashSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
             Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
-            None => BTreeSet::new(),
+            None => HashSet::new(),
         };
 
         let mut logs: Vec<RpcLog> = Vec::new();
