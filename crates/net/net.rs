@@ -766,7 +766,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
     }
 
     // TODO: implement listen loop instead
-    info!("Sending Ping RLPxMessage");
+    debug!("Sending Ping RLPxMessage");
     // Send Ping
     conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
 
