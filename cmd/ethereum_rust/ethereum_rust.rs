@@ -12,7 +12,7 @@ use std::{
     io,
     net::{SocketAddr, ToSocketAddrs},
 };
-use tokio::try_join;
+use tokio_util::task::TaskTracker;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 mod cli;
@@ -112,19 +112,22 @@ async fn main() {
         node_id: local_node_id,
     };
 
-    let manager = TaskTracker::new();
+    // TODO: Check every module starts properly.
+    let tracer = TaskTracker::new();
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
         store,
         jwt_secret,
         local_p2p_node,
-    ).into_future();
+    )
+    .into_future();
     let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer).into_future();
+        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer)
+            .into_future();
 
-    manager.spawn(rpc_api);
-    manager.spawn(networking);
+    tracer.spawn(rpc_api);
+    tracer.spawn(networking);
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
