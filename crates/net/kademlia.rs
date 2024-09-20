@@ -312,7 +312,7 @@ impl PeerData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{node_id_from_signing_key, PROOF_EXPIRATION_IN_HS};
+    use crate::node_id_from_signing_key;
     use hex_literal::hex;
     use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
     use std::{
