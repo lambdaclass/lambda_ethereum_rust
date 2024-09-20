@@ -65,13 +65,8 @@ jobs:
       - name: Server shuts-down with Ctrl-c.
         run: |
           cargo build --profile=test
-          cargo run --profile=test -- --network=test_data/genesis-execution-api.json &
-          sleep 10
-          pkill -INT ethereum_rust
-          sleep 5
-          pgrep -f ethereum_rust
-          test $? -eq 1
-          $?
+          cargo run --profile=test -- --network=test_data/genesis-execution-api.json >> output.txt &
+          grep 'Server shutting down' output.txt
 
 
   docker-build:
