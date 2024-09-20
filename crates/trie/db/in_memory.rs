@@ -1,8 +1,10 @@
-use std::{
-    cell::RefCell, collections::HashMap, sync::{Arc, Mutex}
-};
 use super::TrieDB;
 use crate::error::TrieError;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 /// InMemory implementation for the TrieDB trait, with get and put operations.
 pub struct InMemoryTrieDB {

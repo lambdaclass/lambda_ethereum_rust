@@ -2,18 +2,18 @@ use super::{
     BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
     GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
 };
-use ethereum_rust_rlp::{
-    decode::RLPDecode, encode::RLPEncode, error::RLPDecodeError, structs::{Decoder, Encoder}
-};
-use crate::{
-    types::Receipt,
-    Address, H256, U256,
-};
+use crate::{types::Receipt, Address, H256, U256};
 use bytes::Bytes;
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
+use ethereum_rust_trie::Trie;
 use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
-use sha3::Keccak256;
 
 use std::cmp::{max, Ordering};
 
@@ -202,37 +202,30 @@ impl BlockBody {
 }
 
 pub fn compute_transactions_root(transactions: &[Transaction]) -> H256 {
-    let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-    for (idx, tx) in transactions.iter().enumerate() {
+    let iter = transactions.iter().enumerate().map(|(idx, tx)| {
         // Key: RLP(tx_index)
         // Value: tx_type || RLP(tx)  if tx_type != 0
         //                   RLP(tx)  else
-        trie.insert(idx.encode_to_vec(), tx.encode_canonical_to_vec());
-    }
-    let &root = trie.compute_hash();
-    H256(root.into())
+        (idx.encode_to_vec(), tx.encode_canonical_to_vec())
+    });
+    Trie::compute_hash_from_unsorted_iter(iter)
 }
 
 pub fn compute_receipts_root(receipts: &[Receipt]) -> H256 {
-    let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-    for (idx, receipt) in receipts.iter().enumerate() {
-        // Key: RLP(index)
-        // Value: tx_type || RLP(receipt)  if tx_type != 0
-        //                   RLP(receipt)  else
-        trie.insert(idx.encode_to_vec(), receipt.encode_to_vec());
-    }
-    let &root = trie.compute_hash();
-    H256(root.into())
+    let iter = receipts
+        .iter()
+        .enumerate()
+        .map(|(idx, receipt)| (idx.encode_to_vec(), receipt.encode_to_vec()));
+    Trie::compute_hash_from_unsorted_iter(iter)
 }
 
 // See [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895)
 pub fn compute_withdrawals_root(withdrawals: &[Withdrawal]) -> H256 {
-    let mut trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-    for (idx, withdrawal) in withdrawals.iter().enumerate() {
-        trie.insert(idx.encode_to_vec(), withdrawal.encode_to_vec());
-    }
-    let &root = trie.compute_hash();
-    H256(root.into())
+    let iter = withdrawals
+        .iter()
+        .enumerate()
+        .map(|(idx, withdrawal)| (idx.encode_to_vec(), withdrawal.encode_to_vec()));
+    Trie::compute_hash_from_unsorted_iter(iter)
 }
 
 impl RLPEncode for BlockBody {

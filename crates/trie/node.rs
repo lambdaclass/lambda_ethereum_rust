@@ -38,11 +38,7 @@ impl From<LeafNode> for Node {
 
 impl Node {
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(
-        &self,
-        state: &TrieState,
-        path: NibbleSlice,
-    ) -> Result<Option<ValueRLP>, TrieError> {
+    pub fn get(&self, state: &TrieState, path: NibbleSlice) -> Result<Option<ValueRLP>, TrieError> {
         match self {
             Node::Branch(n) => n.get(state, path),
             Node::Extension(n) => n.get(state, path),

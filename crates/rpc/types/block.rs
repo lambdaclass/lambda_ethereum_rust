@@ -1,10 +1,10 @@
 use super::transaction::RpcTransaction;
 use ethereum_rust_core::{
-    rlp::encode::RLPEncode,
     serde_utils,
     types::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Withdrawal},
     H256,
 };
+use ethereum_rust_rlp::encode::RLPEncode;
 
 use serde::Serialize;
 

@@ -1,6 +1,6 @@
 use bytes::Bytes;
+use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, Bloom, H256, U256};
-use patricia_merkle_tree::PatriciaMerkleTree;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
@@ -187,25 +187,23 @@ impl Genesis {
     }
 
     pub fn compute_state_root(&self) -> H256 {
-        let mut state_trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-
-        let to_trie_input = |(address, account)| -> (Vec<u8>, Vec<u8>) {
-            let info = AccountInfo {
-                code_hash: code_hash(&account.code),
-                balance: account.balance,
-                nonce: account.nonce,
+        let to_trie_input =
+            |(address, account): (&Address, &GenesisAccount)| -> (Vec<u8>, Vec<u8>) {
+                let info = AccountInfo {
+                    code_hash: code_hash(&account.code),
+                    balance: account.balance,
+                    nonce: account.nonce,
+                };
+                (
+                    Keccak256::new_with_prefix(address.to_fixed_bytes())
+                        .finalize()
+                        .to_vec(),
+                    AccountState::from_info_and_storage(&info, &account.storage).encode_to_vec(),
+                )
             };
-            (Keccak256::new_with_prefix(address.to_fixed_bytes())
-            .finalize()
-            .to_vec(),
-            AccountState::from_info_and_storage(&info, &account.storage).encode_to_vec()
-        )
-
-        };
 
         let iter = self.alloc.iter().map(to_trie_input);
-
-        
+        Trie::compute_hash_from_unsorted_iter(iter)
     }
 }
 

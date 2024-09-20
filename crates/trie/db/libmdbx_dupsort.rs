@@ -44,10 +44,7 @@ where
     }
 
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> Result<(), TrieError> {
-        let txn = self
-            .db
-            .begin_readwrite()
-            .map_err(TrieError::LibmdbxError)?;
+        let txn = self.db.begin_readwrite().map_err(TrieError::LibmdbxError)?;
         txn.upsert::<T>(
             (self.fixed_key.clone(), node_hash_to_fixed_size(key)),
             value,

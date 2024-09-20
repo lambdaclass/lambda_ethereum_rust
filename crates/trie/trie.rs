@@ -1,23 +1,24 @@
 mod db;
+mod error;
 mod nibble;
 mod node;
 mod node_hash;
 mod rlp;
 mod state;
-mod error;
 
 #[cfg(test)]
 mod test_utils;
 
 use db::in_memory::SimplifiedInMemoryTrieDB;
-use ethereum_rust_core::rlp::constants::RLP_NULL;
+use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-pub use self::db::{ TrieDB,
+pub use self::db::{
     in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
+    TrieDB,
 };
 pub use self::error::TrieError;
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
@@ -155,18 +156,20 @@ impl Trie {
     }
 
     /// Builds an in-memory trie from the given elements and returns its hash
-    pub fn compute_hash_from_unsorted_iter(iter: impl Iterator<Item = (PathRLP, ValueRLP)>) -> Result<H256, TrieError> {
+    pub fn compute_hash_from_unsorted_iter(
+        iter: impl Iterator<Item = (PathRLP, ValueRLP)>,
+    ) -> H256 {
         // TODO: See if we can replace it with NullTrieDB as we will only be using the cache
         let trie_db = SimplifiedInMemoryTrieDB::default();
         let mut trie = Trie::new(Box::new(trie_db));
         for (path, value) in iter {
-            trie.insert(path, value)?;
+            // Unwraping here won't panic as our in_memory trie DB won't fails
+            trie.insert(path, value).unwrap();
         }
-        Ok(trie
-            .root
+        trie.root
             .as_ref()
             .map(|root| root.clone().finalize())
-            .unwrap_or(*EMPTY_TRIE_HASH))
+            .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
     #[cfg(test)]

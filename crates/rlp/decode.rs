@@ -3,7 +3,9 @@ use super::{
     error::RLPDecodeError,
 };
 use bytes::{Bytes, BytesMut};
-use ethereum_types::{Address, Bloom, Signature, H128, H160, H256, H264, H32, H512, H520, H64, U256};
+use ethereum_types::{
+    Address, Bloom, Signature, H128, H160, H256, H264, H32, H512, H520, H64, U256,
+};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.

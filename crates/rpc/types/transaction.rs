@@ -1,5 +1,4 @@
 use ethereum_rust_core::{
-    rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder},
     serde_utils,
     types::{
         BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction,
@@ -7,6 +6,7 @@ use ethereum_rust_core::{
     },
     Address, H256,
 };
+use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder};
 use serde::Serialize;
 
 #[allow(unused)]

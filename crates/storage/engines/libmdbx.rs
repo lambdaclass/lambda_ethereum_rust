@@ -6,11 +6,11 @@ use crate::rlp::{
 };
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_rust_core::rlp::decode::RLPDecode;
-use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};

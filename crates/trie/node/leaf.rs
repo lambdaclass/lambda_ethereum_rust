@@ -1,10 +1,10 @@
 use crate::{
     error::TrieError,
-        nibble::NibbleSlice,
-        node::BranchNode,
-        node_hash::{NodeEncoder, NodeHash, PathKind},
-        state::TrieState,
-        PathRLP, ValueRLP,
+    nibble::NibbleSlice,
+    node::BranchNode,
+    node_hash::{NodeEncoder, NodeHash, PathKind},
+    state::TrieState,
+    PathRLP, ValueRLP,
 };
 
 use super::{ExtensionNode, Node};

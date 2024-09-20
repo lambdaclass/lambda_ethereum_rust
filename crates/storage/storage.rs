@@ -5,12 +5,12 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
-use ethereum_rust_core::rlp::decode::RLPDecode;
-use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
     ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
@@ -641,10 +641,10 @@ mod tests {
 
     use bytes::Bytes;
     use ethereum_rust_core::{
-        rlp::decode::RLPDecode,
         types::{Transaction, TxType},
         Bloom,
     };
+    use ethereum_rust_rlp::decode::RLPDecode;
     use ethereum_types::{H256, U256};
 
     use super::*;
