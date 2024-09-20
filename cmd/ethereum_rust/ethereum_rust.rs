@@ -7,6 +7,7 @@ use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::future::IntoFuture;
+use std::time::Duration;
 use std::{
     fs::File,
     io,
@@ -131,7 +132,9 @@ async fn main() {
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
-            info!("Server shut down!");
+            info!("Server shut down started...");
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            info!("Server shutting down!");
             return;
         }
     }
