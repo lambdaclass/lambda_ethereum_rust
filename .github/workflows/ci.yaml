@@ -66,9 +66,9 @@ jobs:
         run: |
           cargo build --profile=test
           cargo run --profile=test -- --network=test_data/genesis-execution-api.json &
-          sleep 3
+          sleep 10
           pkill -INT ethereum_rust
-          sleep 3
+          sleep 5
           pgrep -f ethereum_rust
           test $? -eq 1
           $?
