@@ -128,11 +128,7 @@ impl Store {
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_block_header_by_hash(block_hash)
+        self.engine.clone().get_block_header_by_hash(block_hash)
     }
 
     pub fn add_block_body(
@@ -498,10 +494,7 @@ impl Store {
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockHash>, StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .get_canonical_block_hash(block_number)
+        self.engine.get_canonical_block_hash(block_number)
     }
 
     pub fn is_canonical(
@@ -509,12 +502,7 @@ impl Store {
         block_number: BlockNumber,
         block_hash: BlockHash,
     ) -> Result<bool, StoreError> {
-        match self
-            .engine
-            .lock()
-            .unwrap()
-            .get_canonical_block_hash(block_number)?
-        {
+        match self.engine.get_canonical_block_hash(block_number)? {
             Some(hash) if hash == block_hash => Ok(true),
             _ => Ok(false),
         }

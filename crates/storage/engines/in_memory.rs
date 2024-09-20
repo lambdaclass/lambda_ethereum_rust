@@ -304,7 +304,7 @@ impl StoreEngine for Store {
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockHash>, StoreError> {
-        Ok(self.canonical_hashes.get(&block_number).cloned())
+        Ok(self.inner().canonical_hashes.get(&block_number).cloned())
     }
 }
 
