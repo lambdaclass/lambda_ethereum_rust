@@ -77,6 +77,25 @@ You can also run the node using the standalone CLI:
 cargo run --bin ethereum_rust -- --network test_data/genesis-kurtosis.json
 ```
 The `network` argument is mandatory, as it defines the parameters of the chain.
+For more information about the different cli arguments check out the next section.
+
+### CLI Documentation
+
+Ethereum Rust supports the following command line arguments:
+
+* `--network <FILE>`: Receives a `Genesis` struct in json format. This is the only argument which is required. You can look at some example genesis files at `test_data/genesis*`.
+* `--datadir <DIRECTORY>`: Receives the name of the directory where the Database is located.
+* `--import <FILE>`: Receives an rlp encoded `Chain` object (aka a list of `Block`s). You can look at the example chain file at `test_data/chain.rlp`.
+* `--http.addr <ADDRESS>`: Listening address for the http rpc server. Default value: localhost.
+* `--http.port <PORT>`: Listening port for the http rpc server. Default value: 8545.
+* `--authrpc.addr <ADDRESS>`: Listening address for the authenticated rpc server. Default value: localhost.
+* `--authrpc.port <PORT>`: Listening port for the authenticated rpc server. Default value: 8551.
+* `--authrpc.jwtsecret <FILE>`: Receives the jwt secret used for authenticated rpc requests. Default value: jwt.hex.
+* `--p2p.addr <ADDRESS>`: Default value: 0.0.0.0.
+* `--p2p.port <PORT>`: Default value: 30303.
+* `--discovery.addr <ADDRESS>`: UDP address for P2P discovery. Default value: 0.0.0.0.
+* `--discovery.port <PORT>`: UDP port for P2P discovery. Default value: 30303.
+* `--bootnodes <BOOTNODE_LIST`: Comma separated enode URLs for P2P discovery bootstrap.
 
 ## Roadmap
 
