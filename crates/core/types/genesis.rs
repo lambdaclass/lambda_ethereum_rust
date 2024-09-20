@@ -9,7 +9,7 @@ use crate::rlp::encode::RLPEncode;
 
 use super::{
     code_hash, compute_receipts_root, compute_transactions_root, compute_withdrawals_root,
-    AccountInfo, AccountState, Block, BlockBody, BlockHeader, DEFAULT_OMMERS_HASH,
+    AccountInfo, AccountState, Block, BlockBody, BlockHeader, BlockNumber, DEFAULT_OMMERS_HASH,
     INITIAL_BASE_FEE,
 };
 
@@ -104,6 +104,10 @@ impl ChainConfig {
     pub fn is_cancun_activated(&self, block_timestamp: u64) -> bool {
         self.cancun_time
             .map_or(false, |time| time <= block_timestamp)
+    }
+
+    pub fn is_istanbul_activated(&self, block_number: BlockNumber) -> bool {
+        self.istanbul_block.map_or(false, |num| num <= block_number)
     }
 
     pub fn get_fork(&self, block_timestamp: u64) -> Fork {
