@@ -144,11 +144,11 @@ impl RLPDecode for AccountState {
 }
 
 pub fn compute_storage_root(storage: &HashMap<H256, U256>) -> H256 {
-    let iter = storage.iter().filter(|(_, v)| !v.is_zero()).map(|(k, v)| {
-        (
+    let iter = storage.iter().filter_map(|(k, v)| {
+        (!v.is_zero()).then_some((
             Keccak256::new_with_prefix(k).finalize().to_vec(),
             v.encode_to_vec(),
-        )
+        ))
     });
     Trie::compute_hash_from_unsorted_iter(iter)
 }
