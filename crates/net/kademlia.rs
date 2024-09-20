@@ -195,11 +195,16 @@ impl KademliaTable {
                 if peers.len() < limit {
                     peers.push(peer.clone());
                 } else {
-                    for other_peer in &mut peers {
-                        if peer.last_ping > other_peer.last_ping {
-                            *other_peer = peer.clone();
-                            break;
+                    // replace the most recent from the list
+                    let mut most_recent_index = 0;
+                    for (i, other_peer) in peers.iter().enumerate() {
+                        if other_peer.last_pong > peers[most_recent_index].last_pong {
+                            most_recent_index = i;
                         }
+                    }
+
+                    if peer.last_pong < peers[most_recent_index].last_pong {
+                        peers[most_recent_index] = peer.clone();
                     }
                 }
             }
