@@ -192,9 +192,7 @@ impl Genesis {
     pub fn compute_state_root(&self) -> H256 {
         let iter = self.alloc.iter().map(|(addr, account)| {
             (
-                Keccak256::new_with_prefix(addr.to_fixed_bytes())
-                    .finalize()
-                    .to_vec(),
+                Keccak256::digest(addr).to_vec(),
                 AccountState::from(account).encode_to_vec(),
             )
         });
