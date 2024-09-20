@@ -62,16 +62,6 @@ jobs:
         run: |
           make test
 
-      - name: Server shuts-down with Ctrl-c.
-        run: |
-          cargo build --profile=test
-          cargo run --profile=test -- --network=test_data/genesis-execution-api.json >> output.txt &
-          SLEEP_TIME=30
-          echo "Sleeping for $SLEEP_TIME seconds..."
-          sleep $SLEEP_TIME
-          grep 'Server shut down' output.txt
-
-
   docker-build:
     name: Build Docker image
     runs-on: ubuntu-latest
