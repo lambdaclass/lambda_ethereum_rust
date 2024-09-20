@@ -22,7 +22,6 @@ pub enum TopicFilter {
 }
 
 #[derive(Debug)]
-#[allow(non_snake_case)]
 pub struct LogsRequest {
     /// The oldest block from which to start
     /// retrieving logs.
