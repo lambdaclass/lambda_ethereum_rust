@@ -46,7 +46,7 @@ Before starting the server, we do a startup where we connect to an array of seed
 - Inserting them into our table
 - Pinging them to notify our presence, so they acknowledge us.
 
-This startup is far from being completed. The current state allows us to do basic tests and connections. Later, we want to do a real startup by first trying to connect to those nodes we were previously connected. For that, we'd need to store nodes on the database. If those nodes aren't enough to fill our table, then we also ping some bootnodes, which could be hardcoded or received through the cli. Current issues are opened regarding [startup](https://github.com/lambdaclass/ethereum_rust/issues/398) and [nodes db](DB_LINK).
+This startup is far from being completed. The current state allows us to do basic tests and connections. Later, we want to do a real startup by first trying to connect to those nodes we were previously connected. For that, we'd need to store nodes on the database. If those nodes aren't enough to fill our table, then we also ping some bootnodes, which could be hardcoded or received through the cli. Current issues are opened regarding [startup](https://github.com/lambdaclass/ethereum_rust/issues/398) and [nodes db](https://github.com/lambdaclass/ethereum_rust/issues/454).
 
 ### Listen loop
 
