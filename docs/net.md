@@ -52,8 +52,8 @@ This startup is far from being completed. The current state allows us to do basi
 
 The listen loop handles messages sent to our socket. The spec defines 6 types of messages:
 
-- **Ping**: Responds with a `pong` message. If the peer is not in our table we add him, though if already have it filled, then we add it as a replacement for that bucket. If it was inserted we send a `ping from our end to get an endpoint proof.
-- **Pong**: Verifies the `pong` corresponds to a previously sent `ping`, if so we mark the peer as proven..
+- **Ping**: Responds with a `pong` message. If the peer is not in our table we add it, if the corresponding bucket is already filled then we add it as a replacement for that bucket. If it was inserted we send a `ping from our end to get an endpoint proof.
+- **Pong**: Verifies that the `pong` corresponds to a previously sent `ping`, if so we mark the peer as proven.
 - **FindNodes**: Responds with a `neighbors` message that contains as many as the 16 closest nodes from the given target. A target is a pubkey provided by the peer in the message. The response can't be sent in one packet as it might exceed the discv4 max packet size. So we split it into different packets.
 - **Neighbors**: First we verify that we have sent the corresponding `find_node` message. If so, we receive the peers, store them, and ping them.
 - **ENRRequest**: currently not implemented see [here](https://github.com/lambdaclass/ethereum_rust/issues/432).
@@ -66,7 +66,7 @@ Re-validations are tasks that are implemented as intervals, that is: they run an
 1. Every 30 seconds (by default) we ping the three least recently pinged peers: this may be fine now to keep simplicity, but we might prefer to choose three random peers instead to avoid the search which might become expensive as our buckets start to fill with more peers.
 2. In the next iteration we check if they have answered
    - if they have: we increment the liveness field by one.
-   - otherwise: we decrement it by the livenes by / 3.
+   - otherwise: we decrement the liveness by a third of its value.
 3. If the liveness field is 0, we delete it and insert a new one from the replacements table.
 
 Liveness is a field that provides us with good criteria of which nodes are connected and we "trust" more. This trustiness is useful when deciding if we want to store this node in the database to use it as a future seeder or when establishing a connection in p2p.
@@ -123,4 +123,4 @@ Finally, with `node_c` we connect to `node_b`. When the lookup runs, `node_c` sh
 --authrpc.port=8553 --http.port=8547 --p2p.port=30308 --discovery.port=30310
 ```
 
-You could also spawn nodes from other clients and should work as well.
+You could also spawn nodes from other clients and it should work as well.
