@@ -55,7 +55,7 @@ The listen loop handles messages sent to our socket. The spec defines 6 types of
 - **Ping**: Responds with a `pong` message. If the peer is not in our table we add it, if the corresponding bucket is already filled then we add it as a replacement for that bucket. If it was inserted we send a `ping from our end to get an endpoint proof.
 - **Pong**: Verifies that the `pong` corresponds to a previously sent `ping`, if so we mark the peer as proven.
 - **FindNodes**: Responds with a `neighbors` message that contains as many as the 16 closest nodes from the given target. A target is a pubkey provided by the peer in the message. The response can't be sent in one packet as it might exceed the discv4 max packet size. So we split it into different packets.
-- **Neighbors**: First we verify that we have sent the corresponding `find_node` message. If so, we receive the peers, store them, and ping them.
+- **Neighbors**: First we verify that we have sent the corresponding `find_node` message. If so, we receive the peers, store them, and ping them. Also, every [`find_node` request](https://github.com/lambdaclass/ethereum_rust/blob/229ca0b316a79403412a917d04e3b95f579c56c7/crates/net/discv4.rs#L305-L314) may have a [tokio `Sender`](https://docs.rs/tokio/latest/tokio/sync/mpsc/struct.Sender.html) attached, if that is the case, we forward the nodes from the message through the channel. This becomes useful when waiting for a `find_node` response, [something we do in the lookups](https://github.com/lambdaclass/ethereum_rust/blob/229ca0b316a79403412a917d04e3b95f579c56c7/crates/net/net.rs#L517-L570).
 - **ENRRequest**: currently not implemented see [here](https://github.com/lambdaclass/ethereum_rust/issues/432).
 - **ENRResponse**: same as above.
 
