@@ -19,17 +19,7 @@ impl VM {
                     self.stack.push(a + b);
                 }
                 Opcode::PUSH32 => {
-                    let mut next_32_bytes = [0; 32];
-                    bytecode
-                        .iter()
-                        .skip(self.pc)
-                        .take(32)
-                        .rev()
-                        .enumerate()
-                        .for_each(|(i, byte)| {
-                            next_32_bytes[i] = *byte;
-                        });
-                    next_32_bytes.reverse();
+                    let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
                     dbg!(value_to_push);
                     self.stack.push(value_to_push);
@@ -45,12 +35,12 @@ impl VM {
         opcode
     }
 
-    fn increment_pc(&mut self) {
-        self.increment_pc_by(1);
+    fn increment_pc_by(&mut self, count: usize) {
+        self.pc += count;
     }
 
-    fn increment_pc_by(&mut self, n: usize) {
-        self.pc += n;
+    fn increment_pc(&mut self) {
+        self.increment_pc_by(1);
     }
 }
 
