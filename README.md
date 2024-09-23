@@ -22,7 +22,7 @@ We believe this approach is the best way to build a client that is both fast and
 
 ![Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/update-readme/Demo.png)
 
-You'll need docker, docker compose and rust 1.80
+You'll need docker, docker compose, clang and rust 1.80
 
 ### Mac
 
@@ -31,17 +31,24 @@ brew install kurtosis-tech/tap/kurtosis-cli && make
 ```
 
 ### Linux
-
-[Install kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli) and run:
-
+- [Install kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
 ```shell
 make
 ```
 
-This will:
 
-- Start [ethereum package](https://github.com/ethpandaops/ethereum-package), a private testnet on which multiple ethereum clients can interact.
-- Start our execution client, and make it interact with the others.
+The default make target will:
+1. Build our node inside a docker image.
+2. Fetch our fork [ethereum package](https://github.com/ethpandaops/ethereum-package), a private testnet on which multiple ethereum clients can interact.
+3. Start the localnet with kurtosis.
+
+If everything went well, you should be faced with our client's logs (ctrl-c to leave)
+
+To stop everything, simply run:
+```shell
+make stop-localnet
+```
+
 
 ## Dev Setup
 
