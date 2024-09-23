@@ -59,7 +59,7 @@ checkout-ethereum-package: ethereum-package
 		git fetch && \
 		git checkout $(ETHEREUM_PACKAGE_REVISION)
 
-localnet: build_image
+localnet: build_image stop-localnet-silent
 	kurtosis run --enclave lambdanet ethereum-package --args-file test_data/network_params.yaml
 
 stop-localnet:
