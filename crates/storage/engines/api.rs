@@ -5,7 +5,8 @@ use ethereum_rust_core::types::{
 use ethereum_types::{Address, H256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
 
-use crate::{error::StoreError, trie::Trie};
+use crate::error::StoreError;
+use ethereum_rust_trie::Trie;
 
 pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     /// Add block header

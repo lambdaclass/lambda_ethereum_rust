@@ -1,10 +1,10 @@
-use crate::rlp::{
+use bytes::Bytes;
+use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
-use bytes::Bytes;
 use ethereum_types::{Address, Bloom, BloomInput, H256};
 
 use super::TxType;
