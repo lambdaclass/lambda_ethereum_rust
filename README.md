@@ -39,7 +39,7 @@ make localnet
 ```
 
 
-The default make target will:
+This make target will:
 1. Build our node inside a docker image.
 2. Fetch our fork [ethereum package](https://github.com/ethpandaops/ethereum-package), a private testnet on which multiple ethereum clients can interact.
 3. Start the localnet with kurtosis.
