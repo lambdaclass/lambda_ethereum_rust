@@ -367,6 +367,10 @@ impl StoreEngine for Store {
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
         self.write::<CanonicalBlockHashes>(number, hash.into())
     }
+
+    fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError> {
+        Ok(self.read::<CanonicalBlockHashes>(number)?.map(|b| b.to()))
+    }
 }
 
 impl Debug for Store {

@@ -336,6 +336,10 @@ impl StoreEngine for Store {
         self.inner().canonical_hashes.insert(number, hash);
         Ok(())
     }
+
+    fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError> {
+        Ok(self.inner().canonical_hashes.get(&number).cloned())
+    }
 }
 
 impl Debug for Store {

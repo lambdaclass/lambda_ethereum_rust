@@ -564,6 +564,13 @@ impl Store {
         let trie = self.engine.open_storage_trie(address, storage_root);
         Ok(trie.get_proof(&hash_key(storage_key))?)
     }
+
+    pub fn get_canonical_block(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        self.engine.get_canonical_block(block_number)
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {

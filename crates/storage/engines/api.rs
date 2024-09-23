@@ -211,6 +211,9 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Used for internal store operations
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie;
 
-    // Get the canonical block hash for a given block number.
+    // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
+
+    // Get the canonical block hash for a given block number.
+    fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError>;
 }
