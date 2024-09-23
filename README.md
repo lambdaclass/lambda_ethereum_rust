@@ -27,7 +27,7 @@ You'll need docker, docker compose, clang and rust 1.80
 ### Mac
 
 ```shell
-brew install kurtosis-tech/tap/kurtosis-cli && make
+brew install kurtosis-tech/tap/kurtosis-cli && make localnet
 ```
 
 ### Linux
@@ -35,7 +35,7 @@ brew install kurtosis-tech/tap/kurtosis-cli && make
 - Make sure you have clang.
 - Make sure you have installed your distro's equivalent to (debian's build-essential package)[https://packages.debian.org/es/sid/build-essential]
 ```shell
-make
+make localnet
 ```
 
 
@@ -53,28 +53,32 @@ make stop-localnet
 
 
 ## Dev Setup
-
 ### Build
 
-To build the node, you will need the rust toolchain, which you can install from rustup:
-
+#### Rust
+To build the node, you will need the rust toolchain, plus a working clang: 
+1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html): 
+2. Add the rust plugin: 
 ```shell
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+asdf plugin-add rust https://github.com/asdf-community/asdf-rust.git
+```
+3. cd into the project and run:
+```shell
+asdf install
 ```
 
-You can now build the project:
-
+You now should be able to build the client:
 ```bash
 make build
 ```
 
 ### Testing
 
-For testing, we're using the following.
+For testing, we're using three kinds of tests.
 
 ##### Ethereum Foundation Tests
 
-These are the official execution spec tests, tests that should be implementation agnostic, you can run them like this:
+These are the official execution spec tests, tests that should be implementation agnostic, you can execute them with:
 
 ```bash
 make test

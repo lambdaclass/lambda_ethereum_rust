@@ -1,9 +1,6 @@
 .PHONY: build lint test clean run_image build_image download-test-vectors clean-vectors \
 	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs
 
-default: stop-localnet-silent ethereum-package checkout-ethereum-package localnet
-	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
-
 build:
 	cargo build --workspace
 
@@ -59,7 +56,8 @@ checkout-ethereum-package: ethereum-package
 		git fetch && \
 		git checkout $(ETHEREUM_PACKAGE_REVISION)
 
-localnet: build_image stop-localnet-silent
+localnet: build_image stop-localnet-silent ethereum-package checkout-ethereum-package
+	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
 	kurtosis run --enclave lambdanet ethereum-package --args-file test_data/network_params.yaml
 
 stop-localnet:
