@@ -27,7 +27,7 @@ $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfi
 	docker build -t ethereum_rust .
 	touch $(STAMP_FILE)
 
-build_image:
+build_image: $(STAMP_FILE)
 	docker build -t ethereum_rust .
 
 SPECTEST_VERSION := v3.0.0
