@@ -22,22 +22,13 @@ We believe this approach is the best way to build a client that is both fast and
 
 ![Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/8e3b69d727225686eec30b2c2b79cecdf7eac2d9/Demo.png)
 
-You'll need docker, docker compose, clang and rust 1.80
-
-### Mac
-
-```shell
-brew install kurtosis-tech/tap/kurtosis-cli && make localnet
-```
-
-### Linux
+### Setup
 - [Install kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
-- Make sure you have clang.
+- You'll need rust and docker.
 - Make sure you have installed your distro's equivalent to (debian's build-essential package)[https://packages.debian.org/es/sid/build-essential]
 ```shell
 make localnet
 ```
-
 
 This make target will:
 1. Build our node inside a docker image.
