@@ -76,8 +76,8 @@ These are the official execution spec tests, tests that should be implementation
 make test
 ```
 
-This will previously download it from the [official execution spec tests repo][https://github.com/ethereum/execution-spec-tests/] and run them with our glue code
-under [cancun.rs][./cmd/ef_tests/tests/cancun.rs].
+This will previously download it from the [official execution spec tests repo](https://github.com/ethereum/execution-spec-tests/) and run them with our glue code
+under [cancun.rs](./cmd/ef_tests/tests/cancun.rs).
 
 ##### Crate Specific Tests
 
@@ -91,7 +91,7 @@ make test CRATE=<crate>
 
 Finally, we have End-to-End tests with hive.
 Hive is a system which simply sends RPC commands to our node,
-and expects a certain response. You can read more about it [here][https://github.com/ethereum/hive/blob/master/docs/overview.md].
+and expects a certain response. You can read more about it [here](https://github.com/ethereum/hive/blob/master/docs/overview.md).
 And you can run this set of tests with:
 
 ```bash
