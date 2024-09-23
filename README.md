@@ -22,10 +22,11 @@ We believe this approach is the best way to build a client that is both fast and
 
 ![Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/8e3b69d727225686eec30b2c2b79cecdf7eac2d9/Demo.png)
 
-### Setup
-- [Install kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
-- You'll need rust and docker.
-- Make sure you have installed your distro's equivalent to (debian's build-essential package)[https://packages.debian.org/es/sid/build-essential]
+### Prequisites
+- [Kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
+- Rust.
+- Docker.
+- If on linux, Make sure you have installed your distro's equivalent to (debian's build-essential package)[https://packages.debian.org/es/sid/build-essential]
 ```shell
 make localnet
 ```
