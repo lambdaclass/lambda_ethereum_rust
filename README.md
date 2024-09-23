@@ -88,7 +88,9 @@ RPC endpoints
 - `debug_getRawHeader` ✅
 - `debug_getRawReceipts` ✅
 - `debug_getRawTransaction` ✅
-- `engine_newPayloadV3` (excl. block building) ✅
+- `engine_exchangeCapabilities`
+- `engine_exchangeTransitionConfiguration` ✅
+- `engine_newPayload` ✅
 - `eth_blobBaseFee` ✅
 - `eth_blockNumber` ✅
 - `eth_call` (at head block) ✅
@@ -102,52 +104,55 @@ RPC endpoints
 - `eth_getBlockReceipts` ✅
 - `eth_getBlockTransactionCountByNumber` ✅
 - `eth_getCode` (at head block) ✅
+- `eth_getFilterChanges`
+- `eth_getFilterLogs`
+- `eth_getLogs`
 - `eth_getStorageAt` (at head block) ✅
 - `eth_getTransactionByBlockHashAndIndex` ✅
 - `eth_getTransactionByBlockNumberAndIndex` ✅
 - `eth_getTransactionByHash` ✅
 - `eth_getTransactionCount` ✅
+- `eth_newBlockFilter`
+- `eth_newFilter`
+- `eth_newPendingTransactionFilter`
+- `eth_uninstallFilter`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/1
 
-### Milestone 2: P2P Network
-Implement DevP2P protocol, including RLPx `p2p` and `eth` capabilities. This will allow us to receive and send blocks and transactions from other nodes and is a prerequisite for the next milestones.
+### Milestone 2: History & Reorgs
+Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches.
+
+RPC endpoints
+- `engine_forkchoiceUpdated` (without `payloadAttributes`)
+- `eth_call` (at any block) ✅
+- `eth_createAccessList` (at any block) ✅
+- `eth_getBalance` (at any block) ✅
+- `eth_getCode` (at any block) ✅
+- `eth_getProof` ✅
+- `eth_getStorageAt` (at any block) ✅
+
+See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/4
+
+### Milestone 3: Block building
+Add the ability to build new payloads, so that the consensus client can propose new blocks based on transactions received from the RPC endpoints.
+
+RPC endpoints
+- `engine_forkchoiceUpdated` (with `payloadAttributes`)
+- `engine_getPayload`
+- `eth_sendRawTransaction` ✅
+
+### Milestone 4: P2P Network
+Implement DevP2P protocol, including RLPx `p2p` and `eth` features. This will let us get and send blocks and transactions from other nodes. We'll add the transactions we receive to the mempool. We'll also download blocks from other nodes when we get payloads where the parent isn't in our local chain.
 
 RPC endpoints
 - `admin_nodeInfo` ✅
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/2
 
-### Milestone 3: History & Reorgs
-Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches.
-
-RPC endpoints
-- `engine_exchangeCapabilities`
-- `engine_forkchoiceUpdatedV3`
-- `eth_call` (at any block)
-- `eth_createAccessList` (at any block)
-- `eth_getBalance` (at any block)
-- `eth_getCode` (at any block)
-- `eth_getProof`
-- `eth_getStorageAt` (at any block)
-
-See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/4
-
-### Milestone 4: Syncing
+### Milestone 5: Syncing
 Add snap sync protocol, which lets us get a recent copy of the blockchain state instead of going through all blocks from genesis. Since we don't support older versions of the spec by design, this is a prerequisite to being able to sync the node with public networks, including mainnet.
 
 RPC endpoints
-- `engine_forkchoiceUpdatedV3`
-- `engine_newPayloadV3`
 - `eth_syncing`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
-
-### Milestone 5: Block building
-Keep transactions received from other nodes in memory, and add the ability to build new payloads, so that the consensus client can propose new blocks.
-
-RPC endpoints
-- `engine_getPayloadV3`
-- `engine_newPayloadV3` (with block building)
-- `eth_sendTransaction`
-- `eth_sendRawTransaction`
