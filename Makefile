@@ -56,12 +56,13 @@ checkout-ethereum-package: ethereum-package
 		git fetch && \
 		git checkout $(ETHEREUM_PACKAGE_REVISION)
 
-localnet: build_image stop-localnet-silent ethereum-package checkout-ethereum-package
-	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
+localnet: stop-localnet-silent build_image checkout-ethereum-package
 	kurtosis run --enclave lambdanet ethereum-package --args-file test_data/network_params.yaml
+	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
 
 stop-localnet:
-	kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet --force
+	kurtosis enclave stop lambdanet
+	kurtosis enclave rm lambdanet --force
 
 stop-localnet-silent:
 	@echo "Double checking local net is not already started..."
