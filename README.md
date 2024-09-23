@@ -76,7 +76,7 @@ make test
 ```
 
 This will previously download it from the [official execution spec tests repo](https://github.com/ethereum/execution-spec-tests/) and run them with our glue code
-under [cancun.rs](./cmd/ef_tests/tests/cancun.rs).
+under `cmd/ef_tests/tests/cancun.rs`.
 
 ##### Crate Specific Tests
 
