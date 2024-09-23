@@ -32,6 +32,8 @@ brew install kurtosis-tech/tap/kurtosis-cli && make
 
 ### Linux
 - [Install kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
+- Make sure you have clang.
+- Make sure you have installed your distro's equivalent to (debian's build-essential package)[https://packages.debian.org/es/sid/build-essential]
 ```shell
 make
 ```
