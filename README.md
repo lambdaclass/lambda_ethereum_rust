@@ -26,7 +26,6 @@ We believe this approach is the best way to build a client that is both fast and
 - [Kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
 - Rust.
 - Docker.
-- If on linux, Make sure you have installed your distro's equivalent to (debian's build-essential package)[https://packages.debian.org/es/sid/build-essential]
 ```shell
 make localnet
 ```
