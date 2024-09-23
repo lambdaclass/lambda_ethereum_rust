@@ -28,7 +28,6 @@ $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfi
 	touch $(STAMP_FILE)
 
 build_image: $(STAMP_FILE)
-	docker build -t ethereum_rust .
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
@@ -65,7 +64,9 @@ localnet: build_image
 
 stop-localnet:
 	kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet --force
+
 stop-localnet-silent:
+	@echo "Double checking local net is not already started..."
 	@kurtosis enclave stop lambdanet >/dev/null 2>&1 || true
 	@kurtosis enclave rm lambdanet >/dev/null 2>&1 || true
 
