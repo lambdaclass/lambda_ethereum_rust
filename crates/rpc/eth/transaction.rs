@@ -8,12 +8,12 @@ use crate::{
     RpcHandler,
 };
 use ethereum_rust_core::{
-    rlp::encode::RLPEncode,
     types::{AccessListEntry, BlockHash, BlockHeader, BlockNumber, GenericTransaction, TxKind},
     H256, U256,
 };
 
 use ethereum_rust_blockchain::mempool;
+use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::Store;
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};

@@ -4,14 +4,14 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
     Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
-use crate::trie::Trie;
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_rust_core::rlp::decode::RLPDecode;
-use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable};
 use libmdbx::{
@@ -310,26 +310,22 @@ impl StoreEngine for Store {
         let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
             return Ok(None);
         };
-        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
-            self.db.clone(),
-        ));
+        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
         let trie = Trie::open(db, state_root);
         Ok(Some(trie))
     }
 
     fn new_state_trie(&self) -> Result<Trie, StoreError> {
-        let db = Box::new(crate::trie::LibmdbxTrieDB::<StateTrieNodes>::new(
-            self.db.clone(),
-        ));
+        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
         let trie = Trie::new(db);
         Ok(trie)
     }
 
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
-        let db = Box::new(crate::trie::LibmdbxDupsortTrieDB::<
-            StorageTriesNodes,
-            [u8; 20],
-        >::new(self.db.clone(), address.0));
+        let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 20]>::new(
+            self.db.clone(),
+            address.0,
+        ));
         Trie::open(db, storage_root)
     }
 

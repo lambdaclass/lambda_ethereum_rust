@@ -5,7 +5,7 @@ use serde::{ser::SerializeStruct, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
 
-use crate::rlp::{
+use ethereum_rust_rlp::{
     constants::RLP_NULL,
     decode::{get_rlp_bytes_item_payload, is_encoded_as_bytes, RLPDecode},
     encode::RLPEncode,
