@@ -95,7 +95,19 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            let _ = add_block(&block, &store);
+            let hash = block.header.compute_block_hash();
+            info!("Adding block {} with hash {}.", block.header.number, hash);
+            match add_block(&block, &store) {
+                Ok(()) => store
+                    .set_canonical_block(block.header.number, hash)
+                    .unwrap(),
+                _ => {
+                    warn!(
+                        "Failed to add block {} with hash {}.",
+                        block.header.number, hash
+                    );
+                }
+            }
         }
         info!("Added {} blocks to blockchain", size);
     }
