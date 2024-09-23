@@ -1,7 +1,7 @@
 .PHONY: build lint test clean run_image build_image download-test-vectors clean-vectors \
 	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs
 
-default: ethereum-package checkout-ethereum-package localnet
+default: stop-localnet-silent ethereum-package checkout-ethereum-package localnet
 	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
 
 build:
@@ -65,6 +65,9 @@ localnet: build_image
 
 stop-localnet:
 	kurtosis enclave stop lambdanet ; kurtosis enclave rm lambdanet --force
+stop-localnet-silent:
+	@kurtosis enclave stop lambdanet >/dev/null 2>&1 || true
+	@kurtosis enclave rm lambdanet >/dev/null 2>&1 || true
 
 HIVE_REVISION := efcd74daee8edc6b5792fafbb1653ea665a02453
 # Shallow clones can't specify a single revision, but at least we avoid working
