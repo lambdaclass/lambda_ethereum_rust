@@ -20,7 +20,7 @@ We believe this approach is the best way to build a client that is both fast and
 
 ## Quick Start (localnet)
 
-[Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/update-readme/Demo.png)
+![Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/update-readme/Demo.png)
 
 
 
