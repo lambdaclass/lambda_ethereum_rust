@@ -2,7 +2,7 @@
 
 The network crate handles the ethereum networking protocols. This involves:
 
-- [Discovery protocol](#discovery-protocol): build on top of udp and it is how we discover new nodes.
+- [Discovery protocol](#discovery-protocol): built on top of udp and it is how we discover new nodes.
 - devP2P: sits on top of tcp and is where the actual blockchain information exchange happens.
 
 The official spec can be found [here](https://github.com/ethereum/devp2p/tree/master).
