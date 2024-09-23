@@ -2,7 +2,7 @@ use crate::opcodes::Opcode;
 use bytes::Bytes;
 use ethereum_types::U256;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct VM {
     pub stack: Vec<U256>, // max 1024 in the future
     pc: usize,
@@ -42,35 +42,8 @@ impl VM {
     fn increment_pc(&mut self) {
         self.increment_pc_by(1);
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use crate::operations::Operation;
-
-    use super::*;
-
-    #[test]
-    fn test() {
-        let mut vm = VM {
-            stack: vec![],
-            pc: 0,
-        };
-
-        let operations = [
-            Operation::Push32(U256::one()),
-            Operation::Push32(U256::zero()),
-            Operation::Add,
-            Operation::Stop,
-        ];
-
-        let bytecode = operations
-            .iter()
-            .flat_map(Operation::to_bytecode)
-            .collect::<Bytes>();
-
-        vm.execute(bytecode);
-
-        println!("{vm:?}");
+    pub fn pc(&self) -> usize {
+        self.pc
     }
 }
