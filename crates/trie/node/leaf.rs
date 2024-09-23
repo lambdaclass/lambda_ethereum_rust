@@ -1,12 +1,10 @@
 use crate::{
-    error::StoreError,
-    trie::{
-        nibble::NibbleSlice,
-        node::BranchNode,
-        node_hash::{NodeEncoder, NodeHash, PathKind},
-        state::TrieState,
-        PathRLP, ValueRLP,
-    },
+    error::TrieError,
+    nibble::NibbleSlice,
+    node::BranchNode,
+    node_hash::{NodeEncoder, NodeHash, PathKind},
+    state::TrieState,
+    PathRLP, ValueRLP,
 };
 
 use super::{ExtensionNode, Node};
@@ -25,7 +23,7 @@ impl LeafNode {
     }
 
     /// Returns the stored value if the given path matches the stored path
-    pub fn get(&self, path: NibbleSlice) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, path: NibbleSlice) -> Result<Option<ValueRLP>, TrieError> {
         if path.cmp_rest(&self.path) {
             Ok(Some(self.value.clone()))
         } else {
@@ -39,7 +37,7 @@ impl LeafNode {
         state: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<Node, StoreError> {
+    ) -> Result<Node, TrieError> {
         /* Possible flow paths:
             Leaf { SelfPath, SelfValue } -> Leaf { SelfPath, Value }
             Leaf { SelfPath, SelfValue } -> Extension { Branch { [Self,...] Path, Value } }
@@ -110,7 +108,7 @@ impl LeafNode {
     }
 
     /// Removes own value if the path matches own path and returns self and the value if it was removed
-    pub fn remove(self, path: NibbleSlice) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+    pub fn remove(self, path: NibbleSlice) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         Ok(if path.cmp_rest(&self.path) {
             (None, Some(self.value))
         } else {
@@ -137,7 +135,7 @@ impl LeafNode {
             encoded_value.first().copied().unwrap_or_default(),
         );
 
-        let mut encoder = crate::trie::node_hash::NodeEncoder::new();
+        let mut encoder = crate::node_hash::NodeEncoder::new();
         encoder.write_list_header(path_len + value_len);
         encoder.write_path_slice(&path, PathKind::Leaf);
         encoder.write_bytes(encoded_value);
@@ -150,7 +148,7 @@ impl LeafNode {
         self,
         path_offset: usize,
         state: &mut TrieState,
-    ) -> Result<NodeHash, StoreError> {
+    ) -> Result<NodeHash, TrieError> {
         let hash = self.compute_hash(path_offset);
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
@@ -161,7 +159,7 @@ impl LeafNode {
         &self,
         path: NibbleSlice,
         node_path: &mut Vec<Vec<u8>>,
-    ) -> Result<(), StoreError> {
+    ) -> Result<(), TrieError> {
         let encoded = self.encode_raw(path.offset());
         if encoded.len() >= 32 {
             node_path.push(encoded);
@@ -173,8 +171,7 @@ impl LeafNode {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::pmt_node;
-    use crate::trie::Trie;
+    use crate::{pmt_node, Trie};
 
     #[test]
     fn new() {

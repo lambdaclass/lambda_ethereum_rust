@@ -1,5 +1,5 @@
 use bytes::BufMut;
-use ethereum_rust_core::rlp::error::RLPDecodeError;
+use ethereum_rust_rlp::error::RLPDecodeError;
 
 use super::eth::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
