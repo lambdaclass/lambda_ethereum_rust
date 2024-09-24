@@ -1,5 +1,5 @@
 .PHONY: build lint test clean run_image build_image download-test-vectors clean-vectors \
-	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs
+	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs clean-db
 
 build:
 	cargo build --workspace
@@ -14,6 +14,17 @@ test:
 clean:  clean-vectors
 	cargo clean
 	rm -rf hive
+
+clean-db:  ## 🧹 Remove db related files
+	@echo -n "⚠️  This will delete the DB ⚠️  --  Are you sure to proceed? [y/n]  "
+	@read response; \
+	if [ "$$response" != "y" ] && [ "$$response" != "Y" ]; then \
+		echo -e "\nDoing nothing"; \
+	else \
+		echo -e "\nRemoving..."&& \
+		rm -rf "~/Library/Application Support/com.lambdaclass.ethereum_rust/"; \
+	fi
+
 
 run_image: build_image
 	docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
