@@ -38,12 +38,20 @@ impl VM {
                     // spend_gas(3);
                     let offset = self.stack.pop().unwrap().as_usize();
                     let value = self.stack.pop().unwrap();
+                    let mut value_bytes = [0u8; 32];
+                    value.to_big_endian(&mut value_bytes);
                     self.memory.resize(offset);
-                    self.memory.store(offset, value.as_u64() as u8); // check how to do better
+                    self.memory.store_bytes(offset, &value_bytes); // check how to do better
                 }
                 Opcode::MSTORE8 => {
+                    // spend_gas(3);
+                    let offset = self.stack.pop().unwrap().as_usize();
                     let value = self.stack.pop().unwrap();
-                    let address = self.stack.pop().unwrap();
+                    let mut value_bytes = [0u8; 32];
+                    value.to_big_endian(&mut value_bytes);
+                    self.memory.resize(offset);
+                    self.memory.store_bytes(offset, value_bytes[31..32].as_ref());
+
                 }
                 Opcode::MSIZE => {
                     let size = U256::zero(); // TODO: get size of memory
@@ -94,10 +102,12 @@ impl Memory {
     }
 
     pub fn load(&self, offset: usize) -> U256 {
-        self.data[offset].into()
+        let mut value_bytes = [0u8; 32];
+        value_bytes.copy_from_slice(&self.data[offset..offset + 32]);
+        U256::from(value_bytes)
     }
 
-    pub fn store(&mut self, offset: usize, value: u8) {
-        self.data[offset] = value;
+    pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
+        self.data.splice(offset..offset + value.len(), value.iter().copied());
     }
 }
