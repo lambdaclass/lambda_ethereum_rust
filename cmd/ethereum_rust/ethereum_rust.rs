@@ -81,7 +81,7 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let project_dir = ProjectDirs::from("com", "lambdaclass", "ethereum_rust")
+    let project_dir = ProjectDirs::from("", "", "ethereum_rust")
         .expect("couldn't find home directory");
     let default_data_dir = project_dir
         .data_local_dir()
