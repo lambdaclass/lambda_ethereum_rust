@@ -1,0 +1,12 @@
+**/target
+**/.DS_Store
+.vscode
+
+**/*.mlir
+**/*.ll
+**/*.o
+**/*.asm
+output
+
+ethtests
+*.tar.gz
