@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 
 use bytes::Bytes;
 use ethereum_rust_core::{
-    rlp::{decode::RLPDecode, encode::RLPEncode},
     types::{BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
     H256,
 };
+use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 

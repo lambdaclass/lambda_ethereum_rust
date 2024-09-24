@@ -2,10 +2,10 @@ use std::{collections::HashMap, path::Path};
 
 use crate::types::{BlockWithRLP, TestUnit};
 use ethereum_rust_blockchain::add_block;
-use ethereum_rust_core::{
-    rlp::decode::RLPDecode,
-    types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
+use ethereum_rust_core::types::{
+    Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn run_ef_test(test_key: &str, test: &TestUnit) {
@@ -79,7 +79,7 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
 
 /// Creats a new in-memory store and adds the genesis state
 pub fn build_store_for_test(test: &TestUnit) -> Store {
-    let mut store =
+    let store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
     let genesis = test.get_genesis();
     store
