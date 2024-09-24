@@ -33,11 +33,18 @@ fn mstore() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    vm.execute(Bytes::from(vec![Opcode::MSTORE as u8, Opcode::STOP as u8]));
+    vm.execute(Bytes::from(vec![
+        Opcode::MSTORE as u8,
+        Opcode::MSIZE as u8,
+        Opcode::STOP as u8,
+    ]));
 
     let stored_value = vm.memory.load(0);
 
     assert_eq!(stored_value, U256::from(0x33333));
+
+    let memory_size = vm.stack.pop().unwrap();
+    assert_eq!(memory_size, U256::from(32));
 }
 
 #[test]
