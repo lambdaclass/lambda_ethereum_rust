@@ -2,7 +2,10 @@ use super::{
     BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
     GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
 };
-use crate::{types::Receipt, Address, H256, U256};
+use crate::{
+    types::{Receipt, Transaction},
+    Address, H256, U256,
+};
 use bytes::Bytes;
 use ethereum_rust_rlp::{
     decode::RLPDecode,

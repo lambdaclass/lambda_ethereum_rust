@@ -1,17 +1,14 @@
-use crate::{
-    rlp::{
-        decode::RLPDecode,
-        encode::RLPEncode,
-        error::RLPDecodeError,
-        structs::{Decoder, Encoder},
-    },
-    types::{BlockNumber, ChainConfig},
-};
 use crc32fast::Hasher;
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
+};
 
 use ethereum_types::H32;
 
-use super::BlockHash;
+use super::{BlockHash, BlockNumber, ChainConfig};
 
 #[derive(Debug)]
 pub struct ForkId {

@@ -4,7 +4,6 @@ use ethereum_rust_core::{
     U256,
 };
 use ethereum_rust_rlp::{
-    decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
