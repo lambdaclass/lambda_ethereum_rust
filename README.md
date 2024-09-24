@@ -22,7 +22,7 @@ We believe this approach is the best way to build a client that is both fast and
 
 ![Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/8e3b69d727225686eec30b2c2b79cecdf7eac2d9/Demo.png)
 
-### Prequisites
+### Prerequisites
 - [Kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
 - Rust.
 - Docker.
