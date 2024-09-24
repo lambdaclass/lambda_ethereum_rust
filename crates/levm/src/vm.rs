@@ -38,7 +38,16 @@ impl VM {
 
                     self.stack.push(a / b);
                 }
-                Opcode::SDIV => {}
+                Opcode::SDIV => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    if b.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    if a >> 255 == U256::one() {}
+                }
                 Opcode::MOD => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
@@ -77,7 +86,25 @@ impl VM {
                     let exponent = self.stack.pop().unwrap();
                     self.stack.push(base.pow(exponent));
                 }
-                Opcode::SIGNEXTEND => {}
+                Opcode::SIGNEXTEND => {
+                    let byte_size = self.stack.pop().unwrap();
+                    let value_to_extend = self.stack.pop().unwrap();
+
+                    let max_byte_size = 31;
+
+                    let byte_size = byte_size.min(U256::from(max_byte_size));
+                    let max_bits = U256::from(255);
+                    let bits_per_byte = 8;
+                    let sign_bit_position_on_byte = 7;
+
+                    let bits_to_shift = U256::from(
+                        max_bits - byte_size * bits_per_byte + sign_bit_position_on_byte,
+                    );
+
+                    let left_shifted_value = value_to_extend << bits_to_shift;
+                    let result = left_shifted_value >> bits_to_shift;
+                    self.stack.push(result);
+                }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
