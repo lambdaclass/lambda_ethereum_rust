@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use bytes::Bytes;
 use ethereum_types::U256;
 use levm::{operations::Operation, vm::VM};
@@ -112,8 +114,14 @@ fn sdiv_op() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::zero()),
+        Operation::Push32(
+            U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
+                .unwrap(),
+        ),
+        Operation::Push32(
+            U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")
+                .unwrap(),
+        ),
         Operation::Sdiv,
         Operation::Stop,
     ];
@@ -125,7 +133,7 @@ fn sdiv_op() {
 
     vm.execute(bytecode);
 
-    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.stack.pop().unwrap() == U256::from(2));
 }
 
 #[test]
@@ -196,8 +204,8 @@ fn smod_op() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(0x03)),
+        Operation::Push32(U256::from(0x0a)),
         Operation::SMod,
         Operation::Stop,
     ];

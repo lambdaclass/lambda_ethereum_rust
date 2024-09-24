@@ -45,8 +45,22 @@ impl VM {
                         self.stack.push(U256::zero());
                         continue;
                     }
+                    let a_is_negative = a >> 255 == U256::one();
+                    let b_is_negative = b >> 255 == U256::one();
 
-                    if a >> 255 == U256::one() {}
+                    let a = if a_is_negative { !a + U256::one() } else { a };
+                    let b = if b_is_negative { !b + U256::one() } else { b };
+                    let result = a / b;
+
+                    let is_result_negative = a_is_negative ^ b_is_negative;
+
+                    let result = if is_result_negative {
+                        !result + U256::one()
+                    } else {
+                        result
+                    };
+
+                    self.stack.push(result);
                 }
                 Opcode::MOD => {
                     let a = self.stack.pop().unwrap();
@@ -58,7 +72,28 @@ impl VM {
 
                     self.stack.push(a % b);
                 }
-                Opcode::SMOD => {}
+                Opcode::SMOD => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    if b.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let a_is_negative = a >> 255 == U256::one();
+                    let b_is_negative = b >> 255 == U256::one();
+                    let a = if a_is_negative { !a + U256::one() } else { a };
+                    let b = if b_is_negative { !b + U256::one() } else { b };
+                    let result = a % b;
+                    let result_is_negative = a_is_negative ^ b_is_negative;
+                    let result = if result_is_negative {
+                        !result + U256::one()
+                    } else {
+                        result
+                    };
+
+                    self.stack.push(result);
+                }
                 Opcode::ADDMOD => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
