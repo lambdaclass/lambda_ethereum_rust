@@ -2,10 +2,10 @@ use std::{collections::HashMap, path::Path};
 
 use crate::types::{BlockWithRLP, TestUnit};
 use ethereum_rust_blockchain::add_block;
-use ethereum_rust_core::{
-    rlp::decode::RLPDecode,
-    types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
+use ethereum_rust_core::types::{
+    Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn run_ef_test(test_key: &str, test: &TestUnit) {

@@ -1,11 +1,9 @@
 use crate::{
-    error::StoreError,
-    trie::{
-        nibble::{Nibble, NibbleSlice, NibbleVec},
-        node_hash::{NodeEncoder, NodeHash},
-        state::TrieState,
-        PathRLP, ValueRLP,
-    },
+    error::TrieError,
+    nibble::{Nibble, NibbleSlice, NibbleVec},
+    node_hash::{NodeEncoder, NodeHash},
+    state::TrieState,
+    PathRLP, ValueRLP,
 };
 
 use super::{ExtensionNode, LeafNode, Node};
@@ -70,7 +68,7 @@ impl BranchNode {
         &self,
         state: &TrieState,
         mut path: NibbleSlice,
-    ) -> Result<Option<ValueRLP>, StoreError> {
+    ) -> Result<Option<ValueRLP>, TrieError> {
         // If path is at the end, return to its own value if present.
         // Otherwise, check the corresponding choice and delegate accordingly if present.
         if let Some(choice) = path.next().map(usize::from) {
@@ -96,7 +94,7 @@ impl BranchNode {
         state: &mut TrieState,
         mut path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<Node, StoreError> {
+    ) -> Result<Node, TrieError> {
         // If path is at the end, insert or replace its own value.
         // Otherwise, check the corresponding choice and insert or delegate accordingly.
         match path.next() {
@@ -132,7 +130,7 @@ impl BranchNode {
         mut self,
         state: &mut TrieState,
         mut path: NibbleSlice,
-    ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+    ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         /* Possible flow paths:
             Step 1: Removal
                 Branch { [ ... ], Path, Value } -> Branch { [...], None, None } (remove from self)
@@ -310,7 +308,7 @@ impl BranchNode {
     }
 
     /// Inserts the node into the state and returns its hash
-    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, StoreError> {
+    pub fn insert_self(self, state: &mut TrieState) -> Result<NodeHash, TrieError> {
         let hash = self.compute_hash();
         state.insert_node(self.into(), hash.clone());
         Ok(hash)
@@ -324,7 +322,7 @@ impl BranchNode {
         state: &TrieState,
         mut path: NibbleSlice,
         node_path: &mut Vec<Vec<u8>>,
-    ) -> Result<(), StoreError> {
+    ) -> Result<(), TrieError> {
         // Add self to node_path (if not inlined in parent)
         let encoded = self.encode_raw();
         if encoded.len() >= 32 {
@@ -351,7 +349,7 @@ mod test {
 
     use super::*;
 
-    use crate::{pmt_node, trie::Trie};
+    use crate::{pmt_node, Trie};
 
     #[test]
     fn new() {

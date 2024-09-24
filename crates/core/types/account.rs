@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
+use ethereum_rust_trie::Trie;
 use ethereum_types::{H256, U256};
-use patricia_merkle_tree::PatriciaMerkleTree;
 use sha3::{Digest as _, Keccak256};
 
-use crate::rlp::{
+use ethereum_rust_rlp::{
     constants::RLP_NULL,
     decode::RLPDecode,
     encode::RLPEncode,
@@ -144,36 +144,19 @@ impl RLPDecode for AccountState {
 }
 
 pub fn compute_storage_root(storage: &HashMap<H256, U256>) -> H256 {
-    let mut storage_trie = PatriciaMerkleTree::<Vec<u8>, Vec<u8>, Keccak256>::new();
-
-    for (k, v) in storage.iter() {
-        let mut v_buf = vec![];
-        let k_buf = Keccak256::new_with_prefix(k).finalize().to_vec();
-        v.encode(&mut v_buf);
-        // zero values are removed from the trie
-        if !v.is_zero() {
-            storage_trie.insert(k_buf, v_buf);
-        }
-    }
-
-    // TODO check if sorting by key and using this is more efficient:
-    // let root =
-    //    PatriciaMerkleTree::<_, _, Keccak256>::compute_hash_from_sorted_iter(rlp_storage.iter());
-
-    let &root = storage_trie.compute_hash();
-    H256(root.into())
+    let iter = storage.iter().filter_map(|(k, v)| {
+        (!v.is_zero()).then_some((Keccak256::digest(k).to_vec(), v.encode_to_vec()))
+    });
+    Trie::compute_hash_from_unsorted_iter(iter)
 }
 
-impl AccountState {
-    pub fn from_info_and_storage(
-        info: &AccountInfo,
-        storage: &HashMap<H256, U256>,
-    ) -> AccountState {
+impl From<&GenesisAccount> for AccountState {
+    fn from(value: &GenesisAccount) -> Self {
         AccountState {
-            nonce: info.nonce,
-            balance: info.balance,
-            storage_root: compute_storage_root(storage),
-            code_hash: info.code_hash,
+            nonce: value.nonce,
+            balance: value.balance,
+            storage_root: compute_storage_root(&value.storage),
+            code_hash: code_hash(&value.code),
         }
     }
 }

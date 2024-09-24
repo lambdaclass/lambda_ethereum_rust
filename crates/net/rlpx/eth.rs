@@ -1,12 +1,13 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    rlp::{
-        encode::RLPEncode,
-        error::RLPDecodeError,
-        structs::{Decoder, Encoder},
-    },
     types::{BlockHash, ForkId},
     U256,
+};
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
