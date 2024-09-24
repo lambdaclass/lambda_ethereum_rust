@@ -25,6 +25,15 @@ To build the main executable and its crates, run:
 ```bash
 make build
 ```
+### Database
+Currently, the database is `libmdbx`, it will be set up
+when you start the client. The location of the db's files will depend on your OS:
+- Mac: `~/Library/Application Support/com.lambdaclass.ethereum_rust`
+- Linux: `~/.config/ethereum_rust`
+You can remove it with:
+```bash
+make clean-db
+```
 
 ### Test
 Note: To execute EF tests, the test fixtures are required. To download them, run:

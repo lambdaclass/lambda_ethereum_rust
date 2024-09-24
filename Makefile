@@ -21,8 +21,9 @@ clean-db:  ## 🧹 Remove db related files
 	if [ "$$response" != "y" ] && [ "$$response" != "Y" ]; then \
 		echo -e "\nDoing nothing"; \
 	else \
-		echo -e "\nRemoving..."&& \
-		rm -rf "~/Library/Application Support/com.lambdaclass.ethereum_rust/"; \
+		DB_PATH="~/Library/Application Support/com.lambdaclass.ethereum_rust/"; \
+		echo -e "\nRemoving db at $$DB_PATH ..."&& \
+		rm -rf $$DB_PATH; \
 	fi
 
 

@@ -92,7 +92,7 @@ async fn main() {
     let data_dir = matches
         .get_one::<String>("datadir")
         .unwrap_or(&default_data_dir);
-    let mut store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
+    let store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
     store
@@ -103,9 +103,9 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            add_block(&block, &store).expect("Failed to add block");
+            add_block(&block, &store).expect("Fatal: could not add block from given file");
         }
-        info!("Added {} blocks to blockchain", size);
+        info!("Added {} blocks to storage", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
