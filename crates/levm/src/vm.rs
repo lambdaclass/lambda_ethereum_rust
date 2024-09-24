@@ -18,6 +18,12 @@ impl VM {
                     let b = self.stack.pop().unwrap();
                     self.stack.push(a + b);
                 }
+                Opcode::LT => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    let result = if a < b { U256::one() } else { U256::zero() };
+                    self.stack.push(result);
+                }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
