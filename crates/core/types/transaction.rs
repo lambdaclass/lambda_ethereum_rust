@@ -5,7 +5,7 @@ use serde::{ser::SerializeStruct, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
 
-use crate::rlp::{
+use ethereum_rust_rlp::{
     constants::RLP_NULL,
     decode::{get_rlp_bytes_item_payload, is_encoded_as_bytes, RLPDecode},
     encode::RLPEncode,
@@ -22,7 +22,7 @@ pub enum Transaction {
     EIP4844Transaction(EIP4844Transaction),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct LegacyTransaction {
     pub nonce: u64,
     pub gas_price: u64,
@@ -37,7 +37,7 @@ pub struct LegacyTransaction {
     pub s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP2930Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -52,7 +52,7 @@ pub struct EIP2930Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -68,7 +68,7 @@ pub struct EIP1559Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP4844Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -157,9 +157,10 @@ impl RLPDecode for Transaction {
 }
 
 /// The transaction's kind: call or create.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum TxKind {
     Call(Address),
+    #[default]
     Create,
 }
 
@@ -582,6 +583,24 @@ impl Transaction {
             Transaction::EIP2930Transaction(_tx) => None,
             Transaction::EIP1559Transaction(_tx) => None,
             Transaction::EIP4844Transaction(tx) => Some(tx.max_fee_per_blob_gas),
+        }
+    }
+
+    pub fn is_contract_creation(&self) -> bool {
+        match &self {
+            Transaction::LegacyTransaction(t) => matches!(t.to, TxKind::Create),
+            Transaction::EIP2930Transaction(t) => matches!(t.to, TxKind::Create),
+            Transaction::EIP1559Transaction(t) => matches!(t.to, TxKind::Create),
+            Transaction::EIP4844Transaction(_) => false,
+        }
+    }
+
+    pub fn max_fee_per_gas(&self) -> Option<u64> {
+        match self {
+            Transaction::LegacyTransaction(_tx) => None,
+            Transaction::EIP2930Transaction(_tx) => None,
+            Transaction::EIP1559Transaction(tx) => Some(tx.max_fee_per_gas),
+            Transaction::EIP4844Transaction(tx) => Some(tx.max_fee_per_gas),
         }
     }
 

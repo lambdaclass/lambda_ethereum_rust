@@ -12,6 +12,7 @@ ethereum_rust-core.workspace = true
 ethereum_rust-net.workspace = true
 ethereum_rust-storage.workspace = true
 ethereum_rust-evm.workspace = true
+ethereum_rust-rlp.workspace = true
 
 bytes.workspace = true
 hex.workspace = true

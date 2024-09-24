@@ -1,5 +1,5 @@
-use crate::U256;
 use bytes::{BufMut, Bytes};
+use ethereum_types::U256;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use tinyvec::ArrayVec;
 
@@ -378,7 +378,7 @@ mod tests {
     use ethereum_types::{Address, U256};
     use hex_literal::hex;
 
-    use crate::rlp::constants::{RLP_EMPTY_LIST, RLP_NULL};
+    use crate::constants::{RLP_EMPTY_LIST, RLP_NULL};
 
     use super::RLPEncode;
 

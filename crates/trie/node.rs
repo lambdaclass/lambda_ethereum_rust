@@ -6,7 +6,7 @@ pub use branch::BranchNode;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
-use crate::error::StoreError;
+use crate::error::TrieError;
 
 use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
 
@@ -38,11 +38,7 @@ impl From<LeafNode> for Node {
 
 impl Node {
     /// Retrieves a value from the subtrie originating from this node given its path
-    pub fn get(
-        &self,
-        state: &TrieState,
-        path: NibbleSlice,
-    ) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, state: &TrieState, path: NibbleSlice) -> Result<Option<ValueRLP>, TrieError> {
         match self {
             Node::Branch(n) => n.get(state, path),
             Node::Extension(n) => n.get(state, path),
@@ -56,7 +52,7 @@ impl Node {
         state: &mut TrieState,
         path: NibbleSlice,
         value: ValueRLP,
-    ) -> Result<Node, StoreError> {
+    ) -> Result<Node, TrieError> {
         match self {
             Node::Branch(n) => n.insert(state, path, value),
             Node::Extension(n) => n.insert(state, path, value),
@@ -70,7 +66,7 @@ impl Node {
         self,
         state: &mut TrieState,
         path: NibbleSlice,
-    ) -> Result<(Option<Node>, Option<ValueRLP>), StoreError> {
+    ) -> Result<(Option<Node>, Option<ValueRLP>), TrieError> {
         match self {
             Node::Branch(n) => n.remove(state, path),
             Node::Extension(n) => n.remove(state, path),
@@ -86,7 +82,7 @@ impl Node {
         state: &TrieState,
         path: NibbleSlice,
         node_path: &mut Vec<Vec<u8>>,
-    ) -> Result<(), StoreError> {
+    ) -> Result<(), TrieError> {
         match self {
             Node::Branch(n) => n.get_path(state, path, node_path),
             Node::Extension(n) => n.get_path(state, path, node_path),
@@ -98,7 +94,7 @@ impl Node {
         self,
         path_offset: usize,
         state: &mut TrieState,
-    ) -> Result<NodeHash, StoreError> {
+    ) -> Result<NodeHash, TrieError> {
         match self {
             Node::Branch(n) => n.insert_self(state),
             Node::Extension(n) => n.insert_self(state),

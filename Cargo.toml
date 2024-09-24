@@ -6,6 +6,8 @@ members = [
     "crates/rpc",
     "crates/storage",
     "crates/evm",
+    "crates/trie",
+    "crates/rlp",
     "cmd/ethereum_rust",
     "cmd/ef_tests",
 ]
@@ -23,10 +25,13 @@ ethereum_rust-net = { path = "./crates/net" }
 ethereum_rust-rpc = { path = "./crates/rpc" }
 ethereum_rust-storage = { path = "./crates/storage" }
 ethereum_rust-evm = { path = "./crates/evm" }
+ethereum_rust-trie = { path = "./crates/trie" }
+ethereum_rust-rlp = { path = "./crates/rlp" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
 
+ethereum-types = { version = "0.14.1", features = ["serialize"] }
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 libmdbx = { version = "0.5.0", features = ["orm"] }
@@ -36,5 +41,4 @@ thiserror = "1.0.61"
 hex = "0.4.3"
 hex-literal = "0.4.1"
 lazy_static = "1.5.0"
-patricia-merkle-tree = { git = "https://github.com/lambdaclass/merkle_patricia_tree.git" }
 sha3 = "0.10.8"

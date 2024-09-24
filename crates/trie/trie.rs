@@ -1,4 +1,5 @@
 mod db;
+mod error;
 mod nibble;
 mod node;
 mod node_hash;
@@ -8,18 +9,18 @@ mod state;
 #[cfg(test)]
 mod test_utils;
 
-use ethereum_rust_core::rlp::constants::RLP_NULL;
+use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
 use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-pub use self::db::TrieDB;
 pub use self::db::{
     in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
+    TrieDB,
 };
+pub use self::error::TrieError;
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
-use crate::error::StoreError;
 
 use lazy_static::lazy_static;
 
@@ -66,7 +67,7 @@ impl Trie {
     }
 
     /// Retrieve an RLP-encoded value from the trie given its RLP-encoded path.
-    pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn get(&self, path: &PathRLP) -> Result<Option<ValueRLP>, TrieError> {
         if let Some(root) = &self.root {
             let root_node = self
                 .state
@@ -79,7 +80,7 @@ impl Trie {
     }
 
     /// Insert an RLP-encoded value into the trie.
-    pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), StoreError> {
+    pub fn insert(&mut self, path: PathRLP, value: ValueRLP) -> Result<(), TrieError> {
         let root = self.root.take();
         if let Some(root_node) = root
             .map(|root| self.state.get_node(root))
@@ -100,7 +101,7 @@ impl Trie {
 
     /// Remove a value from the trie given its RLP-encoded path.
     /// Returns the value if it was succesfully removed or None if it wasn't part of the trie
-    pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, StoreError> {
+    pub fn remove(&mut self, path: PathRLP) -> Result<Option<ValueRLP>, TrieError> {
         let root = self.root.take();
         if let Some(root) = root {
             let root_node = self
@@ -121,7 +122,7 @@ impl Trie {
     /// Return the hash of the trie's root node.
     /// Returns keccak(RLP_NULL) if the trie is empty
     /// Also commits changes to the DB
-    pub fn hash(&mut self) -> Result<H256, StoreError> {
+    pub fn hash(&mut self) -> Result<H256, TrieError> {
         if let Some(ref root) = self.root {
             self.state.commit(root)?;
         }
@@ -135,8 +136,7 @@ impl Trie {
     /// Obtain a merkle proof for the given path.
     /// The proof will contain all the encoded nodes traversed until reaching the node where the path is stored (including this last node).
     /// The proof will still be constructed even if the path is not stored in the trie, proving its absence.
-    #[allow(unused)]
-    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, StoreError> {
+    pub fn get_proof(&self, path: &PathRLP) -> Result<Vec<Vec<u8>>, TrieError> {
         // Will store all the encoded nodes traversed until reaching the node containing the path
         let mut node_path = Vec::new();
         let Some(root) = &self.root else {
@@ -154,6 +154,34 @@ impl Trie {
         Ok(node_path)
     }
 
+    /// Builds an in-memory trie from the given elements and returns its hash
+    pub fn compute_hash_from_unsorted_iter(
+        iter: impl Iterator<Item = (PathRLP, ValueRLP)>,
+    ) -> H256 {
+        // We will only be using the trie's cache so we don't need a working DB
+        struct NullTrieDB;
+
+        impl TrieDB for NullTrieDB {
+            fn get(&self, _key: Vec<u8>) -> Result<Option<Vec<u8>>, TrieError> {
+                Ok(None)
+            }
+
+            fn put(&self, _key: Vec<u8>, _value: Vec<u8>) -> Result<(), TrieError> {
+                Ok(())
+            }
+        }
+
+        let mut trie = Trie::new(Box::new(NullTrieDB));
+        for (path, value) in iter {
+            // Unwraping here won't panic as our in_memory trie DB won't fail
+            trie.insert(path, value).unwrap();
+        }
+        trie.root
+            .as_ref()
+            .map(|root| root.clone().finalize())
+            .unwrap_or(*EMPTY_TRIE_HASH)
+    }
+
     #[cfg(test)]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {
@@ -166,7 +194,7 @@ impl Trie {
 mod test {
     use std::sync::Arc;
 
-    use crate::trie::test_utils::TestNodes;
+    use crate::test_utils::TestNodes;
 
     use super::*;
     // Rename imports to avoid potential name clashes
