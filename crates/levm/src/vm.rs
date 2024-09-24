@@ -39,11 +39,44 @@ impl VM {
                     self.stack.push(a / b);
                 }
                 Opcode::SDIV => {}
-                Opcode::MOD => {}
+                Opcode::MOD => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    if b.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    self.stack.push(a % b);
+                }
                 Opcode::SMOD => {}
-                Opcode::ADDMOD => {}
-                Opcode::MULMOD => {}
-                Opcode::EXP => {}
+                Opcode::ADDMOD => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    let n = self.stack.pop().unwrap();
+                    if n.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    self.stack.push((a + b) % n);
+                }
+                Opcode::MULMOD => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    let n = self.stack.pop().unwrap();
+                    if n.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    self.stack.push((a * b) % n);
+                }
+                Opcode::EXP => {
+                    let base = self.stack.pop().unwrap();
+                    let exponent = self.stack.pop().unwrap();
+                    self.stack.push(base.pow(exponent));
+                }
                 Opcode::SIGNEXTEND => {}
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
