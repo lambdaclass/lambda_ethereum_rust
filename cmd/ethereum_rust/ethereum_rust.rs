@@ -114,7 +114,7 @@ async fn main() {
     };
 
     // TODO: Check every module starts properly.
-    let tracer = TaskTracker::new();
+    let tracker = TaskTracker::new();
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
@@ -127,8 +127,8 @@ async fn main() {
         ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer)
             .into_future();
 
-    tracer.spawn(rpc_api);
-    tracer.spawn(networking);
+    tracker.spawn(rpc_api);
+    tracker.spawn(networking);
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
