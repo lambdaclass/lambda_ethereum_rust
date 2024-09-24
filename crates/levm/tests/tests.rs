@@ -245,3 +245,91 @@ fn slt_positive_a_greater_than_negative_b() {
     assert!(vm.stack.pop().unwrap() == U256::zero());
     assert!(vm.pc() == 68);
 }
+
+#[test]
+fn sgt_positive_a_greater_than_zero_b() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()),  // b
+        Operation::Push32(U256::one()), // a
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_positive_a_greater_than_negative_b() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32])),  // b = -1
+        Operation::Push32(U256::one()), // a
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_negative_a_greater_than_negative_b() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())),  // b = -2
+        Operation::Push32(U256::from([0xff; 32])), // a = -1
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_negative_a_less_than_positive_b() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()), // b
+        Operation::Push32(U256::from([0xff; 32])),  // a
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}

@@ -50,6 +50,26 @@ impl VM {
                     };
                     self.stack.push(result);
                 }
+                Opcode::SGT => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    let a_signed = if a.bit(255) {
+                        -((!a + U256::one()).as_u128() as i128)
+                    } else {
+                        a.as_u128() as i128
+                    };
+                    let b_signed = if b.bit(255) {
+                        -((!b + U256::one()).as_u128() as i128)
+                    } else {
+                        b.as_u128() as i128
+                    };
+                    let result = if a_signed > b_signed {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    self.stack.push(result);
+                }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
