@@ -90,19 +90,19 @@ impl VM {
                     let byte_size = self.stack.pop().unwrap();
                     let value_to_extend = self.stack.pop().unwrap();
 
+                    let bits_per_byte = U256::from(8);
+                    let sign_bit_position_on_byte = 7;
                     let max_byte_size = 31;
 
                     let byte_size = byte_size.min(U256::from(max_byte_size));
-                    let max_bits = U256::from(255);
-                    let bits_per_byte = 8;
-                    let sign_bit_position_on_byte = 7;
-
-                    let bits_to_shift = U256::from(
-                        max_bits - byte_size * bits_per_byte + sign_bit_position_on_byte,
-                    );
-
-                    let left_shifted_value = value_to_extend << bits_to_shift;
-                    let result = left_shifted_value >> bits_to_shift;
+                    let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
+                    let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
+                    let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
+                    let result = if is_negative {
+                        value_to_extend.saturating_add(!sign_bit_mask)
+                    } else {
+                        value_to_extend & sign_bit_mask
+                    };
                     self.stack.push(result);
                 }
                 Opcode::PUSH32 => {
