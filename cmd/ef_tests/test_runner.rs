@@ -1,11 +1,11 @@
 use std::{collections::HashMap, path::Path};
 
 use crate::types::{BlockWithRLP, TestUnit};
-use ethereum_rust_chain::add_block;
-use ethereum_rust_core::{
-    rlp::decode::RLPDecode,
-    types::{Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader},
+use ethereum_rust_blockchain::add_block;
+use ethereum_rust_core::types::{
+    Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_storage::{EngineType, Store};
 
 pub fn run_ef_test(test_key: &str, test: &TestUnit) {
@@ -79,7 +79,7 @@ pub fn parse_test_file(path: &Path) -> HashMap<String, TestUnit> {
 
 /// Creats a new in-memory store and adds the genesis state
 pub fn build_store_for_test(test: &TestUnit) -> Store {
-    let mut store =
+    let store =
         Store::new("store.db", EngineType::InMemory).expect("Failed to build DB for testing");
     let genesis = test.get_genesis();
     store
@@ -108,11 +108,12 @@ fn check_prestate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
 /// Panics if any comparison fails
 /// Tests that previously failed the validation stage shouldn't be executed with this function.
 fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
+    let latest_block_number = db.get_latest_block_number().unwrap().unwrap();
     for (addr, account) in &test.post_state {
         let expected_account: CoreAccount = account.clone().into();
         // Check info
         let db_account_info = db
-            .get_account_info(db.get_latest_block_number().unwrap().unwrap(), *addr)
+            .get_account_info(latest_block_number, *addr)
             .expect("Failed to read from DB")
             .unwrap_or_else(|| {
                 panic!("Account info for address {addr} not found in DB, test:{test_key}")
@@ -136,7 +137,7 @@ fn check_poststate_against_db(test_key: &str, test: &TestUnit, db: &Store) {
         // Check storage
         for (key, value) in expected_account.storage {
             let db_storage_value = db
-                .get_storage_at(*addr, key)
+                .get_storage_at(latest_block_number, *addr, key)
                 .expect("Failed to read from DB")
                 .unwrap_or_else(|| {
                     panic!("Storage missing for address {addr} key {key} in DB test:{test_key}")

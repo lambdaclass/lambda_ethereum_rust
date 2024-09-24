@@ -1,7 +1,7 @@
 use anyhow::Error;
 use bytes::Bytes;
-use ethereum_rust_core::rlp::decode::RLPDecode as _;
 use ethereum_rust_core::types::{Block, Genesis};
+use ethereum_rust_rlp::decode::RLPDecode as _;
 use std::{
     fs::File,
     io::{BufReader, Read as _},

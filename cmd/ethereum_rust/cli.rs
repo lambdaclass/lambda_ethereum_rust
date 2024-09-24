@@ -71,8 +71,8 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("network")
                 .long("network")
-                .default_value("")
                 .value_name("GENESIS_FILE_PATH")
+                .required(true)
                 .action(ArgAction::Set),
         )
         .arg(

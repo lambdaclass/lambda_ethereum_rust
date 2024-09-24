@@ -1,4 +1,5 @@
-use ethereum_rust_chain::find_parent_header;
+use ethereum_rust_blockchain::find_parent_header;
+use ethereum_rust_rlp::encode::RLPEncode;
 use serde_json::Value;
 use tracing::info;
 
@@ -11,12 +12,8 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::{
-    rlp::encode::RLPEncode,
-    types::{
-        calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-        Receipt,
-    },
+use ethereum_rust_core::types::{
+    calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Receipt,
 };
 use ethereum_rust_storage::Store;
 
@@ -50,6 +47,9 @@ pub struct GetRawBlockRequest {
 pub struct GetRawReceipts {
     pub block: BlockIdentifier,
 }
+
+pub struct BlockNumberRequest;
+pub struct GetBlobBaseFee;
 
 impl RpcHandler for GetBlockByNumberRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<GetBlockByNumberRequest, RpcErr> {
@@ -262,6 +262,47 @@ impl RpcHandler for GetRawReceipts {
     }
 }
 
+impl RpcHandler for BlockNumberRequest {
+    fn parse(_params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        Ok(Self {})
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested latest block number");
+        match storage.get_latest_block_number() {
+            Ok(Some(block_number)) => {
+                serde_json::to_value(format!("{:#x}", block_number)).map_err(|_| RpcErr::Internal)
+            }
+            _ => Err(RpcErr::Internal),
+        }
+    }
+}
+
+impl RpcHandler for GetBlobBaseFee {
+    fn parse(_params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        Ok(Self {})
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested blob gas price");
+        match storage.get_latest_block_number() {
+            Ok(Some(block_number)) => {
+                let header = match storage.get_block_header(block_number)? {
+                    Some(header) => header,
+                    _ => return Err(RpcErr::Internal),
+                };
+                let parent_header = match find_parent_header(&header, &storage) {
+                    Ok(header) => header,
+                    _ => return Err(RpcErr::Internal),
+                };
+                let blob_base_fee = calculate_base_fee_per_blob_gas(&parent_header);
+                serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
+            }
+            _ => Err(RpcErr::Internal),
+        }
+    }
+}
+
 pub fn get_all_block_rpc_receipts(
     block_number: BlockNumber,
     header: BlockHeader,
@@ -325,33 +366,4 @@ pub fn get_all_block_receipts(
         receipts.push(receipt);
     }
     Ok(receipts)
-}
-
-pub fn block_number(storage: Store) -> Result<Value, RpcErr> {
-    info!("Requested latest block number");
-    match storage.get_latest_block_number() {
-        Ok(Some(block_number)) => {
-            serde_json::to_value(format!("{:#x}", block_number)).map_err(|_| RpcErr::Internal)
-        }
-        _ => Err(RpcErr::Internal),
-    }
-}
-
-pub fn get_blob_base_fee(storage: &Store) -> Result<Value, RpcErr> {
-    info!("Requested blob gas price");
-    match storage.get_latest_block_number() {
-        Ok(Some(block_number)) => {
-            let header = match storage.get_block_header(block_number)? {
-                Some(header) => header,
-                _ => return Err(RpcErr::Internal),
-            };
-            let parent_header = match find_parent_header(&header, storage) {
-                Ok(header) => header,
-                _ => return Err(RpcErr::Internal),
-            };
-            let blob_base_fee = calculate_base_fee_per_blob_gas(&parent_header);
-            serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
-        }
-        _ => Err(RpcErr::Internal),
-    }
 }

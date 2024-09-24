@@ -5,28 +5,28 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
-use ethereum_rust_core::rlp::decode::RLPDecode;
-use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
+    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tracing::info;
 
 mod engines;
 pub mod error;
 mod rlp;
-mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
     // TODO: Check if we can remove this mutex and move it to the in_memory::Store struct
-    engine: Arc<Mutex<dyn StoreEngine>>,
+    engine: Arc<dyn StoreEngine>,
 }
 
 #[allow(dead_code)]
@@ -38,7 +38,7 @@ pub enum EngineType {
     Libmdbx,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct AccountUpdate {
     pub address: Address,
     pub removed: bool,
@@ -74,11 +74,11 @@ impl Store {
         let store = match engine_type {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
-                engine: Arc::new(Mutex::new(LibmdbxStore::new(path)?)),
+                engine: Arc::new(LibmdbxStore::new(path)?),
             },
             #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
-                engine: Arc::new(Mutex::new(InMemoryStore::new()?)),
+                engine: Arc::new(InMemoryStore::new()),
             },
         };
         info!("Started store engine");
@@ -90,7 +90,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountInfo>, StoreError> {
-        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+        let Some(state_trie) = self.engine.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -107,48 +107,34 @@ impl Store {
 
     pub fn add_block_header(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
         self.engine
             .clone()
-            .lock()
-            .unwrap()
-            .add_block_header(block_number, block_header)
+            .add_block_header(block_hash, block_header)
     }
 
     pub fn get_block_header(
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_block_header(block_number)
+        self.engine.clone().get_block_header(block_number)
     }
 
     pub fn add_block_body(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .add_block_body(block_number, block_body)
+        self.engine.clone().add_block_body(block_hash, block_body)
     }
 
     pub fn get_block_body(
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockBody>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_block_body(block_number)
+        self.engine.clone().get_block_body(block_number)
     }
 
     pub fn add_block_number(
@@ -158,8 +144,6 @@ impl Store {
     ) -> Result<(), StoreError> {
         self.engine
             .clone()
-            .lock()
-            .unwrap()
             .add_block_number(block_hash, block_number)
     }
 
@@ -167,49 +151,45 @@ impl Store {
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_block_number(block_hash)
+        self.engine.clone().get_block_number(block_hash)
     }
 
     pub fn add_transaction_location(
         &self,
         transaction_hash: H256,
         block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
     ) -> Result<(), StoreError> {
         self.engine
-            .lock()
-            .unwrap()
-            .add_transaction_location(transaction_hash, block_number, index)
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
     }
 
     pub fn get_transaction_location(
         &self,
         transaction_hash: H256,
-    ) -> Result<Option<(BlockNumber, Index)>, StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .get_transaction_location(transaction_hash)
+    ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError> {
+        self.engine.get_transaction_location(transaction_hash)
+    }
+
+    pub fn add_transaction_to_pool(
+        &self,
+        hash: H256,
+        transaction: Transaction,
+    ) -> Result<(), StoreError> {
+        self.engine.add_transaction_to_pool(hash, transaction)
+    }
+
+    pub fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+        self.engine.get_transaction_from_pool(hash)
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .add_account_code(code_hash, code)
+        self.engine.clone().add_account_code(code_hash, code)
     }
 
     pub fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_account_code(code_hash)
+        self.engine.clone().get_account_code(code_hash)
     }
 
     pub fn get_code_by_account_address(
@@ -217,7 +197,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<Bytes>, StoreError> {
-        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+        let Some(state_trie) = self.engine.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -232,7 +212,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<u64>, StoreError> {
-        let Some(state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+        let Some(state_trie) = self.engine.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -250,7 +230,7 @@ impl Store {
         block_number: BlockNumber,
         account_updates: &[AccountUpdate],
     ) -> Result<Option<H256>, StoreError> {
-        let Some(mut state_trie) = self.engine.lock().unwrap().state_trie(block_number)? else {
+        let Some(mut state_trie) = self.engine.state_trie(block_number)? else {
             return Ok(None);
         };
         for update in account_updates.iter() {
@@ -274,15 +254,20 @@ impl Store {
                         self.add_account_code(info.code_hash, code.clone())?;
                     }
                 }
-                // Store the added storage in the account's storage trie and compute its root
-                // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into the DB table and compute the root
+                // Store the added storage in the account's storage trie and compute its new root
                 if !update.added_storage.is_empty() {
+                    let mut storage_trie = self
+                        .engine
+                        .open_storage_trie(update.address, account_state.storage_root);
                     for (storage_key, storage_value) in &update.added_storage {
-                        self.add_storage_at(update.address, *storage_key, *storage_value)?;
+                        let hashed_key = hash_key(storage_key);
+                        if storage_value.is_zero() {
+                            storage_trie.remove(hashed_key)?;
+                        } else {
+                            storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
+                        }
                     }
-                    account_state.storage_root = ethereum_rust_core::types::compute_storage_root(
-                        &self.account_storage_iter(update.address)?.collect(),
-                    );
+                    account_state.storage_root = storage_trie.hash()?;
                 }
                 state_trie.insert(hashed_address, account_state.encode_to_vec())?;
             }
@@ -295,17 +280,20 @@ impl Store {
         &self,
         genesis_accounts: HashMap<Address, GenesisAccount>,
     ) -> Result<H256, StoreError> {
-        let mut genesis_state_trie = self.engine.lock().unwrap().new_state_trie()?;
+        let mut genesis_state_trie = self.engine.new_state_trie()?;
         for (address, account) in genesis_accounts {
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
             self.add_account_code(code_hash, account.code)?;
-            // Store the accounts storage in the storage trie and compute its root
-            // TODO(TrieIntegration): We dont have the storage trie yet so we will insert into DB table and compute the root
-            let storage_root = ethereum_rust_core::types::compute_storage_root(&account.storage);
+            // Store the account's storage in a clean storage trie and compute its root
+            let mut storage_trie = self.engine.open_storage_trie(address, *EMPTY_TRIE_HASH);
             for (storage_key, storage_value) in account.storage {
-                self.add_storage_at(address, storage_key, storage_value)?;
+                if !storage_value.is_zero() {
+                    let hashed_key = hash_key(&storage_key);
+                    storage_trie.insert(hashed_key, storage_value.encode_to_vec())?;
+                }
             }
+            let storage_root = storage_trie.hash()?;
             // Add account to trie
             let account_state = AccountState {
                 nonce: account.nonce,
@@ -316,20 +304,16 @@ impl Store {
             let hashed_address = hash_address(&address);
             genesis_state_trie.insert(hashed_address, account_state.encode_to_vec())?;
         }
-        genesis_state_trie.hash()
+        Ok(genesis_state_trie.hash()?)
     }
 
     pub fn add_receipt(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .add_receipt(block_number, index, receipt)
+        self.engine.clone().add_receipt(block_hash, index, receipt)
     }
 
     pub fn get_receipt(
@@ -337,11 +321,7 @@ impl Store {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        self.engine
-            .clone()
-            .lock()
-            .unwrap()
-            .get_receipt(block_number, index)
+        self.engine.clone().get_receipt(block_number, index)
     }
 
     pub fn add_block(&self, block: Block) -> Result<(), StoreError> {
@@ -349,9 +329,9 @@ impl Store {
         let header = block.header;
         let number = header.number;
         let hash = header.compute_block_hash();
-        self.add_transaction_locations(&block.body.transactions, number)?;
-        self.add_block_body(number, block.body)?;
-        self.add_block_header(number, header)?;
+        self.add_transaction_locations(&block.body.transactions, number, hash)?;
+        self.add_block_body(hash, block.body)?;
+        self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
         self.update_latest_block_number(number)
     }
@@ -360,26 +340,30 @@ impl Store {
         &self,
         transactions: &[Transaction],
         block_number: BlockNumber,
+        block_hash: BlockHash,
     ) -> Result<(), StoreError> {
         for (index, transaction) in transactions.iter().enumerate() {
             self.add_transaction_location(
                 transaction.compute_hash(),
                 block_number,
+                block_hash,
                 index as Index,
             )?;
         }
         Ok(())
     }
 
-    pub fn add_initial_state(&mut self, genesis: Genesis) -> Result<(), StoreError> {
+    pub fn add_initial_state(&self, genesis: Genesis) -> Result<(), StoreError> {
         info!("Storing initial state from genesis");
 
         // Obtain genesis block
         let genesis_block = genesis.get_block();
         let genesis_block_number = genesis_block.header.number;
 
+        let genesis_hash = genesis_block.header.compute_block_hash();
+
         if let Some(header) = self.get_block_header(genesis_block_number)? {
-            if header.compute_block_hash() == genesis_block.header.compute_block_hash() {
+            if header.compute_block_hash() == genesis_hash {
                 info!("Received genesis file matching a previously stored one, nothing to do");
                 return Ok(());
             } else {
@@ -394,6 +378,7 @@ impl Store {
         // Store genesis block
         self.update_earliest_block_number(genesis_block_number)?;
         self.add_block(genesis_block)?;
+        self.set_canonical_block(genesis_block_number, genesis_hash)?;
 
         // Set chain config
         self.set_chain_config(&genesis.config)
@@ -403,113 +388,153 @@ impl Store {
         &self,
         transaction_hash: H256,
     ) -> Result<Option<Transaction>, StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .get_transaction_by_hash(transaction_hash)
+        self.engine.get_transaction_by_hash(transaction_hash)
     }
-    // TODO(TrieIntegration): Make private
-    pub fn add_storage_at(
+
+    pub fn get_transaction_by_location(
         &self,
-        address: Address,
-        storage_key: H256,
-        storage_value: U256,
-    ) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .add_storage_at(address, storage_key, storage_value)
+        block_hash: BlockHash,
+        index: u64,
+    ) -> Result<Option<Transaction>, StoreError> {
+        self.engine.get_transaction_by_location(block_hash, index)
+    }
+
+    pub fn get_block_by_hash(&self, block_hash: H256) -> Result<Option<Block>, StoreError> {
+        self.engine.get_block_by_hash(block_hash)
     }
 
     pub fn get_storage_at(
         &self,
+        block_number: BlockNumber,
         address: Address,
         storage_key: H256,
     ) -> Result<Option<U256>, StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .get_storage_at(address, storage_key)
-    }
-    // TODO(TrieIntegration): Make private
-    pub fn remove_account_storage(&self, address: Address) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().remove_account_storage(address)
-    }
-    // TODO(TrieIntegration): Remove
-    pub fn account_storage_iter(
-        &self,
-        address: Address,
-    ) -> Result<Box<dyn Iterator<Item = (H256, U256)>>, StoreError> {
-        self.engine.lock().unwrap().account_storage_iter(address)
+        let Some(storage_trie) = self.storage_trie(block_number, address)? else {
+            return Ok(None);
+        };
+        let hashed_key = hash_key(&storage_key);
+        storage_trie
+            .get(&hashed_key)?
+            .map(|rlp| U256::decode(&rlp).map_err(StoreError::RLPDecode))
+            .transpose()
     }
 
     pub fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
-        self.engine.lock().unwrap().set_chain_config(chain_config)
+        self.engine.set_chain_config(chain_config)
     }
 
     pub fn get_chain_config(&self) -> Result<ChainConfig, StoreError> {
-        self.engine.lock().unwrap().get_chain_config()
+        self.engine.get_chain_config()
     }
 
     pub fn update_earliest_block_number(
         &self,
         block_number: BlockNumber,
     ) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .update_earliest_block_number(block_number)
+        self.engine.update_earliest_block_number(block_number)
     }
 
     pub fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine.lock().unwrap().get_earliest_block_number()
+        self.engine.get_earliest_block_number()
     }
 
     pub fn update_finalized_block_number(
         &self,
         block_number: BlockNumber,
     ) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .update_finalized_block_number(block_number)
+        self.engine.update_finalized_block_number(block_number)
     }
 
     pub fn get_finalized_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine.lock().unwrap().get_finalized_block_number()
+        self.engine.get_finalized_block_number()
     }
 
     pub fn update_safe_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .update_safe_block_number(block_number)
+        self.engine.update_safe_block_number(block_number)
     }
 
     pub fn get_safe_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine.lock().unwrap().get_safe_block_number()
+        self.engine.get_safe_block_number()
     }
 
     pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .update_latest_block_number(block_number)
+        self.engine.update_latest_block_number(block_number)
     }
 
     pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine.lock().unwrap().get_latest_block_number()
+        self.engine.get_latest_block_number()
     }
 
     pub fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.engine
-            .lock()
-            .unwrap()
-            .update_pending_block_number(block_number)
+        self.engine.update_pending_block_number(block_number)
     }
 
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine.lock().unwrap().get_pending_block_number()
+        self.engine.get_pending_block_number()
+    }
+    pub fn set_canonical_block(
+        &self,
+        number: BlockNumber,
+        hash: BlockHash,
+    ) -> Result<(), StoreError> {
+        self.engine.set_canonical_block(number, hash)
+    }
+
+    // Obtain the storage trie for the given account on the given block
+    fn storage_trie(
+        &self,
+        block_number: BlockNumber,
+        address: Address,
+    ) -> Result<Option<Trie>, StoreError> {
+        // Fetch Account from state_trie
+        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+            return Ok(None);
+        };
+        let hashed_address = hash_address(&address);
+        let Some(encoded_account) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        let account = AccountState::decode(&encoded_account)?;
+        // Open storage_trie
+        let storage_root = account.storage_root;
+        Ok(Some(self.engine.open_storage_trie(address, storage_root)))
+    }
+
+    pub fn get_account_state(
+        &self,
+        block_number: BlockNumber,
+        address: Address,
+    ) -> Result<Option<AccountState>, StoreError> {
+        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+            return Ok(None);
+        };
+        let hashed_address = hash_address(&address);
+        let Some(encoded_state) = state_trie.get(&hashed_address)? else {
+            return Ok(None);
+        };
+        Ok(Some(AccountState::decode(&encoded_state)?))
+    }
+
+    pub fn get_account_proof(
+        &self,
+        block_number: BlockNumber,
+        address: &Address,
+    ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
+        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+            return Ok(None);
+        };
+        Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)
+    }
+
+    /// Constructs a merkle proof for the given storage_key in a storage_trie with a known root
+    pub fn get_storage_proof(
+        &self,
+        address: Address,
+        storage_root: H256,
+        storage_key: &H256,
+    ) -> Result<Vec<Vec<u8>>, StoreError> {
+        let trie = self.engine.open_storage_trie(address, storage_root);
+        Ok(trie.get_proof(&hash_key(storage_key))?)
     }
 }
 
@@ -519,16 +544,22 @@ fn hash_address(address: &Address) -> Vec<u8> {
         .to_vec()
 }
 
+fn hash_key(key: &H256) -> Vec<u8> {
+    Keccak256::new_with_prefix(key.to_fixed_bytes())
+        .finalize()
+        .to_vec()
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs, panic, str::FromStr};
+    use std::{fs, panic, str::FromStr};
 
     use bytes::Bytes;
     use ethereum_rust_core::{
-        rlp::decode::RLPDecode,
         types::{Transaction, TxType},
         Bloom,
     };
+    use ethereum_rust_rlp::decode::RLPDecode;
     use ethereum_types::{H256, U256};
 
     use super::*;
@@ -565,17 +596,15 @@ mod tests {
         run_test(&test_store_block, engine_type);
         run_test(&test_store_block_number, engine_type);
         run_test(&test_store_transaction_location, engine_type);
+        run_test(&test_store_transaction_location_not_canonical, engine_type);
         run_test(&test_store_block_receipt, engine_type);
         run_test(&test_store_account_code, engine_type);
-        run_test(&test_store_account_storage, engine_type);
-        run_test(&test_remove_account_storage, engine_type);
         run_test(&test_store_block_tags, engine_type);
-        run_test(&test_account_storage_iter, engine_type);
         run_test(&test_chain_config_storage, engine_type);
         run_test(&test_genesis_block, engine_type);
     }
 
-    fn test_genesis_block(mut store: Store) {
+    fn test_genesis_block(store: Store) {
         const GENESIS_KURTOSIS: &str = include_str!("../../test_data/genesis-kurtosis.json");
         const GENESIS_HIVE: &str = include_str!("../../test_data/genesis-hive.json");
         assert_ne!(GENESIS_KURTOSIS, GENESIS_HIVE);
@@ -605,13 +634,11 @@ mod tests {
     fn test_store_block(store: Store) {
         let (block_header, block_body) = create_block_for_testing();
         let block_number = 6;
+        let hash = block_header.compute_block_hash();
 
-        store
-            .add_block_header(block_number, block_header.clone())
-            .unwrap();
-        store
-            .add_block_body(block_number, block_body.clone())
-            .unwrap();
+        store.add_block_header(hash, block_header.clone()).unwrap();
+        store.add_block_body(hash, block_body.clone()).unwrap();
+        store.set_canonical_block(block_number, hash).unwrap();
 
         let stored_header = store.get_block_header(block_number).unwrap().unwrap();
         let stored_body = store.get_block_body(block_number).unwrap().unwrap();
@@ -685,19 +712,42 @@ mod tests {
 
     fn test_store_transaction_location(store: Store) {
         let transaction_hash = H256::random();
+        let block_hash = H256::random();
         let block_number = 6;
         let index = 3;
 
         store
-            .add_transaction_location(transaction_hash, block_number, index)
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
             .unwrap();
+
+        store.set_canonical_block(block_number, block_hash).unwrap();
 
         let stored_location = store
             .get_transaction_location(transaction_hash)
             .unwrap()
             .unwrap();
 
-        assert_eq!(stored_location, (block_number, index));
+        assert_eq!(stored_location, (block_number, block_hash, index));
+    }
+
+    fn test_store_transaction_location_not_canonical(store: Store) {
+        let transaction_hash = H256::random();
+        let block_hash = H256::random();
+        let block_number = 6;
+        let index = 3;
+
+        store
+            .add_transaction_location(transaction_hash, block_number, block_hash, index)
+            .unwrap();
+
+        store
+            .set_canonical_block(block_number, H256::random())
+            .unwrap();
+
+        assert_eq!(
+            store.get_transaction_location(transaction_hash).unwrap(),
+            None
+        )
     }
 
     fn test_store_block_receipt(store: Store) {
@@ -710,10 +760,13 @@ mod tests {
         };
         let block_number = 6;
         let index = 4;
+        let block_hash = H256::random();
 
         store
-            .add_receipt(block_number, index, receipt.clone())
+            .add_receipt(block_hash, index, receipt.clone())
             .unwrap();
+
+        store.set_canonical_block(block_number, block_hash).unwrap();
 
         let stored_receipt = store.get_receipt(block_number, index).unwrap().unwrap();
 
@@ -729,71 +782,6 @@ mod tests {
         let stored_code = store.get_account_code(code_hash).unwrap().unwrap();
 
         assert_eq!(stored_code, code);
-    }
-
-    fn test_store_account_storage(store: Store) {
-        let address = Address::random();
-        let storage_key_a = H256::random();
-        let storage_key_b = H256::random();
-        let storage_value_a = U256::from(50);
-        let storage_value_b = U256::from(100);
-
-        store
-            .add_storage_at(address, storage_key_a, storage_value_a)
-            .unwrap();
-        store
-            .add_storage_at(address, storage_key_b, storage_value_b)
-            .unwrap();
-
-        let stored_value_a = store
-            .get_storage_at(address, storage_key_a)
-            .unwrap()
-            .unwrap();
-        let stored_value_b = store
-            .get_storage_at(address, storage_key_b)
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(stored_value_a, storage_value_a);
-        assert_eq!(stored_value_b, storage_value_b);
-    }
-
-    fn test_remove_account_storage(store: Store) {
-        let address_alpha = Address::random();
-        let address_beta = Address::random();
-
-        let storage_key_a = H256::random();
-        let storage_key_b = H256::random();
-        let storage_value_a = U256::from(50);
-        let storage_value_b = U256::from(100);
-
-        store
-            .add_storage_at(address_alpha, storage_key_a, storage_value_a)
-            .unwrap();
-        store
-            .add_storage_at(address_alpha, storage_key_b, storage_value_b)
-            .unwrap();
-
-        store
-            .add_storage_at(address_beta, storage_key_a, storage_value_a)
-            .unwrap();
-        store
-            .add_storage_at(address_beta, storage_key_b, storage_value_b)
-            .unwrap();
-
-        store.remove_account_storage(address_alpha).unwrap();
-
-        let stored_value_alpha_a = store.get_storage_at(address_alpha, storage_key_a).unwrap();
-        let stored_value_alpha_b = store.get_storage_at(address_alpha, storage_key_b).unwrap();
-
-        let stored_value_beta_a = store.get_storage_at(address_beta, storage_key_a).unwrap();
-        let stored_value_beta_b = store.get_storage_at(address_beta, storage_key_b).unwrap();
-
-        assert!(stored_value_alpha_a.is_none());
-        assert!(stored_value_alpha_b.is_none());
-
-        assert!(stored_value_beta_a.is_some());
-        assert!(stored_value_beta_b.is_some());
     }
 
     fn test_store_block_tags(store: Store) {
@@ -828,27 +816,6 @@ mod tests {
         assert_eq!(safe_block_number, stored_safe_block_number);
         assert_eq!(latest_block_number, stored_latest_block_number);
         assert_eq!(pending_block_number, stored_pending_block_number);
-    }
-
-    fn test_account_storage_iter(store: Store) {
-        let address = Address::random();
-        // Build preset account storage
-        let account_storage = HashMap::from([
-            (H256::random(), U256::from(7)),
-            (H256::random(), U256::from(17)),
-            (H256::random(), U256::from(77)),
-            (H256::random(), U256::from(707)),
-        ]);
-
-        // Store account storage
-        for (key, value) in account_storage.clone() {
-            store.add_storage_at(address, key, value).unwrap();
-        }
-
-        // Fetch account storage from db and compare against preset
-        let account_storage_iter = store.account_storage_iter(address).unwrap();
-        let account_storage_from_iter = HashMap::from_iter(account_storage_iter);
-        assert_eq!(account_storage, account_storage_from_iter)
     }
 
     fn test_chain_config_storage(store: Store) {

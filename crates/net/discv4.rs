@@ -2,13 +2,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::types::{Endpoint, Node, NodeRecord};
 use bytes::BufMut;
-use ethereum_rust_core::rlp::{
+use ethereum_rust_core::{H256, H512, H520};
+use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
-use ethereum_rust_core::{H256, H512, H520};
 use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
 use sha3::{Digest, Keccak256};
 
@@ -307,8 +307,10 @@ pub struct FindNodeRequest {
     /// we keep track of this number since we will accept neighbor messages until the max_per_bucket
     pub nodes_sent: usize,
     /// unix timestamp tracking when we have sent the request
-    #[allow(unused)]
     pub sent_at: u64,
+    /// if present, server will send the nodes through this channel when receiving neighbors
+    /// useful to wait for the response in lookups
+    pub tx: Option<tokio::sync::mpsc::UnboundedSender<Vec<Node>>>,
 }
 
 impl Default for FindNodeRequest {
@@ -316,6 +318,16 @@ impl Default for FindNodeRequest {
         Self {
             nodes_sent: 0,
             sent_at: time_now_unix(),
+            tx: None,
+        }
+    }
+}
+
+impl FindNodeRequest {
+    pub fn new_with_sender(sender: tokio::sync::mpsc::UnboundedSender<Vec<Node>>) -> Self {
+        Self {
+            tx: Some(sender),
+            ..Self::default()
         }
     }
 }

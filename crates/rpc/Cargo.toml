@@ -16,8 +16,9 @@ tracing-subscriber.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-storage.workspace = true
 ethereum_rust-evm.workspace = true
-ethereum_rust-chain.workspace = true
+ethereum_rust-blockchain.workspace = true
 ethereum_rust-net.workspace = true
+ethereum_rust-rlp.workspace = true
 hex.workspace = true
 axum-extra = {version = "0.9.3", features = ["typed-header"]}
 jsonwebtoken = "9.3.0"

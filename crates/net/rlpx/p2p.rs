@@ -1,25 +1,18 @@
 use bytes::BufMut;
-use ethereum_rust_core::{
-    rlp::{
-        encode::RLPEncode as _,
-        error::RLPDecodeError,
-        structs::{Decoder, Encoder},
-    },
-    H512,
+use ethereum_rust_core::H512;
+use ethereum_rust_rlp::{
+    encode::RLPEncode as _,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
 };
 use k256::PublicKey;
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
 use crate::rlpx::utils::id2pubkey;
 
-use super::utils::pubkey2id;
+use super::{message::RLPxMessage, utils::pubkey2id};
 
-pub trait RLPxMessage: Sized {
-    fn encode(&self, buf: &mut dyn BufMut);
-
-    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError>;
-}
-
+#[derive(Debug)]
 pub(crate) struct HelloMessage {
     capabilities: Vec<(String, u8)>,
     node_id: PublicKey,
@@ -76,6 +69,7 @@ impl RLPxMessage for HelloMessage {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct DisconnectMessage {
     reason: Option<u8>,
 }
@@ -134,6 +128,7 @@ impl RLPxMessage for DisconnectMessage {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct PingMessage {}
 
 impl PingMessage {
@@ -174,6 +169,7 @@ impl RLPxMessage for PingMessage {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct PongMessage {}
 
 impl PongMessage {

@@ -2,15 +2,14 @@ use std::marker::PhantomData;
 
 use bytes::Bytes;
 use ethereum_rust_core::{
-    rlp::{decode::RLPDecode, encode::RLPEncode},
-    types::{BlockBody, BlockHash, BlockHeader, Receipt},
-    Address, H256,
+    types::{BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
+    H256,
 };
+use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
-pub type AddressRLP = Rlp<Address>;
 pub type AccountCodeHashRLP = Rlp<H256>;
 pub type AccountCodeRLP = Rlp<Bytes>;
 
@@ -24,6 +23,10 @@ pub type ReceiptRLP = Rlp<Receipt>;
 
 // Transaction types
 pub type TransactionHashRLP = Rlp<H256>;
+pub type TransactionRLP = Rlp<Transaction>;
+
+// Wrapper for tuples. Used mostly for indexed keys.
+pub type TupleRLP<A, B> = Rlp<(A, B)>;
 
 #[derive(Clone)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);

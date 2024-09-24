@@ -4,13 +4,14 @@ use crate::{
 };
 use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
+use tokio::sync::mpsc::UnboundedSender;
 
 pub const MAX_NODES_PER_BUCKET: usize = 16;
 const NUMBER_OF_BUCKETS: usize = 256;
 const MAX_NUMBER_OF_REPLACEMENTS: usize = 10;
 
 #[derive(Clone, Debug, Default)]
-struct Bucket {
+pub struct Bucket {
     pub peers: Vec<PeerData>,
     pub replacements: Vec<PeerData>,
 }
@@ -28,6 +29,11 @@ impl KademliaTable {
             local_node_id,
             buckets,
         }
+    }
+
+    #[allow(unused)]
+    pub fn buckets(&self) -> &Vec<Bucket> {
+        &self.buckets
     }
 
     pub fn get_by_node_id(&self, node_id: H512) -> Option<&PeerData> {
@@ -49,9 +55,9 @@ impl KademliaTable {
     /// Will try to insert a node into the table. If the table is full then it pushes it to the replacement list.
     /// # Returns
     /// A tuple containing:
-    ///     1. PeerData
+    ///     1. PeerData: none if the peer was already in the table or as a potential replacement
     ///     2. A bool indicating if the node was inserted to the table
-    pub fn insert_node(&mut self, node: Node) -> (PeerData, bool) {
+    pub fn insert_node(&mut self, node: Node) -> (Option<PeerData>, bool) {
         let node_id = node.node_id;
         let bucket_idx = bucket_number(node_id, self.local_node_id);
 
@@ -59,21 +65,41 @@ impl KademliaTable {
     }
 
     #[cfg(test)]
-    fn insert_node_on_custom_bucket(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
+    pub fn insert_node_on_custom_bucket(
+        &mut self,
+        node: Node,
+        bucket_idx: usize,
+    ) -> (Option<PeerData>, bool) {
         self.insert_node_inner(node, bucket_idx)
     }
 
-    fn insert_node_inner(&mut self, node: Node, bucket_idx: usize) -> (PeerData, bool) {
+    fn insert_node_inner(&mut self, node: Node, bucket_idx: usize) -> (Option<PeerData>, bool) {
         let node_id = node.node_id;
+
+        let peer_already_in_table = self.buckets[bucket_idx]
+            .peers
+            .iter()
+            .any(|p| p.node.node_id == node_id);
+        if peer_already_in_table {
+            return (None, false);
+        }
+        let peer_already_in_replacements = self.buckets[bucket_idx]
+            .replacements
+            .iter()
+            .any(|p| p.node.node_id == node_id);
+        if peer_already_in_replacements {
+            return (None, false);
+        }
+
         let peer = PeerData::new(node, time_now_unix(), 0, false);
 
         if self.buckets[bucket_idx].peers.len() == MAX_NODES_PER_BUCKET {
             self.insert_as_replacement(&peer, bucket_idx);
-            (peer, false)
+            (Some(peer), false)
         } else {
             self.remove_from_replacements(node_id, bucket_idx);
             self.buckets[bucket_idx].peers.push(peer.clone());
-            (peer, true)
+            (Some(peer), true)
         }
     }
 
@@ -119,7 +145,7 @@ impl KademliaTable {
         nodes.iter().map(|a| a.0).collect()
     }
 
-    pub fn mark_peer_as_proven(&mut self, node_id: H512) {
+    pub fn pong_answered(&mut self, node_id: H512) {
         let peer = self.get_by_node_id_mut(node_id);
         if peer.is_none() {
             return;
@@ -129,6 +155,7 @@ impl KademliaTable {
         peer.is_proven = true;
         peer.last_pong = time_now_unix();
         peer.last_ping_hash = None;
+        peer.revalidation = peer.revalidation.and(Some(true));
     }
 
     pub fn update_peer_ping(&mut self, node_id: H512, ping_hash: Option<H256>) {
@@ -138,24 +165,47 @@ impl KademliaTable {
         }
 
         let peer = peer.unwrap();
-        peer.is_proven = false;
         peer.last_ping_hash = ping_hash;
         peer.last_ping = time_now_unix();
     }
 
+    pub fn update_peer_ping_with_revalidation(&mut self, node_id: H512, ping_hash: Option<H256>) {
+        let Some(peer) = self.get_by_node_id_mut(node_id) else {
+            return;
+        };
+
+        peer.last_ping_hash = ping_hash;
+        peer.last_ping = time_now_unix();
+        peer.revalidation = Some(false);
+    }
+
     /// ## Returns
-    /// The peers whose pong back is past the since. Since is given in seconds and it is not an actual data
-    /// but a Duration.
+    /// The a vector of length of the provided `limit` of the peers who have the highest `last_ping` timestamp,
+    /// that is, those peers that were pinged least recently. Careful with the `limit` param, as a
+    /// it might get expensive.
     ///
-    /// ### Example
-    /// table.get_pinged_peers_since(24 * 60 * 60) // this would return the peers that haven't ponged for 24hs
-    pub fn get_pinged_peers_since(&mut self, since: u64) -> Vec<PeerData> {
+    /// ## Dev note:
+    /// This function should be improved:
+    /// We might keep the `peers` list sorted by last_ping as we would avoid unnecessary loops
+    pub fn get_least_recently_pinged_peers(&mut self, limit: usize) -> Vec<PeerData> {
         let mut peers = vec![];
 
         for bucket in &self.buckets {
             for peer in &bucket.peers {
-                if time_now_unix().saturating_sub(peer.last_pong) >= since {
+                if peers.len() < limit {
                     peers.push(peer.clone());
+                } else {
+                    // replace the most recent from the list
+                    let mut most_recent_index = 0;
+                    for (i, other_peer) in peers.iter().enumerate() {
+                        if other_peer.last_pong > peers[most_recent_index].last_pong {
+                            most_recent_index = i;
+                        }
+                    }
+
+                    if peer.last_pong < peers[most_recent_index].last_pong {
+                        peers[most_recent_index] = peer.clone();
+                    }
                 }
             }
         }
@@ -175,7 +225,7 @@ impl KademliaTable {
     }
 
     #[cfg(test)]
-    fn replace_peer_on_custom_bucket(
+    pub fn replace_peer_on_custom_bucket(
         &mut self,
         node_id: H512,
         bucket_idx: usize,
@@ -225,6 +275,10 @@ pub struct PeerData {
     pub last_ping_hash: Option<H256>,
     pub is_proven: bool,
     pub find_node_request: Option<FindNodeRequest>,
+    /// a ration to track the peers's ping responses
+    pub liveness: u16,
+    /// if a revalidation was sent to the peer, the bool marks if it has answered
+    pub revalidation: Option<bool>,
 }
 
 impl PeerData {
@@ -234,20 +288,35 @@ impl PeerData {
             last_ping,
             last_pong,
             is_proven,
+            liveness: 1,
             last_ping_hash: None,
             find_node_request: None,
+            revalidation: None,
         }
     }
 
+    #[allow(unused)]
     pub fn new_find_node_request(&mut self) {
         self.find_node_request = Some(FindNodeRequest::default());
+    }
+
+    pub fn new_find_node_request_with_sender(&mut self, sender: UnboundedSender<Vec<Node>>) {
+        self.find_node_request = Some(FindNodeRequest::new_with_sender(sender));
+    }
+
+    pub fn increment_liveness(&mut self) {
+        self.liveness += 1;
+    }
+
+    pub fn decrement_liveness(&mut self) {
+        self.liveness /= 3;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{node_id_from_signing_key, PROOF_EXPIRATION_IN_HS};
+    use crate::node_id_from_signing_key;
     use hex_literal::hex;
     use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
     use std::{
@@ -267,7 +336,7 @@ mod tests {
     fn insert_random_node_on_custom_bucket(
         table: &mut KademliaTable,
         bucket_idx: usize,
-    ) -> (PeerData, bool) {
+    ) -> (Option<PeerData>, bool) {
         let node_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         let node = Node {
             ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
@@ -294,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn get_peers_since_should_return_the_right_peers() {
+    fn get_least_recently_pinged_peers_should_return_the_right_peers() {
         let mut table = get_test_table();
         let node_1_id = node_id_from_signing_key(&SigningKey::random(&mut OsRng));
         {
@@ -343,7 +412,7 @@ mod tests {
 
         // we expect the node_1 & node_2 to be returned here
         let peers: Vec<H512> = table
-            .get_pinged_peers_since(PROOF_EXPIRATION_IN_HS as u64 * 60 * 60)
+            .get_least_recently_pinged_peers(2)
             .iter()
             .map(|p| p.node.node_id)
             .collect();
@@ -361,6 +430,7 @@ mod tests {
 
         let (first_node, inserted_to_table) =
             insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let first_node = first_node.unwrap();
         assert!(!inserted_to_table);
 
         // here we are forcingly pushing to the first bucket, that is, the distance might
@@ -379,6 +449,7 @@ mod tests {
 
         // push one more element, this should replace the first one pushed
         let (last, inserted_to_table) = insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let last = last.unwrap();
         assert!(!inserted_to_table);
 
         let bucket = &table.buckets[bucket_idx];
@@ -399,6 +470,7 @@ mod tests {
 
         let (replacement_peer, inserted_to_table) =
             insert_random_node_on_custom_bucket(&mut table, bucket_idx);
+        let replacement_peer = replacement_peer.unwrap();
         assert!(!inserted_to_table);
 
         let node_id_to_replace = table.buckets[bucket_idx].peers[0].node.node_id;
