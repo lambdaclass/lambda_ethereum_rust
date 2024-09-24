@@ -97,7 +97,7 @@ And you can run this set of tests with:
 make run-hive-debug ethereum/rpc-compat
 ```
 
-### Run locally
+### Localnet
 
 To run a localnet, we'll use our fork of [ethPandaOps' Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `make` target. Make sure to fetch it like follows:
 
@@ -109,7 +109,7 @@ If you haven't yet, install Kurtosis:
 
 ```bash
 # Make sure to have docker installed
-
+brew install docker
 # Kurtosis cli
 brew install kurtosis-tech/tap/kurtosis-cli
 ```
