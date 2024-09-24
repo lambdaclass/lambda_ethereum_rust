@@ -8,6 +8,15 @@ pub struct VM {
     pc: usize,
 }
 
+/// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
+fn is_negative(value: U256) -> bool {
+    value >> 255 == U256::one()
+}
+/// Converts a positive value to a negative one in two's complement
+fn to_negative(value: U256) -> U256 {
+    !value + U256::one()
+}
+
 impl VM {
     pub fn execute(&mut self, mut bytecode: Bytes) {
         loop {
@@ -45,16 +54,14 @@ impl VM {
                         self.stack.push(U256::zero());
                         continue;
                     }
-                    let a_is_negative = a >> 255 == U256::one();
-                    let b_is_negative = b >> 255 == U256::one();
 
-                    let a = if a_is_negative { !a + U256::one() } else { a };
-                    let b = if b_is_negative { !b + U256::one() } else { b };
+                    let a_is_negative = is_negative(a);
+                    let b_is_negative = is_negative(b);
+                    let a = if a_is_negative { to_negative(a) } else { a };
+                    let b = if b_is_negative { to_negative(b) } else { b };
                     let result = a / b;
-
-                    let is_result_negative = a_is_negative ^ b_is_negative;
-
-                    let result = if is_result_negative {
+                    let result_is_negative = a_is_negative ^ b_is_negative;
+                    let result = if result_is_negative {
                         !result + U256::one()
                     } else {
                         result
@@ -80,10 +87,10 @@ impl VM {
                         continue;
                     }
 
-                    let a_is_negative = a >> 255 == U256::one();
-                    let b_is_negative = b >> 255 == U256::one();
-                    let a = if a_is_negative { !a + U256::one() } else { a };
-                    let b = if b_is_negative { !b + U256::one() } else { b };
+                    let a_is_negative = is_negative(a);
+                    let b_is_negative = is_negative(b);
+                    let a = if a_is_negative { to_negative(a) } else { a };
+                    let b = if b_is_negative { to_negative(b) } else { b };
                     let result = a % b;
                     let result_is_negative = a_is_negative ^ b_is_negative;
                     let result = if result_is_negative {
