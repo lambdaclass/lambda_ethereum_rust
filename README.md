@@ -47,7 +47,7 @@ make stop-localnet
 ### Build
 
 #### Rust
-To build the node, you will need the rust toolchain, plus a working clang: 
+To build the node, you will need the rust toolchain: 
 1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html): 
 2. Add the rust plugin: 
 ```shell
