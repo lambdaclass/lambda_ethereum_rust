@@ -216,4 +216,8 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
 
     // Get the canonical block hash for a given block number.
     fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError>;
+
+    fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
+
+    fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
 }

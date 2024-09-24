@@ -571,6 +571,14 @@ impl Store {
     ) -> Result<Option<BlockHash>, StoreError> {
         self.engine.get_canonical_block(block_number)
     }
+
+    pub fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.engine.add_local_block(payload_id, block)
+    }
+
+    pub fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        self.engine.get_local_block(payload_id)
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {

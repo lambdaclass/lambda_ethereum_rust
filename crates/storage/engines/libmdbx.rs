@@ -1,13 +1,13 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
     BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -371,6 +371,14 @@ impl StoreEngine for Store {
     fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError> {
         Ok(self.read::<CanonicalBlockHashes>(number)?.map(|b| b.to()))
     }
+
+    fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.write::<LocalBlocks>(payload_id, block.into())
+    }
+
+    fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        Ok(self.read::<LocalBlocks>(payload_id)?.map(|b| b.to()))
+    }
 }
 
 impl Debug for Store {
@@ -442,6 +450,13 @@ table!(
 table!(
     /// state trie nodes
     ( StateTrieNodes ) Vec<u8> => Vec<u8>
+);
+
+// Local Blocks
+
+table!(
+    /// state trie nodes
+    ( LocalBlocks ) u64 => BlockRLP
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -541,6 +556,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
+        table_info!(LocalBlocks),
     ]
     .into_iter()
     .collect();

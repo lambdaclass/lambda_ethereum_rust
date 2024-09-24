@@ -1,4 +1,5 @@
-use ethereum_rust_core::{types::BuildPayloadArgs, U256};
+use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
+use ethereum_rust_core::U256;
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 
@@ -125,9 +126,9 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             self.fork_choice_state.head_block_hash,
         ));
 
-        // TODO: Build block
+        // Build block from received payload
         if let Some(attributes) = &self.payload_attributes {
-            let payload = BuildPayloadArgs {
+            let args = BuildPayloadArgs {
                 parent: self.fork_choice_state.head_block_hash,
                 timestamp: attributes.timestamp,
                 fee_recipient: attributes.suggested_fee_recipient,
@@ -136,8 +137,10 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 beacon_root: Some(attributes.parent_beacon_block_root),
                 version: 3,
             };
-            let payload_id = payload.id();
+            let payload_id = args.id();
             response.set_id(payload_id);
+            let payload = build_payload(&args, &storage)?;
+            storage.add_local_block(payload_id, payload)?;
         }
 
         Ok(serde_json::to_value(response).map_err(|_| RpcErr::Internal)?)
