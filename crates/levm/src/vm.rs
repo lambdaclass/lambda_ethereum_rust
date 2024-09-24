@@ -31,6 +31,7 @@ impl VM {
                     let offset = self.stack.pop().unwrap();
                     // resize if necessary
                     self.memory.resize(offset.as_usize());
+
                     let value = self.memory.load(offset.as_usize());
                     self.stack.push(value);
                 }
@@ -41,7 +42,8 @@ impl VM {
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
                     self.memory.resize(offset);
-                    self.memory.store_bytes(offset, &value_bytes); // check how to do better
+
+                    self.memory.store_bytes(offset, &value_bytes);
                 }
                 Opcode::MSTORE8 => {
                     // spend_gas(3);
@@ -50,17 +52,28 @@ impl VM {
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
                     self.memory.resize(offset);
+
                     self.memory.store_bytes(offset, value_bytes[31..32].as_ref());
 
                 }
                 Opcode::MSIZE => {
-                    let size = U256::zero(); // TODO: get size of memory
-                    self.stack.push(size);
+                    // spend_gas(2);
+                    self.stack.push(self.memory.size());
                 }
                 Opcode::MCOPY => {
-                    let dest = self.stack.pop().unwrap();
-                    let src = self.stack.pop().unwrap();
-                    let size = self.stack.pop().unwrap();
+                    // spend_gas(3) + dynamic gas
+                    let dest_offset = self.stack.pop().unwrap().as_usize();
+                    let src_offset = self.stack.pop().unwrap().as_usize();
+                    let size = self.stack.pop().unwrap().as_usize();
+
+                    if size == 0 {
+                        break;
+                    }
+                     
+                    let max_size = std::cmp::max(src_offset + size, dest_offset + size);
+                    self.memory.resize(max_size);
+
+                    self.memory.copy(src_offset, dest_offset, size);
                 }
             }
         }
@@ -109,5 +122,17 @@ impl Memory {
 
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
         self.data.splice(offset..offset + value.len(), value.iter().copied());
+    }
+
+    pub fn size(&self) -> U256 {
+        U256::from(self.data.len())
+    }
+
+    pub fn copy(&mut self, src_offset: usize, dest_offset: usize, size: usize) {
+        let mut temp = vec![0u8; size];
+
+        temp.copy_from_slice(&self.data[src_offset..src_offset + size]);
+
+        self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
 }
