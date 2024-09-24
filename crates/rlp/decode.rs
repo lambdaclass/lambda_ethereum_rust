@@ -3,6 +3,9 @@ use super::{
     error::RLPDecodeError,
 };
 use bytes::{Bytes, BytesMut};
+use ethereum_types::{
+    Address, Bloom, Signature, H128, H160, H256, H264, H32, H512, H520, H64, U256,
+};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Trait for decoding RLP encoded slices of data.
@@ -130,74 +133,74 @@ impl RLPDecode for BytesMut {
     }
 }
 
-impl RLPDecode for crate::H32 {
+impl RLPDecode for H32 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H32(value), rest))
+        Ok((H32(value), rest))
     }
 }
 
-impl RLPDecode for crate::H64 {
+impl RLPDecode for H64 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H64(value), rest))
+        Ok((H64(value), rest))
     }
 }
 
-impl RLPDecode for crate::H128 {
+impl RLPDecode for H128 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H128(value), rest))
+        Ok((H128(value), rest))
     }
 }
 
-impl RLPDecode for crate::H256 {
+impl RLPDecode for H256 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H256(value), rest))
+        Ok((H256(value), rest))
     }
 }
 
-impl RLPDecode for crate::H264 {
+impl RLPDecode for H264 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H264(value), rest))
+        Ok((H264(value), rest))
     }
 }
 
-impl RLPDecode for crate::Address {
+impl RLPDecode for Address {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H160(value), rest))
+        Ok((H160(value), rest))
     }
 }
 
-impl RLPDecode for crate::H512 {
+impl RLPDecode for H512 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H512(value), rest))
+        Ok((H512(value), rest))
     }
 }
 
-impl RLPDecode for crate::Signature {
+impl RLPDecode for Signature {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::H520(value), rest))
+        Ok((H520(value), rest))
     }
 }
 
-impl RLPDecode for crate::U256 {
+impl RLPDecode for U256 {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (bytes, rest) = decode_bytes(rlp)?;
         let padded_bytes: [u8; 32] = static_left_pad(bytes)?;
-        Ok((crate::U256::from_big_endian(&padded_bytes), rest))
+        Ok((U256::from_big_endian(&padded_bytes), rest))
     }
 }
 
-impl RLPDecode for crate::Bloom {
+impl RLPDecode for Bloom {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let (value, rest) = RLPDecode::decode_unfinished(rlp)?;
-        Ok((crate::Bloom(value), rest))
+        Ok((Bloom(value), rest))
     }
 }
 
@@ -594,15 +597,15 @@ mod tests {
     #[test]
     fn test_decode_u256() {
         let rlp = vec![RLP_NULL + 1, 0x01];
-        let decoded = crate::U256::decode(&rlp).unwrap();
-        let expected = crate::U256::from(1);
+        let decoded = U256::decode(&rlp).unwrap();
+        let expected = U256::from(1);
         assert_eq!(decoded, expected);
 
         let mut rlp = vec![RLP_NULL + 32];
         let number_bytes = [0x01; 32];
         rlp.extend(number_bytes);
-        let decoded = crate::U256::decode(&rlp).unwrap();
-        let expected = crate::U256::from_big_endian(&number_bytes);
+        let decoded = U256::decode(&rlp).unwrap();
+        let expected = U256::from_big_endian(&number_bytes);
         assert_eq!(decoded, expected);
     }
 

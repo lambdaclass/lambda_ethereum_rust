@@ -3,27 +3,25 @@ use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
-use crate::trie::EMPTY_TRIE_HASH;
 use bytes::Bytes;
 use engines::api::StoreEngine;
-use ethereum_rust_core::rlp::decode::RLPDecode;
-use ethereum_rust_core::rlp::encode::RLPEncode;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
+    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
 };
+use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
-use trie::Trie;
 
 mod engines;
 pub mod error;
 mod rlp;
-mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
@@ -306,7 +304,7 @@ impl Store {
             let hashed_address = hash_address(&address);
             genesis_state_trie.insert(hashed_address, account_state.encode_to_vec())?;
         }
-        genesis_state_trie.hash()
+        Ok(genesis_state_trie.hash()?)
     }
 
     pub fn add_receipt(
@@ -525,7 +523,7 @@ impl Store {
         let Some(state_trie) = self.engine.state_trie(block_number)? else {
             return Ok(None);
         };
-        Some(state_trie.get_proof(&hash_address(address))).transpose()
+        Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)
     }
 
     /// Constructs a merkle proof for the given storage_key in a storage_trie with a known root
@@ -536,7 +534,7 @@ impl Store {
         storage_key: &H256,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let trie = self.engine.open_storage_trie(address, storage_root);
-        trie.get_proof(&hash_key(storage_key))
+        Ok(trie.get_proof(&hash_key(storage_key))?)
     }
 }
 
@@ -558,10 +556,10 @@ mod tests {
 
     use bytes::Bytes;
     use ethereum_rust_core::{
-        rlp::decode::RLPDecode,
         types::{Transaction, TxType},
         Bloom,
     };
+    use ethereum_rust_rlp::decode::RLPDecode;
     use ethereum_types::{H256, U256};
 
     use super::*;
