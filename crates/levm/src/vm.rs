@@ -53,8 +53,8 @@ impl VM {
                     value.to_big_endian(&mut value_bytes);
                     self.memory.resize(offset);
 
-                    self.memory.store_bytes(offset, value_bytes[31..32].as_ref());
-
+                    self.memory
+                        .store_bytes(offset, value_bytes[31..32].as_ref());
                 }
                 Opcode::MSIZE => {
                     // spend_gas(2);
@@ -69,7 +69,7 @@ impl VM {
                     if size == 0 {
                         break;
                     }
-                     
+
                     let max_size = std::cmp::max(src_offset + size, dest_offset + size);
                     self.memory.resize(max_size);
 
@@ -121,7 +121,8 @@ impl Memory {
     }
 
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
-        self.data.splice(offset..offset + value.len(), value.iter().copied());
+        self.data
+            .splice(offset..offset + value.len(), value.iter().copied());
     }
 
     pub fn size(&self) -> U256 {
