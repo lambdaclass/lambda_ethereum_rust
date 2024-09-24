@@ -14,31 +14,31 @@ use ethereum_rust_core::{
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadV3 {
-    parent_hash: H256,
-    fee_recipient: Address,
-    state_root: H256,
-    receipts_root: H256,
-    logs_bloom: Bloom,
-    prev_randao: H256,
+    pub parent_hash: H256,
+    pub fee_recipient: Address,
+    pub state_root: H256,
+    pub receipts_root: H256,
+    pub logs_bloom: Bloom,
+    pub prev_randao: H256,
     #[serde(with = "serde_utils::u64::hex_str")]
-    block_number: u64,
+    pub block_number: u64,
     #[serde(with = "serde_utils::u64::hex_str")]
-    gas_limit: u64,
+    pub gas_limit: u64,
     #[serde(with = "serde_utils::u64::hex_str")]
-    gas_used: u64,
+    pub gas_used: u64,
     #[serde(with = "serde_utils::u64::hex_str")]
-    timestamp: u64,
+    pub timestamp: u64,
     #[serde(with = "serde_utils::bytes")]
-    extra_data: Bytes,
+    pub extra_data: Bytes,
     #[serde(with = "serde_utils::u64::hex_str")]
-    base_fee_per_gas: u64,
+    pub base_fee_per_gas: u64,
     pub block_hash: H256,
-    transactions: Vec<EncodedTransaction>,
-    withdrawals: Vec<Withdrawal>,
+    pub transactions: Vec<EncodedTransaction>,
+    pub withdrawals: Vec<Withdrawal>,
     #[serde(with = "serde_utils::u64::hex_str")]
-    blob_gas_used: u64,
+    pub blob_gas_used: u64,
     #[serde(with = "serde_utils::u64::hex_str")]
-    excess_blob_gas: u64,
+    pub excess_blob_gas: u64,
 }
 
 #[derive(Clone, Debug)]
