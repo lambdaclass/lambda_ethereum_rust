@@ -108,8 +108,8 @@ impl Memory {
     }
 
     pub fn resize(&mut self, offset: usize) {
-        if offset + 32 > self.data.len() {
-            self.data.resize(offset + 32, 0);
+        if (offset + 1).next_multiple_of(32) > self.data.len() {
+            self.data.resize((offset + 1).next_multiple_of(32), 0);
         }
     }
 
