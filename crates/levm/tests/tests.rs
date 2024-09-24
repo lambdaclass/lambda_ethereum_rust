@@ -179,7 +179,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
 }
 
 #[test]
-fn test_mload_uninitialized_memory() {
+fn mload_uninitialized_memory() {
     let mut vm = VM::default();
 
     vm.stack.push(U256::from(50)); // offset
