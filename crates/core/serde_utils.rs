@@ -99,10 +99,7 @@ pub mod u64 {
         where
             D: Deserializer<'de>,
         {
-            let value = String::deserialize(d)?;
-            let res = u64::from_str_radix(value.trim_start_matches("0x"), 16)
-                .map_err(|_| D::Error::custom("Failed to deserialize u64 value"));
-            res
+            super::hex_str::deserialize(d)
         }
 
         pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
@@ -136,6 +133,25 @@ pub mod u64 {
                     .map(Some),
                 _ => Ok(None),
             }
+        }
+    }
+
+    pub mod hex_str_opt_padded {
+        use serde::Serialize;
+
+        use super::*;
+        pub fn serialize<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            Option::<String>::serialize(&value.map(|v| format!("{:#018x}", v)), serializer)
+        }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Option<u64>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            super::hex_str_opt::deserialize(d)
         }
     }
 

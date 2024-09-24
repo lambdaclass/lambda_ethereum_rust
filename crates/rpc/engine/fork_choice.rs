@@ -121,7 +121,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             // Set the safe block
             storage.update_safe_block_number(safe_block.header.number)?;
         }
-        let response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
+        let mut response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
             self.fork_choice_state.head_block_hash,
         ));
 
@@ -136,6 +136,8 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 beacon_root: Some(attributes.parent_beacon_block_root),
                 version: 3,
             };
+            let payload_id = payload.id();
+            response.set_id(payload_id);
         }
 
         Ok(serde_json::to_value(response).map_err(|_| RpcErr::Internal)?)

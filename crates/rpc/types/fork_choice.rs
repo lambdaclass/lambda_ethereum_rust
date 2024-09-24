@@ -1,7 +1,6 @@
-use ethereum_rust_core::{types::Withdrawal, Address, H256, U256};
-use serde::{Deserialize, Serialize};
-
 use super::payload::PayloadStatus;
+use ethereum_rust_core::{serde_utils, types::Withdrawal, Address, H256, U256};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,11 +26,12 @@ pub struct PayloadAttributesV3 {
 #[serde(rename_all = "camelCase")]
 pub struct ForkChoiceResponse {
     pub payload_status: PayloadStatus,
-    pub payload_id: Option<u8>,
+    #[serde(with = "serde_utils::u64::hex_str_opt_padded")]
+    pub payload_id: Option<u64>,
 }
 
 impl ForkChoiceResponse {
-    pub fn set_id(&mut self, id: u8) {
+    pub fn set_id(&mut self, id: u64) {
         self.payload_id = Some(id)
     }
 }
