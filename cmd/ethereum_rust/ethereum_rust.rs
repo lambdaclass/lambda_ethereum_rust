@@ -133,7 +133,7 @@ async fn main() {
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("Server shut down started...");
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
             info!("Server shutting down!");
             return;
         }
