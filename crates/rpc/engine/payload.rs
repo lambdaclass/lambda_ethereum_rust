@@ -1,12 +1,15 @@
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
-use ethereum_rust_core::types::{ExecutionPayloadV3, ForkId};
+use ethereum_rust_core::types::ForkId;
 use ethereum_rust_core::H256;
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
 
-use crate::{types::payload::PayloadStatus, RpcErr, RpcHandler};
+use crate::{
+    types::payload::{ExecutionPayloadV3, PayloadStatus},
+    RpcErr, RpcHandler,
+};
 
 pub struct NewPayloadV3Request {
     pub payload: ExecutionPayloadV3,
