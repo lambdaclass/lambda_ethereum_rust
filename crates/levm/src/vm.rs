@@ -100,13 +100,13 @@ impl Memory {
     }
 
     fn resize(&mut self, offset: usize) {
-        if (offset + 32).next_multiple_of(32) > self.data.len() {
-            self.data.resize((offset + 32).next_multiple_of(32), 0);
+        if offset.next_multiple_of(32) > self.data.len() {
+            self.data.resize(offset.next_multiple_of(32), 0);
         }
     }
 
     pub fn load(&mut self, offset: usize) -> U256 {
-        self.resize(offset);
+        self.resize(offset + 32);
         let value_bytes: [u8; 32] = self
             .data
             .get(offset..offset + 32)
@@ -117,9 +117,10 @@ impl Memory {
     }
 
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
-        self.resize(offset);
+        let len = value.len();
+        self.resize(offset + len);
         self.data
-            .splice(offset..offset + value.len(), value.iter().copied());
+            .splice(offset..offset + len, value.iter().copied());
     }
 
     pub fn size(&self) -> U256 {

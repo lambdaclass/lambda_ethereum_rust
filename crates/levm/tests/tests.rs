@@ -78,11 +78,15 @@ fn mcopy() {
     vm.execute(Bytes::from(vec![
         Opcode::MSTORE as u8,
         Opcode::MCOPY as u8,
+        Opcode::MSIZE as u8,
         Opcode::STOP as u8,
     ]));
 
     let copied_value = vm.memory.load(64);
     assert_eq!(copied_value, U256::from(0x33333));
+
+    let memory_size = vm.stack.pop().unwrap();
+    assert_eq!(memory_size, U256::from(96));
 }
 
 #[test]
@@ -153,11 +157,15 @@ fn mstore_mload_offset_not_multiple_of_32() {
     vm.execute(Bytes::from(vec![
         Opcode::MSTORE as u8,
         Opcode::MLOAD as u8,
+        Opcode::MSIZE as u8,
         Opcode::STOP as u8,
     ]));
 
+    let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
+
     assert_eq!(loaded_value, U256::from(0xabcdef));
+    assert_eq!(memory_size, U256::from(64));
 
     //check with big offset
 
@@ -171,11 +179,15 @@ fn mstore_mload_offset_not_multiple_of_32() {
     vm.execute(Bytes::from(vec![
         Opcode::MSTORE as u8,
         Opcode::MLOAD as u8,
+        Opcode::MSIZE as u8,
         Opcode::STOP as u8,
     ]));
 
+    let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
+
     assert_eq!(loaded_value, U256::from(0x123456));
+    assert_eq!(memory_size, U256::from(2048));
 }
 
 #[test]
