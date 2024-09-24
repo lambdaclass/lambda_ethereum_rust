@@ -18,6 +18,33 @@ impl VM {
                     let b = self.stack.pop().unwrap();
                     self.stack.push(a + b);
                 }
+                Opcode::MUL => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    self.stack.push(a * b);
+                }
+                Opcode::SUB => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    self.stack.push(a - b);
+                }
+                Opcode::DIV => {
+                    let a = self.stack.pop().unwrap();
+                    let b = self.stack.pop().unwrap();
+                    if b.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    self.stack.push(a / b);
+                }
+                Opcode::SDIV => {}
+                Opcode::MOD => {}
+                Opcode::SMOD => {}
+                Opcode::ADDMOD => {}
+                Opcode::MULMOD => {}
+                Opcode::EXP => {}
+                Opcode::SIGNEXTEND => {}
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
