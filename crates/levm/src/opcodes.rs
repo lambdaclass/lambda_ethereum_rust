@@ -16,7 +16,7 @@ pub enum Opcode {
 
     // // Comparison & Bitwise Logic Operations
     LT = 0x10,
-    // GT = 0x11,
+    GT = 0x11,
     // SLT = 0x12,
     // SGT = 0x13,
     // EQ = 0x14,
@@ -177,6 +177,7 @@ impl From<u8> for Opcode {
             0x00 => Opcode::STOP,
             0x01 => Opcode::ADD,
             0x10 => Opcode::LT,
+            0x11 => Opcode::GT,
             0x7F => Opcode::PUSH32,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
