@@ -28,11 +28,11 @@ impl VM {
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);
-                    let offset = self.stack.pop().unwrap();
+                    let offset = self.stack.pop().unwrap().as_usize();
                     // resize if necessary
-                    self.memory.resize(offset.as_usize());
+                    self.memory.resize(offset);
 
-                    let value = self.memory.load(offset.as_usize());
+                    let value = self.memory.load(offset);
                     self.stack.push(value);
                 }
                 Opcode::MSTORE => {
@@ -108,8 +108,8 @@ impl Memory {
     }
 
     pub fn resize(&mut self, offset: usize) {
-        if (offset + 1).next_multiple_of(32) > self.data.len() {
-            self.data.resize((offset + 1).next_multiple_of(32), 0);
+        if (offset + 32).next_multiple_of(32) > self.data.len() {
+            self.data.resize((offset + 32).next_multiple_of(32), 0);
         }
     }
 

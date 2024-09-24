@@ -27,7 +27,7 @@ fn test() {
 }
 
 #[test]
-fn test_mstore() {
+fn mstore() {
     let mut vm = VM::default();
 
     vm.stack.push(U256::from(0x33333)); // value
@@ -41,7 +41,7 @@ fn test_mstore() {
 }
 
 #[test]
-fn test_mstore8() {
+fn mstore8() {
     let mut vm = VM::default();
 
     vm.stack.push(U256::from(0xAB)); // value
@@ -58,7 +58,7 @@ fn test_mstore8() {
 }
 
 #[test]
-fn test_mcopy() {
+fn mcopy() {
     let mut vm = VM::default();
 
     vm.stack.push(U256::from(32)); // size
@@ -79,7 +79,7 @@ fn test_mcopy() {
 }
 
 #[test]
-fn test_mload() {
+fn mload() {
     let mut vm = VM::default();
 
     vm.stack.push(U256::from(0)); // offset to load
@@ -98,7 +98,7 @@ fn test_mload() {
 }
 
 #[test]
-fn test_msize() {
+fn msize() {
     let mut vm = VM::default();
 
     vm.execute(Bytes::from(vec![Opcode::MSIZE as u8, Opcode::STOP as u8]));
@@ -132,4 +132,60 @@ fn test_msize() {
 
     let final_size = vm.stack.pop().unwrap();
     assert_eq!(final_size, U256::from(96));
+}
+
+#[test]
+fn mstore_mload_offset_not_multiple_of_32() {
+    let mut vm = VM::default();
+
+    vm.stack.push(U256::from(10)); // offset
+
+    vm.stack.push(U256::from(0xabcdef)); // value
+    vm.stack.push(U256::from(10)); // offset
+
+    vm.execute(Bytes::from(vec![
+        Opcode::MSTORE as u8,
+        Opcode::MLOAD as u8,
+        Opcode::STOP as u8,
+    ]));
+
+    let loaded_value = vm.stack.pop().unwrap();
+    assert_eq!(loaded_value, U256::from(0xabcdef));
+
+    //check with big offset
+
+    vm.pc = 0;
+
+    vm.stack.push(U256::from(2000)); // offset
+
+    vm.stack.push(U256::from(0x123456)); // value
+    vm.stack.push(U256::from(2000)); // offset
+
+    vm.execute(Bytes::from(vec![
+        Opcode::MSTORE as u8,
+        Opcode::MLOAD as u8,
+        Opcode::STOP as u8,
+    ]));
+
+    let loaded_value = vm.stack.pop().unwrap();
+    assert_eq!(loaded_value, U256::from(0x123456));
+}
+
+#[test]
+fn test_mload_uninitialized_memory() {
+    let mut vm = VM::default();
+
+    vm.stack.push(U256::from(50)); // offset
+
+    vm.execute(Bytes::from(vec![
+        Opcode::MLOAD as u8,
+        Opcode::MSIZE as u8,
+        Opcode::STOP as u8,
+    ]));
+
+    let memory_size = vm.stack.pop().unwrap();
+    let loaded_value = vm.stack.pop().unwrap();
+
+    assert_eq!(loaded_value, U256::zero());
+    assert_eq!(memory_size, U256::from(96));
 }
