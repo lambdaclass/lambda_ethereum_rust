@@ -5,7 +5,7 @@ use ethereum_types::U256;
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub stack: Vec<U256>, // max 1024 in the future
-    pub memory: Vec<u8>,
+    pub memory: Memory,
     pc: usize,
 }
 
@@ -30,12 +30,16 @@ impl VM {
                     // spend_gas(3);
                     let offset = self.stack.pop().unwrap();
                     // resize if necessary
-                    let value = self.memory[offset.as_usize()];
-                    self.stack.push(value.into());
+                    self.memory.resize(offset.as_usize());
+
+                    let value = self.memory.get(offset.as_usize());
+                    
+                    self.stack.push(value);
                 }
                 Opcode::MSTORE => {
+                    // spend_gas(3);
+                    let offset = self.stack.pop().unwrap();
                     let value = self.stack.pop().unwrap();
-                    let address = self.stack.pop().unwrap();
                 }
                 Opcode::MSTORE8 => {
                     let value = self.stack.pop().unwrap();
@@ -70,5 +74,30 @@ impl VM {
 
     pub fn pc(&self) -> usize {
         self.pc
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Memory {
+    data: Vec<u8>,
+}
+
+impl Memory {
+    pub fn new() -> Self {
+        Self { data: Vec::new() }
+    }
+
+    pub fn resize(&mut self, size: usize) {
+        if size > self.data.len() {
+            self.data.resize(size, 0);
+        }
+    }
+
+    pub fn get(&self, offset: usize) -> U256 {
+        self.data[offset].into()
+    }
+
+    pub fn set(&mut self, offset: usize, value: u8) {
+        self.data[offset] = value;
     }
 }
