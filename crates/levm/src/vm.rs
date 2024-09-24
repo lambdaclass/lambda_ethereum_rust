@@ -114,8 +114,7 @@ impl Memory {
     }
 
     pub fn load(&self, offset: usize) -> U256 {
-        let mut value_bytes = [0u8; 32];
-        value_bytes.copy_from_slice(&self.data[offset..offset + 32]);
+        let value_bytes: [u8; 32] = self.data.get(offset..offset + 32).unwrap().try_into().unwrap();
         U256::from(value_bytes)
     }
 
