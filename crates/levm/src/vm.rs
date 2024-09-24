@@ -6,7 +6,7 @@ use ethereum_types::U256;
 pub struct VM {
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
-    pc: usize,
+    pub pc: usize,
 }
 
 impl VM {
@@ -114,7 +114,12 @@ impl Memory {
     }
 
     pub fn load(&self, offset: usize) -> U256 {
-        let value_bytes: [u8; 32] = self.data.get(offset..offset + 32).unwrap().try_into().unwrap();
+        let value_bytes: [u8; 32] = self
+            .data
+            .get(offset..offset + 32)
+            .unwrap()
+            .try_into()
+            .unwrap();
         U256::from(value_bytes)
     }
 
@@ -133,118 +138,5 @@ impl Memory {
         temp.copy_from_slice(&self.data[src_offset..src_offset + size]);
 
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_mstore() {
-        let mut vm = VM::default();
-
-        vm.stack.push(U256::from(0x33333)); // value
-        vm.stack.push(U256::from(0)); // offset
-
-        vm.execute(Bytes::from(vec![Opcode::MSTORE as u8, Opcode::STOP as u8]));
-
-        let stored_value = vm.memory.load(0);
-
-        assert_eq!(stored_value, U256::from(0x33333));
-    }
-
-    #[test]
-    fn test_mstore8() {
-        let mut vm = VM::default();
-
-        vm.stack.push(U256::from(0xAB)); // value
-        vm.stack.push(U256::from(0)); // offset
-
-        vm.execute(Bytes::from(vec![Opcode::MSTORE8 as u8, Opcode::STOP as u8]));
-
-        let stored_value = vm.memory.load(0);
-
-        let mut value_bytes = [0u8; 32];
-        stored_value.to_big_endian(&mut value_bytes);
-
-        assert_eq!(value_bytes[0..1], [0xAB]);
-    }
-
-    #[test]
-    fn test_mcopy() {
-        let mut vm = VM::default();
-
-        vm.stack.push(U256::from(32)); // size
-        vm.stack.push(U256::from(0)); // source offset
-        vm.stack.push(U256::from(64)); // destination offset
-
-        vm.stack.push(U256::from(0x33333)); // value
-        vm.stack.push(U256::from(0)); // offset
-
-        vm.execute(Bytes::from(vec![
-            Opcode::MSTORE as u8,
-            Opcode::MCOPY as u8,
-            Opcode::STOP as u8,
-        ]));
-
-        let copied_value = vm.memory.load(64);
-        assert_eq!(copied_value, U256::from(0x33333));
-    }
-
-    #[test]
-    fn test_mload() {
-        let mut vm = VM::default();
-
-        vm.stack.push(U256::from(0)); // offset to load
-
-        vm.stack.push(U256::from(0x33333)); // value to store
-        vm.stack.push(U256::from(0)); // offset to store
-
-        vm.execute(Bytes::from(vec![
-            Opcode::MSTORE as u8,
-            Opcode::MLOAD as u8,
-            Opcode::STOP as u8,
-        ]));
-
-        let loaded_value = vm.stack.pop().unwrap();
-        assert_eq!(loaded_value, U256::from(0x33333));
-    }
-
-    #[test]
-    fn test_msize() {
-        let mut vm = VM::default();
-
-        vm.execute(Bytes::from(vec![Opcode::MSIZE as u8, Opcode::STOP as u8]));
-        let initial_size = vm.stack.pop().unwrap();
-        assert_eq!(initial_size, U256::from(0));
-
-        vm.pc = 0;
-
-        vm.stack.push(U256::from(0x33333)); // value
-        vm.stack.push(U256::from(0)); // offset
-
-        vm.execute(Bytes::from(vec![
-            Opcode::MSTORE as u8,
-            Opcode::MSIZE as u8,
-            Opcode::STOP as u8,
-        ]));
-
-        let after_store_size = vm.stack.pop().unwrap();
-        assert_eq!(after_store_size, U256::from(32));
-
-        vm.pc = 0;
-
-        vm.stack.push(U256::from(0x55555)); // value
-        vm.stack.push(U256::from(64)); // offset
-
-        vm.execute(Bytes::from(vec![
-            Opcode::MSTORE as u8,
-            Opcode::MSIZE as u8,
-            Opcode::STOP as u8,
-        ]));
-
-        let final_size = vm.stack.pop().unwrap();
-        assert_eq!(final_size, U256::from(96));
     }
 }
