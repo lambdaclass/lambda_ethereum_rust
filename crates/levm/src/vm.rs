@@ -28,13 +28,13 @@ impl VM {
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);
-                    let offset = self.stack.pop().unwrap().as_usize();
+                    let offset = self.stack.pop().unwrap().try_into().unwrap();
                     let value = self.memory.load(offset);
                     self.stack.push(value);
                 }
                 Opcode::MSTORE => {
                     // spend_gas(3);
-                    let offset = self.stack.pop().unwrap().as_usize();
+                    let offset = self.stack.pop().unwrap().try_into().unwrap();
                     let value = self.stack.pop().unwrap();
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
@@ -43,7 +43,7 @@ impl VM {
                 }
                 Opcode::MSTORE8 => {
                     // spend_gas(3);
-                    let offset = self.stack.pop().unwrap().as_usize();
+                    let offset = self.stack.pop().unwrap().try_into().unwrap();
                     let value = self.stack.pop().unwrap();
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
@@ -57,9 +57,9 @@ impl VM {
                 }
                 Opcode::MCOPY => {
                     // spend_gas(3) + dynamic gas
-                    let dest_offset = self.stack.pop().unwrap().as_usize();
-                    let src_offset = self.stack.pop().unwrap().as_usize();
-                    let size = self.stack.pop().unwrap().as_usize();
+                    let dest_offset = self.stack.pop().unwrap().try_into().unwrap();
+                    let src_offset = self.stack.pop().unwrap().try_into().unwrap();
+                    let size = self.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
