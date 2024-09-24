@@ -31,15 +31,15 @@ impl VM {
                     let offset = self.stack.pop().unwrap();
                     // resize if necessary
                     self.memory.resize(offset.as_usize());
-
-                    let value = self.memory.get(offset.as_usize());
-                    
+                    let value = self.memory.load(offset.as_usize());
                     self.stack.push(value);
                 }
                 Opcode::MSTORE => {
                     // spend_gas(3);
-                    let offset = self.stack.pop().unwrap();
+                    let offset = self.stack.pop().unwrap().as_usize();
                     let value = self.stack.pop().unwrap();
+                    self.memory.resize(offset);
+                    self.memory.store(offset, value.as_u64() as u8); // check how to do better
                 }
                 Opcode::MSTORE8 => {
                     let value = self.stack.pop().unwrap();
@@ -93,11 +93,11 @@ impl Memory {
         }
     }
 
-    pub fn get(&self, offset: usize) -> U256 {
+    pub fn load(&self, offset: usize) -> U256 {
         self.data[offset].into()
     }
 
-    pub fn set(&mut self, offset: usize, value: u8) {
+    pub fn store(&mut self, offset: usize, value: u8) {
         self.data[offset] = value;
     }
 }
