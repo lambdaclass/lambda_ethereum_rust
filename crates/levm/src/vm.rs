@@ -62,7 +62,7 @@ impl VM {
                     let result = a / b;
                     let result_is_negative = a_is_negative ^ b_is_negative;
                     let result = if result_is_negative {
-                        !result + U256::one()
+                        to_negative(result)
                     } else {
                         result
                     };
@@ -94,7 +94,7 @@ impl VM {
                     let result = a % b;
                     let result_is_negative = a_is_negative ^ b_is_negative;
                     let result = if result_is_negative {
-                        !result + U256::one()
+                        to_negative(result)
                     } else {
                         result
                     };
