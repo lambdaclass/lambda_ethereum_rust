@@ -2,12 +2,8 @@ use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::{
-    types::{AddressFilter, TopicFilter},
-    H160, H256,
-};
+use ethereum_rust_core::types::{AddressFilter, TopicFilter};
 use ethereum_rust_storage::Store;
-use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
 
