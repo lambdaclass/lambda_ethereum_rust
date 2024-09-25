@@ -2,21 +2,25 @@ use bytes::Bytes;
 use ethereum_types::U256;
 use levm::{operations::Operation, vm::VM};
 
-#[test]
-fn test() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::zero()),
-        Operation::Add,
-        Operation::Stop,
-    ];
+// cargo test -p 'levm'
 
+fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    VM::new(bytecode)
+}
+
+#[test]
+fn test() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::zero()),
+        Operation::Add,
+        Operation::Stop,
+    ]);
 
     vm.execute();
 
@@ -24,6 +28,76 @@ fn test() {
     assert!(vm.current_call_frame().pc() == 68);
 
     println!("{vm:?}");
+}
+
+#[test]
+fn and_basic() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Push32(U256::from(0b1100)),
+        Operation::And,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b1000));
+}
+
+#[test]
+fn and_binary_with_zero() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Push32(U256::zero()),
+        Operation::And,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+}
+
+#[test]
+fn and_with_hex_numbers() {
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xFFFF)),
+        Operation::Push32(U256::from(0xF0F0)),
+        Operation::And,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xF0F0));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xF000)),
+        Operation::Push32(U256::from(0xF0F0)),
+        Operation::And,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xF000));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xB020)),
+        Operation::Push32(U256::from(0x1F0F)),
+        Operation::And,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b1000000000000));
 }
 
 #[test]

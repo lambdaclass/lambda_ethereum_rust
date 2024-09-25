@@ -38,6 +38,26 @@ impl VM {
                     current_call_frame.stack.push(value_to_push);
                     current_call_frame.increment_pc_by(32);
                 }
+                Opcode::AND => {
+                    // spend_gas(3);
+                    let a = current_call_frame.stack.pop().unwrap();
+                    let b = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.stack.push(a & b);
+                }
+                Opcode::OR => {
+                }
+                Opcode::XOR => {
+                }
+                Opcode::NOT => {
+                }
+                Opcode::BYTE => {
+                }
+                Opcode::SHL => {
+                }
+                Opcode::SHR => {
+                }
+                Opcode::SAR => {
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
