@@ -68,6 +68,33 @@ fn mul_op() {
 }
 
 #[test]
+fn mul_op_overflow() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(
+            U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")
+                .unwrap(),
+        ),
+        Operation::Push32(
+            U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD")
+                .unwrap(),
+        ),
+        Operation::Mul,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::from(6));
+}
+
+#[test]
 fn sub_op() {
     let mut vm = VM::default();
 
@@ -404,6 +431,7 @@ fn mulmod_op_big_numbers() {
     assert!(vm.stack.pop().unwrap() == expected_result);
 }
 
+// example from evm codes -> https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='zvEwzvDwz~~0000wMULMOD'~yyyyzPUSH32%200x~vFFFw%5Cnv~~y%01vwyz~_
 #[test]
 fn mulmod_op_big_numbers_result_bigger_than_one_byte() {
     let mut vm = VM::default();
