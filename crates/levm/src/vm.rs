@@ -266,6 +266,7 @@ impl VM {
     }
 
     fn valid_jump(&self, offset: U256, bytecode: &Bytes) -> bool {
+        // In the future this should be the Opcode::Invalid and halt
         let opcode = bytecode
             .get(offset.as_usize())
             .copied()
