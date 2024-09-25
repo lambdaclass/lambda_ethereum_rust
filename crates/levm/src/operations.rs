@@ -170,7 +170,7 @@ impl Operation {
                 // be less than the n in PUSHn
                 assert!(
                     value.bits().div_ceil(8) <= *n as usize,
-                    "value can't doesn't fit in n bytes"
+                    "value doesn't fit in n bytes"
                 );
                 let mut word_buffer = [0; 32];
                 value.to_big_endian(&mut word_buffer);
