@@ -15,6 +15,7 @@ pub struct ForkChoiceState {
 #[serde(rename_all = "camelCase")]
 #[allow(unused)]
 pub struct PayloadAttributesV3 {
+    #[serde(with = "serde_utils::u64::hex_str")]
     pub timestamp: u64,
     pub prev_randao: H256,
     pub suggested_fee_recipient: Address,
