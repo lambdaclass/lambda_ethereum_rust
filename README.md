@@ -94,8 +94,18 @@ and expects a certain response. You can read more about it [here](https://github
 This is an example of a Hive simulation called `ethereum/rpc-compat`, which can be run with:
 
 ```bash
-make run-hive-debug ethereum/rpc-compat
+make run-hive-debug SIMULATION=<simulation> TEST_PATTERN=<test-regex>
 ```
+For example, to run chain id and transaction by hash rpc tests:
+```bash
+make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByHash"
+```
+If you want debug output from hive, use the run-hive-debug instead:
+```bash
+make run-hive-debug SIMULATION=ethereum/rpc-compat TEST_PATTERN="*"
+```
+This example runs **every** test under rpc, with debug output
+
 
 ### Run
 
