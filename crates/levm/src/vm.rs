@@ -1,6 +1,6 @@
 use crate::opcodes::Opcode;
 use bytes::Bytes;
-use ethereum_types::U256;
+use ethereum_types::{U256, U512};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -9,15 +9,184 @@ pub struct VM {
     pub pc: usize,
 }
 
+/// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
+fn is_negative(value: U256) -> bool {
+    value.bit(255)
+}
+/// negates a number in two's complement
+fn negate(value: U256) -> U256 {
+    !value + U256::one()
+}
+
 impl VM {
     pub fn execute(&mut self, mut bytecode: Bytes) {
         loop {
             match self.next_opcode(&mut bytecode).unwrap() {
                 Opcode::STOP => break,
                 Opcode::ADD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    self.stack.push(a + b);
+                    let augend = self.stack.pop().unwrap();
+                    let addend = self.stack.pop().unwrap();
+                    let sum = augend.overflowing_add(addend).0;
+                    self.stack.push(sum);
+                }
+                Opcode::MUL => {
+                    let multiplicand = self.stack.pop().unwrap();
+                    let multiplier = self.stack.pop().unwrap();
+                    let product = multiplicand.overflowing_mul(multiplier).0;
+                    self.stack.push(product);
+                }
+                Opcode::SUB => {
+                    let minuend = self.stack.pop().unwrap();
+                    let subtrahend = self.stack.pop().unwrap();
+                    let difference = minuend.overflowing_sub(subtrahend).0;
+                    self.stack.push(difference);
+                }
+                Opcode::DIV => {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+                    let quotient = dividend / divisor;
+                    self.stack.push(quotient);
+                }
+                Opcode::SDIV => {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let dividend_is_negative = is_negative(dividend);
+                    let divisor_is_negative = is_negative(divisor);
+                    let dividend = if dividend_is_negative {
+                        negate(dividend)
+                    } else {
+                        dividend
+                    };
+                    let divisor = if divisor_is_negative {
+                        negate(divisor)
+                    } else {
+                        divisor
+                    };
+                    let quotient = dividend / divisor;
+                    let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
+                    let quotient = if quotient_is_negative {
+                        negate(quotient)
+                    } else {
+                        quotient
+                    };
+
+                    self.stack.push(quotient);
+                }
+                Opcode::MOD => {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+                    let remainder = dividend % divisor;
+                    self.stack.push(remainder);
+                }
+                Opcode::SMOD => {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let dividend_is_negative = is_negative(dividend);
+                    let divisor_is_negative = is_negative(divisor);
+                    let dividend = if dividend_is_negative {
+                        negate(dividend)
+                    } else {
+                        dividend
+                    };
+                    let divisor = if divisor_is_negative {
+                        negate(divisor)
+                    } else {
+                        divisor
+                    };
+                    let remainder = dividend % divisor;
+                    let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
+                    let remainder = if remainder_is_negative {
+                        negate(remainder)
+                    } else {
+                        remainder
+                    };
+
+                    self.stack.push(remainder);
+                }
+                Opcode::ADDMOD => {
+                    let augend = self.stack.pop().unwrap();
+                    let addend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+                    let (sum, overflow) = augend.overflowing_add(addend);
+                    let mut remainder = sum % divisor;
+                    if overflow || remainder > divisor {
+                        remainder = remainder.overflowing_sub(divisor).0;
+                    }
+
+                    self.stack.push(remainder);
+                }
+                Opcode::MULMOD => {
+                    let multiplicand = U512::from(self.stack.pop().unwrap());
+
+                    let multiplier = U512::from(self.stack.pop().unwrap());
+                    let divisor = U512::from(self.stack.pop().unwrap());
+                    if divisor.is_zero() {
+                        self.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let (product, overflow) = multiplicand.overflowing_mul(multiplier);
+                    let mut remainder = product % divisor;
+                    if overflow || remainder > divisor {
+                        remainder = remainder.overflowing_sub(divisor).0;
+                    }
+                    let mut result = Vec::new();
+                    for byte in remainder.0.iter().take(4) {
+                        let bytes = byte.to_le_bytes();
+                        result.extend_from_slice(&bytes);
+                    }
+                    // before reverse we have something like [120, 255, 0, 0....]
+                    // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
+                    result.reverse();
+                    let remainder = U256::from(result.as_slice());
+                    self.stack.push(remainder);
+                }
+                Opcode::EXP => {
+                    let base = self.stack.pop().unwrap();
+                    let exponent = self.stack.pop().unwrap();
+                    let power = base.overflowing_pow(exponent).0;
+                    self.stack.push(power);
+                }
+                Opcode::SIGNEXTEND => {
+                    let byte_size = self.stack.pop().unwrap();
+                    let value_to_extend = self.stack.pop().unwrap();
+
+                    let bits_per_byte = U256::from(8);
+                    let sign_bit_position_on_byte = 7;
+                    let max_byte_size = 31;
+
+                    let byte_size = byte_size.min(U256::from(max_byte_size));
+                    let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
+                    let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
+                    let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
+                    let result = if is_negative {
+                        value_to_extend | !sign_bit_mask
+                    } else {
+                        value_to_extend & sign_bit_mask
+                    };
+                    self.stack.push(result);
                 }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
