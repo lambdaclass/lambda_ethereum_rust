@@ -69,7 +69,6 @@ impl Context {
     }
 
     pub fn compile(&self, program: &Program, config: Session) -> Result<MLIRModule, CodegenError> {
-        assert!(false);
         static INITIALIZED: OnceLock<()> = OnceLock::new();
         INITIALIZED.get_or_init(|| unsafe {
             LLVM_InitializeAllTargets();
