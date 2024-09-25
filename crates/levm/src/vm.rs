@@ -1,4 +1,4 @@
-use crate::{opcodes::Opcode, utils::u256_to_i128};
+use crate::opcodes::Opcode;
 use bytes::Bytes;
 use ethereum_types::U256;
 
@@ -34,24 +34,44 @@ impl VM {
                 Opcode::SLT => {
                     let lho = self.stack.pop().unwrap();
                     let rho = self.stack.pop().unwrap();
-                    let a_signed = u256_to_i128(lho);
-                    let b_signed = u256_to_i128(rho);
-                    let result = if a_signed < b_signed {
-                        U256::one()
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho < rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
                     } else {
-                        U256::zero()
+                        // if they have different signs, the negative number is smaller
+                        if lho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
                     };
                     self.stack.push(result);
                 }
                 Opcode::SGT => {
                     let lho = self.stack.pop().unwrap();
                     let rho = self.stack.pop().unwrap();
-                    let a_signed = u256_to_i128(lho);
-                    let b_signed = u256_to_i128(rho);
-                    let result = if a_signed > b_signed {
-                        U256::one()
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho > rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
                     } else {
-                        U256::zero()
+                        // if they have different signs, the positive number is bigger
+                        if rho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
                     };
                     self.stack.push(result);
                 }

@@ -27,7 +27,7 @@ fn test() {
 }
 
 #[test]
-fn lt_a_less_than_b() {
+fn lt_lho_less_than_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -49,7 +49,7 @@ fn lt_a_less_than_b() {
 }
 
 #[test]
-fn lt_a_equals_b() {
+fn lt_lho_equals_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -71,7 +71,7 @@ fn lt_a_equals_b() {
 }
 
 #[test]
-fn lt_a_greater_than_b() {
+fn lt_lho_greater_than_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -93,7 +93,7 @@ fn lt_a_greater_than_b() {
 }
 
 #[test]
-fn gt_a_greater_than_b() {
+fn gt_lho_greater_than_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -115,7 +115,7 @@ fn gt_a_greater_than_b() {
 }
 
 #[test]
-fn gt_a_equals_b() {
+fn gt_lho_equals_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -137,7 +137,7 @@ fn gt_a_equals_b() {
 }
 
 #[test]
-fn gt_a_less_than_b() {
+fn gt_lho_less_than_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -159,7 +159,7 @@ fn gt_a_less_than_b() {
 }
 
 #[test]
-fn slt_zero_a_less_than_positive_b() {
+fn slt_zero_lho_less_than_positive_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -181,7 +181,29 @@ fn slt_zero_a_less_than_positive_b() {
 }
 
 #[test]
-fn slt_negative_a_less_than_positive_b() {
+fn slt_long_lho_less_than_positive_rho() {
+    let mut vm = VM::default();
+    let lho = U256::from("0x0100000000000000000000000000000000000000000000000000000000000000");
+    let operations = [
+        Operation::Push32(U256::one()), // rho
+        Operation::Push32(lho),         // lho
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_negative_lho_less_than_positive_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -203,7 +225,7 @@ fn slt_negative_a_less_than_positive_b() {
 }
 
 #[test]
-fn slt_negative_a_less_than_negative_b() {
+fn slt_negative_lho_less_than_negative_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -225,7 +247,7 @@ fn slt_negative_a_less_than_negative_b() {
 }
 
 #[test]
-fn slt_zero_a_greater_than_negative_b() {
+fn slt_zero_lho_greater_than_negative_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -247,7 +269,7 @@ fn slt_zero_a_greater_than_negative_b() {
 }
 
 #[test]
-fn slt_positive_a_greater_than_negative_b() {
+fn slt_positive_lho_greater_than_negative_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -269,7 +291,7 @@ fn slt_positive_a_greater_than_negative_b() {
 }
 
 #[test]
-fn sgt_positive_a_greater_than_zero_b() {
+fn sgt_positive_lho_greater_than_zero_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -291,7 +313,7 @@ fn sgt_positive_a_greater_than_zero_b() {
 }
 
 #[test]
-fn sgt_positive_a_greater_than_negative_b() {
+fn sgt_positive_lho_greater_than_negative_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -313,7 +335,7 @@ fn sgt_positive_a_greater_than_negative_b() {
 }
 
 #[test]
-fn sgt_negative_a_greater_than_negative_b() {
+fn sgt_negative_lho_greater_than_negative_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -335,7 +357,7 @@ fn sgt_negative_a_greater_than_negative_b() {
 }
 
 #[test]
-fn sgt_negative_a_less_than_positive_b() {
+fn sgt_negative_lho_less_than_positive_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -357,7 +379,7 @@ fn sgt_negative_a_less_than_positive_b() {
 }
 
 #[test]
-fn eq_a_equals_b() {
+fn eq_lho_equals_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -379,7 +401,7 @@ fn eq_a_equals_b() {
 }
 
 #[test]
-fn eq_a_not_equals_b() {
+fn eq_lho_not_equals_rho() {
     let mut vm = VM::default();
 
     let operations = [
@@ -401,7 +423,7 @@ fn eq_a_not_equals_b() {
 }
 
 #[test]
-fn iszero_a_is_zero() {
+fn iszero_operand_is_zero() {
     let mut vm = VM::default();
 
     let operations = [
@@ -422,7 +444,7 @@ fn iszero_a_is_zero() {
 }
 
 #[test]
-fn iszero_a_is_not_zero() {
+fn iszero_operand_is_not_zero() {
     let mut vm = VM::default();
 
     let operations = [
