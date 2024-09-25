@@ -61,7 +61,20 @@ impl VM {
                     let a = current_call_frame.stack.pop().unwrap();
                     current_call_frame.stack.push(!a);
                 }
-                Opcode::BYTE => {}
+                Opcode::BYTE => {
+                    // spend_gas(3);
+                    let op1 = current_call_frame.stack.pop().unwrap();
+                    let op2 = current_call_frame.stack.pop().unwrap();
+
+                    let byte_index = op1.try_into().unwrap_or(usize::MAX);
+
+                    let result = if byte_index < 32 {
+                        U256::from(op2.byte(31 - byte_index))
+                    } else {
+                        U256::zero()
+                    };
+                    current_call_frame.stack.push(result);
+                }
                 Opcode::SHL => {}
                 Opcode::SHR => {}
                 Opcode::SAR => {}
