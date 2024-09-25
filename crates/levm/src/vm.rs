@@ -1,4 +1,4 @@
-use crate::opcodes::Opcode;
+use crate::{opcodes::Opcode, utils::u256_to_i128};
 use bytes::Bytes;
 use ethereum_types::U256;
 
@@ -33,16 +33,8 @@ impl VM {
                 Opcode::SLT => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
-                    let a_signed = if a.bit(255) {
-                        -((!a + U256::one()).as_u128() as i128)
-                    } else {
-                        a.as_u128() as i128
-                    };
-                    let b_signed = if b.bit(255) {
-                        -((!b + U256::one()).as_u128() as i128)
-                    } else {
-                        b.as_u128() as i128
-                    };
+                    let a_signed = u256_to_i128(a);
+                    let b_signed = u256_to_i128(b);
                     let result = if a_signed < b_signed {
                         U256::one()
                     } else {
@@ -53,16 +45,8 @@ impl VM {
                 Opcode::SGT => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
-                    let a_signed = if a.bit(255) {
-                        -((!a + U256::one()).as_u128() as i128)
-                    } else {
-                        a.as_u128() as i128
-                    };
-                    let b_signed = if b.bit(255) {
-                        -((!b + U256::one()).as_u128() as i128)
-                    } else {
-                        b.as_u128() as i128
-                    };
+                    let a_signed = u256_to_i128(a);
+                    let b_signed = u256_to_i128(b);
                     let result = if a_signed > b_signed {
                         U256::one()
                     } else {

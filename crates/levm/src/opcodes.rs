@@ -14,7 +14,7 @@ pub enum Opcode {
     // EXP = 0x0A,
     // SIGNEXTEND = 0x0B,
 
-    // // Comparison & Bitwise Logic Operations
+    // Comparison & Bitwise Logic Operations
     LT = 0x10,
     GT = 0x11,
     SLT = 0x12,
