@@ -85,6 +85,11 @@ The second kind are each crate's tests, you can run them like this:
 ```bash
 make test CRATE=<crate>
 ```
+For example:
+```bash
+make test CRATE="ethereum_rust-blockchain"
+```
+
 
 ##### Hive Tests
 
