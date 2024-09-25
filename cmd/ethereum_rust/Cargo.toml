@@ -26,6 +26,12 @@ rand = "0.8.5"
 k256 = { version = "0.13.3", features = ["ecdh"] }
 tokio-util = { version = "0.7.12", features = ["rt"] }
 
+cfg-if = "1.0.0"
+
 [[bin]]
 name = "ethereum_rust"
 path = "./ethereum_rust.rs"
+
+[features]
+default = []
+l2 = []
