@@ -2,7 +2,7 @@
 //!
 //! These don't receive any input, and the CODE* opcodes
 //! may not work properly.
-use evm_mlir::{
+use ethereum_rust_evm_mlir::{
     constants::gas_cost::{self, log_dynamic_gas_cost},
     context::Context,
     db::Db,

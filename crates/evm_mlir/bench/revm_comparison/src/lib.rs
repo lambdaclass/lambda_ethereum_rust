@@ -1,4 +1,4 @@
-use evm_mlir::{
+use ethereum_rust_evm_mlir::{
     context::Context, db::Db, executor::Executor, journal::Journal, primitives::Bytes,
     program::Program, syscall::SyscallContext, Env,
 };
