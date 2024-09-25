@@ -1,6 +1,6 @@
 use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
-use ethereum_rust_core::U256;
-use ethereum_rust_storage::Store;
+use ethereum_rust_core::{types::Block, H256, U256};
+use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
 
 use crate::{
@@ -37,6 +37,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             )))
             .map_err(|_| RpcErr::Internal)
         };
+
         if self.fork_choice_state.head_block_hash.is_zero() {
             return error_response("forkchoice requested update to zero hash");
         }
@@ -47,26 +48,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             return Err(RpcErr::Internal);
         };
         // Check that we are not being pushed pre-merge
-        if !head_block.header.difficulty.is_zero() || head_block.header.number == 0 {
-            let total_difficulty =
-                storage.get_block_total_difficulty(self.fork_choice_state.head_block_hash)?;
-            let parent_total_difficulty =
-                storage.get_block_total_difficulty(head_block.header.parent_hash)?;
-            let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
-            if terminal_total_difficulty.is_none()
-                || total_difficulty.is_none()
-                || head_block.header.number > 0 && parent_total_difficulty.is_none()
-            {
-                return error_response(
-                    "total difficulties unavailable for terminal total difficulty check",
-                );
-            }
-            if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
-                return error_response("refusing beacon update to pre-merge");
-            }
-            if head_block.header.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
-                return error_response("parent block is already post terminal total difficulty");
-            }
+        if let Some(error) = total_difficulty_check(
+            &self.fork_choice_state.head_block_hash,
+            &head_block,
+            &storage,
+        )? {
+            return error_response(error);
         }
         let canonical_block = storage.get_canonical_block(head_block.header.number)?;
         let current_block_hash = {
@@ -83,42 +70,16 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             return serde_json::to_value(PayloadStatus::valid()).map_err(|_| RpcErr::Internal);
         }
 
-        // Process finalized block
-        if !self.fork_choice_state.finalized_block_hash.is_zero() {
-            // If the finalized block is not in our canonical tree, something is wrong
-            let Some(finalized_block) =
-                storage.get_block_by_hash(self.fork_choice_state.finalized_block_hash)?
-            else {
-                return error_response("final block not available in database");
-            };
-
-            if !storage
-                .get_canonical_block(finalized_block.header.number)?
-                .is_some_and(|h| h == self.fork_choice_state.finalized_block_hash)
-            {
-                return error_response("final block not in canonical chain");
-            }
-            // Set the finalized block
-            storage.update_finalized_block_number(finalized_block.header.number)?;
+        // Set finalized block
+        if let Some(error) =
+            set_finalized_block(&self.fork_choice_state.finalized_block_hash, &storage)?
+        {
+            return error_response(error);
         }
 
-        // Process safe block
-        if !self.fork_choice_state.safe_block_hash.is_zero() {
-            // If the safe block is not in our canonical tree, something is wrong
-            let Some(safe_block) =
-                storage.get_block_by_hash(self.fork_choice_state.safe_block_hash)?
-            else {
-                return error_response("safe block not available in database");
-            };
-
-            if !storage
-                .get_canonical_block(safe_block.header.number)?
-                .is_some_and(|h| h == self.fork_choice_state.safe_block_hash)
-            {
-                return error_response("safe block not in canonical chain");
-            }
-            // Set the safe block
-            storage.update_safe_block_number(safe_block.header.number)?;
+        // Set safe block
+        if let Some(error) = set_safe_block(&self.fork_choice_state.safe_block_hash, &storage)? {
+            return error_response(error);
         }
         let mut response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
             self.fork_choice_state.head_block_hash,
@@ -143,4 +104,78 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
 
         serde_json::to_value(response).map_err(|_| RpcErr::Internal)
     }
+}
+
+fn total_difficulty_check<'a>(
+    head_block_hash: &'a H256,
+    head_block: &'a Block,
+    storage: &'a Store,
+) -> Result<Option<&'a str>, StoreError> {
+    if !head_block.header.difficulty.is_zero() || head_block.header.number == 0 {
+        let total_difficulty = storage.get_block_total_difficulty(*head_block_hash)?;
+        let parent_total_difficulty =
+            storage.get_block_total_difficulty(head_block.header.parent_hash)?;
+        let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
+        if terminal_total_difficulty.is_none()
+            || total_difficulty.is_none()
+            || head_block.header.number > 0 && parent_total_difficulty.is_none()
+        {
+            return Ok(Some(
+                "total difficulties unavailable for terminal total difficulty check",
+            ));
+        }
+        if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
+            return Ok(Some("refusing beacon update to pre-merge"));
+        }
+        if head_block.header.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
+            return Ok(Some(
+                "parent block is already post terminal total difficulty",
+            ));
+        }
+    }
+    Ok(None)
+}
+
+fn set_finalized_block<'a>(
+    finalized_block_hash: &H256,
+    storage: &'a Store,
+) -> Result<Option<&'a str>, StoreError> {
+    if finalized_block_hash.is_zero() {
+        // If the finalized block is not in our canonical tree, something is wrong
+        let Some(finalized_block) = storage.get_block_by_hash(*finalized_block_hash)? else {
+            return Ok(Some("final block not available in database"));
+        };
+
+        if !storage
+            .get_canonical_block(finalized_block.header.number)?
+            .is_some_and(|ref h| h == finalized_block_hash)
+        {
+            return Ok(Some("final block not in canonical chain"));
+        }
+        // Set the finalized block
+        storage.update_finalized_block_number(finalized_block.header.number)?;
+    }
+    Ok(None)
+}
+
+fn set_safe_block<'a>(
+    safe_block_hash: &H256,
+    storage: &'a Store,
+) -> Result<Option<&'a str>, StoreError> {
+    if safe_block_hash.is_zero() {
+        // If the safe block is not in our canonical tree, something is wrong
+        let Some(safe_block) = storage.get_block_by_hash(*safe_block_hash)? else {
+            return Ok(Some("safe block not available in database"));
+        };
+
+        if !storage
+            .get_canonical_block(safe_block.header.number)?
+            .is_some_and(|ref h| h == safe_block_hash)
+        {
+            return Ok(Some("safe block not in canonical chain"));
+        }
+        // Set the safe block
+        storage.update_safe_block_number(safe_block.header.number)?;
+    }
+    Ok(None)
 }
