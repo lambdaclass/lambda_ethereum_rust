@@ -176,6 +176,10 @@ impl From<u8> for Opcode {
         match byte {
             0x00 => Opcode::STOP,
             0x01 => Opcode::ADD,
+            0x56 => Opcode::JUMP,
+            0x57 => Opcode::JUMPI,
+            0x58 => Opcode::PC,
+            0x5B => Opcode::JUMPDEST,
             0x7F => Opcode::PUSH32,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }

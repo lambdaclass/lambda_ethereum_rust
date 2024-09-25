@@ -18,6 +18,21 @@ impl VM {
                     let b = self.stack.pop().unwrap();
                     self.stack.push(a + b);
                 }
+                Opcode::JUMP => {
+                    let jump_address = self.stack.pop().unwrap();
+                    self.pc = jump_address.as_usize();
+                }
+                Opcode::JUMPI => {
+                    let jump_address = self.stack.pop().unwrap();
+                    let condition = self.stack.pop().unwrap();
+                    if condition != U256::zero() {
+                        self.pc = jump_address.as_usize();
+                    }
+                }
+                Opcode::JUMPDEST => {}
+                Opcode::PC => {
+                    self.stack.push(U256::from(self.pc));
+                }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
