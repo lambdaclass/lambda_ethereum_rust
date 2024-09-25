@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
+use bytes::Bytes;
 use ethereum_types::U256;
-use levm::{operations::Operation, program::Program, vm::VM};
+use levm::{operations::Operation, vm::VM};
 
 #[test]
 fn add_op() {
@@ -14,7 +15,10 @@ fn add_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -32,7 +36,10 @@ fn add_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -50,7 +57,10 @@ fn mul_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -74,7 +84,10 @@ fn mul_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -92,7 +105,10 @@ fn sub_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -110,7 +126,10 @@ fn sub_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -132,7 +151,10 @@ fn div_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -150,7 +172,10 @@ fn div_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -174,7 +199,10 @@ fn sdiv_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -192,7 +220,10 @@ fn sdiv_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -210,7 +241,10 @@ fn mod_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -228,7 +262,10 @@ fn mod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -246,7 +283,10 @@ fn smod_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -264,7 +304,10 @@ fn smod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -283,7 +326,10 @@ fn addmod_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -302,7 +348,10 @@ fn addmod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -326,7 +375,10 @@ fn addmod_op_big_numbers() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -345,7 +397,10 @@ fn mulmod_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -364,7 +419,10 @@ fn mulmod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -388,7 +446,10 @@ fn mulmod_op_big_numbers() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -415,7 +476,10 @@ fn mulmod_op_big_numbers_result_bigger_than_one_byte() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -433,7 +497,10 @@ fn exp_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -451,7 +518,10 @@ fn exp_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -469,7 +539,10 @@ fn signextend_op_negative() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -487,7 +560,10 @@ fn signextend_op_positive() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -503,7 +579,10 @@ fn mstore() {
 
     let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -524,7 +603,10 @@ fn mstore8() {
 
     let operations = vec![Operation::Mstore8, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -554,7 +636,10 @@ fn mcopy() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
     vm.execute(program);
 
     let copied_value = vm.memory.load(64);
@@ -575,7 +660,10 @@ fn mload() {
 
     let operations = vec![Operation::Mstore, Operation::Mload, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -589,7 +677,10 @@ fn msize() {
 
     let operations = vec![Operation::Msize, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -603,7 +694,10 @@ fn msize() {
 
     let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -617,7 +711,10 @@ fn msize() {
 
     let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -641,7 +738,10 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -667,7 +767,10 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -686,7 +789,10 @@ fn mload_uninitialized_memory() {
 
     let operations = vec![Operation::Mload, Operation::Msize, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -703,7 +809,10 @@ fn pc_op() {
 
     let operations = vec![Operation::PC, Operation::Stop];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -720,7 +829,10 @@ fn pc_op_with_push_offset() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -740,7 +852,10 @@ fn jump_op() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -760,7 +875,10 @@ fn jump_not_jumpdest_position() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
     assert_eq!(vm.pc(), 35);
@@ -778,7 +896,10 @@ fn jump_position_bigger_than_program_size() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
     assert_eq!(vm.pc(), 35);
@@ -790,7 +911,7 @@ fn jumpi_not_zero() {
 
     let operations = vec![
         Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(67)),
+        Operation::Push32(U256::from(68)),
         Operation::Jumpi,
         Operation::Stop, // should skip this one
         Operation::Jumpdest,
@@ -798,7 +919,10 @@ fn jumpi_not_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 
@@ -820,7 +944,10 @@ fn jumpi_for_zero() {
         Operation::Stop,
     ];
 
-    let program = Program::from_operations(operations);
+    let program = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
     vm.execute(program);
 

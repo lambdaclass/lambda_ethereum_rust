@@ -1,4 +1,4 @@
-use crate::{opcodes::Opcode, program::Program};
+use crate::opcodes::Opcode;
 use bytes::Bytes;
 use ethereum_types::{U256, U512};
 
@@ -19,8 +19,7 @@ fn negate(value: U256) -> U256 {
 }
 
 impl VM {
-    pub fn execute(&mut self, program: Program) {
-        let mut bytecode = program.to_bytecode();
+    pub fn execute(&mut self, mut bytecode: Bytes) {
         loop {
             match self.next_opcode(&mut bytecode).unwrap() {
                 Opcode::STOP => break,
@@ -191,13 +190,13 @@ impl VM {
                 }
                 Opcode::JUMP => {
                     let jump_address = self.stack.pop().unwrap();
-                    self.jump(jump_address, &program);
+                    self.jump(jump_address, &bytecode);
                 }
                 Opcode::JUMPI => {
                     let jump_address = self.stack.pop().unwrap();
                     let condition = self.stack.pop().unwrap();
                     if condition != U256::zero() {
-                        self.jump(jump_address, &program);
+                        self.jump(jump_address, &bytecode);
                     }
                 }
                 Opcode::JUMPDEST => {
@@ -257,8 +256,8 @@ impl VM {
         }
     }
 
-    fn jump(&mut self, jump_address: U256, program: &Program) {
-        if !self.valid_jump(jump_address, program) {
+    fn jump(&mut self, jump_address: U256, bytecode: &Bytes) {
+        if !self.valid_jump(jump_address, bytecode) {
             // probably should halt/panic
             dbg!("Invalid jump");
             return;
@@ -266,8 +265,14 @@ impl VM {
         self.pc = jump_address.as_usize() + 1;
     }
 
-    fn valid_jump(&self, offset: U256, program: &Program) -> bool {
-        program.jumptable.contains(&offset.as_usize())
+    fn valid_jump(&self, offset: U256, bytecode: &Bytes) -> bool {
+        let opcode = bytecode
+            .get(offset.as_usize())
+            .copied()
+            .map(Opcode::from)
+            .unwrap_or(Opcode::STOP);
+        dbg!(opcode);
+        opcode == Opcode::JUMPDEST
     }
 
     fn next_opcode(&mut self, opcodes: &mut Bytes) -> Option<Opcode> {
