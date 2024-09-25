@@ -65,20 +65,20 @@ pub enum Opcode {
 
     // // Stack, Memory, Storage, and Flow Operations
     // POP = 0x50,
-    // MLOAD = 0x51,
-    // MSTORE = 0x52,
-    // MSTORE8 = 0x53,
+    MLOAD = 0x51,
+    MSTORE = 0x52,
+    MSTORE8 = 0x53,
     // SLOAD = 0x54,
     // SSTORE = 0x55,
     // JUMP = 0x56,
     // JUMPI = 0x57,
     // PC = 0x58,
-    // MSIZE = 0x59,
+    MSIZE = 0x59,
     // GAS = 0x5A,
     // JUMPDEST = 0x5B,
     // TLOAD = 0x5C,
     // TSTORE = 0x5D,
-    // MCOPY = 0x5E,
+    MCOPY = 0x5E,
 
     // // Push Operations
     PUSH0 = 0x5F,
@@ -240,6 +240,11 @@ impl From<u8> for Opcode {
             x if x == Opcode::SWAP15 as u8 => Opcode::SWAP15,
             x if x == Opcode::SWAP16 as u8 => Opcode::SWAP16,
             0x7F => Opcode::PUSH32,
+            0x51 => Opcode::MLOAD,
+            0x52 => Opcode::MSTORE,
+            0x53 => Opcode::MSTORE8,
+            0x59 => Opcode::MSIZE,
+            0x5E => Opcode::MCOPY,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }
