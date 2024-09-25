@@ -1,24 +1,20 @@
-use bytes::Bytes;
 use ethereum_types::U256;
-use levm::{opcodes::Opcode, operations::Operation, vm::VM};
+use levm::{operations::Operation, program::Program, vm::VM};
 
 #[test]
 fn test() {
     let mut vm = VM::default();
 
-    let operations = [
+    let operations = vec![
         Operation::Push32(U256::one()),
         Operation::Push32(U256::zero()),
         Operation::Add,
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    let program = Program::from_operations(operations);
 
-    vm.execute(bytecode);
+    vm.execute(program);
 
     assert!(vm.stack.pop().unwrap() == U256::one());
     assert!(vm.pc() == 68);
@@ -33,11 +29,11 @@ fn mstore() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let stored_value = vm.memory.load(0);
 
@@ -54,7 +50,11 @@ fn mstore8() {
     vm.stack.push(U256::from(0xAB)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    vm.execute(Bytes::from(vec![Opcode::MSTORE8 as u8, Opcode::STOP as u8]));
+    let operations = vec![Operation::Mstore8, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let stored_value = vm.memory.load(0);
 
@@ -75,12 +75,15 @@ fn mcopy() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MCOPY as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![
+        Operation::Mstore,
+        Operation::Mcopy,
+        Operation::Msize,
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+    vm.execute(program);
 
     let copied_value = vm.memory.load(64);
     assert_eq!(copied_value, U256::from(0x33333));
@@ -98,11 +101,11 @@ fn mload() {
     vm.stack.push(U256::from(0x33333)); // value to store
     vm.stack.push(U256::from(0)); // offset to store
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MLOAD as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![Operation::Mstore, Operation::Mload, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let loaded_value = vm.stack.pop().unwrap();
     assert_eq!(loaded_value, U256::from(0x33333));
@@ -112,7 +115,12 @@ fn mload() {
 fn msize() {
     let mut vm = VM::default();
 
-    vm.execute(Bytes::from(vec![Opcode::MSIZE as u8, Opcode::STOP as u8]));
+    let operations = vec![Operation::Msize, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
+
     let initial_size = vm.stack.pop().unwrap();
     assert_eq!(initial_size, U256::from(0));
 
@@ -121,11 +129,11 @@ fn msize() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let after_store_size = vm.stack.pop().unwrap();
     assert_eq!(after_store_size, U256::from(32));
@@ -135,11 +143,11 @@ fn msize() {
     vm.stack.push(U256::from(0x55555)); // value
     vm.stack.push(U256::from(64)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let final_size = vm.stack.pop().unwrap();
     assert_eq!(final_size, U256::from(96));
@@ -154,12 +162,16 @@ fn mstore_mload_offset_not_multiple_of_32() {
     vm.stack.push(U256::from(0xabcdef)); // value
     vm.stack.push(U256::from(10)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MLOAD as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![
+        Operation::Mstore,
+        Operation::Mload,
+        Operation::Msize,
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
@@ -176,12 +188,16 @@ fn mstore_mload_offset_not_multiple_of_32() {
     vm.stack.push(U256::from(0x123456)); // value
     vm.stack.push(U256::from(2000)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MSTORE as u8,
-        Opcode::MLOAD as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![
+        Operation::Mstore,
+        Operation::Mload,
+        Operation::Msize,
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
@@ -196,11 +212,11 @@ fn mload_uninitialized_memory() {
 
     vm.stack.push(U256::from(50)); // offset
 
-    vm.execute(Bytes::from(vec![
-        Opcode::MLOAD as u8,
-        Opcode::MSIZE as u8,
-        Opcode::STOP as u8,
-    ]));
+    let operations = vec![Operation::Mload, Operation::Msize, Operation::Stop];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
 
     let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
@@ -213,14 +229,11 @@ fn mload_uninitialized_memory() {
 fn pc_op() {
     let mut vm = VM::default();
 
-    let operations = [Operation::PC, Operation::Stop];
+    let operations = vec![Operation::PC, Operation::Stop];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    let program = Program::from_operations(operations);
 
-    vm.execute(bytecode);
+    vm.execute(program);
 
     assert!(vm.stack.pop().unwrap() == U256::from(0));
 }
@@ -229,18 +242,72 @@ fn pc_op() {
 fn pc_op_with_push_offset() {
     let mut vm = VM::default();
 
-    let operations = [
+    let operations = vec![
         Operation::Push32(U256::one()),
         Operation::PC,
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    let program = Program::from_operations(operations);
 
-    vm.execute(bytecode);
+    vm.execute(program);
 
     assert!(vm.stack.pop().unwrap() == U256::from(33));
+}
+
+#[test]
+fn jump_op() {
+    let mut vm = VM::default();
+
+    let operations = vec![
+        Operation::Push32(U256::from(35)),
+        Operation::Jump,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
+
+    assert!(vm.stack.pop().unwrap() == U256::from(10));
+    assert_eq!(vm.pc(), 70);
+}
+
+#[test]
+fn jump_not_jumpdest_position() {
+    let mut vm = VM::default();
+
+    let operations = vec![
+        Operation::Push32(U256::from(36)),
+        Operation::Jump,
+        Operation::Stop, // should go here
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
+    assert_eq!(vm.pc(), 35);
+}
+
+#[test]
+fn jump_position_bigger_than_program_size() {
+    let mut vm = VM::default();
+
+    let operations = vec![
+        Operation::Push32(U256::from(5000)),
+        Operation::Jump,
+        Operation::Stop, // should skip this one
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
+    assert_eq!(vm.pc(), 35);
 }

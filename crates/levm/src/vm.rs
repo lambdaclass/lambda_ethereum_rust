@@ -1,4 +1,4 @@
-use crate::opcodes::Opcode;
+use crate::{opcodes::Opcode, program::Program};
 use bytes::Bytes;
 use ethereum_types::U256;
 
@@ -10,7 +10,8 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn execute(&mut self, mut bytecode: Bytes) {
+    pub fn execute(&mut self, program: Program) {
+        let mut bytecode = program.to_bytecode();
         loop {
             match self.next_opcode(&mut bytecode).unwrap() {
                 Opcode::STOP => break,
@@ -21,16 +22,19 @@ impl VM {
                 }
                 Opcode::JUMP => {
                     let jump_address = self.stack.pop().unwrap();
-                    self.pc = jump_address.as_usize();
+                    dbg!(jump_address);
+                    self.jump(jump_address, &program);
                 }
                 Opcode::JUMPI => {
                     let jump_address = self.stack.pop().unwrap();
                     let condition = self.stack.pop().unwrap();
                     if condition != U256::zero() {
-                        self.pc = jump_address.as_usize();
+                        self.jump(jump_address, &program);
                     }
                 }
-                Opcode::JUMPDEST => {}
+                Opcode::JUMPDEST => {
+                    // just consume some gas, jumptable written at the start
+                }
                 Opcode::PC => {
                     self.stack.push(U256::from(self.pc - 1));
                 }
@@ -83,6 +87,19 @@ impl VM {
                 }
             }
         }
+    }
+
+    fn jump(&mut self, offset: U256, program: &Program) {
+        if !self.valid_jump(offset, program) {
+            // probably should halt/panic
+            dbg!("Invalid jump");
+            return;
+        }
+        self.pc = offset.as_usize();
+    }
+
+    fn valid_jump(&self, offset: U256, program: &Program) -> bool {
+        program.jumptable.contains(&offset.as_usize())
     }
 
     fn next_opcode(&mut self, opcodes: &mut Bytes) -> Option<Opcode> {
