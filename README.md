@@ -96,7 +96,7 @@ make test CRATE="ethereum_rust-blockchain"
 Finally, we have End-to-End tests with hive.
 Hive is a system which simply sends RPC commands to our node,
 and expects a certain response. You can read more about it [here](https://github.com/ethereum/hive/blob/master/docs/overview.md).
-Hive tests are categorized by "simulations', and can test instances can be filtered with a regex:
+Hive tests are categorized by "simulations', and test instances can be filtered with a regex:
 ```bash
 make run-hive-debug SIMULATION=<simulation> TEST_PATTERN=<test-regex>
 ```
