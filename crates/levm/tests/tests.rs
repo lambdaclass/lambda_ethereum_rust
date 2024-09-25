@@ -114,6 +114,31 @@ fn sub_op() {
 
     assert!(vm.stack.pop().unwrap() == U256::from(10));
 }
+// example from evm.codes -> https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='~30z~20zSUBz'~PUSH32%20z%5Cn%01z~_
+#[test]
+fn sub_op_overflow() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from(30)),
+        Operation::Push32(U256::from(20)),
+        Operation::Sub,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(
+        vm.stack.pop().unwrap()
+            == U256::from_str("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6")
+                .unwrap()
+    );
+}
 
 #[test]
 fn div_op() {
@@ -480,6 +505,27 @@ fn exp_op() {
     vm.execute(bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(32));
+}
+
+#[test]
+fn exp_op_overflow() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from(257)),
+        Operation::Push32(U256::from(2)),
+        Operation::Exp,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
 }
 
 #[test]
