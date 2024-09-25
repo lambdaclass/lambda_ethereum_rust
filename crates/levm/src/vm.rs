@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use crate::opcodes::Opcode;
 use bytes::Bytes;
-use ethereum_types::{U256, U512};
+use ethereum_types::{Address, U256, U512};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -258,6 +260,35 @@ impl VM {
     }
 }
 
+pub struct TransientStorage(HashMap<(Address, U256), U256>);
+
+impl TransientStorage {
+    /// Returns a new empty transient storage.
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    /// Get a value at a storage key for an account.
+    ///
+    /// Returns `U256::zero()` if there is no such value. See [implementation reference]
+    /// or [EIP-1153].
+    ///
+    /// [implementation reference]: https://github.com/ethereum/execution-specs/blob/51fac24740e662844446439ceeb96a460aae0ba0/src/ethereum/cancun/state.py#L641
+    /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
+    pub fn get(&self, address: Address, key: U256) -> U256 {
+        if let Some(value) = self.0.get(&(address, key)) {
+            *value
+        } else {
+            U256::zero()
+        }
+    }
+
+    /// Set a value at a storage key for an account.
+    pub fn set(&mut self, address: Address, key: U256, value: U256) {
+        self.0.insert((address, key), value);
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Memory {
     data: Vec<u8>,
@@ -305,4 +336,25 @@ impl Memory {
 
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
+}
+
+#[test]
+fn get_ok() {
+    let mut tstorage = TransientStorage::new();
+
+    tstorage
+        .0
+        .insert((Address::default(), U256::one()), U256::from("0xffff"));
+
+    assert_eq!(
+        tstorage.get(Address::default(), U256::one()),
+        U256::from("0xffff")
+    )
+}
+
+#[test]
+fn unexistant_returns_zero() {
+    let tsstorage = TransientStorage::new();
+
+    assert_eq!(tsstorage.get(Address::default(), U256::one()), U256::zero())
 }
