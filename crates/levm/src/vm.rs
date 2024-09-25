@@ -93,7 +93,18 @@ impl VM {
                         current_call_frame.stack.push(U256::zero());
                     }
                 }
-                Opcode::SAR => {}
+                Opcode::SAR => {
+                    let shift = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+                    let res = if shift < U256::from(256) {
+                        arithmetic_shift_right(value, shift)
+                    } else if value.bit(255) {
+                        U256::MAX
+                    } else {
+                        U256::zero()
+                    };
+                    current_call_frame.stack.push(res);
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -145,5 +156,17 @@ impl VM {
 
     pub fn current_call_frame(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
+    }
+}
+
+pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
+    let shift_usize = shift.try_into().unwrap_or(usize::MAX);
+
+    if value.bit(255) { // if negative fill with 1s
+        let shifted = value >> shift_usize;
+        let mask = U256::MAX << (256 - shift_usize);  
+        shifted | mask
+    } else {
+        value >> shift_usize
     }
 }
