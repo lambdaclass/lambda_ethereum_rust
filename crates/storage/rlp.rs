@@ -6,7 +6,6 @@ use ethereum_rust_core::{
     H256,
 };
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
-use ethereum_types::U256;
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 
@@ -19,8 +18,6 @@ pub type BlockHashRLP = Rlp<BlockHash>;
 pub type BlockHeaderRLP = Rlp<BlockHeader>;
 pub type BlockBodyRLP = Rlp<BlockBody>;
 pub type BlockRLP = Rlp<Block>;
-// TODO (#307): Remove TotalDifficulty.
-pub type BlockTotalDifficultyRLP = Rlp<U256>;
 
 // Receipt types
 pub type ReceiptRLP = Rlp<Receipt>;

@@ -111,28 +111,24 @@ fn total_difficulty_check<'a>(
     head_block: &'a Block,
     storage: &'a Store,
 ) -> Result<Option<&'a str>, StoreError> {
-    if !head_block.header.difficulty.is_zero() || head_block.header.number == 0 {
-        let total_difficulty = storage.get_block_total_difficulty(*head_block_hash)?;
-        let parent_total_difficulty =
-            storage.get_block_total_difficulty(head_block.header.parent_hash)?;
-        let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
-        if terminal_total_difficulty.is_none()
-            || total_difficulty.is_none()
-            || head_block.header.number > 0 && parent_total_difficulty.is_none()
-        {
-            return Ok(Some(
-                "total difficulties unavailable for terminal total difficulty check",
-            ));
-        }
-        if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
-            return Ok(Some("refusing beacon update to pre-merge"));
-        }
-        if head_block.header.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
-            return Ok(Some(
-                "parent block is already post terminal total difficulty",
-            ));
-        }
-    }
+    // if !head_block.header.difficulty.is_zero() || head_block.header.number == 0 {
+    //     let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
+    //     if terminal_total_difficulty.is_none()
+    //         || head_block.header.number > 0 && parent_total_difficulty.is_none()
+    //     {
+    //         return Ok(Some(
+    //             "total difficulties unavailable for terminal total difficulty check",
+    //         ));
+    //     }
+    //     if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
+    //         return Ok(Some("refusing beacon update to pre-merge"));
+    //     }
+    //     if head_block.header.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
+    //         return Ok(Some(
+    //             "parent block is already post terminal total difficulty",
+    //         ));
+    //     }
+    // }
     Ok(None)
 }
 
