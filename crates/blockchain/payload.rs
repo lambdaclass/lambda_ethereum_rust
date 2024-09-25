@@ -16,7 +16,7 @@ use crate::constants::{GAS_LIMIT_BOUND_DIVISOR, MIN_GAS_LIMIT, TARGET_BLOB_GAS_P
 
 pub struct BuildPayloadArgs {
     pub parent: BlockHash,
-    pub timestamp: U256,
+    pub timestamp: u64,
     pub fee_recipient: Address,
     pub random: H256,
     pub withdrawals: Vec<Withdrawal>,
@@ -28,10 +28,8 @@ impl BuildPayloadArgs {
     // Id computes an 8-byte identifier by hashing the components of the payload arguments.
     pub fn id(&self) -> u64 {
         let mut hasher = Keccak256::new();
-        let mut timestamp = [0; 32];
-        self.timestamp.to_big_endian(&mut timestamp);
         hasher.update(self.parent);
-        hasher.update(timestamp);
+        hasher.update(self.timestamp.to_be_bytes());
         hasher.update(self.random);
         hasher.update(self.fee_recipient);
         hasher.update(self.withdrawals.encode_to_vec());
@@ -47,7 +45,6 @@ impl BuildPayloadArgs {
 // Basic payload block building, can and should be improved
 pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, StoreError> {
     let parent_block = storage.get_block_by_hash(args.parent).unwrap().unwrap();
-    let timestamp = args.timestamp.as_u64();
     let chain_config = storage.get_chain_config().unwrap();
     let gas_limit = calc_gas_limit(parent_block.header.gas_limit, 30_000_000);
     Ok(Block {
@@ -63,7 +60,7 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
             number: parent_block.header.number.saturating_add(1),
             gas_limit,
             gas_used: 0,
-            timestamp,
+            timestamp: args.timestamp,
             extra_data: Bytes::new(),
             prev_randao: args.random,
             nonce: 0,
@@ -74,10 +71,10 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
                 parent_block.header.base_fee_per_gas.unwrap_or_default(),
             ),
             withdrawals_root: chain_config
-                .is_shanghai_activated(timestamp)
+                .is_shanghai_activated(args.timestamp)
                 .then_some(compute_withdrawals_root(&args.withdrawals)),
             blob_gas_used: Some(0),
-            excess_blob_gas: chain_config.is_cancun_activated(timestamp).then_some(
+            excess_blob_gas: chain_config.is_cancun_activated(args.timestamp).then_some(
                 calc_excess_blob_gas(
                     parent_block.header.excess_blob_gas.unwrap_or_default(),
                     parent_block.header.blob_gas_used.unwrap_or_default(),

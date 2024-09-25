@@ -1,5 +1,5 @@
 use super::payload::PayloadStatus;
-use ethereum_rust_core::{serde_utils, types::Withdrawal, Address, H256, U256};
+use ethereum_rust_core::{serde_utils, types::Withdrawal, Address, H256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -15,7 +15,7 @@ pub struct ForkChoiceState {
 #[serde(rename_all = "camelCase")]
 #[allow(unused)]
 pub struct PayloadAttributesV3 {
-    pub timestamp: U256,
+    pub timestamp: u64,
     pub prev_randao: H256,
     pub suggested_fee_recipient: Address,
     pub withdrawals: Vec<Withdrawal>,
