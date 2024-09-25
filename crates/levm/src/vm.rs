@@ -125,7 +125,6 @@ impl VM {
                     let augend = self.stack.pop().unwrap();
                     let addend = self.stack.pop().unwrap();
                     let divisor = self.stack.pop().unwrap();
-                    dbg!(divisor);
                     if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
@@ -157,12 +156,10 @@ impl VM {
                     let mut remainder = Vec::new();
                     for i in 0..4 {
                         let byte = truncated_remainder[i].to_le_bytes();
-                        dbg!(byte);
                         remainder.extend_from_slice(&byte);
                     }
-
-                    // before reverse we have something like [255, 120, 0, 0....]
-                    // after reverse we get the [0, 0, ...., 120, 255] which is the correct order for the little endian u256
+                    // before reverse we have something like [120, 255, 0, 0....]
+                    // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
                     remainder.reverse();
                     let remainder = U256::from(remainder.as_slice());
                     self.stack.push(remainder);
