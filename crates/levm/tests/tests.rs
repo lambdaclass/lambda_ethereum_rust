@@ -101,6 +101,86 @@ fn and_with_hex_numbers() {
 }
 
 #[test]
+fn or_basic() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Push32(U256::from(0b1100)),
+        Operation::Or,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b1110));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Push32(U256::zero()),
+        Operation::Or,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b1010));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(u64::MAX)),
+        Operation::Push32(U256::zero()),
+        Operation::Or,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xFFFFFFFFFFFFFFFF as u64));
+}
+
+#[test]
+fn or_with_hex_numbers() {
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xFFFF)),
+        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Or,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xFFFF));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xF000)),
+        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Or,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xF0F0));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xB020)),
+        Operation::Push32(U256::from(0x1F0F)),
+        Operation::Or,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b1011111100101111));
+}
+
+
+#[test]
 fn mstore() {
     let operations = [
         Operation::Push32(U256::from(0x33333)),

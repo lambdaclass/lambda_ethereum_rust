@@ -45,6 +45,10 @@ impl VM {
                     current_call_frame.stack.push(a & b);
                 }
                 Opcode::OR => {
+                    // spend_gas(3);
+                    let a = current_call_frame.stack.pop().unwrap();
+                    let b = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.stack.push(a | b);
                 }
                 Opcode::XOR => {
                 }
