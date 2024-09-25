@@ -1,4 +1,4 @@
-.PHONY: build lint test clean run_image build_image download-test-vectors clean-vectors \
+.PHONY: build lint test clean run-image build-image download-test-vectors clean-vectors \
 	setup-hive test-pattern-default run-hive run-hive-debug clean-hive-logs
 
 help: ## 📚 Show help for each of the Makefile recipes
@@ -18,7 +18,7 @@ clean: clean-vectors ## 🧹 Remove build artifacts
 	cargo clean
 	rm -rf hive
 
-run_image: build_image ## 🏃 Run the Docker image
+run-image: build-image ## 🏃 Run the Docker image
 	docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
 
 STAMP_FILE := .docker_build_stamp
@@ -26,7 +26,7 @@ $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfi
 	docker build -t ethereum_rust .
 	touch $(STAMP_FILE)
 
-build_image: $(STAMP_FILE) ## 🐳 Build the Docker image
+build-image: $(STAMP_FILE) ## 🐳 Build the Docker image
 
 SPECTEST_VERSION := v3.0.0
 SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
@@ -57,7 +57,7 @@ checkout-ethereum-package: ethereum-package ## 📦 Checkout specific Ethereum p
 		git fetch && \
 		git checkout $(ETHEREUM_PACKAGE_REVISION)
 
-localnet: stop-localnet-silent build_image checkout-ethereum-package ## 🌐 Start local network
+localnet: stop-localnet-silent build-image checkout-ethereum-package ## 🌐 Start local network
 	kurtosis run --enclave lambdanet ethereum-package --args-file test_data/network_params.yaml
 	docker logs -f $$(docker ps -q --filter ancestor=ethereum_rust)
 
@@ -68,7 +68,7 @@ stop-localnet: ## 🛑 Stop local network
 stop-localnet-silent:
 	@echo "Double checking local net is not already started..."
 	@kurtosis enclave stop lambdanet >/dev/null 2>&1 || true
-	@kurtosis enclave rm lambdanet >/dev/null 2>&1 || true
+	@kurtosis enclave rm lambdanet --force >/dev/null 2>&1 || true
 
 HIVE_REVISION := efcd74daee8edc6b5792fafbb1653ea665a02453
 # Shallow clones can't specify a single revision, but at least we avoid working
@@ -89,10 +89,10 @@ TEST_PATTERN ?= /
 # The endpoints tested may be limited by supplying a test pattern in the form "/endpoint_1|enpoint_2|..|enpoint_n"
 # For example, to run the rpc-compat suites for eth_chainId & eth_blockNumber you should run:
 # `make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_blockNumber"`
-run-hive: build_image setup-hive ## 🧪 Run Hive testing suite
+run-hive: build-image setup-hive ## 🧪 Run Hive testing suite
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)"
 
-run-hive-debug: build_image setup-hive ## 🐞 Run Hive testing suite in debug mode
+run-hive-debug: build-image setup-hive ## 🐞 Run Hive testing suite in debug mode
 	cd hive && ./hive --sim $(SIMULATION) --client ethereumrust --sim.limit "$(TEST_PATTERN)" --docker.output
 
 clean-hive-logs: ## 🧹 Clean Hive logs

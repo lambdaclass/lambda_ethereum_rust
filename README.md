@@ -24,8 +24,8 @@ We believe this approach is the best way to build a client that is both fast and
 
 ### Prerequisites
 - [Kurtosis](https://docs.kurtosis.com/install/#ii-install-the-cli)
-- Rust.
-- Docker.
+- [Rust](#rust)
+- [Docker](https://docs.docker.com/engine/install/)
 ```shell
 make localnet
 ```
@@ -63,20 +63,20 @@ You now should be able to build the client:
 make build
 ```
 
-### Testing
+### Test
 
 For testing, we're using three kinds of tests.
 
 ##### Ethereum Foundation Tests
 
-These are the official execution spec tests, tests that should be implementation agnostic, you can execute them with:
+These are the official execution spec tests, you can execute them with:
 
 ```bash
 make test
 ```
 
 This will download the test cases from the [official execution spec tests repo](https://github.com/ethereum/execution-spec-tests/) and run them with our glue code
-under `cmd/ef_tests/tests/cancun.rs`.
+under `cmd/ef_tests/tests`.
 
 ##### Crate Specific Tests
 
@@ -91,46 +91,15 @@ make test CRATE=<crate>
 Finally, we have End-to-End tests with hive.
 Hive is a system which simply sends RPC commands to our node,
 and expects a certain response. You can read more about it [here](https://github.com/ethereum/hive/blob/master/docs/overview.md).
-And you can run this set of tests with:
+This is an example of a Hive simulation called `ethereum/rpc-compat`, which can be run with:
 
 ```bash
 make run-hive-debug ethereum/rpc-compat
 ```
 
-### Localnet
+### Run
 
-To run a localnet, we'll use our fork of [ethPandaOps' Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to for client. We have that included in our repo as a `make` target. Make sure to fetch it as follows:
-
-```bash
-make checkout-ethereum-package
-```
-
-If you haven't yet, install Kurtosis:
-
-```bash
-# Make sure to have docker installed
-brew install docker
-# Kurtosis cli
-brew install kurtosis-tech/tap/kurtosis-cli
-```
-
-To run the localnet:
-
-```bash
-# Ethereum package is included in the repo as a make target.
-make localnet
-```
-
-Here, we setup kurtosis and make it run with our node inside a docker file.
-The config in charge of doing this is under the file `/test_data/network_params.yaml`
-To stop the localnet:
-
-```bash
-make stop-localnet
-```
-
-You can also run the node using the standalone CLI:
-
+Example run:
 ```bash
 cargo run --bin ethereum_rust -- --network test_data/genesis-kurtosis.json
 ```
