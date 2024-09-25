@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::error::StoreError;
-use ethereum_rust_core::rlp::{decode::RLPDecode, encode::RLPEncode};
+use crate::error::TrieError;
+use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 
 use super::db::TrieDB;
 
@@ -24,13 +24,13 @@ impl TrieState {
     }
 
     /// Retrieves a node based on its hash
-    pub fn get_node(&self, hash: NodeHash) -> Result<Option<Node>, StoreError> {
+    pub fn get_node(&self, hash: NodeHash) -> Result<Option<Node>, TrieError> {
         if let Some(node) = self.cache.get(&hash) {
             return Ok(Some(node.clone()));
         };
         self.db
             .get(hash.into())?
-            .map(|rlp| Node::decode(&rlp).map_err(StoreError::RLPDecode))
+            .map(|rlp| Node::decode(&rlp).map_err(TrieError::RLPDecode))
             .transpose()
     }
 
@@ -41,14 +41,14 @@ impl TrieState {
 
     /// Commits cache changes to DB and clears it
     /// Only writes nodes that follow the root's canonical trie
-    pub fn commit(&mut self, root: &NodeHash) -> Result<(), StoreError> {
+    pub fn commit(&mut self, root: &NodeHash) -> Result<(), TrieError> {
         self.commit_node(root)?;
         self.cache.clear();
         Ok(())
     }
 
     // Writes a node and its children into the DB
-    fn commit_node(&mut self, node_hash: &NodeHash) -> Result<(), StoreError> {
+    fn commit_node(&mut self, node_hash: &NodeHash) -> Result<(), TrieError> {
         let Some(node) = self.cache.remove(node_hash) else {
             // If the node is not in the cache then it means it is already stored in the DB
             return Ok(());

@@ -6,12 +6,14 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use std::future::IntoFuture;
+use std::time::Duration;
 use std::{
     fs::File,
     io,
     net::{SocketAddr, ToSocketAddrs},
 };
-use tokio::try_join;
+use tokio_util::task::TaskTracker;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 mod cli;
@@ -123,17 +125,31 @@ async fn main() {
         node_id: local_node_id,
     };
 
+    // TODO: Check every module starts properly.
+    let tracker = TaskTracker::new();
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
         store,
         jwt_secret,
         local_p2p_node,
-    );
+    )
+    .into_future();
     let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
+        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer)
+            .into_future();
 
-    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
+    tracker.spawn(rpc_api);
+    tracker.spawn(networking);
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            info!("Server shut down started...");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            info!("Server shutting down!");
+            return;
+        }
+    }
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {

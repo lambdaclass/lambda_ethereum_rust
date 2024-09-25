@@ -1,13 +1,13 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    rlp::{
-        decode::RLPDecode,
-        encode::RLPEncode,
-        error::RLPDecodeError,
-        structs::{Decoder, Encoder},
-    },
     types::{BlockHash, BlockNumber},
     H32, U256,
+};
+use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
+    error::RLPDecodeError,
+    structs::{Decoder, Encoder},
 };
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
@@ -116,7 +116,8 @@ impl RLPxMessage for StatusMessage {
 mod tests {
     use std::str::FromStr;
 
-    use ethereum_rust_core::{rlp::encode::RLPEncode, H32};
+    use ethereum_rust_core::H32;
+    use ethereum_rust_rlp::encode::RLPEncode;
     use hex_literal::hex;
 
     use super::ForkId;

@@ -1,0 +1,8 @@
+[package]
+name = "levm"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ethereum-types.workspace = true
+bytes.workspace = true

@@ -1,6 +1,7 @@
 use super::{frame, message as rlpx};
 use aes::cipher::KeyIvInit;
-use ethereum_rust_core::{rlp::decode::RLPDecode, H256};
+use ethereum_rust_core::H256;
+use ethereum_rust_rlp::decode::RLPDecode;
 use sha3::{Digest, Keccak256};
 use tokio::io::{AsyncRead, AsyncWrite};
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
