@@ -257,13 +257,13 @@ impl VM {
         }
     }
 
-    fn jump(&mut self, offset: U256, program: &Program) {
-        if !self.valid_jump(offset, program) {
+    fn jump(&mut self, jump_address: U256, program: &Program) {
+        if !self.valid_jump(jump_address, program) {
             // probably should halt/panic
             dbg!("Invalid jump");
             return;
         }
-        self.pc = offset.as_usize() + 1;
+        self.pc = jump_address.as_usize() + 1;
     }
 
     fn valid_jump(&self, offset: U256, program: &Program) -> bool {
