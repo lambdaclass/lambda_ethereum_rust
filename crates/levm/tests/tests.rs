@@ -8,7 +8,7 @@ use levm::{operations::Operation, vm::VM};
 fn add_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::one()),
         Operation::Push32(U256::zero()),
         Operation::Add,
@@ -29,7 +29,7 @@ fn add_op() {
 fn add_op_overflow() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::max_value()),
         Operation::Push32(U256::max_value()),
         Operation::Add,
@@ -50,7 +50,7 @@ fn add_op_overflow() {
 fn mul_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(10)),
         Operation::Push32(U256::from(10)),
         Operation::Mul,
@@ -71,7 +71,7 @@ fn mul_op() {
 fn mul_op_overflow() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(
             U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE")
                 .unwrap(),
@@ -98,7 +98,7 @@ fn mul_op_overflow() {
 fn sub_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(20)),
         Operation::Push32(U256::from(30)),
         Operation::Sub,
@@ -119,7 +119,7 @@ fn sub_op() {
 fn sub_op_overflow() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(30)),
         Operation::Push32(U256::from(20)),
         Operation::Sub,
@@ -144,7 +144,7 @@ fn sub_op_overflow() {
 fn div_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(6)),
         Operation::Push32(U256::from(12)),
         Operation::Div,
@@ -165,7 +165,7 @@ fn div_op() {
 fn div_op_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::one()),
         Operation::Div,
@@ -186,7 +186,7 @@ fn div_op_for_zero() {
 fn sdiv_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(
             U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")
                 .unwrap(),
@@ -213,7 +213,7 @@ fn sdiv_op() {
 fn sdiv_op_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::one()),
         Operation::Sdiv,
@@ -234,7 +234,7 @@ fn sdiv_op_for_zero() {
 fn mod_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(4)),
         Operation::Push32(U256::from(10)),
         Operation::Mod,
@@ -255,7 +255,7 @@ fn mod_op() {
 fn mod_op_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::one()),
         Operation::Mod,
@@ -276,7 +276,7 @@ fn mod_op_for_zero() {
 fn smod_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(0x03)),
         Operation::Push32(U256::from(0x0a)),
         Operation::SMod,
@@ -297,7 +297,7 @@ fn smod_op() {
 fn smod_op_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::one()),
         Operation::SMod,
@@ -318,7 +318,7 @@ fn smod_op_for_zero() {
 fn addmod_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(8)),
         Operation::Push32(U256::from(0x0a)),
         Operation::Push32(U256::from(0x0a)),
@@ -340,7 +340,7 @@ fn addmod_op() {
 fn addmod_op_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::from(4)),
         Operation::Push32(U256::from(6)),
@@ -367,7 +367,7 @@ fn addmod_op_big_numbers() {
     let augend = U256::max_value() - U256::one() * 3;
     let expected_result = U256::max_value() - U256::one() * 4;
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(divisor),
         Operation::Push32(addend),
         Operation::Push32(augend),
@@ -389,7 +389,7 @@ fn addmod_op_big_numbers() {
 fn mulmod_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(4)),
         Operation::Push32(U256::from(2)),
         Operation::Push32(U256::from(5)),
@@ -411,7 +411,7 @@ fn mulmod_op() {
 fn mulmod_op_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::from(2)),
         Operation::Push32(U256::from(5)),
@@ -438,7 +438,7 @@ fn mulmod_op_big_numbers() {
     let multiplier = U256::max_value() - U256::one() * 3;
     let expected_result = U256::from(2);
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(divisor),
         Operation::Push32(multiplicand),
         Operation::Push32(multiplier),
@@ -468,7 +468,7 @@ fn mulmod_op_big_numbers_result_bigger_than_one_byte() {
             .unwrap();
     let expected_result = U256::from(0xfffe);
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(divisor),
         Operation::Push32(multiplicand),
         Operation::Push32(multiplier),
@@ -490,7 +490,7 @@ fn mulmod_op_big_numbers_result_bigger_than_one_byte() {
 fn exp_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(5)),
         Operation::Push32(U256::from(2)),
         Operation::Exp,
@@ -511,7 +511,7 @@ fn exp_op() {
 fn exp_op_overflow() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(257)),
         Operation::Push32(U256::from(2)),
         Operation::Exp,
@@ -532,7 +532,7 @@ fn exp_op_overflow() {
 fn signextend_op_negative() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(0xff)),
         Operation::Push32(U256::zero()),
         Operation::SignExtend,
@@ -553,7 +553,7 @@ fn signextend_op_negative() {
 fn signextend_op_positive() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(0x7f)),
         Operation::Push32(U256::zero()),
         Operation::SignExtend,
@@ -1015,7 +1015,7 @@ fn mstore() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
+    let operations = [Operation::Mstore, Operation::Msize, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1039,7 +1039,7 @@ fn mstore8() {
     vm.stack.push(U256::from(0xAB)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    let operations = vec![Operation::Mstore8, Operation::Stop];
+    let operations = [Operation::Mstore8, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1067,7 +1067,7 @@ fn mcopy() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    let operations = vec![
+    let operations = [
         Operation::Mstore,
         Operation::Mcopy,
         Operation::Msize,
@@ -1096,7 +1096,7 @@ fn mload() {
     vm.stack.push(U256::from(0x33333)); // value to store
     vm.stack.push(U256::from(0)); // offset to store
 
-    let operations = vec![Operation::Mstore, Operation::Mload, Operation::Stop];
+    let operations = [Operation::Mstore, Operation::Mload, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1113,7 +1113,7 @@ fn mload() {
 fn msize() {
     let mut vm = VM::default();
 
-    let operations = vec![Operation::Msize, Operation::Stop];
+    let operations = [Operation::Msize, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1130,7 +1130,7 @@ fn msize() {
     vm.stack.push(U256::from(0x33333)); // value
     vm.stack.push(U256::from(0)); // offset
 
-    let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
+    let operations = [Operation::Mstore, Operation::Msize, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1147,7 +1147,7 @@ fn msize() {
     vm.stack.push(U256::from(0x55555)); // value
     vm.stack.push(U256::from(64)); // offset
 
-    let operations = vec![Operation::Mstore, Operation::Msize, Operation::Stop];
+    let operations = [Operation::Mstore, Operation::Msize, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1169,7 +1169,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
     vm.stack.push(U256::from(0xabcdef)); // value
     vm.stack.push(U256::from(10)); // offset
 
-    let operations = vec![
+    let operations = [
         Operation::Mstore,
         Operation::Mload,
         Operation::Msize,
@@ -1198,7 +1198,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
     vm.stack.push(U256::from(0x123456)); // value
     vm.stack.push(U256::from(2000)); // offset
 
-    let operations = vec![
+    let operations = [
         Operation::Mstore,
         Operation::Mload,
         Operation::Msize,
@@ -1225,7 +1225,7 @@ fn mload_uninitialized_memory() {
 
     vm.stack.push(U256::from(50)); // offset
 
-    let operations = vec![Operation::Mload, Operation::Msize, Operation::Stop];
+    let operations = [Operation::Mload, Operation::Msize, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1245,7 +1245,7 @@ fn mload_uninitialized_memory() {
 fn pc_op() {
     let mut vm = VM::default();
 
-    let operations = vec![Operation::PC, Operation::Stop];
+    let operations = [Operation::PC, Operation::Stop];
 
     let program = operations
         .iter()
@@ -1261,7 +1261,7 @@ fn pc_op() {
 fn pc_op_with_push_offset() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::one()),
         Operation::PC,
         Operation::Stop,
@@ -1281,7 +1281,7 @@ fn pc_op_with_push_offset() {
 fn jump_op() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(35)),
         Operation::Jump,
         Operation::Stop, // should skip this one
@@ -1305,7 +1305,7 @@ fn jump_op() {
 fn jump_not_jumpdest_position() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(36)),
         Operation::Jump,
         Operation::Stop,
@@ -1326,7 +1326,7 @@ fn jump_not_jumpdest_position() {
 fn jump_position_bigger_than_program_size() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(5000)),
         Operation::Jump,
         Operation::Stop,
@@ -1347,7 +1347,7 @@ fn jump_position_bigger_than_program_size() {
 fn jumpi_not_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::one()),
         Operation::Push32(U256::from(68)),
         Operation::Jumpi,
@@ -1371,7 +1371,7 @@ fn jumpi_not_zero() {
 fn jumpi_for_zero() {
     let mut vm = VM::default();
 
-    let operations = vec![
+    let operations = [
         Operation::Push32(U256::from(100)),
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::from(100)),
