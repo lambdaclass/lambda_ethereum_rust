@@ -118,6 +118,37 @@ mod tests {
         assert_eq!(vm.stack[0], to_push);
         assert_eq!(vm.pc, 7);
     }
+
+    #[test]
+    fn push31_ok() {
+        let mut vm = VM::default();
+
+        let to_push = U256::from_big_endian(&[0xff; 31]);
+
+        let operations = [Operation::Push((31, to_push)), Operation::Stop];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack[0], to_push);
+        assert_eq!(vm.pc, 33);
+    }
+
+    #[test]
+    fn push32_ok() {
+        let mut vm = VM::default();
+
+        let to_push = U256::from_big_endian(&[0xff; 32]);
+
+        let operations = [Operation::Push32(to_push), Operation::Stop];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack[0], to_push);
+        assert_eq!(vm.pc, 34);
+    }
+
     #[test]
     fn dup1_ok() {
         let mut vm = VM::default();

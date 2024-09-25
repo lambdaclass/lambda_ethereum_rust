@@ -165,10 +165,13 @@ impl Operation {
             // Operation::Mcopy => Bytes::copy_from_slice(&[Opcode::MCOPY as u8]),
             Operation::Push0 => Bytes::copy_from_slice(&[Opcode::PUSH0 as u8]),
             Operation::Push((n, value)) => {
-                assert!(*n <= 32);
+                assert!(*n <= 32, "PUSH32 is the max");
                 // the amount of bytes needed to represent the value must
                 // be less than the n in PUSHn
-                assert!(value.bits().div_ceil(8) <= *n as usize);
+                assert!(
+                    value.bits().div_ceil(8) <= *n as usize,
+                    "value can't doesn't fit in n bytes"
+                );
                 let mut word_buffer = [0; 32];
                 value.to_big_endian(&mut word_buffer);
                 // extract the last n bytes to push
@@ -220,6 +223,14 @@ mod tests {
     fn push1_correct_bytecode() {
         let op = Operation::Push((1, 0xff.into())).to_bytecode();
         assert_eq!(op, Bytes::from(vec![0x60, 0xff]))
+    }
+
+    #[test]
+    fn push31_correct_bytecode() {
+        let op = Operation::Push((32, U256::MAX)).to_bytecode();
+        let mut expected = vec![0x7f];
+        expected.extend_from_slice(&[0xff; 32]);
+        assert_eq!(op, Bytes::from(expected))
     }
 
     #[test]
