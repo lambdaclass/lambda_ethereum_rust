@@ -755,7 +755,7 @@ fn jump_not_jumpdest_position() {
     let operations = vec![
         Operation::Push32(U256::from(36)),
         Operation::Jump,
-        Operation::Stop, // should go here
+        Operation::Stop,
         Operation::Push32(U256::from(10)),
         Operation::Stop,
     ];
@@ -773,7 +773,7 @@ fn jump_position_bigger_than_program_size() {
     let operations = vec![
         Operation::Push32(U256::from(5000)),
         Operation::Jump,
-        Operation::Stop, // should skip this one
+        Operation::Stop,
         Operation::Push32(U256::from(10)),
         Operation::Stop,
     ];
@@ -814,7 +814,7 @@ fn jumpi_for_zero() {
         Operation::Push32(U256::zero()),
         Operation::Push32(U256::from(100)),
         Operation::Jumpi,
-        Operation::Stop, // should skip this one
+        Operation::Stop,
         Operation::Jumpdest,
         Operation::Push32(U256::from(10)),
         Operation::Stop,

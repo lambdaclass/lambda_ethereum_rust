@@ -191,7 +191,6 @@ impl VM {
                 }
                 Opcode::JUMP => {
                     let jump_address = self.stack.pop().unwrap();
-                    dbg!(jump_address);
                     self.jump(jump_address, &program);
                 }
                 Opcode::JUMPI => {
@@ -203,7 +202,6 @@ impl VM {
                 }
                 Opcode::JUMPDEST => {
                     // just consume some gas, jumptable written at the start
-                    dbg!("JUMPEDEST");
                 }
                 Opcode::PC => {
                     self.stack.push(U256::from(self.pc - 1));
