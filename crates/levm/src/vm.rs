@@ -188,6 +188,81 @@ impl VM {
                     };
                     self.stack.push(result);
                 }
+                Opcode::LT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho < rho { U256::one() } else { U256::zero() };
+                    self.stack.push(result);
+                }
+                Opcode::GT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho > rho { U256::one() } else { U256::zero() };
+                    self.stack.push(result);
+                }
+                Opcode::SLT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho < rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    } else {
+                        // if they have different signs, the negative number is smaller
+                        if lho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::SGT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho > rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    } else {
+                        // if they have different signs, the positive number is bigger
+                        if rho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::EQ => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho == rho {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::ISZERO => {
+                    let operand = self.stack.pop().unwrap();
+                    let result = if operand == U256::zero() {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    self.stack.push(result);
+                }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
