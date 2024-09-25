@@ -24,110 +24,135 @@ impl VM {
             match self.next_opcode(&mut bytecode).unwrap() {
                 Opcode::STOP => break,
                 Opcode::ADD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    self.stack.push(a.overflowing_add(b).0);
+                    let augend = self.stack.pop().unwrap();
+                    let addend = self.stack.pop().unwrap();
+                    let sum = augend.overflowing_add(addend).0;
+                    self.stack.push(sum);
                 }
                 Opcode::MUL => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    self.stack.push(a.overflowing_mul(b).0);
+                    let multiplicand = self.stack.pop().unwrap();
+                    let multiplier = self.stack.pop().unwrap();
+                    let product = multiplicand.overflowing_mul(multiplier).0;
+                    self.stack.push(product);
                 }
                 Opcode::SUB => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    self.stack.push(a.overflowing_sub(b).0);
+                    let minuend = self.stack.pop().unwrap();
+                    let subtrahend = self.stack.pop().unwrap();
+                    let difference = minuend.overflowing_sub(subtrahend).0;
+                    self.stack.push(difference);
                 }
                 Opcode::DIV => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    if b.is_zero() {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
-
-                    self.stack.push(a / b);
+                    let quotient = dividend / divisor;
+                    self.stack.push(quotient);
                 }
                 Opcode::SDIV => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    if b.is_zero() {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
 
-                    let a_is_negative = is_negative(a);
-                    let b_is_negative = is_negative(b);
-                    let a = if a_is_negative { negate(a) } else { a };
-                    let b = if b_is_negative { negate(b) } else { b };
-                    let result = a / b;
-                    let result_is_negative = a_is_negative ^ b_is_negative;
-                    let result = if result_is_negative {
-                        negate(result)
+                    let dividend_is_negative = is_negative(dividend);
+                    let divisor_is_negative = is_negative(divisor);
+                    let dividend = if dividend_is_negative {
+                        negate(dividend)
                     } else {
-                        result
+                        dividend
+                    };
+                    let divisor = if divisor_is_negative {
+                        negate(divisor)
+                    } else {
+                        divisor
+                    };
+                    let quotient = dividend / divisor;
+                    let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
+                    let quotient = if quotient_is_negative {
+                        negate(quotient)
+                    } else {
+                        quotient
                     };
 
-                    self.stack.push(result);
+                    self.stack.push(quotient);
                 }
                 Opcode::MOD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    if b.is_zero() {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
-
-                    self.stack.push(a % b);
+                    let remainder = dividend % divisor;
+                    self.stack.push(remainder);
                 }
                 Opcode::SMOD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    if b.is_zero() {
+                    let dividend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
 
-                    let a_is_negative = is_negative(a);
-                    let b_is_negative = is_negative(b);
-                    let a = if a_is_negative { negate(a) } else { a };
-                    let b = if b_is_negative { negate(b) } else { b };
-                    let result = a % b;
-                    let result_is_negative = a_is_negative ^ b_is_negative;
-                    let result = if result_is_negative {
-                        negate(result)
+                    let dividend_is_negative = is_negative(dividend);
+                    let divisor_is_negative = is_negative(divisor);
+                    let dividend = if dividend_is_negative {
+                        negate(dividend)
                     } else {
-                        result
+                        dividend
+                    };
+                    let divisor = if divisor_is_negative {
+                        negate(divisor)
+                    } else {
+                        divisor
+                    };
+                    let remainder = dividend % divisor;
+                    let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
+                    let remainder = if remainder_is_negative {
+                        negate(remainder)
+                    } else {
+                        remainder
                     };
 
-                    self.stack.push(result);
+                    self.stack.push(remainder);
                 }
                 Opcode::ADDMOD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let n = self.stack.pop().unwrap();
-                    if n.is_zero() {
+                    let augend = self.stack.pop().unwrap();
+                    let addend = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
+                    let sum = augend.overflowing_add(addend).0;
+                    let remainder = sum % divisor;
 
-                    self.stack.push((a.overflowing_add(b).0) % n);
+                    self.stack.push(remainder);
                 }
                 Opcode::MULMOD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let n = self.stack.pop().unwrap();
-                    if n.is_zero() {
+                    let multiplicand = self.stack.pop().unwrap();
+                    let multiplier = self.stack.pop().unwrap();
+                    let divisor = self.stack.pop().unwrap();
+                    if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
 
-                    self.stack.push((a.overflowing_mul(b).0) % n);
+                    let product = multiplicand.overflowing_mul(multiplier).0;
+                    let remainder = product % divisor;
+
+                    self.stack.push(remainder);
                 }
                 Opcode::EXP => {
                     let base = self.stack.pop().unwrap();
                     let exponent = self.stack.pop().unwrap();
-                    self.stack.push(base.overflowing_pow(exponent).0);
+                    let power = base.overflowing_pow(exponent).0;
+                    self.stack.push(power);
                 }
                 Opcode::SIGNEXTEND => {
                     let byte_size = self.stack.pop().unwrap();
