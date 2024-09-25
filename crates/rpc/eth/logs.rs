@@ -2,24 +2,14 @@ use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::{H160, H256};
+use ethereum_rust_core::{
+    types::{AddressFilter, TopicFilter},
+    H160, H256,
+};
 use ethereum_rust_storage::Store;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-pub enum AddressFilter {
-    Single(H160),
-    Many(Vec<H160>),
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-pub enum TopicFilter {
-    Topic(Option<H256>),
-    Topics(Vec<Option<H256>>),
-}
 
 #[derive(Debug)]
 pub struct LogsRequest {

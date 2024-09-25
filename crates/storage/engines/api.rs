@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    AddressFilter, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, TopicFilter, Transaction,
 };
 use ethereum_types::{Address, H256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
@@ -189,4 +190,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
 
     // Get the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
+
+    fn add_filter(&self, addresses: AddressFilter, topics: TopicFilter) -> Result<(), StoreError>;
 }

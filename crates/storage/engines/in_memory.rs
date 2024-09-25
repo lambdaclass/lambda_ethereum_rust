@@ -296,6 +296,13 @@ impl StoreEngine for Store {
         self.inner().canonical_hashes.insert(number, hash);
         Ok(())
     }
+    fn add_filter(
+        &self,
+        addresses: ethereum_rust_core::types::AddressFilter,
+        topics: ethereum_rust_core::types::TopicFilter,
+    ) -> Result<(), StoreError> {
+        todo!()
+    }
 }
 
 impl Debug for Store {
