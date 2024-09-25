@@ -6,8 +6,9 @@ use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
-    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
+    code_hash, AccountInfo, AccountState, AddressFilter, Block, BlockBody, BlockHash, BlockHeader,
+    BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, Receipt, TopicFilter, Transaction,
+    EMPTY_TRIE_HASH,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;

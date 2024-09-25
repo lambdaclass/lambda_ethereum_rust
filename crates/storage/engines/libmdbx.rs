@@ -68,7 +68,7 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
         block_header: BlockHeader,
-    ) -> std::result::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.write::<Headers>(block_hash.into(), block_header.into())
     }
 
@@ -87,14 +87,11 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
         block_body: BlockBody,
-    ) -> std::result::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.write::<Bodies>(block_hash.into(), block_body.into())
     }
 
-    fn get_block_body(
-        &self,
-        block_number: BlockNumber,
-    ) -> std::result::Result<Option<BlockBody>, StoreError> {
+    fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError> {
         if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
             self.get_block_body_by_hash(hash)
         } else {
@@ -120,14 +117,11 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
         block_number: BlockNumber,
-    ) -> std::result::Result<(), StoreError> {
+    ) -> Result<(), StoreError> {
         self.write::<BlockNumbers>(block_hash.into(), block_number)
     }
 
-    fn get_block_number(
-        &self,
-        block_hash: BlockHash,
-    ) -> std::result::Result<Option<BlockNumber>, StoreError> {
+    fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
         self.read::<BlockNumbers>(block_hash.into())
     }
 
@@ -330,6 +324,13 @@ impl StoreEngine for Store {
 
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
         self.write::<CanonicalBlockHashes>(number, hash.into())
+    }
+    fn add_filter(
+        &self,
+        addresses: ethereum_rust_core::types::AddressFilter,
+        topics: ethereum_rust_core::types::TopicFilter,
+    ) -> Result<(), StoreError> {
+        todo!()
     }
 }
 
