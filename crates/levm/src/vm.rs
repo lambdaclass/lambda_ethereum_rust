@@ -68,7 +68,9 @@ impl VM {
                     let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
                     if byte_index < 32 {
-                        current_call_frame.stack.push(U256::from(op2.byte(31 - byte_index)));
+                        current_call_frame
+                            .stack
+                            .push(U256::from(op2.byte(31 - byte_index)));
                     } else {
                         current_call_frame.stack.push(U256::zero());
                     }
@@ -160,11 +162,12 @@ impl VM {
 }
 
 pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
-    let shift_usize = shift.try_into().unwrap_or(usize::MAX);
+    let shift_usize: usize = shift.try_into().unwrap(); // we know its not bigger than 256
 
-    if value.bit(255) { // if negative fill with 1s
+    if value.bit(255) {
+        // if negative fill with 1s
         let shifted = value >> shift_usize;
-        let mask = U256::MAX << (256 - shift_usize);  
+        let mask = U256::MAX << (256 - shift_usize);
         shifted | mask
     } else {
         value >> shift_usize

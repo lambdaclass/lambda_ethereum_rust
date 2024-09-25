@@ -505,7 +505,7 @@ fn shl_basic() {
     ]);
 
     vm.execute();
-    
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xDDDD));
 
@@ -517,7 +517,7 @@ fn shl_basic() {
     ]);
 
     vm.execute();
-    
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x2468acf0));
 
@@ -529,7 +529,7 @@ fn shl_basic() {
     ]);
 
     vm.execute();
-    
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(4886718336 as u64));
 
@@ -550,37 +550,37 @@ fn shl_basic() {
 fn shl_edge_cases() {
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x1)),
-        Operation::Push32(U256::from(256)), 
+        Operation::Push32(U256::from(256)),
         Operation::Shl,
         Operation::Stop,
     ]);
 
     vm.execute();
-    
-    let result = vm.current_call_frame().stack.pop().unwrap();
-    assert_eq!(result, U256::zero()); 
 
-    let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::zero()), 
-        Operation::Push32(U256::from(200)), 
-        Operation::Shl,
-        Operation::Stop,
-    ]);
-
-    vm.execute();
-    
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX), 
-        Operation::Push32(U256::from(1)), 
+        Operation::Push32(U256::zero()),
+        Operation::Push32(U256::from(200)),
         Operation::Shl,
         Operation::Stop,
     ]);
 
     vm.execute();
-    
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::MAX),
+        Operation::Push32(U256::from(1)),
+        Operation::Shl,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::MAX - 1);
 }
@@ -595,7 +595,7 @@ fn shr_basic() {
     ]);
 
     vm.execute();
-    
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xDDDD));
 
@@ -607,7 +607,7 @@ fn shr_basic() {
     ]);
 
     vm.execute();
-    
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x91a2b3c));
 
@@ -619,7 +619,7 @@ fn shr_basic() {
     ]);
 
     vm.execute();
-    
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x1234567));
 
@@ -640,37 +640,37 @@ fn shr_basic() {
 fn shr_edge_cases() {
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x1)),
-        Operation::Push32(U256::from(256)), 
+        Operation::Push32(U256::from(256)),
         Operation::Shr,
         Operation::Stop,
     ]);
 
     vm.execute();
-    
-    let result = vm.current_call_frame().stack.pop().unwrap();
-    assert_eq!(result, U256::zero()); 
 
-    let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::zero()), 
-        Operation::Push32(U256::from(200)), 
-        Operation::Shr,
-        Operation::Stop,
-    ]);
-
-    vm.execute();
-    
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX), 
-        Operation::Push32(U256::from(1)), 
+        Operation::Push32(U256::zero()),
+        Operation::Push32(U256::from(200)),
         Operation::Shr,
         Operation::Stop,
     ]);
 
     vm.execute();
-    
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::MAX),
+        Operation::Push32(U256::from(1)),
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::MAX >> 1);
 }
@@ -688,7 +688,6 @@ fn sar_shift_by_0() {
 
     let result = vm.current_call_frame().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x12345678));
-
 }
 
 #[test]
@@ -698,7 +697,7 @@ fn sar_shifting_large_value_with_all_bits_set() {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff,
     ]);
-    
+
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(word),
         Operation::Push32(U256::from(8)),
@@ -714,7 +713,7 @@ fn sar_shifting_large_value_with_all_bits_set() {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff,
     ]);
-    assert_eq!(result, expected); 
+    assert_eq!(result, expected);
 }
 
 #[test]
@@ -727,7 +726,7 @@ fn sar_shifting_negative_value_and_small_shift() {
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(word_neg),
-        Operation::Push32(U256::from(4)), 
+        Operation::Push32(U256::from(4)),
         Operation::Sar,
         Operation::Stop,
     ]);
@@ -746,7 +745,7 @@ fn sar_shifting_negative_value_and_small_shift() {
 #[test]
 fn sar_shift_positive_value() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x7FFFFF)), 
+        Operation::Push32(U256::from(0x7FFFFF)),
         Operation::Push32(U256::from(4)),
         Operation::Sar,
         Operation::Stop,
@@ -768,7 +767,7 @@ fn sar_shift_negative_value() {
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(word_neg),
-        Operation::Push32(U256::from(4)), 
+        Operation::Push32(U256::from(4)),
         Operation::Sar,
         Operation::Stop,
     ]);
