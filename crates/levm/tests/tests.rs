@@ -26,6 +26,27 @@ fn add_op() {
 }
 
 #[test]
+fn add_op_overflow() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::max_value()),
+        Operation::Push32(U256::max_value()),
+        Operation::Add,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == (U256::max_value() - U256::one()));
+}
+
+#[test]
 fn mul_op() {
     let mut vm = VM::default();
 

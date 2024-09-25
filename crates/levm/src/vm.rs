@@ -25,17 +25,17 @@ impl VM {
                 Opcode::ADD => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
-                    self.stack.push(a + b);
+                    self.stack.push(a.overflowing_add(b).0);
                 }
                 Opcode::MUL => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
-                    self.stack.push(a * b);
+                    self.stack.push(a.overflowing_mul(b).0);
                 }
                 Opcode::SUB => {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
-                    self.stack.push(a - b);
+                    self.stack.push(a.overflowing_sub(b).0);
                 }
                 Opcode::DIV => {
                     let a = self.stack.pop().unwrap();
@@ -110,7 +110,7 @@ impl VM {
                         continue;
                     }
 
-                    self.stack.push((a + b) % n);
+                    self.stack.push((a.overflowing_add(b).0) % n);
                 }
                 Opcode::MULMOD => {
                     let a = self.stack.pop().unwrap();
@@ -121,12 +121,12 @@ impl VM {
                         continue;
                     }
 
-                    self.stack.push((a * b) % n);
+                    self.stack.push((a.overflowing_mul(b).0) % n);
                 }
                 Opcode::EXP => {
                     let base = self.stack.pop().unwrap();
                     let exponent = self.stack.pop().unwrap();
-                    self.stack.push(base.pow(exponent));
+                    self.stack.push(base.overflowing_pow(exponent).0);
                 }
                 Opcode::SIGNEXTEND => {
                     let byte_size = self.stack.pop().unwrap();
