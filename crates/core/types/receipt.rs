@@ -6,6 +6,7 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 use ethereum_types::{Address, Bloom, BloomInput, H256};
+use serde::{Deserialize, Serialize};
 
 use super::TxType;
 pub type Index = u64;
@@ -96,7 +97,7 @@ impl RLPDecode for Receipt {
 }
 
 /// Data record produced during the execution of a transaction.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Log {
     pub address: Address,
     pub topics: Vec<H256>,

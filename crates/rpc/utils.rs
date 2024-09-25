@@ -9,6 +9,7 @@ use ethereum_rust_blockchain::error::MempoolError;
 #[derive(Debug)]
 pub enum RpcErr {
     MethodNotFound,
+    WrongParam(String),
     BadParams,
     BadHexFormat(u64),
     UnsuportedFork,
@@ -26,6 +27,11 @@ impl From<RpcErr> for RpcErrorMetadata {
                 code: -32601,
                 data: None,
                 message: "Method not found".to_string(),
+            },
+            RpcErr::WrongParam(field) => RpcErrorMetadata {
+                code: -32602,
+                data: None,
+                message: format!("Field '{}' is incorrect or has an unknown format", field),
             },
             RpcErr::BadParams => RpcErrorMetadata {
                 code: -32000,
