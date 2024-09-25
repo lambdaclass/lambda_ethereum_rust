@@ -1,6 +1,6 @@
 use crate::opcodes::Opcode;
 use bytes::Bytes;
-use ethereum_types::U256;
+use ethereum_types::{U256, U512};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -139,17 +139,32 @@ impl VM {
                     self.stack.push(remainder);
                 }
                 Opcode::MULMOD => {
-                    let multiplicand = self.stack.pop().unwrap();
-                    let multiplier = self.stack.pop().unwrap();
-                    let divisor = self.stack.pop().unwrap();
+                    let multiplicand = U512::from(self.stack.pop().unwrap());
+
+                    let multiplier = U512::from(self.stack.pop().unwrap());
+                    let divisor = U512::from(self.stack.pop().unwrap());
                     if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
 
-                    let product = multiplicand.overflowing_mul(multiplier).0;
-                    let remainder = product % divisor;
+                    let (product, overflow) = multiplicand.overflowing_mul(multiplier);
+                    let mut remainder = product % divisor;
+                    if overflow || remainder > divisor {
+                        remainder = remainder.overflowing_sub(divisor).0;
+                    }
+                    let truncated_remainder = &remainder.0[0..4];
+                    let mut remainder = Vec::new();
+                    for i in 0..4 {
+                        let byte = truncated_remainder[i].to_le_bytes();
+                        dbg!(byte);
+                        remainder.extend_from_slice(&byte);
+                    }
 
+                    // before reverse we have something like [255, 120, 0, 0....]
+                    // after reverse we get the [0, 0, ...., 120, 255] which is the correct order for the little endian u256
+                    remainder.reverse();
+                    let remainder = U256::from(remainder.as_slice());
                     self.stack.push(remainder);
                 }
                 Opcode::EXP => {

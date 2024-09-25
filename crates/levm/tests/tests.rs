@@ -378,6 +378,62 @@ fn mulmod_op_for_zero() {
 }
 
 #[test]
+fn mulmod_op_big_numbers() {
+    let mut vm = VM::default();
+
+    let divisor = U256::max_value() - U256::one();
+    let multiplicand = U256::max_value() - U256::one() * 2;
+    let multiplier = U256::max_value() - U256::one() * 3;
+    let expected_result = U256::from(2);
+
+    let operations = [
+        Operation::Push32(divisor),
+        Operation::Push32(multiplicand),
+        Operation::Push32(multiplier),
+        Operation::Mulmod,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == expected_result);
+}
+
+#[test]
+fn mulmod_op_big_numbers_result_bigger_than_one_byte() {
+    let mut vm = VM::default();
+
+    let divisor = U256::max_value() - U256::one();
+    let multiplicand = U256::max_value() - U256::one() * 2;
+    let multiplier =
+        U256::from_str("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000")
+            .unwrap();
+    let expected_result = U256::from(0xfffe);
+
+    let operations = [
+        Operation::Push32(divisor),
+        Operation::Push32(multiplicand),
+        Operation::Push32(multiplier),
+        Operation::Mulmod,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == expected_result);
+}
+
+#[test]
 fn exp_op() {
     let mut vm = VM::default();
 
