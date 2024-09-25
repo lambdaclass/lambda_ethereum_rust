@@ -51,17 +51,16 @@ impl VM {
                     current_call_frame.stack.push(a | b);
                 }
                 Opcode::XOR => {
+                    // spend_gas(3);
+                    let a = current_call_frame.stack.pop().unwrap();
+                    let b = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.stack.push(a ^ b);
                 }
-                Opcode::NOT => {
-                }
-                Opcode::BYTE => {
-                }
-                Opcode::SHL => {
-                }
-                Opcode::SHR => {
-                }
-                Opcode::SAR => {
-                }
+                Opcode::NOT => {}
+                Opcode::BYTE => {}
+                Opcode::SHL => {}
+                Opcode::SHR => {}
+                Opcode::SAR => {}
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();

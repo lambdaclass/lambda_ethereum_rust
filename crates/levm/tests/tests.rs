@@ -62,7 +62,6 @@ fn and_binary_with_zero() {
 
 #[test]
 fn and_with_hex_numbers() {
-
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFFFF)),
         Operation::Push32(U256::from(0xF0F0)),
@@ -141,7 +140,6 @@ fn or_basic() {
 
 #[test]
 fn or_with_hex_numbers() {
-
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFFFF)),
         Operation::Push32(U256::from(0xF0F0)),
@@ -179,6 +177,119 @@ fn or_with_hex_numbers() {
     assert_eq!(result, U256::from(0b1011111100101111));
 }
 
+#[test]
+fn xor_basic() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Push32(U256::from(0b1100)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b110));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Push32(U256::zero()),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b1010));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(u64::MAX)),
+        Operation::Push32(U256::zero()),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(u64::MAX));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(u64::MAX)),
+        Operation::Push32(U256::from(u64::MAX)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+}
+
+#[test]
+fn xor_with_hex_numbers() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xF0)),
+        Operation::Push32(U256::from(0xF)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xFF));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xFF)),
+        Operation::Push32(U256::from(0xFF)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xFFFF)),
+        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xF0F));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xF000)),
+        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xF0));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0x4C0F)),
+        Operation::Push32(U256::from(0x3A4B)),
+        Operation::Xor,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0b111011001000100));
+}
 
 #[test]
 fn mstore() {
