@@ -188,12 +188,120 @@ impl VM {
                     };
                     self.stack.push(result);
                 }
+                Opcode::LT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho < rho { U256::one() } else { U256::zero() };
+                    self.stack.push(result);
+                }
+                Opcode::GT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho > rho { U256::one() } else { U256::zero() };
+                    self.stack.push(result);
+                }
+                Opcode::SLT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho < rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    } else {
+                        // if they have different signs, the negative number is smaller
+                        if lho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::SGT => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho > rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    } else {
+                        // if they have different signs, the positive number is bigger
+                        if rho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::EQ => {
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho == rho {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::ISZERO => {
+                    let operand = self.stack.pop().unwrap();
+                    let result = if operand == U256::zero() {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    self.stack.push(result);
+                }
+                Opcode::PUSH0 => {
+                    self.stack.push(U256::zero());
+                }
+                // PUSHn
+                op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
+                    let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
+                    let next_n_bytes = bytecode
+                        .get(self.pc..self.pc + n_bytes as usize)
+                        .expect("invalid bytecode");
+                    let value_to_push = U256::from(next_n_bytes);
+                    self.stack.push(value_to_push);
+                    self.increment_pc_by(n_bytes as usize);
+                }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
-                    dbg!(value_to_push);
                     self.stack.push(value_to_push);
                     self.increment_pc_by(32);
+                }
+                // DUPn
+                op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
+                    let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+                    assert!(
+                        self.stack.len().ge(&(depth as usize)),
+                        "stack underflow: not enough values on the stack"
+                    );
+                    let value_at_depth = self.stack.get(self.stack.len() - depth as usize).unwrap();
+                    self.stack.push(*value_at_depth);
+                }
+                // SWAPn
+                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
+                    let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
+                    assert!(
+                        self.stack.len().ge(&(depth as usize)),
+                        "stack underflow: not enough values on the stack"
+                    );
+                    let stack_top_index = self.stack.len();
+                    let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
+                    self.stack.swap(stack_top_index - 1, to_swap_index - 1);
                 }
                 Opcode::POP => {
                     self.stack.pop().unwrap();
@@ -238,6 +346,7 @@ impl VM {
 
                     self.memory.copy(src_offset, dest_offset, size);
                 }
+                _ => unimplemented!(),
             }
         }
     }
