@@ -34,7 +34,6 @@ impl VM {
                         .get(current_call_frame.pc..current_call_frame.pc + 32)
                         .unwrap();
                     let value_to_push = U256::from(next_32_bytes);
-                    dbg!(value_to_push);
                     current_call_frame.stack.push(value_to_push);
                     current_call_frame.increment_pc_by(32);
                 }
@@ -68,14 +67,22 @@ impl VM {
 
                     let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
-                    let result = if byte_index < 32 {
-                        U256::from(op2.byte(31 - byte_index))
+                    if byte_index < 32 {
+                        current_call_frame.stack.push(U256::from(op2.byte(31 - byte_index)));
                     } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(result);
+                        current_call_frame.stack.push(U256::zero());
+                    }
                 }
-                Opcode::SHL => {}
+                Opcode::SHL => {
+                    // spend_gas(3);
+                    let shift = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+                    if shift < U256::from(256) {
+                        current_call_frame.stack.push(value << shift);
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    }
+                }
                 Opcode::SHR => {}
                 Opcode::SAR => {}
                 Opcode::MLOAD => {
