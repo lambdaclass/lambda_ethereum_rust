@@ -571,6 +571,444 @@ fn signextend_op_positive() {
 }
 
 #[test]
+fn lt_lho_less_than_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),  // rho
+        Operation::Push32(U256::zero()), // lho
+        Operation::Lt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn lt_lho_equals_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::zero()), // lho
+        Operation::Lt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn lt_lho_greater_than_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
+        Operation::Lt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn gt_lho_greater_than_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
+        Operation::Gt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn gt_lho_equals_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::zero()), // lho
+        Operation::Gt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn gt_lho_less_than_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),  // rho
+        Operation::Push32(U256::zero()), // lho
+        Operation::Gt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_zero_lho_less_than_positive_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),  // rho
+        Operation::Push32(U256::zero()), // lho
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_long_lho_less_than_positive_rho() {
+    let mut vm = VM::default();
+    let lho = U256::from("0x0100000000000000000000000000000000000000000000000000000000000000");
+    let operations = [
+        Operation::Push32(U256::one()), // rho
+        Operation::Push32(lho),         // lho
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_negative_lho_less_than_positive_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),            // rho
+        Operation::Push32(U256::from([0xff; 32])), // lho = -1
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_negative_lho_less_than_negative_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())), // lho = -2
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_zero_lho_greater_than_negative_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::zero()),           // lho
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn slt_positive_lho_greater_than_negative_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::one()),            // lho
+        Operation::Slt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_positive_lho_greater_than_zero_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_positive_lho_greater_than_negative_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::one()),            // lho
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_negative_lho_greater_than_negative_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())), // rho = -2
+        Operation::Push32(U256::from([0xff; 32])),                             // lho = -1
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn sgt_negative_lho_less_than_positive_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),            // rho
+        Operation::Push32(U256::from([0xff; 32])), // lho = -1
+        Operation::Sgt,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn eq_lho_equals_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::zero()), // lho
+        Operation::Eq,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn eq_lho_not_equals_rho() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
+        Operation::Eq,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 68);
+}
+
+#[test]
+fn iszero_operand_is_zero() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()),
+        Operation::IsZero,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 35);
+}
+
+#[test]
+fn iszero_operand_is_not_zero() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::IsZero,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 35);
+}
+
+#[test]
 fn mstore() {
     let mut vm = VM::default();
 
