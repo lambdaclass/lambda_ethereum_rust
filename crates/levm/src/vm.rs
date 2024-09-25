@@ -9,6 +9,7 @@ pub struct VM {
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
     pub pc: usize,
+    pub transient_storage: TransientStorage, // TODO: this should actually go inside an execution environment!
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -369,6 +370,7 @@ impl VM {
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct TransientStorage(HashMap<(Address, U256), U256>);
 
 impl TransientStorage {

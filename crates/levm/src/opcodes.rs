@@ -76,8 +76,8 @@ pub enum Opcode {
     MSIZE = 0x59,
     // GAS = 0x5A,
     // JUMPDEST = 0x5B,
-    // TLOAD = 0x5C,
-    // TSTORE = 0x5D,
+    TLOAD = 0x5C,
+    TSTORE = 0x5D,
     MCOPY = 0x5E,
 
     // // Push Operations
