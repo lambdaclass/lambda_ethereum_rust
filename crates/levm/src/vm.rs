@@ -32,7 +32,7 @@ impl VM {
                 }
                 Opcode::JUMPDEST => {}
                 Opcode::PC => {
-                    self.stack.push(U256::from(self.pc));
+                    self.stack.push(U256::from(self.pc - 1));
                 }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();

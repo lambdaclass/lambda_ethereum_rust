@@ -208,3 +208,39 @@ fn mload_uninitialized_memory() {
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
 }
+
+#[test]
+fn pc_op() {
+    let mut vm = VM::default();
+
+    let operations = [Operation::PC, Operation::Stop];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::from(0));
+}
+
+#[test]
+fn pc_op_with_push_offset() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::PC,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::from(33));
+}
