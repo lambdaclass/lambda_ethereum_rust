@@ -230,7 +230,15 @@ mod tests {
 
     #[test]
     fn push31_correct_bytecode() {
-        let op = Operation::Push((32, U256::MAX)).to_bytecode();
+        let op = Operation::Push((31, U256::from_big_endian(&[0xff; 31]))).to_bytecode();
+        let mut expected = vec![0x7e];
+        expected.extend_from_slice(&[0xff; 31]);
+        assert_eq!(op, Bytes::from(expected))
+    }
+
+    #[test]
+    fn push32_correct_bytecode() {
+        let op = Operation::Push32(U256::MAX).to_bytecode();
         let mut expected = vec![0x7f];
         expected.extend_from_slice(&[0xff; 32]);
         assert_eq!(op, Bytes::from(expected))
