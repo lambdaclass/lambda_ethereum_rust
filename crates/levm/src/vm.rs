@@ -59,7 +59,6 @@ impl VM {
                     let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
                     self.stack.swap(stack_top_index - 1, to_swap_index - 1);
                 }
-                _ => unimplemented!(),
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = self.stack.pop().unwrap().try_into().unwrap();
@@ -100,6 +99,7 @@ impl VM {
 
                     self.memory.copy(src_offset, dest_offset, size);
                 }
+                _ => unimplemented!(),
             }
         }
     }
