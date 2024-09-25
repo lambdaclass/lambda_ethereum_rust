@@ -140,7 +140,7 @@ fn set_finalized_block<'a>(
     finalized_block_hash: &H256,
     storage: &'a Store,
 ) -> Result<Option<&'a str>, StoreError> {
-    if finalized_block_hash.is_zero() {
+    if !finalized_block_hash.is_zero() {
         // If the finalized block is not in our canonical tree, something is wrong
         let Some(finalized_block) = storage.get_block_by_hash(*finalized_block_hash)? else {
             return Ok(Some("final block not available in database"));
@@ -162,7 +162,7 @@ fn set_safe_block<'a>(
     safe_block_hash: &H256,
     storage: &'a Store,
 ) -> Result<Option<&'a str>, StoreError> {
-    if safe_block_hash.is_zero() {
+    if !safe_block_hash.is_zero() {
         // If the safe block is not in our canonical tree, something is wrong
         let Some(safe_block) = storage.get_block_by_hash(*safe_block_hash)? else {
             return Ok(Some("safe block not available in database"));
