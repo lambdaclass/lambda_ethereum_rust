@@ -6,22 +6,22 @@ use ethereum_types::U256;
 pub enum Operation {
     Stop,
     Add,
-    // Mul,
-    // Sub,
-    // Div,
-    // Sdiv,
-    // Mod,
-    // SMod,
-    // Addmod,
-    // Mulmod,
-    // Exp,
-    // SignExtend,
-    // Lt,
-    // Gt,
-    // Slt,
-    // Sgt,
-    // Eq,
-    // IsZero,
+    Mul,
+    Sub,
+    Div,
+    Sdiv,
+    Mod,
+    SMod,
+    Addmod,
+    Mulmod,
+    Exp,
+    SignExtend,
+    Lt,
+    Gt,
+    Slt,
+    Sgt,
+    Eq,
+    IsZero,
     // And,
     // Or,
     // Xor,
@@ -73,11 +73,11 @@ pub enum Operation {
     // Tload,
     // Tstore,
     Mcopy,
-    // Push0,
+    Push0,
     Push32(U256),
-    // Push((u8, U256)),
-    // Dup(u8),
-    // Swap(u8),
+    Push((u8, U256)),
+    Dup(u8),
+    Swap(u8),
     // Log(u8),
     // Create,
     // Call,
@@ -96,22 +96,22 @@ impl Operation {
         match self {
             Operation::Stop => Bytes::copy_from_slice(&[Opcode::STOP as u8]),
             Operation::Add => Bytes::copy_from_slice(&[Opcode::ADD as u8]),
-            // Operation::Mul => Bytes::copy_from_slice(&[Opcode::MUL as u8]),
-            // Operation::Sub => Bytes::copy_from_slice(&[Opcode::SUB as u8]),
-            // Operation::Div => Bytes::copy_from_slice(&[Opcode::DIV as u8]),
-            // Operation::Sdiv => Bytes::copy_from_slice(&[Opcode::SDIV as u8]),
-            // Operation::Mod => Bytes::copy_from_slice(&[Opcode::MOD as u8]),
-            // Operation::SMod => Bytes::copy_from_slice(&[Opcode::SMOD as u8]),
-            // Operation::Addmod => Bytes::copy_from_slice(&[Opcode::ADDMOD as u8]),
-            // Operation::Mulmod => Bytes::copy_from_slice(&[Opcode::MULMOD as u8]),
-            // Operation::Exp => Bytes::copy_from_slice(&[Opcode::EXP as u8]),
-            // Operation::SignExtend => Bytes::copy_from_slice(&[Opcode::SIGNEXTEND as u8]),
-            // Operation::Lt => Bytes::copy_from_slice(&[Opcode::LT as u8]),
-            // Operation::Gt => Bytes::copy_from_slice(&[Opcode::GT as u8]),
-            // Operation::Slt => Bytes::copy_from_slice(&[Opcode::SLT as u8]),
-            // Operation::Sgt => Bytes::copy_from_slice(&[Opcode::SGT as u8]),
-            // Operation::Eq => Bytes::copy_from_slice(&[Opcode::EQ as u8]),
-            // Operation::IsZero => Bytes::copy_from_slice(&[Opcode::ISZERO as u8]),
+            Operation::Mul => Bytes::copy_from_slice(&[Opcode::MUL as u8]),
+            Operation::Sub => Bytes::copy_from_slice(&[Opcode::SUB as u8]),
+            Operation::Div => Bytes::copy_from_slice(&[Opcode::DIV as u8]),
+            Operation::Sdiv => Bytes::copy_from_slice(&[Opcode::SDIV as u8]),
+            Operation::Mod => Bytes::copy_from_slice(&[Opcode::MOD as u8]),
+            Operation::SMod => Bytes::copy_from_slice(&[Opcode::SMOD as u8]),
+            Operation::Addmod => Bytes::copy_from_slice(&[Opcode::ADDMOD as u8]),
+            Operation::Mulmod => Bytes::copy_from_slice(&[Opcode::MULMOD as u8]),
+            Operation::Exp => Bytes::copy_from_slice(&[Opcode::EXP as u8]),
+            Operation::SignExtend => Bytes::copy_from_slice(&[Opcode::SIGNEXTEND as u8]),
+            Operation::Lt => Bytes::copy_from_slice(&[Opcode::LT as u8]),
+            Operation::Gt => Bytes::copy_from_slice(&[Opcode::GT as u8]),
+            Operation::Slt => Bytes::copy_from_slice(&[Opcode::SLT as u8]),
+            Operation::Sgt => Bytes::copy_from_slice(&[Opcode::SGT as u8]),
+            Operation::Eq => Bytes::copy_from_slice(&[Opcode::EQ as u8]),
+            Operation::IsZero => Bytes::copy_from_slice(&[Opcode::ISZERO as u8]),
             // Operation::And => Bytes::copy_from_slice(&[Opcode::AND as u8]),
             // Operation::Or => Bytes::copy_from_slice(&[Opcode::OR as u8]),
             // Operation::Xor => Bytes::copy_from_slice(&[Opcode::XOR as u8]),
@@ -163,17 +163,41 @@ impl Operation {
             // Operation::Tload => Bytes::copy_from_slice(&[Opcode::TLOAD as u8]),
             // Operation::Tstore => Bytes::copy_from_slice(&[Opcode::TSTORE as u8]),
             Operation::Mcopy => Bytes::copy_from_slice(&[Opcode::MCOPY as u8]),
-            // Operation::Push0 => Bytes::copy_from_slice(&[Opcode::PUSH0 as u8]),
-            // Operation::Push((n, x)) => {},
+            Operation::Push0 => Bytes::copy_from_slice(&[Opcode::PUSH0 as u8]),
+            Operation::Push((n, value)) => {
+                assert!(*n <= 32, "PUSH32 is the max");
+                // the amount of bytes needed to represent the value must
+                // be less than the n in PUSHn
+                assert!(
+                    value.bits().div_ceil(8) <= *n as usize,
+                    "value doesn't fit in n bytes"
+                );
+                let mut word_buffer = [0; 32];
+                value.to_big_endian(&mut word_buffer);
+                // extract the last n bytes to push
+                let value_to_push = &word_buffer[((32 - *n) as usize)..];
+                assert_eq!(value_to_push.len(), *n as usize);
+                let opcode = Opcode::from(Opcode::PUSH0 as u8 + *n);
+                let mut bytes = vec![opcode as u8];
+                bytes.extend_from_slice(value_to_push);
+
+                Bytes::copy_from_slice(&bytes)
+            }
             Operation::Push32(value) => {
                 let mut value_to_push = [0; 32];
                 value.to_big_endian(&mut value_to_push);
                 let mut bytes = vec![Opcode::PUSH32 as u8];
                 bytes.extend_from_slice(&value_to_push);
                 Bytes::copy_from_slice(&bytes)
-            } // Operation::Dup(n) => Bytes::copy_from_slice(Opcode::DUP1 as &[u8 + n - 1]),
-              // Operation::Swap(n) => Bytes::copy_from_slice(Opcode::SWAP1 as &[u8 + n - 1]),
-              // Operation::Log(n) => Bytes::copy_from_slice(Opcode::&[LOG0 as u8 + n]),
+            }
+            Operation::Dup(n) => {
+                assert!(*n <= 16, "DUP16 is the max");
+                Bytes::copy_from_slice(&[Opcode::DUP1 as u8 + n - 1])
+            }
+            Operation::Swap(n) => {
+                assert!(*n <= 16, "SWAP16 is the max");
+                Bytes::copy_from_slice(&[Opcode::SWAP1 as u8 + n - 1])
+            } // Operation::Log(n) => Bytes::copy_from_slice(Opcode::&[LOG0 as u8 + n]),
               // Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
               // Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
               // Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
