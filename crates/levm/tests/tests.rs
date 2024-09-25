@@ -31,8 +31,8 @@ fn lt_a_less_than_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::one()),  // b
-        Operation::Push32(U256::zero()), // a
+        Operation::Push32(U256::one()),  // rho
+        Operation::Push32(U256::zero()), // lho
         Operation::Lt,
         Operation::Stop,
     ];
@@ -53,8 +53,8 @@ fn lt_a_equals_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::zero()), // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::zero()), // lho
         Operation::Lt,
         Operation::Stop,
     ];
@@ -75,8 +75,8 @@ fn lt_a_greater_than_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::one()),  // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
         Operation::Lt,
         Operation::Stop,
     ];
@@ -97,8 +97,8 @@ fn gt_a_greater_than_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::one()),  // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
         Operation::Gt,
         Operation::Stop,
     ];
@@ -119,8 +119,8 @@ fn gt_a_equals_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::zero()), // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::zero()), // lho
         Operation::Gt,
         Operation::Stop,
     ];
@@ -141,8 +141,8 @@ fn gt_a_less_than_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::one()),  // b
-        Operation::Push32(U256::zero()), // a
+        Operation::Push32(U256::one()),  // rho
+        Operation::Push32(U256::zero()), // lho
         Operation::Gt,
         Operation::Stop,
     ];
@@ -163,8 +163,8 @@ fn slt_zero_a_less_than_positive_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::one()),  // b
-        Operation::Push32(U256::zero()), // a
+        Operation::Push32(U256::one()),  // rho
+        Operation::Push32(U256::zero()), // lho
         Operation::Slt,
         Operation::Stop,
     ];
@@ -185,8 +185,8 @@ fn slt_negative_a_less_than_positive_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::one()),            // b
-        Operation::Push32(U256::from([0xff; 32])), // a = -1
+        Operation::Push32(U256::one()),            // rho
+        Operation::Push32(U256::from([0xff; 32])), // lho = -1
         Operation::Slt,
         Operation::Stop,
     ];
@@ -207,8 +207,8 @@ fn slt_negative_a_less_than_negative_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::from([0xff; 32])), // b = -1
-        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())), // a = -2
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())), // lho = -2
         Operation::Slt,
         Operation::Stop,
     ];
@@ -229,8 +229,8 @@ fn slt_zero_a_greater_than_negative_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::from([0xff; 32])), // b = -1
-        Operation::Push32(U256::zero()),           // a
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::zero()),           // lho
         Operation::Slt,
         Operation::Stop,
     ];
@@ -251,8 +251,8 @@ fn slt_positive_a_greater_than_negative_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::from([0xff; 32])), // b = -1
-        Operation::Push32(U256::one()),            // a
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::one()),            // lho
         Operation::Slt,
         Operation::Stop,
     ];
@@ -273,8 +273,8 @@ fn sgt_positive_a_greater_than_zero_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::one()),  // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
         Operation::Sgt,
         Operation::Stop,
     ];
@@ -295,8 +295,8 @@ fn sgt_positive_a_greater_than_negative_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::from([0xff; 32])), // b = -1
-        Operation::Push32(U256::one()),            // a
+        Operation::Push32(U256::from([0xff; 32])), // rho = -1
+        Operation::Push32(U256::one()),            // lho
         Operation::Sgt,
         Operation::Stop,
     ];
@@ -317,8 +317,8 @@ fn sgt_negative_a_greater_than_negative_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())), // b = -2
-        Operation::Push32(U256::from([0xff; 32])),                             // a = -1
+        Operation::Push32(U256::from([0xff; 32]).saturating_sub(U256::one())), // rho = -2
+        Operation::Push32(U256::from([0xff; 32])),                             // lho = -1
         Operation::Sgt,
         Operation::Stop,
     ];
@@ -339,8 +339,8 @@ fn sgt_negative_a_less_than_positive_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::one()),            // b
-        Operation::Push32(U256::from([0xff; 32])), // a = -1
+        Operation::Push32(U256::one()),            // rho
+        Operation::Push32(U256::from([0xff; 32])), // lho = -1
         Operation::Sgt,
         Operation::Stop,
     ];
@@ -361,8 +361,8 @@ fn eq_a_equals_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::zero()), // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::zero()), // lho
         Operation::Eq,
         Operation::Stop,
     ];
@@ -383,8 +383,8 @@ fn eq_a_not_equals_b() {
     let mut vm = VM::default();
 
     let operations = [
-        Operation::Push32(U256::zero()), // b
-        Operation::Push32(U256::one()),  // a
+        Operation::Push32(U256::zero()), // rho
+        Operation::Push32(U256::one()),  // lho
         Operation::Eq,
         Operation::Stop,
     ];

@@ -15,27 +15,27 @@ impl VM {
             match self.next_opcode(&mut bytecode).unwrap() {
                 Opcode::STOP => break,
                 Opcode::ADD => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    self.stack.push(a + b);
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    self.stack.push(lho + rho);
                 }
                 Opcode::LT => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let result = if a < b { U256::one() } else { U256::zero() };
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho < rho { U256::one() } else { U256::zero() };
                     self.stack.push(result);
                 }
                 Opcode::GT => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let result = if a > b { U256::one() } else { U256::zero() };
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho > rho { U256::one() } else { U256::zero() };
                     self.stack.push(result);
                 }
                 Opcode::SLT => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let a_signed = u256_to_i128(a);
-                    let b_signed = u256_to_i128(b);
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let a_signed = u256_to_i128(lho);
+                    let b_signed = u256_to_i128(rho);
                     let result = if a_signed < b_signed {
                         U256::one()
                     } else {
@@ -44,10 +44,10 @@ impl VM {
                     self.stack.push(result);
                 }
                 Opcode::SGT => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let a_signed = u256_to_i128(a);
-                    let b_signed = u256_to_i128(b);
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let a_signed = u256_to_i128(lho);
+                    let b_signed = u256_to_i128(rho);
                     let result = if a_signed > b_signed {
                         U256::one()
                     } else {
@@ -56,14 +56,18 @@ impl VM {
                     self.stack.push(result);
                 }
                 Opcode::EQ => {
-                    let a = self.stack.pop().unwrap();
-                    let b = self.stack.pop().unwrap();
-                    let result = if a == b { U256::one() } else { U256::zero() };
+                    let lho = self.stack.pop().unwrap();
+                    let rho = self.stack.pop().unwrap();
+                    let result = if lho == rho {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
                     self.stack.push(result);
                 }
                 Opcode::ISZERO => {
-                    let a = self.stack.pop().unwrap();
-                    let result = if a == U256::zero() {
+                    let operand = self.stack.pop().unwrap();
+                    let result = if operand == U256::zero() {
                         U256::one()
                     } else {
                         U256::zero()
