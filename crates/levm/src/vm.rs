@@ -152,16 +152,16 @@ impl VM {
                     if overflow || remainder > divisor {
                         remainder = remainder.overflowing_sub(divisor).0;
                     }
-                    let truncated_remainder = &remainder.0[0..4];
-                    let mut remainder = Vec::new();
-                    for i in 0..4 {
-                        let byte = truncated_remainder[i].to_le_bytes();
-                        remainder.extend_from_slice(&byte);
+                    //let truncated_remainder = &remainder.0[0..4];
+                    let mut result = Vec::new();
+                    for byte in remainder.0.iter().take(4) {
+                        let bytes = byte.to_le_bytes();
+                        result.extend_from_slice(&bytes);
                     }
                     // before reverse we have something like [120, 255, 0, 0....]
                     // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
-                    remainder.reverse();
-                    let remainder = U256::from(remainder.as_slice());
+                    result.reverse();
+                    let remainder = U256::from(result.as_slice());
                     self.stack.push(remainder);
                 }
                 Opcode::EXP => {
