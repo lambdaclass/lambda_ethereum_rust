@@ -75,12 +75,12 @@ These are the official execution spec tests, tests that should be implementation
 make test
 ```
 
-This will previously download it from the [official execution spec tests repo](https://github.com/ethereum/execution-spec-tests/) and run them with our glue code
+This will download the test cases from the [official execution spec tests repo](https://github.com/ethereum/execution-spec-tests/) and run them with our glue code
 under `cmd/ef_tests/tests/cancun.rs`.
 
 ##### Crate Specific Tests
 
-The second kind are each crate tests, you can run it like this:
+The second kind are each crate's tests, you can run them like this:
 
 ```bash
 make test CRATE=<crate>
@@ -99,7 +99,7 @@ make run-hive-debug ethereum/rpc-compat
 
 ### Localnet
 
-To run a localnet, we'll use our fork of [ethPandaOps' Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `make` target. Make sure to fetch it like follows:
+To run a localnet, we'll use our fork of [ethPandaOps' Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to for client. We have that included in our repo as a `make` target. Make sure to fetch it as follows:
 
 ```bash
 make checkout-ethereum-package
@@ -122,7 +122,7 @@ make localnet
 ```
 
 Here, we setup kurtosis and make it run with our node inside a docker file.
-The config in charge of doing this is the file in under `/test_data/network_params.yaml`
+The config in charge of doing this is under the file `/test_data/network_params.yaml`
 To stop the localnet:
 
 ```bash
