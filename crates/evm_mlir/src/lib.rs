@@ -48,8 +48,8 @@ impl<DB: Database + Default> Evm<DB> {
 
 impl Evm<Db> {
     fn validate_transaction(&mut self) -> Result<u64, EVMError> {
-        let initial_gas_consumed = self.env.consume_intrinsic_cost()?;
         self.env.validate_transaction()?;
+        let initial_gas_consumed = self.env.consume_intrinsic_cost()?;
 
         Ok(initial_gas_consumed)
     }

@@ -121,8 +121,12 @@ pub mod gas_cost {
     pub const TX_ACCESS_LIST_STORAGE_KEY_COST: u64 = 1900;
     pub const MAX_CODE_SIZE: usize = 0x6000;
 
-    pub fn init_code_cost(init_code_length: usize) -> u64 {
-        INIT_WORD_COST as u64 * (init_code_length as u64 + 31) / 32
+    /// calculates the init_code_cost of create transactions as specified by the eip 3860
+    /// -> https://eips.ethereum.org/EIPS/eip-3860
+    pub fn init_code_cost(init_code_length: u64) -> u64 {
+        assert!(init_code_length <= ((MAX_CODE_SIZE * 2) as u64));
+        let number_of_words = init_code_length.saturating_add(31) / 32;
+        INIT_WORD_COST as u64 * number_of_words
     }
 
     pub fn memory_expansion_cost(last_size: u32, new_size: u32) -> i64 {
@@ -224,7 +228,7 @@ pub mod precompiles {
     pub const RIPEMD_160_ADDRESS: u64 = 0x03;
 
     // identity
-    pub const IDENTITY_COST: u64 = 15;
+    pub const IDENTITY_STATIC_COST: u64 = 15;
     pub const IDENTITY_ADDRESS: u64 = 0x04;
 
     // modexp

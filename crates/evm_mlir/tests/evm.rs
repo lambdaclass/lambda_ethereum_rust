@@ -5,7 +5,7 @@ use std::{collections::HashMap, str::FromStr};
 use evm_mlir::{
     constants::{
         call_opcode,
-        gas_cost::{self, exp_dynamic_cost, TX_BASE_COST},
+        gas_cost::{self, exp_dynamic_cost, init_code_cost, MAX_CODE_SIZE, TX_BASE_COST},
         precompiles::BLAKE2F_ADDRESS,
         return_codes::{REVERT_RETURN_CODE, SUCCESS_RETURN_CODE},
         EMPTY_CODE_HASH_STR,
@@ -4411,4 +4411,80 @@ fn extcodehash_warm_cold_gas_cost() {
 
     let used_gas = gas_cost::PUSHN * 2 + gas_cost::EXTCODEHASH_COLD + gas_cost::EXTCODEHASH_WARM;
     run_program_assert_gas_exact_with_db(env, db, used_gas as _)
+}
+
+#[test]
+fn transact_to_create_init_code_gas_cost() {
+    let value: u8 = 10;
+    let sender_nonce = 1;
+    let sender_balance = EU256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let initialization_code = hex::decode("00000000").unwrap();
+
+    let mut db = Db::new();
+    db.set_account(
+        sender_addr,
+        sender_nonce,
+        sender_balance,
+        Default::default(),
+    );
+
+    let mut env = Env::default();
+    env.tx.gas_limit = 999_999;
+    env.tx.value = EU256::from(value);
+    env.tx.transact_to = TransactTo::Create;
+    env.tx.caller = sender_addr;
+    env.tx.data = Bytes::from(initialization_code.clone());
+
+    let mut evm = Evm::new(env, db);
+    let result = evm.transact_commit().unwrap();
+    assert!(result.is_success());
+
+    // Check the returned value is equals to the initialization code
+    let returned_code = result.output().unwrap().to_vec();
+    assert_eq!(returned_code, initialization_code.clone());
+    let create_base_cost = TX_BASE_COST + gas_cost::CREATE as u64;
+    // the cost of the "00000000" -> 8 zeros -> 4 bytes of zeros -> 16 gas
+    let data_cost = 16;
+    let init_code_gas_cost = 2;
+    let execution_cost = 2;
+    let gas_cost = create_base_cost + init_code_gas_cost + data_cost + execution_cost;
+    // Check that the sender account is updated
+    let sender_account = evm.db.basic(sender_addr).unwrap().unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce + 1);
+    assert_eq!(sender_account.balance, sender_balance - value);
+    assert_eq!(result.gas_used(), gas_cost);
+    assert_eq!(
+        init_code_gas_cost,
+        init_code_cost(initialization_code.len() as u64)
+    )
+}
+
+#[test]
+fn transact_to_create_max_init_code_len() {
+    let value: u8 = 10;
+    let sender_nonce = 1;
+    let sender_balance = EU256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+    let initialization_code = vec![0_u8; (MAX_CODE_SIZE * 2) + 1];
+
+    let mut db = Db::new();
+    db.set_account(
+        sender_addr,
+        sender_nonce,
+        sender_balance,
+        Default::default(),
+    );
+
+    let mut env = Env::default();
+    env.tx.gas_limit = 999_999;
+    env.tx.value = EU256::from(value);
+    env.tx.transact_to = TransactTo::Create;
+    env.tx.caller = sender_addr;
+    env.tx.data = Bytes::from(initialization_code.clone());
+
+    let mut evm = Evm::new(env, db);
+    let result = evm.transact_commit();
+    assert!(result.is_err());
 }

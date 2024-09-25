@@ -116,7 +116,7 @@ pub fn identity(
     gas_limit: u64,
     consumed_gas: &mut u64,
 ) -> Result<Bytes, PrecompileError> {
-    let gas_cost = IDENTITY_COST + identity_dynamic_cost(calldata.len() as u64);
+    let gas_cost = IDENTITY_STATIC_COST + identity_dynamic_cost(calldata.len() as u64);
     if gas_limit < gas_cost {
         return Err(PrecompileError::NotEnoughGas);
     }
@@ -149,8 +149,16 @@ pub fn modexp(
     let m_size = usize::try_from(U256::from_big_endian(&calldata[ESIZE_END..MSIZE_END]))
         .map_err(|_| PrecompileError::InvalidCalldata)?;
 
+    // Handle special case when both the base and mod are zero.
+    if b_size == 0 && m_size == 0 {
+        *consumed_gas += 200;
+        return Ok(Bytes::new());
+    }
+
     let params_len = MXP_PARAMS_OFFSET + b_size + e_size + m_size;
-    let calldata = right_pad(&calldata, params_len);
+    if calldata.len() < params_len {
+        return Err(PrecompileError::InvalidCalldata);
+    }
 
     let b = BigUint::from_bytes_be(&calldata[MXP_PARAMS_OFFSET..MXP_PARAMS_OFFSET + b_size]);
     let e = BigUint::from_bytes_be(
@@ -183,15 +191,8 @@ pub fn modexp(
     } else {
         b.modpow(&e, &m)
     };
-
-    let bytes = result.to_bytes_be();
-    let output = if bytes.len() <= m_size {
-        left_pad(&Bytes::from(bytes), m_size)
-    } else {
-        Bytes::from(bytes)
-    };
-
-    Ok(output)
+    let result = left_pad(&Bytes::from(result.to_bytes_be()), m_size);
+    Ok(result.slice(..m_size))
 }
 
 /// Point addition on the elliptic curve 'alt_bn128' (also referred as 'bn254').
@@ -543,8 +544,8 @@ pub fn blake2f(
 
 pub fn is_precompile(callee_address: Address) -> bool {
     let addr_as_u64 = callee_address.to_low_u64_be();
-    // TODO: replace 10 with point evaluation address constant
-    callee_address[0..12] == [0u8; 12] && (ECRECOVER_ADDRESS..=10).contains(&addr_as_u64)
+    // TODO: replace 10 with point evaluation address constant and include it in the range (..=10)
+    callee_address[0..12] == [0u8; 12] && (ECRECOVER_ADDRESS..10).contains(&addr_as_u64)
 }
 
 pub fn execute_precompile(

@@ -84,7 +84,7 @@ impl Env {
         });
         let create_cost = match self.tx.transact_to {
             TransactTo::Call(_) => 0,
-            TransactTo::Create => TX_CREATE_COST + init_code_cost(self.tx.data.len()),
+            TransactTo::Create => TX_CREATE_COST + init_code_cost(self.tx.data.len() as u64),
         };
         let access_list_cost = access_list_cost(&self.tx.access_list);
         TX_BASE_COST + data_cost + create_cost + access_list_cost

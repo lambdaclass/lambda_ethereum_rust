@@ -701,21 +701,22 @@ pub fn allocate_gas_counter_ptr<'c>(
     Ok(gas_ptr)
 }
 
-// Right pads calldata with zeros until specified length
-pub fn right_pad(calldata: &Bytes, target_len: usize) -> Bytes {
-    let mut padded_calldata = calldata.to_vec();
-    if padded_calldata.len() < target_len {
-        padded_calldata.extend(vec![0u8; target_len - padded_calldata.len()]);
-    }
-    padded_calldata.into()
-}
-
+// Left pads calldata with zeros until specified length
 pub fn left_pad(calldata: &Bytes, target_len: usize) -> Bytes {
     let mut padded_calldata = vec![0u8; target_len];
     if calldata.len() < target_len {
         padded_calldata[target_len - calldata.len()..].copy_from_slice(calldata);
     } else {
         return calldata.clone();
+    }
+    padded_calldata.into()
+}
+
+// Right pads calldata with zeros until specified length
+pub fn right_pad(calldata: &Bytes, target_len: usize) -> Bytes {
+    let mut padded_calldata = calldata.to_vec();
+    if padded_calldata.len() < target_len {
+        padded_calldata.extend(vec![0u8; target_len - padded_calldata.len()]);
     }
     padded_calldata.into()
 }

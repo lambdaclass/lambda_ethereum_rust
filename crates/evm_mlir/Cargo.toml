@@ -46,3 +46,8 @@ harness = false
 name = "normal"
 path = "tests/ef_tests.rs"
 harness = false
+
+[[test]]
+name = "blake2B"
+path = "tests/blake2B_test.rs"
+harness = false
