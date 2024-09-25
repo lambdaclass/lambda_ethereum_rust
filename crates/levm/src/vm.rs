@@ -56,7 +56,11 @@ impl VM {
                     let b = current_call_frame.stack.pop().unwrap();
                     current_call_frame.stack.push(a ^ b);
                 }
-                Opcode::NOT => {}
+                Opcode::NOT => {
+                    // spend_gas(3);
+                    let a = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.stack.push(!a);
+                }
                 Opcode::BYTE => {}
                 Opcode::SHL => {}
                 Opcode::SHR => {}

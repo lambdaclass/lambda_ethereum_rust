@@ -292,6 +292,54 @@ fn xor_with_hex_numbers() {
 }
 
 #[test]
+fn not() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0b1010)),
+        Operation::Not,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    let expected = !U256::from(0b1010);
+    assert_eq!(result, expected);
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::MAX),
+        Operation::Not,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::zero()),
+        Operation::Not,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::MAX);
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(1)),
+        Operation::Not,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::MAX - 1);
+}
+
+#[test]
 fn mstore() {
     let operations = [
         Operation::Push32(U256::from(0x33333)),
