@@ -11,10 +11,10 @@ pub struct VM {
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
 fn is_negative(value: U256) -> bool {
-    value >> 255 == U256::one()
+    value.bit(255)
 }
-/// Converts a positive value to a negative one in two's complement
-fn to_negative(value: U256) -> U256 {
+/// negates a number in two's complement
+fn negate(value: U256) -> U256 {
     !value + U256::one()
 }
 
@@ -58,12 +58,12 @@ impl VM {
 
                     let a_is_negative = is_negative(a);
                     let b_is_negative = is_negative(b);
-                    let a = if a_is_negative { to_negative(a) } else { a };
-                    let b = if b_is_negative { to_negative(b) } else { b };
+                    let a = if a_is_negative { negate(a) } else { a };
+                    let b = if b_is_negative { negate(b) } else { b };
                     let result = a / b;
                     let result_is_negative = a_is_negative ^ b_is_negative;
                     let result = if result_is_negative {
-                        to_negative(result)
+                        negate(result)
                     } else {
                         result
                     };
@@ -90,12 +90,12 @@ impl VM {
 
                     let a_is_negative = is_negative(a);
                     let b_is_negative = is_negative(b);
-                    let a = if a_is_negative { to_negative(a) } else { a };
-                    let b = if b_is_negative { to_negative(b) } else { b };
+                    let a = if a_is_negative { negate(a) } else { a };
+                    let b = if b_is_negative { negate(b) } else { b };
                     let result = a % b;
                     let result_is_negative = a_is_negative ^ b_is_negative;
                     let result = if result_is_negative {
-                        to_negative(result)
+                        negate(result)
                     } else {
                         result
                     };
@@ -142,7 +142,7 @@ impl VM {
                     let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
                     let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
                     let result = if is_negative {
-                        value_to_extend.saturating_add(!sign_bit_mask)
+                        value_to_extend | !sign_bit_mask
                     } else {
                         value_to_extend & sign_bit_mask
                     };
