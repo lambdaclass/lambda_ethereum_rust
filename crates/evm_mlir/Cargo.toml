@@ -2,13 +2,8 @@
 members = ["bench/revm_comparison"]
 
 [package]
-name = "evm_mlir"
-version = "0.1.0"
+name = "ethereum_rust-evm_mlir"
 edition = "2021"
-repository = "https://github.com/lambdaclass/evm_mlir/"
-readme = "README.md"
-license = "LICENSE"
-keywords = ["ethereum", "evm"]
 
 [dependencies]
 llvm-sys = "181.0.0"

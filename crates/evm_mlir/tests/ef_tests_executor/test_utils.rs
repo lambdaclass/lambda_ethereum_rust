@@ -1,10 +1,11 @@
 use std::{collections::HashMap, path::Path};
 
 use bytes::Bytes;
-use evm_mlir::{
+use ethereum_rust_evm_mlir::{
     db::Db,
     env::{AccessList, TransactTo},
     result::{EVMError, ExecutionResult, ResultAndState},
+    state,
     utils::precompiled_addresses,
     Env, Evm,
 };
@@ -129,7 +130,7 @@ fn verify_result(
 /// Test the resulting storage is the same as the expected storage
 fn verify_storage(
     post_state: &HashMap<ethereum_types::H160, AccountInfo>,
-    res_state: HashMap<ethereum_types::H160, evm_mlir::state::Account>,
+    res_state: HashMap<ethereum_types::H160, state::Account>,
 ) {
     let mut result_state = HashMap::new();
     for address in post_state.keys() {

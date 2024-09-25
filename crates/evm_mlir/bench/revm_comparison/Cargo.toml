@@ -8,7 +8,7 @@ name = "revm_comparison"
 path = "src/lib.rs"
 
 [dependencies]
-evm_mlir = { path = "../../" }
+ethereum_rust-evm_mlir = { path = "../../" }
 hex = "0.4.3"
 revm = "9.0.0"
 
