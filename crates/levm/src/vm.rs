@@ -295,7 +295,7 @@ mod tests {
     fn dup_panics_if_stack_underflow() {
         let mut vm = VM::default();
 
-        let operations = vec![Operation::Dup(5), Operation::Stop];
+        let operations = [Operation::Dup(5), Operation::Stop];
         let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
 
         vm.execute(bytecode);
@@ -349,7 +349,7 @@ mod tests {
     fn swap_panics_if_stack_underflow() {
         let mut vm = VM::default();
 
-        let operations = vec![Operation::Swap(5), Operation::Stop];
+        let operations = [Operation::Swap(5), Operation::Stop];
         let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
 
         vm.execute(bytecode);

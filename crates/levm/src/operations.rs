@@ -179,7 +179,7 @@ impl Operation {
                 assert_eq!(value_to_push.len(), *n as usize);
                 let opcode = Opcode::from(Opcode::PUSH0 as u8 + *n);
                 let mut bytes = vec![opcode as u8];
-                bytes.extend_from_slice(&value_to_push);
+                bytes.extend_from_slice(value_to_push);
 
                 Bytes::copy_from_slice(&bytes)
             }
