@@ -30,8 +30,8 @@ pub enum Opcode {
     // SHR = 0x1C,
     // SAR = 0x1D,
 
-    // // KECCAK256
-    // KECCAK256 = 0x20,
+    // KECCAK256
+    KECCAK256 = 0x20,
 
     // // Environmental Information
     // ADDRESS = 0x30,
@@ -176,6 +176,7 @@ impl From<u8> for Opcode {
         match byte {
             0x00 => Opcode::STOP,
             0x01 => Opcode::ADD,
+            0x20 => Opcode::KECCAK256,
             0x7F => Opcode::PUSH32,
             0x51 => Opcode::MLOAD,
             0x52 => Opcode::MSTORE,

@@ -27,6 +27,38 @@ fn test() {
 }
 
 #[test]
+fn keccak256_zero_offset_size_four() {
+    let mut vm = VM::default();
+
+    let operations = [
+        // Put the required value in memory
+        Operation::Push32(U256::from(
+            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        )),
+        Operation::Push32(U256::zero()),
+        Operation::Mstore,
+        // Call the opcode
+        Operation::Push32(U256::from(4)), // size
+        Operation::Push32(U256::zero()),  // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(
+        vm.stack.pop().unwrap()
+            == U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
+    );
+    assert!(vm.pc() == 135);
+}
+
+#[test]
 fn mstore() {
     let mut vm = VM::default();
 

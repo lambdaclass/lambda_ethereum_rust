@@ -1,6 +1,7 @@
 use crate::opcodes::Opcode;
 use bytes::Bytes;
 use ethereum_types::U256;
+use sha3::{Digest, Keccak256};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -18,6 +19,16 @@ impl VM {
                     let a = self.stack.pop().unwrap();
                     let b = self.stack.pop().unwrap();
                     self.stack.push(a + b);
+                }
+                Opcode::KECCAK256 => {
+                    let offset = self.stack.pop().unwrap().try_into().unwrap();
+                    let size = self.stack.pop().unwrap().try_into().unwrap();
+                    let value_bytes = self.memory.load_range(offset, size);
+
+                    let mut hasher = Keccak256::new();
+                    hasher.update(value_bytes);
+                    let result = hasher.finalize();
+                    self.stack.push(U256::from_big_endian(&result));
                 }
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
@@ -114,6 +125,11 @@ impl Memory {
             .try_into()
             .unwrap();
         U256::from(value_bytes)
+    }
+
+    pub fn load_range(&mut self, offset: usize, size: usize) -> Vec<u8> {
+        self.resize(offset + size);
+        self.data.get(offset..offset + size).unwrap().into()
     }
 
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
