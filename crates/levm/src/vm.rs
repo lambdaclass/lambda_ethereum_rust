@@ -83,7 +83,16 @@ impl VM {
                         current_call_frame.stack.push(U256::zero());
                     }
                 }
-                Opcode::SHR => {}
+                Opcode::SHR => {
+                    // spend_gas(3);
+                    let shift = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+                    if shift < U256::from(256) {
+                        current_call_frame.stack.push(value >> shift);
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    }
+                }
                 Opcode::SAR => {}
                 Opcode::MLOAD => {
                     // spend_gas(3);

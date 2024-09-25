@@ -586,6 +586,97 @@ fn shl_edge_cases() {
 }
 
 #[test]
+fn shr_basic() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xDDDD)),
+        Operation::Push32(U256::from(0)),
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xDDDD));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0x12345678)),
+        Operation::Push32(U256::from(1)),
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0x91a2b3c));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0x12345678)),
+        Operation::Push32(U256::from(4)),
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0x1234567));
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0xFF)),
+        Operation::Push32(U256::from(4)),
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::from(0xF));
+}
+
+#[test]
+fn shr_edge_cases() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0x1)),
+        Operation::Push32(U256::from(256)), 
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero()); 
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::zero()), 
+        Operation::Push32(U256::from(200)), 
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::zero());
+
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::MAX), 
+        Operation::Push32(U256::from(1)), 
+        Operation::Shr,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    
+    let result = vm.current_call_frame().stack.pop().unwrap();
+    assert_eq!(result, U256::MAX >> 1);
+}
+
+
+#[test]
 fn mstore() {
     let operations = [
         Operation::Push32(U256::from(0x33333)),
