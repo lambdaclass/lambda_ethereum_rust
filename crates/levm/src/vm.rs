@@ -36,6 +36,16 @@ impl VM {
                     self.stack.push(value_to_push);
                     self.increment_pc_by(32);
                 }
+                op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
+                    let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+                    dbg!(depth);
+                    assert!(
+                        self.stack.len().ge(&(depth as usize)),
+                        "stack underflow: not enough values on the stack"
+                    );
+                    let value_at_depth = self.stack.get(self.stack.len() - depth as usize).unwrap();
+                    self.stack.push(*value_at_depth);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -107,5 +117,54 @@ mod tests {
 
         assert_eq!(vm.stack[0], to_push);
         assert_eq!(vm.pc, 7);
+    }
+    #[test]
+    fn dup1_ok() {
+        let mut vm = VM::default();
+        let value = U256::one();
+
+        let operations = [
+            Operation::Push((1, value)),
+            Operation::Dup(1),
+            Operation::Stop,
+        ];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack.len(), 2);
+        assert_eq!(vm.pc, 4);
+        assert_eq!(vm.stack[vm.stack.len() - 1], value);
+        assert_eq!(vm.stack[vm.stack.len() - 2], value);
+    }
+
+    #[test]
+    fn dup16_ok() {
+        let mut vm = VM::default();
+        let value = U256::one();
+
+        let mut operations = vec![Operation::Push((1, value))];
+        operations.extend(vec![Operation::Push0; 15]);
+        operations.extend(vec![Operation::Dup(16), Operation::Stop]);
+
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack.len(), 17);
+        assert_eq!(vm.pc, 19);
+        assert_eq!(vm.stack[vm.stack.len() - 1], value);
+        assert_eq!(vm.stack[vm.stack.len() - 17], value);
+    }
+
+    #[test]
+    #[should_panic]
+    fn dup_panics_if_stack_underflow() {
+        let mut vm = VM::default();
+
+        let operations = vec![Operation::Dup(5), Operation::Stop];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
     }
 }
