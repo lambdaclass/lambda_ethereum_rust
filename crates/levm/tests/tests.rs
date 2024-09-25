@@ -307,6 +307,33 @@ fn addmod_op_for_zero() {
 }
 
 #[test]
+fn addmod_op_big_numbers() {
+    let mut vm = VM::default();
+
+    let divisor = U256::max_value() - U256::one();
+    let addend = U256::max_value() - U256::one() * 2;
+    let augend = U256::max_value() - U256::one() * 3;
+    let expected_result = U256::max_value() - U256::one() * 4;
+
+    let operations = [
+        Operation::Push32(divisor),
+        Operation::Push32(addend),
+        Operation::Push32(augend),
+        Operation::Addmod,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == expected_result);
+}
+
+#[test]
 fn mulmod_op() {
     let mut vm = VM::default();
 

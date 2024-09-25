@@ -125,12 +125,16 @@ impl VM {
                     let augend = self.stack.pop().unwrap();
                     let addend = self.stack.pop().unwrap();
                     let divisor = self.stack.pop().unwrap();
+                    dbg!(divisor);
                     if divisor.is_zero() {
                         self.stack.push(U256::zero());
                         continue;
                     }
-                    let sum = augend.overflowing_add(addend).0;
-                    let remainder = sum % divisor;
+                    let (sum, overflow) = augend.overflowing_add(addend);
+                    let mut remainder = sum % divisor;
+                    if overflow || remainder > divisor {
+                        remainder = remainder.overflowing_sub(divisor).0;
+                    }
 
                     self.stack.push(remainder);
                 }
