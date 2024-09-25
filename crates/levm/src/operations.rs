@@ -77,7 +77,7 @@ pub enum Operation {
     Push32(U256),
     Push((u8, U256)),
     Dup(u8),
-    // Swap(u8),
+    Swap(u8),
     // Log(u8),
     // Create,
     // Call,
@@ -193,8 +193,11 @@ impl Operation {
             Operation::Dup(n) => {
                 assert!(*n <= 16, "DUP16 is the max");
                 Bytes::copy_from_slice(&[Opcode::DUP1 as u8 + n - 1])
-            } // Operation::Swap(n) => Bytes::copy_from_slice(Opcode::SWAP1 as &[u8 + n - 1]),
-              // Operation::Log(n) => Bytes::copy_from_slice(Opcode::&[LOG0 as u8 + n]),
+            }
+            Operation::Swap(n) => {
+                assert!(*n <= 16, "SWAP16 is the max");
+                Bytes::copy_from_slice(&[Opcode::SWAP1 as u8 + n - 1])
+            } // Operation::Log(n) => Bytes::copy_from_slice(Opcode::&[LOG0 as u8 + n]),
               // Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
               // Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
               // Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
@@ -261,5 +264,23 @@ mod tests {
     #[should_panic]
     fn dup_more_than_16_panics() {
         Operation::Dup(17).to_bytecode();
+    }
+
+    #[test]
+    fn swap1_ok() {
+        let op = Operation::Swap(1).to_bytecode();
+        assert_eq!(op, Bytes::from(vec![0x90]))
+    }
+
+    #[test]
+    fn swap16_ok() {
+        let op = Operation::Swap(16).to_bytecode();
+        assert_eq!(op, Bytes::from(vec![0x9f]))
+    }
+
+    #[test]
+    #[should_panic]
+    fn swap_more_than_16_panics() {
+        Operation::Swap(17).to_bytecode();
     }
 }

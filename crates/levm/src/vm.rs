@@ -21,6 +21,7 @@ impl VM {
                 Opcode::PUSH0 => {
                     self.stack.push(U256::zero());
                 }
+                // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
                     let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
                     let next_n_bytes = bytecode
@@ -36,15 +37,26 @@ impl VM {
                     self.stack.push(value_to_push);
                     self.increment_pc_by(32);
                 }
+                // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
                     let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
-                    dbg!(depth);
                     assert!(
                         self.stack.len().ge(&(depth as usize)),
                         "stack underflow: not enough values on the stack"
                     );
                     let value_at_depth = self.stack.get(self.stack.len() - depth as usize).unwrap();
                     self.stack.push(*value_at_depth);
+                }
+                // SWAPn
+                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
+                    let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
+                    assert!(
+                        self.stack.len().ge(&(depth as usize)),
+                        "stack underflow: not enough values on the stack"
+                    );
+                    let stack_top_index = self.stack.len();
+                    let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
+                    self.stack.swap(stack_top_index - 1, to_swap_index - 1);
                 }
                 _ => unimplemented!(),
             }
@@ -194,6 +206,60 @@ mod tests {
         let mut vm = VM::default();
 
         let operations = vec![Operation::Dup(5), Operation::Stop];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+    }
+
+    #[test]
+    fn swap1_ok() {
+        let mut vm = VM::default();
+        let bottom = U256::from_big_endian(&[0xff]);
+        let top = U256::from_big_endian(&[0xee]);
+
+        let operations = [
+            Operation::Push((1, bottom)),
+            Operation::Push((1, top)),
+            Operation::Swap(1),
+            Operation::Stop,
+        ];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack.len(), 2);
+        assert_eq!(vm.pc, 6);
+        assert_eq!(vm.stack[0], top);
+        assert_eq!(vm.stack[1], bottom);
+    }
+
+    #[test]
+    fn swap16_ok() {
+        let mut vm = VM::default();
+        let bottom = U256::from_big_endian(&[0xff]);
+        let top = U256::from_big_endian(&[0xee]);
+
+        let mut operations = vec![Operation::Push((1, bottom))];
+        operations.extend(vec![Operation::Push0; 15]);
+        operations.extend(vec![Operation::Push((1, top))]);
+        operations.extend(vec![Operation::Swap(16), Operation::Stop]);
+
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack.len(), 17);
+        assert_eq!(vm.pc, 21);
+        assert_eq!(vm.stack[vm.stack.len() - 1], bottom);
+        assert_eq!(vm.stack[vm.stack.len() - 1 - 16], top);
+    }
+
+    #[test]
+    #[should_panic]
+    fn swap_panics_if_stack_underflow() {
+        let mut vm = VM::default();
+
+        let operations = vec![Operation::Swap(5), Operation::Stop];
         let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
 
         vm.execute(bytecode);
