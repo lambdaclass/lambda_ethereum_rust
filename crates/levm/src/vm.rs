@@ -34,6 +34,7 @@ impl VM {
                 }
                 Opcode::JUMPDEST => {
                     // just consume some gas, jumptable written at the start
+                    dbg!("JUMPEDEST");
                 }
                 Opcode::PC => {
                     self.stack.push(U256::from(self.pc - 1));
@@ -95,7 +96,7 @@ impl VM {
             dbg!("Invalid jump");
             return;
         }
-        self.pc = offset.as_usize();
+        self.pc = offset.as_usize() + 1;
     }
 
     fn valid_jump(&self, offset: U256, program: &Program) -> bool {

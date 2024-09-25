@@ -311,3 +311,46 @@ fn jump_position_bigger_than_program_size() {
     vm.execute(program);
     assert_eq!(vm.pc(), 35);
 }
+
+#[test]
+fn jumpi_not_zero() {
+    let mut vm = VM::default();
+
+    let operations = vec![
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(67)),
+        Operation::Jumpi,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
+
+    assert!(vm.stack.pop().unwrap() == U256::from(10));
+}
+
+#[test]
+fn jumpi_for_zero() {
+    let mut vm = VM::default();
+
+    let operations = vec![
+        Operation::Push32(U256::from(100)),
+        Operation::Push32(U256::zero()),
+        Operation::Push32(U256::from(100)),
+        Operation::Jumpi,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let program = Program::from_operations(operations);
+
+    vm.execute(program);
+
+    assert!(vm.stack.pop().unwrap() == U256::from(100));
+}
