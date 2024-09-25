@@ -19,7 +19,7 @@ pub enum Opcode {
     GT = 0x11,
     SLT = 0x12,
     SGT = 0x13,
-    // EQ = 0x14,
+    EQ = 0x14,
     // ISZERO = 0x15,
     // AND = 0x16,
     // OR = 0x17,
@@ -180,6 +180,7 @@ impl From<u8> for Opcode {
             0x11 => Opcode::GT,
             0x12 => Opcode::SLT,
             0x13 => Opcode::SGT,
+            0x14 => Opcode::EQ,
             0x7F => Opcode::PUSH32,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
