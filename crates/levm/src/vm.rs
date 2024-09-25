@@ -152,7 +152,6 @@ impl VM {
                     if overflow || remainder > divisor {
                         remainder = remainder.overflowing_sub(divisor).0;
                     }
-                    //let truncated_remainder = &remainder.0[0..4];
                     let mut result = Vec::new();
                     for byte in remainder.0.iter().take(4) {
                         let bytes = byte.to_le_bytes();
