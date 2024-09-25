@@ -399,3 +399,45 @@ fn eq_a_not_equals_b() {
     assert!(vm.stack.pop().unwrap() == U256::zero());
     assert!(vm.pc() == 68);
 }
+
+#[test]
+fn iszero_a_is_zero() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::zero()),
+        Operation::IsZero,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.pc() == 35);
+}
+
+#[test]
+fn iszero_a_is_not_zero() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::IsZero,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::zero());
+    assert!(vm.pc() == 35);
+}
