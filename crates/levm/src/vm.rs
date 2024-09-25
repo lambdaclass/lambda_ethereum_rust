@@ -18,9 +18,14 @@ impl VM {
                     let b = self.stack.pop().unwrap();
                     self.stack.push(a + b);
                 }
+                Opcode::PUSH0 => {
+                    self.stack.push(U256::zero());
+                }
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
                     let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
-                    let next_n_bytes = bytecode.get(self.pc..self.pc + n_bytes as usize).unwrap();
+                    let next_n_bytes = bytecode
+                        .get(self.pc..self.pc + n_bytes as usize)
+                        .expect("invalid bytecode");
                     let value_to_push = U256::from(next_n_bytes);
                     self.stack.push(value_to_push);
                     self.increment_pc_by(n_bytes as usize);
@@ -60,6 +65,19 @@ mod tests {
     use crate::operations::Operation;
 
     use super::*;
+
+    #[test]
+    fn push0_ok() {
+        let mut vm = VM::default();
+
+        let operations = [Operation::Push0, Operation::Stop];
+        let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+        vm.execute(bytecode);
+
+        assert_eq!(vm.stack[0], U256::zero());
+        assert_eq!(vm.pc, 2);
+    }
 
     #[test]
     fn push1_ok() {

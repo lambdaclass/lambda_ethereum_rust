@@ -177,6 +177,7 @@ impl From<u8> for Opcode {
         match byte {
             0x00 => Opcode::STOP,
             0x01 => Opcode::ADD,
+            x if x == Opcode::PUSH0 as u8 => Opcode::PUSH0,
             x if x == Opcode::PUSH1 as u8 => Opcode::PUSH1,
             x if x == Opcode::PUSH2 as u8 => Opcode::PUSH2,
             x if x == Opcode::PUSH3 as u8 => Opcode::PUSH3,

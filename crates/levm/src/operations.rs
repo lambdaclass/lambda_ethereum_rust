@@ -73,7 +73,7 @@ pub enum Operation {
     // Tload,
     // Tstore,
     // Mcopy,
-    // Push0,
+    Push0,
     Push32(U256),
     Push((u8, U256)),
     // Dup(u8),
@@ -163,7 +163,7 @@ impl Operation {
             // Operation::Tload => Bytes::copy_from_slice(&[Opcode::TLOAD as u8]),
             // Operation::Tstore => Bytes::copy_from_slice(&[Opcode::TSTORE as u8]),
             // Operation::Mcopy => Bytes::copy_from_slice(&[Opcode::MCOPY as u8]),
-            // Operation::Push0 => Bytes::copy_from_slice(&[Opcode::PUSH0 as u8]),
+            Operation::Push0 => Bytes::copy_from_slice(&[Opcode::PUSH0 as u8]),
             Operation::Push((n, value)) => {
                 assert!(*n <= 32);
                 // the amount of bytes needed to represent the value must
@@ -206,6 +206,12 @@ impl Operation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn push0_correct_bytecode() {
+        let op = Operation::Push0.to_bytecode();
+        assert_eq!(op, Bytes::from(vec![0x5f]))
+    }
 
     #[test]
     fn push1_correct_bytecode() {
