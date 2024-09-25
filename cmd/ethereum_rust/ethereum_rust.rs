@@ -19,7 +19,6 @@ mod decode;
 
 #[tokio::main]
 async fn main() {
-    assert!(false);
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::DEBUG)
         .finish();
