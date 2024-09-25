@@ -123,12 +123,17 @@ async fn main() {
         local_p2p_node,
     )
     .into_future();
-    let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer)
-            .into_future();
 
     tracker.spawn(rpc_api);
-    tracker.spawn(networking);
+
+    // We do not want to start the networking module if the l2 feature is enabled.
+    cfg_if::cfg_if! {
+        if #[cfg(not(feature = "l2"))] {
+            let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer)
+            .into_future();
+            tracker.spawn(networking);
+        }
+    }
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
