@@ -1017,11 +1017,11 @@ fn keccak256_zero_offset_size_four() {
         Operation::Push32(U256::from(
             "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
         )),
-        Operation::Push32(U256::zero()),
+        Operation::Push0,
         Operation::Mstore,
         // Call the opcode
-        Operation::Push32(U256::from(4)), // size
-        Operation::Push32(U256::zero()),  // offset
+        Operation::Push((1, 4.into())), // size
+        Operation::Push0,               // offset
         Operation::Keccak256,
         Operation::Stop,
     ];
@@ -1037,7 +1037,96 @@ fn keccak256_zero_offset_size_four() {
         vm.stack.pop().unwrap()
             == U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
     );
-    assert!(vm.pc() == 135);
+    assert!(vm.pc() == 40);
+}
+
+#[test]
+fn keccak256_zero_offset_size_bigger_than_actual_memory() {
+    let mut vm = VM::default();
+
+    let operations = [
+        // Put the required value in memory
+        Operation::Push32(U256::from(
+            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        )),
+        Operation::Push0,
+        Operation::Mstore,
+        // Call the opcode
+        Operation::Push((1, 33.into())), // size > memory.data.len() (32)
+        Operation::Push0,                // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(
+        vm.stack.pop().unwrap()
+            == U256::from("0xae75624a7d0413029c1e0facdd38cc8e177d9225892e2490a69c2f1f89512061")
+    );
+    assert!(vm.pc() == 40);
+}
+
+#[test]
+fn keccak256_zero_offset_zero_size() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push0, // size
+        Operation::Push0, // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(
+        vm.stack.pop().unwrap()
+            == U256::from("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+    );
+    assert!(vm.pc() == 4);
+}
+
+#[test]
+fn keccak256_offset_four_size_four() {
+    let mut vm = VM::default();
+
+    let operations = [
+        // Put the required value in memory
+        Operation::Push32(U256::from(
+            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        )),
+        Operation::Push0,
+        Operation::Mstore,
+        // Call the opcode
+        Operation::Push((1, 4.into())), // size
+        Operation::Push((1, 4.into())), // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(
+        vm.stack.pop().unwrap()
+            == U256::from("0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c")
+    );
+    assert!(vm.pc() == 41);
 }
 
 #[test]

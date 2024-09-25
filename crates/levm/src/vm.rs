@@ -287,7 +287,6 @@ impl VM {
                     self.stack.push(value_to_push);
                     self.increment_pc_by(n_bytes as usize);
                 }
-                
                 Opcode::PUSH32 => {
                     let next_32_bytes = bytecode.get(self.pc..self.pc + 32).unwrap();
                     let value_to_push = U256::from(next_32_bytes);
