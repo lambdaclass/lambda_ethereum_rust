@@ -195,6 +195,9 @@ impl VM {
                     self.stack.push(value_to_push);
                     self.increment_pc_by(32);
                 }
+                Opcode::POP => {
+                    self.stack.pop().unwrap();
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = self.stack.pop().unwrap().try_into().unwrap();

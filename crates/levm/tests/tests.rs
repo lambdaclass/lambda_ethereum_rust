@@ -752,3 +752,24 @@ fn mload_uninitialized_memory() {
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
 }
+
+#[test]
+fn pop_op() {
+    let mut vm = VM::default();
+
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(100)),
+        Operation::Pop,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    vm.execute(bytecode);
+
+    assert!(vm.stack.pop().unwrap() == U256::one());
+}
