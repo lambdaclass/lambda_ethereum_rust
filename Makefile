@@ -80,9 +80,11 @@ hive:
 	git clone --single-branch --branch master --shallow-since=$(HIVE_SHALLOW_SINCE) https://github.com/lambdaclass/hive
 
 setup-hive: hive ## 🐝 Set up Hive testing framework
-	cd hive && \
+	if [ "$$(cd hive && git rev-parse HEAD)" != "$(HIVE_REVISION)" ]; then \
+		cd hive && \
 		git fetch --shallow-since=$(HIVE_SHALLOW_SINCE) && \
-		git checkout $(HIVE_REVISION) && go build .
+		git checkout $(HIVE_REVISION) && go build . ;\
+	fi
 
 TEST_PATTERN ?= /
 
