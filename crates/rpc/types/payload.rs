@@ -11,7 +11,7 @@ use ethereum_rust_core::{
     Address, Bloom, H256,
 };
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadV3 {
     parent_hash: H256,
@@ -52,6 +52,14 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
         Ok(EncodedTransaction(serde_utils::bytes::deserialize(
             deserializer,
         )?))
+    }
+}
+
+impl Serialize for EncodedTransaction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        serde_utils::bytes::serialize(&self.0, serializer)
     }
 }
 
