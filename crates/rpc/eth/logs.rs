@@ -69,7 +69,7 @@ impl RpcHandler for LogsRequest {
                 Ok(LogsRequest {
                     from_block,
                     address_filters,
-                    topics: topics_filters.unwrap_or_else(Vec::new()),
+                    topics: topics_filters.unwrap_or_else(Vec::new),
                     to_block,
                 })
             }
