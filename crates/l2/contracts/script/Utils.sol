@@ -39,8 +39,16 @@ library Utils {
         (bool success, bytes memory data) = create2Factory.call(abi.encodePacked(salt, bytecode));
         contractAddress = bytesToAddress(data);
 
-        if (!success || contractAddress == address(0) || contractAddress.code.length == 0) {
-            revert("Failed to deploy contract via create2");
+        if (!success) {
+            revert("Failed to deploy contract via create2: create2Factory call failed");
+        }
+
+        if (contractAddress == address(0)) {
+            revert("Failed to deploy contract via create2: contract address is zero");
+        }
+
+        if (contractAddress.code.length == 0) {
+            revert("Failed to deploy contract via create2: contract code is empty");
         }
 
         return contractAddress;
