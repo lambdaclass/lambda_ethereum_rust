@@ -83,17 +83,10 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             return serde_json::to_value(PayloadStatus::valid()).map_err(|_| RpcErr::Internal);
         }
 
-        // Set finalized block
-        if let Some(error) =
-            set_finalized_block(&self.fork_choice_state.finalized_block_hash, &storage)?
-        {
-            return error_response(error);
-        }
+        // Set finalized & safe blocks
+        set_finalized_block(&self.fork_choice_state.finalized_block_hash, &storage)?;
+        set_safe_block(&self.fork_choice_state.safe_block_hash, &storage)?;
 
-        // Set safe block
-        if let Some(error) = set_safe_block(&self.fork_choice_state.safe_block_hash, &storage)? {
-            return error_response(error);
-        }
         let mut response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
             self.fork_choice_state.head_block_hash,
         ));
@@ -148,46 +141,48 @@ fn total_difficulty_check<'a>(
     Ok(None)
 }
 
-fn set_finalized_block<'a>(
-    finalized_block_hash: &H256,
-    storage: &'a Store,
-) -> Result<Option<&'a str>, StoreError> {
+fn set_finalized_block(finalized_block_hash: &H256, storage: &Store) -> Result<(), RpcErr> {
     if !finalized_block_hash.is_zero() {
         // If the finalized block is not in our canonical tree, something is wrong
         let Some(finalized_block) = storage.get_block_by_hash(*finalized_block_hash)? else {
-            return Ok(Some("final block not available in database"));
+            return Err(RpcErr::InvalidForkChoiceState(
+                "final block not available in database".to_string(),
+            ));
         };
 
         if !storage
             .get_canonical_block_hash(finalized_block.header.number)?
             .is_some_and(|ref h| h == finalized_block_hash)
         {
-            return Ok(Some("final block not in canonical chain"));
+            return Err(RpcErr::InvalidForkChoiceState(
+                "final block not in canonical chain".to_string(),
+            ));
         }
         // Set the finalized block
         storage.update_finalized_block_number(finalized_block.header.number)?;
     }
-    Ok(None)
+    Ok(())
 }
 
-fn set_safe_block<'a>(
-    safe_block_hash: &H256,
-    storage: &'a Store,
-) -> Result<Option<&'a str>, StoreError> {
+fn set_safe_block(safe_block_hash: &H256, storage: &Store) -> Result<(), RpcErr> {
     if !safe_block_hash.is_zero() {
         // If the safe block is not in our canonical tree, something is wrong
         let Some(safe_block) = storage.get_block_by_hash(*safe_block_hash)? else {
-            return Ok(Some("safe block not available in database"));
+            return Err(RpcErr::InvalidForkChoiceState(
+                "safe block not available in database".to_string(),
+            ));
         };
 
         if !storage
             .get_canonical_block_hash(safe_block.header.number)?
             .is_some_and(|ref h| h == safe_block_hash)
         {
-            return Ok(Some("safe block not in canonical chain"));
+            return Err(RpcErr::InvalidForkChoiceState(
+                "safe block not in canonical chain".to_string(),
+            ));
         }
         // Set the safe block
         storage.update_safe_block_number(safe_block.header.number)?;
     }
-    Ok(None)
+    Ok(())
 }

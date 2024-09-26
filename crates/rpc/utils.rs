@@ -17,6 +17,7 @@ pub enum RpcErr {
     Revert { data: String },
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
+    InvalidForkChoiceState(String),
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -85,6 +86,11 @@ impl From<RpcErr> for RpcErrorMetadata {
                     data: None,
                     message: "Auth failed: Missing authentication header".to_string(),
                 },
+            },
+            RpcErr::InvalidForkChoiceState(data) => RpcErrorMetadata {
+                code: -38002,
+                data: Some(data),
+                message: "Invalid forkchoice state".to_string(),
             },
         }
     }
