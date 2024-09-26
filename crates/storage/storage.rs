@@ -495,17 +495,6 @@ impl Store {
         self.engine.get_canonical_block_hash(block_number)
     }
 
-    pub fn is_canonical(
-        &self,
-        block_number: BlockNumber,
-        block_hash: BlockHash,
-    ) -> Result<bool, StoreError> {
-        match self.engine.get_canonical_block_hash(block_number)? {
-            Some(hash) if hash == block_hash => Ok(true),
-            _ => Ok(false),
-        }
-    }
-
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
         &self,

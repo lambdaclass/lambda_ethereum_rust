@@ -60,7 +60,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 pub fn validate_parent_canonical(block: &Block, storage: &Store) -> Result<(), ChainError> {
     match storage.get_canonical_block_hash(block.header.number.saturating_sub(1))? {
         Some(hash) if hash == block.header.parent_hash => Ok(()),
-        _ => Err(ChainError::NonCanonicalBlock),
+        _ => Err(ChainError::NonCanonicalParent),
     }
 }
 
