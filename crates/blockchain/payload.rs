@@ -47,21 +47,21 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
     // Presence of a parent block should have been checked or guaranteed before calling this function
     // So we can treat a missing parent block as an internal storage error
     let parent_block = storage
-        .get_block_by_hash(args.parent)?
+        .get_block_header_by_hash(args.parent)?
         .ok_or_else(|| StoreError::Custom("unexpected missing parent block".to_string()))?;
     let chain_config = storage.get_chain_config()?;
-    let gas_limit = calc_gas_limit(parent_block.header.gas_limit, 30_000_000);
+    let gas_limit = calc_gas_limit(parent_block.gas_limit, 30_000_000);
     Ok(Block {
         header: BlockHeader {
             parent_hash: args.parent,
             ommers_hash: *DEFAULT_OMMERS_HASH,
             coinbase: args.fee_recipient,
-            state_root: parent_block.header.state_root,
+            state_root: parent_block.state_root,
             transactions_root: compute_transactions_root(&[]),
             receipts_root: compute_receipts_root(&[]),
             logs_bloom: Bloom::default(),
             difficulty: U256::zero(),
-            number: parent_block.header.number.saturating_add(1),
+            number: parent_block.number.saturating_add(1),
             gas_limit,
             gas_used: 0,
             timestamp: args.timestamp,
@@ -70,9 +70,9 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
             nonce: 0,
             base_fee_per_gas: calculate_base_fee_per_gas(
                 gas_limit,
-                parent_block.header.gas_limit,
-                parent_block.header.gas_used,
-                parent_block.header.base_fee_per_gas.unwrap_or_default(),
+                parent_block.gas_limit,
+                parent_block.gas_used,
+                parent_block.base_fee_per_gas.unwrap_or_default(),
             ),
             withdrawals_root: chain_config
                 .is_shanghai_activated(args.timestamp)
@@ -80,8 +80,8 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
             blob_gas_used: Some(0),
             excess_blob_gas: chain_config.is_cancun_activated(args.timestamp).then_some(
                 calc_excess_blob_gas(
-                    parent_block.header.excess_blob_gas.unwrap_or_default(),
-                    parent_block.header.blob_gas_used.unwrap_or_default(),
+                    parent_block.excess_blob_gas.unwrap_or_default(),
+                    parent_block.blob_gas_used.unwrap_or_default(),
                 ),
             ),
             parent_beacon_block_root: args.beacon_root,
