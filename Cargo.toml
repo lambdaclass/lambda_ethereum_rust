@@ -10,6 +10,7 @@ members = [
     "crates/rlp",
     "cmd/ethereum_rust",
     "cmd/ef_tests",
+    "crates/levm",
 ]
 resolver = "2"
 default-members = ["cmd/ethereum_rust"]
