@@ -15,12 +15,12 @@ fn add_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::one());
 }
@@ -36,12 +36,12 @@ fn add_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == (U256::max_value() - U256::one()));
 }
@@ -57,12 +57,12 @@ fn mul_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(10 * 10));
 }
@@ -84,12 +84,12 @@ fn mul_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(6));
 }
@@ -105,12 +105,12 @@ fn sub_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(10));
 }
@@ -126,12 +126,12 @@ fn sub_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(
         vm.stack.pop().unwrap()
@@ -151,12 +151,12 @@ fn div_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(2));
 }
@@ -172,12 +172,12 @@ fn div_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -199,12 +199,12 @@ fn sdiv_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(2));
 }
@@ -220,12 +220,12 @@ fn sdiv_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -241,12 +241,12 @@ fn mod_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(2));
 }
@@ -262,12 +262,12 @@ fn mod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -283,12 +283,12 @@ fn smod_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::one());
 }
@@ -304,12 +304,12 @@ fn smod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -326,12 +326,12 @@ fn addmod_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(4));
 }
@@ -348,12 +348,12 @@ fn addmod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -375,12 +375,12 @@ fn addmod_op_big_numbers() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == expected_result);
 }
@@ -397,12 +397,12 @@ fn mulmod_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(2));
 }
@@ -419,12 +419,12 @@ fn mulmod_op_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -446,12 +446,12 @@ fn mulmod_op_big_numbers() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == expected_result);
 }
@@ -476,12 +476,12 @@ fn mulmod_op_big_numbers_result_bigger_than_one_byte() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == expected_result);
 }
@@ -497,12 +497,12 @@ fn exp_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(32));
 }
@@ -518,12 +518,12 @@ fn exp_op_overflow() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::zero());
 }
@@ -539,12 +539,12 @@ fn signextend_op_negative() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::max_value());
 }
@@ -560,12 +560,12 @@ fn signextend_op_positive() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(0x7f));
 }
@@ -1017,12 +1017,12 @@ fn mstore() {
 
     let operations = [Operation::Mstore, Operation::Msize, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let stored_value = vm.memory.load(0);
 
@@ -1041,12 +1041,12 @@ fn mstore8() {
 
     let operations = [Operation::Mstore8, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let stored_value = vm.memory.load(0);
 
@@ -1074,11 +1074,11 @@ fn mcopy() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let copied_value = vm.memory.load(64);
     assert_eq!(copied_value, U256::from(0x33333));
@@ -1098,12 +1098,12 @@ fn mload() {
 
     let operations = [Operation::Mstore, Operation::Mload, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let loaded_value = vm.stack.pop().unwrap();
     assert_eq!(loaded_value, U256::from(0x33333));
@@ -1115,12 +1115,12 @@ fn msize() {
 
     let operations = [Operation::Msize, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let initial_size = vm.stack.pop().unwrap();
     assert_eq!(initial_size, U256::from(0));
@@ -1132,12 +1132,12 @@ fn msize() {
 
     let operations = [Operation::Mstore, Operation::Msize, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let after_store_size = vm.stack.pop().unwrap();
     assert_eq!(after_store_size, U256::from(32));
@@ -1149,12 +1149,12 @@ fn msize() {
 
     let operations = [Operation::Mstore, Operation::Msize, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let final_size = vm.stack.pop().unwrap();
     assert_eq!(final_size, U256::from(96));
@@ -1176,12 +1176,12 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
@@ -1205,12 +1205,12 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
@@ -1227,12 +1227,12 @@ fn mload_uninitialized_memory() {
 
     let operations = [Operation::Mload, Operation::Msize, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     let memory_size = vm.stack.pop().unwrap();
     let loaded_value = vm.stack.pop().unwrap();
@@ -1247,12 +1247,12 @@ fn pc_op() {
 
     let operations = [Operation::PC, Operation::Stop];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(0));
 }
@@ -1267,12 +1267,12 @@ fn pc_op_with_push_offset() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(33));
 }
@@ -1290,12 +1290,12 @@ fn jump_op() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(10));
     assert_eq!(vm.pc(), 70);
@@ -1313,17 +1313,17 @@ fn jump_not_jumpdest_position() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
     assert_eq!(vm.pc(), 35);
 }
 
 #[test]
-fn jump_position_bigger_than_program_size() {
+fn jump_position_bigger_than_program_bytecode_size() {
     let mut vm = VM::default();
 
     let operations = [
@@ -1334,12 +1334,12 @@ fn jump_position_bigger_than_program_size() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
     assert_eq!(vm.pc(), 35);
 }
 
@@ -1357,12 +1357,12 @@ fn jumpi_not_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(10));
 }
@@ -1382,12 +1382,12 @@ fn jumpi_for_zero() {
         Operation::Stop,
     ];
 
-    let program = operations
+    let program_bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm.execute(program);
+    vm.execute(program_bytecode);
 
     assert!(vm.stack.pop().unwrap() == U256::from(100));
 }
