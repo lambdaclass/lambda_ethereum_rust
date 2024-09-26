@@ -7,7 +7,8 @@ use crate::rlp::{
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    AddressFilter, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
+    TopicFilter, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -327,8 +328,11 @@ impl StoreEngine for Store {
     }
     fn add_filter(
         &self,
-        addresses: ethereum_rust_core::types::AddressFilter,
-        topics: ethereum_rust_core::types::TopicFilter,
+        timestamp: u64,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+        addresses: AddressFilter,
+        topics: TopicFilter,
     ) -> Result<(), StoreError> {
         todo!()
     }

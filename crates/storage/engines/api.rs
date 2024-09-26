@@ -191,5 +191,12 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Get the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
 
-    fn add_filter(&self, addresses: AddressFilter, topics: TopicFilter) -> Result<(), StoreError>;
+    fn add_filter(
+        &self,
+        timestamp: u64,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+        addresses: AddressFilter,
+        topics: TopicFilter,
+    ) -> Result<(), StoreError>;
 }

@@ -17,7 +17,7 @@ pub struct LogsRequest {
     /// Will default to `latest` if not provided.
     pub to_block: BlockIdentifier,
     /// The addresses from where the logs origin from.
-    pub address_filters: Option<AddressFilter>,
+    pub address: Option<AddressFilter>,
     /// Which topics to filter.
     pub topics: Vec<TopicFilter>,
 }
@@ -54,7 +54,7 @@ impl RpcHandler for LogsRequest {
                     })?;
                 Ok(LogsRequest {
                     from_block,
-                    address_filters,
+                    address: address_filters,
                     topics: topics_filters.unwrap_or_else(Vec::new),
                     to_block,
                 })
@@ -78,7 +78,7 @@ impl RpcHandler for LogsRequest {
             return Err(RpcErr::WrongParam("toBlock".to_string()));
         };
 
-        let address_filter: HashSet<_> = match &self.address_filters {
+        let address_filter: HashSet<_> = match &self.address {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
             Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
             None => HashSet::new(),

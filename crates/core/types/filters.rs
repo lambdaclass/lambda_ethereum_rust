@@ -1,7 +1,7 @@
 use ethereum_types::{H160, H256};
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 /// Address filter used to filter Logs.
 pub enum AddressFilter {
@@ -9,7 +9,7 @@ pub enum AddressFilter {
     Many(Vec<H160>),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 /// Topic filter used to filter Logs.
 pub enum TopicFilter {
