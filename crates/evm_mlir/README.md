@@ -1,8 +1,8 @@
 # EVM MLIR
 
 [![Telegram Chat][tg-badge]][tg-url]
-[![rust](https://github.com/lambdaclass/evm_mlir/actions/workflows/ci.yml/badge.svg)](https://github.com/lambdaclass/emv_mlir/actions/workflows/ci.yml)
-[![license](https://img.shields.io/github/license/lambdaclass/evm_mlir)](/LICENSE)
+[![rust](https://github.com/lambdaclass/ethereum_rust/actions/workflows/evm_mlir.yml/badge.svg)](https://github.com/lambdaclass/ethereum_rust/actions/workflows/evm_mlir.yml)
+[![license](https://img.shields.io/github/license/lambdaclass/ethereum_rust)](/LICENSE)
 
 [tg-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Frust_ethereum%2F&logo=telegram&label=chat&color=neon
 [tg-url]: https://t.me/rust_ethereum
