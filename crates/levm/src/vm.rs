@@ -1,11 +1,12 @@
-use crate::{call_frame::CallFrame, opcodes::Opcode};
+use crate::{block::BlockEnv, call_frame::CallFrame, opcodes::Opcode};
 use bytes::Bytes;
-use ethereum_types::{U256, U512};
+use ethereum_types::{Address, U256, U512};
 use sha3::{Digest, Keccak256};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub block_env: BlockEnv,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -17,6 +18,12 @@ fn negate(value: U256) -> U256 {
     !value + U256::one()
 }
 
+fn address_to_word(address: Address) -> U256 {
+    let mut word = [0; 32];
+    word[12..].copy_from_slice(address.0.as_slice());
+    U256::from_big_endian(&word)
+}
+
 impl VM {
     pub fn new(bytecode: Bytes) -> Self {
         let initial_call_frame = CallFrame {
@@ -25,11 +32,13 @@ impl VM {
         };
         Self {
             call_frames: vec![initial_call_frame],
+            block_env: Default::default(),
         }
     }
 
     pub fn execute(&mut self) {
-        let current_call_frame = self.current_call_frame();
+        let block_env = &self.block_env;
+        let current_call_frame = self.call_frames.last_mut().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
@@ -284,6 +293,56 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from_big_endian(&result));
+                }
+                Opcode::BLOCKHASH => {}
+                Opcode::COINBASE => {
+                    let coinbase = block_env.coinbase;
+                    current_call_frame.stack.push(address_to_word(coinbase));
+                }
+                Opcode::TIMESTAMP => {
+                    let timestamp = block_env.timestamp;
+                    current_call_frame.stack.push(timestamp);
+                }
+                Opcode::NUMBER => {
+                    let block_number = block_env.block_number;
+                    current_call_frame.stack.push(block_number);
+                }
+                Opcode::PREVRANDAO => {
+                    let randao = block_env.prevrandao.unwrap_or_default();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(randao.0.as_slice()));
+                }
+                Opcode::GASLIMIT => {
+                    let gas_limit = block_env.gas_limit;
+                    current_call_frame.stack.push(U256::from(gas_limit));
+                }
+                Opcode::CHAINID => {
+                    let chain_id = block_env.chain_id;
+                    current_call_frame.stack.push(U256::from(chain_id));
+                }
+                Opcode::SELFBALANCE => {
+                    // TODO: when we have implemented accounts
+                }
+                Opcode::BASEFEE => {
+                    let base_fee = block_env.base_fee_per_gas;
+                    current_call_frame.stack.push(base_fee);
+                }
+                Opcode::BLOBHASH => {
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value_bytes = current_call_frame.memory.load_range(offset, size);
+
+                    let mut hasher = Keccak256::new();
+                    hasher.update(value_bytes);
+                    let result = hasher.finalize();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(&result));
+                }
+                Opcode::BLOBBASEFEE => {
+                    let blob_base_fee = block_env.calculate_blob_gas_price();
+                    current_call_frame.stack.push(blob_base_fee);
                 }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
