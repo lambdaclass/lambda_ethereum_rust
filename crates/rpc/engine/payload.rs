@@ -136,7 +136,7 @@ impl RpcHandler for GetPayloadV3Request {
         let Ok(hex_str) = serde_json::from_value::<String>(params[0].clone()) else {
             return Err(RpcErr::BadParams);
         };
-        // Check that the BlockNumber is 0x prefixed
+        // Check that the hex string is 0x prefixed
         let Some(hex_str) = hex_str.strip_prefix("0x") else {
             return Err(RpcErr::BadHexFormat(0));
         };
@@ -148,6 +148,7 @@ impl RpcHandler for GetPayloadV3Request {
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested payload with id: {:#018x}", self.payload_id);
         let Some(payload) = storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload);
         };
