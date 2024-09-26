@@ -177,3 +177,58 @@ fn swap_panics_if_stack_underflow() {
 
     vm.execute(bytecode);
 }
+
+#[test]
+fn transient_store() {
+    let mut vm = VM::default();
+
+    assert!(vm.transient_storage.is_empty());
+
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [
+        Operation::Push32(value),
+        Operation::Push32(key),
+        Operation::Tstore,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+    vm.execute(bytecode);
+
+    assert_eq!(vm.transient_storage.get(vm.caller, key), value)
+}
+
+#[test]
+#[should_panic]
+fn transient_store_no_values_panics() {
+    let mut vm = VM::default();
+
+    assert!(vm.transient_storage.is_empty());
+
+    let operations = [Operation::Tstore, Operation::Stop];
+
+    let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+    vm.execute(bytecode);
+}
+
+#[test]
+fn transient_load() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let mut vm = VM::default();
+
+    vm.transient_storage.set(vm.caller, key, value);
+
+    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+
+    let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+    vm.execute(bytecode);
+
+    assert_eq!(vm.stack.pop().unwrap(), value)
+}
