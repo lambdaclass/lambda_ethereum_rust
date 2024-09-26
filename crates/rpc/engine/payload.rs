@@ -1,6 +1,6 @@
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
-use ethereum_rust_core::types::ForkId;
+use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::H256;
 use ethereum_rust_storage::Store;
 use serde_json::Value;
@@ -50,7 +50,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Check timestamp does not fall within the time frame of the Cancun fork
         let chain_config = storage.get_chain_config()?;
-        if chain_config.get_fork(block.header.timestamp) < ForkId::Cancun {
+        if chain_config.get_fork(block.header.timestamp) < Fork::Cancun {
             return Err(RpcErr::UnsuportedFork);
         }
 
@@ -97,7 +97,7 @@ impl RpcHandler for NewPayloadV3Request {
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash}");
         let result = match add_block(&block, &storage) {
-            Err(ChainError::NonCanonicalBlock) => Ok(PayloadStatus::syncing()),
+            Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
             )),

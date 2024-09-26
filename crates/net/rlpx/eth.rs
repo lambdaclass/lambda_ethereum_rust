@@ -1,47 +1,19 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    types::{BlockHash, BlockNumber},
-    H32, U256,
+    types::{BlockHash, ForkId},
+    U256,
 };
 use ethereum_rust_rlp::{
-    decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
+use ethereum_rust_storage::{error::StoreError, Store};
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
+pub const ETH_VERSION: u32 = 68;
+
 use super::message::RLPxMessage;
-
-// TODO: Find a better place for this. Maybe core types.
-#[derive(Debug)]
-pub struct ForkId {
-    fork_hash: H32,
-    fork_next: BlockNumber,
-}
-
-impl RLPEncode for ForkId {
-    fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        Encoder::new(buf)
-            .encode_field(&self.fork_hash)
-            .encode_field(&self.fork_next)
-            .finish();
-    }
-}
-
-impl RLPDecode for ForkId {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
-        let (fork_hash, decoder) = decoder.decode_field("forkHash")?;
-        let (fork_next, decoder) = decoder.decode_field("forkNext")?;
-        let remaining = decoder.finish()?;
-        let fork_id = ForkId {
-            fork_hash,
-            fork_next,
-        };
-        Ok((fork_id, remaining))
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct StatusMessage {
@@ -51,6 +23,32 @@ pub(crate) struct StatusMessage {
     block_hash: BlockHash,
     genesis: BlockHash,
     fork_id: ForkId,
+}
+
+impl StatusMessage {
+    pub fn build_from(storage: &Store) -> Result<Self, StoreError> {
+        let chain_config = storage.get_chain_config()?;
+        let total_difficulty =
+            U256::from(chain_config.terminal_total_difficulty.unwrap_or_default());
+        let network_id = chain_config.chain_id;
+
+        // These blocks must always be available
+        let genesis_header = storage.get_block_header(0)?.unwrap();
+        let block_number = storage.get_latest_block_number()?.unwrap();
+        let block_header = storage.get_block_header(block_number)?.unwrap();
+
+        let genesis = genesis_header.compute_block_hash();
+        let block_hash = block_header.compute_block_hash();
+        let fork_id = ForkId::new(chain_config, genesis, block_header.timestamp, block_number);
+        Ok(Self {
+            eth_version: ETH_VERSION,
+            network_id,
+            total_difficulty,
+            block_hash,
+            genesis,
+            fork_id,
+        })
+    }
 }
 
 impl RLPxMessage for StatusMessage {
@@ -109,44 +107,5 @@ impl RLPxMessage for StatusMessage {
             genesis,
             fork_id,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::str::FromStr;
-
-    use ethereum_rust_core::H32;
-    use ethereum_rust_rlp::encode::RLPEncode;
-    use hex_literal::hex;
-
-    use super::ForkId;
-
-    #[test]
-    fn encode_fork_id() {
-        let fork = ForkId {
-            fork_hash: H32::zero(),
-            fork_next: 0,
-        };
-        let expexted = hex!("c6840000000080");
-        assert_eq!(fork.encode_to_vec(), expexted);
-    }
-    #[test]
-    fn encode_fork_id2() {
-        let fork = ForkId {
-            fork_hash: H32::from_str("0xdeadbeef").unwrap(),
-            fork_next: u64::from_str_radix("baddcafe", 16).unwrap(),
-        };
-        let expexted = hex!("ca84deadbeef84baddcafe");
-        assert_eq!(fork.encode_to_vec(), expexted);
-    }
-    #[test]
-    fn encode_fork_id3() {
-        let fork = ForkId {
-            fork_hash: H32::from_low_u64_le(u32::MAX.into()),
-            fork_next: u64::MAX,
-        };
-        let expexted = hex!("ce84ffffffff88ffffffffffffffff");
-        assert_eq!(fork.encode_to_vec(), expexted);
     }
 }
