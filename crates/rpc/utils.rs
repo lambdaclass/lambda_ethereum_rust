@@ -11,6 +11,7 @@ pub enum RpcErr {
     MethodNotFound,
     WrongParam(String),
     BadParams,
+    MissingParam(String),
     BadHexFormat(u64),
     UnsuportedFork,
     Internal,
@@ -37,6 +38,11 @@ impl From<RpcErr> for RpcErrorMetadata {
                 code: -32000,
                 data: None,
                 message: "Invalid params".to_string(),
+            },
+            RpcErr::MissingParam(parameter_name) => RpcErrorMetadata {
+                code: -32000,
+                data: None,
+                message: format!("Expected parameter: {parameter_name} is missing"),
             },
             RpcErr::UnsuportedFork => RpcErrorMetadata {
                 code: -38005,

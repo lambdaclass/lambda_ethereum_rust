@@ -40,26 +40,23 @@ impl RpcHandler for LogsRequest {
         match params.as_deref() {
             Some([param]) => {
                 let param = param.as_object().ok_or(RpcErr::BadParams)?;
-                let from_block = {
-                    if let Some(param) = param.get("fromBlock") {
-                        BlockIdentifier::parse(param.clone(), 0)?
-                    } else {
-                        BlockIdentifier::latest()
-                    }
-                };
-                let to_block = {
-                    if let Some(param) = param.get("toBlock") {
-                        BlockIdentifier::parse(param.clone(), 1)?
-                    } else {
-                        BlockIdentifier::latest()
-                    }
-                };
-                let address_filter = param.get("address").and_then(|address| match address {
-                    Value::String(_) | Value::Array(_) => {
-                        Some(serde_json::from_value::<AddressFilter>(address.clone()).unwrap())
-                    }
-                    _ => None,
-                });
+                let from_block = param
+                    .get("fromBlock")
+                    .ok_or_else(|| RpcErr::MissingParam("fromBlock".to_string()))
+                    .and_then(|block_number| BlockIdentifier::parse(block_number.clone(), 0))?;
+                let to_block = param
+                    .get("toBlock")
+                    .ok_or_else(|| RpcErr::MissingParam("toBlock".to_string()))
+                    .and_then(|block_number| BlockIdentifier::parse(block_number.clone(), 0))?;
+                let address_filter: Option<AddressFilter> = param
+                    .get("address")
+                    .ok_or_else(|| RpcErr::MissingParam("address".to_string()))
+                    .and_then(|address| {
+                        match serde_json::from_value::<Option<AddressFilter>>(address.clone()) {
+                            Ok(filters) => Ok(filters),
+                            _ => Err(RpcErr::WrongParam("address".to_string())),
+                        }
+                    })?;
                 let topics = param.get("topics").map(|topics| {
                     serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap()
                 });
