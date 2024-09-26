@@ -130,14 +130,19 @@ async fn main() {
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
-        store,
+        store.clone(),
         jwt_secret,
         local_p2p_node,
     )
     .into_future();
-    let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer)
-            .into_future();
+    let networking = ethereum_rust_net::start_network(
+        udp_socket_addr,
+        tcp_socket_addr,
+        bootnodes,
+        signer,
+        store,
+    )
+    .into_future();
 
     tracker.spawn(rpc_api);
     tracker.spawn(networking);
