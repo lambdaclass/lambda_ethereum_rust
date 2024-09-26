@@ -392,6 +392,11 @@ impl TransientStorage {
         Self(HashMap::new())
     }
 
+    /// Returns `true` if the storage contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Get a value at a storage key for an account.
     ///
     /// Returns `U256::zero()` if there is no such value. See [implementation reference]
