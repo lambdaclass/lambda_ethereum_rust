@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
-use levm::{operations::Operation, vm::VM};
+use levm::{block::TARGET_BLOB_GAS_PER_BLOCK, operations::Operation, vm::VM};
 
 // cargo test -p 'levm'
 
@@ -1327,4 +1327,30 @@ fn basefee_op() {
         vm.current_call_frame().stack.pop().unwrap(),
         base_fee_per_gas
     );
+}
+
+#[test]
+fn blob_base_fee_op() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
+    vm.block_env.blob_gas_used = Some(0);
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(2));
+}
+
+#[test]
+fn blob_base_fee_minimun_cost() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.excess_blob_gas = Some(0);
+    vm.block_env.blob_gas_used = Some(0);
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::one());
 }

@@ -33,7 +33,7 @@ pub struct BlockEnv {
     //
     // [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
     pub prevrandao: Option<H256>,
-    // Excess blob gas and blob gasprice.
+    // Excess blob gas and blob gas used.
     //
     // Incorporated as part of the Cancun upgrade via [EIP-4844].
     //
@@ -98,7 +98,7 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u128 {
         output += numerator_accum;
 
         // Denominator is asserted as not zero at the start of the function.
-        numerator_accum = (numerator_accum * numerator) / (denominator * i);
+        numerator_accum = (numerator_accum.saturating_mul(numerator)) / (denominator * i);
         i += 1;
     }
     output / denominator
