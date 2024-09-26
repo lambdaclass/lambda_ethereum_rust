@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{call_frame::CallFrame, memory::Memory, opcodes::Opcode};
-use bytes::Bytes;
 use crate::primitives::{Address, U256, U512};
+use crate::{call_frame::CallFrame, opcodes::Opcode};
+use bytes::Bytes;
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
@@ -33,10 +33,7 @@ impl VM {
             bytecode: bytecode.clone(),
         };
 
-        let initial_call_frame = CallFrame {
-            bytecode,
-            ..Default::default()
-        };
+        let initial_call_frame = CallFrame::new(bytecode);
         let mut accounts = HashMap::new();
         accounts.insert(Address::zero(), initial_account);
         Self {
@@ -47,7 +44,7 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
-        let mut current_call_frame = self.current_call_frame_mut();
+        let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
@@ -469,7 +466,8 @@ impl VM {
                 }
                 Opcode::CALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
-                    let address = Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let value = current_call_frame.stack.pop().unwrap();
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -492,9 +490,12 @@ impl VM {
                         continue;
                     }
 
-                    let calldata = current_call_frame.memory.load_range(args_offset, args_size).into();
+                    let calldata = current_call_frame
+                        .memory
+                        .load_range(args_offset, args_size)
+                        .into();
 
-                    let mut new_call_frame = CallFrame {
+                    let new_call_frame = CallFrame {
                         gas,
                         msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
                         callee: address,
@@ -507,77 +508,57 @@ impl VM {
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);
 
-                    self.call_frames.push(new_call_frame.clone());
-                    *current_call_frame = new_call_frame;
+                    self.call_frames.push(current_call_frame.clone());
+                    current_call_frame = new_call_frame;
                 }
                 Opcode::RETURN => {
-                    // Exits the current context successfully.
-
-                    // Stack input
-                    // offset: byte offset in the memory in bytes, to copy what will be the return data of this context.
-                    // size: byte size to copy (size of the return data).
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
                     let return_data = current_call_frame.memory.load_range(offset, size);
-                    current_call_frame
-                        .stack
-                        .push(U256::from_big_endian(&value_bytes));
 
-                    current_call_frame.returndata = return_data;
+                    if let Some(mut parent_call_frame) = self.call_frames.pop() {
+                        if let (Some(ret_offset), Some(_ret_size)) = (
+                            parent_call_frame.return_data_offset,
+                            parent_call_frame.return_data_size,
+                        ) {
+                            parent_call_frame
+                                .memory
+                                .store_bytes(ret_offset, &return_data);
 
-                    // Pop the current call frame
-                    self.call_frames.pop();
-
-                    // Check if there's a parent call frame
-                    if let Some(parent_call_frame) = self.call_frames.last_mut() {
-                        // Retrieve ret_offset and ret_size from the parent frame's call context
-                        if let (Some(ret_offset), Some(ret_size)) =
-                            (parent_call_frame.ret_offset, parent_call_frame.ret_size)
-                        {
-                            // Store return data in parent memory at ret_offset
-                            parent_call_frame.memory.store_range(
-                                ret_offset,
-                                &return_data[..std::cmp::min(return_data.len(), ret_size)],
-                            );
-
-                            // Push success flag
-                            parent_call_frame.stack.push(U256::one()); // Assuming success
+                            parent_call_frame.stack.push(U256::one());
                         } else {
-                            // No ret_offset and ret_size, push 1 for success
                             parent_call_frame.stack.push(U256::one());
                         }
 
-                        // Reset ret_offset and ret_size in the parent frame
-                        if let Some(parent_call_frame) = self.call_frames.last_mut() {
-                            parent_call_frame.ret_offset = None;
-                            parent_call_frame.ret_size = None;
-                        }
+                        parent_call_frame.return_data_offset = None;
+                        parent_call_frame.return_data_size = None;
+
+                        current_call_frame = parent_call_frame.clone();
                     } else {
-                        // No parent frame, execution completed
+                        // excecution completed (?)
                         break;
                     }
-
-                    *current_call_frame = previous_call_frame.clone();
-                    previous_call_frame = current_call_frame.clone();
                 }
                 _ => unimplemented!(),
             }
         }
     }
 
-    pub fn current_call_frame(&mut self) -> &mut CallFrame {
-        self.call_frames.last_mut().unwrap()
-    }
-
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
     }
 
-    fn get_account_bytecode(&self, address: &Address) -> Bytes {
+    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
     }
 }
 

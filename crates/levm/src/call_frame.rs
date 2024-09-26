@@ -22,6 +22,15 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
+    pub fn new(bytecode: Bytes) -> Self {
+        Self {
+            bytecode,
+            return_data_offset: None,
+            return_data_size: None,
+            ..Default::default()
+        }
+    }
+
     pub fn next_opcode(&mut self) -> Option<Opcode> {
         let opcode = self.bytecode.get(self.pc).copied().map(Opcode::from);
         self.increment_pc();
