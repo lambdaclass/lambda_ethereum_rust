@@ -71,7 +71,7 @@ stop-localnet-silent:
 	@kurtosis enclave stop lambdanet >/dev/null 2>&1 || true
 	@kurtosis enclave rm lambdanet --force >/dev/null 2>&1 || true
 
-HIVE_REVISION := efcd74daee8edc6b5792fafbb1653ea665a02453
+HIVE_REVISION := 3be4465 # TODO: THIS IS A PR COMMIT PLEASE REPLACE WITH MAIN BRANCH COMMIT BEFORE MERGING THIS CHANGE
 # Shallow clones can't specify a single revision, but at least we avoid working
 # the whole history by making it shallow since a given date (one day before our
 # target revision).
