@@ -328,11 +328,10 @@ impl StoreEngine for Store {
     }
     fn add_filter(
         &self,
-        timestamp: u64,
         from_block: BlockNumber,
         to_block: BlockNumber,
         addresses: AddressFilter,
-        topics: TopicFilter,
+        topics: &[TopicFilter],
     ) -> Result<(), StoreError> {
         todo!()
     }

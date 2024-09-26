@@ -193,10 +193,9 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
 
     fn add_filter(
         &self,
-        timestamp: u64,
         from_block: BlockNumber,
         to_block: BlockNumber,
         addresses: AddressFilter,
-        topics: TopicFilter,
+        topics: &[TopicFilter],
     ) -> Result<(), StoreError>;
 }

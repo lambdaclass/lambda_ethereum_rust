@@ -7,7 +7,7 @@ use ethereum_rust_storage::Store;
 use serde_json::Value;
 use std::collections::HashSet;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LogsRequest {
     /// The oldest block from which to start
     /// retrieving logs.

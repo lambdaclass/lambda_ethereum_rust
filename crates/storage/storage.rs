@@ -5,8 +5,10 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
+use ethereum_rust_core::types::AddressFilter;
 use ethereum_rust_core::types::Block;
 use ethereum_rust_core::types::BlockBody;
+use ethereum_rust_core::types::TopicFilter;
 use ethereum_rust_core::types::Transaction;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, BlockHash, BlockHeader, BlockNumber, ChainConfig,
@@ -539,6 +541,17 @@ impl Store {
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let trie = self.engine.open_storage_trie(address, storage_root);
         Ok(trie.get_proof(&hash_key(storage_key))?)
+    }
+
+    pub fn add_filter(
+        &self,
+        from_block: BlockNumber,
+        to_block: BlockNumber,
+        addresses: AddressFilter,
+        topics: &[TopicFilter],
+    ) -> Result<(), StoreError> {
+        self.engine
+            .add_filter(from_block, to_block, addresses, topics)
     }
 }
 
