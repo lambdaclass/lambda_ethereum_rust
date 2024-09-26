@@ -44,13 +44,15 @@ impl BuildPayloadArgs {
 
 // Basic payload block building, can and should be improved
 pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, StoreError> {
+    // TODO: check where we should get miner values from
+    const DEFAULT_MINER_GAS_CEIL: u64 = 30_000_000;
     // Presence of a parent block should have been checked or guaranteed before calling this function
     // So we can treat a missing parent block as an internal storage error
     let parent_block = storage
         .get_block_header_by_hash(args.parent)?
         .ok_or_else(|| StoreError::Custom("unexpected missing parent block".to_string()))?;
     let chain_config = storage.get_chain_config()?;
-    let gas_limit = calc_gas_limit(parent_block.gas_limit, 30_000_000);
+    let gas_limit = calc_gas_limit(parent_block.gas_limit, DEFAULT_MINER_GAS_CEIL);
     Ok(Block {
         header: BlockHeader {
             parent_hash: args.parent,
@@ -65,6 +67,7 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
             gas_limit,
             gas_used: 0,
             timestamp: args.timestamp,
+            // TODO: should use miner config's extra_data
             extra_data: Bytes::new(),
             prev_randao: args.random,
             nonce: 0,
