@@ -145,6 +145,9 @@ impl RpcHandler for GetPayloadV3Request {
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        return Err(RpcErr::Internal);
+        let Some(payload) = storage.get_payload(self.payload_id)? else {
+            return Err(RpcErr::UnknownPayload);
+        };
+        serde_json::to_value(ExecutionPayloadV3::from_block(payload)).map_err(|_| RpcErr::Internal)
     }
 }

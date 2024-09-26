@@ -58,7 +58,8 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
 impl Serialize for EncodedTransaction {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         serde_utils::bytes::serialize(&self.0, serializer)
     }
 }
