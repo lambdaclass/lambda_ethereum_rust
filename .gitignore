@@ -26,3 +26,6 @@ hive/
 ethereum-package/
 
 .docker_build_stamp
+
+volumes
+jwt.hex
