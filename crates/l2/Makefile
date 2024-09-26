@@ -33,11 +33,14 @@ down-l2:
 
 L1_RPC_URL=http://localhost:8545
 L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924
+FOUNDRY_PROJECT_HOME=$(shell pwd)/contracts
 
-deploy-l1: deploy-block-executor deploy-inbox
+deploy-l1:
+	cd ${FOUNDRY_PROJECT_HOME} && \
+	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast
 
 deploy-block-executor:
-	forge create crates/l2/contracts/src/l1/BlockExecutor.sol:BlockExecutor --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
+	forge create ${FOUNDRY_PROJECT_HOME}/src/l1/BlockExecutor.sol:BlockExecutor --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
 
 deploy-inbox:
-	forge create crates/l2/contracts/src/l1/Inbox.sol:Inbox --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
+	forge create ${FOUNDRY_PROJECT_HOME}/src/l1/Inbox.sol:Inbox --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
