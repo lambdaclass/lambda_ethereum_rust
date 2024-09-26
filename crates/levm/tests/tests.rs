@@ -4,7 +4,7 @@ use levm::{operations::Operation, vm::VM};
 
 // cargo test -p 'levm'
 
-fn new_vm_with_ops(operations: &[Operation]) -> VM {
+pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
@@ -786,20 +786,29 @@ fn sar_shift_negative_value() {
 
 #[test]
 fn mstore() {
-    let operations = [
+    let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x33333)),
         Operation::Push32(U256::zero()),
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
-    ];
+    ]);
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    vm.execute();
 
-    let mut vm = VM::new(bytecode);
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(32));
+    assert_eq!(vm.current_call_frame().pc(), 69);
+}
+
+#[test]
+fn mstore_saves_correct_value() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(0x33333)), // value
+        Operation::Push32(U256::zero()),        // offset
+        Operation::Mstore,
+        Operation::Msize,
+        Operation::Stop,
+    ]);
 
     vm.execute();
 

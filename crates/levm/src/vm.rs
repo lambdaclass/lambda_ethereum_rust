@@ -1,10 +1,19 @@
 use crate::{call_frame::CallFrame, opcodes::Opcode};
 use bytes::Bytes;
-use ethereum_types::U256;
+use ethereum_types::{U256, U512};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+}
+
+/// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
+fn is_negative(value: U256) -> bool {
+    value.bit(255)
+}
+/// negates a number in two's complement
+fn negate(value: U256) -> U256 {
+    !value + U256::one()
 }
 
 impl VM {
@@ -24,14 +33,263 @@ impl VM {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
                 Opcode::ADD => {
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a + b);
+                    let augend = current_call_frame.stack.pop().unwrap();
+                    let addend = current_call_frame.stack.pop().unwrap();
+                    let sum = augend.overflowing_add(addend).0;
+                    current_call_frame.stack.push(sum);
+                }
+                Opcode::MUL => {
+                    let multiplicand = current_call_frame.stack.pop().unwrap();
+                    let multiplier = current_call_frame.stack.pop().unwrap();
+                    let product = multiplicand.overflowing_mul(multiplier).0;
+                    current_call_frame.stack.push(product);
+                }
+                Opcode::SUB => {
+                    let minuend = current_call_frame.stack.pop().unwrap();
+                    let subtrahend = current_call_frame.stack.pop().unwrap();
+                    let difference = minuend.overflowing_sub(subtrahend).0;
+                    current_call_frame.stack.push(difference);
+                }
+                Opcode::DIV => {
+                    let dividend = current_call_frame.stack.pop().unwrap();
+                    let divisor = current_call_frame.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+                    let quotient = dividend / divisor;
+                    current_call_frame.stack.push(quotient);
+                }
+                Opcode::SDIV => {
+                    let dividend = current_call_frame.stack.pop().unwrap();
+                    let divisor = current_call_frame.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let dividend_is_negative = is_negative(dividend);
+                    let divisor_is_negative = is_negative(divisor);
+                    let dividend = if dividend_is_negative {
+                        negate(dividend)
+                    } else {
+                        dividend
+                    };
+                    let divisor = if divisor_is_negative {
+                        negate(divisor)
+                    } else {
+                        divisor
+                    };
+                    let quotient = dividend / divisor;
+                    let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
+                    let quotient = if quotient_is_negative {
+                        negate(quotient)
+                    } else {
+                        quotient
+                    };
+
+                    current_call_frame.stack.push(quotient);
+                }
+                Opcode::MOD => {
+                    let dividend = current_call_frame.stack.pop().unwrap();
+                    let divisor = current_call_frame.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+                    let remainder = dividend % divisor;
+                    current_call_frame.stack.push(remainder);
+                }
+                Opcode::SMOD => {
+                    let dividend = current_call_frame.stack.pop().unwrap();
+                    let divisor = current_call_frame.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let dividend_is_negative = is_negative(dividend);
+                    let divisor_is_negative = is_negative(divisor);
+                    let dividend = if dividend_is_negative {
+                        negate(dividend)
+                    } else {
+                        dividend
+                    };
+                    let divisor = if divisor_is_negative {
+                        negate(divisor)
+                    } else {
+                        divisor
+                    };
+                    let remainder = dividend % divisor;
+                    let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
+                    let remainder = if remainder_is_negative {
+                        negate(remainder)
+                    } else {
+                        remainder
+                    };
+
+                    current_call_frame.stack.push(remainder);
+                }
+                Opcode::ADDMOD => {
+                    let augend = current_call_frame.stack.pop().unwrap();
+                    let addend = current_call_frame.stack.pop().unwrap();
+                    let divisor = current_call_frame.stack.pop().unwrap();
+                    if divisor.is_zero() {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+                    let (sum, overflow) = augend.overflowing_add(addend);
+                    let mut remainder = sum % divisor;
+                    if overflow || remainder > divisor {
+                        remainder = remainder.overflowing_sub(divisor).0;
+                    }
+
+                    current_call_frame.stack.push(remainder);
+                }
+                Opcode::MULMOD => {
+                    let multiplicand = U512::from(current_call_frame.stack.pop().unwrap());
+
+                    let multiplier = U512::from(current_call_frame.stack.pop().unwrap());
+                    let divisor = U512::from(current_call_frame.stack.pop().unwrap());
+                    if divisor.is_zero() {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    let (product, overflow) = multiplicand.overflowing_mul(multiplier);
+                    let mut remainder = product % divisor;
+                    if overflow || remainder > divisor {
+                        remainder = remainder.overflowing_sub(divisor).0;
+                    }
+                    let mut result = Vec::new();
+                    for byte in remainder.0.iter().take(4) {
+                        let bytes = byte.to_le_bytes();
+                        result.extend_from_slice(&bytes);
+                    }
+                    // before reverse we have something like [120, 255, 0, 0....]
+                    // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
+                    result.reverse();
+                    let remainder = U256::from(result.as_slice());
+                    current_call_frame.stack.push(remainder);
+                }
+                Opcode::EXP => {
+                    let base = current_call_frame.stack.pop().unwrap();
+                    let exponent = current_call_frame.stack.pop().unwrap();
+                    let power = base.overflowing_pow(exponent).0;
+                    current_call_frame.stack.push(power);
+                }
+                Opcode::SIGNEXTEND => {
+                    let byte_size = current_call_frame.stack.pop().unwrap();
+                    let value_to_extend = current_call_frame.stack.pop().unwrap();
+
+                    let bits_per_byte = U256::from(8);
+                    let sign_bit_position_on_byte = 7;
+                    let max_byte_size = 31;
+
+                    let byte_size = byte_size.min(U256::from(max_byte_size));
+                    let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
+                    let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
+                    let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
+                    let result = if is_negative {
+                        value_to_extend | !sign_bit_mask
+                    } else {
+                        value_to_extend & sign_bit_mask
+                    };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::LT => {
+                    let lho = current_call_frame.stack.pop().unwrap();
+                    let rho = current_call_frame.stack.pop().unwrap();
+                    let result = if lho < rho { U256::one() } else { U256::zero() };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::GT => {
+                    let lho = current_call_frame.stack.pop().unwrap();
+                    let rho = current_call_frame.stack.pop().unwrap();
+                    let result = if lho > rho { U256::one() } else { U256::zero() };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::SLT => {
+                    let lho = current_call_frame.stack.pop().unwrap();
+                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho < rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    } else {
+                        // if they have different signs, the negative number is smaller
+                        if lho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::SGT => {
+                    let lho = current_call_frame.stack.pop().unwrap();
+                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho_is_negative = lho.bit(255);
+                    let rho_is_negative = rho.bit(255);
+                    let result = if lho_is_negative == rho_is_negative {
+                        // if both have the same sign, compare their magnitudes
+                        if lho > rho {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    } else {
+                        // if they have different signs, the positive number is bigger
+                        if rho_is_negative {
+                            U256::one()
+                        } else {
+                            U256::zero()
+                        }
+                    };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::EQ => {
+                    let lho = current_call_frame.stack.pop().unwrap();
+                    let rho = current_call_frame.stack.pop().unwrap();
+                    let result = if lho == rho {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::ISZERO => {
+                    let operand = current_call_frame.stack.pop().unwrap();
+                    let result = if operand == U256::zero() {
+                        U256::one()
+                    } else {
+                        U256::zero()
+                    };
+                    current_call_frame.stack.push(result);
+                }
+                Opcode::PUSH0 => {
+                    current_call_frame.stack.push(U256::zero());
+                }
+                // PUSHn
+                op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
+                    let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
+                    let next_n_bytes = current_call_frame
+                        .bytecode
+                        .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
+                        .expect("invalid bytecode");
+                    let value_to_push = U256::from(next_n_bytes);
+                    current_call_frame.stack.push(value_to_push);
+                    current_call_frame.increment_pc_by(n_bytes as usize);
                 }
                 Opcode::PUSH32 => {
                     let next_32_bytes = current_call_frame
                         .bytecode
-                        .get(current_call_frame.pc..current_call_frame.pc + 32)
+                        .get(current_call_frame.pc()..current_call_frame.pc() + 32)
                         .unwrap();
                     let value_to_push = U256::from(next_32_bytes);
                     current_call_frame.stack.push(value_to_push);
@@ -107,6 +365,32 @@ impl VM {
                     };
                     current_call_frame.stack.push(res);
                 }
+                // DUPn
+                op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
+                    let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
+                    assert!(
+                        current_call_frame.stack.len().ge(&(depth as usize)),
+                        "stack underflow: not enough values on the stack"
+                    );
+                    let value_at_depth = current_call_frame
+                        .stack
+                        .get(current_call_frame.stack.len() - depth as usize)
+                        .unwrap();
+                    current_call_frame.stack.push(*value_at_depth);
+                }
+                // SWAPn
+                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
+                    let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
+                    assert!(
+                        current_call_frame.stack.len().ge(&(depth as usize)),
+                        "stack underflow: not enough values on the stack"
+                    );
+                    let stack_top_index = current_call_frame.stack.len();
+                    let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
+                    current_call_frame
+                        .stack
+                        .swap(stack_top_index - 1, to_swap_index - 1);
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -152,6 +436,7 @@ impl VM {
                         .memory
                         .copy(src_offset, dest_offset, size);
                 }
+                _ => unimplemented!(),
             }
         }
     }
