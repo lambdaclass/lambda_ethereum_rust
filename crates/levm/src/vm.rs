@@ -1,7 +1,12 @@
-use crate::{call_frame::CallFrame, opcodes::Opcode};
+use crate::{
+    call_frame::CallFrame,
+    constants::{gas_cost, TX_BASE_COST},
+    opcodes::Opcode,
+};
 use bytes::Bytes;
 use ethereum_types::{U256, U512};
 use sha3::{Digest, Keccak256};
+use std::i64;
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -29,6 +34,8 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
+        let gas_limit = i64::MAX as u64; // TODO: it was initialized like this on evm_mlir, check why
+        let consumed_gas = TX_BASE_COST; // TODO: check where to place these two, VM?
         let current_call_frame = self.current_call_frame();
         loop {
             match current_call_frame.next_opcode().unwrap() {
@@ -435,6 +442,10 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(current_call_frame.memory.size());
+                }
+                Opcode::GAS => {
+                    let remaining_gas = gas_limit - consumed_gas - gas_cost::GAS;
+                    current_call_frame.stack.push(remaining_gas.into());
                 }
                 Opcode::MCOPY => {
                     // spend_gas(3) + dynamic gas
