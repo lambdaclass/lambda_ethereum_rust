@@ -135,7 +135,7 @@ fn or_basic() {
     vm.execute();
 
     let result = vm.current_call_frame().stack.pop().unwrap();
-    assert_eq!(result, U256::from(0xFFFFFFFFFFFFFFFF as u64));
+    assert_eq!(result, U256::from(0xFFFFFFFFFFFFFFFF_u64));
 }
 
 #[test]
@@ -531,7 +531,7 @@ fn shl_basic() {
     vm.execute();
 
     let result = vm.current_call_frame().stack.pop().unwrap();
-    assert_eq!(result, U256::from(4886718336 as u64));
+    assert_eq!(result, U256::from(4886718336_u64));
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFF)),
