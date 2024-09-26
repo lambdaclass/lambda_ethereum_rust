@@ -1333,6 +1333,7 @@ fn pop_op() {
     assert!(vm.stack.pop().unwrap() == U256::one());
 }
 
+// TODO: when adding error handling this should return an error, not panic
 #[test]
 #[should_panic]
 fn pop_on_empty_stack() {
