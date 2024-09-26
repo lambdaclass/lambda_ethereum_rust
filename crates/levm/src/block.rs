@@ -39,20 +39,39 @@ pub struct BlockEnv {
     //
     // [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     pub excess_blob_gas: Option<u64>,
+    pub blob_gas_used: Option<u64>,
 }
+
+// EIP-4844 constants.
 pub const MIN_BLOB_GASPRICE: u64 = 1;
 pub const BLOB_GASPRICE_UPDATE_FRACTION: u64 = 3338477;
+/// Gas consumption of a single data blob (== blob byte size).
+pub const GAS_PER_BLOB: u64 = 1 << 17;
+
+/// Target number of the blob per block.
+pub const TARGET_BLOB_NUMBER_PER_BLOCK: u64 = 3;
+/// Target consumable blob gas for data blobs per block (for 1559-like pricing).
+pub const TARGET_BLOB_GAS_PER_BLOCK: u64 = TARGET_BLOB_NUMBER_PER_BLOCK * GAS_PER_BLOB;
+
 impl BlockEnv {
     /// Calculates the blob gas price from the header's excess blob gas field.
     ///
-    /// See also [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers)
-    /// (`get_blob_gasprice`).
+    /// See [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers)
     pub fn calculate_blob_gas_price(&self) -> U256 {
+        let excess_blob_gas = self.calc_excess_blob_gas();
         U256::from(fake_exponential(
             MIN_BLOB_GASPRICE,
-            self.excess_blob_gas.unwrap_or_default(),
+            excess_blob_gas,
             BLOB_GASPRICE_UPDATE_FRACTION,
         ))
+    }
+
+    /// Calculates the `excess_blob_gas` from the parent header's `blob_gas_used` and `excess_blob_gas`.
+    ///
+    /// See [the EIP-4844 helpers]<https://eips.ethereum.org/EIPS/eip-4844#helpers>
+    pub fn calc_excess_blob_gas(&self) -> u64 {
+        (self.excess_blob_gas.unwrap_or_default() + self.blob_gas_used.unwrap_or_default())
+            .saturating_sub(TARGET_BLOB_GAS_PER_BLOCK)
     }
 }
 
