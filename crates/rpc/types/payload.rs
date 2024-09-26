@@ -139,7 +139,7 @@ impl ExecutionPayloadV3 {
                 .body
                 .transactions
                 .iter()
-                .map(|tx| EncodedTransaction::encode(tx))
+                .map(EncodedTransaction::encode)
                 .collect(),
             withdrawals: block.body.withdrawals.unwrap_or_default(),
             blob_gas_used: block.header.blob_gas_used.unwrap_or_default(),
