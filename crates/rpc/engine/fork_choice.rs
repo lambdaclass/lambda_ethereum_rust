@@ -1,5 +1,5 @@
 use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
-use ethereum_rust_core::{types::{Block, BlockHash, BlockNumber}, H256, U256};
+use ethereum_rust_core::{types::BlockHeader, H256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
 use tracing::warn;
@@ -43,7 +43,8 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             return error_response("forkchoice requested update to zero hash");
         }
         // Check if we have the block stored
-        let Some(head_block) = storage.get_block_by_hash(self.fork_choice_state.head_block_hash)?
+        let Some(head_block) =
+            storage.get_block_header_by_hash(self.fork_choice_state.head_block_hash)?
         else {
             // TODO: We don't yet support syncing
             warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
@@ -57,7 +58,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         )? {
             return error_response(error);
         }
-        let canonical_block = storage.get_canonical_block_hash(head_block.header.number)?;
+        let canonical_block = storage.get_canonical_block_hash(head_block.number)?;
         let current_block_hash = {
             let current_block_number =
                 storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
@@ -67,10 +68,15 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             // We are still under the assumption that the blocks are only added if they are connected
             // to the canonical chain. That means that for the state to be consistent we only need to
             // check that the safe and finalized ones are in the canonical chain and that the heads parent is too.
-            if storage.get_canonical_block_hash(head_block.header.number.saturating_sub(1))?
-                .is_some_and(|h| h == head_block.header.parent_hash) {
-                    storage.set_canonical_block(head_block.header.number, self.fork_choice_state.head_block_hash)?;
-                }
+            if storage
+                .get_canonical_block_hash(head_block.number.saturating_sub(1))?
+                .is_some_and(|h| h == head_block.parent_hash)
+            {
+                storage.set_canonical_block(
+                    head_block.number,
+                    self.fork_choice_state.head_block_hash,
+                )?;
+            }
         } else if current_block_hash.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
             // If the head block is already in our canonical chain, the beacon client is
             // probably resyncing. Ignore the update.
@@ -115,17 +121,16 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
 
 fn total_difficulty_check<'a>(
     head_block_hash: &'a H256,
-    head_block: &'a Block,
+    head_block: &'a BlockHeader,
     storage: &'a Store,
 ) -> Result<Option<&'a str>, StoreError> {
-    if !head_block.header.difficulty.is_zero() || head_block.header.number == 0 {
+    if !head_block.difficulty.is_zero() || head_block.number == 0 {
         let total_difficulty = storage.get_block_total_difficulty(*head_block_hash)?;
-        let parent_total_difficulty =
-            storage.get_block_total_difficulty(head_block.header.parent_hash)?;
+        let parent_total_difficulty = storage.get_block_total_difficulty(head_block.parent_hash)?;
         let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
         if terminal_total_difficulty.is_none()
             || total_difficulty.is_none()
-            || head_block.header.number > 0 && parent_total_difficulty.is_none()
+            || head_block.number > 0 && parent_total_difficulty.is_none()
         {
             return Ok(Some(
                 "total difficulties unavailable for terminal total difficulty check",
@@ -134,7 +139,7 @@ fn total_difficulty_check<'a>(
         if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
             return Ok(Some("refusing beacon update to pre-merge"));
         }
-        if head_block.header.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
+        if head_block.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
             return Ok(Some(
                 "parent block is already post terminal total difficulty",
             ));
