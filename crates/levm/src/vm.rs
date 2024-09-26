@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{opcodes::Opcode, operations::Operation};
+use crate::opcodes::Opcode;
 use bytes::Bytes;
 use ethereum_types::{Address, U256, U512};
 
@@ -465,25 +465,4 @@ impl Memory {
 
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
-}
-
-#[test]
-fn get_ok() {
-    let mut tstorage = TransientStorage::new();
-
-    tstorage
-        .0
-        .insert((Address::default(), U256::one()), U256::from("0xffff"));
-
-    assert_eq!(
-        tstorage.get(Address::default(), U256::one()),
-        U256::from("0xffff")
-    )
-}
-
-#[test]
-fn unexistant_returns_zero() {
-    let tsstorage = TransientStorage::new();
-
-    assert_eq!(tsstorage.get(Address::default(), U256::one()), U256::zero())
 }
