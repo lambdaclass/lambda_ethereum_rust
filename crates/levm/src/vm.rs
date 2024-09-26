@@ -29,7 +29,7 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
-        let current_call_frame = self.current_call_frame();
+        let current_call_frame = self.current_call_frame_mut();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
@@ -472,8 +472,12 @@ impl VM {
         }
     }
 
-    pub fn current_call_frame(&mut self) -> &mut CallFrame {
+    pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
+    }
+
+    pub fn current_call_frame(&self) -> &CallFrame {
+        self.call_frames.last().unwrap()
     }
 }
 
