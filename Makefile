@@ -10,8 +10,12 @@ build: ## 🔨 Build the client
 lint: ## 🧹 Linter check
 	cargo clippy --all-targets --all-features --workspace -- -D warnings
 
+SPECTEST_VERSION := v3.0.0
+SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
+SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
+
 CRATE ?= *
-test: ## 🧪 Run each crate's tests
+test: $(SPECTEST_VECTORS_DIR) ## 🧪 Run each crate's tests
 	cargo test -p '$(CRATE)'
 
 clean: clean-vectors ## 🧹 Remove build artifacts
@@ -28,9 +32,6 @@ $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfi
 
 build-image: $(STAMP_FILE) ## 🐳 Build the Docker image
 
-SPECTEST_VERSION := v3.0.0
-SPECTEST_ARTIFACT := tests_$(SPECTEST_VERSION).tar.gz
-SPECTEST_VECTORS_DIR := cmd/ef_tests/vectors
 $(SPECTEST_ARTIFACT):
 	rm -f tests_*.tar.gz # Delete older versions
 	curl -L -o $(SPECTEST_ARTIFACT) "https://github.com/ethereum/execution-spec-tests/releases/download/$(SPECTEST_VERSION)/fixtures_stable.tar.gz"
@@ -79,9 +80,11 @@ hive:
 	git clone --single-branch --branch master --shallow-since=$(HIVE_SHALLOW_SINCE) https://github.com/lambdaclass/hive
 
 setup-hive: hive ## 🐝 Set up Hive testing framework
-	cd hive && \
+	if [ "$$(cd hive && git rev-parse HEAD)" != "$(HIVE_REVISION)" ]; then \
+		cd hive && \
 		git fetch --shallow-since=$(HIVE_SHALLOW_SINCE) && \
-		git checkout $(HIVE_REVISION) && go build .
+		git checkout $(HIVE_REVISION) && go build . ;\
+	fi
 
 TEST_PATTERN ?= /
 
