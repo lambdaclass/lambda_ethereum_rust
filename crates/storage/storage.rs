@@ -122,6 +122,13 @@ impl Store {
         self.engine.clone().get_block_header(block_number)
     }
 
+    pub fn get_block_header_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockHeader>, StoreError> {
+        self.engine.clone().get_block_header_by_hash(block_hash)
+    }
+
     pub fn add_block_body(
         &self,
         block_hash: BlockHash,
@@ -472,12 +479,20 @@ impl Store {
     pub fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.get_pending_block_number()
     }
+
     pub fn set_canonical_block(
         &self,
         number: BlockNumber,
         hash: BlockHash,
     ) -> Result<(), StoreError> {
         self.engine.set_canonical_block(number, hash)
+    }
+
+    pub fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        self.engine.get_canonical_block_hash(block_number)
     }
 
     // Obtain the storage trie for the given account on the given block
