@@ -97,7 +97,7 @@ impl RpcHandler for NewPayloadV3Request {
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash}");
         let result = match add_block(&block, &storage) {
-            Err(ChainError::NonCanonicalBlock) => Ok(PayloadStatus::syncing()),
+            Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
             )),
