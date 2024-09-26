@@ -2,7 +2,7 @@
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 
-up: up-local-l1 up-l2
+up: up-local-l1 deploy-l1 up-l2
 
 down: down-local-l1 down-l2
 
@@ -13,7 +13,6 @@ clean: clean-local-l1
 up-local-l1:
 	mkdir -p volumes/ volumes/reth volumes/reth/data
 	docker compose -f docker-compose-l2.yml up -d
-	make deploy-l1
 
 down-local-l1:
 	docker compose -f docker-compose-l2.yml down
