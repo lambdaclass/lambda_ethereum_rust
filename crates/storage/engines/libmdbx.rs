@@ -1,8 +1,8 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
-    Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
@@ -126,6 +126,22 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
     ) -> std::result::Result<Option<BlockNumber>, StoreError> {
         self.read::<BlockNumbers>(block_hash.into())
+    }
+    fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<BlockTotalDifficulties>(block_hash.into(), block_total_difficulty.into())
+    }
+
+    fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<U256>, StoreError> {
+        Ok(self
+            .read::<BlockTotalDifficulties>(block_hash.into())?
+            .map(|b| b.to()))
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -286,6 +302,25 @@ impl StoreEngine for Store {
         }
     }
 
+    fn update_latest_total_difficulty(
+        &self,
+        latest_total_difficulty: U256,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::LatestTotalDifficulty,
+            latest_total_difficulty.encode_to_vec(),
+        )
+    }
+
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::LatestTotalDifficulty)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
     fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::PendingBlockNumber,
@@ -354,6 +389,12 @@ table!(
 table!(
     /// Block hash to number table.
     ( BlockNumbers ) BlockHashRLP => BlockNumber
+);
+
+// TODO (#307): Remove TotalDifficulty.
+table!(
+    /// Block hash to total difficulties table.
+    ( BlockTotalDifficulties ) BlockHashRLP => BlockTotalDifficultyRLP
 );
 
 table!(
@@ -471,6 +512,8 @@ pub enum ChainDataIndex {
     SafeBlockNumber = 3,
     LatestBlockNumber = 4,
     PendingBlockNumber = 5,
+    // TODO (#307): Remove TotalDifficulty.
+    LatestTotalDifficulty = 6,
 }
 
 impl Encodable for ChainDataIndex {
@@ -486,6 +529,8 @@ impl Encodable for ChainDataIndex {
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     let tables = [
         table_info!(BlockNumbers),
+        // TODO (#307): Remove TotalDifficulty.
+        table_info!(BlockTotalDifficulties),
         table_info!(Headers),
         table_info!(Bodies),
         table_info!(AccountCodes),

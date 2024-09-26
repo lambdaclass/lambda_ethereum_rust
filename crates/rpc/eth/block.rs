@@ -12,8 +12,12 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::types::{
-    calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Receipt,
+use ethereum_rust_core::{
+    types::{
+        calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+        Receipt,
+    },
+    U256,
 };
 use ethereum_rust_storage::Store;
 
@@ -76,7 +80,15 @@ impl RpcHandler for GetBlockByNumberRequest {
             _ => return Ok(Value::Null),
         };
         let hash = header.compute_block_hash();
-        let block = RpcBlock::build(header, body, hash, self.hydrated);
+        // TODO (#307): Remove TotalDifficulty.
+        let total_difficulty = storage.get_block_total_difficulty(hash)?;
+        let block = RpcBlock::build(
+            header,
+            body,
+            hash,
+            self.hydrated,
+            total_difficulty.unwrap_or(U256::zero()),
+        );
 
         serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
     }
@@ -107,7 +119,15 @@ impl RpcHandler for GetBlockByHashRequest {
             _ => return Ok(Value::Null),
         };
         let hash = header.compute_block_hash();
-        let block = RpcBlock::build(header, body, hash, self.hydrated);
+        // TODO (#307): Remove TotalDifficulty.
+        let total_difficulty = storage.get_block_total_difficulty(hash)?;
+        let block = RpcBlock::build(
+            header,
+            body,
+            hash,
+            self.hydrated,
+            total_difficulty.unwrap_or(U256::zero()),
+        );
         serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
     }
 }
