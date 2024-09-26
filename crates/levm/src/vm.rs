@@ -449,6 +449,8 @@ impl VM {
                         .memory
                         .copy(src_offset, dest_offset, size);
                 }
+                Opcode::CALL => {}
+                Opcode::RETURN => {}
                 _ => unimplemented!(),
             }
         }
