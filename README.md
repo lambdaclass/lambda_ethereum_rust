@@ -85,17 +85,31 @@ The second kind are each crate's tests, you can run them like this:
 ```bash
 make test CRATE=<crate>
 ```
+For example:
+```bash
+make test CRATE="ethereum_rust-blockchain"
+```
+
 
 ##### Hive Tests
 
 Finally, we have End-to-End tests with hive.
 Hive is a system which simply sends RPC commands to our node,
 and expects a certain response. You can read more about it [here](https://github.com/ethereum/hive/blob/master/docs/overview.md).
-This is an example of a Hive simulation called `ethereum/rpc-compat`, which can be run with:
-
+Hive tests are categorized by "simulations', and test instances can be filtered with a regex:
 ```bash
-make run-hive-debug ethereum/rpc-compat
+make run-hive-debug SIMULATION=<simulation> TEST_PATTERN=<test-regex>
 ```
+This is an example of a Hive simulation called `ethereum/rpc-compat`, which will specificaly
+run chain id and transaction by hash rpc tests:
+```bash
+make run-hive SIMULATION=ethereum/rpc-compat TEST_PATTERN="/eth_chainId|eth_getTransactionByHash"
+```
+If you want debug output from hive, use the run-hive-debug instead:
+```bash
+make run-hive-debug SIMULATION=ethereum/rpc-compat TEST_PATTERN="*"
+```
+This example runs **every** test under rpc, with debug output
 
 ### Run
 
