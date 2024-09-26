@@ -21,10 +21,6 @@ pub struct BlockEnv {
     // Chain ID of the EVM, it will be compared to the transaction's Chain ID.
     // Chain ID is introduced here https://eips.ethereum.org/EIPS/eip-155
     pub chain_id: usize,
-    // The difficulty of the block.
-    //
-    // Unused after the Paris (AKA the merge) upgrade, and replaced by `prevrandao`.
-    //pub difficulty: U256,
     // The output of the randomness beacon provided by the beacon chain.
     //
     // Replaces `difficulty` after the Paris (AKA the merge) upgrade with [EIP-4399].
