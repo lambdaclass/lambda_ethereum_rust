@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::opcodes::Opcode;
+use crate::{opcodes::Opcode, operations::Operation};
 use bytes::Bytes;
 use ethereum_types::{Address, U256, U512};
 
@@ -10,6 +10,7 @@ pub struct VM {
     pub memory: Memory,
     pub pc: usize,
     pub transient_storage: TransientStorage, // TODO: this should actually go inside an execution environment!
+    pub caller: Address,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -306,6 +307,18 @@ impl VM {
                     let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
                     self.stack.swap(stack_top_index - 1, to_swap_index - 1);
                 }
+                Opcode::TLOAD => {
+                    let key = self.stack.pop().unwrap();
+                    let value = self.transient_storage.get(self.caller, key);
+
+                    self.stack.push(value);
+                }
+                Opcode::TSTORE => {
+                    let key = self.stack.pop().unwrap();
+                    let value = self.stack.pop().unwrap();
+
+                    self.transient_storage.set(self.caller, key, value);
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = self.stack.pop().unwrap().try_into().unwrap();
@@ -447,6 +460,61 @@ impl Memory {
 
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
+}
+
+#[test]
+fn transient_store() {
+    let mut vm = VM::default();
+
+    assert!(vm.transient_storage.0.is_empty());
+
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [
+        Operation::Push32(value),
+        Operation::Push32(key),
+        Operation::Tstore,
+        Operation::Stop,
+    ];
+
+    let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+    vm.execute(bytecode);
+
+    assert_eq!(vm.transient_storage.get(vm.caller, key), value)
+}
+
+#[test]
+#[should_panic]
+fn transient_store_no_values_panics() {
+    let mut vm = VM::default();
+
+    assert!(vm.transient_storage.0.is_empty());
+
+    let operations = [Operation::Tstore, Operation::Stop];
+
+    let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+    vm.execute(bytecode);
+}
+
+#[test]
+fn transient_load() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let mut vm = VM::default();
+
+    vm.transient_storage.set(vm.caller, key, value);
+
+    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+
+    let bytecode = operations.iter().flat_map(Operation::to_bytecode).collect();
+
+    vm.execute(bytecode);
+
+    assert_eq!(vm.stack.pop().unwrap(), value)
 }
 
 #[test]

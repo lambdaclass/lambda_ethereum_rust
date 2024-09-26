@@ -261,6 +261,8 @@ impl From<u8> for Opcode {
             0x53 => Opcode::MSTORE8,
             0x59 => Opcode::MSIZE,
             0x5E => Opcode::MCOPY,
+            x if x == Opcode::TLOAD as u8 => Opcode::TLOAD,
+            x if x == Opcode::TSTORE as u8 => Opcode::TSTORE,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }
