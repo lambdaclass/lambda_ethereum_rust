@@ -405,7 +405,7 @@ impl VM {
                         .swap(stack_top_index - 1, to_swap_index - 1);
                 }
                 Opcode::POP => {
-                    self.stack.pop().unwrap();
+                    current_call_frame.stack.pop().unwrap();
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);

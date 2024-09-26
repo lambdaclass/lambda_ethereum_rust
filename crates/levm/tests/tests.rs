@@ -1140,8 +1140,6 @@ fn mload_uninitialized_memory() {
 
 #[test]
 fn pop_op() {
-    let mut vm = VM::default();
-
     let operations = [
         Operation::Push32(U256::one()),
         Operation::Push32(U256::from(100)),
@@ -1149,30 +1147,22 @@ fn pop_op() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute(bytecode);
+    vm.execute();
 
-    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
 }
 
 // TODO: when adding error handling this should return an error, not panic
 #[test]
 #[should_panic]
 fn pop_on_empty_stack() {
-    let mut vm = VM::default();
-
     let operations = [Operation::Pop, Operation::Stop];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute(bytecode);
+    vm.execute();
 
-    assert!(vm.stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
 }
