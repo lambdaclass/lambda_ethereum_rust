@@ -44,8 +44,12 @@ impl BuildPayloadArgs {
 
 // Basic payload block building, can and should be improved
 pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, StoreError> {
-    let parent_block = storage.get_block_by_hash(args.parent).unwrap().unwrap();
-    let chain_config = storage.get_chain_config().unwrap();
+    // Presence of a parent block should have been checked or guaranteed before calling this function
+    // So we can treat a missing parent block as an internal storage error
+    let parent_block = storage
+        .get_block_by_hash(args.parent)?
+        .ok_or_else(|| StoreError::Custom("unexpected missing parent block".to_string()))?;
+    let chain_config = storage.get_chain_config()?;
     let gas_limit = calc_gas_limit(parent_block.header.gas_limit, 30_000_000);
     Ok(Block {
         header: BlockHeader {

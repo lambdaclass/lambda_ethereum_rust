@@ -67,7 +67,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         if canonical_block.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
             // We are still under the assumption that the blocks are only added if they are connected
             // to the canonical chain. That means that for the state to be consistent we only need to
-            // check that the safe and finalized ones are in the canonical chain and that the heads parent is too.
+            // check that the safe and finalized ones are in the canonical chain and that the head's parent is too.
             if storage
                 .get_canonical_block_hash(head_block.number.saturating_sub(1))?
                 .is_some_and(|h| h == head_block.parent_hash)
