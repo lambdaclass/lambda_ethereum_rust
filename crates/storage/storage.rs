@@ -110,8 +110,7 @@ impl Store {
         block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
-        self.engine
-            .add_block_header(block_hash, block_header)
+        self.engine.add_block_header(block_hash, block_header)
     }
 
     pub fn get_block_header(

@@ -101,7 +101,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash}");
-        let result = match add_block(&block, &storage) {
+        let payload_status = match add_block(&block, &storage) {
             Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
@@ -115,13 +115,15 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
             Ok(()) => {
                 info!("Block with hash {block_hash} executed succesfully");
+
+                storage.set_canonical_block(block.header.number, block_hash)?;
                 info!("Block with hash {block_hash} added to storage");
 
                 Ok(PayloadStatus::valid_with_hash(block_hash))
             }
         }?;
 
-        serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(payload_status).map_err(|_| RpcErr::Internal)
     }
 }
 
