@@ -449,6 +449,24 @@ impl VM {
                         .memory
                         .copy(src_offset, dest_offset, size);
                 }
+                Opcode::TLOAD => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame
+                        .transient_storage
+                        .get(current_call_frame.msg_sender, key);
+
+                    current_call_frame.stack.push(value);
+                }
+                Opcode::TSTORE => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+
+                    current_call_frame.transient_storage.set(
+                        current_call_frame.msg_sender,
+                        key,
+                        value,
+                    );
+                }
                 _ => unimplemented!(),
             }
         }

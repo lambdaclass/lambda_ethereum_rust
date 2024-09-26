@@ -1,6 +1,6 @@
 use bytes::Bytes;
-use ethereum_types::U256;
-use levm::{operations::Operation, vm::VM};
+use ethereum_types::{Address, U256};
+use levm::{operations::Operation, storage::TransientStorage, vm::VM};
 
 // cargo test -p 'levm'
 
@@ -1136,4 +1136,22 @@ fn mload_uninitialized_memory() {
 
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
+}
+
+#[test]
+fn transient_storage_set_get_ok() {
+    let mut tstorage = TransientStorage::new();
+    tstorage.set(Address::default(), U256::one(), U256::from("0xffff"));
+
+    assert_eq!(
+        tstorage.get(Address::default(), U256::one()),
+        U256::from("0xffff")
+    )
+}
+
+#[test]
+fn transient_storage_unexistant_returns_zero() {
+    let tsstorage = TransientStorage::new();
+
+    assert_eq!(tsstorage.get(Address::default(), U256::one()), U256::zero())
 }

@@ -1,4 +1,4 @@
-use crate::{memory::Memory, opcodes::Opcode};
+use crate::{memory::Memory, opcodes::Opcode, storage::TransientStorage};
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
 
@@ -6,6 +6,7 @@ use ethereum_types::{Address, U256};
 pub struct CallFrame {
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
+    pub transient_storage: TransientStorage, // TODO: this should actually go in the tx environment
     pub pc: usize,
     pub msg_sender: Address,
     pub callee: Address,
