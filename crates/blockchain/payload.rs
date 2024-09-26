@@ -25,7 +25,7 @@ pub struct BuildPayloadArgs {
 }
 
 impl BuildPayloadArgs {
-    // Id computes an 8-byte identifier by hashing the components of the payload arguments.
+    /// Computes an 8-byte identifier by hashing the components of the payload arguments.
     pub fn id(&self) -> u64 {
         let mut hasher = Keccak256::new();
         hasher.update(self.parent);
@@ -42,6 +42,7 @@ impl BuildPayloadArgs {
     }
 }
 
+/// Builds a new payload based on the payload arguments
 // Basic payload block building, can and should be improved
 pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, StoreError> {
     // TODO: check where we should get miner values from
