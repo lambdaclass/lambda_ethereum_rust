@@ -785,6 +785,107 @@ fn sar_shift_negative_value() {
 }
 
 #[test]
+fn keccak256_zero_offset_size_four() {
+    let operations = [
+        // Put the required value in memory
+        Operation::Push32(U256::from(
+            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        )),
+        Operation::Push0,
+        Operation::Mstore,
+        // Call the opcode
+        Operation::Push((1, 4.into())), // size
+        Operation::Push0,               // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(
+        vm.current_call_frame().stack.pop().unwrap()
+            == U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
+    );
+    assert!(vm.current_call_frame().pc() == 40);
+}
+
+#[test]
+fn keccak256_zero_offset_size_bigger_than_actual_memory() {
+    let operations = [
+        // Put the required value in memory
+        Operation::Push32(U256::from(
+            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        )),
+        Operation::Push0,
+        Operation::Mstore,
+        // Call the opcode
+        Operation::Push((1, 33.into())), // size > memory.data.len() (32)
+        Operation::Push0,                // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(
+        vm.current_call_frame().stack.pop().unwrap()
+            == U256::from("0xae75624a7d0413029c1e0facdd38cc8e177d9225892e2490a69c2f1f89512061")
+    );
+    assert!(vm.current_call_frame().pc() == 40);
+}
+
+#[test]
+fn keccak256_zero_offset_zero_size() {
+    let operations = [
+        Operation::Push0, // size
+        Operation::Push0, // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(
+        vm.current_call_frame().stack.pop().unwrap()
+            == U256::from("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+    );
+    assert!(vm.current_call_frame().pc() == 4);
+}
+
+#[test]
+fn keccak256_offset_four_size_four() {
+    let operations = [
+        // Put the required value in memory
+        Operation::Push32(U256::from(
+            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        )),
+        Operation::Push0,
+        Operation::Mstore,
+        // Call the opcode
+        Operation::Push((1, 4.into())), // size
+        Operation::Push((1, 4.into())), // offset
+        Operation::Keccak256,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(
+        vm.current_call_frame().stack.pop().unwrap()
+            == U256::from("0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c")
+    );
+    assert!(vm.current_call_frame().pc() == 41);
+}
+
+#[test]
 fn mstore() {
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x33333)),

@@ -1,6 +1,7 @@
 use crate::{call_frame::CallFrame, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_types::{U256, U512};
+use sha3::{Digest, Keccak256};
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -271,6 +272,18 @@ impl VM {
                         U256::zero()
                     };
                     current_call_frame.stack.push(result);
+                }
+                Opcode::KECCAK256 => {
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value_bytes = current_call_frame.memory.load_range(offset, size);
+
+                    let mut hasher = Keccak256::new();
+                    hasher.update(value_bytes);
+                    let result = hasher.finalize();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(&result));
                 }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());

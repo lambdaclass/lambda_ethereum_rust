@@ -27,6 +27,11 @@ impl Memory {
         U256::from(value_bytes)
     }
 
+    pub fn load_range(&mut self, offset: usize, size: usize) -> Vec<u8> {
+        self.resize(offset + size);
+        self.data.get(offset..offset + size).unwrap().into()
+    }
+
     pub fn store_bytes(&mut self, offset: usize, value: &[u8]) {
         let len = value.len();
         self.resize(offset + len);
