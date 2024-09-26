@@ -13,7 +13,7 @@ use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
-use libmdbx::orm::{Decodable, Encodable};
+use libmdbx::orm::{Decodable, Encodable, Table};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -36,11 +36,7 @@ impl Store {
     }
 
     // Helper method to write into a libmdbx table
-    fn write<T: libmdbx::orm::Table>(
-        &self,
-        key: T::Key,
-        value: T::Value,
-    ) -> Result<(), StoreError> {
+    fn write<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(), StoreError> {
         let txn = self
             .db
             .begin_readwrite()
@@ -51,7 +47,7 @@ impl Store {
     }
 
     // Helper method to read from a libmdbx table
-    fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
+    fn read<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
@@ -368,8 +364,12 @@ impl StoreEngine for Store {
         self.write::<CanonicalBlockHashes>(number, hash.into())
     }
 
-    fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError> {
-        Ok(self.read::<CanonicalBlockHashes>(number)?.map(|b| b.to()))
+    fn get_canonical_block_hash(
+        &self,
+        number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        self.read::<CanonicalBlockHashes>(number)
+            .map(|o| o.map(|hash_rlp| hash_rlp.to()))
     }
 
     fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {

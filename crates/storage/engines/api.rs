@@ -151,6 +151,12 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         Ok(Some(Block { header, body }))
     }
 
+    // Get the canonical block hash for a given block number.
+    fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError>;
+
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError>;
@@ -213,9 +219,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
 
     // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
-
-    // Get the canonical block hash for a given block number.
-    fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError>;
 
     fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
 

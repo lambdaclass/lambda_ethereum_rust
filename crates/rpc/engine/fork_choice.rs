@@ -2,6 +2,7 @@ use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
 use ethereum_rust_core::{types::Block, H256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
+use tracing::warn;
 
 use crate::{
     types::{
@@ -45,6 +46,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         let Some(head_block) = storage.get_block_by_hash(self.fork_choice_state.head_block_hash)?
         else {
             // TODO: We don't yet support syncing
+            warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
             return Err(RpcErr::Internal);
         };
         // Check that we are not being pushed pre-merge
@@ -55,11 +57,11 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         )? {
             return error_response(error);
         }
-        let canonical_block = storage.get_canonical_block(head_block.header.number)?;
+        let canonical_block = storage.get_canonical_block_hash(head_block.header.number)?;
         let current_block_hash = {
             let current_block_number =
                 storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
-            storage.get_canonical_block(current_block_number)?
+            storage.get_canonical_block_hash(current_block_number)?
         };
         if canonical_block.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
             // TODO: We don't handle re-orgs yet
@@ -147,7 +149,7 @@ fn set_finalized_block<'a>(
         };
 
         if !storage
-            .get_canonical_block(finalized_block.header.number)?
+            .get_canonical_block_hash(finalized_block.header.number)?
             .is_some_and(|ref h| h == finalized_block_hash)
         {
             return Ok(Some("final block not in canonical chain"));
@@ -169,7 +171,7 @@ fn set_safe_block<'a>(
         };
 
         if !storage
-            .get_canonical_block(safe_block.header.number)?
+            .get_canonical_block_hash(safe_block.header.number)?
             .is_some_and(|ref h| h == safe_block_hash)
         {
             return Ok(Some("safe block not in canonical chain"));

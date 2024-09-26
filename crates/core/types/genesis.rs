@@ -88,7 +88,7 @@ pub struct ChainConfig {
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
-pub enum ForkId {
+pub enum Fork {
     Paris = 0,
     Shanghai = 1,
     Cancun = 2,
@@ -109,14 +109,47 @@ impl ChainConfig {
         self.istanbul_block.map_or(false, |num| num <= block_number)
     }
 
-    pub fn get_fork(&self, block_timestamp: u64) -> ForkId {
+    pub fn get_fork(&self, block_timestamp: u64) -> Fork {
         if self.is_cancun_activated(block_timestamp) {
-            ForkId::Cancun
+            Fork::Cancun
         } else if self.is_shanghai_activated(block_timestamp) {
-            ForkId::Shanghai
+            Fork::Shanghai
         } else {
-            ForkId::Paris
+            Fork::Paris
         }
+    }
+
+    pub fn gather_forks(&self) -> (Vec<Option<u64>>, Vec<Option<u64>>) {
+        let block_number_based_forks: Vec<Option<u64>> = vec![
+            self.homestead_block,
+            if self.dao_fork_support {
+                self.dao_fork_block
+            } else {
+                None
+            },
+            self.eip150_block,
+            self.eip155_block,
+            self.eip158_block,
+            self.byzantium_block,
+            self.constantinople_block,
+            self.petersburg_block,
+            self.istanbul_block,
+            self.muir_glacier_block,
+            self.berlin_block,
+            self.london_block,
+            self.arrow_glacier_block,
+            self.gray_glacier_block,
+            self.merge_netsplit_block,
+        ];
+
+        let timestamp_based_forks: Vec<Option<u64>> = vec![
+            self.shanghai_time,
+            self.cancun_time,
+            self.prague_time,
+            self.verkle_time,
+        ];
+
+        (block_number_based_forks, timestamp_based_forks)
     }
 }
 

@@ -339,8 +339,11 @@ impl StoreEngine for Store {
         Ok(())
     }
 
-    fn get_canonical_block(&self, number: BlockNumber) -> Result<Option<BlockHash>, StoreError> {
-        Ok(self.inner().canonical_hashes.get(&number).cloned())
+    fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        Ok(self.inner().canonical_hashes.get(&block_number).cloned())
     }
 
     fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
