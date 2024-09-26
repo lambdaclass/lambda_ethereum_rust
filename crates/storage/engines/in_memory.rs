@@ -4,7 +4,7 @@ use ethereum_rust_core::types::{
     BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -34,6 +34,8 @@ struct StoreInner {
     receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
     state_trie_nodes: NodeMap,
     storage_trie_nodes: HashMap<Address, NodeMap>,
+    // TODO (#307): Remove TotalDifficulty.
+    block_total_difficulties: HashMap<BlockHash, U256>,
 }
 
 #[derive(Default, Debug)]
@@ -43,6 +45,8 @@ struct ChainData {
     finalized_block_number: Option<BlockNumber>,
     safe_block_number: Option<BlockNumber>,
     latest_block_number: Option<BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
+    latest_total_difficulty: Option<U256>,
     pending_block_number: Option<BlockNumber>,
 }
 
@@ -103,6 +107,28 @@ impl StoreEngine for Store {
 
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.inner().block_numbers.get(&block_hash).copied())
+    }
+
+    fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.inner()
+            .block_total_difficulties
+            .insert(block_hash, block_total_difficulty);
+        Ok(())
+    }
+
+    fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<U256>, StoreError> {
+        Ok(self
+            .inner()
+            .block_total_difficulties
+            .get(&block_hash)
+            .copied())
     }
 
     fn add_transaction_location(
@@ -239,6 +265,16 @@ impl StoreEngine for Store {
             .replace(block_number);
         Ok(())
     }
+    fn update_latest_total_difficulty(
+        &self,
+        latest_total_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.inner()
+            .chain_data
+            .latest_total_difficulty
+            .replace(latest_total_difficulty);
+        Ok(())
+    }
 
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.inner().chain_data.latest_block_number)
@@ -250,6 +286,10 @@ impl StoreEngine for Store {
             .pending_block_number
             .replace(block_number);
         Ok(())
+    }
+
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        Ok(self.inner().chain_data.latest_total_difficulty)
     }
 
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
@@ -295,6 +335,13 @@ impl StoreEngine for Store {
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
         self.inner().canonical_hashes.insert(number, hash);
         Ok(())
+    }
+
+    fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        Ok(self.inner().canonical_hashes.get(&block_number).cloned())
     }
 }
 

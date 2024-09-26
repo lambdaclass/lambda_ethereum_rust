@@ -7,7 +7,7 @@ use std::cmp::min;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHeader, BlockNumber, ForkId, GenericTransaction, Receipt,
+        AccountInfo, Block, BlockHeader, BlockNumber, Fork, GenericTransaction, Receipt,
         Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
@@ -538,9 +538,9 @@ fn access_list_inspector(
 pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
     let chain_config = store.get_chain_config()?;
     let spec = match chain_config.get_fork(block_timestamp) {
-        ForkId::Cancun => SpecId::CANCUN,
-        ForkId::Shanghai => SpecId::SHANGHAI,
-        ForkId::Paris => SpecId::MERGE,
+        Fork::Cancun => SpecId::CANCUN,
+        Fork::Shanghai => SpecId::SHANGHAI,
+        Fork::Paris => SpecId::MERGE,
     };
 
     Ok(spec)

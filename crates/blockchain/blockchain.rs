@@ -18,16 +18,15 @@ use ethereum_rust_storage::Store;
 //TODO: Implement a struct Chain or BlockChain to encapsulate
 //functionality and canonical chain state and config
 
-/// Adds a new block as head of the chain.
-/// Performs pre and post execution validation, and updates the database.
-/// Right now we can only handle blocks that extend the canonical chain.
-/// This is:
-/// - The parent_hash field on the block header is the hash of the head of the canonical chain
-/// - The block's number is the latest block number of the canonical chain+1
+/// Adds a new block to the store. It may or may not be canonical, as long as its parent is part
+/// of the canonical chain. It doesn't modify the canonical chain/head.
+///
+/// Performs pre and post execution validation, and updates the database with the post state.
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    //TODO: Eventually we should be able to handle blocks
-    //which are not directly extending the canonical chain
-    extends_canonical_chain(block, storage)?;
+    // TODO(#444): handle cases where the canonical chain is indirectly connected to the block.
+    // TODO(#438): handle cases where blocks are missing between the canonical chain and the block.
+    validate_parent_canonical(block, storage)?;
+
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
     let mut state = evm_state(storage.clone(), parent_header.number);
@@ -40,6 +39,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     validate_gas_used(&receipts, &block.header)?;
 
     let account_updates = get_state_transitions(&mut state);
+
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
@@ -53,25 +53,17 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block_hash)?;
 
-    // TODO(#350): This should happen in forkchoiceUpdates, not every time a block is added.
-    storage.set_canonical_block(block.header.number, block_hash)?;
-
     Ok(())
 }
 
-pub fn extends_canonical_chain(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    let latest_block_number = storage
-        .get_latest_block_number()?
-        .ok_or(ChainError::StoreError(StoreError::Custom(
-            "Could not find latest valid hash".to_string(),
-        )))?;
-
-    if block.header.number != latest_block_number.saturating_add(1) {
-        Err(ChainError::NonCanonicalBlock)
-    } else {
-        Ok(())
+/// Validates if the parent of the block is part of the canonical chain. Returns error if not.
+pub fn validate_parent_canonical(block: &Block, storage: &Store) -> Result<(), ChainError> {
+    match storage.get_canonical_block_hash(block.header.number.saturating_sub(1))? {
+        Some(hash) if hash == block.header.parent_hash => Ok(()),
+        _ => Err(ChainError::NonCanonicalParent),
     }
 }
+
 /// Stores block and header in the database
 pub fn store_block(storage: &Store, block: Block) -> Result<(), ChainError> {
     storage.add_block(block)?;
