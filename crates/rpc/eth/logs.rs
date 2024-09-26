@@ -48,7 +48,7 @@ impl RpcHandler for LogsRequest {
                     .get("toBlock")
                     .ok_or_else(|| RpcErr::MissingParam("toBlock".to_string()))
                     .and_then(|block_number| BlockIdentifier::parse(block_number.clone(), 0))?;
-                let address_filter: Option<AddressFilter> = param
+                let address_filters: Option<AddressFilter> = param
                     .get("address")
                     .ok_or_else(|| RpcErr::MissingParam("address".to_string()))
                     .and_then(|address| {
@@ -57,13 +57,20 @@ impl RpcHandler for LogsRequest {
                             _ => Err(RpcErr::WrongParam("address".to_string())),
                         }
                     })?;
-                let topics = param.get("topics").map(|topics| {
-                    serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()).unwrap()
-                });
+                let topics = param
+                    .get("topics")
+                    .ok_or_else(|| RpcErr::MissingParam("topics".to_string()))
+                    .and_then(|topics| {
+                        match serde_json::from_value::<Option<Vec<TopicFilter>>>(topics.clone()) {
+                            Ok(filters) => Ok(filters),
+                            _ => Err(RpcErr::WrongParam("topics".to_string())),
+                        }
+                    })?
+                    .unwrap_or_else(|| Vec::new());
                 Ok(LogsRequest {
                     from_block,
-                    address_filters: address_filter,
-                    topics: topics.flatten().unwrap_or_else(Vec::new),
+                    address_filters,
+                    topics,
                     to_block,
                 })
             }
