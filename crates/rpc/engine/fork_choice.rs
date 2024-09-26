@@ -1,5 +1,5 @@
 use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
-use ethereum_rust_core::{types::Block, H256, U256};
+use ethereum_rust_core::{types::{Block, BlockHash, BlockNumber}, H256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
 use tracing::warn;
@@ -64,8 +64,13 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             storage.get_canonical_block_hash(current_block_number)?
         };
         if canonical_block.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
-            // TODO: We don't handle re-orgs yet
-            return Err(RpcErr::Internal);
+            // We are still under the assumption that the blocks are only added if they are connected
+            // to the canonical chain. That means that for the state to be consistent we only need to
+            // check that the safe and finalized ones are in the canonical chain and that the heads parent is too.
+            if storage.get_canonical_block_hash(head_block.header.number.saturating_sub(1))?
+                .is_some_and(|h| h == head_block.header.parent_hash) {
+                    storage.set_canonical_block(head_block.header.number, self.fork_choice_state.head_block_hash)?;
+                }
         } else if current_block_hash.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
             // If the head block is already in our canonical chain, the beacon client is
             // probably resyncing. Ignore the update.
