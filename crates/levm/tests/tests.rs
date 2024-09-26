@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethereum_types::U256;
+use ethereum_types::{H256, U256};
 use levm::{operations::Operation, vm::VM};
 
 // cargo test -p 'levm'
@@ -1136,4 +1136,82 @@ fn mload_uninitialized_memory() {
 
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
+}
+
+#[test]
+fn block_hash_op() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = 3_u8;
+    let expected_block_hash = U256::from(block_hash);
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.block_number = U256::from(current_block_number);
+    vm.db
+        .insert_block_hash(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn block_hash_same_block_number() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = block_number;
+    let expected_block_hash = U256::zero();
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.block_number = U256::from(current_block_number);
+    vm.db
+        .insert_block_hash(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn block_hash_block_number_not_from_recent_256() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = 258;
+    let expected_block_hash = U256::zero();
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.block_number = U256::from(current_block_number);
+    vm.db
+        .insert_block_hash(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        expected_block_hash
+    );
 }
