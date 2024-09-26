@@ -63,6 +63,10 @@ impl EncodedTransaction {
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
         Transaction::decode_canonical(self.0.as_ref())
     }
+
+    fn encode(tx: &Transaction) -> Self {
+        Self(Bytes::from(tx.encode_canonical_to_vec()))
+    }
 }
 
 impl ExecutionPayloadV3 {
@@ -105,6 +109,33 @@ impl ExecutionPayloadV3 {
             },
             body,
         })
+    }
+
+    pub fn from_block(block: Block) -> Self {
+        Self {
+            parent_hash: block.header.parent_hash,
+            fee_recipient: block.header.coinbase,
+            state_root: block.header.state_root,
+            receipts_root: block.header.receipts_root,
+            logs_bloom: block.header.logs_bloom,
+            prev_randao: block.header.prev_randao,
+            block_number: block.header.number,
+            gas_limit: block.header.gas_limit,
+            gas_used: block.header.gas_used,
+            timestamp: block.header.timestamp,
+            extra_data: block.header.extra_data.clone(),
+            base_fee_per_gas: block.header.base_fee_per_gas.unwrap_or_default(),
+            block_hash: block.header.compute_block_hash(),
+            transactions: block
+                .body
+                .transactions
+                .iter()
+                .map(|tx| EncodedTransaction::encode(tx))
+                .collect(),
+            withdrawals: block.body.withdrawals.unwrap_or_default(),
+            blob_gas_used: block.header.blob_gas_used.unwrap_or_default(),
+            excess_blob_gas: block.header.excess_blob_gas.unwrap_or_default(),
+        }
     }
 }
 

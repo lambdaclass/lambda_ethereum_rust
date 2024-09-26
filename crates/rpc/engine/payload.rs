@@ -17,6 +17,10 @@ pub struct NewPayloadV3Request {
     pub parent_beacon_block_root: H256,
 }
 
+pub struct GetPayloadV3Request {
+    pub payload_id: u64,
+}
+
 impl RpcHandler for NewPayloadV3Request {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
         let params = params.as_ref().ok_or(RpcErr::BadParams)?;
@@ -117,5 +121,30 @@ impl RpcHandler for NewPayloadV3Request {
         }?;
 
         serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetPayloadV3Request {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+        let Ok(hex_str) = serde_json::from_value::<String>(params[0].clone()) else {
+            return Err(RpcErr::BadParams);
+        };
+        // Check that the BlockNumber is 0x prefixed
+        let Some(hex_str) = hex_str.strip_prefix("0x") else {
+            return Err(RpcErr::BadHexFormat(0));
+        };
+        // Parse hex string
+        let Ok(payload_id) = u64::from_str_radix(hex_str, 16) else {
+            return Err(RpcErr::BadHexFormat(0));
+        };
+        Ok(GetPayloadV3Request { payload_id })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        return Err(RpcErr::Internal);
     }
 }
