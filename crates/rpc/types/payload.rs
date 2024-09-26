@@ -213,6 +213,40 @@ impl PayloadStatus {
     }
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionPayloadResponse {
+    pub execution_payload: ExecutionPayloadV3, // We only handle v3 payloads
+    #[serde(with = "serde_utils::u64::hex_str")]
+    pub block_value: u64,
+    pub blobs_bundle: BlobsBundle,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlobsBundle {
+    #[serde(with = "serde_utils::bytes::vec")]
+    commitments: Vec<Bytes>,
+    #[serde(serialize_with = "super::account_proof::serialize_proofs")]
+    pub proofs: Vec<Vec<u8>>,
+    #[serde(with = "serde_utils::bytes::vec")]
+    pub blobs: Vec<Bytes>,
+}
+
+impl ExecutionPayloadResponse {
+    pub fn new(payload: ExecutionPayloadV3) -> Self {
+        Self {
+            execution_payload: payload,
+            block_value: 0,
+            blobs_bundle: BlobsBundle {
+                commitments: vec![],
+                proofs: vec![],
+                blobs: vec![],
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

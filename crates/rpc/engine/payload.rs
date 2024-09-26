@@ -6,6 +6,7 @@ use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
 
+use crate::types::payload::ExecutionPayloadResponse;
 use crate::{
     types::payload::{ExecutionPayloadV3, PayloadStatus},
     RpcErr, RpcHandler,
@@ -148,6 +149,9 @@ impl RpcHandler for GetPayloadV3Request {
         let Some(payload) = storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload);
         };
-        serde_json::to_value(ExecutionPayloadV3::from_block(payload)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(ExecutionPayloadResponse::new(
+            ExecutionPayloadV3::from_block(payload),
+        ))
+        .map_err(|_| RpcErr::Internal)
     }
 }
