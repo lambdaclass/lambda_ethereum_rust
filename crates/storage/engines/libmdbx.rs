@@ -372,12 +372,12 @@ impl StoreEngine for Store {
             .map(|o| o.map(|hash_rlp| hash_rlp.to()))
     }
 
-    fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
-        self.write::<LocalBlocks>(payload_id, block.into())
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.write::<Payloads>(payload_id, block.into())
     }
 
-    fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
-        Ok(self.read::<LocalBlocks>(payload_id)?.map(|b| b.to()))
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
     }
 }
 
@@ -455,8 +455,8 @@ table!(
 // Local Blocks
 
 table!(
-    /// state trie nodes
-    ( LocalBlocks ) u64 => BlockRLP
+    /// payload id to payload block table
+    ( Payloads ) u64 => BlockRLP
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -556,7 +556,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
-        table_info!(LocalBlocks),
+        table_info!(Payloads),
     ]
     .into_iter()
     .collect();

@@ -220,7 +220,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
 
-    fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
 
-    fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
 }

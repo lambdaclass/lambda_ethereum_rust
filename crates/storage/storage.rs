@@ -580,12 +580,12 @@ impl Store {
         Ok(trie.get_proof(&hash_key(storage_key))?)
     }
 
-    pub fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
-        self.engine.add_local_block(payload_id, block)
+    pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.engine.add_payload(payload_id, block)
     }
 
-    pub fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
-        self.engine.get_local_block(payload_id)
+    pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        self.engine.get_payload(payload_id)
     }
 }
 

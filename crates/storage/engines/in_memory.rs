@@ -37,7 +37,7 @@ struct StoreInner {
     // TODO (#307): Remove TotalDifficulty.
     block_total_difficulties: HashMap<BlockHash, U256>,
     // Stores local blocks by payload id
-    local_blocks: HashMap<u64, Block>,
+    payloads: HashMap<u64, Block>,
 }
 
 #[derive(Default, Debug)]
@@ -346,13 +346,13 @@ impl StoreEngine for Store {
         Ok(self.inner().canonical_hashes.get(&block_number).cloned())
     }
 
-    fn add_local_block(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
-        self.inner().local_blocks.insert(payload_id, block);
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.inner().payloads.insert(payload_id, block);
         Ok(())
     }
 
-    fn get_local_block(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
-        Ok(self.inner().local_blocks.get(&payload_id).cloned())
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        Ok(self.inner().payloads.get(&payload_id).cloned())
     }
 }
 

@@ -105,7 +105,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             let payload_id = args.id();
             response.set_id(payload_id);
             let payload = build_payload(&args, &storage)?;
-            storage.add_local_block(payload_id, payload)?;
+            storage.add_payload(payload_id, payload)?;
         }
 
         serde_json::to_value(response).map_err(|_| RpcErr::Internal)
