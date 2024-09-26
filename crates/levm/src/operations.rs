@@ -216,16 +216,16 @@ impl Operation {
                 assert!(*n <= 16, "SWAP16 is the max");
                 Bytes::copy_from_slice(&[Opcode::SWAP1 as u8 + n - 1])
             } // Operation::Log(n) => Bytes::copy_from_slice(Opcode::&[LOG0 as u8 + n]),
-              // Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
+            // Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
             Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
-              // Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
+            // Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
             Operation::Return => Bytes::copy_from_slice(&[Opcode::RETURN as u8]),
-              // Operation::DelegateCall => Bytes::copy_from_slice(&[Opcode::DELEGATECALL as u8]),
-              // Operation::Create2 => Bytes::copy_from_slice(&[Opcode::CREATE2 as u8]),
-              // Operation::StaticCall => Bytes::copy_from_slice(&[Opcode::STATICCALL as u8]),
-              // Operation::Revert => Bytes::copy_from_slice(&[Opcode::REVERT as u8]),
-              // Operation::Invalid => Bytes::copy_from_slice(&[Opcode::INVALID as u8]),
-              // Operation::SelfDestruct => Bytes::copy_from_slice(&[Opcode::SELFDESTRUCT as u8]),
+            // Operation::DelegateCall => Bytes::copy_from_slice(&[Opcode::DELEGATECALL as u8]),
+            // Operation::Create2 => Bytes::copy_from_slice(&[Opcode::CREATE2 as u8]),
+            // Operation::StaticCall => Bytes::copy_from_slice(&[Opcode::STATICCALL as u8]),
+            // Operation::Revert => Bytes::copy_from_slice(&[Opcode::REVERT as u8]),
+            // Operation::Invalid => Bytes::copy_from_slice(&[Opcode::INVALID as u8]),
+            // Operation::SelfDestruct => Bytes::copy_from_slice(&[Opcode::SELFDESTRUCT as u8]),
         }
     }
 }
