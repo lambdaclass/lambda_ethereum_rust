@@ -71,9 +71,6 @@ impl BlockIdentifier {
             _ => Ok(None),
         }
     }
-    pub(crate) fn latest() -> BlockIdentifier {
-        BlockIdentifier::Tag(BlockTag::Latest)
-    }
 }
 
 impl BlockIdentifierOrHash {
