@@ -51,27 +51,30 @@ make stop-localnet
 ## Dev Setup
 ### Build
 
-To build the main executable and its crates, run:
+#### Rust
+To build the node, you will need the rust toolchain:
+1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html):
+2. Add the rust plugin:
+```shell
+asdf plugin-add rust https://github.com/asdf-community/asdf-rust.git
+```
+3. cd into the project and run:
+```shell
+asdf install
+```
 
+You now should be able to build the client:
 ```bash
 make build
 ```
 
 ### Test
 
-Note: To execute EF tests, the test fixtures are required. To download them, run:
+For testing, we're using three kinds of tests.
 
-```bash
-make download-test-vectors
-```
+##### Ethereum Foundation Tests
 
-To run the tests from a crate, run:
-
-```bash
-make test CRATE=<crate>
-```
-
-Or just run all the tests:
+These are the official execution spec tests, you can execute them with:
 
 ```bash
 make test
@@ -115,36 +118,7 @@ This example runs **every** test under rpc, with debug output
 
 ### Run
 
-To run a localnet, we can use a fork of [Ethereum Package](https://github.com/ethpandaops/ethereum-package), specifically [this branch](https://github.com/lambdaclass/ethereum-package/tree/ethereum-rust-integration) that adds support to our client. We have that included in our repo as a `just` target. Make sure to fetch it like follows:
-
-```bash
-make checkout-ethereum-package
-```
-
-Let's now install kurtosis:
-
-```bash
-# Make sure to have docker installed
-
-# Kurtosis cli
-brew install kurtosis-tech/tap/kurtosis-cli
-```
-
-To run the localnet:
-
-```bash
-# Ethereum package is included in the repo as a make target.
-make localnet
-```
-
-To stop the localnet:
-
-```bash
-make stop-localnet
-```
-
-You can also run the node using the standalone CLI:
-
+Example run:
 ```bash
 cargo run --bin ethereum_rust -- --network test_data/genesis-kurtosis.json
 ```
@@ -213,11 +187,9 @@ RPC endpoints
 See issues and progress: <https://github.com/lambdaclass/ethereum_rust/milestone/1>
 
 ### Milestone 2: History & Reorgs
-
 Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches.
 
 RPC endpoints
-
 - `engine_forkchoiceUpdated` (without `payloadAttributes`)
 - `eth_call` (at any block) ✅
 - `eth_createAccessList` (at any block) ✅
@@ -229,17 +201,14 @@ RPC endpoints
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/4
 
 ### Milestone 3: Block building
-
 Add the ability to build new payloads, so that the consensus client can propose new blocks based on transactions received from the RPC endpoints.
 
 RPC endpoints
-
 - `engine_forkchoiceUpdated` (with `payloadAttributes`)
 - `engine_getPayload`
 - `eth_sendRawTransaction` ✅
 
 ### Milestone 4: P2P Network
-
 Implement DevP2P protocol, including RLPx `p2p` and `eth` features. This will let us get and send blocks and transactions from other nodes. We'll add the transactions we receive to the mempool. We'll also download blocks from other nodes when we get payloads where the parent isn't in our local chain.
 
 RPC endpoints
@@ -249,11 +218,9 @@ RPC endpoints
 See issues and progress: <https://github.com/lambdaclass/ethereum_rust/milestone/2>
 
 ### Milestone 5: Syncing
-
 Add snap sync protocol, which lets us get a recent copy of the blockchain state instead of going through all blocks from genesis. Since we don't support older versions of the spec by design, this is a prerequisite to being able to sync the node with public networks, including mainnet.
 
 RPC endpoints
-
 - `eth_syncing`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
