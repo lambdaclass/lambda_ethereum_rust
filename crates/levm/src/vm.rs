@@ -1,4 +1,4 @@
-use crate::{block::BlockEnv, call_frame::CallFrame, opcodes::Opcode};
+use crate::{block::BlockEnv, call_frame::CallFrame, db::Db, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_types::{Address, U256, U512};
 use sha3::{Digest, Keccak256};
@@ -7,6 +7,7 @@ use sha3::{Digest, Keccak256};
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub block_env: BlockEnv,
+    pub db: Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -33,6 +34,7 @@ impl VM {
         Self {
             call_frames: vec![initial_call_frame],
             block_env: Default::default(),
+            db: Default::default(),
         }
     }
 
@@ -294,7 +296,25 @@ impl VM {
                         .stack
                         .push(U256::from_big_endian(&result));
                 }
-                Opcode::BLOCKHASH => {}
+                Opcode::BLOCKHASH => {
+                    let block_number = current_call_frame.stack.pop().unwrap();
+
+                    // If number is not in the valid range (last 256 blocks), return zero.
+                    if block_number < block_env.block_number.saturating_sub(U256::from(256))
+                        || block_number >= block_env.block_number
+                    {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    if let Some(block_hash) = self.db.get_block_hash(block_number) {
+                        current_call_frame
+                            .stack
+                            .push(U256::from_big_endian(&block_hash.0));
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    };
+                }
                 Opcode::COINBASE => {
                     let coinbase = block_env.coinbase;
                     current_call_frame.stack.push(address_to_word(coinbase));
