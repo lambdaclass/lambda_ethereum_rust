@@ -342,23 +342,14 @@ impl VM {
                     current_call_frame.stack.push(U256::from(chain_id));
                 }
                 Opcode::SELFBALANCE => {
-                    // TODO: when we have implemented accounts
+                    // TODO: when we have accounts implemented
                 }
                 Opcode::BASEFEE => {
                     let base_fee = block_env.base_fee_per_gas;
                     current_call_frame.stack.push(base_fee);
                 }
                 Opcode::BLOBHASH => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value_bytes = current_call_frame.memory.load_range(offset, size);
-
-                    let mut hasher = Keccak256::new();
-                    hasher.update(value_bytes);
-                    let result = hasher.finalize();
-                    current_call_frame
-                        .stack
-                        .push(U256::from_big_endian(&result));
+                    // TODO: when we have tx implemented
                 }
                 Opcode::BLOBBASEFEE => {
                     let blob_base_fee = block_env.calculate_blob_gas_price();

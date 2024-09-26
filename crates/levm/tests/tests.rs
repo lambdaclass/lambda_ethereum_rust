@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethereum_types::{H256, U256};
+use ethereum_types::{Address, H256, U256};
 use levm::{operations::Operation, vm::VM};
 
 // cargo test -p 'levm'
@@ -1213,5 +1213,118 @@ fn block_hash_block_number_not_from_recent_256() {
     assert_eq!(
         vm.current_call_frame().stack.pop().unwrap(),
         expected_block_hash
+    );
+}
+
+#[test]
+fn coinbase_op() {
+    let coinbase_address = 100;
+
+    let operations = [Operation::Coinbase, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.coinbase = Address::from_low_u64_be(coinbase_address);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        U256::from(coinbase_address)
+    );
+}
+
+#[test]
+fn timestamp_op() {
+    let timestamp = U256::from(100000);
+
+    let operations = [Operation::Timestamp, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.timestamp = timestamp;
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), timestamp);
+}
+
+#[test]
+fn number_op() {
+    let block_number = U256::from(1000);
+
+    let operations = [Operation::Number, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.block_number = block_number;
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), block_number);
+}
+
+#[test]
+fn prevrandao_op() {
+    let prevrandao = H256::from_low_u64_be(2000);
+
+    let operations = [Operation::Prevrandao, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.prevrandao = Some(prevrandao);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        U256::from_big_endian(&prevrandao.0)
+    );
+}
+
+#[test]
+fn gaslimit_op() {
+    let gas_limit = 1000;
+
+    let operations = [Operation::Gaslimit, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.gas_limit = gas_limit;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        U256::from(gas_limit)
+    );
+}
+
+#[test]
+fn chain_id_op() {
+    let chain_id = 1;
+
+    let operations = [Operation::Chainid, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.chain_id = chain_id;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        U256::from(chain_id)
+    );
+}
+
+#[test]
+fn basefee_op() {
+    let base_fee_per_gas = U256::from(1000);
+
+    let operations = [Operation::Basefee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.base_fee_per_gas = base_fee_per_gas;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame().stack.pop().unwrap(),
+        base_fee_per_gas
     );
 }
