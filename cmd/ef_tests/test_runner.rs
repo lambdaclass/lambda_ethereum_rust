@@ -42,12 +42,18 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
                 );
                 return;
             }
-            Ok(_) => assert!(
-                !expects_exception,
-                "Expecte transaction execution to fail in test: {} with error: {}",
-                test_key,
-                block_fixture.expect_exception.clone().unwrap()
-            ),
+            Ok(_) => {
+                assert!(
+                    !expects_exception,
+                    "Expected transaction execution to fail in test: {} with error: {}",
+                    test_key,
+                    block_fixture.expect_exception.clone().unwrap()
+                );
+                // NOTE: this is added in place of fork choice updates.
+                store
+                    .set_canonical_block(block.header.number, block.header.compute_block_hash())
+                    .unwrap();
+            }
         }
     }
     check_poststate_against_db(test_key, test, &store)
