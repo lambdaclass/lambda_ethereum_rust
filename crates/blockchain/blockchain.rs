@@ -5,7 +5,7 @@ use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK}
 use error::{ChainError, InvalidBlockError};
 use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
-    BlockHash, BlockHeader, EIP4844Transaction, Receipt, Transaction,
+    BlockHash, BlockHeader, BlockNumber, EIP4844Transaction, Receipt, Transaction,
 };
 use ethereum_rust_core::H256;
 
@@ -23,9 +23,8 @@ use ethereum_rust_storage::Store;
 ///
 /// Performs pre and post execution validation, and updates the database with the post state.
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    // TODO(#444): handle cases where the canonical chain is indirectly connected to the block.
     // TODO(#438): handle cases where blocks are missing between the canonical chain and the block.
-    validate_parent_canonical(block, storage)?;
+    validate_connected_to_canonical_chain(&block.header, storage)?;
 
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
@@ -57,11 +56,21 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 }
 
 /// Validates if the parent of the block is part of the canonical chain. Returns error if not.
-pub fn validate_parent_canonical(block: &Block, storage: &Store) -> Result<(), ChainError> {
-    match storage.get_canonical_block_hash(block.header.number.saturating_sub(1))? {
-        Some(hash) if hash == block.header.parent_hash => Ok(()),
-        _ => Err(ChainError::NonCanonicalParent),
+fn validate_connected_to_canonical_chain(
+    header: &BlockHeader,
+    storage: &Store,
+) -> Result<(), ChainError> {
+    // Note: Should we check if this block is canonical or is it assumed not by the fact that it's here?
+    let mut parent_number = header.number - 1;
+    let mut parent_hash = header.parent_hash;
+    while !is_canonical(storage, parent_number, parent_hash)? {
+        let Some(parent) = storage.get_block_header_by_hash(parent_hash)? else {
+            return Err(ChainError::NonCanonicalParent);
+        };
+        parent_number -= 1;
+        parent_hash = parent.parent_hash;
     }
+    Ok(())
 }
 
 /// Stores block and header in the database
@@ -202,6 +211,17 @@ fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
 /// Calculates the blob gas required by a transaction
 fn get_total_blob_gas(tx: &EIP4844Transaction) -> u64 {
     GAS_PER_BLOB * tx.blob_versioned_hashes.len() as u64
+}
+
+pub fn is_canonical(
+    store: &Store,
+    block_number: BlockNumber,
+    block_hash: BlockHash,
+) -> Result<bool, StoreError> {
+    match store.get_canonical_block_hash(block_number)? {
+        Some(hash) if hash == block_hash => Ok(true),
+        _ => Ok(false),
+    }
 }
 
 #[cfg(test)]

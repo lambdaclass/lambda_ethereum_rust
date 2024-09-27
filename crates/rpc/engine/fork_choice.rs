@@ -1,3 +1,4 @@
+use ethereum_rust_blockchain::is_canonical;
 use ethereum_rust_core::types::{BlockHash, BlockHeader, BlockNumber};
 use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::{json, Value};
@@ -181,16 +182,5 @@ fn find_ancestry(
         Ok(Some(branch))
     } else {
         Ok(None)
-    }
-}
-
-fn is_canonical(
-    store: &Store,
-    block_number: BlockNumber,
-    block_hash: BlockHash,
-) -> Result<bool, StoreError> {
-    match store.get_canonical_block_hash(block_number)? {
-        Some(hash) if hash == block_hash => Ok(true),
-        _ => Ok(false),
     }
 }
