@@ -31,11 +31,16 @@ pub mod gas_cost {
     pub const SAR: u64 = 3;
     pub const KECCAK25_STATIC: u64 = 30;
     pub const KECCAK25_DYNAMIC_BASE: u64 = 6;
+    pub const POP: u64 = 2;
     pub const MLOAD_STATIC: u64 = 3;
     pub const MSTORE_STATIC: u64 = 3;
     pub const MSTORE8_STATIC: u64 = 3;
+    pub const JUMP: u64 = 8;
+    pub const JUMPI: u64 = 10;
+    pub const PC: u64 = 2;
     pub const MSIZE: u64 = 2;
     pub const GAS: u64 = 2;
+    pub const JUMPDEST: u64 = 1;
     pub const MCOPY_STATIC: u64 = 3;
     pub const MCOPY_DYNAMIC_BASE: u64 = 3;
     pub const PUSH0: u64 = 2;

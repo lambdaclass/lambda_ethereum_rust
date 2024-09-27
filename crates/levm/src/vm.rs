@@ -35,7 +35,7 @@ impl VM {
 
     pub fn execute(&mut self) {
         let gas_limit = i64::MAX as u64; // TODO: it was initialized like this on evm_mlir, check why
-        let mut consumed_gas = TX_BASE_COST; // TODO: check where to place these two, VM?
+        let mut consumed_gas = TX_BASE_COST; // TODO: check where to place these two, probably TxEnv
         let current_call_frame = self.current_call_frame();
         loop {
             match current_call_frame.next_opcode().unwrap() {
@@ -377,23 +377,39 @@ impl VM {
                     consumed_gas += gas_cost
                 }
                 Opcode::JUMP => {
+                    if consumed_gas + gas_cost::JUMP > gas_limit {
+                        break; // should revert the tx
+                    }
                     let jump_address = current_call_frame.stack.pop().unwrap();
                     current_call_frame.jump(jump_address);
+                    consumed_gas += gas_cost::JUMP
                 }
                 Opcode::JUMPI => {
+                    if consumed_gas + gas_cost::JUMPI > gas_limit {
+                        break; // should revert the tx
+                    }
                     let jump_address = current_call_frame.stack.pop().unwrap();
                     let condition = current_call_frame.stack.pop().unwrap();
                     if condition != U256::zero() {
                         current_call_frame.jump(jump_address);
                     }
+                    consumed_gas += gas_cost::JUMPI
                 }
                 Opcode::JUMPDEST => {
                     // just consume some gas, jumptable written at the start
+                    if consumed_gas + gas_cost::JUMPDEST > gas_limit {
+                        break; // should revert the tx
+                    }
+                    consumed_gas += gas_cost::JUMPDEST
                 }
                 Opcode::PC => {
+                    if consumed_gas + gas_cost::PC > gas_limit {
+                        break; // should revert the tx
+                    }
                     current_call_frame
                         .stack
                         .push(U256::from(current_call_frame.pc - 1));
+                    consumed_gas += gas_cost::PC
                 }
                 Opcode::PUSH0 => {
                     if consumed_gas + gas_cost::PUSH0 > gas_limit {
@@ -560,7 +576,11 @@ impl VM {
                     consumed_gas += gas_cost::SWAPN
                 }
                 Opcode::POP => {
+                    if consumed_gas + gas_cost::POP > gas_limit {
+                        break; // should revert the tx
+                    }
                     current_call_frame.stack.pop().unwrap();
+                    consumed_gas += gas_cost::POP
                 }
                 Opcode::MLOAD => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
