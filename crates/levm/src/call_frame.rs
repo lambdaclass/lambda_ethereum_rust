@@ -44,14 +44,11 @@ impl CallFrame {
 
     fn valid_jump(&self, offset: U256) -> bool {
         // In the future this should be the Opcode::Invalid and halt
-        self.opcode_at(offset).eq(&Opcode::JUMPDEST)
-    }
-
-    fn opcode_at(&self, offset: U256) -> Opcode {
         self.bytecode
             .get(offset.as_usize())
             .copied()
             .map(Opcode::from)
-            .unwrap_or(Opcode::STOP)
+            .map(|opcode| opcode.eq(&Opcode::JUMPDEST))
+            .is_some_and(|is_jumpdest| is_jumpdest)
     }
 }
