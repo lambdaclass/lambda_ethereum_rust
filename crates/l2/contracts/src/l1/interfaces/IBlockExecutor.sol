@@ -3,8 +3,8 @@ pragma solidity 0.8.27;
 
 /// @title Interface for the BlockExecutor contract.
 /// @author LambdaClass
-/// @notice An Inbox contract is a contract that allows L1<->L2 communication
-/// from L1. It both sends messages from L1 to L2 and receives messages from L2.
+/// @notice A BlockExecutor contract ensures the advancement of the L2. It is used
+/// by the operator to commit blocks and verify block proofs.
 interface IBlockExecutor {
     /// @notice A block has been committed.
     /// @dev Event emitted when a block is committed.
