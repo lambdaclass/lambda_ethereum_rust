@@ -404,6 +404,9 @@ impl VM {
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
                 }
+                Opcode::POP => {
+                    current_call_frame.stack.pop().unwrap();
+                }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     if current_call_frame.is_static {
                         panic!("Cannot create log in static context"); // should return an error and halt
