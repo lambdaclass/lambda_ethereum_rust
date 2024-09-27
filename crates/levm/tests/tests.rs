@@ -1441,3 +1441,40 @@ fn log_with_data_in_memory_smaller_than_size() {
     assert_eq!(logs[0].data, data);
     assert_eq!(logs[0].topics.len(), 0);
 }
+
+#[test]
+fn multiple_logs_of_different_types() {
+    let mut topic1: [u8; 32] = [0x00; 32];
+    topic1[31] = 1;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log1
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(1),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 2);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[1].data, data.to_vec());
+    assert_eq!(logs[0].topics, vec![U256::from_big_endian(&topic1)]);
+    assert_eq!(logs[1].topics.len(), 0);
+}
