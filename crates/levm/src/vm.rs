@@ -12,7 +12,7 @@ use std::i64;
 pub struct VM {
     call_frames: Vec<CallFrame>,
     gas_limit: u64,
-    consumed_gas: u64, // TODO: check where to place these two in the future, probably TxEnv
+    pub consumed_gas: u64, // TODO: check where to place these two in the future, probably TxEnv
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -672,6 +672,7 @@ impl VM {
                 _ => unimplemented!(),
             }
         }
+        self.consumed_gas = tx_env.consumed_gas
     }
 
     pub fn current_call_frame(&mut self) -> &mut CallFrame {
