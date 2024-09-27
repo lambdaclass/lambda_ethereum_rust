@@ -24,8 +24,8 @@ fn add_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
-    assert!(vm.current_call_frame().pc() == 68);
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::one());
+    assert_eq!(vm.current_call_frame().pc(), 68);
 }
 
 #[test]
@@ -802,11 +802,11 @@ fn keccak256_zero_offset_size_four() {
 
     vm.execute();
 
-    assert!(
+    assert_eq!(
         vm.current_call_frame().stack.pop().unwrap()
-            == U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
+           , U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
     );
-    assert!(vm.current_call_frame().pc() == 40);
+    assert_eq!(vm.current_call_frame().pc(), 40);
 }
 
 #[test]
@@ -829,11 +829,11 @@ fn keccak256_zero_offset_size_bigger_than_actual_memory() {
 
     vm.execute();
 
-    assert!(
+    assert_eq!(
         vm.current_call_frame().stack.pop().unwrap()
-            == U256::from("0xae75624a7d0413029c1e0facdd38cc8e177d9225892e2490a69c2f1f89512061")
+           , U256::from("0xae75624a7d0413029c1e0facdd38cc8e177d9225892e2490a69c2f1f89512061")
     );
-    assert!(vm.current_call_frame().pc() == 40);
+    assert_eq!(vm.current_call_frame().pc(), 40);
 }
 
 #[test]
@@ -849,11 +849,11 @@ fn keccak256_zero_offset_zero_size() {
 
     vm.execute();
 
-    assert!(
+    assert_eq!(
         vm.current_call_frame().stack.pop().unwrap()
-            == U256::from("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+           , U256::from("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
     );
-    assert!(vm.current_call_frame().pc() == 4);
+    assert_eq!(vm.current_call_frame().pc(), 4);
 }
 
 #[test]
@@ -876,11 +876,11 @@ fn keccak256_offset_four_size_four() {
 
     vm.execute();
 
-    assert!(
+    assert_eq!(
         vm.current_call_frame().stack.pop().unwrap()
-            == U256::from("0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c")
+           , U256::from("0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c")
     );
-    assert!(vm.current_call_frame().pc() == 41);
+    assert_eq!(vm.current_call_frame().pc(), 41);
 }
 
 #[test]
@@ -1149,7 +1149,7 @@ fn pop_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::one());
 }
 
 // TODO: when adding error handling this should return an error, not panic
@@ -1162,7 +1162,7 @@ fn pop_on_empty_stack() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::one());
 }
 
 #[test]
@@ -1172,7 +1172,7 @@ fn pc_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(0));
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(0));
 }
 
 #[test]
@@ -1187,7 +1187,7 @@ fn pc_op_with_push_offset() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(33));
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(33));
 }
 
 #[test]
@@ -1205,7 +1205,7 @@ fn jump_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(10));
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(10));
     assert_eq!(vm.current_call_frame().pc(), 70);
 }
 
@@ -1258,7 +1258,7 @@ fn jumpi_not_zero() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(10));
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(10));
 }
 
 #[test]
@@ -1278,5 +1278,5 @@ fn jumpi_for_zero() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(100));
+    assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(100));
 }
