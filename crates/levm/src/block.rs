@@ -34,6 +34,11 @@ pub struct BlockEnv {
     //
     // [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     pub excess_blob_gas: Option<u64>,
+    /// Total amount of blob gas consumed by the transactions within the block.
+    ///
+    /// Incorporated as part of the Cancun upgrade via [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844#header-extension
     pub blob_gas_used: Option<u64>,
 }
 
