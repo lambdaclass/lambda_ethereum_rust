@@ -1,4 +1,4 @@
-use crate::{call_frame::CallFrame, opcodes::Opcode};
+use crate::{call_frame::CallFrame, log::Log, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_types::{U256, U512};
 use sha3::{Digest, Keccak256};
@@ -403,6 +403,26 @@ impl VM {
                     current_call_frame
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
+                }
+                op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
+                    if current_call_frame.is_static {
+                        panic!("Cannot create log in static context"); // should return an error and halt
+                    }
+
+                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let topics = (0..number_of_topics)
+                        .map(|_| current_call_frame.stack.pop().unwrap())
+                        .collect();
+
+                    let data = current_call_frame.memory.load_range(offset, size);
+                    let log = Log {
+                        address: current_call_frame.msg_sender, // Should change if we are on a Call
+                        topics,
+                        data,
+                    };
+                    current_call_frame.logs.push(log);
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);

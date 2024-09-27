@@ -149,12 +149,11 @@ pub enum Opcode {
     SWAP15 = 0x9E,
     SWAP16 = 0x9F,
     // // Logging Operations
-    // LOG0 = 0xA0,
-    // LOG1 = 0xA1,
-    // LOG2 = 0xA2,
-    // LOG3 = 0xA3,
-    // LOG4 = 0xA4,
-
+    LOG0 = 0xA0,
+    LOG1 = 0xA1,
+    LOG2 = 0xA2,
+    LOG3 = 0xA3,
+    LOG4 = 0xA4,
     // // System Operations
     // CREATE = 0xF0,
     // CALL = 0xF1,

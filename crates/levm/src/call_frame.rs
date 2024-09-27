@@ -1,4 +1,4 @@
-use crate::{memory::Memory, opcodes::Opcode};
+use crate::{log::Log, memory::Memory, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
 
@@ -12,6 +12,8 @@ pub struct CallFrame {
     pub bytecode: Bytes,
     pub delegate: Option<Address>,
     pub msg_value: U256,
+    pub logs: Vec<Log>,
+    pub is_static: bool,
 }
 
 impl CallFrame {
