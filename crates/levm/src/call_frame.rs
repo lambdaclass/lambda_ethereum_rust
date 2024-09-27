@@ -3,6 +3,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, U256};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+/// Data record produced during the execution of a transaction.
 pub struct Log {
     pub address: Address,
     pub topics: Vec<H32>,
