@@ -35,7 +35,7 @@ fn callee_return_bytecode(return_value: U256) -> Bytes {
 }
 
 #[test]
-fn test() {
+fn add_op() {
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::one()),
         Operation::Push32(U256::zero()),
@@ -47,8 +47,6 @@ fn test() {
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
     assert!(vm.current_call_frame_mut().pc() == 68);
-
-    println!("{vm:?}");
 }
 
 #[test]
@@ -1352,4 +1350,120 @@ fn pop_on_empty_stack() {
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn pc_op() {
+    let operations = [Operation::PC, Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0));
+}
+
+#[test]
+fn pc_op_with_push_offset() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::PC,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(33));
+}
+
+#[test]
+fn jump_op() {
+    let operations = [
+        Operation::Push32(U256::from(35)),
+        Operation::Jump,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
+    assert_eq!(vm.current_call_frame_mut().pc(), 70);
+}
+
+#[test]
+#[should_panic]
+fn jump_not_jumpdest_position() {
+    let operations = [
+        Operation::Push32(U256::from(36)),
+        Operation::Jump,
+        Operation::Stop,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+    assert_eq!(vm.current_call_frame_mut().pc, 35);
+}
+
+#[test]
+#[should_panic]
+fn jump_position_bigger_than_program_bytecode_size() {
+    let operations = [
+        Operation::Push32(U256::from(5000)),
+        Operation::Jump,
+        Operation::Stop,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+    assert_eq!(vm.current_call_frame_mut().pc(), 35);
+}
+
+#[test]
+fn jumpi_not_zero() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(68)),
+        Operation::Jumpi,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
+}
+
+#[test]
+fn jumpi_for_zero() {
+    let operations = [
+        Operation::Push32(U256::from(100)),
+        Operation::Push32(U256::zero()),
+        Operation::Push32(U256::from(100)),
+        Operation::Jumpi,
+        Operation::Stop,
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
 }
