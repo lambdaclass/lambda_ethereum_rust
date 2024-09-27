@@ -2,6 +2,7 @@ use std::{cmp::min, time::Duration};
 
 use ethereum_types::{Address, H256, U256};
 use tokio::time::sleep;
+use tracing::debug;
 
 use crate::rpc::l1_rpc::L1Rpc;
 
@@ -38,18 +39,21 @@ impl L1Watcher {
 
         loop {
             let current_block = l1_rpc.get_block_number().await.unwrap();
-            println!(
+            debug!(
                 "Current block number: {} ({:#x})",
                 current_block, current_block
             );
             let new_last_block = min(last_block + step, current_block);
-            println!("From {:#x} to {:#x}", last_block, new_last_block);
+            debug!(
+                "Looking logs from block {:#x} to {:#x}",
+                last_block, new_last_block
+            );
 
             let logs = l1_rpc
                 .get_logs(last_block, new_last_block, self.address, self.topics[0])
                 .await;
 
-            println!("Logs: {:#?}", logs);
+            debug!("Logs: {:#?}", logs);
 
             last_block = new_last_block + 1;
             sleep(Duration::from_secs(5)).await;
