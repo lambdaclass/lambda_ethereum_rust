@@ -1,10 +1,14 @@
-use ethereum_rust_core::types::{BlockHash, BlockNumber};
+use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
+use ethereum_rust_core::{types::BlockHeader, H256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
-use serde_json::{json, Value};
+use serde_json::Value;
 use tracing::warn;
 
 use crate::{
-    types::fork_choice::{ForkChoiceState, PayloadAttributesV3},
+    types::{
+        fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
+        payload::PayloadStatus,
+    },
     RpcErr, RpcHandler,
 };
 
@@ -28,83 +32,157 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        // Just a minimal implementation to pass rpc-compat Hive tests.
-        // TODO (#50): Implement `engine_forkchoiceUpdatedV3`
-        let safe = storage.get_block_number(self.fork_choice_state.safe_block_hash);
-        let finalized = storage.get_block_number(self.fork_choice_state.finalized_block_hash);
-
-        // Check if we already have the blocks stored.
-        let (safe_block_number, finalized_block_number) = match (safe, finalized) {
-            (Ok(Some(safe)), Ok(Some(finalized))) => (safe, finalized),
-            _ => return Err(RpcErr::Internal),
+        let error_response = |err_msg: &str| {
+            serde_json::to_value(ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
+                err_msg,
+            )))
+            .map_err(|_| RpcErr::Internal)
         };
 
-        // Check if the payload is available for the new head hash.
-        let header = match storage.get_block_header_by_hash(self.fork_choice_state.head_block_hash)
-        {
-            Ok(Some(header)) => header,
-            Ok(None) => {
-                warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
-                return syncing_response();
+        if self.fork_choice_state.head_block_hash.is_zero() {
+            return error_response("forkchoice requested update to zero hash");
+        }
+        // Check if we have the block stored
+        let Some(head_block) =
+            storage.get_block_header_by_hash(self.fork_choice_state.head_block_hash)?
+        else {
+            // TODO: We don't yet support syncing
+            warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
+            return Err(RpcErr::Internal);
+        };
+        // Check that we are not being pushed pre-merge
+        if let Some(error) = total_difficulty_check(
+            &self.fork_choice_state.head_block_hash,
+            &head_block,
+            &storage,
+        )? {
+            return error_response(error);
+        }
+        let canonical_block = storage.get_canonical_block_hash(head_block.number)?;
+        let current_block_hash = {
+            let current_block_number =
+                storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
+            storage.get_canonical_block_hash(current_block_number)?
+        };
+        if canonical_block.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
+            // We are still under the assumption that the blocks are only added if they are connected
+            // to the canonical chain. That means that for the state to be consistent we only need to
+            // check that the safe and finalized ones are in the canonical chain and that the head's parent is too.
+            if storage
+                .get_canonical_block_hash(head_block.number.saturating_sub(1))?
+                .is_some_and(|h| h == head_block.parent_hash)
+            {
+                storage.set_canonical_block(
+                    head_block.number,
+                    self.fork_choice_state.head_block_hash,
+                )?;
             }
-            _ => return Err(RpcErr::Internal),
-        };
+        } else if current_block_hash.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
+            // If the head block is already in our canonical chain, the beacon client is
+            // probably resyncing. Ignore the update.
+            return serde_json::to_value(PayloadStatus::valid()).map_err(|_| RpcErr::Internal);
+        }
 
-        // We are still under the assumption that the blocks are only added if they are connected
-        // to the canonical chain. That means that for the state to be consistent we only need to
-        // check that the safe and finalized ones are in the canonical chain and that the heads parent is too.
+        // Set finalized & safe blocks
+        set_finalized_block(&self.fork_choice_state.finalized_block_hash, &storage)?;
+        set_safe_block(&self.fork_choice_state.safe_block_hash, &storage)?;
 
-        let head_valid = is_canonical(&storage, header.number - 1, header.parent_hash)
-            .map_err(|_| RpcErr::Internal)?;
+        let mut response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
+            self.fork_choice_state.head_block_hash,
+        ));
 
-        let safe_valid = is_canonical(
-            &storage,
-            safe_block_number,
-            self.fork_choice_state.safe_block_hash,
-        )
-        .map_err(|_| RpcErr::Internal)?;
+        // Build block from received payload
+        if let Some(attributes) = &self.payload_attributes {
+            let args = BuildPayloadArgs {
+                parent: self.fork_choice_state.head_block_hash,
+                timestamp: attributes.timestamp,
+                fee_recipient: attributes.suggested_fee_recipient,
+                random: attributes.prev_randao,
+                withdrawals: attributes.withdrawals.clone(),
+                beacon_root: Some(attributes.parent_beacon_block_root),
+                version: 3,
+            };
+            let payload_id = args.id();
+            response.set_id(payload_id);
+            let payload = build_payload(&args, &storage)?;
+            storage.add_payload(payload_id, payload)?;
+        }
 
-        let finalized_valid = is_canonical(
-            &storage,
-            finalized_block_number,
-            self.fork_choice_state.finalized_block_hash,
-        )
-        .map_err(|_| RpcErr::Internal)?;
+        serde_json::to_value(response).map_err(|_| RpcErr::Internal)
+    }
+}
 
-        if head_valid && safe_valid && finalized_valid {
-            storage.set_canonical_block(header.number, self.fork_choice_state.head_block_hash)?;
-            storage.update_finalized_block_number(finalized_block_number)?;
-            storage.update_safe_block_number(safe_block_number)?;
-            syncing_response()
-        } else {
-            invalid_fork_choice_state()
+fn total_difficulty_check<'a>(
+    head_block_hash: &'a H256,
+    head_block: &'a BlockHeader,
+    storage: &'a Store,
+) -> Result<Option<&'a str>, StoreError> {
+    if !head_block.difficulty.is_zero() || head_block.number == 0 {
+        let total_difficulty = storage.get_block_total_difficulty(*head_block_hash)?;
+        let parent_total_difficulty = storage.get_block_total_difficulty(head_block.parent_hash)?;
+        let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
+        if terminal_total_difficulty.is_none()
+            || total_difficulty.is_none()
+            || head_block.number > 0 && parent_total_difficulty.is_none()
+        {
+            return Ok(Some(
+                "total difficulties unavailable for terminal total difficulty check",
+            ));
+        }
+        if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
+            return Ok(Some("refusing beacon update to pre-merge"));
+        }
+        if head_block.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
+            return Ok(Some(
+                "parent block is already post terminal total difficulty",
+            ));
         }
     }
+    Ok(None)
 }
 
-fn syncing_response() -> Result<Value, RpcErr> {
-    serde_json::to_value(json!({
-    "payloadId": null,
-    "payloadStatus": {
-        "latestValidHash": null,
-        "status": "SYNCING",
-        "validationError": null
-    }}))
-    .map_err(|_| RpcErr::Internal)
-}
+fn set_finalized_block(finalized_block_hash: &H256, storage: &Store) -> Result<(), RpcErr> {
+    if !finalized_block_hash.is_zero() {
+        // If the finalized block is not in our canonical tree, something is wrong
+        let Some(finalized_block) = storage.get_block_by_hash(*finalized_block_hash)? else {
+            return Err(RpcErr::InvalidForkChoiceState(
+                "final block not available in database".to_string(),
+            ));
+        };
 
-fn invalid_fork_choice_state() -> Result<Value, RpcErr> {
-    serde_json::to_value(json!({"error": {"code": -38002, "message": "Invalid forkchoice state"}}))
-        .map_err(|_| RpcErr::Internal)
-}
-
-fn is_canonical(
-    store: &Store,
-    block_number: BlockNumber,
-    block_hash: BlockHash,
-) -> Result<bool, StoreError> {
-    match store.get_canonical_block_hash(block_number)? {
-        Some(hash) if hash == block_hash => Ok(true),
-        _ => Ok(false),
+        if !storage
+            .get_canonical_block_hash(finalized_block.header.number)?
+            .is_some_and(|ref h| h == finalized_block_hash)
+        {
+            return Err(RpcErr::InvalidForkChoiceState(
+                "final block not in canonical chain".to_string(),
+            ));
+        }
+        // Set the finalized block
+        storage.update_finalized_block_number(finalized_block.header.number)?;
     }
+    Ok(())
+}
+
+fn set_safe_block(safe_block_hash: &H256, storage: &Store) -> Result<(), RpcErr> {
+    if !safe_block_hash.is_zero() {
+        // If the safe block is not in our canonical tree, something is wrong
+        let Some(safe_block) = storage.get_block_by_hash(*safe_block_hash)? else {
+            return Err(RpcErr::InvalidForkChoiceState(
+                "safe block not available in database".to_string(),
+            ));
+        };
+
+        if !storage
+            .get_canonical_block_hash(safe_block.header.number)?
+            .is_some_and(|ref h| h == safe_block_hash)
+        {
+            return Err(RpcErr::InvalidForkChoiceState(
+                "safe block not in canonical chain".to_string(),
+            ));
+        }
+        // Set the safe block
+        storage.update_safe_block_number(safe_block.header.number)?;
+    }
+    Ok(())
 }

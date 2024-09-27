@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     call_frame::CallFrame,
+    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     primitives::{Address, Bytes, U256, U512},
 };
@@ -314,6 +315,25 @@ impl VM {
                 }
                 Opcode::RETURNDATACOPY => {
                 }
+                Opcode::JUMP => {
+                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.jump(jump_address);
+                }
+                Opcode::JUMPI => {
+                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    let condition = current_call_frame.stack.pop().unwrap();
+                    if condition != U256::zero() {
+                        current_call_frame.jump(jump_address);
+                    }
+                }
+                Opcode::JUMPDEST => {
+                    // just consume some gas, jumptable written at the start
+                }
+                Opcode::PC => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.pc - 1));
+                }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
                 }
@@ -493,7 +513,7 @@ impl VM {
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
                         continue;
                     }
 
@@ -503,7 +523,7 @@ impl VM {
                     let callee_bytecode = self.get_account_bytecode(&address);
 
                     if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::one());
+                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
                         continue;
                     }
 
@@ -544,14 +564,16 @@ impl VM {
                                 .store_bytes(ret_offset, &return_data);
                         }
 
-                        parent_call_frame.stack.push(U256::one());
+                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
                         parent_call_frame.return_data_offset = None;
                         parent_call_frame.return_data_size = None;
 
                         current_call_frame = parent_call_frame.clone();
                     } else {
                         // excecution completed (?)
-                        current_call_frame.stack.push(U256::one());
+                        current_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_RETURN));
                         break;
                     }
                 }
