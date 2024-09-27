@@ -15,7 +15,7 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
 
 pub fn store_data_in_memory_operations(data: &[u8], memory_offset: usize) -> Vec<Operation> {
     vec![
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((32_u8, U256::from_big_endian(data))),
         Operation::Push((1_u8, U256::from(memory_offset))),
         Operation::Mstore,
     ]
