@@ -467,7 +467,6 @@ impl VM {
                         .copy(src_offset, dest_offset, size);
                 }
                 Opcode::CALL => {
-                    println!("CALL");
                     let gas = current_call_frame.stack.pop().unwrap();
                     let address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
@@ -479,7 +478,6 @@ impl VM {
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
-                        println!("INSUFFICIENT BALANCE");
                         current_call_frame.stack.push(U256::zero());
                         continue;
                     }
@@ -490,7 +488,6 @@ impl VM {
                     let callee_bytecode = self.get_account_bytecode(&address);
 
                     if callee_bytecode.is_empty() {
-                        println!("NO BYTECODE");
                         current_call_frame.stack.push(U256::one());
                         continue;
                     }
@@ -517,7 +514,6 @@ impl VM {
                     current_call_frame = new_call_frame;
                 }
                 Opcode::RETURN => {
-                    println!("RETURN");
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
@@ -536,9 +532,6 @@ impl VM {
                         parent_call_frame.stack.push(U256::one());
                         parent_call_frame.return_data_offset = None;
                         parent_call_frame.return_data_size = None;
-
-                        println!("CURRENT CALL FRAME {:?}", current_call_frame);
-                        println!("PARENT CALL FRAME {:?}", parent_call_frame);
 
                         current_call_frame = parent_call_frame.clone();
                     } else {
