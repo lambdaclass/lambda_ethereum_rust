@@ -12,7 +12,7 @@ interface IInbox {
     /// deposit in L2. Could be used to track the status of the deposit finalization
     /// on L2. You can use this hash to retrive the tx data.
     /// It is the result of keccak(abi.encode(transaction)).
-    event DepositInitiated(bytes32 l2MintTxHash);
+    event DepositInitiated(bytes32 indexed l2MintTxHash);
     
     /// @notice Method that starts an L2 ETH deposit process.
     /// @dev The deposit process starts here by emitting a DepositInitiated
