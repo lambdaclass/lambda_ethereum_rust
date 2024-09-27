@@ -2,7 +2,10 @@ use super::{
     BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
     GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
 };
-use crate::{types::Receipt, Address, H256, U256};
+use crate::{
+    types::{Receipt, Transaction},
+    Address, H256, U256,
+};
 use bytes::Bytes;
 use ethereum_rust_rlp::{
     decode::RLPDecode,
@@ -16,8 +19,6 @@ use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
 
 use std::cmp::{max, Ordering};
-
-use super::Transaction;
 
 pub type BlockNumber = u64;
 pub type BlockHash = H256;
@@ -338,7 +339,7 @@ fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
 
 // Calculates the base fee for the current block based on its gas_limit and parent's gas and fee
 // Returns None if the block gas limit is not valid in relation to its parent's gas limit
-fn calculate_base_fee_per_gas(
+pub fn calculate_base_fee_per_gas(
     block_gas_limit: u64,
     parent_gas_limit: u64,
     parent_gas_used: u64,

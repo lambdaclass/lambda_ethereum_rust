@@ -97,7 +97,19 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            let _ = add_block(&block, &store);
+            let hash = block.header.compute_block_hash();
+            info!("Adding block {} with hash {}.", block.header.number, hash);
+            match add_block(&block, &store) {
+                Ok(()) => store
+                    .set_canonical_block(block.header.number, hash)
+                    .unwrap(),
+                _ => {
+                    warn!(
+                        "Failed to add block {} with hash {}.",
+                        block.header.number, hash
+                    );
+                }
+            }
         }
         info!("Added {} blocks to blockchain", size);
     }
@@ -118,7 +130,7 @@ async fn main() {
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
-        store,
+        store.clone(),
         jwt_secret,
         local_p2p_node,
     )
@@ -134,7 +146,14 @@ async fn main() {
             let l2_prover = ethereum_rust_l2::start_prover().into_future();
             tracker.spawn(l2_prover);
         } else {
-            let networking = ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer).into_future();
+            let networking = ethereum_rust_net::start_network(
+                udp_socket_addr,
+                tcp_socket_addr,
+                bootnodes,
+                signer,
+                store,
+            )
+            .into_future();
             tracker.spawn(networking);
         }
     }

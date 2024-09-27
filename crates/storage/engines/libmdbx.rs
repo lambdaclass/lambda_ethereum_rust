@@ -1,19 +1,19 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
-    Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
+    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
-use libmdbx::orm::{Decodable, Encodable};
+use libmdbx::orm::{Decodable, Encodable, Table};
 use libmdbx::{
     dupsort,
     orm::{table, Database},
@@ -36,11 +36,7 @@ impl Store {
     }
 
     // Helper method to write into a libmdbx table
-    fn write<T: libmdbx::orm::Table>(
-        &self,
-        key: T::Key,
-        value: T::Value,
-    ) -> Result<(), StoreError> {
+    fn write<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(), StoreError> {
         let txn = self
             .db
             .begin_readwrite()
@@ -51,7 +47,7 @@ impl Store {
     }
 
     // Helper method to read from a libmdbx table
-    fn read<T: libmdbx::orm::Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
+    fn read<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
@@ -130,6 +126,22 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
     ) -> std::result::Result<Option<BlockNumber>, StoreError> {
         self.read::<BlockNumbers>(block_hash.into())
+    }
+    fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<BlockTotalDifficulties>(block_hash.into(), block_total_difficulty.into())
+    }
+
+    fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<U256>, StoreError> {
+        Ok(self
+            .read::<BlockTotalDifficulties>(block_hash.into())?
+            .map(|b| b.to()))
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -290,6 +302,25 @@ impl StoreEngine for Store {
         }
     }
 
+    fn update_latest_total_difficulty(
+        &self,
+        latest_total_difficulty: U256,
+    ) -> std::result::Result<(), StoreError> {
+        self.write::<ChainData>(
+            ChainDataIndex::LatestTotalDifficulty,
+            latest_total_difficulty.encode_to_vec(),
+        )
+    }
+
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        match self.read::<ChainData>(ChainDataIndex::LatestTotalDifficulty)? {
+            None => Ok(None),
+            Some(ref rlp) => RLPDecode::decode(rlp)
+                .map(Some)
+                .map_err(|_| StoreError::DecodeError),
+        }
+    }
+
     fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.write::<ChainData>(
             ChainDataIndex::PendingBlockNumber,
@@ -332,6 +363,22 @@ impl StoreEngine for Store {
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
         self.write::<CanonicalBlockHashes>(number, hash.into())
     }
+
+    fn get_canonical_block_hash(
+        &self,
+        number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError> {
+        self.read::<CanonicalBlockHashes>(number)
+            .map(|o| o.map(|hash_rlp| hash_rlp.to()))
+    }
+
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.write::<Payloads>(payload_id, block.into())
+    }
+
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
+    }
 }
 
 impl Debug for Store {
@@ -350,6 +397,12 @@ table!(
 table!(
     /// Block hash to number table.
     ( BlockNumbers ) BlockHashRLP => BlockNumber
+);
+
+// TODO (#307): Remove TotalDifficulty.
+table!(
+    /// Block hash to total difficulties table.
+    ( BlockTotalDifficulties ) BlockHashRLP => BlockTotalDifficultyRLP
 );
 
 table!(
@@ -397,6 +450,13 @@ table!(
 table!(
     /// state trie nodes
     ( StateTrieNodes ) Vec<u8> => Vec<u8>
+);
+
+// Local Blocks
+
+table!(
+    /// payload id to payload block table
+    ( Payloads ) u64 => BlockRLP
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -467,6 +527,8 @@ pub enum ChainDataIndex {
     SafeBlockNumber = 3,
     LatestBlockNumber = 4,
     PendingBlockNumber = 5,
+    // TODO (#307): Remove TotalDifficulty.
+    LatestTotalDifficulty = 6,
 }
 
 impl Encodable for ChainDataIndex {
@@ -482,6 +544,8 @@ impl Encodable for ChainDataIndex {
 pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     let tables = [
         table_info!(BlockNumbers),
+        // TODO (#307): Remove TotalDifficulty.
+        table_info!(BlockTotalDifficulties),
         table_info!(Headers),
         table_info!(Bodies),
         table_info!(AccountCodes),
@@ -492,6 +556,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
+        table_info!(Payloads),
     ]
     .into_iter()
     .collect();
