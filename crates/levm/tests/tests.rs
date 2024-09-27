@@ -1172,7 +1172,7 @@ fn pop_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
 
 // TODO: when adding error handling this should return an error, not panic
@@ -1185,7 +1185,7 @@ fn pop_on_empty_stack() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
 
 #[test]
@@ -1195,7 +1195,7 @@ fn pc_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(0));
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0));
 }
 
 #[test]
@@ -1210,7 +1210,7 @@ fn pc_op_with_push_offset() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(33));
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(33));
 }
 
 #[test]
@@ -1228,8 +1228,8 @@ fn jump_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(10));
-    assert_eq!(vm.current_call_frame().pc(), 70);
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
+    assert_eq!(vm.current_call_frame_mut().pc(), 70);
 }
 
 #[test]
@@ -1281,7 +1281,7 @@ fn jumpi_not_zero() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(10));
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
 }
 
 #[test]
@@ -1301,5 +1301,5 @@ fn jumpi_for_zero() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(100));
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
 }
