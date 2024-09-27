@@ -151,6 +151,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         Ok(Some(Block { header, body }))
     }
 
+    // Get the canonical block hash for a given block number.
     fn get_canonical_block_hash(
         &self,
         block_number: BlockNumber,
@@ -216,6 +217,10 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Used for internal store operations
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie;
 
-    // Get the canonical block hash for a given block number.
+    // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
+
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
+
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
 }
