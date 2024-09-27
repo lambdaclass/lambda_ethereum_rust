@@ -1339,7 +1339,7 @@ fn pop_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
 
 // TODO: when adding error handling this should return an error, not panic
@@ -1352,5 +1352,5 @@ fn pop_on_empty_stack() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
