@@ -1,11 +1,30 @@
+use std::collections::HashMap;
+
 use crate::{call_frame::CallFrame, opcodes::Opcode};
 use bytes::Bytes;
-use ethereum_types::{U256, U512};
+use ethereum_types::{Address, U256, U512};
 use sha3::{Digest, Keccak256};
+
+#[derive(Debug, Clone, Default)]
+pub struct StorageSlot {
+    pub original_value: U256,
+    pub current_value: U256,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Account {
+    pub storage: HashMap<U256, StorageSlot>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Db {
+    pub accounts: HashMap<Address, Account>,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub db: Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -25,11 +44,13 @@ impl VM {
         };
         Self {
             call_frames: vec![initial_call_frame],
+            db: Default::default(),
         }
     }
 
     pub fn execute(&mut self) {
-        let current_call_frame = self.current_call_frame();
+        let db = &mut self.db;
+        let current_call_frame = self.call_frames.last_mut().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
@@ -451,6 +472,43 @@ impl VM {
                     current_call_frame
                         .memory
                         .store_bytes(offset, value_bytes[31..32].as_ref());
+                }
+                Opcode::SLOAD => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let account = db
+                        .accounts
+                        .entry(current_call_frame.msg_sender)
+                        .or_default();
+
+                    let current_value = account
+                        .storage
+                        .get(&key)
+                        .cloned()
+                        .unwrap_or_default()
+                        .current_value;
+
+                    current_call_frame.stack.push(current_value);
+                }
+                Opcode::SSTORE => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+                    let account = db
+                        .accounts
+                        .entry(current_call_frame.msg_sender)
+                        .or_default();
+                    let slot = account.storage.get(&key);
+                    let (original_value, _) = match slot {
+                        Some(slot) => (slot.original_value, slot.current_value),
+                        None => (value, value),
+                    };
+
+                    account.storage.insert(
+                        key,
+                        StorageSlot {
+                            original_value,
+                            current_value: value,
+                        },
+                    );
                 }
                 Opcode::MSIZE => {
                     // spend_gas(2);

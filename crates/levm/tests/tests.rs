@@ -1,6 +1,9 @@
 use bytes::Bytes;
-use ethereum_types::U256;
-use levm::{operations::Operation, vm::VM};
+use ethereum_types::{Address, U256};
+use levm::{
+    operations::Operation,
+    vm::{Account, VM},
+};
 
 // cargo test -p 'levm'
 
@@ -1279,4 +1282,28 @@ fn jumpi_for_zero() {
     vm.execute();
 
     assert!(vm.current_call_frame().stack.pop().unwrap() == U256::from(100));
+}
+
+#[test]
+fn sstore_op() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame().msg_sender = Address::from_low_u64_be(100);
+    vm.db
+        .accounts
+        .insert(Address::from_low_u64_be(100), Account::default());
+
+    vm.execute();
+
+    let account = vm.db.accounts.get(&Address::from_low_u64_be(100)).unwrap();
+    let stored_value = account.storage.get(&key).unwrap();
+    assert_eq!(value, stored_value.current_value);
 }
