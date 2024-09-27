@@ -1,12 +1,15 @@
+use std::collections::HashMap;
+
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
-    db::Db,
     opcodes::Opcode,
 };
 use bytes::Bytes;
-use ethereum_types::{Address, U256, U512};
+use ethereum_types::{Address, H256, U256, U512};
 use sha3::{Digest, Keccak256};
+
+pub type Db = HashMap<U256, H256>;
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -334,7 +337,7 @@ impl VM {
                         continue;
                     }
 
-                    if let Some(block_hash) = self.db.get_block_hash(block_number) {
+                    if let Some(block_hash) = self.db.get(&block_number) {
                         current_call_frame
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
