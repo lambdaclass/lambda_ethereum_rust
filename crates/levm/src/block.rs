@@ -1,6 +1,7 @@
 use ethereum_types::{Address, H256, U256};
 
 #[derive(Clone, Debug, Default)]
+/// Collection of relevant pieces of information about the block, or "block header".
 pub struct BlockEnv {
     /// The number of ancestor blocks of this block (block height).
     pub number: U256,
