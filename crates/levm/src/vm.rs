@@ -584,6 +584,7 @@ impl VM {
                     self.call_frames.push(current_call_frame.clone());
                     current_call_frame = new_call_frame;
                 }
+                Opcode::CALLCODE => {}
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -611,6 +612,8 @@ impl VM {
                         break;
                     }
                 }
+                Opcode::DELEGATECALL => {}
+                Opcode::STATICCALL => {}
                 _ => unimplemented!(),
             }
         }
