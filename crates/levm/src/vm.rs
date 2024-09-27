@@ -22,7 +22,7 @@ impl Account {
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>, // change to Address
+    pub accounts: HashMap<Address, Account>,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -303,6 +303,16 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from_big_endian(&result));
+                }
+                Opcode::CALLDATALOAD => {
+                }
+                Opcode::CALLDATASIZE => {
+                }
+                Opcode::CALLDATACOPY => {
+                }
+                Opcode::RETURNDATASIZE => {
+                }
+                Opcode::RETURNDATACOPY => {
                 }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
