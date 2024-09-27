@@ -12,6 +12,7 @@ pub struct CallFrame {
     pub bytecode: Bytes,
     pub delegate: Option<Address>,
     pub msg_value: U256,
+    pub is_static: bool,
 }
 
 impl CallFrame {

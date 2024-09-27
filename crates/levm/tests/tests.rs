@@ -1307,3 +1307,20 @@ fn sstore_op() {
     let stored_value = account.storage.get(&key).unwrap();
     assert_eq!(value, stored_value.current_value);
 }
+
+#[test]
+#[should_panic]
+fn sstore_reverts_when_called_in_static() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame().is_static = true;
+    vm.execute();
+}

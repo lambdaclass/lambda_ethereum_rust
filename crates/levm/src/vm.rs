@@ -490,6 +490,10 @@ impl VM {
                     current_call_frame.stack.push(current_value);
                 }
                 Opcode::SSTORE => {
+                    if current_call_frame.is_static {
+                        panic!("Cannot write to storage in a static context");
+                    }
+
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
                     let account = db
