@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    call_frame::CallFrame, constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN}, opcodes::Opcode, primitives::{Address, Bytes, U256, U512}
+    call_frame::CallFrame,
+    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    opcodes::Opcode,
+    primitives::{Address, Bytes, U256, U512},
 };
 use sha3::{Digest, Keccak256};
 
@@ -539,7 +542,9 @@ impl VM {
                         current_call_frame = parent_call_frame.clone();
                     } else {
                         // excecution completed (?)
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
+                        current_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_RETURN));
                         break;
                     }
                 }

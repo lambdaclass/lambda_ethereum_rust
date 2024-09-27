@@ -19,6 +19,21 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
     VM::new(bytecode, address, balance)
 }
 
+fn callee_return_bytecode(return_value: U256) -> Bytes {
+    let ops = vec![
+        Operation::Push32(return_value), // value
+        Operation::Push32(U256::zero()), // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // offset
+        Operation::Return,
+    ];
+
+    ops.iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>()
+}
+
 #[test]
 fn test() {
     let mut vm = new_vm_with_ops(&[
@@ -1179,21 +1194,6 @@ fn call_returns_if_bytecode_empty() {
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(success, U256::one());
-}
-
-fn callee_return_bytecode(return_value: U256) -> Bytes {
-    let ops = vec![
-        Operation::Push32(return_value), // value
-        Operation::Push32(U256::zero()), // offset
-        Operation::Mstore,
-        Operation::Push32(U256::from(32)), // size
-        Operation::Push32(U256::zero()),   // offset
-        Operation::Return,
-    ];
-
-    ops.iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>()
 }
 
 #[test]
