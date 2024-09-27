@@ -307,9 +307,9 @@ impl VM {
                     // If number is not in the valid range (last 256 blocks), return zero.
                     if block_number
                         < block_env
-                            .block_number
+                            .number
                             .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
-                        || block_number >= block_env.block_number
+                        || block_number >= block_env.number
                     {
                         current_call_frame.stack.push(U256::zero());
                         continue;
@@ -332,7 +332,7 @@ impl VM {
                     current_call_frame.stack.push(timestamp);
                 }
                 Opcode::NUMBER => {
-                    let block_number = block_env.block_number;
+                    let block_number = block_env.number;
                     current_call_frame.stack.push(block_number);
                 }
                 Opcode::PREVRANDAO => {

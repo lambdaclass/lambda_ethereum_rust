@@ -3,7 +3,7 @@ use ethereum_types::{Address, H256, U256};
 #[derive(Clone, Debug, Default)]
 pub struct BlockEnv {
     /// The number of ancestor blocks of this block (block height).
-    pub block_number: U256,
+    pub number: U256,
     /// Coinbase or miner or address that created and signed the block.
     ///
     /// This is the receiver address of all the gas spent in the block.
