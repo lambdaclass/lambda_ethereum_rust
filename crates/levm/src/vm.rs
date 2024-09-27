@@ -285,6 +285,25 @@ impl VM {
                         .stack
                         .push(U256::from_big_endian(&result));
                 }
+                Opcode::JUMP => {
+                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.jump(jump_address);
+                }
+                Opcode::JUMPI => {
+                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    let condition = current_call_frame.stack.pop().unwrap();
+                    if condition != U256::zero() {
+                        current_call_frame.jump(jump_address);
+                    }
+                }
+                Opcode::JUMPDEST => {
+                    // just consume some gas, jumptable written at the start
+                }
+                Opcode::PC => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.pc - 1));
+                }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
                 }
