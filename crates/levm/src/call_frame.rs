@@ -1,6 +1,13 @@
-use crate::{log::Log, memory::Memory, opcodes::Opcode};
+use crate::{memory::Memory, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct Log {
+    pub address: Address,
+    pub topics: Vec<U256>,
+    pub data: Vec<u8>,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct CallFrame {

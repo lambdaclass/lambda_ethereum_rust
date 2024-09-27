@@ -1,4 +1,7 @@
-use crate::{call_frame::CallFrame, log::Log, opcodes::Opcode};
+use crate::{
+    call_frame::{CallFrame, Log},
+    opcodes::Opcode,
+};
 use bytes::Bytes;
 use ethereum_types::{U256, U512};
 use sha3::{Digest, Keccak256};
