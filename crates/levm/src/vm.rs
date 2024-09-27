@@ -1,6 +1,6 @@
 use crate::{
     call_frame::CallFrame,
-    constants::{gas_cost, TX_BASE_COST},
+    constants::{gas_cost, TX_BASE_COST, WORD_SIZE},
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -35,30 +35,45 @@ impl VM {
 
     pub fn execute(&mut self) {
         let gas_limit = i64::MAX as u64; // TODO: it was initialized like this on evm_mlir, check why
-        let consumed_gas = TX_BASE_COST; // TODO: check where to place these two, VM?
+        let mut consumed_gas = TX_BASE_COST; // TODO: check where to place these two, VM?
         let current_call_frame = self.current_call_frame();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
                 Opcode::ADD => {
+                    if consumed_gas + gas_cost::ADD > gas_limit {
+                        break; // should revert the tx
+                    }
                     let augend = current_call_frame.stack.pop().unwrap();
                     let addend = current_call_frame.stack.pop().unwrap();
                     let sum = augend.overflowing_add(addend).0;
                     current_call_frame.stack.push(sum);
+                    consumed_gas += gas_cost::ADD
                 }
                 Opcode::MUL => {
+                    if consumed_gas + gas_cost::MUL > gas_limit {
+                        break; // should revert the tx
+                    }
                     let multiplicand = current_call_frame.stack.pop().unwrap();
                     let multiplier = current_call_frame.stack.pop().unwrap();
                     let product = multiplicand.overflowing_mul(multiplier).0;
                     current_call_frame.stack.push(product);
+                    consumed_gas += gas_cost::MUL
                 }
                 Opcode::SUB => {
+                    if consumed_gas + gas_cost::SUB > gas_limit {
+                        break; // should revert the tx
+                    }
                     let minuend = current_call_frame.stack.pop().unwrap();
                     let subtrahend = current_call_frame.stack.pop().unwrap();
                     let difference = minuend.overflowing_sub(subtrahend).0;
                     current_call_frame.stack.push(difference);
+                    consumed_gas += gas_cost::SUB
                 }
                 Opcode::DIV => {
+                    if consumed_gas + gas_cost::DIV > gas_limit {
+                        break; // should revert the tx
+                    }
                     let dividend = current_call_frame.stack.pop().unwrap();
                     let divisor = current_call_frame.stack.pop().unwrap();
                     if divisor.is_zero() {
@@ -67,8 +82,12 @@ impl VM {
                     }
                     let quotient = dividend / divisor;
                     current_call_frame.stack.push(quotient);
+                    consumed_gas += gas_cost::DIV
                 }
                 Opcode::SDIV => {
+                    if consumed_gas + gas_cost::SDIV > gas_limit {
+                        break; // should revert the tx
+                    }
                     let dividend = current_call_frame.stack.pop().unwrap();
                     let divisor = current_call_frame.stack.pop().unwrap();
                     if divisor.is_zero() {
@@ -97,8 +116,12 @@ impl VM {
                     };
 
                     current_call_frame.stack.push(quotient);
+                    consumed_gas += gas_cost::SDIV
                 }
                 Opcode::MOD => {
+                    if consumed_gas + gas_cost::MOD > gas_limit {
+                        break; // should revert the tx
+                    }
                     let dividend = current_call_frame.stack.pop().unwrap();
                     let divisor = current_call_frame.stack.pop().unwrap();
                     if divisor.is_zero() {
@@ -107,8 +130,12 @@ impl VM {
                     }
                     let remainder = dividend % divisor;
                     current_call_frame.stack.push(remainder);
+                    consumed_gas += gas_cost::MOD
                 }
                 Opcode::SMOD => {
+                    if consumed_gas + gas_cost::SMOD > gas_limit {
+                        break; // should revert the tx
+                    }
                     let dividend = current_call_frame.stack.pop().unwrap();
                     let divisor = current_call_frame.stack.pop().unwrap();
                     if divisor.is_zero() {
@@ -137,8 +164,12 @@ impl VM {
                     };
 
                     current_call_frame.stack.push(remainder);
+                    consumed_gas += gas_cost::MOD
                 }
                 Opcode::ADDMOD => {
+                    if consumed_gas + gas_cost::ADDMOD > gas_limit {
+                        break; // should revert the tx
+                    }
                     let augend = current_call_frame.stack.pop().unwrap();
                     let addend = current_call_frame.stack.pop().unwrap();
                     let divisor = current_call_frame.stack.pop().unwrap();
@@ -153,10 +184,13 @@ impl VM {
                     }
 
                     current_call_frame.stack.push(remainder);
+                    consumed_gas += gas_cost::ADDMOD
                 }
                 Opcode::MULMOD => {
+                    if consumed_gas + gas_cost::MULMOD > gas_limit {
+                        break; // should revert the tx
+                    }
                     let multiplicand = U512::from(current_call_frame.stack.pop().unwrap());
-
                     let multiplier = U512::from(current_call_frame.stack.pop().unwrap());
                     let divisor = U512::from(current_call_frame.stack.pop().unwrap());
                     if divisor.is_zero() {
@@ -179,14 +213,27 @@ impl VM {
                     result.reverse();
                     let remainder = U256::from(result.as_slice());
                     current_call_frame.stack.push(remainder);
+                    consumed_gas += gas_cost::MULMOD
                 }
                 Opcode::EXP => {
                     let base = current_call_frame.stack.pop().unwrap();
                     let exponent = current_call_frame.stack.pop().unwrap();
+
+                    let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
+                    let gas_cost =
+                        gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
+                    if consumed_gas + gas_cost > gas_limit {
+                        break; // should revert the tx
+                    }
+
                     let power = base.overflowing_pow(exponent).0;
                     current_call_frame.stack.push(power);
+                    consumed_gas += gas_cost
                 }
                 Opcode::SIGNEXTEND => {
+                    if consumed_gas + gas_cost::SIGNEXTEND > gas_limit {
+                        break; // should revert the tx
+                    }
                     let byte_size = current_call_frame.stack.pop().unwrap();
                     let value_to_extend = current_call_frame.stack.pop().unwrap();
 
@@ -204,20 +251,32 @@ impl VM {
                         value_to_extend & sign_bit_mask
                     };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::SIGNEXTEND
                 }
                 Opcode::LT => {
+                    if consumed_gas + gas_cost::LT > gas_limit {
+                        break; // should revert the tx
+                    }
                     let lho = current_call_frame.stack.pop().unwrap();
                     let rho = current_call_frame.stack.pop().unwrap();
                     let result = if lho < rho { U256::one() } else { U256::zero() };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::LT
                 }
                 Opcode::GT => {
+                    if consumed_gas + gas_cost::GT > gas_limit {
+                        break; // should revert the tx
+                    }
                     let lho = current_call_frame.stack.pop().unwrap();
                     let rho = current_call_frame.stack.pop().unwrap();
                     let result = if lho > rho { U256::one() } else { U256::zero() };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::GT
                 }
                 Opcode::SLT => {
+                    if consumed_gas + gas_cost::SLT > gas_limit {
+                        break; // should revert the tx
+                    }
                     let lho = current_call_frame.stack.pop().unwrap();
                     let rho = current_call_frame.stack.pop().unwrap();
                     let lho_is_negative = lho.bit(255);
@@ -238,8 +297,12 @@ impl VM {
                         }
                     };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::SLT
                 }
                 Opcode::SGT => {
+                    if consumed_gas + gas_cost::SGT > gas_limit {
+                        break; // should revert the tx
+                    }
                     let lho = current_call_frame.stack.pop().unwrap();
                     let rho = current_call_frame.stack.pop().unwrap();
                     let lho_is_negative = lho.bit(255);
@@ -260,8 +323,12 @@ impl VM {
                         }
                     };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::SGT
                 }
                 Opcode::EQ => {
+                    if consumed_gas + gas_cost::EQ > gas_limit {
+                        break; // should revert the tx
+                    }
                     let lho = current_call_frame.stack.pop().unwrap();
                     let rho = current_call_frame.stack.pop().unwrap();
                     let result = if lho == rho {
@@ -270,8 +337,12 @@ impl VM {
                         U256::zero()
                     };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::EQ
                 }
                 Opcode::ISZERO => {
+                    if consumed_gas + gas_cost::ISZERO > gas_limit {
+                        break; // should revert the tx
+                    }
                     let operand = current_call_frame.stack.pop().unwrap();
                     let result = if operand == U256::zero() {
                         U256::one()
@@ -279,10 +350,22 @@ impl VM {
                         U256::zero()
                     };
                     current_call_frame.stack.push(result);
+                    consumed_gas += gas_cost::ISZERO
                 }
                 Opcode::KECCAK256 => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(offset + size);
+                    let gas_cost = gas_cost::KECCAK25_STATIC
+                        + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
+                        + memory_expansion_cost;
+                    if consumed_gas + gas_cost > gas_limit {
+                        break; // should revert the tx
+                    }
+
                     let value_bytes = current_call_frame.memory.load_range(offset, size);
 
                     let mut hasher = Keccak256::new();
@@ -291,12 +374,20 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from_big_endian(&result));
+                    consumed_gas += gas_cost
                 }
                 Opcode::PUSH0 => {
+                    if consumed_gas + gas_cost::PUSH0 > gas_limit {
+                        break; // should revert the tx
+                    }
                     current_call_frame.stack.push(U256::zero());
+                    consumed_gas += gas_cost::PUSH0
                 }
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
+                    if consumed_gas + gas_cost::PUSHN > gas_limit {
+                        break; // should revert the tx
+                    }
                     let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
                     let next_n_bytes = current_call_frame
                         .bytecode
@@ -305,56 +396,78 @@ impl VM {
                     let value_to_push = U256::from(next_n_bytes);
                     current_call_frame.stack.push(value_to_push);
                     current_call_frame.increment_pc_by(n_bytes as usize);
+                    consumed_gas += gas_cost::PUSHN
                 }
                 Opcode::PUSH32 => {
+                    if consumed_gas + gas_cost::PUSHN > gas_limit {
+                        break; // should revert the tx
+                    }
                     let next_32_bytes = current_call_frame
                         .bytecode
-                        .get(current_call_frame.pc()..current_call_frame.pc() + 32)
+                        .get(current_call_frame.pc()..current_call_frame.pc() + WORD_SIZE)
                         .unwrap();
                     let value_to_push = U256::from(next_32_bytes);
                     current_call_frame.stack.push(value_to_push);
-                    current_call_frame.increment_pc_by(32);
+                    current_call_frame.increment_pc_by(WORD_SIZE);
+                    consumed_gas += gas_cost::PUSHN
                 }
                 Opcode::AND => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::AND > gas_limit {
+                        break; // should revert the tx
+                    }
                     let a = current_call_frame.stack.pop().unwrap();
                     let b = current_call_frame.stack.pop().unwrap();
                     current_call_frame.stack.push(a & b);
+                    consumed_gas += gas_cost::AND
                 }
                 Opcode::OR => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::OR > gas_limit {
+                        break; // should revert the tx
+                    }
                     let a = current_call_frame.stack.pop().unwrap();
                     let b = current_call_frame.stack.pop().unwrap();
                     current_call_frame.stack.push(a | b);
+                    consumed_gas += gas_cost::OR
                 }
                 Opcode::XOR => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::XOR > gas_limit {
+                        break; // should revert the tx
+                    }
                     let a = current_call_frame.stack.pop().unwrap();
                     let b = current_call_frame.stack.pop().unwrap();
                     current_call_frame.stack.push(a ^ b);
+                    consumed_gas += gas_cost::XOR
                 }
                 Opcode::NOT => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::NOT > gas_limit {
+                        break; // should revert the tx
+                    }
                     let a = current_call_frame.stack.pop().unwrap();
                     current_call_frame.stack.push(!a);
+                    consumed_gas += gas_cost::NOT
                 }
                 Opcode::BYTE => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::BYTE > gas_limit {
+                        break; // should revert the tx
+                    }
                     let op1 = current_call_frame.stack.pop().unwrap();
                     let op2 = current_call_frame.stack.pop().unwrap();
 
                     let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
-                    if byte_index < 32 {
+                    if byte_index < WORD_SIZE {
                         current_call_frame
                             .stack
-                            .push(U256::from(op2.byte(31 - byte_index)));
+                            .push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)));
                     } else {
                         current_call_frame.stack.push(U256::zero());
                     }
+                    consumed_gas += gas_cost::BYTE
                 }
                 Opcode::SHL => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::SHL > gas_limit {
+                        break; // should revert the tx
+                    }
                     let shift = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
                     if shift < U256::from(256) {
@@ -362,9 +475,12 @@ impl VM {
                     } else {
                         current_call_frame.stack.push(U256::zero());
                     }
+                    consumed_gas += gas_cost::SHL
                 }
                 Opcode::SHR => {
-                    // spend_gas(3);
+                    if consumed_gas + gas_cost::SHR > gas_limit {
+                        break; // should revert the tx
+                    }
                     let shift = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
                     if shift < U256::from(256) {
@@ -372,8 +488,12 @@ impl VM {
                     } else {
                         current_call_frame.stack.push(U256::zero());
                     }
+                    consumed_gas += gas_cost::SHR
                 }
                 Opcode::SAR => {
+                    if consumed_gas + gas_cost::SAR > gas_limit {
+                        break; // should revert the tx
+                    }
                     let shift = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
                     let res = if shift < U256::from(256) {
@@ -384,9 +504,13 @@ impl VM {
                         U256::zero()
                     };
                     current_call_frame.stack.push(res);
+                    consumed_gas += gas_cost::SAR
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
+                    if consumed_gas + gas_cost::DUPN > gas_limit {
+                        break; // should revert the tx
+                    }
                     let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
                     assert!(
                         current_call_frame.stack.len().ge(&(depth as usize)),
@@ -397,9 +521,13 @@ impl VM {
                         .get(current_call_frame.stack.len() - depth as usize)
                         .unwrap();
                     current_call_frame.stack.push(*value_at_depth);
+                    consumed_gas += gas_cost::DUPN
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
+                    if consumed_gas + gas_cost::SWAPN > gas_limit {
+                        break; // should revert the tx
+                    }
                     let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
                     assert!(
                         current_call_frame.stack.len().ge(&(depth as usize)),
@@ -410,55 +538,91 @@ impl VM {
                     current_call_frame
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
+                    consumed_gas += gas_cost::SWAPN
                 }
                 Opcode::MLOAD => {
-                    // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
+                    let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost;
+                    if consumed_gas + gas_cost > gas_limit {
+                        break; // should revert the tx
+                    }
+
                     let value = current_call_frame.memory.load(offset);
                     current_call_frame.stack.push(value);
+                    consumed_gas += gas_cost
                 }
                 Opcode::MSTORE => {
-                    // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
+                    let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost;
+                    if consumed_gas + gas_cost > gas_limit {
+                        break; // should revert the tx
+                    }
+
                     let value = current_call_frame.stack.pop().unwrap();
-                    let mut value_bytes = [0u8; 32];
+                    let mut value_bytes = [0u8; WORD_SIZE];
                     value.to_big_endian(&mut value_bytes);
 
                     current_call_frame.memory.store_bytes(offset, &value_bytes);
+                    consumed_gas += gas_cost
                 }
                 Opcode::MSTORE8 => {
-                    // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(offset + 1);
+                    let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost;
+                    if consumed_gas + gas_cost > gas_limit {
+                        break; // should revert the tx
+                    }
+
                     let value = current_call_frame.stack.pop().unwrap();
-                    let mut value_bytes = [0u8; 32];
+                    let mut value_bytes = [0u8; WORD_SIZE];
                     value.to_big_endian(&mut value_bytes);
 
                     current_call_frame
                         .memory
-                        .store_bytes(offset, value_bytes[31..32].as_ref());
+                        .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref());
+                    consumed_gas += gas_cost
                 }
                 Opcode::MSIZE => {
-                    // spend_gas(2);
+                    if consumed_gas + gas_cost::MSIZE > gas_limit {
+                        break; // should revert the tx
+                    }
                     current_call_frame
                         .stack
                         .push(current_call_frame.memory.size());
+                    consumed_gas += gas_cost::MSIZE
                 }
                 Opcode::GAS => {
+                    if consumed_gas + gas_cost::GAS > gas_limit {
+                        break; // should revert the tx
+                    }
                     let remaining_gas = gas_limit - consumed_gas - gas_cost::GAS;
                     current_call_frame.stack.push(remaining_gas.into());
+                    consumed_gas += gas_cost::GAS
                 }
                 Opcode::MCOPY => {
-                    // spend_gas(3) + dynamic gas
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let src_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
+                    let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
+                    let memory_byte_size = ((src_offset + size) as usize).max(dest_offset + size);
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(memory_byte_size);
+                    let gas_cost = gas_cost::MCOPY_STATIC
+                        + gas_cost::MCOPY_DYNAMIC_BASE * words_copied as u64
+                        + memory_expansion_cost;
 
                     current_call_frame
                         .memory
                         .copy(src_offset, dest_offset, size);
+                    consumed_gas += gas_cost
                 }
                 _ => unimplemented!(),
             }

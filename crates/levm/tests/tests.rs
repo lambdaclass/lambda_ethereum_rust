@@ -26,8 +26,6 @@ fn test() {
 
     assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
     assert!(vm.current_call_frame().pc() == 68);
-
-    println!("{vm:?}");
 }
 
 #[test]
