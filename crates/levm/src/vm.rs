@@ -307,7 +307,11 @@ impl VM {
                 }
                 Opcode::CALLDATALOAD => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value = current_call_frame.calldata.get(offset..32).unwrap().into(); // 32 bytes
+                    let value = current_call_frame
+                        .calldata
+                        .get(offset..offset + 32)
+                        .unwrap()
+                        .into(); // 32 bytes
                     current_call_frame.stack.push(value);
                 }
                 Opcode::CALLDATASIZE => {
@@ -319,13 +323,13 @@ impl VM {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let calldata_offset =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
                     let data = current_call_frame
                         .calldata
-                        .get(calldata_offset..size)
+                        .get(calldata_offset..calldata_offset + size)
                         .unwrap();
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
@@ -338,13 +342,13 @@ impl VM {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let returndata_offset =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
                     let data = current_call_frame
                         .returndata
-                        .get(returndata_offset..size)
+                        .get(returndata_offset..returndata_offset + size)
                         .unwrap();
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
@@ -584,16 +588,14 @@ impl VM {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    let return_data = current_call_frame.memory.load_range(offset, size);
+                    let return_data = current_call_frame.memory.load_range(offset, size).into();
 
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(ret_offset), Some(_ret_size)) = (
+                        if let (Some(_ret_offset), Some(_ret_size)) = (
                             parent_call_frame.return_data_offset,
                             parent_call_frame.return_data_size,
                         ) {
-                            parent_call_frame
-                                .memory
-                                .store_bytes(ret_offset, &return_data);
+                            parent_call_frame.returndata = return_data;
                         }
 
                         parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
