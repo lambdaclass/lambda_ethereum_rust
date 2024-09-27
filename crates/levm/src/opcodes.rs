@@ -64,7 +64,7 @@ pub enum Opcode {
     // BLOBBASEFEE = 0x4A
 
     // // Stack, Memory, Storage, and Flow Operations
-    // POP = 0x50,
+    POP = 0x50,
     MLOAD = 0x51,
     MSTORE = 0x52,
     MSTORE8 = 0x53,
@@ -265,6 +265,7 @@ impl From<u8> for Opcode {
             x if x == Opcode::SWAP15 as u8 => Opcode::SWAP15,
             x if x == Opcode::SWAP16 as u8 => Opcode::SWAP16,
             0x7F => Opcode::PUSH32,
+            0x50 => Opcode::POP,
             0x51 => Opcode::MLOAD,
             0x52 => Opcode::MSTORE,
             0x53 => Opcode::MSTORE8,

@@ -404,6 +404,9 @@ impl VM {
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
                 }
+                Opcode::POP => {
+                    current_call_frame.stack.pop().unwrap();
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
