@@ -579,6 +579,14 @@ impl Store {
         let trie = self.engine.open_storage_trie(address, storage_root);
         Ok(trie.get_proof(&hash_key(storage_key))?)
     }
+
+    pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.engine.add_payload(payload_id, block)
+    }
+
+    pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        self.engine.get_payload(payload_id)
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {
