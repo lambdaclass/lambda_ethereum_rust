@@ -543,6 +543,7 @@ impl VM {
                 _ => unimplemented!(),
             }
         }
+        self.call_frames.push(current_call_frame);
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
