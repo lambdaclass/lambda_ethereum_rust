@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 ethereum_rust-core.workspace = true
-ethereum_rust-trie.workspace = true
+ethereum_rust-trie = { workspace = true, features = ["libmdbx"] }
 ethereum_rust-rlp.workspace = true
 
 ethereum-types = "0.14.1"
