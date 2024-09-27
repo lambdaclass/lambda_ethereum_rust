@@ -17,7 +17,7 @@ pub struct CallFrame {
 
 impl CallFrame {
     pub fn next_opcode(&mut self) -> Option<Opcode> {
-        let opcode = self.bytecode.get(self.pc).copied().map(Opcode::from);
+        let opcode = self.opcode_at(self.pc);
         self.increment_pc();
         opcode
     }
@@ -32,5 +32,23 @@ impl CallFrame {
 
     pub fn pc(&self) -> usize {
         self.pc
+    }
+
+    pub fn jump(&mut self, jump_address: U256) {
+        if !self.valid_jump(jump_address) {
+            // Should be a halt when we implement it
+            panic!("Invalid jump");
+        }
+        self.pc = jump_address.as_usize() + 1;
+    }
+
+    fn valid_jump(&self, jump_address: U256) -> bool {
+        self.opcode_at(jump_address.as_usize())
+            .map(|opcode| opcode.eq(&Opcode::JUMPDEST))
+            .is_some_and(|is_jumpdest| is_jumpdest)
+    }
+
+    fn opcode_at(&self, offset: usize) -> Option<Opcode> {
+        self.bytecode.get(offset).copied().map(Opcode::from)
     }
 }
