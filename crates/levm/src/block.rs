@@ -14,8 +14,7 @@ pub struct BlockEnv {
     ///
     /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     pub base_fee_per_gas: U256,
-    // Based on the python implementation, it's the gas limit of the block
-    // https://github.com/ethereum/execution-specs/blob/master/src/ethereum/cancun/blocks.py
+    /// Current limit of gas expenditure per block.
     pub gas_limit: usize,
     // Chain ID of the EVM, it will be compared to the transaction's Chain ID.
     // Chain ID is introduced here https://eips.ethereum.org/EIPS/eip-155
