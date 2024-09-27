@@ -26,8 +26,6 @@ impl CallFrame {
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            return_data_offset: None,
-            return_data_size: None,
             ..Default::default()
         }
     }
