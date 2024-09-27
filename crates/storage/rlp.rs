@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bytes::Bytes;
 use ethereum_rust_core::{
-    types::{BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
+    types::{Block, BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
     H256,
 };
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
@@ -18,6 +18,7 @@ pub type AccountCodeRLP = Rlp<Bytes>;
 pub type BlockHashRLP = Rlp<BlockHash>;
 pub type BlockHeaderRLP = Rlp<BlockHeader>;
 pub type BlockBodyRLP = Rlp<BlockBody>;
+pub type BlockRLP = Rlp<Block>;
 // TODO (#307): Remove TotalDifficulty.
 pub type BlockTotalDifficultyRLP = Rlp<U256>;
 
