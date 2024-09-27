@@ -146,7 +146,7 @@ fn calc_excess_blob_gas(parent_excess_blob_gas: u64, parent_blob_gas_used: u64) 
 }
 
 /// Calculates the total fees paid by the payload block
-/// Only potential errors are storage erros which should be treated as internal errors by rpc providers
+/// Only potential errors are storage errors which should be treated as internal errors by rpc providers
 pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
     let mut total_fee = U256::zero();
     let mut last_cummulative_gas_used = 0;
