@@ -52,7 +52,7 @@ pub fn filter_transactions(
         // Filter by blob gas fee
         if let (true, Some(blob_fee)) = (is_blob_tx, filter.blob_fee) {
             if !tx.max_fee_per_blob_gas().is_some_and(|fee| fee >= blob_fee) {
-                return fase;
+                return false;
             }
         }
         true
@@ -62,11 +62,11 @@ pub fn filter_transactions(
 
 #[derive(Debug, Default)]
 pub struct PendingTxFilter {
-    min_tip: Option<u64>,
-    base_fee: Option<u64>,
-    blob_fee: Option<U256>,
-    only_plain_txs: bool,
-    only_blob_txs: bool,
+    pub min_tip: Option<u64>,
+    pub base_fee: Option<u64>,
+    pub blob_fee: Option<U256>,
+    pub only_plain_txs: bool,
+    pub only_blob_txs: bool,
 }
 /*
 
