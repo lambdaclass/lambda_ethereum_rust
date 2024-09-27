@@ -8,7 +8,7 @@ down: down-local-l1 down-l2
 
 clean: clean-local-l1
 
-restart: down clean init
+restart: restart-l1 restart-l2
 
 # Local L1
 
@@ -22,6 +22,8 @@ down-local-l1:
 clean-local-l1:
 	rm -rf volumes/
 
+restart-local-l1: down-local-l1 clean-local-l1 init-local-l1
+
 # L2
 
 init-l2:
@@ -30,6 +32,7 @@ init-l2:
 down-l2:
 	pkill -f ethereum_rust || exit 0
 
+restart-l2: down-l2 init-l2
 
 # L1 Contract Deployment
 
