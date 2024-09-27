@@ -3,7 +3,7 @@ use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
-use std::{fmt::Debug, panic::RefUnwindSafe};
+use std::{collections::HashMap, fmt::Debug, panic::RefUnwindSafe};
 
 use crate::error::StoreError;
 use ethereum_rust_trie::Trie;
@@ -91,11 +91,12 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     /// Get a transaction from pool table
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError>;
 
-    /// Returns the transaction hashes for all txs in the mempool that pass the filter
+    /// Applies the filter and returns a set of suitable transactions from the mempool.
+    /// These transactions will be grouped by sender and sorted by nonce
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<Vec<H256>, StoreError>;
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError>;
 
     /// Add receipt
     fn add_receipt(

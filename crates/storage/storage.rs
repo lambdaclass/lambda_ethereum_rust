@@ -208,7 +208,7 @@ impl Store {
     pub fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<Vec<H256>, StoreError> {
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
         self.engine.filter_pool_transactions(filter)
     }
 

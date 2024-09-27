@@ -179,12 +179,16 @@ impl StoreEngine for Store {
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<Vec<H256>, StoreError> {
-        let mut txs = Vec::new();
-        for (hash, tx) in self.inner().transaction_pool.iter() {
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+        let mut txs: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        for (_, tx) in self.inner().transaction_pool.iter() {
             if filter(tx) {
-                txs.push(*hash);
+                txs.entry(tx.sender()).or_default().push(tx.clone())
             }
+        }
+        // As we store txs in hashmaps they won't be sorted by nonce
+        for (_, txs) in txs.iter_mut() {
+            txs.sort_by_key(|tx| tx.nonce());
         }
         Ok(txs)
     }

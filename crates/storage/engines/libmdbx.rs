@@ -20,6 +20,7 @@ use libmdbx::{
     table_info,
 };
 use serde_json;
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
@@ -219,7 +220,7 @@ impl StoreEngine for Store {
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<Vec<H256>, StoreError> {
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
         let cursor = self
             .db
             .begin_read()
@@ -227,13 +228,15 @@ impl StoreEngine for Store {
             .cursor::<TransactionPool>()
             .map_err(StoreError::LibmdbxError)?;
         let mut tx_iter = cursor.walk(None);
-        let mut tx_hashes = Vec::new();
-        while let Some(Ok((hash, tx))) = tx_iter.next() {
-            if filter(&tx.to()) {
-                tx_hashes.push(hash.to());
+        let mut txs: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        while let Some(Ok((_, tx))) = tx_iter.next() {
+            let tx = tx.to();
+            if filter(&tx) {
+                // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
+                txs.entry(tx.sender()).or_default().push(tx.clone())
             }
         }
-        Ok(tx_hashes)
+        Ok(txs)
     }
 
     /// Stores the chain config serialized as json

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     constants::{
         MAX_INITCODE_SIZE, MIN_BASE_FEE_PER_BLOB_GAS, TX_ACCESS_LIST_ADDRESS_GAS,
@@ -9,7 +11,7 @@ use crate::{
 };
 use ethereum_rust_core::{
     types::{BlockHeader, ChainConfig, Transaction},
-    H256, U256,
+    Address, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
@@ -29,11 +31,12 @@ pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, 
     Ok(store.get_transaction_from_pool(hash)?)
 }
 
-/// Applies the filter and returns a list of suitable transaction hashes from the mempool
+/// Applies the filter and returns a set of suitable transactions from the mempool.
+/// These transactions will be grouped by sender and sorted by nonce
 pub fn filter_transactions(
     filter: &PendingTxFilter,
     store: Store,
-) -> Result<Vec<H256>, StoreError> {
+) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
         let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));

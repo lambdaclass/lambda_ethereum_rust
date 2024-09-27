@@ -1,8 +1,10 @@
-use std::cmp::min;
+use std::{cmp::min, collections::HashMap};
 
 use ethereum_rust_core::{
     types::{
-        calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root, compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader, Withdrawal, DEFAULT_OMMERS_HASH
+        calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root,
+        compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
+        BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, Bytes, H256, U256,
 };
@@ -16,7 +18,8 @@ use sha3::{Digest, Keccak256};
 
 use crate::{
     constants::{GAS_LIMIT_BOUND_DIVISOR, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK},
-    error::ChainError, mempool::{self, PendingTxFilter},
+    error::ChainError,
+    mempool::{self, PendingTxFilter},
 };
 
 pub struct BuildPayloadArgs {
@@ -162,14 +165,22 @@ pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
 
 pub fn fill_transactions(payload_block: &mut Block, store: Store) -> Result<(), ChainError> {
     let tx_filter = PendingTxFilter {
-        /*TODO: add tip filter */ 
+        /*TODO: add tip filter */
         base_fee: payload_block.header.base_fee_per_gas,
-        blob_fee: Some(U256::from(calculate_base_fee_per_blob_gas(payload_block.header.excess_blob_gas.unwrap()))), ..Default::default()
+        blob_fee: Some(U256::from(calculate_base_fee_per_blob_gas(
+            payload_block.header.excess_blob_gas.unwrap(),
+        ))),
+        ..Default::default()
     };
-    let plain_tx_filter = PendingTxFilter {only_plain_txs: true, ..tx_filter};
-    let blob_tx_filter = PendingTxFilter {only_blob_txs: true, ..tx_filter};
+    let plain_tx_filter = PendingTxFilter {
+        only_plain_txs: true,
+        ..tx_filter
+    };
+    let blob_tx_filter = PendingTxFilter {
+        only_blob_txs: true,
+        ..tx_filter
+    };
     let plain_txs = mempool::filter_transactions(&plain_tx_filter, store)?;
-    
-    Ok(())
 
+    Ok(())
 }
