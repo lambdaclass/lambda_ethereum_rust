@@ -1165,3 +1165,239 @@ fn log0() {
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[0].topics.len(), 0);
 }
+
+#[test]
+fn log1() {
+    let mut topic1: [u8; 32] = [0x00; 32];
+    topic1[31] = 1;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log1
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(1),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics.len(), 1);
+    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
+}
+
+#[test]
+fn log2() {
+    let mut topic1: [u8; 32] = [0x00; 32];
+    topic1[31] = 1;
+    let mut topic2: [u8; 32] = [0x00; 32];
+    topic2[31] = 2;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log2
+        Operation::Push((32_u8, U256::from_big_endian(&topic2))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(2),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics.len(), 2);
+    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
+    assert_eq!(logs[0].topics[1], U256::from_big_endian(&topic2));
+}
+
+#[test]
+fn log3() {
+    let mut topic1: [u8; 32] = [0x00; 32];
+    topic1[31] = 1;
+    let mut topic2: [u8; 32] = [0x00; 32];
+    topic2[31] = 2;
+    let mut topic3: [u8; 32] = [0x00; 32];
+    topic3[31] = 3;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log3
+        Operation::Push((32_u8, U256::from_big_endian(&topic3))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic2))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(3),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics.len(), 3);
+    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
+    assert_eq!(logs[0].topics[1], U256::from_big_endian(&topic2));
+    assert_eq!(logs[0].topics[2], U256::from_big_endian(&topic3));
+}
+
+#[test]
+fn log4() {
+    let mut topic1: [u8; 32] = [0x00; 32];
+    topic1[31] = 1;
+    let mut topic2: [u8; 32] = [0x00; 32];
+    topic2[31] = 2;
+    let mut topic3: [u8; 32] = [0x00; 32];
+    topic3[31] = 3;
+    let mut topic4: [u8; 32] = [0x00; 32];
+    topic4[31] = 4;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log4
+        Operation::Push((32_u8, U256::from_big_endian(&topic4))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic3))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic2))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(4),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics.len(), 4);
+    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
+    assert_eq!(logs[0].topics[1], U256::from_big_endian(&topic2));
+    assert_eq!(logs[0].topics[2], U256::from_big_endian(&topic3));
+    assert_eq!(logs[0].topics[3], U256::from_big_endian(&topic4));
+}
+
+#[test]
+fn log_with_0_data_size() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 0_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log0
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, Vec::new());
+    assert_eq!(logs[0].topics.len(), 0);
+}
+
+#[test]
+#[should_panic]
+fn cant_create_log_in_static_context() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 0_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log0
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame().is_static = true;
+    vm.execute();
+}
+
+#[test]
+fn log_with_data_in_memory_samller_than_size() {
+    let data: [u8; 16] = [0xff; 16];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log0
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let mut data = vec![0_u8; 16];
+    data.extend(vec![0xff_u8; 16]);
+
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data);
+    assert_eq!(logs[0].topics.len(), 0);
+}
