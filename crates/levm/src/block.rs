@@ -10,10 +10,9 @@ pub struct BlockEnv {
     pub coinbase: Address,
     /// The timestamp of the block in seconds since the UNIX epoch.
     pub timestamp: U256,
-    //
-    // The base fee per gas, added in the London upgrade with [EIP-1559].
-    //
-    // [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    /// The amount of wei to burn for each unit of gas consumed, added in the London upgrade with [EIP-1559].
+    ///
+    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     pub base_fee_per_gas: U256,
     // Based on the python implementation, it's the gas limit of the block
     // https://github.com/ethereum/execution-specs/blob/master/src/ethereum/cancun/blocks.py
