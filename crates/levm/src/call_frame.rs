@@ -7,7 +7,7 @@ use ethereum_types::{Address, H32, U256};
 pub struct Log {
     pub address: Address,
     pub topics: Vec<H32>,
-    pub data: Vec<u8>,
+    pub data: Bytes,
 }
 
 #[derive(Debug, Clone, Default)]
