@@ -1,8 +1,9 @@
-use crate::{memory::Memory, opcodes::Opcode};
-use bytes::Bytes;
-use ethereum_types::{Address, U256};
+use crate::{
+    memory::Memory,
+    opcodes::Opcode,
+    primitives::{Address, Bytes, U256},
+};
 
-// the call frame is the current context/environment of the VM
 #[derive(Debug, Clone, Default)]
 pub struct CallFrame {
     pub gas: U256,

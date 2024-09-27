@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
-use crate::primitives::{Address, U256, U512};
-use crate::{call_frame::CallFrame, opcodes::Opcode};
-use bytes::Bytes;
+use crate::{
+    call_frame::CallFrame,
+    opcodes::Opcode,
+    primitives::{Address, Bytes, U256, U512},
+};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]

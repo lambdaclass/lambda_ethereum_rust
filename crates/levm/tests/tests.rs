@@ -1,7 +1,6 @@
-use bytes::Bytes;
 use levm::{
     operations::Operation,
-    primitives::{Address, U256},
+    primitives::{Address, Bytes, U256},
     vm::{Account, VM},
 };
 
