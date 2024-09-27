@@ -13,6 +13,9 @@ interface ICommonBridge {
     /// on L2. You can use this hash to retrive the tx data.
     /// It is the result of keccak(abi.encode(transaction)).
     event DepositInitiated(bytes32 indexed l2MintTxHash);
+
+    /// @notice Error for when the deposit amount is 0.
+    error AmountToDepositIsZero();
     
     /// @notice Method that starts an L2 ETH deposit process.
     /// @dev The deposit process starts here by emitting a DepositInitiated
