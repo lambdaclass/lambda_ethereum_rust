@@ -1,4 +1,4 @@
-use crate::{call_frame::CallFrame, opcodes::Opcode};
+use crate::{call_frame::CallFrame, opcodes::Opcode, transaction::Transaction};
 use bytes::Bytes;
 use ethereum_types::{U256, U512};
 use sha3::{Digest, Keccak256};
@@ -6,6 +6,7 @@ use sha3::{Digest, Keccak256};
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub transaction: Transaction,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -25,6 +26,7 @@ impl VM {
         };
         Self {
             call_frames: vec![initial_call_frame],
+            transaction: Transaction::default(),
         }
     }
 
