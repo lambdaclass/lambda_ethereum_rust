@@ -3,7 +3,7 @@ pragma solidity 0.8.27;
 
 /// @title Interface for the CommonBridge contract.
 /// @author LambdaClass
-/// @notice An CommonBridge contract is a contract that allows L1<->L2 communication
+/// @notice A CommonBridge contract is a contract that allows L1<->L2 communication
 /// from L1. It both sends messages from L1 to L2 and receives messages from L2.
 interface ICommonBridge {
     /// @notice A deposit to L2 has initiated.
