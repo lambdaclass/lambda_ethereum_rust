@@ -34,7 +34,7 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
-        let gas_limit = i64::MAX as u64; // TODO: it was initialized like this on evm_mlir, check why
+        let gas_limit = i64::MAX as u64; // it is initialized like this for testing
         let mut consumed_gas = TX_BASE_COST; // TODO: check where to place these two, probably TxEnv
         let current_call_frame = self.current_call_frame();
         loop {
