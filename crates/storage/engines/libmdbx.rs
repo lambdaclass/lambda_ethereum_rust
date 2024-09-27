@@ -216,6 +216,26 @@ impl StoreEngine for Store {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<Vec<H256>, StoreError> {
+        let cursor = self
+            .db
+            .begin_read()
+            .map_err(StoreError::LibmdbxError)?
+            .cursor::<TransactionPool>()
+            .map_err(StoreError::LibmdbxError)?;
+        let mut tx_iter = cursor.walk(None);
+        let mut tx_hashes = Vec::new();
+        while let Some(Ok((hash, tx))) = tx_iter.next() {
+            if filter(&tx.to()) {
+                tx_hashes.push(hash.to());
+            }
+        }
+        Ok(tx_hashes)
+    }
+
     /// Stores the chain config serialized as json
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         self.write::<ChainData>(

@@ -176,6 +176,19 @@ impl StoreEngine for Store {
         Ok(self.inner().transaction_pool.get(&hash).cloned())
     }
 
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<Vec<H256>, StoreError> {
+        let mut txs = Vec::new();
+        for (hash, tx) in self.inner().transaction_pool.iter() {
+            if filter(tx) {
+                txs.push(*hash);
+            }
+        }
+        Ok(txs)
+    }
+
     fn add_receipt(
         &self,
         block_hash: BlockHash,

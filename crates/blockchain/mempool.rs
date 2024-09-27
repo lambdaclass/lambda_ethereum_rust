@@ -9,9 +9,9 @@ use crate::{
 };
 use ethereum_rust_core::{
     types::{BlockHeader, ChainConfig, Transaction},
-    H256,
+    H256, U256,
 };
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{error::StoreError, Store};
 
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
     // Validate transaction
@@ -29,6 +29,45 @@ pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, 
     Ok(store.get_transaction_from_pool(hash)?)
 }
 
+/// Applies the filter and returns a list of suitable transaction hashes from the mempool
+pub fn filter_transactions(
+    filter: &PendingTxFilter,
+    store: Store,
+) -> Result<Vec<H256>, StoreError> {
+    let filter_tx = |tx: &Transaction| -> bool {
+        // Filter by tx type
+        let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
+        if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
+            return false;
+        }
+        // Filter by tip & base_fee
+        if let Some(min_tip) = filter.min_tip {
+            if !tx
+                .effective_gas_tip(filter.base_fee)
+                .is_some_and(|tip| tip >= min_tip)
+            {
+                return false;
+            }
+        }
+        // Filter by blob gas fee
+        if let (true, Some(blob_fee)) = (is_blob_tx, filter.blob_fee) {
+            if !tx.max_fee_per_blob_gas().is_some_and(|fee| fee >= blob_fee) {
+                return fase;
+            }
+        }
+        true
+    };
+    store.filter_pool_transactions(&filter_tx)
+}
+
+#[derive(Debug, Default)]
+pub struct PendingTxFilter {
+    min_tip: Option<u64>,
+    base_fee: Option<u64>,
+    blob_fee: Option<U256>,
+    only_plain_txs: bool,
+    only_blob_txs: bool,
+}
 /*
 
 SOME VALIDATIONS THAT WE COULD INCLUDE

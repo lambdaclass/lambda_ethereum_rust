@@ -205,6 +205,13 @@ impl Store {
         self.engine.get_transaction_from_pool(hash)
     }
 
+    pub fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<Vec<H256>, StoreError> {
+        self.engine.filter_pool_transactions(filter)
+    }
+
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.engine.add_account_code(code_hash, code)
     }

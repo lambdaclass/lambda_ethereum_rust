@@ -88,8 +88,14 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         transaction: Transaction,
     ) -> Result<(), StoreError>;
 
-    // Get a transaction from pool table
+    /// Get a transaction from pool table
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError>;
+
+    /// Returns the transaction hashes for all txs in the mempool that pass the filter
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<Vec<H256>, StoreError>;
 
     /// Add receipt
     fn add_receipt(
