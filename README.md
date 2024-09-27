@@ -240,7 +240,7 @@ The network crate handles the ethereum networking protocols. This involves:
 
 The official spec can be found [here](https://github.com/ethereum/devp2p/tree/master).
 
-## Discovery protocol
+### Discovery protocol
 
 In the next section, we'll be looking at the discovery protocol (discv4 to be more specific) and the way we have it set up. There are many points for improvement and here we discuss some possible solutions to them.
 
@@ -271,7 +271,7 @@ pub fn distance(node_id_1: H512, node_id_2: H512) -> usize {
 }
 ```
 
-### Startup
+#### Startup
 
 Before starting the server, we do a startup where we connect to an array of seeders or bootnodes. This involves:
 
@@ -281,7 +281,7 @@ Before starting the server, we do a startup where we connect to an array of seed
 
 This startup is far from being completed. The current state allows us to do basic tests and connections. Later, we want to do a real startup by first trying to connect to those nodes we were previously connected. For that, we'd need to store nodes on the database. If those nodes aren't enough to fill our table, then we also ping some bootnodes, which could be hardcoded or received through the cli. Current issues are opened regarding [startup](https://github.com/lambdaclass/ethereum_rust/issues/398) and [nodes db](https://github.com/lambdaclass/ethereum_rust/issues/454).
 
-### Listen loop
+#### Listen loop
 
 The listen loop handles messages sent to our socket. The spec defines 6 types of messages:
 
@@ -292,7 +292,7 @@ The listen loop handles messages sent to our socket. The spec defines 6 types of
 -   **ENRRequest**: currently not implemented see [here](https://github.com/lambdaclass/ethereum_rust/issues/432).
 -   **ENRResponse**: same as above.
 
-### Re-validations
+#### Re-validations
 
 Re-validations are tasks that are implemented as intervals, that is: they run an action every `x` wherever unit of time (currently configured to run every 30 seconds). The current flow of re-validation is as follows
 
@@ -312,7 +312,7 @@ Re-validations are another point of potential improvement. While it may be fine 
 -   When picking a node to ping, we would do it randomly, which is the best form of justice for a node to become trusted by us.
 -   When a node from `b` responds successfully, we move it to `a`, and when one from `a` does not respond, we move it to `b`.
 
-### Recursive Lookups
+#### Recursive Lookups
 
 Recursive lookups are as with re-validations implemented as intervals. Their current flow is as follows:
 
@@ -325,7 +325,7 @@ Recursive lookups are as with re-validations implemented as intervals. Their cur
 4. We wait for the neighbors' response and push or replace those who are closer to the potential peers.
 5. We select three other nodes from the potential peers vector and do the same until one lookup has no node to ask.
 
-### An example of how you might build a network
+#### An example of how you might build a network
 
 Finally, here is an example of how you could build a network and see how they connect each other:
 
