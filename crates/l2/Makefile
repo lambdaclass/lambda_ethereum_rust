@@ -8,7 +8,7 @@ down: down-local-l1 down-l2
 
 clean: clean-local-l1
 
-restart: restart-l1 restart-l2
+restart: restart-local-l1 restart-l2
 
 # Local L1
 
