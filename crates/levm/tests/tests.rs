@@ -1325,3 +1325,32 @@ fn nested_calls() {
 
     assert_eq!(return_data, expected_bytes);
 }
+
+#[test]
+fn pop_op() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(100)),
+        Operation::Pop,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+}
+
+// TODO: when adding error handling this should return an error, not panic
+#[test]
+#[should_panic]
+fn pop_on_empty_stack() {
+    let operations = [Operation::Pop, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+}
