@@ -31,7 +31,7 @@ impl L1Watcher {
     }
 
     pub async fn get_logs(&self) {
-        let step = U256::from(1000);
+        let step = U256::from(5000);
 
         let mut last_block: U256 = U256::zero();
 

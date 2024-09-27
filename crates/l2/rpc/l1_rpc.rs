@@ -1,37 +1,16 @@
+use ethereum_rust_rpc::{
+    types::receipt::RpcLog,
+    utils::{RpcErrorResponse, RpcSuccessResponse},
+};
 use ethereum_types::{Address, H256, U256};
 use reqwest::Client;
+use serde::Deserialize;
 
-#[derive(Debug, serde::Deserialize)]
-pub struct Error {
-    code: i128,
-    message: String,
-    data: Option<String>,
-}
-
-#[derive(serde::Deserialize)]
-struct Response<T> {
-    id: i32,
-    jsonrpc: String,
-    result: Option<T>,
-    error: Option<Error>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub struct Log {
-    address: String,
-    topics: Vec<String>,
-    data: String,
-    #[serde(rename = "blockNumber")]
-    block_number: String,
-    #[serde(rename = "transactionHash")]
-    transaction_hash: String,
-    #[serde(rename = "transactionIndex")]
-    transaction_index: String,
-    #[serde(rename = "blockHash")]
-    block_hash: String,
-    #[serde(rename = "logIndex")]
-    log_index: String,
-    removed: bool,
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum RpcResponse {
+    Success(RpcSuccessResponse),
+    Error(RpcErrorResponse),
 }
 
 pub struct L1Rpc {
@@ -68,13 +47,13 @@ impl L1Rpc {
 
     pub async fn get_block_number(&self) -> Result<U256, String> {
         match self.send_request("eth_blockNumber", None).await {
-            Ok(res) => match res.json::<Response<String>>().await {
-                Ok(body) => {
-                    if let Some(error) = body.error {
-                        return Err(error.message);
+            Ok(res) => match res.json::<RpcResponse>().await {
+                Ok(body) => match body {
+                    RpcResponse::Success(result) => {
+                        Ok(serde_json::from_value(result.result).unwrap())
                     }
-                    return Ok(body.result.unwrap().parse().unwrap());
-                }
+                    RpcResponse::Error(error) => Err(error.error.message),
+                },
                 Err(e) => Err(e.to_string()),
             },
             Err(e) => Err(e.to_string()),
@@ -87,20 +66,20 @@ impl L1Rpc {
         to_block: U256,
         address: Address,
         topic: H256,
-    ) -> Result<Vec<Log>, String> {
+    ) -> Result<Vec<RpcLog>, String> {
         let params = format!(
             r#"[{{"fromBlock": "{:#x}", "toBlock": "{:#x}", "address": "{:#x}", "topics": ["{:#x}"]}}]"#,
             from_block, to_block, address, topic
         );
 
         match self.send_request("eth_getLogs", Some(&params)).await {
-            Ok(res) => match res.json::<Response<Vec<Log>>>().await {
-                Ok(body) => {
-                    if let Some(error) = body.error {
-                        return Err(error.message);
+            Ok(res) => match res.json::<RpcResponse>().await {
+                Ok(body) => match body {
+                    RpcResponse::Success(result) => {
+                        Ok(serde_json::from_value(result.result).unwrap())
                     }
-                    return Ok(body.result.unwrap());
-                }
+                    RpcResponse::Error(error) => Err(error.error.message),
+                },
                 Err(e) => Err(e.to_string()),
             },
             Err(e) => Err(e.to_string()),

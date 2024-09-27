@@ -13,6 +13,7 @@ tracing.workspace = true
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 ethereum-types.workspace = true
+ethereum_rust-rpc.workspace = true
 
 [lib]
 path = "./l2.rs"
