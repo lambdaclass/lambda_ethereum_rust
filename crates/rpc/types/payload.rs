@@ -8,7 +8,7 @@ use ethereum_rust_core::{
         compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
         BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
-    Address, Bloom, H256,
+    Address, Bloom, H256, U256,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -217,8 +217,8 @@ impl PayloadStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadResponse {
     pub execution_payload: ExecutionPayloadV3, // We only handle v3 payloads
-    #[serde(with = "serde_utils::u64::hex_str")]
-    pub block_value: u64,
+    // Total fees consumed by the block (fees paid)
+    pub block_value: U256,
     pub blobs_bundle: BlobsBundle,
 }
 
@@ -233,11 +233,12 @@ pub struct BlobsBundle {
     pub blobs: Vec<Bytes>,
 }
 
+// TODO: Fill BlobsBundle
 impl ExecutionPayloadResponse {
-    pub fn new(payload: ExecutionPayloadV3) -> Self {
+    pub fn new(payload: ExecutionPayloadV3, block_value: U256) -> Self {
         Self {
             execution_payload: payload,
-            block_value: 0,
+            block_value,
             blobs_bundle: BlobsBundle {
                 commitments: vec![],
                 proofs: vec![],

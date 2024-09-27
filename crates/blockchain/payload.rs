@@ -144,3 +144,20 @@ fn calc_excess_blob_gas(parent_excess_blob_gas: u64, parent_blob_gas_used: u64) 
         excess_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
     }
 }
+
+/// Calculates the total fees paid by the payload block
+/// Only potential errors are storage erros which should be treated as internal errors by rpc providers
+pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
+    let mut total_fee = U256::zero();
+    let mut last_cummulative_gas_used = 0;
+    for (index, tx) in block.body.transactions.iter().enumerate() {
+        // Execution already succeded by this point so we can asume the fee is valid
+        let fee = tx.effective_gas_tip(block.header.base_fee_per_gas)?;
+        let receipt = storage
+            .get_receipt(block.header.number, index as u64)
+            .ok()??;
+        total_fee += U256::from(fee) * (receipt.cumulative_gas_used - last_cummulative_gas_used);
+        last_cummulative_gas_used = receipt.cumulative_gas_used;
+    }
+    Some(total_fee)
+}
