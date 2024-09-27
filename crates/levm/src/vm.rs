@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    call_frame::CallFrame,
-    opcodes::Opcode,
-    primitives::{Address, Bytes, U256, U512},
+    call_frame::CallFrame, constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN}, opcodes::Opcode, primitives::{Address, Bytes, U256, U512}
 };
 use sha3::{Digest, Keccak256};
 
@@ -483,7 +481,7 @@ impl VM {
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
                         continue;
                     }
 
@@ -493,7 +491,7 @@ impl VM {
                     let callee_bytecode = self.get_account_bytecode(&address);
 
                     if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::one());
+                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
                         continue;
                     }
 
@@ -534,14 +532,14 @@ impl VM {
                                 .store_bytes(ret_offset, &return_data);
                         }
 
-                        parent_call_frame.stack.push(U256::one());
+                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
                         parent_call_frame.return_data_offset = None;
                         parent_call_frame.return_data_size = None;
 
                         current_call_frame = parent_call_frame.clone();
                     } else {
                         // excecution completed (?)
-                        current_call_frame.stack.push(U256::one());
+                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
                         break;
                     }
                 }
