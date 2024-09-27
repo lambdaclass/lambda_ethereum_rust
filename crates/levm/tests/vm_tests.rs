@@ -1,6 +1,9 @@
 use bytes::Bytes;
-use ethereum_types::U256;
-use levm::{operations::Operation, vm::VM};
+use levm::{
+    operations::Operation,
+    primitives::{Address, U256},
+    vm::VM,
+};
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = operations
@@ -8,7 +11,7 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    VM::new(bytecode)
+    VM::new(bytecode, Address::zero(), U256::zero())
 }
 
 #[test]

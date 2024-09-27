@@ -6,15 +6,21 @@ use bytes::Bytes;
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
-struct Account {
+pub struct Account {
     balance: U256,
     bytecode: Bytes,
+}
+
+impl Account {
+    pub fn new(balance: U256, bytecode: Bytes) -> Self {
+        Self { balance, bytecode }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    accounts: HashMap<Address, Account>, // change to Address
+    pub accounts: HashMap<Address, Account>, // change to Address
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -27,15 +33,12 @@ fn negate(value: U256) -> U256 {
 }
 
 impl VM {
-    pub fn new(bytecode: Bytes) -> Self {
-        let initial_account = Account {
-            balance: U256::zero(),
-            bytecode: bytecode.clone(),
-        };
+    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
+        let initial_account = Account::new(balance, bytecode.clone());
 
         let initial_call_frame = CallFrame::new(bytecode);
         let mut accounts = HashMap::new();
-        accounts.insert(Address::zero(), initial_account);
+        accounts.insert(address, initial_account);
         Self {
             call_frames: vec![initial_call_frame.clone()],
             accounts,
@@ -465,6 +468,7 @@ impl VM {
                         .copy(src_offset, dest_offset, size);
                 }
                 Opcode::CALL => {
+                    println!("CALL");
                     let gas = current_call_frame.stack.pop().unwrap();
                     let address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
@@ -476,6 +480,7 @@ impl VM {
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
+                        println!("INSUFFICIENT BALANCE");
                         current_call_frame.stack.push(U256::zero());
                         continue;
                     }
@@ -486,6 +491,7 @@ impl VM {
                     let callee_bytecode = self.get_account_bytecode(&address);
 
                     if callee_bytecode.is_empty() {
+                        println!("NO BYTECODE");
                         current_call_frame.stack.push(U256::one());
                         continue;
                     }
@@ -512,6 +518,7 @@ impl VM {
                     current_call_frame = new_call_frame;
                 }
                 Opcode::RETURN => {
+                    println!("RETURN");
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
@@ -525,18 +532,19 @@ impl VM {
                             parent_call_frame
                                 .memory
                                 .store_bytes(ret_offset, &return_data);
-
-                            parent_call_frame.stack.push(U256::one());
-                        } else {
-                            parent_call_frame.stack.push(U256::one());
                         }
 
+                        parent_call_frame.stack.push(U256::one());
                         parent_call_frame.return_data_offset = None;
                         parent_call_frame.return_data_size = None;
+
+                        println!("CURRENT CALL FRAME {:?}", current_call_frame);
+                        println!("PARENT CALL FRAME {:?}", parent_call_frame);
 
                         current_call_frame = parent_call_frame.clone();
                     } else {
                         // excecution completed (?)
+                        current_call_frame.stack.push(U256::one());
                         break;
                     }
                 }
@@ -560,6 +568,10 @@ impl VM {
         self.accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
+    }
+
+    pub fn add_account(&mut self, address: Address, account: Account) {
+        self.accounts.insert(address, account);
     }
 }
 

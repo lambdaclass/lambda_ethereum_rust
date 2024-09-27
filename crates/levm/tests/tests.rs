@@ -1,16 +1,23 @@
 use bytes::Bytes;
-use ethereum_types::U256;
-use levm::{operations::Operation, vm::VM};
+use levm::{
+    operations::Operation,
+    primitives::{Address, U256},
+    vm::{Account, VM},
+};
 
 // cargo test -p 'levm'
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
+    new_vm_with_ops_addr_bal(operations, Address::zero(), U256::zero())
+}
+
+pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
     let bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    VM::new(bytecode)
+    VM::new(bytecode, address, balance)
 }
 
 #[test]
@@ -938,7 +945,7 @@ fn mstore8() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -969,7 +976,7 @@ fn mcopy() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -996,7 +1003,7 @@ fn mload() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1013,7 +1020,7 @@ fn msize() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1033,7 +1040,7 @@ fn msize() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm = VM::new(bytecode);
+    vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1053,7 +1060,7 @@ fn msize() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm = VM::new(bytecode);
+    vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1078,7 +1085,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1105,7 +1112,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm = VM::new(bytecode);
+    vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1130,7 +1137,7 @@ fn mload_uninitialized_memory() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1139,4 +1146,96 @@ fn mload_uninitialized_memory() {
 
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
+}
+
+#[test]
+fn call_returns_if_bytecode_empty() {
+    let callee_bytecode = vec![].into();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+    println!("to excec");
+    vm.execute();
+
+    let success = vm.current_call_frame_mut().stack.pop().unwrap();
+    assert_eq!(success, U256::one());
+}
+
+fn callee_return_bytecode(return_value: U256) -> Bytes {
+    let ops = vec![
+        Operation::Push32(return_value), // value
+        Operation::Push32(U256::zero()), // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // offset
+        Operation::Return,
+    ];
+
+    ops.iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>()
+}
+
+#[test]
+fn call_changes_callframe_and_stores() {
+    let callee_return_value = U256::from(0xAAAAAAA);
+    let callee_bytecode = callee_return_bytecode(callee_return_value);
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let success = current_call_frame.stack.pop().unwrap() == U256::one();
+    assert!(success);
+
+    let ret_offset = 0;
+    let ret_size = 32;
+    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    //println!("CURRENT CALL FRAME {:?}", current_call_frame);
+
+    assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
 }
