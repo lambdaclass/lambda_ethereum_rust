@@ -17,7 +17,10 @@ use ethereum_rust_storage::Store;
 use sha3::{Digest, Keccak256};
 
 use crate::{
-    constants::{GAS_LIMIT_BOUND_DIVISOR, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK},
+    constants::{
+        GAS_LIMIT_BOUND_DIVISOR, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK,
+        TX_GAS_COST,
+    },
     error::ChainError,
     mempool::{self, PendingTxFilter},
 };
@@ -164,12 +167,13 @@ pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
 }
 
 pub fn fill_transactions(payload_block: &mut Block, store: Store) -> Result<(), ChainError> {
+    let base_fee_per_blob_gas = U256::from(calculate_base_fee_per_blob_gas(
+        payload_block.header.excess_blob_gas.unwrap_or_default(),
+    ));
     let tx_filter = PendingTxFilter {
         /*TODO: add tip filter */
         base_fee: payload_block.header.base_fee_per_gas,
-        blob_fee: Some(U256::from(calculate_base_fee_per_blob_gas(
-            payload_block.header.excess_blob_gas.unwrap(),
-        ))),
+        blob_fee: Some(base_fee_per_blob_gas),
         ..Default::default()
     };
     let plain_tx_filter = PendingTxFilter {
@@ -180,7 +184,122 @@ pub fn fill_transactions(payload_block: &mut Block, store: Store) -> Result<(), 
         only_blob_txs: true,
         ..tx_filter
     };
-    let plain_txs = mempool::filter_transactions(&plain_tx_filter, store)?;
+    let mut plain_txs = TransactionQueue::new(
+        mempool::filter_transactions(&plain_tx_filter, store.clone())?,
+        payload_block.header.base_fee_per_gas,
+    );
+    let mut blob_txs = TransactionQueue::new(
+        mempool::filter_transactions(&plain_tx_filter, store)?,
+        payload_block.header.base_fee_per_gas,
+    );
+    // Commit txs
+    let mut remaining_gas = payload_block.header.gas_limit;
+    let mut blobs = 0_u64;
+    loop {
+        if remaining_gas < TX_GAS_COST {
+            // No more gas to run transactions
+            break;
+        };
+        if !blob_txs.is_empty()
+            && base_fee_per_blob_gas * blobs > U256::from(MAX_BLOB_GAS_PER_BLOCK)
+        {
+            // No more blob space to run blob transactions
+            blob_txs.clear();
+        }
+        // Fetch the next transactions
+        let (head_tx, is_blob) = match (plain_txs.peek(), blob_txs.peek()) {
+            (None, None) => break,
+            (None, Some((tx, _))) => (tx, true),
+            (Some((tx, _)), None) => (tx, false),
+            (Some((_, tip_plain)), Some((tx, tip_blob))) if tip_plain < tip_blob => (tx, true),
+            (Some((tx, _)), _) => (tx.clone(), false),
+        };
+        let txs = if is_blob {
+            &mut blob_txs
+        } else {
+            &mut plain_txs
+        };
+        if remaining_gas < head_tx.tx.gas_limit() {
+            // We don't have enough gas left for the transaction, so we skip all txs from this account
+            txs.skip_sender(&head_tx.sender);
+        }
+        // To be continued...
+    }
 
     Ok(())
+}
+
+struct TransactionQueue {
+    // The first transaction for each account along with its tip
+    heads: Vec<HeadTransaction>,
+    // The remaining txs grouped by account and sorted by nonce
+    txs: HashMap<Address, Vec<Transaction>>,
+}
+
+#[derive(Clone)]
+struct HeadTransaction {
+    tx: Transaction,
+    sender: Address,
+    tip: u64,
+}
+
+impl TransactionQueue {
+    fn new(mut txs: HashMap<Address, Vec<Transaction>>, base_fee: Option<u64>) -> Self {
+        let mut heads = Vec::new();
+        for (address, txs) in txs.iter_mut() {
+            // This should be a newly filtered tx list so we are guaranteed to have a first element
+            let head_tx = txs.remove(0);
+            heads.push(HeadTransaction {
+                // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
+                tip: head_tx.effective_gas_tip(base_fee).unwrap(),
+                tx: head_tx,
+                sender: *address,
+            });
+        }
+        TransactionQueue { heads, txs }
+    }
+
+    fn clear(&mut self) {
+        self.heads.clear();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.heads.is_empty()
+    }
+
+    /// Returns the head transaction with the highest tip along with it
+    /// If there is more than one transaction with the highest tip, return the one with the lowest timestamp
+    /// TODO: add timestamp
+    fn peek(&self) -> Option<(HeadTransaction, u64)> {
+        let mut highest_tip = 0;
+        let mut highest_tip_index = 0;
+        for i in 1..self.heads.len() {
+            let current_tip = self.heads[i].tip;
+            if current_tip > highest_tip {
+                highest_tip_index = i;
+                highest_tip = current_tip;
+            } else if current_tip == highest_tip {
+                // TODO: add timestamp to payloads so we can sort by it
+            }
+        }
+        self.heads
+            .get(highest_tip_index)
+            .map(|tx| (tx.clone(), highest_tip))
+    }
+
+    /// Removes all txs from the given sender
+    fn skip_sender(&mut self, sender: &Address) {
+        let mut index = None;
+        let mut i = 0;
+        while i < self.heads.len() && index.is_none() {
+            if &self.heads[0].sender == sender {
+                index = Some(i);
+            }
+            i += 1;
+        }
+        if let Some(index) = index {
+            self.heads.remove(index);
+            self.txs.remove(sender);
+        }
+    }
 }

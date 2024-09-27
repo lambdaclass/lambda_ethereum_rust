@@ -610,11 +610,11 @@ impl Transaction {
         keccak_hash::keccak(self.encode_canonical_to_vec())
     }
 
-    fn gas_tip_cap(&self) -> u64 {
+    pub fn gas_tip_cap(&self) -> u64 {
         self.max_priority_fee().unwrap_or(self.gas_price())
     }
 
-    fn gas_fee_cap(&self) -> u64 {
+    pub fn gas_fee_cap(&self) -> u64 {
         self.max_fee_per_gas().unwrap_or(self.gas_price())
     }
 
