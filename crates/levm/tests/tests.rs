@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use ethereum_types::U256;
+use ethereum_types::{H32, U256};
 use levm::{operations::Operation, vm::VM};
 
 // cargo test -p 'levm'
@@ -1315,8 +1315,8 @@ fn log0() {
 
 #[test]
 fn log1() {
-    let mut topic1: [u8; 32] = [0x00; 32];
-    topic1[31] = 1;
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -1338,15 +1338,15 @@ fn log1() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![U256::from_big_endian(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
 }
 
 #[test]
 fn log2() {
-    let mut topic1: [u8; 32] = [0x00; 32];
-    topic1[31] = 1;
-    let mut topic2: [u8; 32] = [0x00; 32];
-    topic2[31] = 2;
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+    let mut topic2: [u8; 4] = [0x00; 4];
+    topic2[3] = 2;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -1371,21 +1371,18 @@ fn log2() {
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(
         logs[0].topics,
-        vec![
-            U256::from_big_endian(&topic1),
-            U256::from_big_endian(&topic2)
-        ]
+        vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
     );
 }
 
 #[test]
 fn log3() {
-    let mut topic1: [u8; 32] = [0x00; 32];
-    topic1[31] = 1;
-    let mut topic2: [u8; 32] = [0x00; 32];
-    topic2[31] = 2;
-    let mut topic3: [u8; 32] = [0x00; 32];
-    topic3[31] = 3;
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+    let mut topic2: [u8; 4] = [0x00; 4];
+    topic2[3] = 2;
+    let mut topic3: [u8; 4] = [0x00; 4];
+    topic3[3] = 3;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -1412,23 +1409,23 @@ fn log3() {
     assert_eq!(
         logs[0].topics,
         vec![
-            U256::from_big_endian(&topic1),
-            U256::from_big_endian(&topic2),
-            U256::from_big_endian(&topic3)
+            H32::from_slice(&topic1),
+            H32::from_slice(&topic2),
+            H32::from_slice(&topic3)
         ]
     );
 }
 
 #[test]
 fn log4() {
-    let mut topic1: [u8; 32] = [0x00; 32];
-    topic1[31] = 1;
-    let mut topic2: [u8; 32] = [0x00; 32];
-    topic2[31] = 2;
-    let mut topic3: [u8; 32] = [0x00; 32];
-    topic3[31] = 3;
-    let mut topic4: [u8; 32] = [0x00; 32];
-    topic4[31] = 4;
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+    let mut topic2: [u8; 4] = [0x00; 4];
+    topic2[3] = 2;
+    let mut topic3: [u8; 4] = [0x00; 4];
+    topic3[3] = 3;
+    let mut topic4: [u8; 4] = [0x00; 4];
+    topic4[3] = 4;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -1456,10 +1453,10 @@ fn log4() {
     assert_eq!(
         logs[0].topics,
         vec![
-            U256::from_big_endian(&topic1),
-            U256::from_big_endian(&topic2),
-            U256::from_big_endian(&topic3),
-            U256::from_big_endian(&topic4)
+            H32::from_slice(&topic1),
+            H32::from_slice(&topic2),
+            H32::from_slice(&topic3),
+            H32::from_slice(&topic4)
         ]
     );
 }
@@ -1535,8 +1532,8 @@ fn log_with_data_in_memory_smaller_than_size() {
 
 #[test]
 fn multiple_logs_of_different_types() {
-    let mut topic1: [u8; 32] = [0x00; 32];
-    topic1[31] = 1;
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -1562,6 +1559,6 @@ fn multiple_logs_of_different_types() {
     assert_eq!(logs.len(), 2);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[1].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![U256::from_big_endian(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
     assert_eq!(logs[1].topics.len(), 0);
 }

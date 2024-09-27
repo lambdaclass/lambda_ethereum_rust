@@ -1,6 +1,6 @@
 use crate::{memory::Memory, opcodes::Opcode};
 use bytes::Bytes;
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H32, U256};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
 /// Data record produced during the execution of a transaction.

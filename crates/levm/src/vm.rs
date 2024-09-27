@@ -3,7 +3,7 @@ use crate::{
     opcodes::Opcode,
 };
 use bytes::Bytes;
-use ethereum_types::{U256, U512};
+use ethereum_types::{H32, U256, U512};
 use sha3::{Digest, Keccak256};
 
 #[derive(Debug, Clone, Default)]
@@ -438,7 +438,10 @@ impl VM {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let topics = (0..number_of_topics)
-                        .map(|_| current_call_frame.stack.pop().unwrap())
+                        .map(|_| {
+                            let topic = current_call_frame.stack.pop().unwrap().as_u32();
+                            H32::from_slice(topic.to_be_bytes().as_ref())
+                        })
                         .collect();
 
                     let data = current_call_frame.memory.load_range(offset, size);
