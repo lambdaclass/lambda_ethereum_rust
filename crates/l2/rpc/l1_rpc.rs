@@ -1,6 +1,6 @@
 use ethereum_rust_rpc::{
     types::receipt::RpcLog,
-    utils::{RpcErrorResponse, RpcSuccessResponse},
+    utils::{RpcErrorResponse, RpcRequest, RpcRequestId, RpcSuccessResponse},
 };
 use ethereum_types::{Address, H256, U256};
 use reqwest::Client;
@@ -26,27 +26,24 @@ impl L1Rpc {
         }
     }
 
-    async fn send_request(
-        &self,
-        method: &str,
-        params: Option<&str>,
-    ) -> Result<reqwest::Response, reqwest::Error> {
+    async fn send_request(&self, request: RpcRequest) -> Result<reqwest::Response, reqwest::Error> {
         self.client
             .post(&self.url)
             .header("content-type", "application/json")
-            .body(
-                r#"{"jsonrpc":"2.0","method":""#.to_string()
-                    + method
-                    + r#"","params":"#
-                    + params.unwrap_or("[]")
-                    + r#","id":1}"#,
-            )
+            .body(serde_json::ser::to_string(&request).unwrap())
             .send()
             .await
     }
 
     pub async fn get_block_number(&self) -> Result<U256, String> {
-        match self.send_request("eth_blockNumber", None).await {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_blockNumber".to_string(),
+            params: None,
+        };
+
+        match self.send_request(request).await {
             Ok(res) => match res.json::<RpcResponse>().await {
                 Ok(body) => match body {
                     RpcResponse::Success(result) => {
@@ -67,12 +64,21 @@ impl L1Rpc {
         address: Address,
         topic: H256,
     ) -> Result<Vec<RpcLog>, String> {
-        let params = format!(
-            r#"[{{"fromBlock": "{:#x}", "toBlock": "{:#x}", "address": "{:#x}", "topics": ["{:#x}"]}}]"#,
-            from_block, to_block, address, topic
-        );
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getLogs".to_string(),
+            params: Some(vec![serde_json::json!(
+                {
+                    "fromBlock": format!("{:#x}", from_block),
+                    "toBlock": format!("{:#x}", to_block),
+                    "address": format!("{:#x}", address),
+                    "topics": [format!("{:#x}", topic)]
+                }
+            )]),
+        };
 
-        match self.send_request("eth_getLogs", Some(&params)).await {
+        match self.send_request(request).await {
             Ok(res) => match res.json::<RpcResponse>().await {
                 Ok(body) => match body {
                     RpcResponse::Success(result) => {
