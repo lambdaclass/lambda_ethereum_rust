@@ -116,7 +116,9 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
             Ok(()) => {
                 info!("Block with hash {block_hash} executed succesfully");
-
+                // TODO: We don't have a way to fetch blocks by number if they are not canonical
+                // so we need to set it as canonical in order to run basic test suites
+                // We should remove this line once the issue is solved
                 storage.set_canonical_block(block.header.number, block_hash)?;
                 info!("Block with hash {block_hash} added to storage");
 
