@@ -26,13 +26,16 @@ impl L1Rpc {
         }
     }
 
-    async fn send_request(&self, request: RpcRequest) -> Result<reqwest::Response, reqwest::Error> {
-        self.client
+    async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, reqwest::Error> {
+        Ok(self
+            .client
             .post(&self.url)
             .header("content-type", "application/json")
             .body(serde_json::ser::to_string(&request).unwrap())
             .send()
-            .await
+            .await?
+            .json::<RpcResponse>()
+            .await?)
     }
 
     pub async fn get_block_number(&self) -> Result<U256, String> {
@@ -44,15 +47,8 @@ impl L1Rpc {
         };
 
         match self.send_request(request).await {
-            Ok(res) => match res.json::<RpcResponse>().await {
-                Ok(body) => match body {
-                    RpcResponse::Success(result) => {
-                        Ok(serde_json::from_value(result.result).unwrap())
-                    }
-                    RpcResponse::Error(error) => Err(error.error.message),
-                },
-                Err(e) => Err(e.to_string()),
-            },
+            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
+            Ok(RpcResponse::Error(e)) => Err(e.error.message),
             Err(e) => Err(e.to_string()),
         }
     }
@@ -79,15 +75,8 @@ impl L1Rpc {
         };
 
         match self.send_request(request).await {
-            Ok(res) => match res.json::<RpcResponse>().await {
-                Ok(body) => match body {
-                    RpcResponse::Success(result) => {
-                        Ok(serde_json::from_value(result.result).unwrap())
-                    }
-                    RpcResponse::Error(error) => Err(error.error.message),
-                },
-                Err(e) => Err(e.to_string()),
-            },
+            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
+            Ok(RpcResponse::Error(e)) => Err(e.error.message),
             Err(e) => Err(e.to_string()),
         }
     }
