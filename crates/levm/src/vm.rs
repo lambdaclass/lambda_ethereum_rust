@@ -306,14 +306,47 @@ impl VM {
                         .push(U256::from_big_endian(&result));
                 }
                 Opcode::CALLDATALOAD => {
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value = current_call_frame.calldata.get(offset..32).unwrap().into(); // 32 bytes
+                    current_call_frame.stack.push(value);
                 }
                 Opcode::CALLDATASIZE => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.calldata.len()));
                 }
                 Opcode::CALLDATACOPY => {
+                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let calldata_offset =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    if size == 0 {
+                        continue;
+                    }
+                    let data = current_call_frame
+                        .calldata
+                        .get(calldata_offset..size)
+                        .unwrap();
+                    current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::RETURNDATASIZE => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.returndata.len()));
                 }
                 Opcode::RETURNDATACOPY => {
+                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let returndata_offset =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    if size == 0 {
+                        continue;
+                    }
+                    let data = current_call_frame
+                        .returndata
+                        .get(returndata_offset..size)
+                        .unwrap();
+                    current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::JUMP => {
                     let jump_address = current_call_frame.stack.pop().unwrap();
@@ -496,7 +529,6 @@ impl VM {
                     if size == 0 {
                         continue;
                     }
-
                     current_call_frame
                         .memory
                         .copy(src_offset, dest_offset, size);
