@@ -448,7 +448,7 @@ impl VM {
                     let log = Log {
                         address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
                         topics,
-                        data,
+                        data: Bytes::from(data),
                     };
                     current_call_frame.logs.push(log);
                 }
