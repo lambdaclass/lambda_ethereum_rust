@@ -8,7 +8,7 @@ down: down-local-l1 down-l2
 
 clean: clean-local-l1
 
-restart: restart-l1 restart-l2
+restart: restart-local-l1 restart-l2
 
 # Local L1
 
@@ -41,6 +41,7 @@ L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b7492
 FOUNDRY_PROJECT_HOME=$(shell pwd)/contracts
 
 deploy-l1:
+	git submodule update --init --recursive --remote
 	cd ${FOUNDRY_PROJECT_HOME} && \
 	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast
 
