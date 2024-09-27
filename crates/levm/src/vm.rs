@@ -418,7 +418,7 @@ impl VM {
 
                     let data = current_call_frame.memory.load_range(offset, size);
                     let log = Log {
-                        address: current_call_frame.msg_sender, // Should change if we are on a Call
+                        address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
                         topics,
                         data,
                     };

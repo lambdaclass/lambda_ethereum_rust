@@ -1137,3 +1137,31 @@ fn mload_uninitialized_memory() {
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
 }
+
+#[test]
+fn log0() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0_u8;
+    let operations = [
+        // store data in memory
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+        // execute log0
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    let logs = &vm.current_call_frame().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics.len(), 0);
+}
