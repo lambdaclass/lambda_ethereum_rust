@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 ethereum_rust-core.workspace = true
-ethereum_rust-trie = { workspace = true, features = ["libmdbx"] }
+ethereum_rust-trie = { workspace = true, default-features = false }
 ethereum_rust-rlp.workspace = true
 
 ethereum-types = "0.14.1"
@@ -22,9 +22,9 @@ serde_json = "1.0.117"
 libmdbx = { workspace = true, optional = true }
 
 [features]
-default = ["in_memory", "libmdbx"]
-in_memory = []
-libmdbx = ["dep:libmdbx"]
+default = ["libmdbx"]
+in_memory = ["ethereum_rust-trie/no_libmdbx"]
+libmdbx = ["dep:libmdbx", "ethereum_rust-trie/libmdbx"]
 
 [dev-dependencies]
 hex.workspace = true

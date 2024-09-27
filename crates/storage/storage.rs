@@ -618,17 +618,40 @@ mod tests {
     #[cfg(feature = "in_memory")]
     #[test]
     fn test_in_memory_store() {
-        test_store_suite(EngineType::InMemory);
+        test_store_suite_in_memory(EngineType::InMemory);
+    }
+
+    #[cfg(feature = "in_memory")]
+    // Creates an empty store, runs the test and then removes the store (if needed)
+    fn run_test_in_memory(test_func: &dyn Fn(Store), engine_type: EngineType) {
+        // Build a new store
+        let store = Store::new("store-test-db", engine_type).expect("Failed to create test db");
+        // Run the test
+        test_func(store);
+    }
+
+    #[cfg(feature = "in_memory")]
+    fn test_store_suite_in_memory(engine_type: EngineType) {
+        run_test_in_memory(&test_store_block, engine_type);
+        run_test_in_memory(&test_store_block_number, engine_type);
+        run_test_in_memory(&test_store_transaction_location, engine_type);
+        run_test_in_memory(&test_store_transaction_location_not_canonical, engine_type);
+        run_test_in_memory(&test_store_block_receipt, engine_type);
+        run_test_in_memory(&test_store_account_code, engine_type);
+        run_test_in_memory(&test_store_block_tags, engine_type);
+        run_test_in_memory(&test_chain_config_storage, engine_type);
+        run_test_in_memory(&test_genesis_block, engine_type);
     }
 
     #[cfg(feature = "libmdbx")]
     #[test]
     fn test_libmdbx_store() {
-        test_store_suite(EngineType::Libmdbx);
+        test_store_suite_libmdbx(EngineType::Libmdbx);
     }
 
+    #[cfg(feature = "libmdbx")]
     // Creates an empty store, runs the test and then removes the store (if needed)
-    fn run_test(test_func: &dyn Fn(Store), engine_type: EngineType) {
+    fn run_test_libmdbx(test_func: &dyn Fn(Store), engine_type: EngineType) {
         // Remove preexistent DBs in case of a failed previous test
         if matches!(engine_type, EngineType::Libmdbx) {
             remove_test_dbs("store-test-db");
@@ -643,16 +666,17 @@ mod tests {
         };
     }
 
-    fn test_store_suite(engine_type: EngineType) {
-        run_test(&test_store_block, engine_type);
-        run_test(&test_store_block_number, engine_type);
-        run_test(&test_store_transaction_location, engine_type);
-        run_test(&test_store_transaction_location_not_canonical, engine_type);
-        run_test(&test_store_block_receipt, engine_type);
-        run_test(&test_store_account_code, engine_type);
-        run_test(&test_store_block_tags, engine_type);
-        run_test(&test_chain_config_storage, engine_type);
-        run_test(&test_genesis_block, engine_type);
+    #[cfg(feature = "libmdbx")]
+    fn test_store_suite_libmdbx(engine_type: EngineType) {
+        run_test_libmdbx(&test_store_block, engine_type);
+        run_test_libmdbx(&test_store_block_number, engine_type);
+        run_test_libmdbx(&test_store_transaction_location, engine_type);
+        run_test_libmdbx(&test_store_transaction_location_not_canonical, engine_type);
+        run_test_libmdbx(&test_store_block_receipt, engine_type);
+        run_test_libmdbx(&test_store_account_code, engine_type);
+        run_test_libmdbx(&test_store_block_tags, engine_type);
+        run_test_libmdbx(&test_chain_config_storage, engine_type);
+        run_test_libmdbx(&test_genesis_block, engine_type);
     }
 
     fn test_genesis_block(store: Store) {

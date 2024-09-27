@@ -5,8 +5,14 @@ edition.workspace = true
 
 [dependencies]
 ethereum_rust-core.workspace = true
-ethereum_rust-storage.workspace = true
-revm = { version = "10.0.0", features = ["serde", "std", "serde-json", "optional_no_base_fee", "optional_block_gas_limit"] }
+ethereum_rust-storage = { workspace = true, default-features = false }
+revm = { version = "10.0.0", features = [
+    "serde",
+    "std",
+    "serde-json",
+    "optional_no_base_fee",
+    "optional_block_gas_limit",
+] }
 # These dependencies must be kept up to date with the corresponding revm version, otherwise errors may pop up because of trait implementation mismatches
 revm-inspectors = { version = "0.3.1" }
 revm-primitives = { version = "6.0.0" }
@@ -14,6 +20,11 @@ bytes.workspace = true
 thiserror.workspace = true
 hex.workspace = true
 lazy_static.workspace = true
+
+[features]
+default = ["in_memory"]
+in_memory = ["ethereum_rust-storage/in_memory"]
+libmdbx = ["ethereum_rust-storage/libmdbx"]
 
 [lib]
 path = "./evm.rs"
