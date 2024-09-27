@@ -30,6 +30,8 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let parent_header = find_parent_header(&block.header, storage)?;
     let mut state = evm_state(storage.clone(), parent_header.number);
 
+    // TODO: we should perform every state transition from the chain connection and until the block.
+
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
 
