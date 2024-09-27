@@ -42,7 +42,6 @@ impl VM {
         Self {
             call_frames: vec![initial_call_frame.clone()],
             accounts,
-            ..Default::default()
         }
     }
 
