@@ -38,6 +38,7 @@ pub struct BlockEnv {
     pub blob_gas_used: Option<u64>,
 }
 
+pub const LAST_AVAILABLE_BLOCK_LIMIT: u64 = 256;
 // EIP-4844 constants.
 /// Minimum gas price for data blobs.
 pub const MIN_BLOB_GASPRICE: u64 = 1;
@@ -93,9 +94,8 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u128 {
     let mut numerator_accum = factor * denominator;
     while numerator_accum > 0 {
         output += numerator_accum;
-
         // Denominator is asserted as not zero at the start of the function.
-        numerator_accum = (numerator_accum.saturating_mul(numerator)) / (denominator * i);
+        numerator_accum = (numerator_accum * numerator) / (denominator * i);
         i += 1;
     }
     output / denominator

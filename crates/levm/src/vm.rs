@@ -1,4 +1,9 @@
-use crate::{block::BlockEnv, call_frame::CallFrame, db::Db, opcodes::Opcode};
+use crate::{
+    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
+    call_frame::CallFrame,
+    db::Db,
+    opcodes::Opcode,
+};
 use bytes::Bytes;
 use ethereum_types::{Address, U256, U512};
 use sha3::{Digest, Keccak256};
@@ -300,7 +305,10 @@ impl VM {
                     let block_number = current_call_frame.stack.pop().unwrap();
 
                     // If number is not in the valid range (last 256 blocks), return zero.
-                    if block_number < block_env.block_number.saturating_sub(U256::from(256))
+                    if block_number
+                        < block_env
+                            .block_number
+                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
                         || block_number >= block_env.block_number
                     {
                         current_call_frame.stack.push(U256::zero());
