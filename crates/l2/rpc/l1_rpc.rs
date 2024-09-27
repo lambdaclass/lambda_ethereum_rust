@@ -27,15 +27,14 @@ impl L1Rpc {
     }
 
     async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, reqwest::Error> {
-        Ok(self
-            .client
+        self.client
             .post(&self.url)
             .header("content-type", "application/json")
             .body(serde_json::ser::to_string(&request).unwrap())
             .send()
             .await?
             .json::<RpcResponse>()
-            .await?)
+            .await
     }
 
     pub async fn get_block_number(&self) -> Result<U256, String> {
