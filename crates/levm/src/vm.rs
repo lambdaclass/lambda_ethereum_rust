@@ -336,7 +336,7 @@ impl VM {
                     current_call_frame.stack.push(block_number);
                 }
                 Opcode::PREVRANDAO => {
-                    let randao = block_env.prevrandao.unwrap_or_default();
+                    let randao = block_env.prev_randao.unwrap_or_default();
                     current_call_frame
                         .stack
                         .push(U256::from_big_endian(randao.0.as_slice()));

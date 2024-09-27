@@ -1268,7 +1268,7 @@ fn prevrandao_op() {
     let operations = [Operation::Prevrandao, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.prevrandao = Some(prevrandao);
+    vm.block_env.prev_randao = Some(prevrandao);
 
     vm.execute();
 
