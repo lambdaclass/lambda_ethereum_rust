@@ -35,15 +35,13 @@ impl CallFrame {
 
     pub fn jump(&mut self, jump_address: U256) {
         if !self.valid_jump(jump_address) {
-            // probably should halt/panic
-            dbg!("Invalid jump");
-            return;
+            // Should be a halt when we implement it
+            panic!("Invalid jump");
         }
         self.pc = jump_address.as_usize() + 1;
     }
 
     fn valid_jump(&self, jump_address: U256) -> bool {
-        // In the future this should be the Opcode::Invalid and halt
         self.opcode_at(jump_address.as_usize())
             .map(|opcode| opcode.eq(&Opcode::JUMPDEST))
             .is_some_and(|is_jumpdest| is_jumpdest)

@@ -1210,6 +1210,7 @@ fn jump_op() {
 }
 
 #[test]
+#[should_panic]
 fn jump_not_jumpdest_position() {
     let operations = [
         Operation::Push32(U256::from(36)),
@@ -1226,6 +1227,7 @@ fn jump_not_jumpdest_position() {
 }
 
 #[test]
+#[should_panic]
 fn jump_position_bigger_than_program_bytecode_size() {
     let operations = [
         Operation::Push32(U256::from(5000)),
