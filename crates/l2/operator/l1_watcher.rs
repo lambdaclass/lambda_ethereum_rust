@@ -7,6 +7,8 @@ use tracing::debug;
 use crate::rpc::l1_rpc::L1Rpc;
 
 pub async fn start_l1_watcher() {
+    // This address and topic were used for testing purposes only.
+    // TODO: Receive them as parameters from config.
     let l1_watcher = L1Watcher::new(
         "0xe441CF0795aF14DdB9f7984Da85CD36DB1B8790d"
             .parse()
