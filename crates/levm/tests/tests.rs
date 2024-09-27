@@ -1224,8 +1224,7 @@ fn log1() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics.len(), 1);
-    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
+    assert_eq!(logs[0].topics, vec![U256::from_big_endian(&topic1)]);
 }
 
 #[test]
@@ -1260,9 +1259,13 @@ fn log2() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics.len(), 2);
-    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
-    assert_eq!(logs[0].topics[1], U256::from_big_endian(&topic2));
+    assert_eq!(
+        logs[0].topics,
+        vec![
+            U256::from_big_endian(&topic1),
+            U256::from_big_endian(&topic2)
+        ]
+    );
 }
 
 #[test]
@@ -1300,10 +1303,14 @@ fn log3() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics.len(), 3);
-    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
-    assert_eq!(logs[0].topics[1], U256::from_big_endian(&topic2));
-    assert_eq!(logs[0].topics[2], U256::from_big_endian(&topic3));
+    assert_eq!(
+        logs[0].topics,
+        vec![
+            U256::from_big_endian(&topic1),
+            U256::from_big_endian(&topic2),
+            U256::from_big_endian(&topic3)
+        ]
+    );
 }
 
 #[test]
@@ -1344,11 +1351,15 @@ fn log4() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics.len(), 4);
-    assert_eq!(logs[0].topics[0], U256::from_big_endian(&topic1));
-    assert_eq!(logs[0].topics[1], U256::from_big_endian(&topic2));
-    assert_eq!(logs[0].topics[2], U256::from_big_endian(&topic3));
-    assert_eq!(logs[0].topics[3], U256::from_big_endian(&topic4));
+    assert_eq!(
+        logs[0].topics,
+        vec![
+            U256::from_big_endian(&topic1),
+            U256::from_big_endian(&topic2),
+            U256::from_big_endian(&topic3),
+            U256::from_big_endian(&topic4)
+        ]
+    );
 }
 
 #[test]
@@ -1402,7 +1413,7 @@ fn cant_create_log_in_static_context() {
 }
 
 #[test]
-fn log_with_data_in_memory_samller_than_size() {
+fn log_with_data_in_memory_smaller_than_size() {
     let data: [u8; 16] = [0xff; 16];
     let size = 32_u8;
     let memory_offset = 0_u8;
