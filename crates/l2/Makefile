@@ -1,16 +1,18 @@
-.PHONY: up down clean up-local-l1 down-local-l1 clean-local-l1 up-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox
+.PHONY: init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 
-up: up-local-l1 deploy-l1 up-l2
+init: init-local-l1 deploy-l1 init-l2
 
 down: down-local-l1 down-l2
 
 clean: clean-local-l1
 
+restart: down clean init
+
 # Local L1
 
-up-local-l1:
+init-local-l1:
 	mkdir -p volumes/ volumes/reth volumes/reth/data
 	docker compose -f docker-compose-l2.yml up -d
 
@@ -22,7 +24,7 @@ clean-local-l1:
 
 # L2
 
-up-l2:
+init-l2:
 	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust --features l2 -- --network ${L2_GENESIS_FILE_PATH} --http.port 1729 
 
 down-l2:
