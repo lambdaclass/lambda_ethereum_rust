@@ -26,7 +26,7 @@ pub struct BlockEnv {
     // NOTE: `prevrandao` can be found in a block in place of `mix_hash`.
     //
     // [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
-    pub prevrandao: Option<H256>,
+    pub prev_randao: Option<H256>,
     // Excess blob gas and blob gas used.
     //
     // Incorporated as part of the Cancun upgrade via [EIP-4844].
