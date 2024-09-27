@@ -376,6 +376,25 @@ impl VM {
                         .push(U256::from_big_endian(&result));
                     consumed_gas += gas_cost
                 }
+                Opcode::JUMP => {
+                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    current_call_frame.jump(jump_address);
+                }
+                Opcode::JUMPI => {
+                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    let condition = current_call_frame.stack.pop().unwrap();
+                    if condition != U256::zero() {
+                        current_call_frame.jump(jump_address);
+                    }
+                }
+                Opcode::JUMPDEST => {
+                    // just consume some gas, jumptable written at the start
+                }
+                Opcode::PC => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.pc - 1));
+                }
                 Opcode::PUSH0 => {
                     if consumed_gas + gas_cost::PUSH0 > gas_limit {
                         break; // should revert the tx
@@ -539,6 +558,9 @@ impl VM {
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
                     consumed_gas += gas_cost::SWAPN
+                }
+                Opcode::POP => {
+                    current_call_frame.stack.pop().unwrap();
                 }
                 Opcode::MLOAD => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();

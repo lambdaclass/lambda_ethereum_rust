@@ -163,6 +163,14 @@ impl PayloadStatus {
             validation_error: None,
         }
     }
+    /// Creates a PayloadStatus with valid status and latest valid hash
+    pub fn valid() -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Valid,
+            latest_valid_hash: None,
+            validation_error: None,
+        }
+    }
 }
 
 #[cfg(test)]

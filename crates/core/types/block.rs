@@ -339,7 +339,7 @@ fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
 
 // Calculates the base fee for the current block based on its gas_limit and parent's gas and fee
 // Returns None if the block gas limit is not valid in relation to its parent's gas limit
-fn calculate_base_fee_per_gas(
+pub fn calculate_base_fee_per_gas(
     block_gas_limit: u64,
     parent_gas_limit: u64,
     parent_gas_used: u64,
