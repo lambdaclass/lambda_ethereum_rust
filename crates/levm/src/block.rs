@@ -28,11 +28,11 @@ pub struct BlockEnv {
     //
     // [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
     pub prev_randao: Option<H256>,
-    // Excess blob gas and blob gas used.
-    //
-    // Incorporated as part of the Cancun upgrade via [EIP-4844].
-    //
-    // [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    /// Running total of blob gas consumed in excess of the target, prior to the block. Blocks with above-target blob gas consumption increase this value, blocks with below-target blob gas consumption decrease it (bounded at 0).
+    ///
+    /// Incorporated as part of the Cancun upgrade via [EIP-4844].
+    ///
+    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844#header-extension
     pub excess_blob_gas: Option<u64>,
     /// Total amount of blob gas consumed by the transactions within the block.
     ///
