@@ -1324,3 +1324,59 @@ fn sstore_reverts_when_called_in_static() {
     vm.current_call_frame().is_static = true;
     vm.execute();
 }
+
+#[test]
+fn sload_op() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Push((1, key)),
+        Operation::Sload,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame().msg_sender = Address::from_low_u64_be(100);
+    vm.db
+        .accounts
+        .insert(Address::from_low_u64_be(100), Account::default());
+
+    vm.execute();
+
+    assert_eq!(value, vm.current_call_frame().stack.pop().unwrap());
+}
+
+#[test]
+fn sload_untouched_key_of_storage() {
+    let key = U256::from(404);
+    let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame().msg_sender = Address::from_low_u64_be(100);
+    vm.db
+        .accounts
+        .insert(Address::from_low_u64_be(100), Account::default());
+
+    vm.execute();
+
+    assert_eq!(U256::zero(), vm.current_call_frame().stack.pop().unwrap());
+}
+
+#[test]
+fn sload_on_not_existing_account() {
+    let key = U256::from(80);
+    let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame().msg_sender = Address::from_low_u64_be(100);
+    vm.db
+        .accounts
+        .insert(Address::from_low_u64_be(404), Account::default());
+
+    vm.execute();
+
+    assert_eq!(U256::zero(), vm.current_call_frame().stack.pop().unwrap());
+}
