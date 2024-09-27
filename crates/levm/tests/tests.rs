@@ -13,6 +13,14 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     VM::new(bytecode)
 }
 
+pub fn store_data_in_memory_operations(data: &[u8], memory_offset: usize) -> Vec<Operation> {
+    vec![
+        Operation::Push((32_u8, U256::from_big_endian(&data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+    ]
+}
+
 #[test]
 fn add_op() {
     let mut vm = new_vm_with_ops(&[
@@ -1285,21 +1293,17 @@ fn jumpi_for_zero() {
 fn log0() {
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log0
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((1_u8, U256::from(size))),
         Operation::Push((1_u8, U256::from(memory_offset))),
         Operation::Log(0),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1316,22 +1320,18 @@ fn log1() {
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log1
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((32_u8, U256::from_big_endian(&topic1))),
         Operation::Push((1_u8, U256::from(size))),
         Operation::Push((1_u8, U256::from(memory_offset))),
         Operation::Log(1),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1350,13 +1350,9 @@ fn log2() {
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log2
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((32_u8, U256::from_big_endian(&topic2))),
         Operation::Push((32_u8, U256::from_big_endian(&topic1))),
         Operation::Push((1_u8, U256::from(size))),
@@ -1364,9 +1360,9 @@ fn log2() {
         Operation::Log(2),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1393,13 +1389,9 @@ fn log3() {
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log3
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((32_u8, U256::from_big_endian(&topic3))),
         Operation::Push((32_u8, U256::from_big_endian(&topic2))),
         Operation::Push((32_u8, U256::from_big_endian(&topic1))),
@@ -1408,9 +1400,9 @@ fn log3() {
         Operation::Log(3),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1440,13 +1432,9 @@ fn log4() {
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log4
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((32_u8, U256::from_big_endian(&topic4))),
         Operation::Push((32_u8, U256::from_big_endian(&topic3))),
         Operation::Push((32_u8, U256::from_big_endian(&topic2))),
@@ -1456,9 +1444,9 @@ fn log4() {
         Operation::Log(4),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1480,21 +1468,17 @@ fn log4() {
 fn log_with_0_data_size() {
     let data: [u8; 32] = [0xff; 32];
     let size = 0_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log0
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((1_u8, U256::from(size))),
         Operation::Push((1_u8, U256::from(memory_offset))),
         Operation::Log(0),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1508,18 +1492,15 @@ fn log_with_0_data_size() {
 fn cant_create_log_in_static_context() {
     let data: [u8; 32] = [0xff; 32];
     let size = 0_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log0
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((1_u8, U256::from(size))),
         Operation::Push((1_u8, U256::from(memory_offset))),
         Operation::Log(0),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
     vm.current_call_frame().is_static = true;
@@ -1530,21 +1511,17 @@ fn cant_create_log_in_static_context() {
 fn log_with_data_in_memory_smaller_than_size() {
     let data: [u8; 16] = [0xff; 16];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log0
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((1_u8, U256::from(size))),
         Operation::Push((1_u8, U256::from(memory_offset))),
         Operation::Log(0),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
@@ -1563,13 +1540,9 @@ fn multiple_logs_of_different_types() {
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
-    let memory_offset = 0_u8;
-    let operations = [
-        // store data in memory
-        Operation::Push((32_u8, U256::from_big_endian(&data))),
-        Operation::Push((1_u8, U256::from(memory_offset))),
-        Operation::Mstore,
-        // execute log1
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
         Operation::Push((32_u8, U256::from_big_endian(&topic1))),
         Operation::Push((1_u8, U256::from(size))),
         Operation::Push((1_u8, U256::from(memory_offset))),
@@ -1579,9 +1552,9 @@ fn multiple_logs_of_different_types() {
         Operation::Log(0),
         Operation::Stop,
     ];
+    operations.append(&mut log_operations);
 
     let mut vm = new_vm_with_ops(&operations);
-
     vm.execute();
 
     let logs = &vm.current_call_frame().logs;
