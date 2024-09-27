@@ -42,11 +42,11 @@ impl CallFrame {
         self.pc = jump_address.as_usize() + 1;
     }
 
-    fn valid_jump(&self, offset: U256) -> bool {
+    fn valid_jump(&self, jump_address: U256) -> bool {
         // In the future this should be the Opcode::Invalid and halt
         let opcode = self
             .bytecode
-            .get(offset.as_usize())
+            .get(jump_address.as_usize())
             .copied()
             .map(Opcode::from)
             .unwrap_or(Opcode::STOP);
