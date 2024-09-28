@@ -14,6 +14,9 @@ serde.workspace = true
 serde_json.workspace = true
 ethereum-types.workspace = true
 ethereum_rust-rpc.workspace = true
+hex.workspace = true
+bytes.workspace = true
+jsonwebtoken.workspace = true
 
 [lib]
 path = "./l2.rs"
