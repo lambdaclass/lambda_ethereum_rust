@@ -1,4 +1,5 @@
 pub mod block_producer;
+pub mod consensus_mock;
 pub mod l1_tx_sender;
 pub mod l1_watcher;
 
