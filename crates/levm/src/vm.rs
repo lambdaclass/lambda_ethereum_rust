@@ -705,7 +705,7 @@ impl VM {
 
                     let mut gas = current_call_frame.gas;
                     gas -= gas / 64; // 63/64 of the gas to the call
-                    current_call_frame.gas = current_call_frame.gas - gas; // leaves 1/64  of the has to current call frame
+                    current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
 
                     let new_call_frame = CallFrame {
                         gas,
