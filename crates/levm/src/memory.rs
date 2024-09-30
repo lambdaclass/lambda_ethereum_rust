@@ -1,6 +1,6 @@
 use crate::primitives::U256;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Memory {
     data: Vec<u8>,
 }

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
 pub type TransientStorage = HashMap<(Address, U256), U256>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,

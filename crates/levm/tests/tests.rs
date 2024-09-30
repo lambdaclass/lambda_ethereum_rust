@@ -1385,6 +1385,109 @@ fn staticcall_changes_callframe_is_static() {
 }
 
 #[test]
+fn delegatecall_uses_same_target_address_and_regular_call_doesnt() {
+    // --- DELEGATECALL ---
+    let callee_return_value = U256::from(0xAAAAAAA);
+    // let callee_bytecode = callee_return_bytecode(callee_return_value);
+    let callee_ops = vec![
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // offset
+        Operation::Mstore,
+        Operation::Stop,
+    ];
+
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode.clone());
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(callee_address_u256), // code address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::DelegateCall,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    let current_call_frame = vm.current_call_frame_mut();
+    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut().clone();
+
+    assert_eq!(Address::from_low_u64_be(U256::from(1).low_u64()), current_call_frame.msg_sender);
+    assert_eq!(Address::from_low_u64_be(U256::from(5).low_u64()), current_call_frame.to);
+    assert_eq!(Address::from_low_u64_be(U256::from(2).low_u64()), current_call_frame.code_address);
+
+    // --- CALL ---
+
+    let callee_return_value = U256::from(0xAAAAAAA);
+    // let callee_bytecode = callee_return_bytecode(callee_return_value);
+    let callee_ops = vec![
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // offset
+        Operation::Mstore,
+        Operation::Stop,
+    ];
+
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    let current_call_frame = vm.current_call_frame_mut();
+    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut().clone();
+
+    assert_eq!(Address::from_low_u64_be(U256::from(1).low_u64()), current_call_frame.msg_sender);
+    assert_eq!(Address::from_low_u64_be(U256::from(2).low_u64()), current_call_frame.to);
+    assert_eq!(Address::from_low_u64_be(U256::from(2).low_u64()), current_call_frame.code_address);
+}
+
+#[test]
 fn pop_op() {
     let operations = [
         Operation::Push32(U256::one()),

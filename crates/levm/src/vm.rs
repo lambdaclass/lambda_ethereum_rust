@@ -676,7 +676,7 @@ impl VM {
                 }
                 Opcode::CALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
-                    let address =
+                    let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let value = current_call_frame.stack.pop().unwrap();
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -686,14 +686,14 @@ impl VM {
 
                     let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
                     let is_static = current_call_frame.is_static;
-                    
+
                     self.generic_call(
                         &mut current_call_frame,
                         gas,
                         value,
                         msg_sender,
-                        address,
-                        address,
+                        code_address,
+                        code_address,
                         false,
                         is_static,
                         args_offset,
@@ -758,7 +758,7 @@ impl VM {
                 Opcode::STATICCALL => {
                     // it cannot be used to transfer Ether
                     let gas = current_call_frame.stack.pop().unwrap();
-                    let address =
+                    let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -767,14 +767,14 @@ impl VM {
 
                     let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
                     let value = current_call_frame.msg_value;
-                    
+
                     self.generic_call(
                         &mut current_call_frame,
                         gas,
                         value, // check
                         msg_sender,
-                        address,
-                        address,
+                        code_address,
+                        code_address,
                         false,
                         true,
                         args_offset,
@@ -832,7 +832,7 @@ impl VM {
     pub fn current_call_frame(&self) -> &CallFrame {
         self.call_frames.last().unwrap()
     }
-    
+
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
