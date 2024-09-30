@@ -624,9 +624,15 @@ impl VM {
                 }
                 Opcode::SLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
+                    let address = if let Some(delegate) = current_call_frame.delegate {
+                        delegate
+                    } else {
+                        current_call_frame.code_address
+                    };
+
                     let current_value = self
                         .db
-                        .read_account_storage(&current_call_frame.msg_sender, &key)
+                        .read_account_storage(&address, &key)
                         .unwrap_or_default()
                         .current_value;
                     current_call_frame.stack.push(current_value);
@@ -640,15 +646,21 @@ impl VM {
                     let value = current_call_frame.stack.pop().unwrap();
                     // maybe we need the journal struct as accessing the Db could be slow, with the journal
                     // we can have prefetched values directly in memory and only commits the values to the db once everything is done
-                    let address = &current_call_frame.msg_sender; // should change when we have create/call transactions
-                    let slot = self.db.read_account_storage(address, &key);
+
+                    let address = if let Some(delegate) = current_call_frame.delegate {
+                        delegate
+                    } else {
+                        current_call_frame.code_address
+                    };
+
+                    let slot = self.db.read_account_storage(&address, &key);
                     let (original_value, _) = match slot {
                         Some(slot) => (slot.original_value, slot.current_value),
                         None => (value, value),
                     };
 
                     self.db.write_account_storage(
-                        address,
+                        &address,
                         key,
                         StorageSlot {
                             original_value,
@@ -685,6 +697,7 @@ impl VM {
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
                     let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let to = current_call_frame.to; // to remains the same
                     let is_static = current_call_frame.is_static;
 
                     self.generic_call(
@@ -692,8 +705,9 @@ impl VM {
                         gas,
                         value,
                         msg_sender,
+                        to,
                         code_address,
-                        code_address,
+                        None,
                         false,
                         is_static,
                         args_offset,
@@ -727,6 +741,7 @@ impl VM {
                     }
                 }
                 Opcode::DELEGATECALL => {
+                    // The delegatecall executes the setVars(uint256) code from Contract B but updates Contract A’s storage. The execution has the same storage, msg.sender & msg.value as its parent call setVarsDelegateCall.
                     let gas = current_call_frame.stack.pop().unwrap();
                     let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
@@ -747,6 +762,7 @@ impl VM {
                         msg_sender,
                         to,
                         code_address,
+                        Some(msg_sender),
                         false,
                         is_static,
                         args_offset,
@@ -775,6 +791,7 @@ impl VM {
                         msg_sender,
                         code_address,
                         code_address,
+                        None,
                         false,
                         true,
                         args_offset,
@@ -841,6 +858,7 @@ impl VM {
         msg_sender: Address,
         to: Address,
         code_address: Address,
+        delegate: Option<Address>,
         _should_transfer_value: bool,
         is_static: bool,
         args_offset: usize,
@@ -874,6 +892,7 @@ impl VM {
             msg_sender,
             to,
             code_address,
+            delegate,
             callee_bytecode,
             value,
             calldata,

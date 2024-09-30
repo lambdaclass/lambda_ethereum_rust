@@ -1431,9 +1431,22 @@ fn delegatecall_uses_same_target_address_and_regular_call_doesnt() {
 
     let current_call_frame = vm.current_call_frame_mut().clone();
 
-    assert_eq!(Address::from_low_u64_be(U256::from(1).low_u64()), current_call_frame.msg_sender);
-    assert_eq!(Address::from_low_u64_be(U256::from(5).low_u64()), current_call_frame.to);
-    assert_eq!(Address::from_low_u64_be(U256::from(2).low_u64()), current_call_frame.code_address);
+    assert_eq!(
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        current_call_frame.msg_sender
+    );
+    assert_eq!(
+        Address::from_low_u64_be(U256::from(5).low_u64()),
+        current_call_frame.to
+    );
+    assert_eq!(
+        Address::from_low_u64_be(U256::from(2).low_u64()),
+        current_call_frame.code_address
+    );
+    assert_eq!(
+        Some(Address::from_low_u64_be(U256::from(1).low_u64())),
+        current_call_frame.delegate
+    );
 
     // --- CALL ---
 
@@ -1482,9 +1495,19 @@ fn delegatecall_uses_same_target_address_and_regular_call_doesnt() {
 
     let current_call_frame = vm.current_call_frame_mut().clone();
 
-    assert_eq!(Address::from_low_u64_be(U256::from(1).low_u64()), current_call_frame.msg_sender);
-    assert_eq!(Address::from_low_u64_be(U256::from(2).low_u64()), current_call_frame.to);
-    assert_eq!(Address::from_low_u64_be(U256::from(2).low_u64()), current_call_frame.code_address);
+    assert_eq!(
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        current_call_frame.msg_sender
+    );
+    assert_eq!(
+        Address::from_low_u64_be(U256::from(5).low_u64()),
+        current_call_frame.to
+    );
+    assert_eq!(
+        Address::from_low_u64_be(U256::from(2).low_u64()),
+        current_call_frame.code_address
+    );
+    assert_eq!(None, current_call_frame.delegate);
 }
 
 #[test]
@@ -2084,7 +2107,7 @@ fn sstore_op() {
     ];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.current_call_frame_mut().msg_sender = sender_address;
+    vm.current_call_frame_mut().code_address = sender_address;
     vm.db.accounts.insert(sender_address, Account::default());
 
     vm.execute();
