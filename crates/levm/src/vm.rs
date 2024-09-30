@@ -321,18 +321,20 @@ impl VM {
                         .push(U256::from_big_endian(&result));
                 }
                 Opcode::CALLDATALOAD => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value = current_call_frame.calldata.load(offset);
+                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value = U256::from_big_endian(
+                        &current_call_frame.calldata.slice(offset..offset + 32),
+                    );
                     current_call_frame.stack.push(value);
                 }
                 Opcode::CALLDATASIZE => {
                     current_call_frame
                         .stack
-                        .push(current_call_frame.calldata.size());
+                        .push(U256::from(current_call_frame.calldata.len()));
                 }
                 Opcode::CALLDATACOPY => {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let calldata_offset =
+                    let calldata_offset: usize =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
@@ -340,18 +342,18 @@ impl VM {
                     }
                     let data = current_call_frame
                         .calldata
-                        .load_range(calldata_offset, size);
+                        .slice(calldata_offset..calldata_offset + size);
 
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::RETURNDATASIZE => {
                     current_call_frame
                         .stack
-                        .push(current_call_frame.returndata.size());
+                        .push(U256::from(current_call_frame.returndata.len()));
                 }
                 Opcode::RETURNDATACOPY => {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let returndata_offset =
+                    let returndata_offset: usize =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
@@ -359,7 +361,7 @@ impl VM {
                     }
                     let data = current_call_frame
                         .returndata
-                        .load_range(returndata_offset, size);
+                        .slice(returndata_offset..returndata_offset + size);
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::JUMP => {
@@ -630,9 +632,10 @@ impl VM {
                         current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
                         continue;
                     }
-                    let calldata = Memory::new_from_vec(
-                        current_call_frame.memory.load_range(args_offset, args_size),
-                    );
+                    let calldata = current_call_frame
+                        .memory
+                        .load_range(args_offset, args_size)
+                        .into();
 
                     let new_call_frame = CallFrame {
                         gas,
@@ -651,15 +654,13 @@ impl VM {
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let return_data = current_call_frame.memory.load_range(offset, size);
+                    let return_data = current_call_frame.memory.load_range(offset, size).into();
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
                         if let (Some(ret_offset), Some(_ret_size)) = (
                             parent_call_frame.return_data_offset,
                             parent_call_frame.return_data_size,
                         ) {
-                            parent_call_frame
-                                .returndata
-                                .store_bytes(ret_offset, &return_data);
+                            parent_call_frame.returndata = return_data;
                         }
                         parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
                         parent_call_frame.return_data_offset = None;
