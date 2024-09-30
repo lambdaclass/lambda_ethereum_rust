@@ -247,11 +247,13 @@ fn fetch_mempool_transactions(
 /// Fills the payload with transactions taken from the mempool
 /// Returns the block value
 pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
-    info!("Fetching transactions from mempool");
     let chain_config = context.store().get_chain_config()?;
+    info!("Fetching transactions from mempool");
+    // Fetch mempool transactions
     let (mut plain_txs, mut blob_txs) = fetch_mempool_transactions(context)?;
-    // Commit txs
+    // Execute and add transactions to payload (if suitable)
     loop {
+        // Check if we have enough gas to run more transactions
         if context.remaining_gas < TX_GAS_COST {
             info!("No more gas to run transactions");
             break;
@@ -277,6 +279,8 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         } else {
             &mut plain_txs
         };
+
+        // Check if we have enough gas to run the transaction
         if context.remaining_gas < head_tx.tx.gas_limit() {
             info!(
                 "Skipping transaction: {}, no gas left",
@@ -284,9 +288,10 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             );
             // We don't have enough gas left for the transaction, so we skip all txs from this account
             txs.pop();
+            continue;
         }
         // Pull transaction from the mempool
-        // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here
+        // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here (we can do this in the same refactor as adding timestamp)
         let tx_hash = head_tx.tx.compute_hash();
         mempool::remove_transaction(tx_hash, context.store())?;
 
@@ -295,6 +300,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             // Ignore replay protected tx & all txs from the sender
             info!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
+            continue;
         }
         // Execute tx
         let receipt = match apply_transaction(&head_tx, context) {
@@ -318,6 +324,8 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
     Ok(())
 }
 
+/// Executes the transaction, updates gas-related context values & return the receipt
+// TODO: Handle blobs in blob txs
 fn apply_transaction(
     head: &HeadTransaction,
     context: &mut PayloadBuildContext,
@@ -359,6 +367,7 @@ struct TransactionQueue {
     heads: Vec<HeadTransaction>,
     // The remaining txs grouped by account and sorted by nonce
     txs: HashMap<Address, Vec<Transaction>>,
+    // Base Fee stored for tip calculations
     base_fee: Option<u64>,
 }
 
@@ -370,9 +379,11 @@ struct HeadTransaction {
 }
 
 impl TransactionQueue {
+    /// Creates a new TransactionQueue from a set of transactions grouped by sender and sorted by nonce
     fn new(mut txs: HashMap<Address, Vec<Transaction>>, base_fee: Option<u64>) -> Self {
         let mut heads = Vec::new();
         for (address, txs) in txs.iter_mut() {
+            // Pull the first tx from each list and add it to the heads list
             // This should be a newly filtered tx list so we are guaranteed to have a first element
             let head_tx = txs.remove(0);
             heads.push(HeadTransaction {
@@ -382,6 +393,7 @@ impl TransactionQueue {
                 sender: *address,
             });
         }
+        // Sort heads by higest tip
         heads.sort_by(compare_heads);
         TransactionQueue {
             heads,
@@ -390,10 +402,13 @@ impl TransactionQueue {
         }
     }
 
+    /// Remove all transactions from the queue
     fn clear(&mut self) {
         self.heads.clear();
+        self.txs.clear();
     }
 
+    /// Returns true if there are no more transactions in the queue
     fn is_empty(&self) -> bool {
         self.heads.is_empty()
     }
@@ -413,7 +428,7 @@ impl TransactionQueue {
     }
 
     /// Remove the top transaction
-    /// Add a tx from the same sender as head transaction
+    /// Add a tx from the same sender to the head transactions
     fn shift(&mut self) {
         let tx = self.heads.remove(0);
         if let Some(txs) = self.txs.get_mut(&tx.sender) {
