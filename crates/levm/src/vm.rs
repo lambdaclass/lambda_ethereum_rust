@@ -4,7 +4,7 @@ use crate::{
     call_frame::CallFrame,
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
-    primitives::{Address, Bytes, U256, U512},
+    primitives::{Address, Bytes, U256, U512, H160},
 };
 use sha3::{Digest, Keccak256};
 
@@ -547,42 +547,7 @@ impl VM {
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    // check balance
-                    if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-                        continue;
-                    }
-
-                    // transfer value
-                    // transfer(&current_call_frame.msg_sender, &address, value);
-
-                    let callee_bytecode = self.get_account_bytecode(&address);
-
-                    if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-                        continue;
-                    }
-
-                    let calldata = current_call_frame
-                        .memory
-                        .load_range(args_offset, args_size)
-                        .into();
-
-                    let new_call_frame = CallFrame {
-                        gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
-                        calldata,
-                        ..Default::default()
-                    };
-
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
+                    self.call(&mut current_call_frame, gas, address, value, args_offset, args_size, ret_offset, ret_size);
                 }
                 Opcode::CALLCODE => {}
                 Opcode::RETURN => {
@@ -638,6 +603,45 @@ impl VM {
 
     pub fn add_account(&mut self, address: Address, account: Account) {
         self.accounts.insert(address, account);
+    }
+
+    fn call(&mut self, current_call_frame: &mut CallFrame, gas: U256, address: H160, value: U256, args_offset: usize, args_size: usize, ret_offset: usize, ret_size: usize) {
+        // check balance
+        if self.balance(&current_call_frame.msg_sender) < value {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+            return;
+        }
+
+        // transfer value
+        // transfer(&current_call_frame.msg_sender, &address, value);
+
+        let callee_bytecode = self.get_account_bytecode(&address);
+
+        if callee_bytecode.is_empty() {
+            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+            return;
+        }
+
+        let calldata = current_call_frame
+            .memory
+            .load_range(args_offset, args_size)
+            .into();
+
+        let new_call_frame = CallFrame {
+            gas,
+            msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
+            callee: address,
+            bytecode: callee_bytecode,
+            msg_value: value,
+            calldata,
+            ..Default::default()
+        };
+
+        current_call_frame.return_data_offset = Some(ret_offset);
+        current_call_frame.return_data_size = Some(ret_size);
+
+        self.call_frames.push(current_call_frame.clone());
+        *current_call_frame = new_call_frame;
     }
 }
 
