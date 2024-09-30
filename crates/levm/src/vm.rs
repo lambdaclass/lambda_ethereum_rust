@@ -7,7 +7,6 @@ use crate::{
     primitives::{Address, Bytes, U256, U512},
 };
 use sha3::{Digest, Keccak256};
-use std::i64;
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
@@ -667,13 +666,14 @@ impl VM {
                 }
                 Opcode::MCOPY => {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let src_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let src_offset: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
                     let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
-                    let memory_byte_size = ((src_offset + size) as usize).max(dest_offset + size);
+                    let memory_byte_size = (src_offset + size).max(dest_offset + size);
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(memory_byte_size);
                     let gas_cost = gas_cost::MCOPY_STATIC
