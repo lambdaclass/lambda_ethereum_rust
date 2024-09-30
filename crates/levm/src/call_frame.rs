@@ -20,7 +20,7 @@ pub struct CallFrame {
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Memory,
-    pub return_data: Memory,
+    pub returndata: Memory,
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
