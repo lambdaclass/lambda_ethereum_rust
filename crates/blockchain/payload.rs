@@ -7,13 +7,13 @@ use ethereum_rust_core::{
     types::{
         calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root,
         compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
-        BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        BlockHeader, Receipt, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, Bytes, H256, U256,
 };
 use ethereum_rust_evm::{
-    beacon_root_contract_call, evm_state, get_state_transitions, process_withdrawals, spec_id,
-    SpecId,
+    beacon_root_contract_call, evm_state, execute_tx, get_state_transitions, process_withdrawals,
+    spec_id, EvmState, SpecId,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::Store;
@@ -193,12 +193,14 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         payload_block.header.base_fee_per_gas,
     );
     let mut blob_txs = TransactionQueue::new(
-        mempool::filter_transactions(&plain_tx_filter, store)?,
+        mempool::filter_transactions(&blob_tx_filter, store)?,
         payload_block.header.base_fee_per_gas,
     );
     // Commit txs
+    let mut receipts = Vec::new();
     let mut remaining_gas = payload_block.header.gas_limit;
-    let mut blobs = 0_u64;
+    let blobs = 0_u64;
+    let mut evm_state = evm_state(store.clone(), payload_block.header.number.saturating_sub(1));
     loop {
         if remaining_gas < TX_GAS_COST {
             // No more gas to run transactions
@@ -225,7 +227,7 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         };
         if remaining_gas < head_tx.tx.gas_limit() {
             // We don't have enough gas left for the transaction, so we skip all txs from this account
-            txs.skip_current_sender();
+            txs.pop();
         }
         // Pull transaction from the mempool
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here
@@ -235,13 +237,67 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         // Check wether the tx is replay-protected
         if head_tx.tx.protected() && !chain_config.is_eip155_activated(payload_block.header.number)
         {
-            // Ignore replay protected tx
+            // Ignore replay protected tx & all txs from the sender
             txs.pop();
         }
-        // To be continued...
+        // Execute tx
+        let receipt = match apply_transaction(
+            payload_block,
+            &head_tx.tx,
+            &mut evm_state,
+            &mut remaining_gas,
+        ) {
+            Ok(receipt) => {
+                txs.shift();
+                receipt
+            }
+            // Ignore following txs from sender
+            Err(_) => {
+                txs.pop();
+                break;
+            }
+        };
+        // Add transaction to block
+        payload_block.body.transactions.push(head_tx.tx);
+        // Save receipt for hash calculation
+        receipts.push(receipt);
     }
+    // Finalize block
+    let account_updates = get_state_transitions(&mut evm_state);
+    payload_block.header.state_root = store
+        .apply_account_updates(
+            payload_block.header.number.saturating_sub(1),
+            &account_updates,
+        )?
+        .unwrap_or_default();
+    payload_block.header.transactions_root =
+        compute_transactions_root(&payload_block.body.transactions);
+    payload_block.header.receipts_root = compute_receipts_root(&receipts);
+    payload_block.header.gas_used = payload_block.header.gas_limit - remaining_gas;
 
     Ok(())
+}
+
+fn apply_transaction(
+    payload_block: &mut Block,
+    tx: &Transaction,
+    evm_state: &mut EvmState,
+    remaining_gas: &mut u64,
+) -> Result<Receipt, ChainError> {
+    let result = execute_tx(
+        &tx,
+        &payload_block.header,
+        evm_state,
+        spec_id(evm_state.database(), payload_block.header.timestamp)?,
+    )?;
+    let receipt = Receipt::new(
+        tx.tx_type(),
+        result.is_success(),
+        payload_block.header.gas_limit - *remaining_gas,
+        result.logs(),
+    );
+    *remaining_gas -= result.gas_used();
+    Ok(receipt)
 }
 
 struct TransactionQueue {
@@ -294,8 +350,8 @@ impl TransactionQueue {
         self.heads.first().map(|tx| tx.clone())
     }
 
-    /// Removes all txs from the given sender
-    fn skip_current_sender(&mut self) {
+    /// Removes current head transaction and all transactions from the given sender
+    fn pop(&mut self) {
         if !self.is_empty() {
             let sender = self.heads.remove(0).sender;
             self.txs.remove(&sender);
@@ -304,7 +360,7 @@ impl TransactionQueue {
 
     /// Remove the top transaction
     /// Add a tx from the same sender as head transaction
-    fn pop(&mut self) {
+    fn shift(&mut self) {
         let tx = self.heads.remove(0);
         if let Some(txs) = self.txs.get_mut(&tx.sender) {
             // Fetch next head
