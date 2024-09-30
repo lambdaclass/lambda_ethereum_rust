@@ -12,7 +12,7 @@ pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-enum ProofData {
+pub enum ProofData {
     Request {},
     Response { id: u32 },
     Submit { id: u32 },
@@ -45,7 +45,6 @@ impl ProofDataProvider {
         let buf_reader = BufReader::new(&stream);
 
         let data: ProofData = serde_json::de::from_reader(buf_reader).unwrap();
-        debug!("ProofData: {:?}", data);
         match data {
             ProofData::Request {} => self.handle_request(&mut stream),
             ProofData::Submit { id } => self.handle_submit(&mut stream, id),
