@@ -8,3 +8,6 @@ ethereum-types.workspace = true
 bytes.workspace = true
 sha3 = "0.10.8"
 ethereum_rust-rlp = { path = "../rlp" }
+
+[dev-dependencies]
+hex = "0.4.3"

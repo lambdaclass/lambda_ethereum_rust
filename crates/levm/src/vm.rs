@@ -16,9 +16,9 @@ use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
-    balance: U256,
-    bytecode: Bytes,
-    nonce: u64,
+    pub balance: U256,
+    pub bytecode: Bytes,
+    pub nonce: u64,
 }
 
 impl Account {
@@ -685,7 +685,6 @@ impl VM {
                     };
                     sender_account.nonce = new_nonce; // should we increase the nonce here or after the calculation of the address?
                     sender_account.balance -= value_in_wei_to_send;
-
                     let code = Bytes::from(
                         current_call_frame
                             .memory
@@ -700,8 +699,8 @@ impl VM {
                         current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
                         continue;
                     }
-
-                    let new_account = Account::new(value_in_wei_to_send, code.clone(), 0);
+                    // nonce == 1, as we will execute this contract right now
+                    let new_account = Account::new(value_in_wei_to_send, code.clone(), 1);
                     self.add_account(new_address, new_account);
 
                     let mut gas = current_call_frame.gas;
@@ -720,8 +719,10 @@ impl VM {
 
                     current_call_frame.return_data_offset = Some(code_offset_in_memory);
                     current_call_frame.return_data_size = Some(code_size_in_memory);
-
+                    dbg!(new_address);
+                    dbg!(address_to_word(new_address));
                     current_call_frame.stack.push(address_to_word(new_address));
+                    self.call_frames.push(current_call_frame.clone());
                     current_call_frame = new_call_frame;
                 }
                 Opcode::CREATE2 => {}
@@ -778,7 +779,6 @@ impl VM {
         let mut encoded = Vec::new();
         sender_address.encode(&mut encoded);
         sender_nonce.encode(&mut encoded);
-        dbg!(&encoded);
         let mut hasher = Keccak256::new();
         hasher.update(encoded);
         Address::from_slice(&hasher.finalize()[12..])
