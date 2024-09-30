@@ -1,8 +1,8 @@
 use levm::{
-    memory::Memory,
     block::TARGET_BLOB_GAS_PER_BLOCK,
+    memory::Memory,
     operations::Operation,
-    primitives::{Address, Bytes, U256},
+    primitives::{Address, Bytes, H256, U256},
     vm::{Account, VM},
 };
 
