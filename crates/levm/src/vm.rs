@@ -4,7 +4,6 @@ use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
-    memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256, U512},
 };
@@ -350,18 +349,20 @@ impl VM {
                         .push(U256::from_big_endian(&result));
                 }
                 Opcode::CALLDATALOAD => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value = current_call_frame.calldata.load(offset);
+                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value = U256::from_big_endian(
+                        &current_call_frame.calldata.slice(offset..offset + 32),
+                    );
                     current_call_frame.stack.push(value);
                 }
                 Opcode::CALLDATASIZE => {
                     current_call_frame
                         .stack
-                        .push(current_call_frame.calldata.size());
+                        .push(U256::from(current_call_frame.calldata.len()));
                 }
                 Opcode::CALLDATACOPY => {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let calldata_offset =
+                    let calldata_offset: usize =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
@@ -369,18 +370,18 @@ impl VM {
                     }
                     let data = current_call_frame
                         .calldata
-                        .load_range(calldata_offset, size);
+                        .slice(calldata_offset..calldata_offset + size);
 
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::RETURNDATASIZE => {
                     current_call_frame
                         .stack
-                        .push(current_call_frame.returndata.size());
+                        .push(U256::from(current_call_frame.returndata.len()));
                 }
                 Opcode::RETURNDATACOPY => {
                     let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let returndata_offset =
+                    let returndata_offset: usize =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     if size == 0 {
@@ -388,7 +389,7 @@ impl VM {
                     }
                     let data = current_call_frame
                         .returndata
-                        .load_range(returndata_offset, size);
+                        .slice(returndata_offset..returndata_offset + size);
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::JUMP => {
@@ -682,50 +683,36 @@ impl VM {
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    // check balance
-                    if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-                        continue;
-                    }
-                    // transfer value
-                    // transfer(&current_call_frame.msg_sender, &address, value);
-                    let callee_bytecode = self.get_account_bytecode(&address);
-                    if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-                        continue;
-                    }
-                    let calldata = Memory::new_from_vec(
-                        current_call_frame.memory.load_range(args_offset, args_size),
-                    );
 
-                    let new_call_frame = CallFrame::new(
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let is_static = current_call_frame.is_static;
+                    
+                    self.generic_call(
+                        &mut current_call_frame,
                         gas,
-                        current_call_frame.msg_sender, // caller remains the msg_sender
-                        address,
-                        callee_bytecode,
                         value,
-                        calldata,
-                        current_call_frame.is_static,
+                        msg_sender,
+                        address,
+                        address,
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
                     );
-
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
                 }
                 Opcode::CALLCODE => {}
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let return_data = current_call_frame.memory.load_range(offset, size);
+                    let return_data = current_call_frame.memory.load_range(offset, size).into();
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(ret_offset), Some(_ret_size)) = (
+                        if let (Some(_ret_offset), Some(_ret_size)) = (
                             parent_call_frame.return_data_offset,
                             parent_call_frame.return_data_size,
                         ) {
-                            parent_call_frame
-                                .returndata
-                                .store_bytes(ret_offset, &return_data);
+                            parent_call_frame.returndata = return_data;
                         }
                         parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
                         parent_call_frame.return_data_offset = None;
@@ -748,45 +735,25 @@ impl VM {
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    let value = current_call_frame.msg_value;
-                    // also storage remains the same
-                    //let storage =
+                    let value = current_call_frame.msg_value; // value remains the same
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let to = current_call_frame.to; // to remains the same
+                    let is_static = current_call_frame.is_static;
 
-                    // check balance
-                    if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-                        continue;
-                    }
-
-                    // transfer value
-                    // transfer(&current_call_frame.msg_sender, &address, value);
-
-                    let callee_bytecode = self.get_account_bytecode(&code_address);
-
-                    if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-                        continue;
-                    }
-
-                    let calldata = Memory::new_from_vec(
-                        current_call_frame.memory.load_range(args_offset, args_size),
-                    );
-
-                    let new_call_frame = CallFrame::new(
+                    self.generic_call(
+                        &mut current_call_frame,
                         gas,
-                        current_call_frame.msg_sender, // caller remains the msg_sender
-                        code_address,
-                        callee_bytecode,
                         value,
-                        calldata,
-                        true,
+                        msg_sender,
+                        to,
+                        code_address,
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
                     );
-
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
                 }
                 Opcode::STATICCALL => {
                     // it cannot be used to transfer Ether
@@ -798,32 +765,23 @@ impl VM {
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    let callee_bytecode = self.get_account_bytecode(&address);
-
-                    if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-                        continue;
-                    }
-
-                    let calldata = Memory::new_from_vec(
-                        current_call_frame.memory.load_range(args_offset, args_size),
-                    );
-
-                    let new_call_frame = CallFrame::new(
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let value = current_call_frame.msg_value;
+                    
+                    self.generic_call(
+                        &mut current_call_frame,
                         gas,
-                        current_call_frame.msg_sender, // caller remains the msg_sender
+                        value, // check
+                        msg_sender,
                         address,
-                        callee_bytecode,
-                        U256::zero(),
-                        calldata,
+                        address,
+                        false,
                         true,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
                     );
-
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
@@ -874,35 +832,31 @@ impl VM {
     pub fn current_call_frame(&self) -> &CallFrame {
         self.call_frames.last().unwrap()
     }
-    // def generic_call (
-    //     evm: Evm,
-    //     gas: Uint,
-    //     value: U256,
-    //     caller: Address,
-    //     to: Address,
-    //     code_address: Address,
-    //     should_transfer_value: bool,
-    //     is_staticcall: bool,
-    //     memory_input_start_position: U256,
-    //     memory_input_size: U256,
-    //     memory_output_start_position: U256,
-    //     memory_output_size: U256,
-    // )
+    
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
         gas: U256,
         value: U256,
-        caller: Address,
+        msg_sender: Address,
         to: Address,
         code_address: Address,
-        should_transfer_value: bool,
+        _should_transfer_value: bool,
         is_static: bool,
-        memory_input_start_position: U256,
-        memory_input_size: U256,
-        memory_output_start_position: U256,
-        memory_output_size: U256,
+        args_offset: usize,
+        args_size: usize,
+        ret_offset: usize,
+        ret_size: usize,
     ) {
+        // check balance
+        if self.balance(&current_call_frame.msg_sender) < value {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+            return;
+        }
+
+        // transfer value
+        // transfer(&current_call_frame.msg_sender, &address, value);
+
         let callee_bytecode = self.get_account_bytecode(&code_address);
 
         if callee_bytecode.is_empty() {
@@ -910,28 +864,27 @@ impl VM {
             return;
         }
 
-        let calldata = Memory::new_from_vec(
-            current_call_frame.memory.load_range(
-                memory_input_start_position.try_into().unwrap(),
-                memory_input_size.try_into().unwrap(),
-            ),
-        );
+        let calldata = current_call_frame
+            .memory
+            .load_range(args_offset, args_size)
+            .into();
 
         let new_call_frame = CallFrame::new(
             gas,
-            caller, // caller remains the msg_sender
+            msg_sender,
             to,
+            code_address,
             callee_bytecode,
             value,
             calldata,
             is_static,
         );
 
-        current_call_frame.return_data_offset = Some(memory_output_start_position.try_into().unwrap());
-        current_call_frame.return_data_size = Some(memory_output_size.try_into().unwrap());
+        current_call_frame.return_data_offset = Some(ret_offset);
+        current_call_frame.return_data_size = Some(ret_size);
 
         self.call_frames.push(current_call_frame.clone());
-        self.call_frames.push(new_call_frame);
+        *current_call_frame = new_call_frame;
     }
 }
 

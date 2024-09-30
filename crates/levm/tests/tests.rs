@@ -1,6 +1,5 @@
 use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
-    memory::Memory,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     vm::{Account, VM},
@@ -1236,7 +1235,7 @@ fn call_changes_callframe_and_stores() {
     let ret_size = 32;
     let return_data = current_call_frame
         .returndata
-        .load_range(ret_offset, ret_size);
+        .slice(ret_offset..ret_offset + ret_size);
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
 }
@@ -1318,7 +1317,7 @@ fn nested_calls() {
     let ret_size = 64;
     let return_data = current_call_frame
         .returndata
-        .load_range(ret_offset, ret_size);
+        .slice(ret_offset..ret_offset + ret_size);
 
     let mut expected_bytes = vec![0u8; 64];
     // place 0xAAAAAAA at 0..32
@@ -1532,11 +1531,12 @@ fn jumpi_for_zero() {
 
 #[test]
 fn calldataload() {
-    let calldata = Memory::new_from_vec(vec![
+    let calldata = vec![
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
         0x0F, 0x10,
-    ]);
+    ]
+    .into();
     let ops = vec![
         Operation::Push32(U256::from(0)), // offset
         Operation::CallDataLoad,
@@ -1581,7 +1581,7 @@ fn calldataload_being_set_by_parent() {
     let callee_address_u256 = U256::from(2);
     let callee_account = Account::new(U256::from(500000), callee_bytecode);
 
-    let calldata = vec![
+    let calldata = [
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
         0x0F, 0x10,
@@ -1614,7 +1614,7 @@ fn calldataload_being_set_by_parent() {
 
     let current_call_frame = vm.current_call_frame_mut();
 
-    let calldata = vec![
+    let calldata = [
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
         0x0F, 0x10,
@@ -1627,7 +1627,7 @@ fn calldataload_being_set_by_parent() {
 
 #[test]
 fn calldatasize() {
-    let calldata = Memory::new_from_vec(vec![0x11, 0x22, 0x33]);
+    let calldata = vec![0x11, 0x22, 0x33].into();
     let ops = vec![Operation::CallDataSize, Operation::Stop];
     let mut vm = new_vm_with_ops(&ops);
 
@@ -1642,7 +1642,7 @@ fn calldatasize() {
 
 #[test]
 fn calldatacopy() {
-    let calldata = Memory::new_from_vec(vec![0x11, 0x22, 0x33, 0x44, 0x55]);
+    let calldata = vec![0x11, 0x22, 0x33, 0x44, 0x55].into();
     let ops = vec![
         Operation::Push32(U256::from(2)), // size
         Operation::Push32(U256::from(1)), // calldata_offset
@@ -1664,7 +1664,7 @@ fn calldatacopy() {
 
 #[test]
 fn returndatasize() {
-    let returndata = Memory::new_from_vec(vec![0xAA, 0xBB, 0xCC]);
+    let returndata = vec![0xAA, 0xBB, 0xCC].into();
     let ops = vec![Operation::ReturnDataSize, Operation::Stop];
     let mut vm = new_vm_with_ops(&ops);
 
@@ -1679,7 +1679,7 @@ fn returndatasize() {
 
 #[test]
 fn returndatacopy() {
-    let returndata = Memory::new_from_vec(vec![0xAA, 0xBB, 0xCC, 0xDD]);
+    let returndata = vec![0xAA, 0xBB, 0xCC, 0xDD].into();
     let ops = vec![
         Operation::Push32(U256::from(2)), // size
         Operation::Push32(U256::from(1)), // returndata_offset
@@ -1715,7 +1715,7 @@ fn returndatacopy_being_set_by_parent() {
         Operation::Push32(U256::from(100_000)), // gas
         Operation::Call,
         Operation::Push32(U256::from(32)), // size
-        Operation::Push32(U256::from(32)), // returndata offset
+        Operation::Push32(U256::from(0)),  // returndata offset
         Operation::Push32(U256::from(0)),  // dest offset
         Operation::ReturnDataCopy,
         Operation::Stop,
