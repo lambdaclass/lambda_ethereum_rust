@@ -1,4 +1,7 @@
-use std::{cmp::min, collections::HashMap};
+use std::{
+    cmp::{min, Ordering},
+    collections::HashMap,
+};
 
 use ethereum_rust_core::{
     types::{
@@ -167,6 +170,7 @@ pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
 }
 
 pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(), ChainError> {
+    let chain_config = store.get_chain_config()?;
     let base_fee_per_blob_gas = U256::from(calculate_base_fee_per_blob_gas(
         payload_block.header.excess_blob_gas.unwrap_or_default(),
     ));
@@ -209,10 +213,10 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         // Fetch the next transactions
         let (head_tx, is_blob) = match (plain_txs.peek(), blob_txs.peek()) {
             (None, None) => break,
-            (None, Some((tx, _))) => (tx, true),
-            (Some((tx, _)), None) => (tx, false),
-            (Some((_, tip_plain)), Some((tx, tip_blob))) if tip_plain < tip_blob => (tx, true),
-            (Some((tx, _)), _) => (tx.clone(), false),
+            (None, Some(tx)) => (tx, true),
+            (Some(tx), None) => (tx, false),
+            (Some(a), Some(b)) if compare_heads(&a, &b).is_lt() => (b, true),
+            (Some(tx), _) => (tx.clone(), false),
         };
         let txs = if is_blob {
             &mut blob_txs
@@ -221,12 +225,19 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         };
         if remaining_gas < head_tx.tx.gas_limit() {
             // We don't have enough gas left for the transaction, so we skip all txs from this account
-            txs.skip_sender(&head_tx.sender);
+            txs.skip_current_sender();
         }
         // Pull transaction from the mempool
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here
         let hash = head_tx.tx.compute_hash();
         mempool::remove_transaction(hash, store)?;
+
+        // Check wether the tx is replay-protected
+        if head_tx.tx.protected() && !chain_config.is_eip155_activated(payload_block.header.number)
+        {
+            // Ignore replay protected tx
+            txs.pop();
+        }
         // To be continued...
     }
 
@@ -234,10 +245,11 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
 }
 
 struct TransactionQueue {
-    // The first transaction for each account along with its tip
+    // The first transaction for each account along with its tip, sorted by highest tip
     heads: Vec<HeadTransaction>,
     // The remaining txs grouped by account and sorted by nonce
     txs: HashMap<Address, Vec<Transaction>>,
+    base_fee: Option<u64>,
 }
 
 #[derive(Clone)]
@@ -260,7 +272,12 @@ impl TransactionQueue {
                 sender: *address,
             });
         }
-        TransactionQueue { heads, txs }
+        heads.sort_by(|a, b| compare_heads(a, b));
+        TransactionQueue {
+            heads,
+            txs,
+            base_fee,
+        }
     }
 
     fn clear(&mut self) {
@@ -271,39 +288,58 @@ impl TransactionQueue {
         self.heads.is_empty()
     }
 
-    /// Returns the head transaction with the highest tip along with it
+    /// Returns the head transaction with the highest tip
     /// If there is more than one transaction with the highest tip, return the one with the lowest timestamp
-    /// TODO: add timestamp
-    fn peek(&self) -> Option<(HeadTransaction, u64)> {
-        let mut highest_tip = 0;
-        let mut highest_tip_index = 0;
-        for i in 1..self.heads.len() {
-            let current_tip = self.heads[i].tip;
-            if current_tip > highest_tip {
-                highest_tip_index = i;
-                highest_tip = current_tip;
-            } else if current_tip == highest_tip {
-                // TODO: add timestamp to payloads so we can sort by it
-            }
-        }
-        self.heads
-            .get(highest_tip_index)
-            .map(|tx| (tx.clone(), highest_tip))
+    fn peek(&self) -> Option<HeadTransaction> {
+        self.heads.first().map(|tx| tx.clone())
     }
 
     /// Removes all txs from the given sender
-    fn skip_sender(&mut self, sender: &Address) {
-        let mut index = None;
-        let mut i = 0;
-        while i < self.heads.len() && index.is_none() {
-            if &self.heads[0].sender == sender {
-                index = Some(i);
-            }
-            i += 1;
-        }
-        if let Some(index) = index {
-            self.heads.remove(index);
-            self.txs.remove(sender);
+    fn skip_current_sender(&mut self) {
+        if !self.is_empty() {
+            let sender = self.heads.remove(0).sender;
+            self.txs.remove(&sender);
         }
     }
+
+    /// Remove the top transaction
+    /// Add a tx from the same sender as head transaction
+    fn pop(&mut self) {
+        let tx = self.heads.remove(0);
+        if let Some(txs) = self.txs.get_mut(&tx.sender) {
+            // Fetch next head
+            if !txs.is_empty() {
+                let head_tx = txs.remove(0);
+                let head = HeadTransaction {
+                    // We already ran this method when filtering the transactions from the mempool so it shouldn't fail
+                    tip: head_tx.effective_gas_tip(self.base_fee).unwrap(),
+                    tx: head_tx,
+                    sender: tx.sender,
+                };
+                // Insert head into heads list while maintaing order
+                let mut index = 0;
+                loop {
+                    if self
+                        .heads
+                        .get(index)
+                        .is_some_and(|current_head| compare_heads(current_head, &head).is_gt())
+                    {
+                        index += 1;
+                    } else {
+                        self.heads.insert(index, head.clone());
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Returns the order in which txs a and b should be executed
+/// The transaction with the highest tip should go first,
+///  if both have the same tip then the one with the lowest timestamp should go first
+/// This function will not return Ordering::Equal (TODO: make this true with timestamp)
+/// TODO: add timestamp
+fn compare_heads(a: &HeadTransaction, b: &HeadTransaction) -> Ordering {
+    b.tip.cmp(&a.tip)
+    // TODO: Add timestamp field to mempool txs so we can compare by it
 }

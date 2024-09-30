@@ -626,6 +626,20 @@ impl Transaction {
             .checked_sub(base_fee)
             .map(|tip| min(tip, self.gas_fee_cap()))
     }
+
+    pub fn protected(&self) -> bool {
+        match self {
+            Transaction::LegacyTransaction(tx) => {
+                if tx.v.bits() <= 8 {
+                    let v = tx.v.as_u64();
+                    v != 27 && v != 28 && v != 1 && v != 0
+                } else {
+                    true
+                }
+            }
+            _ => true,
+        }
+    }
 }
 
 fn recover_address(
