@@ -741,7 +741,7 @@ impl VM {
                 }
                 Opcode::DELEGATECALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
-                    let address =
+                    let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -750,6 +750,7 @@ impl VM {
 
                     let value = current_call_frame.msg_value;
                     // also storage remains the same
+                    //let storage =
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
@@ -760,7 +761,7 @@ impl VM {
                     // transfer value
                     // transfer(&current_call_frame.msg_sender, &address, value);
 
-                    let callee_bytecode = self.get_account_bytecode(&address);
+                    let callee_bytecode = self.get_account_bytecode(&code_address);
 
                     if callee_bytecode.is_empty() {
                         current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
@@ -774,7 +775,7 @@ impl VM {
                     let new_call_frame = CallFrame::new(
                         gas,
                         current_call_frame.msg_sender, // caller remains the msg_sender
-                        address,
+                        code_address,
                         callee_bytecode,
                         value,
                         calldata,
@@ -872,6 +873,65 @@ impl VM {
 
     pub fn current_call_frame(&self) -> &CallFrame {
         self.call_frames.last().unwrap()
+    }
+    // def generic_call (
+    //     evm: Evm,
+    //     gas: Uint,
+    //     value: U256,
+    //     caller: Address,
+    //     to: Address,
+    //     code_address: Address,
+    //     should_transfer_value: bool,
+    //     is_staticcall: bool,
+    //     memory_input_start_position: U256,
+    //     memory_input_size: U256,
+    //     memory_output_start_position: U256,
+    //     memory_output_size: U256,
+    // )
+    pub fn generic_call(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        gas: U256,
+        value: U256,
+        caller: Address,
+        to: Address,
+        code_address: Address,
+        should_transfer_value: bool,
+        is_static: bool,
+        memory_input_start_position: U256,
+        memory_input_size: U256,
+        memory_output_start_position: U256,
+        memory_output_size: U256,
+    ) {
+        let callee_bytecode = self.get_account_bytecode(&code_address);
+
+        if callee_bytecode.is_empty() {
+            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+            return;
+        }
+
+        let calldata = Memory::new_from_vec(
+            current_call_frame.memory.load_range(
+                memory_input_start_position.try_into().unwrap(),
+                memory_input_size.try_into().unwrap(),
+            ),
+        );
+
+        let new_call_frame = CallFrame::new(
+            gas,
+            caller, // caller remains the msg_sender
+            to,
+            callee_bytecode,
+            value,
+            calldata,
+            is_static,
+        );
+
+        current_call_frame.return_data_offset = Some(memory_output_start_position.try_into().unwrap());
+        current_call_frame.return_data_size = Some(memory_output_size.try_into().unwrap());
+
+        self.call_frames.push(current_call_frame.clone());
+        self.call_frames.push(new_call_frame);
     }
 }
 
