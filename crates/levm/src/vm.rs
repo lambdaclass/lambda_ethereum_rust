@@ -213,7 +213,7 @@ impl VM {
                     };
 
                     current_call_frame.stack.push(remainder);
-                    tx_env.consumed_gas += gas_cost::MOD
+                    tx_env.consumed_gas += gas_cost::SMOD
                 }
                 Opcode::ADDMOD => {
                     if tx_env.consumed_gas + gas_cost::ADDMOD > tx_env.gas_limit {
