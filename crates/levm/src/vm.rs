@@ -719,8 +719,6 @@ impl VM {
 
                     current_call_frame.return_data_offset = Some(code_offset_in_memory);
                     current_call_frame.return_data_size = Some(code_size_in_memory);
-                    dbg!(new_address);
-                    dbg!(address_to_word(new_address));
                     current_call_frame.stack.push(address_to_word(new_address));
                     self.call_frames.push(current_call_frame.clone());
                     current_call_frame = new_call_frame;
