@@ -40,7 +40,7 @@ impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         let initial_account = Account::new(balance, bytecode.clone());
 
-        let initial_call_frame = CallFrame::new(bytecode);
+        let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
         let mut accounts = HashMap::new();
         accounts.insert(address, initial_account);
         Self {
@@ -558,16 +558,16 @@ impl VM {
                         current_call_frame.memory.load_range(args_offset, args_size),
                     );
 
-                    let new_call_frame = CallFrame {
+                    let new_call_frame = CallFrame::new(
                         gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
+                        current_call_frame.msg_sender, // caller remains the msg_sender
+                        address,
+                        callee_bytecode,
+                        value,
                         calldata,
-                        is_static: current_call_frame.is_static,
-                        ..Default::default()
-                    };
+                        current_call_frame.is_static,
+                    );
+
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);
                     self.call_frames.push(current_call_frame.clone());
@@ -599,16 +599,17 @@ impl VM {
                         break;
                     }
                 }
-                Opcode::DELEGATECALL => {}
-                Opcode::STATICCALL => {
+                Opcode::DELEGATECALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
                     let address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
-                    let value = current_call_frame.stack.pop().unwrap();
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let value = current_call_frame.msg_value;
+                    // also storage remains the same
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
@@ -630,16 +631,52 @@ impl VM {
                         current_call_frame.memory.load_range(args_offset, args_size),
                     );
 
-                    let new_call_frame = CallFrame {
+                    let new_call_frame = CallFrame::new(
                         gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
+                        current_call_frame.msg_sender, // caller remains the msg_sender
+                        address,
+                        callee_bytecode,
+                        value,
                         calldata,
-                        is_static: true,
-                        ..Default::default()
-                    };
+                        true,
+                    );
+
+                    current_call_frame.return_data_offset = Some(ret_offset);
+                    current_call_frame.return_data_size = Some(ret_size);
+
+                    self.call_frames.push(current_call_frame.clone());
+                    current_call_frame = new_call_frame;
+                }
+                Opcode::STATICCALL => {
+                    // it cannot be used to transfer Ether
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let callee_bytecode = self.get_account_bytecode(&address);
+
+                    if callee_bytecode.is_empty() {
+                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+                        continue;
+                    }
+
+                    let calldata = Memory::new_from_vec(
+                        current_call_frame.memory.load_range(args_offset, args_size),
+                    );
+
+                    let new_call_frame = CallFrame::new(
+                        gas,
+                        current_call_frame.msg_sender, // caller remains the msg_sender
+                        address,
+                        callee_bytecode,
+                        U256::zero(),
+                        calldata,
+                        true,
+                    );
 
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);

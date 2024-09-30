@@ -1339,12 +1339,13 @@ fn staticcall_changes_callframe_is_static() {
     // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()), // offset
+        Operation::Push32(U256::zero()),        // offset
         Operation::Mstore,
         Operation::Stop,
     ];
 
-    let callee_bytecode = callee_ops.iter()
+    let callee_bytecode = callee_ops
+        .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 

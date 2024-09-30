@@ -29,9 +29,30 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
-    pub fn new(bytecode: Bytes) -> Self {
+    pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         Self {
             bytecode,
+            ..Default::default()
+        }
+    }
+
+    pub fn new(
+        gas: U256,
+        msg_sender: Address,
+        callee: Address,
+        bytecode: Bytes,
+        msg_value: U256,
+        calldata: Memory,
+        is_static: bool,
+    ) -> Self {
+        Self {
+            gas,
+            msg_sender,
+            callee,
+            bytecode,
+            msg_value,
+            calldata,
+            is_static,
             ..Default::default()
         }
     }
