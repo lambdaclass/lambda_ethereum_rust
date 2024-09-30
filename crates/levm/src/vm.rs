@@ -1,30 +1,67 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
+    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256, U512},
 };
+use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
+    pub storage: HashMap<U256, StorageSlot>,
 }
 
 impl Account {
     pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode }
+        Self {
+            balance,
+            bytecode,
+            storage: Default::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct StorageSlot {
+    pub original_value: U256,
+    pub current_value: U256,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Db {
+    pub accounts: HashMap<Address, Account>,
+    pub block_hashes: HashMap<U256, H256>,
+}
+
+impl Db {
+    pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+        self.accounts
+            .get(address)
+            .and_then(|account| account.storage.get(key))
+            .cloned()
+    }
+
+    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+        self.accounts
+            .entry(*address)
+            .or_default()
+            .storage
+            .insert(key, slot);
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>,
+    pub block_env: BlockEnv,
+    pub db: Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -36,16 +73,22 @@ fn negate(value: U256) -> U256 {
     !value + U256::one()
 }
 
+fn address_to_word(address: Address) -> U256 {
+    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
+    U256::from_str(&format!("{address:?}")).unwrap()
+}
+
 impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         let initial_account = Account::new(balance, bytecode.clone());
 
         let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
-        let mut accounts = HashMap::new();
-        accounts.insert(address, initial_account);
+        let mut db: Db = Default::default();
+        db.accounts.insert(address, initial_account);
         Self {
             call_frames: vec![initial_call_frame.clone()],
-            accounts,
+            block_env: BlockEnv::default(),
+            db,
         }
     }
 
@@ -367,6 +410,69 @@ impl VM {
                         .stack
                         .push(U256::from(current_call_frame.pc - 1));
                 }
+                Opcode::BLOCKHASH => {
+                    let block_number = current_call_frame.stack.pop().unwrap();
+
+                    // If number is not in the valid range (last 256 blocks), return zero.
+                    if block_number
+                        < self
+                            .block_env
+                            .number
+                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
+                        || block_number >= self.block_env.number
+                    {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
+                        current_call_frame
+                            .stack
+                            .push(U256::from_big_endian(&block_hash.0));
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    };
+                }
+                Opcode::COINBASE => {
+                    let coinbase = self.block_env.coinbase;
+                    current_call_frame.stack.push(address_to_word(coinbase));
+                }
+                Opcode::TIMESTAMP => {
+                    let timestamp = self.block_env.timestamp;
+                    current_call_frame.stack.push(timestamp);
+                }
+                Opcode::NUMBER => {
+                    let block_number = self.block_env.number;
+                    current_call_frame.stack.push(block_number);
+                }
+                Opcode::PREVRANDAO => {
+                    let randao = self.block_env.prev_randao.unwrap_or_default();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(randao.0.as_slice()));
+                }
+                Opcode::GASLIMIT => {
+                    let gas_limit = self.block_env.gas_limit;
+                    current_call_frame.stack.push(U256::from(gas_limit));
+                }
+                Opcode::CHAINID => {
+                    let chain_id = self.block_env.chain_id;
+                    current_call_frame.stack.push(U256::from(chain_id));
+                }
+                Opcode::SELFBALANCE => {
+                    todo!("when we have accounts implemented")
+                }
+                Opcode::BASEFEE => {
+                    let base_fee = self.block_env.base_fee_per_gas;
+                    current_call_frame.stack.push(base_fee);
+                }
+                Opcode::BLOBHASH => {
+                    todo!("when we have tx implemented");
+                }
+                Opcode::BLOBBASEFEE => {
+                    let blob_base_fee = self.block_env.calculate_blob_gas_price();
+                    current_call_frame.stack.push(blob_base_fee);
+                }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
                 }
@@ -514,6 +620,40 @@ impl VM {
                     current_call_frame
                         .memory
                         .store_bytes(offset, value_bytes[31..32].as_ref());
+                }
+                Opcode::SLOAD => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let current_value = self
+                        .db
+                        .read_account_storage(&current_call_frame.msg_sender, &key)
+                        .unwrap_or_default()
+                        .current_value;
+                    current_call_frame.stack.push(current_value);
+                }
+                Opcode::SSTORE => {
+                    if current_call_frame.is_static {
+                        panic!("Cannot write to storage in a static context");
+                    }
+
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+                    // maybe we need the journal struct as accessing the Db could be slow, with the journal
+                    // we can have prefetched values directly in memory and only commits the values to the db once everything is done
+                    let address = &current_call_frame.msg_sender; // should change when we have create/call transactions
+                    let slot = self.db.read_account_storage(address, &key);
+                    let (original_value, _) = match slot {
+                        Some(slot) => (slot.original_value, slot.current_value),
+                        None => (value, value),
+                    };
+
+                    self.db.write_account_storage(
+                        address,
+                        key,
+                        StorageSlot {
+                            original_value,
+                            current_value: value,
+                        },
+                    );
                 }
                 Opcode::MSIZE => {
                     // spend_gas(2);
@@ -713,19 +853,25 @@ impl VM {
     }
 
     fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
+        self.db
+            .accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
     fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
+        self.db
+            .accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
+        self.db.accounts.insert(address, account);
+    }
+
+    pub fn current_call_frame(&self) -> &CallFrame {
+        self.call_frames.last().unwrap()
     }
 }
 
