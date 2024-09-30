@@ -38,7 +38,7 @@ impl CallFrame {
             // Should be a halt when we implement it
             panic!("Invalid jump");
         }
-        self.pc = jump_address.as_usize() + 1;
+        self.pc = jump_address.as_usize();
     }
 
     fn valid_jump(&self, jump_address: U256) -> bool {

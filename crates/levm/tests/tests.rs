@@ -874,11 +874,11 @@ fn keccak256_zero_offset_size_bigger_than_actual_memory() {
             "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
         )),
         Operation::Push0,
-        Operation::Mstore,  // gas_cost = 3 + 3 = 6
+        Operation::Mstore, // gas_cost = 3 + 3 = 6
         // Call the opcode
         Operation::Push((1, 33.into())), // size > memory.data.len() (32)
         Operation::Push0,                // offset
-        Operation::Keccak256, 
+        Operation::Keccak256,
         Operation::Stop,
     ];
 
@@ -1267,7 +1267,7 @@ fn pc_op_with_push_offset() {
 #[test]
 fn jump_op() {
     let operations = [
-        Operation::Push32(U256::from(35)),  // 3 + 8 + 1 + 3
+        Operation::Push32(U256::from(35)),
         Operation::Jump,
         Operation::Stop, // should skip this one
         Operation::Jumpdest,
@@ -1334,6 +1334,7 @@ fn jumpi_not_zero() {
     vm.execute();
 
     assert_eq!(vm.current_call_frame().stack.pop().unwrap(), U256::from(10));
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 20);
 }
 
 #[test]
@@ -1357,4 +1358,5 @@ fn jumpi_for_zero() {
         vm.current_call_frame().stack.pop().unwrap(),
         U256::from(100)
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 19);
 }
