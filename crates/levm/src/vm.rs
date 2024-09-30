@@ -11,15 +11,8 @@ pub struct StorageSlot {
     pub current_value: U256,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Account {
-    pub storage: HashMap<U256, StorageSlot>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Db {
-    pub accounts: HashMap<Address, Account>,
-}
+pub type Account = HashMap<U256, StorageSlot>;
+pub type Db = HashMap<Address, Account>;
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -475,17 +468,10 @@ impl VM {
                 }
                 Opcode::SLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
-                    let account = db
-                        .accounts
-                        .entry(current_call_frame.msg_sender)
-                        .or_default();
+                    let account = db.entry(current_call_frame.msg_sender).or_default();
 
-                    let current_value = account
-                        .storage
-                        .get(&key)
-                        .cloned()
-                        .unwrap_or_default()
-                        .current_value;
+                    let current_value =
+                        account.get(&key).cloned().unwrap_or_default().current_value;
 
                     current_call_frame.stack.push(current_value);
                 }
@@ -496,17 +482,14 @@ impl VM {
 
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
-                    let account = db
-                        .accounts
-                        .entry(current_call_frame.msg_sender)
-                        .or_default();
-                    let slot = account.storage.get(&key);
+                    let account = db.entry(current_call_frame.msg_sender).or_default();
+                    let slot = account.get(&key);
                     let (original_value, _) = match slot {
                         Some(slot) => (slot.original_value, slot.current_value),
                         None => (value, value),
                     };
 
-                    account.storage.insert(
+                    account.insert(
                         key,
                         StorageSlot {
                             original_value,
