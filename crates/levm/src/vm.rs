@@ -82,7 +82,6 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
-        //let db = &mut self.db.clone();
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
