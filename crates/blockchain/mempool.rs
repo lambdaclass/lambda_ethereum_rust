@@ -15,6 +15,7 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
+/// Add a transaction to the mempool
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
     // Validate transaction
     validate_transaction(&transaction, store.clone())?;
@@ -27,6 +28,7 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     Ok(hash)
 }
 
+/// Fetch a transaction from the mempool
 pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
     Ok(store.get_transaction_from_pool(hash)?)
 }
@@ -35,7 +37,7 @@ pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, 
 /// These transactions will be grouped by sender and sorted by nonce
 pub fn filter_transactions(
     filter: &PendingTxFilter,
-    store: Store,
+    store: &Store,
 ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
@@ -61,6 +63,11 @@ pub fn filter_transactions(
         true
     };
     store.filter_pool_transactions(&filter_tx)
+}
+
+/// Remove a transaction from the mempool
+pub fn remove_transaction(hash: H256, store: &Store) -> Result<(), StoreError> {
+    Ok(store.remove_transaction_from_pool(hash)?)
 }
 
 #[derive(Debug, Default)]

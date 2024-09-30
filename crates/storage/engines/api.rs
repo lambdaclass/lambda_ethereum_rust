@@ -81,15 +81,18 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError>;
 
-    /// Store transaction into pool table
+    /// Add transaction to the pool
     fn add_transaction_to_pool(
         &self,
         hash: H256,
         transaction: Transaction,
     ) -> Result<(), StoreError>;
 
-    /// Get a transaction from pool table
+    /// Get a transaction from the pool
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError>;
+
+    /// Remove a transaction from the pool
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError>;
 
     /// Applies the filter and returns a set of suitable transactions from the mempool.
     /// These transactions will be grouped by sender and sorted by nonce

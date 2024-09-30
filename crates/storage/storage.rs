@@ -193,6 +193,7 @@ impl Store {
         self.engine.get_transaction_location(transaction_hash)
     }
 
+    /// Add transaction to the pool
     pub fn add_transaction_to_pool(
         &self,
         hash: H256,
@@ -201,10 +202,18 @@ impl Store {
         self.engine.add_transaction_to_pool(hash, transaction)
     }
 
+    /// Get a transaction from the pool
     pub fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
         self.engine.get_transaction_from_pool(hash)
     }
 
+    /// Remove a transaction from the pool
+    pub fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.engine.remove_transaction_from_pool(hash)
+    }
+
+    /// Applies the filter and returns a set of suitable transactions from the mempool.
+    /// These transactions will be grouped by sender and sorted by nonce
     pub fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,

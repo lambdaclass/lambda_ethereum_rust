@@ -166,7 +166,7 @@ pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
     Some(total_fee)
 }
 
-pub fn fill_transactions(payload_block: &mut Block, store: Store) -> Result<(), ChainError> {
+pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(), ChainError> {
     let base_fee_per_blob_gas = U256::from(calculate_base_fee_per_blob_gas(
         payload_block.header.excess_blob_gas.unwrap_or_default(),
     ));
@@ -185,7 +185,7 @@ pub fn fill_transactions(payload_block: &mut Block, store: Store) -> Result<(), 
         ..tx_filter
     };
     let mut plain_txs = TransactionQueue::new(
-        mempool::filter_transactions(&plain_tx_filter, store.clone())?,
+        mempool::filter_transactions(&plain_tx_filter, store)?,
         payload_block.header.base_fee_per_gas,
     );
     let mut blob_txs = TransactionQueue::new(
@@ -223,6 +223,10 @@ pub fn fill_transactions(payload_block: &mut Block, store: Store) -> Result<(), 
             // We don't have enough gas left for the transaction, so we skip all txs from this account
             txs.skip_sender(&head_tx.sender);
         }
+        // Pull transaction from the mempool
+        // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here
+        let hash = head_tx.tx.compute_hash();
+        mempool::remove_transaction(hash, store)?;
         // To be continued...
     }
 

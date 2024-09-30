@@ -176,6 +176,11 @@ impl StoreEngine for Store {
         Ok(self.inner().transaction_pool.get(&hash).cloned())
     }
 
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.inner().transaction_pool.remove(&hash);
+        Ok(())
+    }
+
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,

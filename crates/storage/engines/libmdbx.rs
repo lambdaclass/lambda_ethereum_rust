@@ -53,6 +53,17 @@ impl Store {
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
     }
 
+    // Helper method to remove from a libmdbx table
+    fn remove<T: Table>(&self, key: T::Key) -> Result<(), StoreError> {
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.delete::<T>(key, None)
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
+    }
+
     fn get_block_hash_by_block_number(
         &self,
         number: BlockNumber,
@@ -215,6 +226,10 @@ impl StoreEngine for Store {
 
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
+    }
+
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.remove::<TransactionPool>(hash.into())
     }
 
     fn filter_pool_transactions(
