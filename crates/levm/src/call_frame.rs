@@ -1,6 +1,11 @@
-use crate::{memory::Memory, opcodes::Opcode, storage::TransientStorage};
+use std::collections::HashMap;
+
+use crate::{memory::Memory, opcodes::Opcode};
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
+
+/// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
+pub type TransientStorage = HashMap<(Address, U256), U256>;
 
 #[derive(Debug, Clone, Default)]
 pub struct CallFrame {

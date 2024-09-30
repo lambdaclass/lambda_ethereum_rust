@@ -475,7 +475,9 @@ impl VM {
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame
                         .transient_storage
-                        .get(current_call_frame.msg_sender, key);
+                        .get(&(current_call_frame.msg_sender, key))
+                        .cloned()
+                        .unwrap_or(U256::zero());
 
                     current_call_frame.stack.push(value);
                 }
@@ -483,11 +485,9 @@ impl VM {
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
 
-                    current_call_frame.transient_storage.set(
-                        current_call_frame.msg_sender,
-                        key,
-                        value,
-                    );
+                    current_call_frame
+                        .transient_storage
+                        .insert((current_call_frame.msg_sender, key), value);
                 }
                 _ => unimplemented!(),
             }

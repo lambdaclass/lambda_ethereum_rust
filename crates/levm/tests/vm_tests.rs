@@ -192,9 +192,10 @@ fn transient_store() {
     vm.execute();
 
     assert_eq!(
-        vm.current_call_frame()
+        *vm.current_call_frame()
             .transient_storage
-            .get(vm.current_call_frame().msg_sender, key),
+            .get(&(vm.current_call_frame().msg_sender, key))
+            .unwrap(),
         value
     )
 }
@@ -223,7 +224,7 @@ fn transient_load() {
 
     vm.current_call_frame_mut()
         .transient_storage
-        .set(caller, key, value);
+        .insert((caller, key), value);
 
     vm.execute();
 
