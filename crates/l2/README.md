@@ -2,6 +2,9 @@
 
 ## ToC
 
+- [Prerequisites](#prerequisites)
+    - [Rust](#rust)
+    - [Foundry](#foundry)
 - [How to run](#how-to-run)
     - [The command you're looking for](#the-command-youre-looking-for)
     - [The other command you will look for in the future](#the-other-command-you-will-look-for-in-the-future)
@@ -11,7 +14,40 @@
         - [L2](#l2)
 - [Local L1 Rich Wallets](#local-l1-rich-wallets)
 
+## Prerequisites
+
+- [Rust](#rust)
+- [Foundry](#foundry)
+
+#### Rust
+
+To build the node, you will need the rust toolchain:
+
+1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html):
+2. Add the rust plugin:
+```shell
+asdf plugin-add rust https://github.com/asdf-community/asdf-rust.git
+```
+3. cd into the project and run:
+```shell
+asdf install
+```
+
+#### Foundry
+
+xxx:
+
+1. First, install `foundryup`:
+    ```shell
+    curl -L https://foundry.paradigm.xyz | bash
+    ```
+2. Then run `foundryup`:
+    ```shell
+    foundryup
+    ```
+
 ## How to run
+
 
 ### The command you're looking for
 
@@ -24,6 +60,7 @@ make init
 This command has three steps that can also be run individually:
 
 - `make init-l1` - Starts the L1 (reth) node, creating the volumes necessary for running a docker compose file with reth's docker image.
+- `make contract-deps` - Installs the libs used by the contracts in the foundry project.
 - `make deploy-l1` - Deploys the L1 contracts to the L1 node. This runs the [`DeployL1` script](./contracts/script/DeployL1.s.sol).
 - `make init-l2` - Starts the L2 (`ethereum_rust`) node.
 
@@ -58,6 +95,12 @@ make restart
 - `make init-l2` - Starts the L2 node.
 - `make down-l2` - Stops the L2 node.
 - `make restart-l2` - Restarts the L2 node.
+
+#### Contracts
+
+- `make contract-deps` - Installs the libs used by the contracts in the foundry project.
+- `make clean-contract-deps` - Cleans the contract dependencies.
+- `make restart-contract-deps` - Restarts the contract dependencies (cleans and then installs).
 
 ## Local L1 Rich Wallets
 
