@@ -762,6 +762,9 @@ impl VM {
                     }
                 }
                 Opcode::TLOAD => {
+                    if tx_env.consumed_gas + gas_cost::TLOAD > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame
                         .transient_storage
@@ -770,14 +773,19 @@ impl VM {
                         .unwrap_or(U256::zero());
 
                     current_call_frame.stack.push(value);
+                    tx_env.consumed_gas += gas_cost::TLOAD
                 }
                 Opcode::TSTORE => {
+                    if tx_env.consumed_gas + gas_cost::TSTORE > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
 
                     current_call_frame
                         .transient_storage
                         .insert((current_call_frame.msg_sender, key), value);
+                    tx_env.consumed_gas += gas_cost::TSTORE
                 }
                 _ => unimplemented!(),
             }

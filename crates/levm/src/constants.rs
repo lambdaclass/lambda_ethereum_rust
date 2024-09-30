@@ -44,6 +44,8 @@ pub mod gas_cost {
     pub const MSIZE: u64 = 2;
     pub const GAS: u64 = 2;
     pub const JUMPDEST: u64 = 1;
+    pub const TLOAD: u64 = 100;
+    pub const TSTORE: u64 = 100;
     pub const MCOPY_STATIC: u64 = 3;
     pub const MCOPY_DYNAMIC_BASE: u64 = 3;
     pub const PUSH0: u64 = 2;
