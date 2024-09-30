@@ -35,6 +35,7 @@ impl Prover {
         let proof = self
             .client
             .prove(&self.pk, stdin)
+            .groth16()
             .run()
             .map_err(|_| "Failed to generate proof".to_string())?;
 
