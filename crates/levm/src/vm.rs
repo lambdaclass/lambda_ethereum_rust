@@ -659,7 +659,7 @@ impl VM {
                     let code_size_in_memory =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    self.create_aux(
+                    self.create(
                         value_in_wei_to_send,
                         code_offset_in_memory,
                         code_size_in_memory,
@@ -675,7 +675,7 @@ impl VM {
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let salt = current_call_frame.stack.pop().unwrap();
 
-                    self.create_aux(
+                    self.create(
                         value_in_wei_to_send,
                         code_offset_in_memory,
                         code_size_in_memory,
@@ -731,7 +731,7 @@ impl VM {
         self.call_frames.last().unwrap()
     }
 
-    pub fn create_aux(
+    pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
         code_offset_in_memory: usize,
@@ -772,12 +772,13 @@ impl VM {
 
         let new_address = match salt {
             Some(salt) => {
-                Self::calculate_create2_address(current_call_frame.msg_sender, code.clone(), salt)
+                Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
             }
             None => {
                 Self::calculate_create_address(current_call_frame.msg_sender, sender_account.nonce)
             }
         };
+
         if self.accounts.contains_key(&new_address) {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
             return;
@@ -818,6 +819,7 @@ impl VM {
         hasher.update(encoded);
         Address::from_slice(&hasher.finalize()[12..])
     }
+
     /// Calculates the address of a new contract using the CREATE2 opcode as follow
     ///
     /// initialization_code = memory[offset:offset+size]
@@ -825,7 +827,7 @@ impl VM {
     /// address = keccak256(0xff + sender_address + salt + keccak256(initialization_code))[12:]
     pub fn calculate_create2_address(
         sender_address: Address,
-        initialization_code: Bytes,
+        initialization_code: &Bytes,
         salt: U256,
     ) -> H160 {
         let mut hasher = Keccak256::new();

@@ -28,6 +28,16 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
     VM::new(bytecode, address, balance)
 }
 
+fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
+    vec![
+        Operation::Push((16, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value_to_transfer))),
+        Operation::Create,
+        Operation::Stop,
+    ]
+}
+
 fn callee_return_bytecode(return_value: U256) -> Bytes {
     let ops = vec![
         Operation::Push32(return_value), // value
@@ -1705,9 +1715,9 @@ fn blob_base_fee_minimun_cost() {
 
 #[test]
 fn create_happy_path() {
-    let value: u8 = 10;
-    let offset: u8 = 19;
-    let size: u8 = 13;
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 13;
     let sender_nonce = 1;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
@@ -1716,17 +1726,14 @@ fn create_happy_path() {
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
 
     let operations = vec![
-        // Store initialization code in memory
-        Operation::Push((13, U256::from_big_endian(&initialization_code))),
-        Operation::Push0,
-        Operation::Mstore,
-        // Create
-        Operation::Push((1, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value))),
-        Operation::Create,
-        Operation::Stop,
-    ];
+        vec![
+            Operation::Push((13, U256::from_big_endian(&initialization_code))),
+            Operation::Push0,
+            Operation::Mstore,
+        ],
+        create_opcodes(size, offset, value_to_transfer),
+    ]
+    .concat();
 
     let mut vm = new_vm_with_ops(&operations);
     vm.accounts.insert(
@@ -1743,32 +1750,25 @@ fn create_happy_path() {
     let returned_addr = call_frame.stack.pop().unwrap();
     // check the created account is correct
     let new_account = vm.accounts.get(&word_to_address(returned_addr)).unwrap();
-    assert_eq!(new_account.balance, U256::from(value));
+    assert_eq!(new_account.balance, U256::from(value_to_transfer));
     assert_eq!(new_account.nonce, 1);
 
     // Check that the sender account is updated
     let sender_account = vm.accounts.get(&sender_addr).unwrap();
     assert_eq!(sender_account.nonce, sender_nonce + 1);
-    assert_eq!(sender_account.balance, sender_balance - value);
+    assert_eq!(sender_account.balance, sender_balance - value_to_transfer);
 }
 
 #[test]
 fn cant_create_with_size_longer_than_max_code_size() {
-    let value: u8 = 10;
-    let offset: u8 = 19;
-    let size: usize = MAX_CODE_SIZE * 2 + 1;
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = MAX_CODE_SIZE * 2 + 1;
     let sender_nonce = 1;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
-    let operations = vec![
-        // Create
-        Operation::Push((16, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value))),
-        Operation::Create,
-        Operation::Stop,
-    ];
+    let operations = create_opcodes(size, offset, value_to_transfer);
 
     let mut vm = new_vm_with_ops(&operations);
     vm.accounts.insert(
@@ -1791,21 +1791,14 @@ fn cant_create_with_size_longer_than_max_code_size() {
 
 #[test]
 fn cant_create_on_static_contexts() {
-    let value: u8 = 10;
-    let offset: u8 = 19;
-    let size: usize = 10;
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 10;
     let sender_nonce = 1;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
-    let operations = vec![
-        // Create
-        Operation::Push((16, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value))),
-        Operation::Create,
-        Operation::Stop,
-    ];
+    let operations = create_opcodes(size, offset, value_to_transfer);
 
     let mut vm = new_vm_with_ops(&operations);
     vm.accounts.insert(
@@ -1829,21 +1822,14 @@ fn cant_create_on_static_contexts() {
 
 #[test]
 fn cant_create_if_transfer_value_bigger_than_balance() {
-    let value: u8 = 100;
-    let offset: u8 = 19;
-    let size: usize = 10;
+    let value_to_transfer = 100;
+    let offset = 19;
+    let size = 10;
     let sender_nonce = 1;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
-    let operations = vec![
-        // Create
-        Operation::Push((16, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value))),
-        Operation::Create,
-        Operation::Stop,
-    ];
+    let operations = create_opcodes(size, offset, value_to_transfer);
 
     let mut vm = new_vm_with_ops(&operations);
     vm.accounts.insert(
@@ -1866,21 +1852,14 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
 
 #[test]
 fn cant_create_if_sender_nonce_would_overflow() {
-    let value: u8 = 5;
-    let offset: u8 = 19;
-    let size: usize = 10;
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 10;
     let sender_nonce = u64::MAX;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
-    let operations = vec![
-        // Create
-        Operation::Push((16, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value))),
-        Operation::Create,
-        Operation::Stop,
-    ];
+    let operations = create_opcodes(size, offset, value_to_transfer);
 
     let mut vm = new_vm_with_ops(&operations);
     vm.accounts.insert(
@@ -1903,9 +1882,9 @@ fn cant_create_if_sender_nonce_would_overflow() {
 
 #[test]
 fn cant_create_accounts_with_same_address() {
-    let value: u8 = 10;
-    let offset: u8 = 19;
-    let size: u8 = 13;
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 13;
     let sender_nonce = 1;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
@@ -1914,17 +1893,14 @@ fn cant_create_accounts_with_same_address() {
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
 
     let operations = vec![
-        // Store initialization code in memory
-        Operation::Push((13, U256::from_big_endian(&initialization_code))),
-        Operation::Push0,
-        Operation::Mstore,
-        // Create
-        Operation::Push((1, U256::from(size))),
-        Operation::Push((1, U256::from(offset))),
-        Operation::Push((1, U256::from(value))),
-        Operation::Create,
-        Operation::Stop,
-    ];
+        vec![
+            Operation::Push((13, U256::from_big_endian(&initialization_code))),
+            Operation::Push0,
+            Operation::Mstore,
+        ],
+        create_opcodes(size, offset, value_to_transfer),
+    ]
+    .concat();
 
     let mut vm = new_vm_with_ops(&operations);
     vm.accounts.insert(
@@ -1941,13 +1917,13 @@ fn cant_create_accounts_with_same_address() {
     let returned_addr = call_frame.stack.pop().unwrap();
     // check the created account is correct
     let new_account = vm.accounts.get(&word_to_address(returned_addr)).unwrap();
-    assert_eq!(new_account.balance, U256::from(value));
+    assert_eq!(new_account.balance, U256::from(value_to_transfer));
     assert_eq!(new_account.nonce, 1);
 
     // Check that the sender account is updated
     let sender_account = vm.accounts.get_mut(&sender_addr).unwrap();
     assert_eq!(sender_account.nonce, sender_nonce + 1);
-    assert_eq!(sender_account.balance, sender_balance - value);
+    assert_eq!(sender_account.balance, sender_balance - value_to_transfer);
 
     // after a happy create, we do again a create with same inputs, this should revert as we will create
     // an account with the same address
@@ -1977,7 +1953,7 @@ fn create2_happy_path() {
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
     let expected_address = VM::calculate_create2_address(
         sender_addr,
-        Bytes::from(initialization_code.clone()),
+        &Bytes::from(initialization_code.clone()),
         U256::from(salt),
     );
 
