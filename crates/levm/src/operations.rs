@@ -1,6 +1,7 @@
-use crate::opcodes::Opcode;
-use bytes::Bytes;
-use ethereum_types::U256;
+use crate::{
+    opcodes::Opcode,
+    primitives::{Bytes, U256},
+};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Operation {
@@ -73,12 +74,12 @@ pub enum Operation {
     Mstore8,
     // Sload,
     // Sstore,
-    // Jump,
-    // Jumpi,
-    // PC { pc: usize },
+    Jump,
+    Jumpi,
+    PC,
     Msize,
     // Gas,
-    // Jumpdest { pc: usize },
+    Jumpdest,
     // Tload,
     // Tstore,
     Mcopy,
@@ -89,9 +90,9 @@ pub enum Operation {
     Swap(u8),
     // Log(u8),
     // Create,
-    // Call,
+    Call,
     // CallCode,
-    // Return,
+    Return,
     // DelegateCall,
     // Create2,
     // StaticCall,
@@ -172,12 +173,12 @@ impl Operation {
             Operation::Mstore8 => Bytes::copy_from_slice(&[Opcode::MSTORE8 as u8]),
             // Operation::Sload => Bytes::copy_from_slice(&[Opcode::SLOAD as u8]),
             // Operation::Sstore => Bytes::copy_from_slice(&[Opcode::SSTORE as u8]),
-            // Operation::Jump => Bytes::copy_from_slice(&[Opcode::JUMP as u8]),
-            // Operation::Jumpi => Bytes::copy_from_slice(&[Opcode::JUMPI as u8]),
-            // Operation::PC { pc: _ } => Bytes::copy_from_slice(&[Opcode::PC as u8]),
+            Operation::Jump => Bytes::copy_from_slice(&[Opcode::JUMP as u8]),
+            Operation::Jumpi => Bytes::copy_from_slice(&[Opcode::JUMPI as u8]),
+            Operation::PC => Bytes::copy_from_slice(&[Opcode::PC as u8]),
             Operation::Msize => Bytes::copy_from_slice(&[Opcode::MSIZE as u8]),
             // Operation::Gas => Bytes::copy_from_slice(&[Opcode::GAS as u8]),
-            // Operation::Jumpdest { pc: _ } => Bytes::copy_from_slice(&[Opcode::JUMPDEST as u8]),
+            Operation::Jumpdest => Bytes::copy_from_slice(&[Opcode::JUMPDEST as u8]),
             // Operation::Tload => Bytes::copy_from_slice(&[Opcode::TLOAD as u8]),
             // Operation::Tstore => Bytes::copy_from_slice(&[Opcode::TSTORE as u8]),
             Operation::Mcopy => Bytes::copy_from_slice(&[Opcode::MCOPY as u8]),
@@ -216,16 +217,16 @@ impl Operation {
                 assert!(*n <= 16, "SWAP16 is the max");
                 Bytes::copy_from_slice(&[Opcode::SWAP1 as u8 + n - 1])
             } // Operation::Log(n) => Bytes::copy_from_slice(Opcode::&[LOG0 as u8 + n]),
-              // Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
-              // Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
-              // Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
-              // Operation::Return => Bytes::copy_from_slice(&[Opcode::RETURN as u8]),
-              // Operation::DelegateCall => Bytes::copy_from_slice(&[Opcode::DELEGATECALL as u8]),
-              // Operation::Create2 => Bytes::copy_from_slice(&[Opcode::CREATE2 as u8]),
-              // Operation::StaticCall => Bytes::copy_from_slice(&[Opcode::STATICCALL as u8]),
-              // Operation::Revert => Bytes::copy_from_slice(&[Opcode::REVERT as u8]),
-              // Operation::Invalid => Bytes::copy_from_slice(&[Opcode::INVALID as u8]),
-              // Operation::SelfDestruct => Bytes::copy_from_slice(&[Opcode::SELFDESTRUCT as u8]),
+            // Operation::Create => Bytes::copy_from_slice(&[Opcode::CREATE as u8]),
+            Operation::Call => Bytes::copy_from_slice(&[Opcode::CALL as u8]),
+            // Operation::CallCode => Bytes::copy_from_slice(&[Opcode::CALLCODE as u8]),
+            Operation::Return => Bytes::copy_from_slice(&[Opcode::RETURN as u8]),
+            // Operation::DelegateCall => Bytes::copy_from_slice(&[Opcode::DELEGATECALL as u8]),
+            // Operation::Create2 => Bytes::copy_from_slice(&[Opcode::CREATE2 as u8]),
+            // Operation::StaticCall => Bytes::copy_from_slice(&[Opcode::STATICCALL as u8]),
+            // Operation::Revert => Bytes::copy_from_slice(&[Opcode::REVERT as u8]),
+            // Operation::Invalid => Bytes::copy_from_slice(&[Opcode::INVALID as u8]),
+            // Operation::SelfDestruct => Bytes::copy_from_slice(&[Opcode::SELFDESTRUCT as u8]),
         }
     }
 }

@@ -55,3 +55,7 @@ pub const MAX_BLOB_GAS_PER_BLOCK: u64 = MAX_BLOB_NUMBER_PER_BLOCK * GAS_PER_BLOB
 
 // Minimum base fee per blob
 pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
+
+pub const GAS_LIMIT_BOUND_DIVISOR: u64 = 1024;
+
+pub const MIN_GAS_LIMIT: u64 = 5000;
