@@ -1,3 +1,0 @@
-[submodule "crates/l2/contracts/lib/forge-std"]
-	path = crates/l2/contracts/lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
