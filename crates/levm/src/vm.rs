@@ -501,9 +501,9 @@ impl VM {
 
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
-                    // maybe we need the journal struct, as accessing the Db could be slow, with the journal
-                    // we can have prefetched values directly in memory
-                    let address = &current_call_frame.msg_sender;
+                    // maybe we need the journal struct as accessing the Db could be slow, with the journal
+                    // we can have prefetched values directly in memory and only commits the values to the db once everything is done
+                    let address = &current_call_frame.msg_sender; // should change when we have create/call transactions
                     let slot = db.read_account_storage(address, &key);
                     let (original_value, _) = match slot {
                         Some(slot) => (slot.original_value, slot.current_value),
