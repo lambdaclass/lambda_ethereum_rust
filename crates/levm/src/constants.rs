@@ -1,7 +1,7 @@
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
 pub const SUCCESS_FOR_RETURN: i32 = 1;
-pub const TX_BASE_COST: u64 = 21000;
+pub const TX_BASE_COST: u64 = 21_000;
 pub const WORD_SIZE: usize = 32;
 
 /// Contains the gas costs of the EVM instructions
@@ -52,4 +52,12 @@ pub mod gas_cost {
     pub const PUSHN: u64 = 3;
     pub const DUPN: u64 = 3;
     pub const SWAPN: u64 = 3;
+}
+
+pub mod call_opcode {
+    pub const WARM_ADDRESS_ACCESS_COST: u64 = 100;
+    pub const COLD_ADDRESS_ACCESS_COST: u64 = 2_600;
+    pub const NON_ZERO_VALUE_COST: u64 = 9_000;
+    pub const BASIC_FALLBACK_FUNCTION_STIPEND: u64 = 2_300;
+    pub const VALUE_TO_EMPTY_ACCOUNT_COST: u64 = 25_000;
 }

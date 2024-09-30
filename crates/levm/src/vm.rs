@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     call_frame::CallFrame,
     constants::*,
@@ -7,16 +5,26 @@ use crate::{
     primitives::{Address, Bytes, U256, U512},
 };
 use sha3::{Digest, Keccak256};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
+    nonce: u64,
 }
 
 impl Account {
     pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode }
+        Self {
+            balance,
+            bytecode,
+            nonce: 0,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
     }
 }
 
@@ -26,6 +34,7 @@ pub struct VM {
     pub accounts: HashMap<Address, Account>, // change to Address
     gas_limit: u64,
     pub consumed_gas: u64, // TODO: check where to place these two in the future, probably TxEnv
+    warm_addresses: HashSet<Address>,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -44,11 +53,15 @@ impl VM {
         let initial_call_frame = CallFrame::new(bytecode);
         let mut accounts = HashMap::new();
         accounts.insert(address, initial_account);
+        let mut warm_addresses = HashSet::new();
+        warm_addresses.insert(address);
+
         Self {
             call_frames: vec![initial_call_frame.clone()],
             accounts,
             gas_limit: i64::MAX as _, // it is initialized like this for testing
             consumed_gas: TX_BASE_COST,
+            warm_addresses,
         }
     }
 
@@ -690,16 +703,49 @@ impl VM {
                     let address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let value = current_call_frame.stack.pop().unwrap();
-                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_offset: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(memory_byte_size);
+                    let code_execution_cost = 0; // TODO
+                    let address_access_cost = if self.warm_addresses.contains(&address) {
+                        call_opcode::WARM_ADDRESS_ACCESS_COST
+                    } else {
+                        call_opcode::COLD_ADDRESS_ACCESS_COST
+                    };
+                    let positive_value_cost = if !value.is_zero() {
+                        call_opcode::NON_ZERO_VALUE_COST
+                            + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
+                    } else {
+                        0
+                    };
+                    let account = self.accounts.get(&address).unwrap(); // if the account doesn't exist, it should be created
+                    let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
+                        call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
+                    } else {
+                        0
+                    };
+                    let gas_cost = memory_expansion_cost
+                        + code_execution_cost
+                        + address_access_cost
+                        + positive_value_cost
+                        + value_to_empty_account_cost;
+                    if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
 
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
                         current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
                         continue;
                     }
+                    self.warm_addresses.insert(address);
 
                     // transfer value
                     // transfer(&current_call_frame.msg_sender, &address, value);
@@ -731,10 +777,16 @@ impl VM {
 
                     self.call_frames.push(current_call_frame.clone());
                     current_call_frame = new_call_frame;
+                    tx_env.consumed_gas += gas_cost
                 }
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let gas_cost = current_call_frame.memory.expansion_cost(offset + size);
+                    if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
 
                     let return_data = current_call_frame.memory.load_range(offset, size);
 
@@ -760,6 +812,7 @@ impl VM {
                             .push(U256::from(SUCCESS_FOR_RETURN));
                         break;
                     }
+                    tx_env.consumed_gas += gas_cost;
                 }
                 Opcode::TLOAD => {
                     if tx_env.consumed_gas + gas_cost::TLOAD > tx_env.gas_limit {

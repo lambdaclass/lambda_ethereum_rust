@@ -1241,13 +1241,13 @@ fn call_returns_if_bytecode_empty() {
     let callee_account = Account::new(U256::from(500000), callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(100_000)), // gas
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // ret_offset
         Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
         Operation::Call,
         Operation::Stop,
     ];
@@ -1259,7 +1259,6 @@ fn call_returns_if_bytecode_empty() {
     );
 
     vm.add_account(callee_address, callee_account);
-    println!("to excec");
     vm.execute();
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
