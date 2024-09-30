@@ -16,26 +16,10 @@
 
 ## Prerequisites
 
-- [Rust](#rust)
+- [Rust (explained in the repo's main README)](../../README.md)
 - [Foundry](#foundry)
 
-#### Rust
-
-To build the node, you will need the rust toolchain:
-
-1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html):
-2. Add the rust plugin:
-```shell
-asdf plugin-add rust https://github.com/asdf-community/asdf-rust.git
-```
-3. cd into the project and run:
-```shell
-asdf install
-```
-
 #### Foundry
-
-xxx:
 
 1. First, install `foundryup`:
     ```shell
