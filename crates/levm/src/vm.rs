@@ -387,7 +387,7 @@ impl VM {
                     current_call_frame.stack.push(U256::from(chain_id));
                 }
                 Opcode::SELFBALANCE => {
-                    // TODO: when we have accounts implemented
+                    todo!("when we have accounts implemented")
                 }
                 Opcode::BASEFEE => {
                     let base_fee = block_env.base_fee_per_gas;
