@@ -808,6 +808,7 @@ impl VM {
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
+    ///
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
     pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> H160 {
         let mut encoded = Vec::new();
@@ -818,7 +819,9 @@ impl VM {
         Address::from_slice(&hasher.finalize()[12..])
     }
     /// Calculates the address of a new contract using the CREATE2 opcode as follow
+    ///
     /// initialization_code = memory[offset:offset+size]
+    ///
     /// address = keccak256(0xff + sender_address + salt + keccak256(initialization_code))[12:]
     pub fn calculate_create2_address(
         sender_address: Address,
