@@ -375,27 +375,17 @@ impl StoreEngine for Store {
         }
     }
 
-    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
-        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
-            return Ok(None);
-        };
-        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
-        let trie = Trie::open(db, state_root);
-        Ok(Some(trie))
-    }
-
-    fn new_state_trie(&self) -> Result<Trie, StoreError> {
-        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
-        let trie = Trie::new(db);
-        Ok(trie)
-    }
-
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
         let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 20]>::new(
             self.db.clone(),
             address.0,
         ));
         Trie::open(db, storage_root)
+    }
+
+    fn open_state_trie(&self, state_root: H256) -> Trie {
+        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
+        Trie::open(db, state_root)
     }
 
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {

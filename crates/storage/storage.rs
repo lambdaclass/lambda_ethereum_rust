@@ -90,7 +90,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountInfo>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -234,7 +234,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<Bytes>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -249,7 +249,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<u64>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -267,7 +267,7 @@ impl Store {
         block_number: BlockNumber,
         account_updates: &[AccountUpdate],
     ) -> Result<Option<H256>, StoreError> {
-        let Some(mut state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(mut state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         for update in account_updates.iter() {
@@ -317,7 +317,7 @@ impl Store {
         &self,
         genesis_accounts: HashMap<Address, GenesisAccount>,
     ) -> Result<H256, StoreError> {
-        let mut genesis_state_trie = self.engine.new_state_trie()?;
+        let mut genesis_state_trie = self.engine.open_state_trie(*EMPTY_TRIE_HASH);
         for (address, account) in genesis_accounts {
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
@@ -537,6 +537,14 @@ impl Store {
         self.engine.get_canonical_block_hash(block_number)
     }
 
+    // Obtain the storage trie for the given block
+    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
+        let Some(header) = self.get_block_header(block_number)? else {
+            return Ok(None);
+        };
+        Ok(Some(self.engine.open_state_trie(header.state_root)))
+    }
+
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
         &self,
@@ -544,7 +552,7 @@ impl Store {
         address: Address,
     ) -> Result<Option<Trie>, StoreError> {
         // Fetch Account from state_trie
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -562,7 +570,7 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountState>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -577,7 +585,7 @@ impl Store {
         block_number: BlockNumber,
         address: &Address,
     ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.state_trie(block_number)? else {
             return Ok(None);
         };
         Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)

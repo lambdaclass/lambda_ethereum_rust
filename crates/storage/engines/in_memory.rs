@@ -320,26 +320,17 @@ impl StoreEngine for Store {
         Ok(self.inner().chain_data.pending_block_number)
     }
 
-    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
-        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
-            return Ok(None);
-        };
-        let db = Box::new(InMemoryTrieDB::new(self.inner().state_trie_nodes.clone()));
-        let trie = Trie::open(db, state_root);
-        Ok(Some(trie))
-    }
-
-    fn new_state_trie(&self) -> Result<Trie, StoreError> {
-        let db = Box::new(InMemoryTrieDB::new(self.inner().state_trie_nodes.clone()));
-        let trie = Trie::new(db);
-        Ok(trie)
-    }
-
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
         let mut store = self.inner();
         let trie_backend = store.storage_trie_nodes.entry(address).or_default();
         let db = Box::new(InMemoryTrieDB::new(trie_backend.clone()));
         Trie::open(db, storage_root)
+    }
+
+    fn open_state_trie(&self, state_root: H256) -> Trie {
+        let trie_backend = self.inner().state_trie_nodes.clone();
+        let db = Box::new(InMemoryTrieDB::new(trie_backend));
+        Trie::open(db, state_root)
     }
 
     fn get_block_body_by_hash(
