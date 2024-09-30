@@ -1,21 +1,41 @@
-use crate::{memory::Memory, opcodes::Opcode};
-use bytes::Bytes;
-use ethereum_types::{Address, U256};
+use crate::{
+    memory::Memory,
+    opcodes::Opcode,
+    primitives::{Address, Bytes, U256},
+};
+use std::collections::HashMap;
+
+/// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
+pub type TransientStorage = HashMap<(Address, U256), U256>;
 
 #[derive(Debug, Clone, Default)]
 pub struct CallFrame {
-    pub stack: Vec<U256>, // max 1024 in the future
-    pub memory: Memory,
+    pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
     pub callee: Address,
     pub bytecode: Bytes,
     pub delegate: Option<Address>,
     pub msg_value: U256,
+    pub stack: Vec<U256>, // max 1024 in the future
+    pub memory: Memory,
+    pub calldata: Bytes,
+    pub return_data: Bytes,
+    // where to store return data of subcall
+    pub return_data_offset: Option<usize>,
+    pub return_data_size: Option<usize>,
+    pub transient_storage: TransientStorage,
     pub is_static: bool,
 }
 
 impl CallFrame {
+    pub fn new(bytecode: Bytes) -> Self {
+        Self {
+            bytecode,
+            ..Default::default()
+        }
+    }
+
     pub fn next_opcode(&mut self) -> Option<Opcode> {
         let opcode = self.opcode_at(self.pc);
         self.increment_pc();
