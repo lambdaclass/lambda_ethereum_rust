@@ -1,4 +1,4 @@
-use ethereum_types::U256;
+use crate::primitives::U256;
 
 #[derive(Debug, Clone, Default)]
 pub struct Memory {
