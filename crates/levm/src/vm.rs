@@ -1,11 +1,17 @@
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
+
 use crate::{
+    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
     constants::*,
     opcodes::Opcode,
-    primitives::{Address, Bytes, U256, U512},
 };
+use bytes::Bytes;
+use ethereum_types::{Address, H256, U256, U512};
 use sha3::{Digest, Keccak256};
-use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
@@ -28,10 +34,14 @@ impl Account {
     }
 }
 
+pub type Db = HashMap<U256, H256>;
+
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     call_frames: Vec<CallFrame>,
     pub accounts: HashMap<Address, Account>, // change to Address
+    pub block_env: BlockEnv,
+    pub db: Db,
     gas_limit: u64,
     pub consumed_gas: u64, // TODO: check where to place these two in the future, probably TxEnv
     warm_addresses: HashSet<Address>,
@@ -44,6 +54,11 @@ fn is_negative(value: U256) -> bool {
 /// negates a number in two's complement
 fn negate(value: U256) -> U256 {
     !value + U256::one()
+}
+
+fn address_to_word(address: Address) -> U256 {
+    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
+    U256::from_str(&format!("{address:?}")).unwrap()
 }
 
 impl VM {
@@ -59,6 +74,8 @@ impl VM {
         Self {
             call_frames: vec![initial_call_frame.clone()],
             accounts,
+            block_env: Default::default(),
+            db: Default::default(),
             gas_limit: i64::MAX as _, // it is initialized like this for testing
             consumed_gas: TX_BASE_COST,
             warm_addresses,
@@ -66,6 +83,7 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
+        let block_env = self.block_env.clone();
         let mut tx_env = self.clone(); // simulates a TxEnv
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
@@ -441,6 +459,68 @@ impl VM {
                         .stack
                         .push(U256::from(current_call_frame.pc - 1));
                     tx_env.consumed_gas += gas_cost::PC
+                }
+                Opcode::BLOCKHASH => {
+                    let block_number = current_call_frame.stack.pop().unwrap();
+
+                    // If number is not in the valid range (last 256 blocks), return zero.
+                    if block_number
+                        < block_env
+                            .number
+                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
+                        || block_number >= block_env.number
+                    {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    if let Some(block_hash) = self.db.get(&block_number) {
+                        current_call_frame
+                            .stack
+                            .push(U256::from_big_endian(&block_hash.0));
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    };
+                }
+                Opcode::COINBASE => {
+                    let coinbase = block_env.coinbase;
+                    current_call_frame.stack.push(address_to_word(coinbase));
+                }
+                Opcode::TIMESTAMP => {
+                    let timestamp = block_env.timestamp;
+                    current_call_frame.stack.push(timestamp);
+                }
+                Opcode::NUMBER => {
+                    let block_number = block_env.number;
+                    current_call_frame.stack.push(block_number);
+                }
+                Opcode::PREVRANDAO => {
+                    let randao = block_env.prev_randao.unwrap_or_default();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(randao.0.as_slice()));
+                }
+                Opcode::GASLIMIT => {
+                    let gas_limit = block_env.gas_limit;
+                    current_call_frame.stack.push(U256::from(gas_limit));
+                }
+                Opcode::CHAINID => {
+                    let chain_id = block_env.chain_id;
+                    current_call_frame.stack.push(U256::from(chain_id));
+                }
+                Opcode::SELFBALANCE => {
+                    todo!("when we have accounts implemented")
+                }
+                Opcode::BASEFEE => {
+                    let base_fee = block_env.base_fee_per_gas;
+                    current_call_frame.stack.push(base_fee);
+                }
+                Opcode::BLOBHASH => {
+                    todo!("when we have tx implemented");
+                }
+                Opcode::BLOBBASEFEE => {
+                    let blob_base_fee = block_env.calculate_blob_gas_price();
+                    current_call_frame.stack.push(blob_base_fee);
                 }
                 Opcode::PUSH0 => {
                     if tx_env.consumed_gas + gas_cost::PUSH0 > tx_env.gas_limit {

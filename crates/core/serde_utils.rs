@@ -230,6 +230,8 @@ pub mod bytes {
     }
 
     pub mod vec {
+        use serde::ser::SerializeSeq;
+
         use super::*;
 
         pub fn deserialize<'de, D>(d: D) -> Result<Vec<Bytes>, D::Error>
@@ -245,6 +247,17 @@ pub mod bytes {
                 output.push(bytes);
             }
             Ok(output)
+        }
+
+        pub fn serialize<S>(value: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq_serializer = serializer.serialize_seq(Some(value.len()))?;
+            for encoded in value {
+                seq_serializer.serialize_element(&format!("0x{}", hex::encode(encoded)))?;
+            }
+            seq_serializer.end()
         }
     }
 }

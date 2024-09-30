@@ -1,6 +1,7 @@
 use bytes::Bytes;
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H256, U256};
 use levm::{
+    block::TARGET_BLOB_GAS_PER_BLOCK,
     constants::TX_BASE_COST,
     operations::Operation,
     vm::{Account, VM},
@@ -1392,6 +1393,232 @@ fn nested_calls() {
     expected_bytes[32..].copy_from_slice(&callee2_return_value_bytes);
 
     assert_eq!(return_data, expected_bytes);
+}
+
+#[test]
+fn block_hash_op() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = 3_u8;
+    let expected_block_hash = U256::from(block_hash);
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = U256::from(current_block_number);
+    vm.db
+        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn block_hash_same_block_number() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = block_number;
+    let expected_block_hash = U256::zero();
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = U256::from(current_block_number);
+    vm.db
+        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn block_hash_block_number_not_from_recent_256() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = 258;
+    let expected_block_hash = U256::zero();
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = U256::from(current_block_number);
+    vm.db
+        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn coinbase_op() {
+    let coinbase_address = 100;
+
+    let operations = [Operation::Coinbase, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.coinbase = Address::from_low_u64_be(coinbase_address);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(coinbase_address)
+    );
+}
+
+#[test]
+fn timestamp_op() {
+    let timestamp = U256::from(100000);
+
+    let operations = [Operation::Timestamp, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.timestamp = timestamp;
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), timestamp);
+}
+
+#[test]
+fn number_op() {
+    let block_number = U256::from(1000);
+
+    let operations = [Operation::Number, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = block_number;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        block_number
+    );
+}
+
+#[test]
+fn prevrandao_op() {
+    let prevrandao = H256::from_low_u64_be(2000);
+
+    let operations = [Operation::Prevrandao, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.prev_randao = Some(prevrandao);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from_big_endian(&prevrandao.0)
+    );
+}
+
+#[test]
+fn gaslimit_op() {
+    let gas_limit = 1000;
+
+    let operations = [Operation::Gaslimit, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.gas_limit = gas_limit;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(gas_limit)
+    );
+}
+
+#[test]
+fn chain_id_op() {
+    let chain_id = 1;
+
+    let operations = [Operation::Chainid, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.chain_id = chain_id;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(chain_id)
+    );
+}
+
+#[test]
+fn basefee_op() {
+    let base_fee_per_gas = U256::from(1000);
+
+    let operations = [Operation::Basefee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.base_fee_per_gas = base_fee_per_gas;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        base_fee_per_gas
+    );
+}
+
+#[test]
+fn blob_base_fee_op() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
+    vm.block_env.blob_gas_used = Some(0);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(2)
+    );
+}
+
+#[test]
+fn blob_base_fee_minimun_cost() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.excess_blob_gas = Some(0);
+    vm.block_env.blob_gas_used = Some(0);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::one()
+    );
 }
 
 #[test]
