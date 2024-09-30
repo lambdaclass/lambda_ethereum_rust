@@ -10,7 +10,7 @@ use tracing::{debug, warn};
 
 use crate::operator::proof_data_provider::ProofData;
 
-use super::prover::Prover;
+use super::sp1_prover::SP1Prover;
 
 pub async fn start_proof_data_client(ip: IpAddr, port: u16) {
     let proof_data_client = ProofDataClient::new(ip, port);
@@ -28,7 +28,7 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self) {
-        let prover = Prover::new();
+        let prover = SP1Prover::new();
 
         loop {
             let id = self.request_new_data().unwrap();
@@ -70,7 +70,10 @@ impl ProofDataClient {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
-        let submit = ProofData::Submit { id, proof };
+        let submit = ProofData::Submit {
+            id,
+            proof: Box::new(proof),
+        };
         serde_json::ser::to_writer(buf_writer, &submit).unwrap();
         stream.shutdown(std::net::Shutdown::Write).unwrap();
 

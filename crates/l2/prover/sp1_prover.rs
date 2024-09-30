@@ -1,6 +1,3 @@
-use std::time::Duration;
-
-use tokio::time::sleep;
 use tracing::info;
 
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
@@ -8,13 +5,19 @@ use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, S
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/elf/riscv32im-succinct-zkvm-elf");
 
-pub struct Prover {
+pub struct SP1Prover {
     client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
 }
 
-impl Prover {
+impl Default for SP1Prover {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SP1Prover {
     pub fn new() -> Self {
         info!("Setting up prover...");
         let client = ProverClient::new();

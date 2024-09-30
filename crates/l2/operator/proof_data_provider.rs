@@ -20,7 +20,7 @@ pub enum ProofData {
     },
     Submit {
         id: u32,
-        proof: SP1ProofWithPublicValues,
+        proof: Box<SP1ProofWithPublicValues>,
     },
     SubmitAck {
         id: u32,
@@ -75,7 +75,7 @@ impl ProofDataProvider {
         serde_json::to_writer(writer, &response).unwrap();
     }
 
-    fn handle_submit(&self, stream: &mut TcpStream, id: u32, proof: SP1ProofWithPublicValues) {
+    fn handle_submit(&self, stream: &mut TcpStream, id: u32, proof: Box<SP1ProofWithPublicValues>) {
         debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
 
         let response = ProofData::SubmitAck { id };
