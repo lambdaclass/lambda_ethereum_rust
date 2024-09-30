@@ -1753,11 +1753,123 @@ fn create_happy_path() {
 }
 
 #[test]
-fn create_with_size_longer_than_max() {
+fn cant_create_with_size_longer_than_max_code_size() {
     let value: u8 = 10;
     let offset: u8 = 19;
     let size: usize = MAX_CODE_SIZE * 2 + 1;
     let sender_nonce = 1;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = vec![
+        // Create
+        Operation::Push((16, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value))),
+        Operation::Create,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.accounts.insert(
+        sender_addr,
+        Account::new(sender_balance, Bytes::new(), sender_nonce),
+    );
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_on_static_contexts() {
+    let value: u8 = 10;
+    let offset: u8 = 19;
+    let size: usize = 10;
+    let sender_nonce = 1;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = vec![
+        // Create
+        Operation::Push((16, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value))),
+        Operation::Create,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.accounts.insert(
+        sender_addr,
+        Account::new(sender_balance, Bytes::new(), sender_nonce),
+    );
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+    vm.current_call_frame_mut().is_static = true;
+
+    vm.execute();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_if_transfer_value_bigger_than_balance() {
+    let value: u8 = 100;
+    let offset: u8 = 19;
+    let size: usize = 10;
+    let sender_nonce = 1;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = vec![
+        // Create
+        Operation::Push((16, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value))),
+        Operation::Create,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.accounts.insert(
+        sender_addr,
+        Account::new(sender_balance, Bytes::new(), sender_nonce),
+    );
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_if_sender_nonce_would_overflow() {
+    let value: u8 = 5;
+    let offset: u8 = 19;
+    let size: usize = 10;
+    let sender_nonce = u64::MAX;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
