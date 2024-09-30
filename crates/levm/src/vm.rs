@@ -4,7 +4,6 @@ use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
-    memory::Memory,
     opcodes::Opcode,
 };
 use bytes::Bytes;
@@ -656,7 +655,7 @@ impl VM {
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let return_data = current_call_frame.memory.load_range(offset, size).into();
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(ret_offset), Some(_ret_size)) = (
+                        if let (Some(_ret_offset), Some(_ret_size)) = (
                             parent_call_frame.return_data_offset,
                             parent_call_frame.return_data_size,
                         ) {
