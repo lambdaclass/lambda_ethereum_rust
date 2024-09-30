@@ -1,3 +1,4 @@
+#![cfg(feature = "libmdbx")]
 use std::marker::PhantomData;
 
 use bytes::Bytes;
@@ -7,7 +8,6 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::U256;
-#[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 
 // Account types
@@ -49,14 +49,12 @@ impl<T: RLPDecode> Rlp<T> {
     }
 }
 
-#[cfg(feature = "libmdbx")]
 impl<T: Send + Sync> Decodable for Rlp<T> {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(Rlp(b.to_vec(), Default::default()))
     }
 }
 
-#[cfg(feature = "libmdbx")]
 impl<T: Send + Sync> Encodable for Rlp<T> {
     type Encoded = Vec<u8>;
 
