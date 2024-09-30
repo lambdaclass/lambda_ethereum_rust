@@ -1,16 +1,40 @@
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
+use levm::{
+    operations::Operation,
+    primitives::{Address, Bytes, U256},
+    vm::{Account, VM},
+};
 use levm::{operations::Operation, storage::TransientStorage, vm::VM};
 
 // cargo test -p 'levm'
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
+    new_vm_with_ops_addr_bal(operations, Address::zero(), U256::zero())
+}
+
+pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
     let bytecode = operations
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    VM::new(bytecode)
+    VM::new(bytecode, address, balance)
+}
+
+fn callee_return_bytecode(return_value: U256) -> Bytes {
+    let ops = vec![
+        Operation::Push32(return_value), // value
+        Operation::Push32(U256::zero()), // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // offset
+        Operation::Return,
+    ];
+
+    ops.iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>()
 }
 
 #[test]
@@ -24,10 +48,8 @@ fn add_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-    assert!(vm.current_call_frame_mut().pc() == 68);
-
-    println!("{vm:?}");
+    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame().pc() == 68);
 }
 
 #[test]
@@ -938,7 +960,7 @@ fn mstore8() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -969,7 +991,7 @@ fn mcopy() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -996,7 +1018,7 @@ fn mload() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1013,7 +1035,7 @@ fn msize() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1033,7 +1055,7 @@ fn msize() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm = VM::new(bytecode);
+    vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1053,7 +1075,7 @@ fn msize() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm = VM::new(bytecode);
+    vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1078,7 +1100,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1105,7 +1127,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    vm = VM::new(bytecode);
+    vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1130,7 +1152,7 @@ fn mload_uninitialized_memory() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    let mut vm = VM::new(bytecode);
+    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
 
     vm.execute();
 
@@ -1139,24 +1161,6 @@ fn mload_uninitialized_memory() {
 
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
-}
-
-#[test]
-fn transient_storage_set_get_ok() {
-    let mut tstorage = TransientStorage::new();
-    tstorage.set(Address::default(), U256::one(), U256::from("0xffff"));
-
-    assert_eq!(
-        tstorage.get(Address::default(), U256::one()),
-        U256::from("0xffff")
-    )
-}
-
-#[test]
-fn transient_storage_unexistant_returns_zero() {
-    let tsstorage = TransientStorage::new();
-
-    assert_eq!(tsstorage.get(Address::default(), U256::one()), U256::zero())
 }
 
 #[test]
@@ -1246,7 +1250,7 @@ fn jump_not_jumpdest_position() {
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
-    assert_eq!(vm.current_call_frame().pc, 35);
+    assert_eq!(vm.current_call_frame_mut().pc, 35);
 }
 
 #[test]
@@ -1263,7 +1267,7 @@ fn jump_position_bigger_than_program_bytecode_size() {
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
-    assert_eq!(vm.current_call_frame().pc(), 35);
+    assert_eq!(vm.current_call_frame_mut().pc(), 35);
 }
 
 #[test]

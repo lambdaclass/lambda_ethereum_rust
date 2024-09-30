@@ -1,11 +1,29 @@
-use crate::{call_frame::CallFrame, opcodes::Opcode};
-use bytes::Bytes;
-use ethereum_types::{U256, U512};
+use std::collections::HashMap;
+
+use crate::{
+    call_frame::CallFrame,
+    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    opcodes::Opcode,
+    primitives::{Address, Bytes, U256, U512},
+};
 use sha3::{Digest, Keccak256};
+
+#[derive(Clone, Default, Debug)]
+pub struct Account {
+    balance: U256,
+    bytecode: Bytes,
+}
+
+impl Account {
+    pub fn new(balance: U256, bytecode: Bytes) -> Self {
+        Self { balance, bytecode }
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub accounts: HashMap<Address, Account>, // change to Address
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -18,18 +36,20 @@ fn negate(value: U256) -> U256 {
 }
 
 impl VM {
-    pub fn new(bytecode: Bytes) -> Self {
-        let initial_call_frame = CallFrame {
-            bytecode,
-            ..Default::default()
-        };
+    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
+        let initial_account = Account::new(balance, bytecode.clone());
+
+        let initial_call_frame = CallFrame::new(bytecode);
+        let mut accounts = HashMap::new();
+        accounts.insert(address, initial_account);
         Self {
-            call_frames: vec![initial_call_frame],
+            call_frames: vec![initial_call_frame.clone()],
+            accounts,
         }
     }
 
     pub fn execute(&mut self) {
-        let current_call_frame = self.current_call_frame_mut();
+        let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
@@ -471,6 +491,82 @@ impl VM {
                         .memory
                         .copy(src_offset, dest_offset, size);
                 }
+                Opcode::CALL => {
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let value = current_call_frame.stack.pop().unwrap();
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    // check balance
+                    if self.balance(&current_call_frame.msg_sender) < value {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+                        continue;
+                    }
+
+                    // transfer value
+                    // transfer(&current_call_frame.msg_sender, &address, value);
+
+                    let callee_bytecode = self.get_account_bytecode(&address);
+
+                    if callee_bytecode.is_empty() {
+                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+                        continue;
+                    }
+
+                    let calldata = current_call_frame
+                        .memory
+                        .load_range(args_offset, args_size)
+                        .into();
+
+                    let new_call_frame = CallFrame {
+                        gas,
+                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
+                        callee: address,
+                        bytecode: callee_bytecode,
+                        msg_value: value,
+                        calldata,
+                        ..Default::default()
+                    };
+
+                    current_call_frame.return_data_offset = Some(ret_offset);
+                    current_call_frame.return_data_size = Some(ret_size);
+
+                    self.call_frames.push(current_call_frame.clone());
+                    current_call_frame = new_call_frame;
+                }
+                Opcode::RETURN => {
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let return_data = current_call_frame.memory.load_range(offset, size);
+
+                    if let Some(mut parent_call_frame) = self.call_frames.pop() {
+                        if let (Some(ret_offset), Some(_ret_size)) = (
+                            parent_call_frame.return_data_offset,
+                            parent_call_frame.return_data_size,
+                        ) {
+                            parent_call_frame
+                                .memory
+                                .store_bytes(ret_offset, &return_data);
+                        }
+
+                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
+                        parent_call_frame.return_data_offset = None;
+                        parent_call_frame.return_data_size = None;
+
+                        current_call_frame = parent_call_frame.clone();
+                    } else {
+                        // excecution completed (?)
+                        current_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_RETURN));
+                        break;
+                    }
+                }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame
@@ -492,10 +588,27 @@ impl VM {
                 _ => unimplemented!(),
             }
         }
+        self.call_frames.push(current_call_frame);
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
+    }
+
+    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
+        self.accounts
+            .get(address)
+            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
+    }
+
+    pub fn add_account(&mut self, address: Address, account: Account) {
+        self.accounts.insert(address, account);
     }
 
     pub fn current_call_frame(&self) -> &CallFrame {
