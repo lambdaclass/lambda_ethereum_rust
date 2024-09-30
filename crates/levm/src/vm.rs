@@ -56,7 +56,6 @@ impl Db {
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>, // change to Address
     pub db: Db,
 }
 
@@ -74,12 +73,11 @@ impl VM {
         let initial_account = Account::new(balance, bytecode.clone());
 
         let initial_call_frame = CallFrame::new(bytecode);
-        let mut accounts = HashMap::new();
-        accounts.insert(address, initial_account);
+        let mut db: Db = Default::default();
+        db.accounts.insert(address, initial_account);
         Self {
             call_frames: vec![initial_call_frame.clone()],
-            accounts,
-            db: Default::default(),
+            db,
         }
     }
 
@@ -666,19 +664,21 @@ impl VM {
     }
 
     fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
+        self.db
+            .accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
     fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
+        self.db
+            .accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
+        self.db.accounts.insert(address, account);
     }
 
     pub fn current_call_frame(&self) -> &CallFrame {
