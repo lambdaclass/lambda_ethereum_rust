@@ -32,21 +32,26 @@ impl ProofDataProvider {
     pub fn start(&self) {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).unwrap();
 
+        let mut current_id = 1;
+
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
             let stream = stream.unwrap();
 
             debug!("Connection established!");
-            self.handle_connection(stream);
+            self.handle_connection(stream, &mut current_id);
         }
     }
 
-    fn handle_connection(&self, mut stream: TcpStream) {
+    fn handle_connection(&self, mut stream: TcpStream, current_id: &mut u32) {
         let buf_reader = BufReader::new(&stream);
 
         let data: ProofData = serde_json::de::from_reader(buf_reader).unwrap();
         match data {
-            ProofData::Request {} => self.handle_request(&mut stream),
+            ProofData::Request {} => {
+                self.handle_request(&mut stream, *current_id);
+                *current_id = (*current_id % 20) + 1;
+            }
             ProofData::Submit { id } => self.handle_submit(&mut stream, id),
             _ => {}
         }
@@ -54,10 +59,10 @@ impl ProofDataProvider {
         debug!("Connection closed");
     }
 
-    fn handle_request(&self, stream: &mut TcpStream) {
+    fn handle_request(&self, stream: &mut TcpStream, current_id: u32) {
         debug!("Request received");
 
-        let response = ProofData::Response { id: 1 };
+        let response = ProofData::Response { id: current_id };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).unwrap();
     }
