@@ -10,6 +10,10 @@ impl Memory {
         Self { data: Vec::new() }
     }
 
+    pub fn new_from_vec(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+
     fn resize(&mut self, offset: usize) {
         if offset.next_multiple_of(32) > self.data.len() {
             self.data.resize(offset.next_multiple_of(32), 0);
