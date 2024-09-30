@@ -575,7 +575,6 @@ impl VM {
                 }
                 Opcode::CALLCODE => {}
                 Opcode::RETURN => {
-                    println!("Callframe: {:?}", current_call_frame);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let return_data = current_call_frame.memory.load_range(offset, size);
@@ -627,10 +626,9 @@ impl VM {
                         continue;
                     }
 
-                    let calldata = current_call_frame
-                        .memory
-                        .load_range(args_offset, args_size)
-                        .into();
+                    let calldata = Memory::new_from_vec(
+                        current_call_frame.memory.load_range(args_offset, args_size),
+                    );
 
                     let new_call_frame = CallFrame {
                         gas,
