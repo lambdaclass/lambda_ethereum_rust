@@ -1,3 +1,5 @@
+use std::cmp::min;
+
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
@@ -606,6 +608,23 @@ impl Transaction {
 
     pub fn compute_hash(&self) -> H256 {
         keccak_hash::keccak(self.encode_canonical_to_vec())
+    }
+
+    fn gas_tip_cap(&self) -> u64 {
+        self.max_priority_fee().unwrap_or(self.gas_price())
+    }
+
+    fn gas_fee_cap(&self) -> u64 {
+        self.max_fee_per_gas().unwrap_or(self.gas_price())
+    }
+
+    pub fn effective_gas_tip(&self, base_fee: Option<u64>) -> Option<u64> {
+        let Some(base_fee) = base_fee else {
+            return Some(self.gas_tip_cap());
+        };
+        self.gas_fee_cap()
+            .checked_sub(base_fee)
+            .map(|tip| min(tip, self.gas_fee_cap()))
     }
 }
 
