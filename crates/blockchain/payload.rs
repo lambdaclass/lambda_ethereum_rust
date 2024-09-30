@@ -13,7 +13,7 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_evm::{
     beacon_root_contract_call, evm_state, execute_tx, get_state_transitions, process_withdrawals,
-    spec_id, EvmState, SpecId,
+    spec_id, EvmError, EvmState, SpecId,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -193,23 +193,29 @@ pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainEr
     info!("Building payload");
     let parent_number = payload.header.number.saturating_sub(1);
     let mut evm_state = evm_state(store.clone(), parent_number);
-    // Apply withdrawals & call beacon root contract, and obtain the new state root
-    let spec_id = spec_id(store, payload.header.timestamp)?;
-    if payload.header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
-    }
-    let withdrawals = payload.body.withdrawals.clone().unwrap_or_default();
-    process_withdrawals(&mut evm_state, &withdrawals)?;
     let mut context = PayloadBuildContext::new(payload, &mut evm_state);
+    apply_withdrawals(&mut context)?;
     fill_transactions(&mut context)?;
     finalize_payload(&mut context)?;
     Ok(context.block_value)
 }
 
-/// Fills the payload with transactions taken from the mempool
-/// Returns the block value
-pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
-    let chain_config = context.store().get_chain_config()?;
+pub fn apply_withdrawals(context: &mut PayloadBuildContext) -> Result<(), EvmError> {
+    // Apply withdrawals & call beacon root contract, and obtain the new state root
+    let spec_id = spec_id(context.store(), context.payload.header.timestamp)?;
+    if context.payload.header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+        beacon_root_contract_call(context.evm_state, &context.payload.header, spec_id)?;
+    }
+    let withdrawals = context.payload.body.withdrawals.clone().unwrap_or_default();
+    process_withdrawals(context.evm_state, &withdrawals)?;
+    Ok(())
+}
+
+/// Fetches suitable transactions from the mempool
+/// Returns two transaction queues, one for plain and one for blob txs
+fn fetch_mempool_transactions(
+    context: &mut PayloadBuildContext,
+) -> Result<(TransactionQueue, TransactionQueue), StoreError> {
     let tx_filter = PendingTxFilter {
         /*TODO: add tip filter */
         base_fee: context.base_fee_per_gas(),
@@ -224,15 +230,26 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         only_blob_txs: true,
         ..tx_filter
     };
+    Ok((
+        // Plain txs
+        TransactionQueue::new(
+            mempool::filter_transactions(&plain_tx_filter, context.store())?,
+            context.base_fee_per_gas(),
+        ),
+        // Blob txs
+        TransactionQueue::new(
+            mempool::filter_transactions(&blob_tx_filter, context.store())?,
+            context.base_fee_per_gas(),
+        ),
+    ))
+}
+
+/// Fills the payload with transactions taken from the mempool
+/// Returns the block value
+pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
     info!("Fetching transactions from mempool");
-    let mut plain_txs = TransactionQueue::new(
-        mempool::filter_transactions(&plain_tx_filter, context.store())?,
-        context.base_fee_per_gas(),
-    );
-    let mut blob_txs = TransactionQueue::new(
-        mempool::filter_transactions(&blob_tx_filter, context.store())?,
-        context.base_fee_per_gas(),
-    );
+    let chain_config = context.store().get_chain_config()?;
+    let (mut plain_txs, mut blob_txs) = fetch_mempool_transactions(context)?;
     // Commit txs
     loop {
         if context.remaining_gas < TX_GAS_COST {
