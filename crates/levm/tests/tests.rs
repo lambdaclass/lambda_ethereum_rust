@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
-    constants::SUCCESS_FOR_RETURN,
+    constants::{MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN},
     operations::Operation,
     vm::{Account, VM},
 };
@@ -1712,7 +1712,7 @@ fn create_happy_path() {
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
-    // Code that returns the value 0xffffffff
+    // Code that returns the value 0xffffffff putting it in memory
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
 
     let operations = vec![
@@ -1737,9 +1737,10 @@ fn create_happy_path() {
 
     vm.execute();
 
-    let return_of_created_callframe = vm.current_call_frame_mut().stack.pop().unwrap();
+    let call_frame = vm.current_call_frame_mut();
+    let return_of_created_callframe = call_frame.stack.pop().unwrap();
     assert_eq!(return_of_created_callframe, U256::from(SUCCESS_FOR_RETURN));
-    let returned_addr = vm.current_call_frame_mut().stack.pop().unwrap();
+    let returned_addr = call_frame.stack.pop().unwrap();
     // check the created account is correct
     let new_account = vm.accounts.get(&word_to_address(returned_addr)).unwrap();
     assert_eq!(new_account.balance, U256::from(value));
@@ -1749,4 +1750,41 @@ fn create_happy_path() {
     let sender_account = vm.accounts.get(&sender_addr).unwrap();
     assert_eq!(sender_account.nonce, sender_nonce + 1);
     assert_eq!(sender_account.balance, sender_balance - value);
+}
+
+#[test]
+fn create_with_size_longer_than_max() {
+    let value: u8 = 10;
+    let offset: u8 = 19;
+    let size: usize = MAX_CODE_SIZE * 2 + 1;
+    let sender_nonce = 1;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = vec![
+        // Create
+        Operation::Push((16, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value))),
+        Operation::Create,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.accounts.insert(
+        sender_addr,
+        Account::new(sender_balance, Bytes::new(), sender_nonce),
+    );
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
 }
