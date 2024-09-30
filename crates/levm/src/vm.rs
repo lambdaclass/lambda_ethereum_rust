@@ -716,7 +716,38 @@ impl VM {
                         ret_size,
                     );
                 }
-                Opcode::CALLCODE => {}
+                Opcode::CALLCODE => {
+                    // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage remains the same. Note that an account with no code will return success as true.
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let code_address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let value = current_call_frame.stack.pop().unwrap();
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let to = current_call_frame.to; // to remains the same
+                    let is_static = current_call_frame.is_static;
+                    println!("Code address: {:?}", code_address);
+
+                    self.generic_call(
+                        &mut current_call_frame,
+                        gas,
+                        value,
+                        msg_sender,
+                        to,
+                        code_address,
+                        Some(msg_sender),
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
+                    );
+                }
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -742,6 +773,7 @@ impl VM {
                 }
                 Opcode::DELEGATECALL => {
                     // The delegatecall executes the setVars(uint256) code from Contract B but updates Contract A’s storage. The execution has the same storage, msg.sender & msg.value as its parent call setVarsDelegateCall.
+                    // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage, the current sender and the current value remain the same. Note that an account with no code will return success as true.
                     let gas = current_call_frame.stack.pop().unwrap();
                     let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
