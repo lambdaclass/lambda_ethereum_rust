@@ -25,7 +25,6 @@ pub struct BlockEnv {
     /// Replaces `difficulty` after the Paris (AKA the merge) upgrade with [EIP-4399].
     ///
     /// [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
-    pub prevrandao: Option<H256>,
     pub prev_randao: Option<H256>,
     /// Running total of blob gas consumed in excess of the target, prior to the block. Blocks with above-target blob gas consumption increase this value, blocks with below-target blob gas consumption decrease it (bounded at 0).
     ///
