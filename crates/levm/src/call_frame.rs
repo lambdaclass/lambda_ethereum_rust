@@ -2,6 +2,7 @@ use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
+    vm::Environment,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -17,15 +18,18 @@ pub struct CallFrame {
     pub memory: Memory,
     pub calldata: Bytes,
     pub return_data: Bytes,
-    // where to store return data of subcall
+    // // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub env: Environment,
 }
 
 impl CallFrame {
-    pub fn new(bytecode: Bytes) -> Self {
+    pub fn new(bytecode: Bytes, env: Environment) -> Self {
         Self {
             bytecode,
+            gas: U256::MAX,
+            env,
             ..Default::default()
         }
     }

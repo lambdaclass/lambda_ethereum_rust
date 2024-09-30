@@ -5,6 +5,7 @@ use crate::{
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     primitives::{Address, Bytes, U256, U512},
+    transaction::Transaction,
 };
 use sha3::{Digest, Keccak256};
 
@@ -21,10 +22,39 @@ impl Account {
 }
 
 #[derive(Debug, Clone, Default)]
+struct Block;
+
+pub type WorldState = HashMap<Address, Account>;
+
+#[derive(Debug, Clone, Default)]
+struct Substate;
+#[derive(Debug, Clone, Default)]
+pub struct Environment {
+    owner: Address,
+    origin: Address,
+    gas_price: u64,
+    data: Bytes,
+    caller: Address,
+    value: U256,
+    code: Bytes,
+    block: Block,
+    depth: u16,
+}
+
+#[derive(Debug, Default)]
+pub struct TransactionContext {
+    world_state: WorldState,
+    remaining_gas: u64,
+    accrued_substate: Substate,
+    env: Environment,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>, // change to Address
-    pub transaction: Transaction,
+    pub accrued_substate: Substate,
+    pub remaining_gas: u64,
+    pub world_state: WorldState,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -36,17 +66,23 @@ fn negate(value: U256) -> U256 {
     !value + U256::one()
 }
 
-impl VM {
-    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
-        let initial_account = Account::new(balance, bytecode.clone());
+// The execution model specifies how the system state is
+// altered given a series of bytecode instructions and a small
+// tuple of environmental data.
 
-        let initial_call_frame = CallFrame::new(bytecode);
-        let mut accounts = HashMap::new();
-        accounts.insert(address, initial_account);
+impl VM {
+    pub fn new(tx: Transaction, state: WorldState) -> Self {
+        // VALIDATE BLOCK AND TX
+
+        let first_env = Environment::default();
+
+        let initial_call_frame = CallFrame::new(Bytes::default(), first_env);
+
         Self {
+            accrued_substate: Substate::default(),
             call_frames: vec![initial_call_frame.clone()],
-            accounts,
-            transaction: Transaction::default(),
+            remaining_gas: u64::MAX,
+            world_state: state,
         }
     }
 
