@@ -1,11 +1,13 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
+    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     primitives::{Address, Bytes, U256, U512},
 };
+use ethereum_types::H256;
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
@@ -34,6 +36,7 @@ pub struct StorageSlot {
 #[derive(Debug, Clone, Default)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
+    pub block_hashes: HashMap<U256, H256>,
 }
 
 impl Db {
@@ -56,6 +59,7 @@ impl Db {
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub block_env: BlockEnv,
     pub db: Db,
 }
 
@@ -68,6 +72,11 @@ fn negate(value: U256) -> U256 {
     !value + U256::one()
 }
 
+fn address_to_word(address: Address) -> U256 {
+    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
+    U256::from_str(&format!("{address:?}")).unwrap()
+}
+
 impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         let initial_account = Account::new(balance, bytecode.clone());
@@ -77,6 +86,7 @@ impl VM {
         db.accounts.insert(address, initial_account);
         Self {
             call_frames: vec![initial_call_frame.clone()],
+            block_env: BlockEnv::default(),
             db,
         }
     }
@@ -357,6 +367,69 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from(current_call_frame.pc - 1));
+                }
+                Opcode::BLOCKHASH => {
+                    let block_number = current_call_frame.stack.pop().unwrap();
+
+                    // If number is not in the valid range (last 256 blocks), return zero.
+                    if block_number
+                        < self
+                            .block_env
+                            .number
+                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
+                        || block_number >= self.block_env.number
+                    {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
+                        current_call_frame
+                            .stack
+                            .push(U256::from_big_endian(&block_hash.0));
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    };
+                }
+                Opcode::COINBASE => {
+                    let coinbase = self.block_env.coinbase;
+                    current_call_frame.stack.push(address_to_word(coinbase));
+                }
+                Opcode::TIMESTAMP => {
+                    let timestamp = self.block_env.timestamp;
+                    current_call_frame.stack.push(timestamp);
+                }
+                Opcode::NUMBER => {
+                    let block_number = self.block_env.number;
+                    current_call_frame.stack.push(block_number);
+                }
+                Opcode::PREVRANDAO => {
+                    let randao = self.block_env.prev_randao.unwrap_or_default();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(randao.0.as_slice()));
+                }
+                Opcode::GASLIMIT => {
+                    let gas_limit = self.block_env.gas_limit;
+                    current_call_frame.stack.push(U256::from(gas_limit));
+                }
+                Opcode::CHAINID => {
+                    let chain_id = self.block_env.chain_id;
+                    current_call_frame.stack.push(U256::from(chain_id));
+                }
+                Opcode::SELFBALANCE => {
+                    todo!("when we have accounts implemented")
+                }
+                Opcode::BASEFEE => {
+                    let base_fee = self.block_env.base_fee_per_gas;
+                    current_call_frame.stack.push(base_fee);
+                }
+                Opcode::BLOBHASH => {
+                    todo!("when we have tx implemented");
+                }
+                Opcode::BLOBBASEFEE => {
+                    let blob_base_fee = self.block_env.calculate_blob_gas_price();
+                    current_call_frame.stack.push(blob_base_fee);
                 }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
