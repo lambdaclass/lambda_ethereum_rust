@@ -48,10 +48,9 @@ xxx:
 
 ## How to run
 
-
 ### The command you're looking for
 
-Running the below command will start both a local L1 (reth for the moment, but `ethereum_rust` in the future) and a local L2 (`ethereum_rust`).
+Running the below command will start both a local L1 (reth for the moment, but `ethereum_rust` in the future) in the port `8545` and a local L2 (`ethereum_rust`) in the port `1729`.
 
 ```
 make init
