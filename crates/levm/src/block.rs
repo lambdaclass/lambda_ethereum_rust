@@ -20,13 +20,12 @@ pub struct BlockEnv {
     // Chain ID of the EVM, it will be compared to the transaction's Chain ID.
     // Chain ID is introduced here https://eips.ethereum.org/EIPS/eip-155
     pub chain_id: usize,
-    // The output of the randomness beacon provided by the beacon chain.
-    //
-    // Replaces `difficulty` after the Paris (AKA the merge) upgrade with [EIP-4399].
-    //
-    // NOTE: `prevrandao` can be found in a block in place of `mix_hash`.
-    //
-    // [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
+    /// The output of the randomness beacon provided by the beacon chain.
+    ///
+    /// Replaces `difficulty` after the Paris (AKA the merge) upgrade with [EIP-4399].
+    ///
+    /// [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
+    pub prevrandao: Option<H256>,
     pub prev_randao: Option<H256>,
     /// Running total of blob gas consumed in excess of the target, prior to the block. Blocks with above-target blob gas consumption increase this value, blocks with below-target blob gas consumption decrease it (bounded at 0).
     ///
