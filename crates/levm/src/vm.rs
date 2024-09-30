@@ -12,7 +12,27 @@ pub struct StorageSlot {
 }
 
 pub type Account = HashMap<U256, StorageSlot>;
-pub type Db = HashMap<Address, Account>;
+
+#[derive(Debug, Clone, Default)]
+pub struct Db {
+    pub accounts: HashMap<Address, Account>,
+}
+
+impl Db {
+    pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+        self.accounts
+            .get(&address)
+            .and_then(|account| account.get(&key))
+            .cloned()
+    }
+
+    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+        self.accounts
+            .entry(*address)
+            .or_insert_with(Default::default)
+            .insert(key, slot);
+    }
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
@@ -468,11 +488,10 @@ impl VM {
                 }
                 Opcode::SLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
-                    let account = db.entry(current_call_frame.msg_sender).or_default();
-
-                    let current_value =
-                        account.get(&key).cloned().unwrap_or_default().current_value;
-
+                    let current_value = db
+                        .read_account_storage(&current_call_frame.msg_sender, &key)
+                        .unwrap_or_default()
+                        .current_value;
                     current_call_frame.stack.push(current_value);
                 }
                 Opcode::SSTORE => {
@@ -482,14 +501,17 @@ impl VM {
 
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame.stack.pop().unwrap();
-                    let account = db.entry(current_call_frame.msg_sender).or_default();
-                    let slot = account.get(&key);
+                    // maybe we need the journal struct, as accessing the Db could be slow, with the journal
+                    // we can have prefetched values directly in memory
+                    let address = &current_call_frame.msg_sender;
+                    let slot = db.read_account_storage(address, &key);
                     let (original_value, _) = match slot {
                         Some(slot) => (slot.original_value, slot.current_value),
                         None => (value, value),
                     };
 
-                    account.insert(
+                    db.write_account_storage(
+                        address,
                         key,
                         StorageSlot {
                             original_value,

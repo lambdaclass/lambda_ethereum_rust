@@ -1298,11 +1298,11 @@ fn sstore_op() {
 
     let mut vm = new_vm_with_ops(&operations);
     vm.current_call_frame().msg_sender = sender_address;
-    vm.db.insert(sender_address, Account::default());
+    vm.db.accounts.insert(sender_address, Account::default());
 
     vm.execute();
 
-    let account = vm.db.get(&sender_address).unwrap();
+    let account = vm.db.accounts.get(&sender_address).unwrap();
     let stored_value = account.get(&key).unwrap();
     assert_eq!(value, stored_value.current_value);
 }
@@ -1340,7 +1340,7 @@ fn sload_op() {
 
     let mut vm = new_vm_with_ops(&operations);
     vm.current_call_frame().msg_sender = sender_address;
-    vm.db.insert(sender_address, Account::default());
+    vm.db.accounts.insert(sender_address, Account::default());
 
     vm.execute();
 
@@ -1355,7 +1355,7 @@ fn sload_untouched_key_of_storage() {
 
     let mut vm = new_vm_with_ops(&operations);
     vm.current_call_frame().msg_sender = sender_address;
-    vm.db.insert(sender_address, Account::default());
+    vm.db.accounts.insert(sender_address, Account::default());
 
     vm.execute();
 
