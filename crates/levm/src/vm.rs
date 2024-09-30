@@ -394,7 +394,7 @@ impl VM {
                     current_call_frame.stack.push(base_fee);
                 }
                 Opcode::BLOBHASH => {
-                    // TODO: when we have tx implemented
+                    todo!("when we have tx implemented");
                 }
                 Opcode::BLOBBASEFEE => {
                     let blob_base_fee = block_env.calculate_blob_gas_price();
