@@ -7,12 +7,14 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use std::future::IntoFuture;
+use std::time::Duration;
 use std::{
     fs::File,
     io,
     net::{SocketAddr, ToSocketAddrs},
 };
-use tokio::try_join;
+use tokio_util::task::TaskTracker;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 mod cli;
@@ -103,9 +105,21 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            add_block(&block, &store).expect("Fatal: could not add block from given file");
+            let hash = block.header.compute_block_hash();
+            info!("Adding block {} with hash {}.", block.header.number, hash);
+            match add_block(&block, &store) {
+                Ok(()) => store
+                    .set_canonical_block(block.header.number, hash)
+                    .unwrap(),
+                _ => {
+                    warn!(
+                        "Failed to add block {} with hash {}.",
+                        block.header.number, hash
+                    );
+                }
+            }
         }
-        info!("Added {} blocks to storage", size);
+        info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
@@ -119,17 +133,36 @@ async fn main() {
         node_id: local_node_id,
     };
 
+    // TODO: Check every module starts properly.
+    let tracker = TaskTracker::new();
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
-        store,
+        store.clone(),
         jwt_secret,
         local_p2p_node,
-    );
-    let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
+    )
+    .into_future();
+    let networking = ethereum_rust_net::start_network(
+        udp_socket_addr,
+        tcp_socket_addr,
+        bootnodes,
+        signer,
+        store,
+    )
+    .into_future();
 
-    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
+    tracker.spawn(rpc_api);
+    tracker.spawn(networking);
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            info!("Server shut down started...");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            info!("Server shutting down!");
+            return;
+        }
+    }
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {

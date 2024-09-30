@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
 
 use crate::error::StoreError;
@@ -52,6 +52,19 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
 
     /// Obtain block number for a given hash
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError>;
+
+    // TODO (#307): Remove TotalDifficulty.
+    /// Add block total difficulty
+    fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> Result<(), StoreError>;
+
+    // TODO (#307): Remove TotalDifficulty.
+    /// Obtain block total difficulty
+    fn get_block_total_difficulty(&self, block_hash: BlockHash)
+        -> Result<Option<U256>, StoreError>;
 
     /// Store transaction location (block number and index of the transaction within the block)
     fn add_transaction_location(
@@ -138,6 +151,12 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         Ok(Some(Block { header, body }))
     }
 
+    // Get the canonical block hash for a given block number.
+    fn get_canonical_block_hash(
+        &self,
+        block_number: BlockNumber,
+    ) -> Result<Option<BlockHash>, StoreError>;
+
     /// Stores the chain configuration values, should only be called once after reading the genesis file
     /// Ignores previously stored values if present
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError>;
@@ -169,6 +188,17 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Obtain latest block number
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
+    // TODO (#307): Remove TotalDifficulty.
+    // Update latest total difficulty
+    fn update_latest_total_difficulty(
+        &self,
+        latest_total_difficulty: U256,
+    ) -> Result<(), StoreError>;
+
+    // TODO (#307): Remove TotalDifficulty.
+    // Obtain latest total difficulty
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError>;
+
     // Update pending block number
     fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError>;
 
@@ -187,6 +217,10 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Used for internal store operations
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie;
 
-    // Get the canonical block hash for a given block number.
+    // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
+
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
+
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
 }

@@ -11,8 +11,8 @@ pub enum ChainError {
     ParentNotFound,
     //TODO: If a block with block_number greater than latest plus one is received
     //maybe we are missing data and should wait for syncing
-    #[error("Block number is greater than the latest plus one")]
-    NonCanonicalBlock,
+    #[error("Block number is not child of a canonical block.")]
+    NonCanonicalParent,
     #[error("DB error: {0}")]
     StoreError(#[from] StoreError),
     #[error("EVM error: {0}")]
