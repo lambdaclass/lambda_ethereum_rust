@@ -1,4 +1,5 @@
 use ethereum_rust_blockchain::error::ChainError;
+use ethereum_rust_blockchain::payload::payload_block_value;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::H256;
@@ -6,6 +7,7 @@ use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
 
+use crate::types::payload::ExecutionPayloadResponse;
 use crate::{
     types::payload::{ExecutionPayloadV3, PayloadStatus},
     RpcErr, RpcHandler,
@@ -15,6 +17,10 @@ pub struct NewPayloadV3Request {
     pub payload: ExecutionPayloadV3,
     pub expected_blob_versioned_hashes: Vec<H256>,
     pub parent_beacon_block_root: H256,
+}
+
+pub struct GetPayloadV3Request {
+    pub payload_id: u64,
 }
 
 impl RpcHandler for NewPayloadV3Request {
@@ -96,7 +102,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash}");
-        let result = match add_block(&block, &storage) {
+        let payload_status = match add_block(&block, &storage) {
             Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
@@ -110,12 +116,50 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
             Ok(()) => {
                 info!("Block with hash {block_hash} executed succesfully");
+                // TODO: We don't have a way to fetch blocks by number if they are not canonical
+                // so we need to set it as canonical in order to run basic test suites
+                // We should remove this line once the issue is solved
+                storage.set_canonical_block(block.header.number, block_hash)?;
                 info!("Block with hash {block_hash} added to storage");
 
                 Ok(PayloadStatus::valid_with_hash(block_hash))
             }
         }?;
 
-        serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(payload_status).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl RpcHandler for GetPayloadV3Request {
+    fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
+        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        if params.len() != 1 {
+            return Err(RpcErr::BadParams);
+        };
+        let Ok(hex_str) = serde_json::from_value::<String>(params[0].clone()) else {
+            return Err(RpcErr::BadParams);
+        };
+        // Check that the hex string is 0x prefixed
+        let Some(hex_str) = hex_str.strip_prefix("0x") else {
+            return Err(RpcErr::BadHexFormat(0));
+        };
+        // Parse hex string
+        let Ok(payload_id) = u64::from_str_radix(hex_str, 16) else {
+            return Err(RpcErr::BadHexFormat(0));
+        };
+        Ok(GetPayloadV3Request { payload_id })
+    }
+
+    fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!("Requested payload with id: {:#018x}", self.payload_id);
+        let Some(payload) = storage.get_payload(self.payload_id)? else {
+            return Err(RpcErr::UnknownPayload);
+        };
+        let block_value = payload_block_value(&payload, &storage).ok_or(RpcErr::Internal)?;
+        serde_json::to_value(ExecutionPayloadResponse::new(
+            ExecutionPayloadV3::from_block(payload),
+            block_value,
+        ))
+        .map_err(|_| RpcErr::Internal)
     }
 }
