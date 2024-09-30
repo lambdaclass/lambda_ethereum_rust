@@ -56,9 +56,9 @@ impl BuildPayloadArgs {
     }
 }
 
-/// Builds a new payload based on the payload arguments
+/// Creates a new payload based on the payload arguments
 // Basic payload block building, can and should be improved
-pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, ChainError> {
+pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, ChainError> {
     // TODO: check where we should get builder values from
     const DEFAULT_BUILDER_GAS_CEIL: u64 = 30_000_000;
     let parent_block = storage
@@ -66,7 +66,7 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
         .ok_or_else(|| ChainError::ParentNotFound)?;
     let chain_config = storage.get_chain_config()?;
     let gas_limit = calc_gas_limit(parent_block.gas_limit, DEFAULT_BUILDER_GAS_CEIL);
-    let mut payload = Block {
+    let payload = Block {
         header: BlockHeader {
             parent_hash: args.parent,
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -109,17 +109,17 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
             withdrawals: Some(args.withdrawals.clone()),
         },
     };
-    // Apply withdrawals & call beacon root contract, and obtain the new state root
-    let spec_id = spec_id(storage, args.timestamp)?;
-    let mut evm_state = evm_state(storage.clone(), parent_block.number);
-    if args.beacon_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
-    }
-    process_withdrawals(&mut evm_state, &args.withdrawals)?;
-    let account_updates = get_state_transitions(&mut evm_state);
-    payload.header.state_root = storage
-        .apply_account_updates(parent_block.number, &account_updates)?
-        .unwrap_or_default();
+    // // Apply withdrawals & call beacon root contract, and obtain the new state root
+    // let spec_id = spec_id(storage, args.timestamp)?;
+    // let mut evm_state = evm_state(storage.clone(), parent_block.number);
+    // if args.beacon_root.is_some() && spec_id == SpecId::CANCUN {
+    //     beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
+    // }
+    // process_withdrawals(&mut evm_state, &args.withdrawals)?;
+    // let account_updates = get_state_transitions(&mut evm_state);
+    // payload.header.state_root = storage
+    //     .apply_account_updates(parent_block.number, &account_updates)?
+    //     .unwrap_or_default();
     Ok(payload)
 }
 
@@ -152,25 +152,27 @@ fn calc_excess_blob_gas(parent_excess_blob_gas: u64, parent_blob_gas_used: u64) 
     }
 }
 
-/// Calculates the total fees paid by the payload block
-/// Only potential errors are storage erros which should be treated as internal errors by rpc providers
-pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
-    let mut total_fee = U256::zero();
-    let mut last_cummulative_gas_used = 0;
-    for (index, tx) in block.body.transactions.iter().enumerate() {
-        // Execution already succeded by this point so we can asume the fee is valid
-        let fee = tx.effective_gas_tip(block.header.base_fee_per_gas)?;
-        let receipt = storage
-            .get_receipt(block.header.number, index as u64)
-            .ok()??;
-        total_fee += U256::from(fee) * (receipt.cumulative_gas_used - last_cummulative_gas_used);
-        last_cummulative_gas_used = receipt.cumulative_gas_used;
+/// Completes the payload building process, return the block value
+pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainError> {
+    // Apply withdrawals & call beacon root contract, and obtain the new state root
+    let parent_number = payload.header.number.saturating_sub(1);
+    let spec_id = spec_id(store, payload.header.timestamp)?;
+    let mut evm_state = evm_state(store.clone(), parent_number);
+    if payload.header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
+        beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
     }
-    Some(total_fee)
+    let withdrawals = payload.body.withdrawals.clone().unwrap_or_default();
+    process_withdrawals(&mut evm_state, &withdrawals)?;
+    fill_transactions(payload, &mut evm_state)
 }
 
-pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(), ChainError> {
-    let chain_config = store.get_chain_config()?;
+/// Fills the payload with transactions taken from the mempool
+/// Returns the block value
+pub fn fill_transactions(
+    payload_block: &mut Block,
+    evm_state: &mut EvmState,
+) -> Result<U256, ChainError> {
+    let chain_config = evm_state.database().get_chain_config()?;
     let base_fee_per_blob_gas = U256::from(calculate_base_fee_per_blob_gas(
         payload_block.header.excess_blob_gas.unwrap_or_default(),
     ));
@@ -189,18 +191,18 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         ..tx_filter
     };
     let mut plain_txs = TransactionQueue::new(
-        mempool::filter_transactions(&plain_tx_filter, store)?,
+        mempool::filter_transactions(&plain_tx_filter, evm_state.database())?,
         payload_block.header.base_fee_per_gas,
     );
     let mut blob_txs = TransactionQueue::new(
-        mempool::filter_transactions(&blob_tx_filter, store)?,
+        mempool::filter_transactions(&blob_tx_filter, evm_state.database())?,
         payload_block.header.base_fee_per_gas,
     );
     // Commit txs
     let mut receipts = Vec::new();
+    let mut total_fee = U256::zero();
     let mut remaining_gas = payload_block.header.gas_limit;
     let blobs = 0_u64;
-    let mut evm_state = evm_state(store.clone(), payload_block.header.number.saturating_sub(1));
     loop {
         if remaining_gas < TX_GAS_COST {
             // No more gas to run transactions
@@ -232,7 +234,7 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
         // Pull transaction from the mempool
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here
         let hash = head_tx.tx.compute_hash();
-        mempool::remove_transaction(hash, store)?;
+        mempool::remove_transaction(hash, evm_state.database())?;
 
         // Check wether the tx is replay-protected
         if head_tx.tx.protected() && !chain_config.is_eip155_activated(payload_block.header.number)
@@ -241,30 +243,29 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
             txs.pop();
         }
         // Execute tx
-        let receipt = match apply_transaction(
-            payload_block,
-            &head_tx.tx,
-            &mut evm_state,
-            &mut remaining_gas,
-        ) {
-            Ok(receipt) => {
-                txs.shift();
-                receipt
-            }
-            // Ignore following txs from sender
-            Err(_) => {
-                txs.pop();
-                break;
-            }
-        };
+        let prev_remaining_gas = remaining_gas;
+        let receipt =
+            match apply_transaction(payload_block, &head_tx.tx, evm_state, &mut remaining_gas) {
+                Ok(receipt) => {
+                    txs.shift();
+                    receipt
+                }
+                // Ignore following txs from sender
+                Err(_) => {
+                    txs.pop();
+                    continue;
+                }
+            };
+        total_fee += U256::from(prev_remaining_gas - remaining_gas) * head_tx.tip;
         // Add transaction to block
         payload_block.body.transactions.push(head_tx.tx);
         // Save receipt for hash calculation
         receipts.push(receipt);
     }
     // Finalize block
-    let account_updates = get_state_transitions(&mut evm_state);
-    payload_block.header.state_root = store
+    let account_updates = get_state_transitions(evm_state);
+    payload_block.header.state_root = evm_state
+        .database()
         .apply_account_updates(
             payload_block.header.number.saturating_sub(1),
             &account_updates,
@@ -275,7 +276,7 @@ pub fn fill_transactions(payload_block: &mut Block, store: &Store) -> Result<(),
     payload_block.header.receipts_root = compute_receipts_root(&receipts);
     payload_block.header.gas_used = payload_block.header.gas_limit - remaining_gas;
 
-    Ok(())
+    Ok(total_fee)
 }
 
 fn apply_transaction(
@@ -290,13 +291,13 @@ fn apply_transaction(
         evm_state,
         spec_id(evm_state.database(), payload_block.header.timestamp)?,
     )?;
+    *remaining_gas -= result.gas_used();
     let receipt = Receipt::new(
         tx.tx_type(),
         result.is_success(),
         payload_block.header.gas_limit - *remaining_gas,
         result.logs(),
     );
-    *remaining_gas -= result.gas_used();
     Ok(receipt)
 }
 
