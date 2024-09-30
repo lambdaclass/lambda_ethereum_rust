@@ -10,6 +10,7 @@ pub type TransientStorage = HashMap<(Address, U256), U256>;
 
 #[derive(Debug, Clone, Default)]
 pub struct CallFrame {
+    pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
     pub callee: Address,
@@ -23,6 +24,7 @@ pub struct CallFrame {
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub transient_storage: TransientStorage,
 }
 
 impl CallFrame {
