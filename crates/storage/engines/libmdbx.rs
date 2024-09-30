@@ -20,6 +20,7 @@ use libmdbx::{
     table_info,
 };
 use serde_json;
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
@@ -50,6 +51,17 @@ impl Store {
     fn read<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
+    }
+
+    // Helper method to remove from a libmdbx table
+    fn remove<T: Table>(&self, key: T::Key) -> Result<(), StoreError> {
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.delete::<T>(key, None)
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_block_hash_by_block_number(
@@ -216,6 +228,32 @@ impl StoreEngine for Store {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.remove::<TransactionPool>(hash.into())
+    }
+
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+        let cursor = self
+            .db
+            .begin_read()
+            .map_err(StoreError::LibmdbxError)?
+            .cursor::<TransactionPool>()
+            .map_err(StoreError::LibmdbxError)?;
+        let mut tx_iter = cursor.walk(None);
+        let mut txs: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        while let Some(Ok((_, tx))) = tx_iter.next() {
+            let tx = tx.to();
+            if filter(&tx) {
+                // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
+                txs.entry(tx.sender()).or_default().push(tx.clone())
+            }
+        }
+        Ok(txs)
+    }
+
     /// Stores the chain config serialized as json
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         self.write::<ChainData>(
@@ -337,27 +375,17 @@ impl StoreEngine for Store {
         }
     }
 
-    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
-        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
-            return Ok(None);
-        };
-        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
-        let trie = Trie::open(db, state_root);
-        Ok(Some(trie))
-    }
-
-    fn new_state_trie(&self) -> Result<Trie, StoreError> {
-        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
-        let trie = Trie::new(db);
-        Ok(trie)
-    }
-
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
         let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 20]>::new(
             self.db.clone(),
             address.0,
         ));
         Trie::open(db, storage_root)
+    }
+
+    fn open_state_trie(&self, state_root: H256) -> Trie {
+        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
+        Trie::open(db, state_root)
     }
 
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {

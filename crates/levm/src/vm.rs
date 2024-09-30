@@ -1,11 +1,35 @@
-use crate::{call_frame::CallFrame, opcodes::Opcode};
+use std::{collections::HashMap, str::FromStr};
+
+use crate::{
+    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
+    call_frame::{CallFrame, Log},
+    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    opcodes::Opcode,
+};
 use bytes::Bytes;
-use ethereum_types::{U256, U512};
+use ethereum_types::{Address, H256, H32, U256, U512};
 use sha3::{Digest, Keccak256};
+
+#[derive(Clone, Default, Debug)]
+pub struct Account {
+    balance: U256,
+    bytecode: Bytes,
+}
+
+impl Account {
+    pub fn new(balance: U256, bytecode: Bytes) -> Self {
+        Self { balance, bytecode }
+    }
+}
+
+pub type Db = HashMap<U256, H256>;
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub accounts: HashMap<Address, Account>,
+    pub block_env: BlockEnv,
+    pub db: Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -17,19 +41,29 @@ fn negate(value: U256) -> U256 {
     !value + U256::one()
 }
 
+fn address_to_word(address: Address) -> U256 {
+    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
+    U256::from_str(&format!("{address:?}")).unwrap()
+}
+
 impl VM {
-    pub fn new(bytecode: Bytes) -> Self {
-        let initial_call_frame = CallFrame {
-            bytecode,
-            ..Default::default()
-        };
+    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
+        let initial_account = Account::new(balance, bytecode.clone());
+
+        let initial_call_frame = CallFrame::new(bytecode);
+        let mut accounts = HashMap::new();
+        accounts.insert(address, initial_account);
         Self {
-            call_frames: vec![initial_call_frame],
+            call_frames: vec![initial_call_frame.clone()],
+            accounts,
+            block_env: Default::default(),
+            db: Default::default(),
         }
     }
 
     pub fn execute(&mut self) {
-        let current_call_frame = self.current_call_frame();
+        let block_env = self.block_env.clone();
+        let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
                 Opcode::STOP => break,
@@ -285,6 +319,50 @@ impl VM {
                         .stack
                         .push(U256::from_big_endian(&result));
                 }
+                Opcode::CALLDATALOAD => {
+                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value = U256::from_big_endian(
+                        &current_call_frame.calldata.slice(offset..offset + 32),
+                    );
+                    current_call_frame.stack.push(value);
+                }
+                Opcode::CALLDATASIZE => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.calldata.len()));
+                }
+                Opcode::CALLDATACOPY => {
+                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let calldata_offset: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    if size == 0 {
+                        continue;
+                    }
+                    let data = current_call_frame
+                        .calldata
+                        .slice(calldata_offset..calldata_offset + size);
+
+                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                }
+                Opcode::RETURNDATASIZE => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.returndata.len()));
+                }
+                Opcode::RETURNDATACOPY => {
+                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let returndata_offset: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    if size == 0 {
+                        continue;
+                    }
+                    let data = current_call_frame
+                        .returndata
+                        .slice(returndata_offset..returndata_offset + size);
+                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                }
                 Opcode::JUMP => {
                     let jump_address = current_call_frame.stack.pop().unwrap();
                     current_call_frame.jump(jump_address);
@@ -303,6 +381,68 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from(current_call_frame.pc - 1));
+                }
+                Opcode::BLOCKHASH => {
+                    let block_number = current_call_frame.stack.pop().unwrap();
+
+                    // If number is not in the valid range (last 256 blocks), return zero.
+                    if block_number
+                        < block_env
+                            .number
+                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
+                        || block_number >= block_env.number
+                    {
+                        current_call_frame.stack.push(U256::zero());
+                        continue;
+                    }
+
+                    if let Some(block_hash) = self.db.get(&block_number) {
+                        current_call_frame
+                            .stack
+                            .push(U256::from_big_endian(&block_hash.0));
+                    } else {
+                        current_call_frame.stack.push(U256::zero());
+                    };
+                }
+                Opcode::COINBASE => {
+                    let coinbase = block_env.coinbase;
+                    current_call_frame.stack.push(address_to_word(coinbase));
+                }
+                Opcode::TIMESTAMP => {
+                    let timestamp = block_env.timestamp;
+                    current_call_frame.stack.push(timestamp);
+                }
+                Opcode::NUMBER => {
+                    let block_number = block_env.number;
+                    current_call_frame.stack.push(block_number);
+                }
+                Opcode::PREVRANDAO => {
+                    let randao = block_env.prev_randao.unwrap_or_default();
+                    current_call_frame
+                        .stack
+                        .push(U256::from_big_endian(randao.0.as_slice()));
+                }
+                Opcode::GASLIMIT => {
+                    let gas_limit = block_env.gas_limit;
+                    current_call_frame.stack.push(U256::from(gas_limit));
+                }
+                Opcode::CHAINID => {
+                    let chain_id = block_env.chain_id;
+                    current_call_frame.stack.push(U256::from(chain_id));
+                }
+                Opcode::SELFBALANCE => {
+                    todo!("when we have accounts implemented")
+                }
+                Opcode::BASEFEE => {
+                    let base_fee = block_env.base_fee_per_gas;
+                    current_call_frame.stack.push(base_fee);
+                }
+                Opcode::BLOBHASH => {
+                    todo!("when we have tx implemented");
+                }
+                Opcode::BLOBBASEFEE => {
+                    let blob_base_fee = block_env.calculate_blob_gas_price();
+                    current_call_frame.stack.push(blob_base_fee);
                 }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero());
@@ -426,6 +566,29 @@ impl VM {
                 Opcode::POP => {
                     current_call_frame.stack.pop().unwrap();
                 }
+                op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
+                    if current_call_frame.is_static {
+                        panic!("Cannot create log in static context"); // should return an error and halt
+                    }
+
+                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let topics = (0..number_of_topics)
+                        .map(|_| {
+                            let topic = current_call_frame.stack.pop().unwrap().as_u32();
+                            H32::from_slice(topic.to_be_bytes().as_ref())
+                        })
+                        .collect();
+
+                    let data = current_call_frame.memory.load_range(offset, size);
+                    let log = Log {
+                        address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
+                        topics,
+                        data: Bytes::from(data),
+                    };
+                    current_call_frame.logs.push(log);
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -466,18 +629,115 @@ impl VM {
                     if size == 0 {
                         continue;
                     }
-
                     current_call_frame
                         .memory
                         .copy(src_offset, dest_offset, size);
                 }
+                Opcode::CALL => {
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let value = current_call_frame.stack.pop().unwrap();
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    // check balance
+                    if self.balance(&current_call_frame.msg_sender) < value {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+                        continue;
+                    }
+                    // transfer value
+                    // transfer(&current_call_frame.msg_sender, &address, value);
+                    let callee_bytecode = self.get_account_bytecode(&address);
+                    if callee_bytecode.is_empty() {
+                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+                        continue;
+                    }
+                    let calldata = current_call_frame
+                        .memory
+                        .load_range(args_offset, args_size)
+                        .into();
+
+                    let new_call_frame = CallFrame {
+                        gas,
+                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
+                        callee: address,
+                        bytecode: callee_bytecode,
+                        msg_value: value,
+                        calldata,
+                        ..Default::default()
+                    };
+                    current_call_frame.return_data_offset = Some(ret_offset);
+                    current_call_frame.return_data_size = Some(ret_size);
+                    self.call_frames.push(current_call_frame.clone());
+                    current_call_frame = new_call_frame;
+                }
+                Opcode::RETURN => {
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let return_data = current_call_frame.memory.load_range(offset, size).into();
+                    if let Some(mut parent_call_frame) = self.call_frames.pop() {
+                        if let (Some(_ret_offset), Some(_ret_size)) = (
+                            parent_call_frame.return_data_offset,
+                            parent_call_frame.return_data_size,
+                        ) {
+                            parent_call_frame.returndata = return_data;
+                        }
+                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
+                        parent_call_frame.return_data_offset = None;
+                        parent_call_frame.return_data_size = None;
+                        current_call_frame = parent_call_frame.clone();
+                    } else {
+                        // excecution completed (?)
+                        current_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_RETURN));
+                        break;
+                    }
+                }
+                Opcode::TLOAD => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame
+                        .transient_storage
+                        .get(&(current_call_frame.msg_sender, key))
+                        .cloned()
+                        .unwrap_or(U256::zero());
+
+                    current_call_frame.stack.push(value);
+                }
+                Opcode::TSTORE => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+
+                    current_call_frame
+                        .transient_storage
+                        .insert((current_call_frame.msg_sender, key), value);
+                }
                 _ => unimplemented!(),
             }
         }
+        self.call_frames.push(current_call_frame);
     }
 
-    pub fn current_call_frame(&mut self) -> &mut CallFrame {
+    pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
+    }
+
+    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
+        self.accounts
+            .get(address)
+            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
+    }
+
+    pub fn add_account(&mut self, address: Address, account: Account) {
+        self.accounts.insert(address, account);
     }
 }
 
