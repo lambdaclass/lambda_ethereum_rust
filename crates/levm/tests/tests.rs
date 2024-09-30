@@ -1,6 +1,7 @@
+use bytes::Bytes;
+use ethereum_types::{Address, U256};
 use levm::{
     operations::Operation,
-    primitives::{Address, Bytes, U256},
     vm::{Account, VM},
 };
 
@@ -46,7 +47,7 @@ fn add_op() {
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-    assert!(vm.current_call_frame_mut().pc() == 68);
+    assert!(vm.current_call_frame().pc() == 68);
 }
 
 #[test]
@@ -1161,6 +1162,151 @@ fn mload_uninitialized_memory() {
 }
 
 #[test]
+fn pop_op() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(100)),
+        Operation::Pop,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+// TODO: when adding error handling this should return an error, not panic
+#[test]
+#[should_panic]
+fn pop_on_empty_stack() {
+    let operations = [Operation::Pop, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn pc_op() {
+    let operations = [Operation::PC, Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0));
+}
+
+#[test]
+fn pc_op_with_push_offset() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::PC,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(33));
+}
+
+#[test]
+fn jump_op() {
+    let operations = [
+        Operation::Push32(U256::from(35)),
+        Operation::Jump,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
+    assert_eq!(vm.current_call_frame_mut().pc(), 70);
+}
+
+#[test]
+#[should_panic]
+fn jump_not_jumpdest_position() {
+    let operations = [
+        Operation::Push32(U256::from(36)),
+        Operation::Jump,
+        Operation::Stop,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+    assert_eq!(vm.current_call_frame_mut().pc, 35);
+}
+
+#[test]
+#[should_panic]
+fn jump_position_bigger_than_program_bytecode_size() {
+    let operations = [
+        Operation::Push32(U256::from(5000)),
+        Operation::Jump,
+        Operation::Stop,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+    assert_eq!(vm.current_call_frame_mut().pc(), 35);
+}
+
+#[test]
+fn jumpi_not_zero() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(68)),
+        Operation::Jumpi,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
+}
+
+#[test]
+fn jumpi_for_zero() {
+    let operations = [
+        Operation::Push32(U256::from(100)),
+        Operation::Push32(U256::zero()),
+        Operation::Push32(U256::from(100)),
+        Operation::Jumpi,
+        Operation::Stop,
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
+}
+
+#[test]
 fn call_returns_if_bytecode_empty() {
     let callee_bytecode = vec![].into();
 
@@ -1321,149 +1467,4 @@ fn nested_calls() {
     expected_bytes[32..].copy_from_slice(&callee2_return_value_bytes);
 
     assert_eq!(return_data, expected_bytes);
-}
-
-#[test]
-fn pop_op() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(100)),
-        Operation::Pop,
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-}
-
-// TODO: when adding error handling this should return an error, not panic
-#[test]
-#[should_panic]
-fn pop_on_empty_stack() {
-    let operations = [Operation::Pop, Operation::Stop];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-}
-
-#[test]
-fn pc_op() {
-    let operations = [Operation::PC, Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0));
-}
-
-#[test]
-fn pc_op_with_push_offset() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::PC,
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(33));
-}
-
-#[test]
-fn jump_op() {
-    let operations = [
-        Operation::Push32(U256::from(35)),
-        Operation::Jump,
-        Operation::Stop, // should skip this one
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
-    assert_eq!(vm.current_call_frame_mut().pc(), 70);
-}
-
-#[test]
-#[should_panic]
-fn jump_not_jumpdest_position() {
-    let operations = [
-        Operation::Push32(U256::from(36)),
-        Operation::Jump,
-        Operation::Stop,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-    assert_eq!(vm.current_call_frame_mut().pc, 35);
-}
-
-#[test]
-#[should_panic]
-fn jump_position_bigger_than_program_bytecode_size() {
-    let operations = [
-        Operation::Push32(U256::from(5000)),
-        Operation::Jump,
-        Operation::Stop,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-    assert_eq!(vm.current_call_frame_mut().pc(), 35);
-}
-
-#[test]
-fn jumpi_not_zero() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(68)),
-        Operation::Jumpi,
-        Operation::Stop, // should skip this one
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
-}
-
-#[test]
-fn jumpi_for_zero() {
-    let operations = [
-        Operation::Push32(U256::from(100)),
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::from(100)),
-        Operation::Jumpi,
-        Operation::Stop,
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
 }
