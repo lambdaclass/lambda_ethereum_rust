@@ -643,6 +643,47 @@ impl VM {
                         break;
                     }
                 }
+                Opcode::CREATE => {
+                    let value_to_send = current_call_frame.stack.pop().unwrap();
+                    let code_offset_in_memory =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let code_size_in_memory =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let code = Bytes::from(
+                        current_call_frame
+                            .memory
+                            .load_range(code_offset_in_memory, code_size_in_memory),
+                    );
+
+                    let address = self.calculate_address();
+
+                    let new_account = Account::new(U256::zero(), code.clone());
+
+                    self.add_account(address, new_account);
+
+                    let mut gas = current_call_frame.gas;
+                    gas -= gas / 64; // 63/64 of the gas to the call
+                    current_call_frame.gas = current_call_frame.gas - gas; // leaves 1/64  of the has to current call frame
+
+                    let new_call_frame = CallFrame {
+                        gas,
+                        msg_sender: current_call_frame.msg_sender,
+                        callee: address,
+                        bytecode: code.clone(),
+                        msg_value: value_to_send,
+                        calldata: code,
+                        ..Default::default()
+                    };
+
+                    current_call_frame.return_data_offset = Some(code_offset_in_memory);
+                    current_call_frame.return_data_size = Some(code_size_in_memory);
+
+                    self.call_frames.push(current_call_frame.clone());
+                    current_call_frame.stack.push(address_to_word(address));
+                    current_call_frame = new_call_frame;
+                }
+                Opcode::CREATE2 => {}
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
                     let value = current_call_frame
