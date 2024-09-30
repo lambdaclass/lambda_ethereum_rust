@@ -3,4 +3,5 @@ pub mod constants;
 pub mod memory;
 pub mod opcodes;
 pub mod operations;
+pub mod primitives;
 pub mod vm;

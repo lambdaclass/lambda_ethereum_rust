@@ -159,9 +159,9 @@ pub enum Opcode {
 
     // System Operations
     // CREATE = 0xF0,
-    // CALL = 0xF1,
+    CALL = 0xF1,
     // CALLCODE = 0xF2,
-    // RETURN = 0xF3,
+    RETURN = 0xF3,
     // DELEGATECALL = 0xF4,
     // CREATE2 = 0xF5,
     // STATICCALL = 0xFA,
@@ -278,6 +278,8 @@ impl From<u8> for Opcode {
             0x59 => Opcode::MSIZE,
             0x5A => Opcode::GAS,
             0x5E => Opcode::MCOPY,
+            0xF1 => Opcode::CALL,
+            0xF3 => Opcode::RETURN,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }
