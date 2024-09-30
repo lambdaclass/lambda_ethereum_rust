@@ -42,9 +42,7 @@ fn negate(value: U256) -> U256 {
 }
 
 fn address_to_word(address: Address) -> U256 {
-    let mut word = [0; 32];
-    word[12..].copy_from_slice(address.0.as_slice());
-    U256::from_big_endian(&word)
+    U256::from_str(&format("{address:?}"));
 }
 
 impl VM {
