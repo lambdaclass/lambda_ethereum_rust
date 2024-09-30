@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
@@ -42,7 +42,8 @@ fn negate(value: U256) -> U256 {
 }
 
 fn address_to_word(address: Address) -> U256 {
-    U256::from_str(&format("{address:?}"));
+    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
+    U256::from_str(&format!("{address:?}")).unwrap()
 }
 
 impl VM {
