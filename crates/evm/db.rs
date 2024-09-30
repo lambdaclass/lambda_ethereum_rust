@@ -55,7 +55,7 @@ impl revm::Database for StoreWrapper {
 
     fn block_hash(&mut self, number: u64) -> Result<RevmB256, Self::Error> {
         self.store
-            .get_block_header(number.into())?
+            .get_block_header(number)?
             .map(|header| RevmB256::from_slice(&header.compute_block_hash().0))
             .ok_or_else(|| StoreError::Custom(format!("Block {number} not found")))
     }
