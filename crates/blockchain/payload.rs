@@ -311,19 +311,6 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
     Ok(())
 }
 
-fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError> {
-    let account_updates = get_state_transitions(context.evm_state);
-    context.payload.header.state_root = context
-        .store()
-        .apply_account_updates(context.parent_number(), &account_updates)?
-        .unwrap_or_default();
-    context.payload.header.transactions_root =
-        compute_transactions_root(&context.payload.body.transactions);
-    context.payload.header.receipts_root = compute_receipts_root(&context.receipts);
-    context.payload.header.gas_used = context.payload.header.gas_limit - context.remaining_gas;
-    Ok(())
-}
-
 fn apply_transaction(
     head: &HeadTransaction,
     context: &mut PayloadBuildContext,
@@ -345,6 +332,21 @@ fn apply_transaction(
     Ok(receipt)
 }
 
+fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError> {
+    let account_updates = get_state_transitions(context.evm_state);
+    context.payload.header.state_root = context
+        .store()
+        .apply_account_updates(context.parent_number(), &account_updates)?
+        .unwrap_or_default();
+    context.payload.header.transactions_root =
+        compute_transactions_root(&context.payload.body.transactions);
+    context.payload.header.receipts_root = compute_receipts_root(&context.receipts);
+    context.payload.header.gas_used = context.payload.header.gas_limit - context.remaining_gas;
+    Ok(())
+}
+
+/// A struct representing suitable mempool transactions waiting to be included in a block
+// TODO: Consider using VecDequeue instead of Vec
 struct TransactionQueue {
     // The first transaction for each account along with its tip, sorted by highest tip
     heads: Vec<HeadTransaction>,
@@ -373,7 +375,7 @@ impl TransactionQueue {
                 sender: *address,
             });
         }
-        heads.sort_by(|a, b| compare_heads(a, b));
+        heads.sort_by(compare_heads);
         TransactionQueue {
             heads,
             txs,
@@ -392,7 +394,7 @@ impl TransactionQueue {
     /// Returns the head transaction with the highest tip
     /// If there is more than one transaction with the highest tip, return the one with the lowest timestamp
     fn peek(&self) -> Option<HeadTransaction> {
-        self.heads.first().map(|tx| tx.clone())
+        self.heads.first().cloned()
     }
 
     /// Removes current head transaction and all transactions from the given sender

@@ -67,7 +67,7 @@ pub fn filter_transactions(
 
 /// Remove a transaction from the mempool
 pub fn remove_transaction(hash: H256, store: &Store) -> Result<(), StoreError> {
-    Ok(store.remove_transaction_from_pool(hash)?)
+    store.remove_transaction_from_pool(hash)
 }
 
 #[derive(Debug, Default)]
