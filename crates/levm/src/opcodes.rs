@@ -156,12 +156,12 @@ pub enum Opcode {
     // LOG4 = 0xA4,
 
     // // System Operations
-    // CREATE = 0xF0,
+    CREATE = 0xF0,
     CALL = 0xF1,
     // CALLCODE = 0xF2,
     RETURN = 0xF3,
     // DELEGATECALL = 0xF4,
-    // CREATE2 = 0xF5,
+    CREATE2 = 0xF5,
     // STATICCALL = 0xFA,
     // REVERT = 0xFD,
     // INVALID = 0xFE,
@@ -277,8 +277,10 @@ impl From<u8> for Opcode {
             0x5E => Opcode::MCOPY,
             x if x == Opcode::TLOAD as u8 => Opcode::TLOAD,
             x if x == Opcode::TSTORE as u8 => Opcode::TSTORE,
+            0xF0 => Opcode::CREATE,
             0xF1 => Opcode::CALL,
             0xF3 => Opcode::RETURN,
+            0xF5 => Opcode::CREATE2,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }
