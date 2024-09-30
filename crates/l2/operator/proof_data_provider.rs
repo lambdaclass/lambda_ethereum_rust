@@ -13,10 +13,10 @@ pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
 
 #[derive(Debug, Serialize, Deserialize)]
 enum ProofData {
-    ProofRequest {},
-    ProofResponse { id: u32 },
-    ProofSubmit { id: u32 },
-    ProofSubmitAck { id: u32 },
+    Request {},
+    Response { id: u32 },
+    Submit { id: u32 },
+    SubmitAck { id: u32 },
 }
 
 struct ProofDataProvider {
@@ -47,8 +47,8 @@ impl ProofDataProvider {
         let data: ProofData = serde_json::de::from_reader(buf_reader).unwrap();
         debug!("ProofData: {:?}", data);
         match data {
-            ProofData::ProofRequest {} => self.handle_request(&mut stream),
-            ProofData::ProofSubmit { id } => self.handle_submit(&mut stream, id),
+            ProofData::Request {} => self.handle_request(&mut stream),
+            ProofData::Submit { id } => self.handle_submit(&mut stream, id),
             _ => {}
         }
 
@@ -58,7 +58,7 @@ impl ProofDataProvider {
     fn handle_request(&self, stream: &mut TcpStream) {
         debug!("Request received");
 
-        let response = ProofData::ProofResponse { id: 1 };
+        let response = ProofData::Response { id: 1 };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).unwrap();
     }
@@ -66,7 +66,7 @@ impl ProofDataProvider {
     fn handle_submit(&self, stream: &mut TcpStream, id: u32) {
         debug!("Submit received");
 
-        let response = ProofData::ProofSubmitAck { id };
+        let response = ProofData::SubmitAck { id };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).unwrap();
     }
