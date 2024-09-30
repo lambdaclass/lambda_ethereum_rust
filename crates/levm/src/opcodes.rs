@@ -52,16 +52,17 @@ pub enum Opcode {
     // EXTCODEHASH = 0x3F,
 
     // // Block Information
-    // BLOCKHASH = 0x40,
-    // COINBASE = 0x41,
-    // TIMESTAMP = 0x42,
-    // NUMBER = 0x43,
-    // PREVRANDAO = 0x44,
-    // GASLIMIT = 0x45,
-    // CHAINID = 0x46,
-    // SELFBALANCE = 0x47,
-    // BASEFEE = 0x48,
-    // BLOBBASEFEE = 0x4A
+    BLOCKHASH = 0x40,
+    COINBASE = 0x41,
+    TIMESTAMP = 0x42,
+    NUMBER = 0x43,
+    PREVRANDAO = 0x44,
+    GASLIMIT = 0x45,
+    CHAINID = 0x46,
+    SELFBALANCE = 0x47,
+    BASEFEE = 0x48,
+    BLOBHASH = 0x49,
+    BLOBBASEFEE = 0x4A,
 
     // // Stack, Memory, Storage, and Flow Operations
     POP = 0x50,
@@ -76,8 +77,8 @@ pub enum Opcode {
     MSIZE = 0x59,
     // GAS = 0x5A,
     JUMPDEST = 0x5B,
-    // TLOAD = 0x5C,
-    // TSTORE = 0x5D,
+    TLOAD = 0x5C,
+    TSTORE = 0x5D,
     MCOPY = 0x5E,
 
     // // Push Operations
@@ -157,9 +158,9 @@ pub enum Opcode {
 
     // // System Operations
     // CREATE = 0xF0,
-    // CALL = 0xF1,
+    CALL = 0xF1,
     // CALLCODE = 0xF2,
-    // RETURN = 0xF3,
+    RETURN = 0xF3,
     // DELEGATECALL = 0xF4,
     // CREATE2 = 0xF5,
     // STATICCALL = 0xFA,
@@ -200,6 +201,17 @@ impl From<u8> for Opcode {
             0x14 => Opcode::EQ,
             0x15 => Opcode::ISZERO,
             0x20 => Opcode::KECCAK256,
+            0x40 => Opcode::BLOCKHASH,
+            0x41 => Opcode::COINBASE,
+            0x42 => Opcode::TIMESTAMP,
+            0x43 => Opcode::NUMBER,
+            0x44 => Opcode::PREVRANDAO,
+            0x45 => Opcode::GASLIMIT,
+            0x46 => Opcode::CHAINID,
+            0x47 => Opcode::SELFBALANCE,
+            0x48 => Opcode::BASEFEE,
+            0x49 => Opcode::BLOBHASH,
+            0x4A => Opcode::BLOBBASEFEE,
             0x56 => Opcode::JUMP,
             0x57 => Opcode::JUMPI,
             0x58 => Opcode::PC,
@@ -275,6 +287,10 @@ impl From<u8> for Opcode {
             0x53 => Opcode::MSTORE8,
             0x59 => Opcode::MSIZE,
             0x5E => Opcode::MCOPY,
+            x if x == Opcode::TLOAD as u8 => Opcode::TLOAD,
+            x if x == Opcode::TSTORE as u8 => Opcode::TSTORE,
+            0xF1 => Opcode::CALL,
+            0xF3 => Opcode::RETURN,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }
