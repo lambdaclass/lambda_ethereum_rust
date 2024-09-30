@@ -1,11 +1,6 @@
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
-use levm::{
-    operations::Operation,
-    primitives::{Address, Bytes, U256},
-    vm::{Account, VM},
-};
-use levm::{operations::Operation, storage::TransientStorage, vm::VM};
+use levm::{operations::Operation, vm::VM};
 
 // cargo test -p 'levm'
 
@@ -48,7 +43,7 @@ fn add_op() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame().stack.pop().unwrap() == U256::one());
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
     assert!(vm.current_call_frame().pc() == 68);
 }
 
