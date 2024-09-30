@@ -27,10 +27,12 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self) {
+        let prover = Prover::new();
+
         loop {
             let id = self.request_new_data().unwrap();
 
-            Prover::prove(id).await;
+            prover.prove(id).unwrap();
 
             self.submit_proof(id).unwrap();
 
