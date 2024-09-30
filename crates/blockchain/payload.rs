@@ -28,6 +28,8 @@ use crate::{
     mempool::{self, PendingTxFilter},
 };
 
+use tracing::info;
+
 pub struct BuildPayloadArgs {
     pub parent: BlockHash,
     pub timestamp: u64,
@@ -154,6 +156,7 @@ fn calc_excess_blob_gas(parent_excess_blob_gas: u64, parent_blob_gas_used: u64) 
 
 /// Completes the payload building process, return the block value
 pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainError> {
+    info!("Building payload");
     // Apply withdrawals & call beacon root contract, and obtain the new state root
     let parent_number = payload.header.number.saturating_sub(1);
     let spec_id = spec_id(store, payload.header.timestamp)?;
@@ -190,6 +193,7 @@ pub fn fill_transactions(
         only_blob_txs: true,
         ..tx_filter
     };
+    info!("Fetching transactions from mempool");
     let mut plain_txs = TransactionQueue::new(
         mempool::filter_transactions(&plain_tx_filter, evm_state.database())?,
         payload_block.header.base_fee_per_gas,
@@ -205,13 +209,13 @@ pub fn fill_transactions(
     let blobs = 0_u64;
     loop {
         if remaining_gas < TX_GAS_COST {
-            // No more gas to run transactions
+            info!("No more gas to run transactions");
             break;
         };
         if !blob_txs.is_empty()
             && base_fee_per_blob_gas * blobs > U256::from(MAX_BLOB_GAS_PER_BLOCK)
         {
-            // No more blob space to run blob transactions
+            info!("No more blob gas to run blob transactions");
             blob_txs.clear();
         }
         // Fetch the next transactions
@@ -222,24 +226,30 @@ pub fn fill_transactions(
             (Some(a), Some(b)) if compare_heads(&a, &b).is_lt() => (b, true),
             (Some(tx), _) => (tx.clone(), false),
         };
+
         let txs = if is_blob {
             &mut blob_txs
         } else {
             &mut plain_txs
         };
         if remaining_gas < head_tx.tx.gas_limit() {
+            info!(
+                "Skipping transaction: {}, no gas left",
+                head_tx.tx.compute_hash()
+            );
             // We don't have enough gas left for the transaction, so we skip all txs from this account
             txs.pop();
         }
         // Pull transaction from the mempool
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here
-        let hash = head_tx.tx.compute_hash();
-        mempool::remove_transaction(hash, evm_state.database())?;
+        let tx_hash = head_tx.tx.compute_hash();
+        mempool::remove_transaction(tx_hash, evm_state.database())?;
 
         // Check wether the tx is replay-protected
         if head_tx.tx.protected() && !chain_config.is_eip155_activated(payload_block.header.number)
         {
             // Ignore replay protected tx & all txs from the sender
+            info!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
         }
         // Execute tx
@@ -252,12 +262,14 @@ pub fn fill_transactions(
                 }
                 // Ignore following txs from sender
                 Err(_) => {
+                    info!("Failed to execute transaction: {}", tx_hash);
                     txs.pop();
                     continue;
                 }
             };
         total_fee += U256::from(prev_remaining_gas - remaining_gas) * head_tx.tip;
         // Add transaction to block
+        info!("Adding transaction: {} to payload", tx_hash);
         payload_block.body.transactions.push(head_tx.tx);
         // Save receipt for hash calculation
         receipts.push(receipt);
@@ -309,7 +321,7 @@ struct TransactionQueue {
     base_fee: Option<u64>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct HeadTransaction {
     tx: Transaction,
     sender: Address,
