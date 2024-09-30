@@ -1225,6 +1225,7 @@ fn call_changes_callframe_and_stores() {
     vm.execute();
 
     let current_call_frame = vm.current_call_frame_mut();
+    println!("{:?}", current_call_frame);
 
     let success = current_call_frame.stack.pop().unwrap() == U256::one();
     assert!(success);
@@ -1321,6 +1322,49 @@ fn nested_calls() {
     expected_bytes[32..].copy_from_slice(&callee2_return_value_bytes);
 
     assert_eq!(return_data, expected_bytes);
+}
+
+#[test]
+fn staticcall_changes_callframe_is_static() {
+    let callee_return_value = U256::from(0xAAAAAAA);
+    let callee_bytecode = callee_return_bytecode(callee_return_value);
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::StaticCall,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let success = current_call_frame.stack.pop().unwrap() == U256::one();
+    assert!(success);
+
+    let ret_offset = 0;
+    let ret_size = 32;
+    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+
+    assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
+    assert!(current_call_frame.is_static);
 }
 
 #[test]
