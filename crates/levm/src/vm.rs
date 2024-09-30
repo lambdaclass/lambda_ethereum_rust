@@ -761,7 +761,24 @@ impl VM {
                         break;
                     }
                 }
+                Opcode::TLOAD => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame
+                        .transient_storage
+                        .get(&(current_call_frame.msg_sender, key))
+                        .cloned()
+                        .unwrap_or(U256::zero());
 
+                    current_call_frame.stack.push(value);
+                }
+                Opcode::TSTORE => {
+                    let key = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop().unwrap();
+
+                    current_call_frame
+                        .transient_storage
+                        .insert((current_call_frame.msg_sender, key), value);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -787,6 +804,10 @@ impl VM {
 
     pub fn add_account(&mut self, address: Address, account: Account) {
         self.accounts.insert(address, account);
+    }
+
+    pub fn current_call_frame(&self) -> &CallFrame {
+        self.call_frames.last().unwrap()
     }
 }
 

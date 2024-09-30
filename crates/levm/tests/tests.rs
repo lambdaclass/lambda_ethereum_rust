@@ -1,7 +1,8 @@
+use bytes::Bytes;
+use ethereum_types::{Address, U256};
 use levm::{
     constants::TX_BASE_COST,
     operations::Operation,
-    primitives::{Address, Bytes, U256},
     vm::{Account, VM},
 };
 
@@ -47,7 +48,7 @@ fn add_op() {
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-    assert!(vm.current_call_frame_mut().pc() == 68);
+    assert!(vm.current_call_frame().pc() == 68);
 }
 
 #[test]
