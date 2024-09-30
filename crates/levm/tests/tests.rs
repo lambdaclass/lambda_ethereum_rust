@@ -1396,7 +1396,7 @@ fn nested_calls() {
 }
 
 #[test]
-fn block_hash_op() {
+fn blockhash_op() {
     let block_number = 1_u8;
     let block_hash = 12345678;
     let current_block_number = 3_u8;
@@ -1419,10 +1419,11 @@ fn block_hash_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         expected_block_hash
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 23);
 }
 
 #[test]
-fn block_hash_same_block_number() {
+fn blockhash_same_block_number() {
     let block_number = 1_u8;
     let block_hash = 12345678;
     let current_block_number = block_number;
@@ -1445,10 +1446,11 @@ fn block_hash_same_block_number() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         expected_block_hash
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 23);
 }
 
 #[test]
-fn block_hash_block_number_not_from_recent_256() {
+fn blockhash_block_number_not_from_recent_256() {
     let block_number = 1_u8;
     let block_hash = 12345678;
     let current_block_number = 258;
@@ -1471,6 +1473,7 @@ fn block_hash_block_number_not_from_recent_256() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         expected_block_hash
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 23);
 }
 
 #[test]
@@ -1488,6 +1491,7 @@ fn coinbase_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(coinbase_address)
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1502,6 +1506,7 @@ fn timestamp_op() {
     vm.execute();
 
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), timestamp);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1519,6 +1524,7 @@ fn number_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         block_number
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1536,6 +1542,7 @@ fn prevrandao_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from_big_endian(&prevrandao.0)
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1553,6 +1560,7 @@ fn gaslimit_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(gas_limit)
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1570,6 +1578,7 @@ fn chain_id_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(chain_id)
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1587,10 +1596,11 @@ fn basefee_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         base_fee_per_gas
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
-fn blob_base_fee_op() {
+fn blobbasefee_op() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
@@ -1603,10 +1613,11 @@ fn blob_base_fee_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(2)
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
-fn blob_base_fee_minimun_cost() {
+fn blobbasefee_minimum_cost() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
@@ -1619,6 +1630,7 @@ fn blob_base_fee_minimun_cost() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::one()
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]

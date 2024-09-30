@@ -34,6 +34,17 @@ pub mod gas_cost {
     pub const SAR: u64 = 3;
     pub const KECCAK25_STATIC: u64 = 30;
     pub const KECCAK25_DYNAMIC_BASE: u64 = 6;
+    pub const BLOCKHASH: u64 = 20;
+    pub const COINBASE: u64 = 2;
+    pub const TIMESTAMP: u64 = 2;
+    pub const NUMBER: u64 = 2;
+    pub const PREVRANDAO: u64 = 2;
+    pub const GASLIMIT: u64 = 2;
+    pub const CHAINID: u64 = 2;
+    pub const SELFBALANCE: u64 = 5;
+    pub const BASEFEE: u64 = 2;
+    pub const BLOBHASH: u64 = 3;
+    pub const BLOBBASEFEE: u64 = 2;
     pub const POP: u64 = 2;
     pub const MLOAD_STATIC: u64 = 3;
     pub const MSTORE_STATIC: u64 = 3;

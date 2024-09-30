@@ -461,8 +461,12 @@ impl VM {
                     tx_env.consumed_gas += gas_cost::PC
                 }
                 Opcode::BLOCKHASH => {
+                    if tx_env.consumed_gas + gas_cost::BLOCKHASH > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let block_number = current_call_frame.stack.pop().unwrap();
 
+                    tx_env.consumed_gas += gas_cost::BLOCKHASH;
                     // If number is not in the valid range (last 256 blocks), return zero.
                     if block_number
                         < block_env
@@ -483,44 +487,84 @@ impl VM {
                     };
                 }
                 Opcode::COINBASE => {
+                    if tx_env.consumed_gas + gas_cost::COINBASE > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let coinbase = block_env.coinbase;
                     current_call_frame.stack.push(address_to_word(coinbase));
+                    tx_env.consumed_gas += gas_cost::COINBASE
                 }
                 Opcode::TIMESTAMP => {
+                    if tx_env.consumed_gas + gas_cost::TIMESTAMP > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let timestamp = block_env.timestamp;
                     current_call_frame.stack.push(timestamp);
+                    tx_env.consumed_gas += gas_cost::TIMESTAMP
                 }
                 Opcode::NUMBER => {
+                    if tx_env.consumed_gas + gas_cost::NUMBER > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let block_number = block_env.number;
                     current_call_frame.stack.push(block_number);
+                    tx_env.consumed_gas += gas_cost::NUMBER
                 }
                 Opcode::PREVRANDAO => {
+                    if tx_env.consumed_gas + gas_cost::PREVRANDAO > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let randao = block_env.prev_randao.unwrap_or_default();
                     current_call_frame
                         .stack
                         .push(U256::from_big_endian(randao.0.as_slice()));
+                    tx_env.consumed_gas += gas_cost::PREVRANDAO
                 }
                 Opcode::GASLIMIT => {
+                    if tx_env.consumed_gas + gas_cost::GASLIMIT > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let gas_limit = block_env.gas_limit;
                     current_call_frame.stack.push(U256::from(gas_limit));
+                    tx_env.consumed_gas += gas_cost::GASLIMIT
                 }
                 Opcode::CHAINID => {
+                    if tx_env.consumed_gas + gas_cost::CHAINID > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let chain_id = block_env.chain_id;
                     current_call_frame.stack.push(U256::from(chain_id));
+                    tx_env.consumed_gas += gas_cost::CHAINID
                 }
                 Opcode::SELFBALANCE => {
-                    todo!("when we have accounts implemented")
+                    if tx_env.consumed_gas + gas_cost::SELFBALANCE > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
+                    tx_env.consumed_gas += gas_cost::SELFBALANCE;
+                    todo!("when we have accounts implemented");
                 }
                 Opcode::BASEFEE => {
+                    if tx_env.consumed_gas + gas_cost::BASEFEE > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let base_fee = block_env.base_fee_per_gas;
                     current_call_frame.stack.push(base_fee);
+                    tx_env.consumed_gas += gas_cost::BASEFEE
                 }
                 Opcode::BLOBHASH => {
+                    if tx_env.consumed_gas + gas_cost::BLOBHASH > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
+                    tx_env.consumed_gas += gas_cost::BLOBHASH;
                     todo!("when we have tx implemented");
                 }
                 Opcode::BLOBBASEFEE => {
+                    if tx_env.consumed_gas + gas_cost::BLOBBASEFEE > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
                     let blob_base_fee = block_env.calculate_blob_gas_price();
                     current_call_frame.stack.push(blob_base_fee);
+                    tx_env.consumed_gas += gas_cost::BLOBBASEFEE
                 }
                 Opcode::PUSH0 => {
                     if tx_env.consumed_gas + gas_cost::PUSH0 > tx_env.gas_limit {
