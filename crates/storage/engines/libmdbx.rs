@@ -1,8 +1,8 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, ReceiptRLP,
-    Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, LogFilterRLP,
+    ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
@@ -400,6 +400,12 @@ table!(
 table!(
     /// state trie nodes
     ( StateTrieNodes ) Vec<u8> => Vec<u8>
+);
+
+// Current filters
+table!(
+     /// Known filters
+     ( Filters ) u64  => LogFilterRLP
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding

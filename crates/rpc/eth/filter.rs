@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use ethereum_rust_core::types::LogsFilter;
 
 use crate::types::block_identifier::BlockIdentifier;
 use crate::RpcHandler;
@@ -20,12 +19,14 @@ impl RpcHandler for FilterRequest {
         &self,
         storage: ethereum_rust_storage::Store,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
-        let LogsRequest {
+        let LogsFilter {
             from_block,
             to_block,
             address: address_filters,
             topics,
-        } = &self.filter;
+        }: &LogsFilter = &self.filter.request_to_filter(&storage)?;
+        let from_block = BlockIdentifier::Number(*from_block);
+        let to_block = BlockIdentifier::Number(*to_block);
         let from = BlockIdentifier::resolve_block_number(&from_block, &storage)
             .unwrap()
             .unwrap();

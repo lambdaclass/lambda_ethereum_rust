@@ -2,8 +2,8 @@ use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::types::{AddressFilter, TopicFilter};
-use ethereum_rust_storage::Store;
+use ethereum_rust_core::types::{AddressFilter, LogsFilter, TopicFilter};
+use ethereum_rust_storage::{error::StoreError, Store};
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -21,6 +21,23 @@ pub struct LogsRequest {
     /// Which topics to filter.
     pub topics: Vec<TopicFilter>,
 }
+impl LogsRequest {
+    pub fn request_to_filter(&self, store: &Store) -> Result<LogsFilter, RpcErr> {
+        let Ok(Some(from_block)) = self.from_block.resolve_block_number(store) else {
+            return Err(RpcErr::WrongParam("fromBlock".to_string()));
+        };
+        let Ok(Some(to_block)) = self.to_block.resolve_block_number(store) else {
+            return Err(RpcErr::WrongParam("toBlock".to_string()));
+        };
+        Ok(LogsFilter {
+            from_block,
+            to_block,
+            address: self.address.clone(),
+            topics: self.topics.clone(),
+        })
+    }
+}
+// pub type LogsRPC = LogsFilter;
 impl RpcHandler for LogsRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
         match params.as_deref() {
@@ -54,15 +71,15 @@ impl RpcHandler for LogsRequest {
                     })?;
                 Ok(LogsRequest {
                     from_block,
+                    to_block,
                     address: address_filters,
                     topics: topics_filters.unwrap_or_else(Vec::new),
-                    to_block,
                 })
             }
             _ => Err(RpcErr::BadParams),
         }
     }
-    // TODO: This is longer than it has the right to be, maybe we should refactor it.
+    // TODO: This is longer than it has the right to be, maybe we should refactor it.s
     // The main problem here is the layers of indirection needed
     // to fetch tx and block data for a log rpc response, some ideas here are:
     // - The ideal one is to have a key-value store BlockNumber -> Log, where the log also stores
@@ -71,13 +88,7 @@ impl RpcHandler for LogsRequest {
     //   then we simply could retrieve each log from the receipt and add the info
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let Ok(Some(from)) = self.from_block.resolve_block_number(&storage) else {
-            return Err(RpcErr::WrongParam("fromBlock".to_string()));
-        };
-        let Ok(Some(to)) = self.to_block.resolve_block_number(&storage) else {
-            return Err(RpcErr::WrongParam("toBlock".to_string()));
-        };
-
+        let filter = self.request_to_filter(&storage)?;
         let address_filter: HashSet<_> = match &self.address {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
             Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
@@ -89,7 +100,7 @@ impl RpcHandler for LogsRequest {
         // For that, we'll need each block in range, and its transactions,
         // and for each transaction, we'll need its receipts, which
         // contain the actual logs we want.
-        for block_num in from..=to {
+        for block_num in filter.from_block..=filter.to_block {
             // Take the header of the block, we
             // will use it to access the transactions.
             let block_body = storage.get_block_body(block_num)?.ok_or(RpcErr::Internal)?;

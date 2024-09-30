@@ -20,7 +20,7 @@ use eth::{
         BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
         GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
         GetRawHeaderRequest, GetRawReceipts,
-    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, filter::FilterRequest, logs::LogsRequest, transaction::{
+    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, filter::FilterRequest, transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
@@ -185,7 +185,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
-        "eth_getLogs" => LogsRequest::call(req, storage),
+        "eth_getLogs" => eth::logs::LogsRequest::call(req, storage),
         "eth_newFilter" => FilterRequest::call(req, storage),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
