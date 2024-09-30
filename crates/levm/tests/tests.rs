@@ -1,5 +1,4 @@
 use levm::{
-    memory::Memory,
     operations::Operation,
     primitives::{Address, Bytes, U256},
     vm::{Account, VM},
@@ -1474,7 +1473,7 @@ fn jumpi_for_zero() {
 
     vm.execute();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
+    assert!(vm.current_call_frame_mut_mut().stack.pop().unwrap() == U256::from(100));
 }
 
 #[test]
@@ -1684,4 +1683,167 @@ fn returndatacopy_being_set_by_parent() {
     let result = current_call_frame.memory.load(0);
 
     assert_eq!(result, U256::from(0xAAAAAAA));
+}
+
+#[test]
+fn call_returns_if_bytecode_empty() {
+    let callee_bytecode = vec![].into();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+    println!("to excec");
+    vm.execute();
+
+    let success = vm.current_call_frame_mut().stack.pop().unwrap();
+    assert_eq!(success, U256::one());
+}
+
+#[test]
+fn call_changes_callframe_and_stores() {
+    let callee_return_value = U256::from(0xAAAAAAA);
+    let callee_bytecode = callee_return_bytecode(callee_return_value);
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let success = current_call_frame.stack.pop().unwrap() == U256::one();
+    assert!(success);
+
+    let ret_offset = 0;
+    let ret_size = 32;
+    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+
+    assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
+}
+
+#[test]
+fn nested_calls() {
+    let callee3_return_value = U256::from(0xAAAAAAA);
+    let callee3_bytecode = callee_return_bytecode(callee3_return_value);
+    let callee3_address = Address::from_low_u64_be(U256::from(3).low_u64());
+    let callee3_address_u256 = U256::from(3);
+    let callee3_account = Account::new(U256::from(300_000), callee3_bytecode);
+
+    let mut callee2_ops = vec![
+        Operation::Push32(U256::from(32)),       // ret_size
+        Operation::Push32(U256::from(0)),        // ret_offset
+        Operation::Push32(U256::from(0)),        // args_size
+        Operation::Push32(U256::from(0)),        // args_offset
+        Operation::Push32(U256::zero()),         // value
+        Operation::Push32(callee3_address_u256), // address
+        Operation::Push32(U256::from(100_000)),  // gas
+        Operation::Call,
+    ];
+
+    let callee2_return_value = U256::from(0xBBBBBBB);
+
+    let callee2_return_bytecode = vec![
+        Operation::Push32(callee2_return_value), // value
+        Operation::Push32(U256::from(32)),       // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(64)), // size
+        Operation::Push32(U256::zero()),   // offset
+        Operation::Return,
+    ];
+
+    callee2_ops.extend(callee2_return_bytecode);
+
+    let callee2_bytecode = callee2_ops
+        .iter()
+        .flat_map(|op| op.to_bytecode())
+        .collect::<Bytes>();
+
+    let callee2_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee2_address_u256 = U256::from(2);
+
+    let callee2_account = Account::new(U256::from(300_000), callee2_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(64)),       // ret_size
+        Operation::Push32(U256::from(0)),        // ret_offset
+        Operation::Push32(U256::from(0)),        // args_size
+        Operation::Push32(U256::from(0)),        // args_offset
+        Operation::Push32(U256::zero()),         // value
+        Operation::Push32(callee2_address_u256), // address
+        Operation::Push32(U256::from(100_000)),  // gas
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let caller_address = Address::from_low_u64_be(U256::from(1).low_u64());
+    let caller_balance = U256::from(1_000_000);
+
+    let mut vm = new_vm_with_ops_addr_bal(&caller_ops, caller_address, caller_balance);
+
+    vm.add_account(callee2_address, callee2_account);
+    vm.add_account(callee3_address, callee3_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let success = current_call_frame.stack.pop().unwrap();
+    assert_eq!(success, U256::one());
+
+    let ret_offset = 0;
+    let ret_size = 64;
+    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+
+    let mut expected_bytes = vec![0u8; 64];
+    // place 0xAAAAAAA at 0..32
+    let mut callee3_return_value_bytes = [0u8; 32];
+    callee3_return_value.to_big_endian(&mut callee3_return_value_bytes);
+    expected_bytes[..32].copy_from_slice(&callee3_return_value_bytes);
+
+    // place 0xBBBBBBB at 32..64
+    let mut callee2_return_value_bytes = [0u8; 32];
+    callee2_return_value.to_big_endian(&mut callee2_return_value_bytes);
+    expected_bytes[32..].copy_from_slice(&callee2_return_value_bytes);
+
+    assert_eq!(return_data, expected_bytes);
 }

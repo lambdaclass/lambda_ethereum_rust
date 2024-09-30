@@ -3,6 +3,10 @@ use crate::{
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
 };
+use std::collections::HashMap;
+
+/// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
+pub type TransientStorage = HashMap<(Address, U256), U256>;
 
 #[derive(Debug, Clone, Default)]
 pub struct CallFrame {
@@ -16,18 +20,17 @@ pub struct CallFrame {
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Memory,
-    pub returndata: Memory,
+    pub return_data: Memory,
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub transient_storage: TransientStorage,
 }
 
 impl CallFrame {
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            return_data_offset: None,
-            return_data_size: None,
             ..Default::default()
         }
     }

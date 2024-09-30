@@ -76,8 +76,8 @@ pub enum Opcode {
     MSIZE = 0x59,
     // GAS = 0x5A,
     JUMPDEST = 0x5B,
-    // TLOAD = 0x5C,
-    // TSTORE = 0x5D,
+    TLOAD = 0x5C,
+    TSTORE = 0x5D,
     MCOPY = 0x5E,
 
     // // Push Operations
@@ -280,6 +280,8 @@ impl From<u8> for Opcode {
             0x53 => Opcode::MSTORE8,
             0x59 => Opcode::MSIZE,
             0x5E => Opcode::MCOPY,
+            x if x == Opcode::TLOAD as u8 => Opcode::TLOAD,
+            x if x == Opcode::TSTORE as u8 => Opcode::TSTORE,
             0xF1 => Opcode::CALL,
             0xF3 => Opcode::RETURN,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),

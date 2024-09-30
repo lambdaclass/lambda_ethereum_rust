@@ -174,3 +174,61 @@ fn swap_panics_if_stack_underflow() {
 
     vm.execute();
 }
+
+#[test]
+fn transient_store() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [
+        Operation::Push32(value),
+        Operation::Push32(key),
+        Operation::Tstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.current_call_frame().transient_storage.is_empty());
+
+    vm.execute();
+
+    assert_eq!(
+        *vm.current_call_frame()
+            .transient_storage
+            .get(&(vm.current_call_frame().msg_sender, key))
+            .unwrap(),
+        value
+    )
+}
+
+#[test]
+#[should_panic]
+fn transient_store_no_values_panics() {
+    let operations = [Operation::Tstore, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    assert!(vm.current_call_frame().transient_storage.is_empty());
+
+    vm.execute();
+}
+
+#[test]
+fn transient_load() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let caller = vm.current_call_frame().msg_sender;
+
+    vm.current_call_frame_mut()
+        .transient_storage
+        .insert((caller, key), value);
+
+    vm.execute();
+
+    assert_eq!(*vm.current_call_frame().stack.last().unwrap(), value)
+}
