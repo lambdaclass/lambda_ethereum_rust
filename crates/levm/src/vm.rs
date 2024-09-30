@@ -39,7 +39,7 @@ pub struct Db {
 impl Db {
     pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
         self.accounts
-            .get(&address)
+            .get(address)
             .and_then(|account| account.storage.get(key))
             .cloned()
     }
@@ -47,7 +47,7 @@ impl Db {
     pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
         self.accounts
             .entry(*address)
-            .or_insert_with(Default::default)
+            .or_default()
             .storage
             .insert(key, slot);
     }
