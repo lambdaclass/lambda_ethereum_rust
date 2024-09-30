@@ -5,7 +5,7 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_evm::RevmAddress;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 pub struct RpcReceipt {
@@ -63,7 +63,7 @@ impl From<Receipt> for RpcReceiptInfo {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcLog {
     #[serde(flatten)]
@@ -98,7 +98,7 @@ impl RpcLog {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcLogInfo {
     pub address: Address,
