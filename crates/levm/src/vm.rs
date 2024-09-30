@@ -3,22 +3,31 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::CallFrame,
-    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    constants::{
+        MAX_CODE_SIZE, REVERT_FOR_CALL, REVERT_FOR_CREATE, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN,
+    },
     opcodes::Opcode,
 };
+extern crate ethereum_rust_rlp;
 use bytes::Bytes;
-use ethereum_types::{Address, H256, U256, U512};
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_types::{Address, H160, H256, U256, U512};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
+    nonce: u64,
 }
 
 impl Account {
-    pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode }
+    pub fn new(balance: U256, bytecode: Bytes, nonce: u64) -> Self {
+        Self {
+            balance,
+            bytecode,
+            nonce,
+        }
     }
 }
 
@@ -48,7 +57,7 @@ fn address_to_word(address: Address) -> U256 {
 
 impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
-        let initial_account = Account::new(balance, bytecode.clone());
+        let initial_account = Account::new(balance, bytecode.clone(), 0);
 
         let initial_call_frame = CallFrame::new(bytecode);
         let mut accounts = HashMap::new();
@@ -644,11 +653,38 @@ impl VM {
                     }
                 }
                 Opcode::CREATE => {
-                    let value_to_send = current_call_frame.stack.pop().unwrap();
+                    let value_in_wei_to_send = current_call_frame.stack.pop().unwrap();
                     let code_offset_in_memory =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let code_size_in_memory =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    if code_size_in_memory > MAX_CODE_SIZE * 2 {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
+                        continue;
+                    }
+
+                    if current_call_frame.is_static {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
+                        continue;
+                    }
+
+                    let sender_account = self
+                        .accounts
+                        .get_mut(&current_call_frame.msg_sender)
+                        .unwrap();
+
+                    if sender_account.balance < value_in_wei_to_send {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
+                        continue;
+                    }
+
+                    let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
+                        continue;
+                    };
+                    sender_account.nonce = new_nonce; // should we increase the nonce here or after the calculation of the address?
+                    sender_account.balance -= value_in_wei_to_send;
 
                     let code = Bytes::from(
                         current_call_frame
@@ -656,11 +692,17 @@ impl VM {
                             .load_range(code_offset_in_memory, code_size_in_memory),
                     );
 
-                    let address = self.calculate_address();
+                    let new_address = Self::calculate_create_address(
+                        current_call_frame.msg_sender,
+                        sender_account.nonce,
+                    );
+                    if self.accounts.contains_key(&new_address) {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
+                        continue;
+                    }
 
-                    let new_account = Account::new(U256::zero(), code.clone());
-
-                    self.add_account(address, new_account);
+                    let new_account = Account::new(value_in_wei_to_send, code.clone(), 0);
+                    self.add_account(new_address, new_account);
 
                     let mut gas = current_call_frame.gas;
                     gas -= gas / 64; // 63/64 of the gas to the call
@@ -669,18 +711,17 @@ impl VM {
                     let new_call_frame = CallFrame {
                         gas,
                         msg_sender: current_call_frame.msg_sender,
-                        callee: address,
-                        bytecode: code.clone(),
-                        msg_value: value_to_send,
-                        calldata: code,
+                        callee: new_address,
+                        bytecode: code,
+                        msg_value: value_in_wei_to_send,
+                        calldata: Bytes::new(),
                         ..Default::default()
                     };
 
                     current_call_frame.return_data_offset = Some(code_offset_in_memory);
                     current_call_frame.return_data_size = Some(code_size_in_memory);
 
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame.stack.push(address_to_word(address));
+                    current_call_frame.stack.push(address_to_word(new_address));
                     current_call_frame = new_call_frame;
                 }
                 Opcode::CREATE2 => {}
@@ -730,6 +771,17 @@ impl VM {
 
     pub fn current_call_frame(&self) -> &CallFrame {
         self.call_frames.last().unwrap()
+    }
+
+    // for create -> address = keccak256(rlp([sender_address,sender_nonce]))[12:]
+    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> H160 {
+        let mut encoded = Vec::new();
+        sender_address.encode(&mut encoded);
+        sender_nonce.encode(&mut encoded);
+        dbg!(&encoded);
+        let mut hasher = Keccak256::new();
+        hasher.update(encoded);
+        Address::from_slice(&hasher.finalize()[12..])
     }
 }
 

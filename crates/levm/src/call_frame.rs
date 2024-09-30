@@ -25,6 +25,7 @@ pub struct CallFrame {
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
     pub transient_storage: TransientStorage,
+    pub is_static: bool,
 }
 
 impl CallFrame {
