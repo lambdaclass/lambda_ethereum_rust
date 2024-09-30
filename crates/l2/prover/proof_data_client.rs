@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, warn};
 
@@ -32,9 +33,9 @@ impl ProofDataClient {
         loop {
             let id = self.request_new_data().unwrap();
 
-            prover.prove(id).unwrap();
+            let proof = prover.prove(id).unwrap();
 
-            self.submit_proof(id).unwrap();
+            self.submit_proof(id, proof).unwrap();
 
             sleep(Duration::from_secs(5)).await;
         }
@@ -65,11 +66,11 @@ impl ProofDataClient {
         }
     }
 
-    fn submit_proof(&self, id: u32) -> Result<(), String> {
+    fn submit_proof(&self, id: u32, proof: SP1ProofWithPublicValues) -> Result<(), String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
-        let submit = ProofData::Submit { id };
+        let submit = ProofData::Submit { id, proof };
         serde_json::ser::to_writer(buf_writer, &submit).unwrap();
         stream.shutdown(std::net::Shutdown::Write).unwrap();
 

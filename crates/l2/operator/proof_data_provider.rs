@@ -4,6 +4,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use sp1_sdk::SP1ProofWithPublicValues;
 use tracing::{debug, info};
 
 pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
@@ -14,9 +15,16 @@ pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ProofData {
     Request {},
-    Response { id: u32 },
-    Submit { id: u32 },
-    SubmitAck { id: u32 },
+    Response {
+        id: u32,
+    },
+    Submit {
+        id: u32,
+        proof: SP1ProofWithPublicValues,
+    },
+    SubmitAck {
+        id: u32,
+    },
 }
 
 struct ProofDataProvider {
@@ -52,7 +60,7 @@ impl ProofDataProvider {
                 self.handle_request(&mut stream, *current_id);
                 *current_id = (*current_id % 20) + 1;
             }
-            ProofData::Submit { id } => self.handle_submit(&mut stream, id),
+            ProofData::Submit { id, proof } => self.handle_submit(&mut stream, id, proof),
             _ => {}
         }
 
@@ -67,8 +75,8 @@ impl ProofDataProvider {
         serde_json::to_writer(writer, &response).unwrap();
     }
 
-    fn handle_submit(&self, stream: &mut TcpStream, id: u32) {
-        debug!("Submit received");
+    fn handle_submit(&self, stream: &mut TcpStream, id: u32, proof: SP1ProofWithPublicValues) {
+        debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
 
         let response = ProofData::SubmitAck { id };
         let writer = BufWriter::new(stream);
