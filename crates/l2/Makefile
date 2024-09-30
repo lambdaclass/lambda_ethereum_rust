@@ -60,3 +60,9 @@ down-l2:
 	pkill -f ethereum_rust || exit 0
 
 restart-l2: down-l2 init-l2
+
+# L1 Contract Deployment
+
+L1_RPC_URL=http://localhost:8545
+L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924
+FOUNDRY_PROJECT_HOME=$(shell pwd)/contracts

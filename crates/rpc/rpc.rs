@@ -43,8 +43,8 @@ mod admin;
 mod authentication;
 mod engine;
 mod eth;
-mod types;
-mod utils;
+pub mod types;
+pub mod utils;
 
 use axum::extract::State;
 use ethereum_rust_net::types::Node;
