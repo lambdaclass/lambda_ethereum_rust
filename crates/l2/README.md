@@ -35,8 +35,6 @@ asdf install
 
 #### Foundry
 
-xxx:
-
 1. First, install `foundryup`:
     ```shell
     curl -L https://foundry.paradigm.xyz | bash
