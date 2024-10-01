@@ -190,14 +190,18 @@ fn transient_store() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    assert!(vm.current_call_frame().transient_storage.is_empty());
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert!(current_call_frame.transient_storage.is_empty());
 
     vm.execute();
 
+    let current_call_frame = vm.current_call_frame_mut();
+
     assert_eq!(
-        *vm.current_call_frame()
+        *current_call_frame
             .transient_storage
-            .get(&(vm.current_call_frame().msg_sender, key))
+            .get(&(current_call_frame.msg_sender, key))
             .unwrap(),
         value
     );
@@ -210,7 +214,7 @@ fn transient_store_no_values_panics() {
     let operations = [Operation::Tstore, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    assert!(vm.current_call_frame().transient_storage.is_empty());
+    assert!(vm.current_call_frame_mut().transient_storage.is_empty());
 
     vm.execute();
 }
@@ -224,7 +228,7 @@ fn transient_load() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    let caller = vm.current_call_frame().msg_sender;
+    let caller = vm.current_call_frame_mut().msg_sender;
 
     vm.current_call_frame_mut()
         .transient_storage
@@ -232,6 +236,6 @@ fn transient_load() {
 
     vm.execute();
 
-    assert_eq!(*vm.current_call_frame().stack.last().unwrap(), value);
+    assert_eq!(*vm.current_call_frame_mut().stack.last().unwrap(), value);
     assert_eq!(vm.consumed_gas, TX_BASE_COST + 103)
 }

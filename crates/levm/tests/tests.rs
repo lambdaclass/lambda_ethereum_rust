@@ -1,9 +1,9 @@
-use bytes::Bytes;
-use ethereum_types::{Address, H256, H32, U256};
+use ethereum_types::H32;
 use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
     constants::TX_BASE_COST,
     operations::Operation,
+    primitives::{Address, Bytes, H256, U256},
     vm::{Account, VM},
 };
 
@@ -57,7 +57,7 @@ fn add_op() {
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-    assert!(vm.current_call_frame().pc() == 68);
+    assert!(vm.current_call_frame_mut().pc() == 68);
 }
 
 #[test]
@@ -1250,13 +1250,13 @@ fn call_returns_if_bytecode_empty() {
     let callee_account = Account::new(U256::from(500000), callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
         Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // ret_size
         Operation::Call,
         Operation::Stop,
     ];
@@ -1268,6 +1268,7 @@ fn call_returns_if_bytecode_empty() {
     );
 
     vm.add_account(callee_address, callee_account);
+    println!("to excec");
     vm.execute();
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
@@ -1311,7 +1312,9 @@ fn call_changes_callframe_and_stores() {
 
     let ret_offset = 0;
     let ret_size = 32;
-    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    let return_data = current_call_frame
+        .returndata
+        .slice(ret_offset..ret_offset + ret_size);
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
 }
@@ -1341,6 +1344,10 @@ fn nested_calls() {
         Operation::Push32(callee2_return_value), // value
         Operation::Push32(U256::from(32)),       // offset
         Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // returndata_offset
+        Operation::Push32(U256::zero()),   // dest_offset
+        Operation::ReturnDataCopy,
         Operation::Push32(U256::from(64)), // size
         Operation::Push32(U256::zero()),   // offset
         Operation::Return,
@@ -1387,7 +1394,9 @@ fn nested_calls() {
 
     let ret_offset = 0;
     let ret_size = 64;
-    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    let return_data = current_call_frame
+        .returndata
+        .slice(ret_offset..ret_offset + ret_size);
 
     let mut expected_bytes = vec![0u8; 64];
     // place 0xAAAAAAA at 0..32
@@ -1401,6 +1410,216 @@ fn nested_calls() {
     expected_bytes[32..].copy_from_slice(&callee2_return_value_bytes);
 
     assert_eq!(return_data, expected_bytes);
+}
+
+#[test]
+fn calldataload() {
+    let calldata = vec![
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10,
+    ]
+    .into();
+    let ops = vec![
+        Operation::Push32(U256::from(0)), // offset
+        Operation::CallDataLoad,
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().calldata = calldata;
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let top_of_stack = current_call_frame.stack.pop().unwrap();
+    assert_eq!(
+        top_of_stack,
+        U256::from_big_endian(&[
+            0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE,
+            0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+            0x0D, 0x0E, 0x0F, 0x10
+        ])
+    );
+}
+
+#[test]
+fn calldataload_being_set_by_parent() {
+    let ops = vec![
+        Operation::Push32(U256::zero()), // offset
+        Operation::CallDataLoad,
+        Operation::Push32(U256::from(0)), // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // offset
+        Operation::Return,
+    ];
+
+    let callee_bytecode = ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let calldata = [
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10,
+    ];
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from_big_endian(&calldata[..32])), // value
+        Operation::Push32(U256::from(0)),                          // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let calldata = [
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10,
+    ];
+
+    let expected_data = U256::from_big_endian(&calldata[..32]);
+
+    assert_eq!(expected_data, current_call_frame.memory.load(0));
+}
+
+#[test]
+fn calldatasize() {
+    let calldata = vec![0x11, 0x22, 0x33].into();
+    let ops = vec![Operation::CallDataSize, Operation::Stop];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().calldata = calldata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let top_of_stack = current_call_frame.stack.pop().unwrap();
+    assert_eq!(top_of_stack, U256::from(3));
+}
+
+#[test]
+fn calldatacopy() {
+    let calldata = vec![0x11, 0x22, 0x33, 0x44, 0x55].into();
+    let ops = vec![
+        Operation::Push32(U256::from(2)), // size
+        Operation::Push32(U256::from(1)), // calldata_offset
+        Operation::Push32(U256::from(0)), // dest_offset
+        Operation::CallDataCopy,
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().calldata = calldata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let memory = current_call_frame.memory.load_range(0, 2);
+    println!("{:?}", current_call_frame);
+    assert_eq!(memory, vec![0x22, 0x33]);
+}
+
+#[test]
+fn returndatasize() {
+    let returndata = vec![0xAA, 0xBB, 0xCC].into();
+    let ops = vec![Operation::ReturnDataSize, Operation::Stop];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().returndata = returndata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let top_of_stack = current_call_frame.stack.pop().unwrap();
+    assert_eq!(top_of_stack, U256::from(3));
+}
+
+#[test]
+fn returndatacopy() {
+    let returndata = vec![0xAA, 0xBB, 0xCC, 0xDD].into();
+    let ops = vec![
+        Operation::Push32(U256::from(2)), // size
+        Operation::Push32(U256::from(1)), // returndata_offset
+        Operation::Push32(U256::from(0)), // dest_offset
+        Operation::ReturnDataCopy,
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().returndata = returndata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let memory = current_call_frame.memory.load_range(0, 2);
+    assert_eq!(memory, vec![0xBB, 0xCC]);
+}
+
+#[test]
+fn returndatacopy_being_set_by_parent() {
+    let callee_bytecode = callee_return_bytecode(U256::from(0xAAAAAAA));
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(U256::from(2)),       // callee address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::from(0)),  // returndata offset
+        Operation::Push32(U256::from(0)),  // dest offset
+        Operation::ReturnDataCopy,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    println!("{:?}", current_call_frame);
+
+    let result = current_call_frame.memory.load(0);
+
+    assert_eq!(result, U256::from(0xAAAAAAA));
 }
 
 #[test]
@@ -1830,7 +2049,7 @@ fn log0() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
@@ -1858,7 +2077,7 @@ fn log1() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
@@ -1889,7 +2108,7 @@ fn log2() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
@@ -1926,7 +2145,7 @@ fn log3() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
@@ -1970,7 +2189,7 @@ fn log4() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
@@ -2002,7 +2221,7 @@ fn log_with_0_data_size() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, Vec::new());
     assert_eq!(logs[0].topics.len(), 0);
@@ -2045,7 +2264,7 @@ fn log_with_data_in_memory_smaller_than_size() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let mut data = vec![0_u8; 16];
     data.extend(vec![0xff_u8; 16]);
 
@@ -2078,7 +2297,7 @@ fn multiple_logs_of_different_types() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    let logs = &vm.current_call_frame().logs;
+    let logs = &vm.current_call_frame_mut().logs;
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 2);
     assert_eq!(logs[0].data, data.to_vec());
