@@ -8,10 +8,10 @@ use ethereum_rust_core::{
         compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
         BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
-    Address, Bloom, H256,
+    Address, Bloom, H256, U256,
 };
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadV3 {
     parent_hash: H256,
@@ -55,6 +55,15 @@ impl<'de> Deserialize<'de> for EncodedTransaction {
     }
 }
 
+impl Serialize for EncodedTransaction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde_utils::bytes::serialize(&self.0, serializer)
+    }
+}
+
 impl EncodedTransaction {
     /// Based on [EIP-2718]
     /// Transactions can be encoded in the following formats:
@@ -62,6 +71,10 @@ impl EncodedTransaction {
     /// B) `LegacyTransaction` (An rlp encoded LegacyTransaction)
     fn decode(&self) -> Result<Transaction, RLPDecodeError> {
         Transaction::decode_canonical(self.0.as_ref())
+    }
+
+    fn encode(tx: &Transaction) -> Self {
+        Self(Bytes::from(tx.encode_canonical_to_vec()))
     }
 }
 
@@ -105,6 +118,33 @@ impl ExecutionPayloadV3 {
             },
             body,
         })
+    }
+
+    pub fn from_block(block: Block) -> Self {
+        Self {
+            parent_hash: block.header.parent_hash,
+            fee_recipient: block.header.coinbase,
+            state_root: block.header.state_root,
+            receipts_root: block.header.receipts_root,
+            logs_bloom: block.header.logs_bloom,
+            prev_randao: block.header.prev_randao,
+            block_number: block.header.number,
+            gas_limit: block.header.gas_limit,
+            gas_used: block.header.gas_used,
+            timestamp: block.header.timestamp,
+            extra_data: block.header.extra_data.clone(),
+            base_fee_per_gas: block.header.base_fee_per_gas.unwrap_or_default(),
+            block_hash: block.header.compute_block_hash(),
+            transactions: block
+                .body
+                .transactions
+                .iter()
+                .map(EncodedTransaction::encode)
+                .collect(),
+            withdrawals: block.body.withdrawals.unwrap_or_default(),
+            blob_gas_used: block.header.blob_gas_used.unwrap_or_default(),
+            excess_blob_gas: block.header.excess_blob_gas.unwrap_or_default(),
+        }
     }
 }
 
@@ -169,6 +209,41 @@ impl PayloadStatus {
             status: PayloadValidationStatus::Valid,
             latest_valid_hash: None,
             validation_error: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionPayloadResponse {
+    pub execution_payload: ExecutionPayloadV3, // We only handle v3 payloads
+    // Total fees consumed by the block (fees paid)
+    pub block_value: U256,
+    pub blobs_bundle: BlobsBundle,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlobsBundle {
+    #[serde(with = "serde_utils::bytes::vec")]
+    commitments: Vec<Bytes>,
+    #[serde(serialize_with = "super::account_proof::serialize_proofs")]
+    pub proofs: Vec<Vec<u8>>,
+    #[serde(with = "serde_utils::bytes::vec")]
+    pub blobs: Vec<Bytes>,
+}
+
+// TODO: Fill BlobsBundle
+impl ExecutionPayloadResponse {
+    pub fn new(payload: ExecutionPayloadV3, block_value: U256) -> Self {
+        Self {
+            execution_payload: payload,
+            block_value,
+            blobs_bundle: BlobsBundle {
+                commitments: vec![],
+                proofs: vec![],
+                blobs: vec![],
+            },
         }
     }
 }

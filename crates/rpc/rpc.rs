@@ -9,8 +9,10 @@ use axum_extra::{
     TypedHeader,
 };
 use engine::{
-    exchange_transition_config::ExchangeTransitionConfigV1Req, fork_choice::ForkChoiceUpdatedV3,
-    payload::NewPayloadV3Request, ExchangeCapabilitiesRequest,
+    exchange_transition_config::ExchangeTransitionConfigV1Req,
+    fork_choice::ForkChoiceUpdatedV3,
+    payload::{GetPayloadV3Request, NewPayloadV3Request},
+    ExchangeCapabilitiesRequest,
 };
 use eth::{
     account::{
@@ -41,8 +43,8 @@ mod admin;
 mod authentication;
 mod engine;
 mod eth;
-mod types;
-mod utils;
+pub mod types;
+pub mod utils;
 
 use axum::extract::State;
 use ethereum_rust_net::types::Node;
@@ -213,6 +215,7 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
         "engine_exchangeTransitionConfigurationV1" => {
             ExchangeTransitionConfigV1Req::call(req, storage)
         }
+        "engine_getPayloadV3" => GetPayloadV3Request::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
     }
 }

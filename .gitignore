@@ -34,3 +34,7 @@ crates/evm_mlir/output
 
 crates/evm_mlir/ethtests
 crates/evm_mlir/*.tar.gz
+
+# Ethereum Rust L2 stuff
+volumes
+jwt.hex
