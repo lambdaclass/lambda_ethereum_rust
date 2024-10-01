@@ -1,3 +1,5 @@
+use ethereum_types::H32;
+
 use crate::{
     memory::Memory,
     opcodes::Opcode,
@@ -7,6 +9,14 @@ use std::collections::HashMap;
 
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
 pub type TransientStorage = HashMap<(Address, U256), U256>;
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+/// Data record produced during the execution of a transaction.
+pub struct Log {
+    pub address: Address,
+    pub topics: Vec<H32>,
+    pub data: Bytes,
+}
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CallFrame {
@@ -27,6 +37,7 @@ pub struct CallFrame {
     pub return_data_size: Option<usize>,
     pub is_static: bool,
     pub transient_storage: TransientStorage,
+    pub logs: Vec<Log>,
 }
 
 impl CallFrame {
