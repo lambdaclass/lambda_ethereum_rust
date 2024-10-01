@@ -2,17 +2,18 @@ use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
-    vm::Environment,
+    vm::Message,
 };
 
 #[derive(Debug, Clone, Default)]
+/// A call frame, or execution context, is TODO
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
     pub callee: Address,
     pub bytecode: Bytes,
-    pub delegate: Option<Address>,
+    // pub delegate: Option<Address>,
     pub msg_value: U256,
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
@@ -21,15 +22,17 @@ pub struct CallFrame {
     // // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
-    pub env: Environment,
 }
 
 impl CallFrame {
-    pub fn new(bytecode: Bytes, env: Environment) -> Self {
+    pub fn new(msg: Message) -> Self {
         Self {
-            bytecode,
-            gas: U256::MAX,
-            env,
+            msg_sender: msg.sender,
+            callee: msg.owner,
+            bytecode: msg.code,
+            msg_value: msg.value,
+            calldata: msg.data,
+            gas: msg.gas,
             ..Default::default()
         }
     }

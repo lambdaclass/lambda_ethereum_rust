@@ -5,11 +5,11 @@ use crate::{
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     primitives::{Address, Bytes, U256, U512},
-    transaction::Transaction,
 };
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
+// TODO: complete account abstraction
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
@@ -27,34 +27,60 @@ struct Block;
 pub type WorldState = HashMap<Address, Account>;
 
 #[derive(Debug, Clone, Default)]
-struct Substate;
-#[derive(Debug, Clone, Default)]
+struct Substate; // TODO
+
+/// Transaction environment, is the same for the whole transaction.
+/// Context, basically
+#[derive(Debug, Default, Clone)]
 pub struct Environment {
-    owner: Address,
+    /// The sender address of the transaction that originated
+    /// this execution.
     origin: Address,
+    /// The price of gas paid by the signer of the transaction
+    /// that originated this execution.
     gas_price: u64,
-    data: Bytes,
-    caller: Address,
-    value: U256,
-    code: Bytes,
+    /// The block header of the present block.
     block: Block,
-    depth: u16,
 }
 
 #[derive(Debug, Default)]
-pub struct TransactionContext {
-    world_state: WorldState,
-    remaining_gas: u64,
-    accrued_substate: Substate,
-    env: Environment,
+/// Message, stuff needed for a call frame
+pub struct Message {
+    /// The address of the account which owns the code that
+    /// is executing.
+    pub owner: Address,
+    /// The byte array that is the input data to this execution;
+    /// if the execution agent is a transaction, this would be
+    /// the transaction data.
+    pub data: Bytes,
+    /// The address of the account which caused the
+    /// code to be executing; if the execution agent is a
+    /// transaction, this would be the transaction sender.
+    pub sender: Address,
+    /// The value, in Wei, passed to this account as part
+    /// of the same procedure as execution; if the execution
+    /// agent is a transaction, this would be the transaction
+    /// value.
+    pub value: U256,
+    /// The byte array that is the machine code to be executed.
+    pub code: Bytes,
+    /// The depth of the present message-call or
+    /// contract-creation.
+    pub depth: u16,
+    pub gas: U256,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    pub call_frames: Vec<CallFrame>,
-    pub accrued_substate: Substate,
-    pub remaining_gas: u64,
-    pub world_state: WorldState,
+    call_frames: Vec<CallFrame>,
+    env: Environment,
+    /// Information that is acted upon immediately following the
+    /// transaction.
+    accrued_substate: Substate,
+    /// Mapping between addresses (160-bit identifiers) and account
+    /// states .
+    world_state: WorldState,
+    // pub remaining_gas: u64,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -71,18 +97,31 @@ fn negate(value: U256) -> U256 {
 // tuple of environmental data.
 
 impl VM {
-    pub fn new(tx: Transaction, state: WorldState) -> Self {
-        // VALIDATE BLOCK AND TX
+    // TODO: block and transaction, not this
+    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
+        // pub fn new(bytecode: Bytes, state: WorldState) -> Self {
+        // TODO: VALIDATE BLOCK AND TX
 
-        let first_env = Environment::default();
+        // just for the tests
+        let initial_account = Account::new(balance, bytecode.clone());
+        let mut initial_env = Environment::default();
+        let mut state = WorldState::new();
+        state.insert(address, initial_account);
 
-        let initial_call_frame = CallFrame::new(Bytes::default(), first_env);
+        initial_env.origin = address;
+
+        // just a placeholder
+        let initial_msg = Message {
+            code: bytecode,
+            ..Default::default()
+        };
+
+        let first_call_frame = CallFrame::new(initial_msg);
 
         Self {
-            accrued_substate: Substate::default(),
-            call_frames: vec![initial_call_frame.clone()],
-            remaining_gas: u64::MAX,
-            world_state: state,
+            call_frames: vec![first_call_frame],
+            env: initial_env,
+            ..Default::default()
         }
     }
 
@@ -560,15 +599,17 @@ impl VM {
                         .load_range(args_offset, args_size)
                         .into();
 
-                    let new_call_frame = CallFrame {
+                    let msg = Message {
+                        owner: address,
+                        data: calldata,
+                        sender: current_call_frame.msg_sender,
+                        value,
+                        code: callee_bytecode,
+                        depth: 0, // TODO,
                         gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
-                        calldata,
-                        ..Default::default()
                     };
+
+                    let new_call_frame = CallFrame::new(msg);
 
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);
@@ -616,19 +657,19 @@ impl VM {
     }
 
     fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
+        self.world_state
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
     fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
+        self.world_state
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
+        self.world_state.insert(address, account);
     }
 }
 
