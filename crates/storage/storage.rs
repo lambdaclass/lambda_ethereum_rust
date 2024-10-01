@@ -1,4 +1,4 @@
-#[cfg(any(feature = "in_memory", feature = "libmdbx"))]
+#[cfg(any(feature = "libmdbx", feature = "libmdbx"))]
 use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
@@ -32,7 +32,7 @@ pub struct Store {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum EngineType {
-    #[cfg(any(feature = "in_memory", feature = "libmdbx"))]
+    #[cfg(any(feature = "libmdbx", feature = "libmdbx"))]
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
@@ -76,7 +76,7 @@ impl Store {
             EngineType::Libmdbx => Self {
                 engine: Arc::new(LibmdbxStore::new(_path)?),
             },
-            #[cfg(any(feature = "in_memory", feature = "libmdbx"))]
+            #[cfg(any(feature = "libmdbx", feature = "libmdbx"))]
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
             },
@@ -613,13 +613,13 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "in_memory")]
+    #[cfg(feature = "libmdbx")]
     #[test]
     fn test_in_memory_store() {
         test_store_suite_in_memory(EngineType::InMemory);
     }
 
-    #[cfg(feature = "in_memory")]
+    #[cfg(feature = "libmdbx")]
     // Creates an empty store, runs the test and then removes the store (if needed)
     fn run_test_in_memory(test_func: &dyn Fn(Store), engine_type: EngineType) {
         // Build a new store
@@ -628,7 +628,7 @@ mod tests {
         test_func(store);
     }
 
-    #[cfg(feature = "in_memory")]
+    #[cfg(feature = "libmdbx")]
     fn test_store_suite_in_memory(engine_type: EngineType) {
         run_test_in_memory(&test_store_block, engine_type);
         run_test_in_memory(&test_store_block_number, engine_type);

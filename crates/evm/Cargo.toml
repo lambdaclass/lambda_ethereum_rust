@@ -21,6 +21,9 @@ thiserror.workspace = true
 hex.workspace = true
 lazy_static.workspace = true
 
+serde.workspace = true
+bincode = "1"
+
 # FIXME: It is necessary not to re-use the workspace definitions.
 ethereum_rust-core = { path = "../../crates/core", default-features = false }
 ethereum_rust-storage = { path = "../../crates/storage", default-features = false }

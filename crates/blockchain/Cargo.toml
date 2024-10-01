@@ -7,12 +7,16 @@ edition = "2021"
 
 [dependencies]
 thiserror.workspace = true
-ethereum_rust-core.workspace = true
+# ethereum_rust-core.workspace = true
 ethereum_rust-rlp.workspace = true
-ethereum_rust-storage.workspace = true
-ethereum_rust-evm.workspace = true
+# ethereum_rust-storage.workspace = true
+# ethereum_rust-evm.workspace = true
 sha3.workspace = true
 
+# FIXME: It is necessary not to re-use the workspace definitions.
+ethereum_rust-core = { path = "../core", default-features = false }
+ethereum_rust-storage = { path = "../storage", default-features = false }
+ethereum_rust-evm = { path = "../evm", default-features = false }
 
 [lib]
 path = "./blockchain.rs"

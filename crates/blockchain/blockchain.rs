@@ -170,7 +170,7 @@ fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result
     Ok(())
 }
 
-fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
+pub fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
     let mut blob_gas_used = 0_u64;
     let mut blobs_in_block = 0_u64;
     for transaction in block.body.transactions.iter() {

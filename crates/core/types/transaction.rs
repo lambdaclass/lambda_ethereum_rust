@@ -3,7 +3,7 @@ use std::cmp::min;
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
-use serde::{ser::SerializeStruct, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
 
@@ -15,7 +15,7 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Transaction {
     LegacyTransaction(LegacyTransaction),
@@ -24,7 +24,8 @@ pub enum Transaction {
     EIP4844Transaction(EIP4844Transaction),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+// FIXME: We must implement a custom Deserialize
+#[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct LegacyTransaction {
     pub nonce: u64,
     pub gas_price: u64,
@@ -39,7 +40,8 @@ pub struct LegacyTransaction {
     pub s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+// FIXME: We must implement a custom Deserialize
+#[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct EIP2930Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -54,7 +56,8 @@ pub struct EIP2930Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+// FIXME: We must implement a custom Deserialize
+#[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
     pub nonce: u64,
@@ -70,7 +73,8 @@ pub struct EIP1559Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+// FIXME: We must implement a custom Deserialize
+#[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct EIP4844Transaction {
     pub chain_id: u64,
     pub nonce: u64,
