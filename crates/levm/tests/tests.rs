@@ -2225,7 +2225,7 @@ fn create_happy_path() {
     // Code that returns the value 0xffffffff putting it in memory
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
 
-    let operations = vec![
+    let operations = [
         vec![
             Operation::Push((13, U256::from_big_endian(&initialization_code))),
             Operation::Push0,
@@ -2376,7 +2376,7 @@ fn cant_create_accounts_with_same_address() {
     // Code that returns the value 0xffffffff putting it in memory
     let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
 
-    let operations = vec![
+    let operations = [
         vec![
             Operation::Push((13, U256::from_big_endian(&initialization_code))),
             Operation::Push0,
@@ -2487,7 +2487,7 @@ fn create_on_create() {
     // push0, push0, mstore, push1 0, push1 0, push1 0, create, push0, push0, return
     let initialization_code = hex::decode("5f5f52600060006000f05f5ff3").unwrap();
 
-    let operations = vec![
+    let operations = [
         vec![
             Operation::Push((13, U256::from_big_endian(&initialization_code))),
             Operation::Push0,
