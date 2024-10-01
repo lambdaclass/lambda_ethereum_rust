@@ -26,13 +26,10 @@ use ethereum_rust_storage::Store;
 /// Performs pre and post execution validation, and updates the database with the post state.
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // TODO(#438): handle cases where blocks are missing between the canonical chain and the block.
-    validate_connected_to_canonical_chain(&block.header, storage)?;
 
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
     let mut state = evm_state(storage.clone(), parent_header.number);
-
-    // TODO: we should perform every state transition from the chain connection and until the block.
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
@@ -56,24 +53,6 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     store_block(storage, block.clone())?;
     store_receipts(storage, receipts, block_hash)?;
 
-    Ok(())
-}
-
-/// Validates if the parent of the block is part of the canonical chain. Returns error if not.
-fn validate_connected_to_canonical_chain(
-    header: &BlockHeader,
-    storage: &Store,
-) -> Result<(), ChainError> {
-    // Note: Should we check if this block is canonical or is it assumed not by the fact that it's here?
-    let mut parent_number = header.number - 1;
-    let mut parent_hash = header.parent_hash;
-    while !is_canonical(storage, parent_number, parent_hash)? {
-        let Some(parent) = storage.get_block_header_by_hash(parent_hash)? else {
-            return Err(ChainError::NonCanonicalParent);
-        };
-        parent_number -= 1;
-        parent_hash = parent.parent_hash;
-    }
     Ok(())
 }
 
