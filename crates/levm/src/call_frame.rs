@@ -43,6 +43,10 @@ impl Stack {
         self.stack.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
     pub fn get(&self, index: usize) -> Option<&U256> {
         self.stack.get(index)
     }
