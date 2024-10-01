@@ -67,6 +67,16 @@ You now should be able to build the client:
 ```bash
 make build
 ```
+### Database
+Currently, the database is `libmdbx`, it will be set up
+when you start the client. The location of the db's files will depend on your OS:
+- Mac: `~/Library/Application Support/ethereum_rust`
+- Linux: `~/.config/ethereum_rust`
+
+You can delete the db with:
+```bash
+cargo run --bin ethereum_rust -- removedb
+```
 
 ### Test
 

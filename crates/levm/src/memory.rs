@@ -1,8 +1,14 @@
-use ethereum_types::U256;
+use crate::primitives::U256;
 
 #[derive(Debug, Clone, Default)]
 pub struct Memory {
     data: Vec<u8>,
+}
+
+impl From<Vec<u8>> for Memory {
+    fn from(data: Vec<u8>) -> Self {
+        Memory { data }
+    }
 }
 
 impl Memory {

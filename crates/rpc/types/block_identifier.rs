@@ -57,6 +57,7 @@ impl BlockIdentifier {
         let Some(hex_str) = hex_str.strip_prefix("0x") else {
             return Err(RpcErr::BadHexFormat(arg_index));
         };
+
         // Parse hex string
         let Ok(block_number) = u64::from_str_radix(hex_str, 16) else {
             return Err(RpcErr::BadHexFormat(arg_index));
