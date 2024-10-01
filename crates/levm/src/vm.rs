@@ -25,9 +25,6 @@ impl Account {
 
 pub type Db = HashMap<U256, H256>;
 
-#[derive(Debug, Clone, Default)]
-struct Block;
-
 pub type WorldState = HashMap<Address, Account>;
 
 #[derive(Debug, Clone, Default)]
@@ -44,7 +41,7 @@ pub struct Environment {
     /// that originated this execution.
     gas_price: u64,
     /// The block header of the present block.
-    block: Block,
+    block: BlockEnv,
 }
 
 #[derive(Debug, Default)]
@@ -85,7 +82,7 @@ pub struct VM {
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
     world_state: WorldState,
-    // pub remaining_gas: u64,
+    db: Db, // pub remaining_gas: u64,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -132,13 +129,11 @@ impl VM {
             call_frames: vec![first_call_frame],
             env: initial_env,
             ..Default::default()
-            block_env: Default::default(),
-            db: Default::default(),
         }
     }
 
     pub fn execute(&mut self) {
-        let block_env = self.block_env.clone();
+        let block_env = self.env.block.clone();
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
