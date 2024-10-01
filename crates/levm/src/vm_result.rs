@@ -1,5 +1,4 @@
 use bytes::Bytes;
-use ethereum_types::U256;
 
 use crate::call_frame::Log;
 
@@ -12,8 +11,12 @@ pub enum VMError {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResultReason {
-    Stop {},
-    Return {},
+    Stop,
+    Return,
+    StackUnderflow,
+    StackOverflow,
+    InvalidJump,
+    OpcodeNotAllowedInStaticContext,
 }
 
 /// Result of a transaction execution.
@@ -24,14 +27,18 @@ pub enum ExecutionResult {
         logs: Vec<Log>,
         return_data: Bytes,
     },
-    Revert {
-        reason: ResultReason,
-        gas_used: U256,
-        return_data: Bytes,
-    },
+
     Halt {
         reason: ResultReason,
-        /// Halting will spend all the gas, and will be equal to gas_limit.
-        gas_used: U256,
     },
+}
+
+impl ExecutionResult {
+    pub fn is_success(&self) -> bool {
+        matches!(self, ExecutionResult::Success { .. })
+    }
+
+    pub fn is_halt(&self) -> bool {
+        matches!(self, ExecutionResult::Halt { .. })
+    }
 }

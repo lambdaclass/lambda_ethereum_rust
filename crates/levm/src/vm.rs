@@ -64,9 +64,17 @@ impl VM {
         }
     }
 
-    pub fn write_result(&self, call_frame: CallFrame) -> ExecutionResult {
+    pub fn write_result(
+        &self,
+        call_frame: CallFrame,
+        reason: ResultReason,
+        is_halt: bool,
+    ) -> ExecutionResult {
+        if is_halt {
+            return ExecutionResult::Halt { reason: reason };
+        }
         ExecutionResult::Success {
-            reason: ResultReason::Return {},
+            reason,
             logs: call_frame.logs.clone(),
             return_data: call_frame.returndata.clone(),
         }
@@ -77,11 +85,10 @@ impl VM {
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
-            dbg!(opcode);
             match opcode {
                 Opcode::STOP => {
                     self.call_frames.push(current_call_frame.clone());
-                    return Ok(self.write_result(current_call_frame));
+                    return Ok(self.write_result(current_call_frame, ResultReason::Stop, false));
                 }
                 Opcode::ADD => {
                     let augend = current_call_frame.stack.pop()?;
@@ -415,13 +422,25 @@ impl VM {
                 }
                 Opcode::JUMP => {
                     let jump_address = current_call_frame.stack.pop()?;
-                    current_call_frame.jump(jump_address);
+                    if !current_call_frame.jump(jump_address) {
+                        return Ok(self.write_result(
+                            current_call_frame,
+                            ResultReason::InvalidJump,
+                            true,
+                        ));
+                    }
                 }
                 Opcode::JUMPI => {
                     let jump_address = current_call_frame.stack.pop()?;
                     let condition = current_call_frame.stack.pop()?;
                     if condition != U256::zero() {
-                        current_call_frame.jump(jump_address);
+                        if !current_call_frame.jump(jump_address) {
+                            return Ok(self.write_result(
+                                current_call_frame,
+                                ResultReason::InvalidJump,
+                                true,
+                            ));
+                        }
                     }
                 }
                 Opcode::JUMPDEST => {
@@ -618,7 +637,11 @@ impl VM {
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     if current_call_frame.is_static {
-                        panic!("Cannot create log in static context"); // should return an error and halt
+                        return Ok(self.write_result(
+                            current_call_frame,
+                            ResultReason::OpcodeNotAllowedInStaticContext,
+                            true,
+                        ));
                     }
 
                     let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
@@ -770,25 +793,28 @@ impl VM {
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);
                     self.call_frames.push(new_call_frame.clone());
-                    dbg!("EMPIEZO EJECUCION");
-                    let result = self.execute().unwrap();
-                    dbg!("SIGO MI EJECUCION");
-                    if let ExecutionResult::Success {
-                        logs, return_data, ..
-                    } = result
-                    {
-                        current_call_frame.logs.extend(logs);
-                        current_call_frame
-                            .memory
-                            .store_bytes(ret_offset, &return_data);
-                        //current_call_frame.gas -= gas_used;
-                        current_call_frame.returndata = return_data;
-                        current_call_frame
-                            .stack
-                            .push(U256::from(SUCCESS_FOR_CALL))?;
-                    } else {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    }
+                    let result = self.execute();
+
+                    match result {
+                        Ok(ExecutionResult::Success {
+                            logs, return_data, ..
+                        }) => {
+                            current_call_frame.logs.extend(logs);
+                            current_call_frame
+                                .memory
+                                .store_bytes(ret_offset, &return_data);
+                            current_call_frame.returndata = return_data;
+                            current_call_frame
+                                .stack
+                                .push(U256::from(SUCCESS_FOR_CALL))?;
+                        }
+                        Ok(_) => {
+                            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                        }
+                        Err(_) => {
+                            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                        }
+                    };
                 }
                 Opcode::RETURN => {
                     let offset = current_call_frame
@@ -807,7 +833,7 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from(SUCCESS_FOR_RETURN))?;
-                    return Ok(self.write_result(current_call_frame));
+                    return Ok(self.write_result(current_call_frame, ResultReason::Return, false));
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop()?;

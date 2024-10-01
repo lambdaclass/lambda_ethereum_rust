@@ -104,12 +104,13 @@ impl CallFrame {
         self.pc
     }
 
-    pub fn jump(&mut self, jump_address: U256) {
+    /// Jump to the given address, returns false if the jump position wasn't a JUMPDEST
+    pub fn jump(&mut self, jump_address: U256) -> bool {
         if !self.valid_jump(jump_address) {
-            // Should be a halt when we implement it
-            panic!("Invalid jump");
+            return false;
         }
         self.pc = jump_address.as_usize() + 1;
+        true
     }
 
     fn valid_jump(&self, jump_address: U256) -> bool {

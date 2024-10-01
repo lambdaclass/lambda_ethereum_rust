@@ -1415,7 +1415,6 @@ fn jump_op() {
 }
 
 #[test]
-#[should_panic]
 fn jump_not_jumpdest_position() {
     let operations = [
         Operation::Push32(U256::from(36)),
@@ -1427,12 +1426,11 @@ fn jump_not_jumpdest_position() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute().unwrap();
-    assert_eq!(vm.current_call_frame_mut().pc, 35);
+    let result = vm.execute().unwrap();
+    assert!(result.is_halt());
 }
 
 #[test]
-#[should_panic]
 fn jump_position_bigger_than_program_bytecode_size() {
     let operations = [
         Operation::Push32(U256::from(5000)),
@@ -1444,8 +1442,8 @@ fn jump_position_bigger_than_program_bytecode_size() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute().unwrap();
-    assert_eq!(vm.current_call_frame_mut().pc(), 35);
+    let result = vm.execute().unwrap();
+    assert!(result.is_halt());
 }
 
 #[test]
@@ -2118,7 +2116,6 @@ fn log_with_0_data_size() {
 }
 
 #[test]
-#[should_panic]
 fn cant_create_log_in_static_context() {
     let data: [u8; 32] = [0xff; 32];
     let size = 0_u8;
@@ -2134,7 +2131,8 @@ fn cant_create_log_in_static_context() {
 
     let mut vm: VM = new_vm_with_ops(&operations);
     vm.current_call_frame_mut().is_static = true;
-    vm.execute().unwrap();
+    let result = vm.execute().unwrap();
+    assert!(result.is_halt());
 }
 
 #[test]
