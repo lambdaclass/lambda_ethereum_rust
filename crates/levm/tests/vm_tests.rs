@@ -129,12 +129,12 @@ fn dup16_ok() {
 }
 
 #[test]
-#[should_panic]
-fn dup_panics_if_stack_underflow() {
+fn dup_halts_if_stack_underflow() {
     let operations = [Operation::Dup(5), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute().unwrap();
+    let result = vm.execute().unwrap();
+    assert!(result.is_halt())
 }
 
 #[test]
@@ -185,12 +185,12 @@ fn swap16_ok() {
 }
 
 #[test]
-#[should_panic]
-fn swap_panics_if_stack_underflow() {
+fn swap_halts_if_stack_underflow() {
     let operations = [Operation::Swap(5), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute().unwrap();
+    let result = vm.execute().unwrap();
+    assert!(result.is_halt())
 }
 
 #[test]

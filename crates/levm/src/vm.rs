@@ -609,10 +609,15 @@ impl VM {
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
                     let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
-                    assert!(
-                        current_call_frame.stack.len().ge(&(depth as usize)),
-                        "stack underflow: not enough values on the stack"
-                    );
+
+                    if current_call_frame.stack.len() < depth as usize {
+                        return Ok(self.write_result(
+                            current_call_frame,
+                            ResultReason::StackUnderflow,
+                            true,
+                        ));
+                    }
+
                     let value_at_depth = current_call_frame
                         .stack
                         .get(current_call_frame.stack.len() - depth as usize)
@@ -622,10 +627,14 @@ impl VM {
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
                     let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
-                    assert!(
-                        current_call_frame.stack.len().ge(&(depth as usize)),
-                        "stack underflow: not enough values on the stack"
-                    );
+
+                    if current_call_frame.stack.len() < depth as usize {
+                        return Ok(self.write_result(
+                            current_call_frame,
+                            ResultReason::StackUnderflow,
+                            true,
+                        ));
+                    }
                     let stack_top_index = current_call_frame.stack.len();
                     let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
                     current_call_frame
