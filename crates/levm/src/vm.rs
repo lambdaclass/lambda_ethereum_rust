@@ -329,7 +329,7 @@ impl VM {
                     let result = hasher.finalize();
                     current_call_frame
                         .stack
-                        .push(U256::from_big_endian(&result));
+                        .push(U256::from_big_endian(&result))?;
                 }
                 Opcode::CALLDATALOAD => {
                     let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -341,7 +341,7 @@ impl VM {
                 Opcode::CALLDATASIZE => {
                     current_call_frame
                         .stack
-                        .push(U256::from(current_call_frame.calldata.len()));
+                        .push(U256::from(current_call_frame.calldata.len()))?;
                 }
                 Opcode::CALLDATACOPY => {
                     let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -360,7 +360,7 @@ impl VM {
                 Opcode::RETURNDATASIZE => {
                     current_call_frame
                         .stack
-                        .push(U256::from(current_call_frame.returndata.len()));
+                        .push(U256::from(current_call_frame.returndata.len()))?;
                 }
                 Opcode::RETURNDATACOPY => {
                     let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -392,7 +392,7 @@ impl VM {
                 Opcode::PC => {
                     current_call_frame
                         .stack
-                        .push(U256::from(current_call_frame.pc - 1));
+                        .push(U256::from(current_call_frame.pc - 1))?;
                 }
                 Opcode::BLOCKHASH => {
                     let block_number = current_call_frame.stack.pop()?;
@@ -411,7 +411,7 @@ impl VM {
                     if let Some(block_hash) = self.db.get(&block_number) {
                         current_call_frame
                             .stack
-                            .push(U256::from_big_endian(&block_hash.0));
+                            .push(U256::from_big_endian(&block_hash.0))?;
                     } else {
                         current_call_frame.stack.push(U256::zero())?;
                     };
@@ -432,7 +432,7 @@ impl VM {
                     let randao = block_env.prev_randao.unwrap_or_default();
                     current_call_frame
                         .stack
-                        .push(U256::from_big_endian(randao.0.as_slice()));
+                        .push(U256::from_big_endian(randao.0.as_slice()))?;
                 }
                 Opcode::GASLIMIT => {
                     let gas_limit = block_env.gas_limit;
@@ -447,7 +447,7 @@ impl VM {
                 }
                 Opcode::BASEFEE => {
                     let base_fee = block_env.base_fee_per_gas;
-                    current_call_frame.stack.push(base_fee);
+                    current_call_frame.stack.push(base_fee)?;
                 }
                 Opcode::BLOBHASH => {
                     todo!("when we have tx implemented");
@@ -467,7 +467,7 @@ impl VM {
                         .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
                         .expect("invalid bytecode");
                     let value_to_push = U256::from(next_n_bytes);
-                    current_call_frame.stack.push(value_to_push);
+                    current_call_frame.stack.push(value_to_push)?;
                     current_call_frame.increment_pc_by(n_bytes as usize);
                 }
                 Opcode::PUSH32 => {
@@ -512,7 +512,7 @@ impl VM {
                     if byte_index < 32 {
                         current_call_frame
                             .stack
-                            .push(U256::from(op2.byte(31 - byte_index)));
+                            .push(U256::from(op2.byte(31 - byte_index)))?;
                     } else {
                         current_call_frame.stack.push(U256::zero())?;
                     }
@@ -630,7 +630,7 @@ impl VM {
                     // spend_gas(2);
                     current_call_frame
                         .stack
-                        .push(current_call_frame.memory.size());
+                        .push(current_call_frame.memory.size())?;
                 }
                 Opcode::MCOPY => {
                     // spend_gas(3) + dynamic gas
@@ -707,7 +707,7 @@ impl VM {
                         // excecution completed (?)
                         current_call_frame
                             .stack
-                            .push(U256::from(SUCCESS_FOR_RETURN));
+                            .push(U256::from(SUCCESS_FOR_RETURN))?;
                         break;
                     }
                 }

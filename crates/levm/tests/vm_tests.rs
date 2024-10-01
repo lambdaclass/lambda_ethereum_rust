@@ -17,7 +17,7 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
 fn push0_ok() {
     let mut vm = new_vm_with_ops(&[Operation::Push0, Operation::Stop]);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.stack[0], U256::zero());
     assert_eq!(vm.current_call_frame_mut().pc(), 2);
@@ -30,7 +30,7 @@ fn push1_ok() {
     let operations = [Operation::Push((1, to_push)), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 3);
@@ -43,7 +43,7 @@ fn push5_ok() {
     let operations = [Operation::Push((5, to_push)), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 7);
@@ -56,7 +56,7 @@ fn push31_ok() {
     let operations = [Operation::Push((31, to_push)), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 33);
@@ -69,7 +69,7 @@ fn push32_ok() {
     let operations = [Operation::Push32(to_push), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 34);
@@ -86,7 +86,7 @@ fn dup1_ok() {
     ];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     let stack_len = vm.current_call_frame_mut().stack.len();
 
@@ -112,7 +112,7 @@ fn dup16_ok() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     let stack_len = vm.current_call_frame_mut().stack.len();
 
@@ -134,7 +134,7 @@ fn dup_panics_if_stack_underflow() {
     let operations = [Operation::Dup(5), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn swap1_ok() {
         Operation::Stop,
     ];
     let mut vm = new_vm_with_ops(&operations);
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.len(), 2);
     assert_eq!(vm.current_call_frame_mut().pc(), 6);
@@ -169,7 +169,7 @@ fn swap16_ok() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
     let stack_len = vm.current_call_frame_mut().stack.len();
 
     assert_eq!(stack_len, 17);
@@ -190,7 +190,7 @@ fn swap_panics_if_stack_underflow() {
     let operations = [Operation::Swap(5), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute();
+    vm.execute().unwrap();
 }
 
 #[test]
@@ -211,7 +211,7 @@ fn transient_store() {
 
     assert!(current_call_frame.transient_storage.is_empty());
 
-    vm.execute();
+    vm.execute().unwrap();
 
     let current_call_frame = vm.current_call_frame_mut();
 
@@ -250,7 +250,7 @@ fn transient_load() {
         .transient_storage
         .insert((caller, key), value);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(
         *vm.current_call_frame_mut().stack.stack.last().unwrap(),
