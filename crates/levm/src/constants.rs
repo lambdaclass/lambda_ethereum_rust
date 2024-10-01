@@ -34,6 +34,13 @@ pub mod gas_cost {
     pub const SAR: u64 = 3;
     pub const KECCAK25_STATIC: u64 = 30;
     pub const KECCAK25_DYNAMIC_BASE: u64 = 6;
+    pub const CALLDATALOAD: u64 = 3;
+    pub const CALLDATASIZE: u64 = 2;
+    pub const CALLDATACOPY_STATIC: u64 = 3;
+    pub const CALLDATACOPY_DYNAMIC_BASE: u64 = 3;
+    pub const RETURNDATASIZE: u64 = 2;
+    pub const RETURNDATACOPY_STATIC: u64 = 3;
+    pub const RETURNDATACOPY_DYNAMIC_BASE: u64 = 3;
     pub const BLOCKHASH: u64 = 20;
     pub const COINBASE: u64 = 2;
     pub const TIMESTAMP: u64 = 2;

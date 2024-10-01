@@ -1441,6 +1441,7 @@ fn calldataload() {
             0x0D, 0x0E, 0x0F, 0x10
         ])
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 6);
 }
 
 #[test]
@@ -1521,6 +1522,7 @@ fn calldatasize() {
     let current_call_frame = vm.current_call_frame_mut();
     let top_of_stack = current_call_frame.stack.pop().unwrap();
     assert_eq!(top_of_stack, U256::from(3));
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1541,8 +1543,8 @@ fn calldatacopy() {
 
     let current_call_frame = vm.current_call_frame_mut();
     let memory = current_call_frame.memory.load_range(0, 2);
-    println!("{:?}", current_call_frame);
     assert_eq!(memory, vec![0x22, 0x33]);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 18);
 }
 
 #[test]
@@ -1558,6 +1560,7 @@ fn returndatasize() {
     let current_call_frame = vm.current_call_frame_mut();
     let top_of_stack = current_call_frame.stack.pop().unwrap();
     assert_eq!(top_of_stack, U256::from(3));
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1579,6 +1582,7 @@ fn returndatacopy() {
     let current_call_frame = vm.current_call_frame_mut();
     let memory = current_call_frame.memory.load_range(0, 2);
     assert_eq!(memory, vec![0xBB, 0xCC]);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 18);
 }
 
 #[test]
@@ -1615,7 +1619,6 @@ fn returndatacopy_being_set_by_parent() {
     vm.execute();
 
     let current_call_frame = vm.current_call_frame_mut();
-    println!("{:?}", current_call_frame);
 
     let result = current_call_frame.memory.load(0);
 
