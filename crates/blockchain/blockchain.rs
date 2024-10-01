@@ -143,17 +143,13 @@ pub fn validate_block(
     let spec = spec_id(state.database(), block.header.timestamp).unwrap();
 
     // Verify initial header validity against parent
-    let mut valid_header = validate_block_header(&block.header, parent_header);
+    validate_block_header(&block.header, parent_header).map_err(InvalidBlockError::from)?;
 
-    valid_header = match spec {
-        SpecId::CANCUN => {
-            valid_header && validate_cancun_header_fields(&block.header, parent_header)
-        }
-        _ => valid_header && validate_no_cancun_header_fields(&block.header),
+    match spec {
+        SpecId::CANCUN => validate_cancun_header_fields(&block.header, parent_header)
+            .map_err(InvalidBlockError::from)?,
+        _ => validate_no_cancun_header_fields(&block.header).map_err(InvalidBlockError::from)?,
     };
-    if !valid_header {
-        return Err(ChainError::InvalidBlock(InvalidBlockError::InvalidHeader));
-    }
 
     if spec == SpecId::CANCUN {
         verify_blob_gas_usage(block)?
