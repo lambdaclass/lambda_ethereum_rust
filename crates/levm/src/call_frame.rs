@@ -6,7 +6,8 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Default)]
-/// A call frame, or execution context, is TODO
+/// A call frame, or execution environment, is the context in which
+/// the EVM is currently executing.
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,

@@ -29,8 +29,8 @@ pub type WorldState = HashMap<Address, Account>;
 #[derive(Debug, Clone, Default)]
 struct Substate; // TODO
 
-/// Transaction environment, is the same for the whole transaction.
-/// Context, basically
+/// Transaction environment shared by all the call frames
+/// created by the current transaction.
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
     /// The sender address of the transaction that originated
@@ -44,7 +44,7 @@ pub struct Environment {
 }
 
 #[derive(Debug, Default)]
-/// Message, stuff needed for a call frame
+/// Items used by contract creation or message call.
 pub struct Message {
     /// The address of the account which owns the code that
     /// is executing.
@@ -67,6 +67,7 @@ pub struct Message {
     /// The depth of the present message-call or
     /// contract-creation.
     pub depth: u16,
+    /// The gas available.
     pub gas: U256,
 }
 
@@ -78,7 +79,7 @@ pub struct VM {
     /// transaction.
     accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
-    /// states .
+    /// states.
     world_state: WorldState,
     // pub remaining_gas: u64,
 }
