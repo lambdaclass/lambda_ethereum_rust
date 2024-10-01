@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::authentication::AuthenticationError;
 use ethereum_rust_blockchain::error::MempoolError;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum RpcErr {
     MethodNotFound,
     BadParams,

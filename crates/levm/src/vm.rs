@@ -2,7 +2,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
-    call_frame::CallFrame,
+    call_frame::{CallFrame, Log},
     constants::{
         MAX_CODE_SIZE, REVERT_FOR_CALL, REVERT_FOR_CREATE, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN,
     },
@@ -11,7 +11,7 @@ use crate::{
 extern crate ethereum_rust_rlp;
 use bytes::Bytes;
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_types::{Address, H160, H256, U256, U512};
+use ethereum_types::{Address, H160, H256, H32, U256, U512};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
@@ -36,7 +36,7 @@ pub type Db = HashMap<U256, H256>;
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>, // change to Address
+    pub accounts: HashMap<Address, Account>,
     pub block_env: BlockEnv,
     pub db: Db,
 }
@@ -329,6 +329,50 @@ impl VM {
                         .stack
                         .push(U256::from_big_endian(&result));
                 }
+                Opcode::CALLDATALOAD => {
+                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value = U256::from_big_endian(
+                        &current_call_frame.calldata.slice(offset..offset + 32),
+                    );
+                    current_call_frame.stack.push(value);
+                }
+                Opcode::CALLDATASIZE => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.calldata.len()));
+                }
+                Opcode::CALLDATACOPY => {
+                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let calldata_offset: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    if size == 0 {
+                        continue;
+                    }
+                    let data = current_call_frame
+                        .calldata
+                        .slice(calldata_offset..calldata_offset + size);
+
+                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                }
+                Opcode::RETURNDATASIZE => {
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.returndata.len()));
+                }
+                Opcode::RETURNDATACOPY => {
+                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let returndata_offset: usize =
+                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    if size == 0 {
+                        continue;
+                    }
+                    let data = current_call_frame
+                        .returndata
+                        .slice(returndata_offset..returndata_offset + size);
+                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                }
                 Opcode::JUMP => {
                     let jump_address = current_call_frame.stack.pop().unwrap();
                     current_call_frame.jump(jump_address);
@@ -532,6 +576,29 @@ impl VM {
                 Opcode::POP => {
                     current_call_frame.stack.pop().unwrap();
                 }
+                op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
+                    if current_call_frame.is_static {
+                        panic!("Cannot create log in static context"); // should return an error and halt
+                    }
+
+                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let topics = (0..number_of_topics)
+                        .map(|_| {
+                            let topic = current_call_frame.stack.pop().unwrap().as_u32();
+                            H32::from_slice(topic.to_be_bytes().as_ref())
+                        })
+                        .collect();
+
+                    let data = current_call_frame.memory.load_range(offset, size);
+                    let log = Log {
+                        address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
+                        topics,
+                        data: Bytes::from(data),
+                    };
+                    current_call_frame.logs.push(log);
+                }
                 Opcode::MLOAD => {
                     // spend_gas(3);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -572,7 +639,6 @@ impl VM {
                     if size == 0 {
                         continue;
                     }
-
                     current_call_frame
                         .memory
                         .copy(src_offset, dest_offset, size);
@@ -586,23 +652,18 @@ impl VM {
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
                         current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
                         continue;
                     }
-
                     // transfer value
                     // transfer(&current_call_frame.msg_sender, &address, value);
-
                     let callee_bytecode = self.get_account_bytecode(&address);
-
                     if callee_bytecode.is_empty() {
                         current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
                         continue;
                     }
-
                     let calldata = current_call_frame
                         .memory
                         .load_range(args_offset, args_size)
@@ -617,33 +678,25 @@ impl VM {
                         calldata,
                         ..Default::default()
                     };
-
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);
-
                     self.call_frames.push(current_call_frame.clone());
                     current_call_frame = new_call_frame;
                 }
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-
-                    let return_data = current_call_frame.memory.load_range(offset, size);
-
+                    let return_data = current_call_frame.memory.load_range(offset, size).into();
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(ret_offset), Some(_ret_size)) = (
+                        if let (Some(_ret_offset), Some(_ret_size)) = (
                             parent_call_frame.return_data_offset,
                             parent_call_frame.return_data_size,
                         ) {
-                            parent_call_frame
-                                .memory
-                                .store_bytes(ret_offset, &return_data);
+                            parent_call_frame.returndata = return_data;
                         }
-
                         parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
                         parent_call_frame.return_data_offset = None;
                         parent_call_frame.return_data_size = None;
-
                         current_call_frame = parent_call_frame.clone();
                     } else {
                         // excecution completed (?)
