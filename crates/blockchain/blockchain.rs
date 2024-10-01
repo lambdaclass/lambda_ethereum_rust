@@ -1,6 +1,8 @@
 pub mod constants;
 pub mod error;
 pub mod mempool;
+pub mod payload;
+
 use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK};
 use error::{ChainError, InvalidBlockError};
 use ethereum_rust_core::types::{
