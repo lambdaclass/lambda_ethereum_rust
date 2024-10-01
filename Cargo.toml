@@ -29,6 +29,8 @@ ethereum_rust-storage = { path = "./crates/storage", default-features = false, f
 ] }
 ethereum_rust-evm = { path = "./crates/evm", default-features = false, features = [
     "libmdbx",
+    "c-kzg",
+    "blst",
 ] }
 ethereum_rust-trie = { path = "./crates/trie", default-features = false, features = [
     "libmdbx",

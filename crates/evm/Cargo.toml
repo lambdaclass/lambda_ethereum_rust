@@ -25,6 +25,8 @@ lazy_static.workspace = true
 
 [features]
 default = ["in_memory"]
+c-kzg = ["revm/c-kzg"]
+blst = ["revm/blst"]
 in_memory = ["ethereum_rust-storage/in_memory"]
 libmdbx = ["ethereum_rust-storage/libmdbx"]
 
