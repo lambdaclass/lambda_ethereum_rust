@@ -2,7 +2,7 @@ use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
-    vm::{Account, VM},
+    vm::{Account, StorageSlot, VM},
 };
 
 // cargo test -p 'levm'
@@ -1385,14 +1385,14 @@ fn staticcall_changes_callframe_is_static() {
 }
 
 #[test]
-fn delegatecall_uses_same_target_address_and_regular_call_doesnt() {
-    // --- DELEGATECALL ---
-    let callee_return_value = U256::from(0xAAAAAAA);
+fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
+    // --- DELEGATECALL --- changes account 1 storage
+    let callee_return_value = U256::from(0xBBBBBBB);
     // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // offset
-        Operation::Mstore,
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
         Operation::Stop,
     ];
 
@@ -1429,33 +1429,22 @@ fn delegatecall_uses_same_target_address_and_regular_call_doesnt() {
 
     vm.execute();
 
-    let current_call_frame = vm.current_call_frame_mut().clone();
+    let storage_slot = vm.db.read_account_storage(&Address::from_low_u64_be(U256::from(1).low_u64()), &U256::zero());
+    let slot = StorageSlot {
+        original_value: U256::from(0xBBBBBBB),
+        current_value: U256::from(0xBBBBBBB),
+    };
 
-    assert_eq!(
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        current_call_frame.msg_sender
-    );
-    assert_eq!(
-        Address::from_low_u64_be(U256::from(5).low_u64()),
-        current_call_frame.to
-    );
-    assert_eq!(
-        Address::from_low_u64_be(U256::from(2).low_u64()),
-        current_call_frame.code_address
-    );
-    assert_eq!(
-        Some(Address::from_low_u64_be(U256::from(1).low_u64())),
-        current_call_frame.delegate
-    );
+    assert_eq!(storage_slot, Some(slot));
 
-    // --- CALL ---
+    // --- CALL --- changes account 2 storage
 
     let callee_return_value = U256::from(0xAAAAAAA);
     // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // offset
-        Operation::Mstore,
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
         Operation::Stop,
     ];
 
@@ -1493,21 +1482,13 @@ fn delegatecall_uses_same_target_address_and_regular_call_doesnt() {
 
     vm.execute();
 
-    let current_call_frame = vm.current_call_frame_mut();
+    let storage_slot = vm.db.read_account_storage(&callee_address, &U256::zero());
+    let slot = StorageSlot {
+        original_value: U256::from(0xAAAAAAA),
+        current_value: U256::from(0xAAAAAAA),
+    };
 
-    assert_eq!(
-        Address::from_low_u64_be(U256::from(1).low_u64()),
-        current_call_frame.msg_sender
-    );
-    assert_eq!(
-        Address::from_low_u64_be(U256::from(5).low_u64()),
-        current_call_frame.to
-    );
-    assert_eq!(
-        Address::from_low_u64_be(U256::from(2).low_u64()),
-        current_call_frame.code_address
-    );
-    assert_eq!(None, current_call_frame.delegate);
+    assert_eq!(storage_slot, Some(slot));
 }
 
 #[test]

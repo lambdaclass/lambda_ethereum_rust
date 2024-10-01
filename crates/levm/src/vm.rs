@@ -27,7 +27,7 @@ impl Account {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
