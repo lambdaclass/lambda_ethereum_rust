@@ -1188,7 +1188,6 @@ fn call_returns_if_bytecode_empty() {
     );
 
     vm.add_account(callee_address, callee_account);
-    println!("to excec");
     vm.execute();
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
@@ -1226,7 +1225,6 @@ fn call_changes_callframe_and_stores() {
     vm.execute();
 
     let current_call_frame = vm.current_call_frame_mut();
-    println!("{:?}", current_call_frame);
 
     let success = current_call_frame.stack.pop().unwrap() == U256::one();
     assert!(success);
@@ -1336,7 +1334,6 @@ fn nested_calls() {
 #[test]
 fn staticcall_changes_callframe_is_static() {
     let callee_return_value = U256::from(0xAAAAAAA);
-    // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // offset
@@ -1388,7 +1385,6 @@ fn staticcall_changes_callframe_is_static() {
 fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     // --- DELEGATECALL --- changes account 1 storage
     let callee_return_value = U256::from(0xBBBBBBB);
-    // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // key
@@ -1443,7 +1439,6 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     // --- CALL --- changes account 2 storage
 
     let callee_return_value = U256::from(0xAAAAAAA);
-    // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // key
