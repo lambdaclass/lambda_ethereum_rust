@@ -5,5 +5,4 @@ pub mod memory;
 pub mod opcodes;
 pub mod operations;
 pub mod primitives;
-mod transaction;
 pub mod vm;
