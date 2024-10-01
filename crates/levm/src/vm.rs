@@ -35,7 +35,7 @@ pub type Storage = HashMap<U256, H256>;
 pub type WorldState = HashMap<Address, Account>;
 
 #[derive(Debug, Clone, Default)]
-pub struct Substate; // TODO
+pub struct Substate; // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 
 /// Transaction environment shared by all the call frames
 /// created by the current transaction.
@@ -113,7 +113,7 @@ impl VM {
     // TODO: block and transaction, not this
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         // pub fn new(bytecode: Bytes, state: WorldState) -> Self {
-        // TODO: VALIDATE BLOCK AND TX
+        // TODO: VALIDATE BLOCK AND TX https://github.com/lambdaclass/ethereum_rust/issues/603
 
         // just for the tests
         let initial_account = Account::new(balance, bytecode.clone(), 0, Storage::default());
