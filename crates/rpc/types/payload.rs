@@ -213,7 +213,7 @@ impl PayloadStatus {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadResponse {
     pub execution_payload: ExecutionPayloadV3, // We only handle v3 payloads
@@ -222,7 +222,7 @@ pub struct ExecutionPayloadResponse {
     pub blobs_bundle: BlobsBundle,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlobsBundle {
     #[serde(with = "serde_utils::bytes::vec")]
