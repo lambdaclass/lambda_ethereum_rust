@@ -48,6 +48,7 @@ impl CallFrame {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         gas: U256,
         msg_sender: Address,

@@ -1342,7 +1342,7 @@ fn nested_calls() {
 #[test]
 fn staticcall_changes_callframe_is_static() {
     let callee_return_value = U256::from(0xAAAAAAA);
-    let callee_ops = vec![
+    let callee_ops = [
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // offset
         Operation::Mstore,
@@ -1393,7 +1393,7 @@ fn staticcall_changes_callframe_is_static() {
 fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     // --- DELEGATECALL --- changes account 1 storage
     let callee_return_value = U256::from(0xBBBBBBB);
-    let callee_ops = vec![
+    let callee_ops = [
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // key
         Operation::Sstore,
@@ -1447,7 +1447,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     // --- CALL --- changes account 2 storage
 
     let callee_return_value = U256::from(0xAAAAAAA);
-    let callee_ops = vec![
+    let callee_ops = [
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // key
         Operation::Sstore,
@@ -1501,7 +1501,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
     // --- DELEGATECALL
     let callee_return_value = U256::from(0xBBBBBBB);
-    let callee_ops = vec![
+    let callee_ops = [
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // key
         Operation::Sstore,
@@ -1552,7 +1552,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
     // --- CALLCODE ---
 
     let callee_return_value = U256::from(0xAAAAAAA);
-    let callee_ops = vec![
+    let callee_ops = [
         Operation::Push32(callee_return_value), // value
         Operation::Push32(U256::zero()),        // key
         Operation::Sstore,

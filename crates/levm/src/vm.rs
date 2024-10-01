@@ -899,6 +899,7 @@ impl VM {
         self.db.accounts.insert(address, account);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
