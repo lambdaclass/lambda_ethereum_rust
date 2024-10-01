@@ -1,9 +1,23 @@
+use ethereum_types::H32;
+
 use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
     vm::Message,
 };
+use std::collections::HashMap;
+
+/// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
+pub type TransientStorage = HashMap<(Address, U256), U256>;
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+/// Data record produced during the execution of a transaction.
+pub struct Log {
+    pub address: Address,
+    pub topics: Vec<H32>,
+    pub data: Bytes,
+}
 
 #[derive(Debug, Clone, Default)]
 /// A call frame, or execution environment, is the context in which
@@ -19,10 +33,13 @@ pub struct CallFrame {
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
-    pub return_data: Bytes,
-    // // where to store return data of subcall
+    pub returndata: Bytes,
+    // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub transient_storage: TransientStorage,
+    pub logs: Vec<Log>,
+    pub is_static: bool,
 }
 
 impl CallFrame {

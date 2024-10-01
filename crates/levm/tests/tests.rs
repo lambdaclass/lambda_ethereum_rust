@@ -1,6 +1,8 @@
+use ethereum_types::H32;
 use levm::{
+    block::TARGET_BLOB_GAS_PER_BLOCK,
     operations::Operation,
-    primitives::{Address, Bytes, U256},
+    primitives::{Address, Bytes, H256, U256},
     vm::{Account, VM},
 };
 
@@ -32,6 +34,14 @@ fn callee_return_bytecode(return_value: U256) -> Bytes {
     ops.iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>()
+}
+
+pub fn store_data_in_memory_operations(data: &[u8], memory_offset: usize) -> Vec<Operation> {
+    vec![
+        Operation::Push((32_u8, U256::from_big_endian(data))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Mstore,
+    ]
 }
 
 #[test]
@@ -1231,7 +1241,9 @@ fn call_changes_callframe_and_stores() {
 
     let ret_offset = 0;
     let ret_size = 32;
-    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    let return_data = current_call_frame
+        .returndata
+        .slice(ret_offset..ret_offset + ret_size);
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
 }
@@ -1261,6 +1273,10 @@ fn nested_calls() {
         Operation::Push32(callee2_return_value), // value
         Operation::Push32(U256::from(32)),       // offset
         Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // returndata_offset
+        Operation::Push32(U256::zero()),   // dest_offset
+        Operation::ReturnDataCopy,
         Operation::Push32(U256::from(64)), // size
         Operation::Push32(U256::zero()),   // offset
         Operation::Return,
@@ -1307,7 +1323,9 @@ fn nested_calls() {
 
     let ret_offset = 0;
     let ret_size = 64;
-    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+    let return_data = current_call_frame
+        .returndata
+        .slice(ret_offset..ret_offset + ret_size);
 
     let mut expected_bytes = vec![0u8; 64];
     // place 0xAAAAAAA at 0..32
@@ -1466,4 +1484,714 @@ fn jumpi_for_zero() {
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
+}
+
+#[test]
+fn calldataload() {
+    let calldata = vec![
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10,
+    ]
+    .into();
+    let ops = vec![
+        Operation::Push32(U256::from(0)), // offset
+        Operation::CallDataLoad,
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().calldata = calldata;
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let top_of_stack = current_call_frame.stack.pop().unwrap();
+    assert_eq!(
+        top_of_stack,
+        U256::from_big_endian(&[
+            0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE,
+            0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+            0x0D, 0x0E, 0x0F, 0x10
+        ])
+    );
+}
+
+#[test]
+fn calldataload_being_set_by_parent() {
+    let ops = vec![
+        Operation::Push32(U256::zero()), // offset
+        Operation::CallDataLoad,
+        Operation::Push32(U256::from(0)), // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::zero()),   // offset
+        Operation::Return,
+    ];
+
+    let callee_bytecode = ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let calldata = [
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10,
+    ];
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from_big_endian(&calldata[..32])), // value
+        Operation::Push32(U256::from(0)),                          // offset
+        Operation::Mstore,
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    let calldata = [
+        0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+        0x0F, 0x10,
+    ];
+
+    let expected_data = U256::from_big_endian(&calldata[..32]);
+
+    assert_eq!(expected_data, current_call_frame.memory.load(0));
+}
+
+#[test]
+fn calldatasize() {
+    let calldata = vec![0x11, 0x22, 0x33].into();
+    let ops = vec![Operation::CallDataSize, Operation::Stop];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().calldata = calldata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let top_of_stack = current_call_frame.stack.pop().unwrap();
+    assert_eq!(top_of_stack, U256::from(3));
+}
+
+#[test]
+fn calldatacopy() {
+    let calldata = vec![0x11, 0x22, 0x33, 0x44, 0x55].into();
+    let ops = vec![
+        Operation::Push32(U256::from(2)), // size
+        Operation::Push32(U256::from(1)), // calldata_offset
+        Operation::Push32(U256::from(0)), // dest_offset
+        Operation::CallDataCopy,
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().calldata = calldata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let memory = current_call_frame.memory.load_range(0, 2);
+    println!("{:?}", current_call_frame);
+    assert_eq!(memory, vec![0x22, 0x33]);
+}
+
+#[test]
+fn returndatasize() {
+    let returndata = vec![0xAA, 0xBB, 0xCC].into();
+    let ops = vec![Operation::ReturnDataSize, Operation::Stop];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().returndata = returndata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let top_of_stack = current_call_frame.stack.pop().unwrap();
+    assert_eq!(top_of_stack, U256::from(3));
+}
+
+#[test]
+fn returndatacopy() {
+    let returndata = vec![0xAA, 0xBB, 0xCC, 0xDD].into();
+    let ops = vec![
+        Operation::Push32(U256::from(2)), // size
+        Operation::Push32(U256::from(1)), // returndata_offset
+        Operation::Push32(U256::from(0)), // dest_offset
+        Operation::ReturnDataCopy,
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&ops);
+
+    vm.current_call_frame_mut().returndata = returndata;
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    let memory = current_call_frame.memory.load_range(0, 2);
+    assert_eq!(memory, vec![0xBB, 0xCC]);
+}
+
+#[test]
+fn returndatacopy_being_set_by_parent() {
+    let callee_bytecode = callee_return_bytecode(U256::from(0xAAAAAAA));
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(U256::from(2)),       // callee address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Push32(U256::from(32)), // size
+        Operation::Push32(U256::from(0)),  // returndata offset
+        Operation::Push32(U256::from(0)),  // dest offset
+        Operation::ReturnDataCopy,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+    println!("{:?}", current_call_frame);
+
+    let result = current_call_frame.memory.load(0);
+
+    assert_eq!(result, U256::from(0xAAAAAAA));
+}
+
+#[test]
+fn block_hash_op() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = 3_u8;
+    let expected_block_hash = U256::from(block_hash);
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = U256::from(current_block_number);
+    vm.db
+        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn block_hash_same_block_number() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = block_number;
+    let expected_block_hash = U256::zero();
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = U256::from(current_block_number);
+    vm.db
+        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn block_hash_block_number_not_from_recent_256() {
+    let block_number = 1_u8;
+    let block_hash = 12345678;
+    let current_block_number = 258;
+    let expected_block_hash = U256::zero();
+
+    let operations = [
+        Operation::Push((1, U256::from(block_number))),
+        Operation::BlockHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = U256::from(current_block_number);
+    vm.db
+        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        expected_block_hash
+    );
+}
+
+#[test]
+fn coinbase_op() {
+    let coinbase_address = 100;
+
+    let operations = [Operation::Coinbase, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.coinbase = Address::from_low_u64_be(coinbase_address);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(coinbase_address)
+    );
+}
+
+#[test]
+fn timestamp_op() {
+    let timestamp = U256::from(100000);
+
+    let operations = [Operation::Timestamp, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.timestamp = timestamp;
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), timestamp);
+}
+
+#[test]
+fn number_op() {
+    let block_number = U256::from(1000);
+
+    let operations = [Operation::Number, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.number = block_number;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        block_number
+    );
+}
+
+#[test]
+fn prevrandao_op() {
+    let prevrandao = H256::from_low_u64_be(2000);
+
+    let operations = [Operation::Prevrandao, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.prev_randao = Some(prevrandao);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from_big_endian(&prevrandao.0)
+    );
+}
+
+#[test]
+fn gaslimit_op() {
+    let gas_limit = 1000;
+
+    let operations = [Operation::Gaslimit, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.gas_limit = gas_limit;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(gas_limit)
+    );
+}
+
+#[test]
+fn chain_id_op() {
+    let chain_id = 1;
+
+    let operations = [Operation::Chainid, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.chain_id = chain_id;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(chain_id)
+    );
+}
+
+#[test]
+fn basefee_op() {
+    let base_fee_per_gas = U256::from(1000);
+
+    let operations = [Operation::Basefee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.base_fee_per_gas = base_fee_per_gas;
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        base_fee_per_gas
+    );
+}
+
+#[test]
+fn blob_base_fee_op() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
+    vm.block_env.blob_gas_used = Some(0);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(2)
+    );
+}
+
+#[test]
+fn blob_base_fee_minimun_cost() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.block_env.excess_blob_gas = Some(0);
+    vm.block_env.blob_gas_used = Some(0);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::one()
+    );
+}
+
+#[test]
+fn log0() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics.len(), 0);
+}
+
+#[test]
+fn log1() {
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(1),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+}
+
+#[test]
+fn log2() {
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+    let mut topic2: [u8; 4] = [0x00; 4];
+    topic2[3] = 2;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((32_u8, U256::from_big_endian(&topic2))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(2),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(
+        logs[0].topics,
+        vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
+    );
+}
+
+#[test]
+fn log3() {
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+    let mut topic2: [u8; 4] = [0x00; 4];
+    topic2[3] = 2;
+    let mut topic3: [u8; 4] = [0x00; 4];
+    topic3[3] = 3;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((32_u8, U256::from_big_endian(&topic3))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic2))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(3),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(
+        logs[0].topics,
+        vec![
+            H32::from_slice(&topic1),
+            H32::from_slice(&topic2),
+            H32::from_slice(&topic3)
+        ]
+    );
+}
+
+#[test]
+fn log4() {
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+    let mut topic2: [u8; 4] = [0x00; 4];
+    topic2[3] = 2;
+    let mut topic3: [u8; 4] = [0x00; 4];
+    topic3[3] = 3;
+    let mut topic4: [u8; 4] = [0x00; 4];
+    topic4[3] = 4;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((32_u8, U256::from_big_endian(&topic4))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic3))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic2))),
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(4),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(
+        logs[0].topics,
+        vec![
+            H32::from_slice(&topic1),
+            H32::from_slice(&topic2),
+            H32::from_slice(&topic3),
+            H32::from_slice(&topic4)
+        ]
+    );
+}
+
+#[test]
+fn log_with_0_data_size() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 0_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, Vec::new());
+    assert_eq!(logs[0].topics.len(), 0);
+}
+
+#[test]
+#[should_panic]
+fn cant_create_log_in_static_context() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 0_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm: VM = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().is_static = true;
+    vm.execute();
+}
+
+#[test]
+fn log_with_data_in_memory_smaller_than_size() {
+    let data: [u8; 16] = [0xff; 16];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let mut data = vec![0_u8; 16];
+    data.extend(vec![0xff_u8; 16]);
+
+    assert_eq!(logs.len(), 1);
+    assert_eq!(logs[0].data, data);
+    assert_eq!(logs[0].topics.len(), 0);
+}
+
+#[test]
+fn multiple_logs_of_different_types() {
+    let mut topic1: [u8; 4] = [0x00; 4];
+    topic1[3] = 1;
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((32_u8, U256::from_big_endian(&topic1))),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(1),
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute();
+
+    let logs = &vm.current_call_frame_mut().logs;
+    let data = [0xff_u8; 32].as_slice();
+    assert_eq!(logs.len(), 2);
+    assert_eq!(logs[0].data, data.to_vec());
+    assert_eq!(logs[1].data, data.to_vec());
+    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[1].topics.len(), 0);
 }

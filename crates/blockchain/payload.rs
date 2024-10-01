@@ -8,11 +8,18 @@ use ethereum_rust_core::{
     },
     Address, Bloom, Bytes, H256, U256,
 };
+use ethereum_rust_evm::{
+    beacon_root_contract_call, evm_state, get_state_transitions, process_withdrawals, spec_id,
+    SpecId,
+};
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::Store;
 use sha3::{Digest, Keccak256};
 
-use crate::constants::{GAS_LIMIT_BOUND_DIVISOR, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK};
+use crate::{
+    constants::{GAS_LIMIT_BOUND_DIVISOR, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK},
+    error::ChainError,
+};
 
 pub struct BuildPayloadArgs {
     pub parent: BlockHash,
@@ -44,17 +51,15 @@ impl BuildPayloadArgs {
 
 /// Builds a new payload based on the payload arguments
 // Basic payload block building, can and should be improved
-pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, StoreError> {
+pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, ChainError> {
     // TODO: check where we should get builder values from
     const DEFAULT_BUILDER_GAS_CEIL: u64 = 30_000_000;
-    // Presence of a parent block should have been checked or guaranteed before calling this function
-    // So we can treat a missing parent block as an internal storage error
     let parent_block = storage
         .get_block_header_by_hash(args.parent)?
-        .ok_or_else(|| StoreError::Custom("unexpected missing parent block".to_string()))?;
+        .ok_or_else(|| ChainError::ParentNotFound)?;
     let chain_config = storage.get_chain_config()?;
     let gas_limit = calc_gas_limit(parent_block.gas_limit, DEFAULT_BUILDER_GAS_CEIL);
-    Ok(Block {
+    let mut payload = Block {
         header: BlockHeader {
             parent_hash: args.parent,
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -96,7 +101,19 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
             ommers: Vec::new(),
             withdrawals: Some(args.withdrawals.clone()),
         },
-    })
+    };
+    // Apply withdrawals & call beacon root contract, and obtain the new state root
+    let spec_id = spec_id(storage, args.timestamp)?;
+    let mut evm_state = evm_state(storage.clone(), parent_block.number);
+    if args.beacon_root.is_some() && spec_id == SpecId::CANCUN {
+        beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
+    }
+    process_withdrawals(&mut evm_state, &args.withdrawals)?;
+    let account_updates = get_state_transitions(&mut evm_state);
+    payload.header.state_root = storage
+        .apply_account_updates(parent_block.number, &account_updates)?
+        .unwrap_or_default();
+    Ok(payload)
 }
 
 fn calc_gas_limit(parent_gas_limit: u64, desired_limit: u64) -> u64 {
@@ -126,4 +143,21 @@ fn calc_excess_blob_gas(parent_excess_blob_gas: u64, parent_blob_gas_used: u64) 
     } else {
         excess_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
     }
+}
+
+/// Calculates the total fees paid by the payload block
+/// Only potential errors are storage errors which should be treated as internal errors by rpc providers
+pub fn payload_block_value(block: &Block, storage: &Store) -> Option<U256> {
+    let mut total_fee = U256::zero();
+    let mut last_cummulative_gas_used = 0;
+    for (index, tx) in block.body.transactions.iter().enumerate() {
+        // Execution already succeded by this point so we can asume the fee is valid
+        let fee = tx.effective_gas_tip(block.header.base_fee_per_gas)?;
+        let receipt = storage
+            .get_receipt(block.header.number, index as u64)
+            .ok()??;
+        total_fee += U256::from(fee) * (receipt.cumulative_gas_used - last_cummulative_gas_used);
+        last_cummulative_gas_used = receipt.cumulative_gas_used;
+    }
+    Some(total_fee)
 }
