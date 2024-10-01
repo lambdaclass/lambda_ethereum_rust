@@ -19,7 +19,7 @@ fn push0_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame_mut().stack[0], U256::zero());
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], U256::zero());
     assert_eq!(vm.current_call_frame_mut().pc(), 2);
 }
 
@@ -32,7 +32,7 @@ fn push1_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 3);
 }
 
@@ -45,7 +45,7 @@ fn push5_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 7);
 }
 
@@ -58,7 +58,7 @@ fn push31_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 33);
 }
 
@@ -71,7 +71,7 @@ fn push32_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
     assert_eq!(vm.current_call_frame_mut().pc(), 34);
 }
 
@@ -92,8 +92,14 @@ fn dup1_ok() {
 
     assert_eq!(stack_len, 2);
     assert_eq!(vm.current_call_frame_mut().pc(), 4);
-    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1], value);
-    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 2], value);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1],
+        value
+    );
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 2],
+        value
+    );
 }
 
 #[test]
@@ -112,8 +118,14 @@ fn dup16_ok() {
 
     assert_eq!(stack_len, 17);
     assert_eq!(vm.current_call_frame_mut().pc, 19);
-    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1], value);
-    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 17], value);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1],
+        value
+    );
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 17],
+        value
+    );
 }
 
 #[test]
@@ -141,8 +153,8 @@ fn swap1_ok() {
 
     assert_eq!(vm.current_call_frame_mut().stack.len(), 2);
     assert_eq!(vm.current_call_frame_mut().pc(), 6);
-    assert_eq!(vm.current_call_frame_mut().stack[0], top);
-    assert_eq!(vm.current_call_frame_mut().stack[1], bottom);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], top);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[1], bottom);
 }
 
 #[test]
@@ -162,8 +174,14 @@ fn swap16_ok() {
 
     assert_eq!(stack_len, 17);
     assert_eq!(vm.current_call_frame_mut().pc(), 21);
-    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1], bottom);
-    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1 - 16], top);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1],
+        bottom
+    );
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1 - 16],
+        top
+    );
 }
 
 #[test]
@@ -207,14 +225,14 @@ fn transient_store() {
 }
 
 #[test]
-#[should_panic]
 fn transient_store_no_values_panics() {
     let operations = [Operation::Tstore, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
     assert!(vm.current_call_frame_mut().transient_storage.is_empty());
 
-    vm.execute();
+    let result = vm.execute();
+    assert!(result.is_err());
 }
 
 #[test]
@@ -234,5 +252,8 @@ fn transient_load() {
 
     vm.execute();
 
-    assert_eq!(*vm.current_call_frame_mut().stack.last().unwrap(), value)
+    assert_eq!(
+        *vm.current_call_frame_mut().stack.stack.last().unwrap(),
+        value
+    )
 }

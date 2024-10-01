@@ -5,6 +5,7 @@ use crate::{
     call_frame::{CallFrame, Log},
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
+    vm_result::{ExecutionResult, ResultReason, VMError},
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H256, H32, U256, U512};
@@ -61,46 +62,56 @@ impl VM {
         }
     }
 
-    pub fn execute(&mut self) {
+    pub fn write_result(&self) -> ExecutionResult {
+        ExecutionResult::Revert {
+            reason: ResultReason::Stop {},
+            gas_used: 1,
+        }
+    }
+
+    pub fn execute(&mut self) -> Result<ExecutionResult, VMError> {
         let block_env = self.block_env.clone();
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             match opcode {
-                Opcode::STOP => break,
+                Opcode::STOP => {
+                    self.call_frames.push(current_call_frame);
+                    return Ok(self.write_result());
+                }
                 Opcode::ADD => {
-                    let augend = current_call_frame.stack.pop().unwrap();
-                    let addend = current_call_frame.stack.pop().unwrap();
+                    let augend = current_call_frame.stack.pop()?;
+                    let addend = current_call_frame.stack.pop()?;
                     let sum = augend.overflowing_add(addend).0;
-                    current_call_frame.stack.push(sum);
+                    current_call_frame.stack.push(sum)?;
                 }
                 Opcode::MUL => {
-                    let multiplicand = current_call_frame.stack.pop().unwrap();
-                    let multiplier = current_call_frame.stack.pop().unwrap();
+                    let multiplicand = current_call_frame.stack.pop()?;
+                    let multiplier = current_call_frame.stack.pop()?;
                     let product = multiplicand.overflowing_mul(multiplier).0;
-                    current_call_frame.stack.push(product);
+                    current_call_frame.stack.push(product)?;
                 }
                 Opcode::SUB => {
-                    let minuend = current_call_frame.stack.pop().unwrap();
-                    let subtrahend = current_call_frame.stack.pop().unwrap();
+                    let minuend = current_call_frame.stack.pop()?;
+                    let subtrahend = current_call_frame.stack.pop()?;
                     let difference = minuend.overflowing_sub(subtrahend).0;
-                    current_call_frame.stack.push(difference);
+                    current_call_frame.stack.push(difference)?;
                 }
                 Opcode::DIV => {
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
                     let quotient = dividend / divisor;
-                    current_call_frame.stack.push(quotient);
+                    current_call_frame.stack.push(quotient)?;
                 }
                 Opcode::SDIV => {
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -124,23 +135,23 @@ impl VM {
                         quotient
                     };
 
-                    current_call_frame.stack.push(quotient);
+                    current_call_frame.stack.push(quotient)?;
                 }
                 Opcode::MOD => {
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
                     let remainder = dividend % divisor;
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                 }
                 Opcode::SMOD => {
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -164,14 +175,14 @@ impl VM {
                         remainder
                     };
 
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                 }
                 Opcode::ADDMOD => {
-                    let augend = current_call_frame.stack.pop().unwrap();
-                    let addend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let augend = current_call_frame.stack.pop()?;
+                    let addend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
                     let (sum, overflow) = augend.overflowing_add(addend);
@@ -180,15 +191,15 @@ impl VM {
                         remainder = remainder.overflowing_sub(divisor).0;
                     }
 
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                 }
                 Opcode::MULMOD => {
-                    let multiplicand = U512::from(current_call_frame.stack.pop().unwrap());
+                    let multiplicand = U512::from(current_call_frame.stack.pop()?);
 
-                    let multiplier = U512::from(current_call_frame.stack.pop().unwrap());
-                    let divisor = U512::from(current_call_frame.stack.pop().unwrap());
+                    let multiplier = U512::from(current_call_frame.stack.pop()?);
+                    let divisor = U512::from(current_call_frame.stack.pop()?);
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -206,17 +217,17 @@ impl VM {
                     // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
                     result.reverse();
                     let remainder = U256::from(result.as_slice());
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                 }
                 Opcode::EXP => {
-                    let base = current_call_frame.stack.pop().unwrap();
-                    let exponent = current_call_frame.stack.pop().unwrap();
+                    let base = current_call_frame.stack.pop()?;
+                    let exponent = current_call_frame.stack.pop()?;
                     let power = base.overflowing_pow(exponent).0;
-                    current_call_frame.stack.push(power);
+                    current_call_frame.stack.push(power)?;
                 }
                 Opcode::SIGNEXTEND => {
-                    let byte_size = current_call_frame.stack.pop().unwrap();
-                    let value_to_extend = current_call_frame.stack.pop().unwrap();
+                    let byte_size = current_call_frame.stack.pop()?;
+                    let value_to_extend = current_call_frame.stack.pop()?;
 
                     let bits_per_byte = U256::from(8);
                     let sign_bit_position_on_byte = 7;
@@ -231,23 +242,23 @@ impl VM {
                     } else {
                         value_to_extend & sign_bit_mask
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::LT => {
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let result = if lho < rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::GT => {
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let result = if lho > rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::SLT => {
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let lho_is_negative = lho.bit(255);
                     let rho_is_negative = rho.bit(255);
                     let result = if lho_is_negative == rho_is_negative {
@@ -265,11 +276,11 @@ impl VM {
                             U256::zero()
                         }
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::SGT => {
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let lho_is_negative = lho.bit(255);
                     let rho_is_negative = rho.bit(255);
                     let result = if lho_is_negative == rho_is_negative {
@@ -287,30 +298,30 @@ impl VM {
                             U256::zero()
                         }
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::EQ => {
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let result = if lho == rho {
                         U256::one()
                     } else {
                         U256::zero()
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::ISZERO => {
-                    let operand = current_call_frame.stack.pop().unwrap();
+                    let operand = current_call_frame.stack.pop()?;
                     let result = if operand == U256::zero() {
                         U256::one()
                     } else {
                         U256::zero()
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                 }
                 Opcode::KECCAK256 => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
                     let value_bytes = current_call_frame.memory.load_range(offset, size);
 
                     let mut hasher = Keccak256::new();
@@ -321,11 +332,11 @@ impl VM {
                         .push(U256::from_big_endian(&result));
                 }
                 Opcode::CALLDATALOAD => {
-                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
                     let value = U256::from_big_endian(
                         &current_call_frame.calldata.slice(offset..offset + 32),
                     );
-                    current_call_frame.stack.push(value);
+                    current_call_frame.stack.push(value)?;
                 }
                 Opcode::CALLDATASIZE => {
                     current_call_frame
@@ -333,10 +344,10 @@ impl VM {
                         .push(U256::from(current_call_frame.calldata.len()));
                 }
                 Opcode::CALLDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
                     let calldata_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop()?.try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
@@ -352,10 +363,10 @@ impl VM {
                         .push(U256::from(current_call_frame.returndata.len()));
                 }
                 Opcode::RETURNDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
                     let returndata_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop()?.try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
@@ -365,12 +376,12 @@ impl VM {
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
                 Opcode::JUMP => {
-                    let jump_address = current_call_frame.stack.pop().unwrap();
+                    let jump_address = current_call_frame.stack.pop()?;
                     current_call_frame.jump(jump_address);
                 }
                 Opcode::JUMPI => {
-                    let jump_address = current_call_frame.stack.pop().unwrap();
-                    let condition = current_call_frame.stack.pop().unwrap();
+                    let jump_address = current_call_frame.stack.pop()?;
+                    let condition = current_call_frame.stack.pop()?;
                     if condition != U256::zero() {
                         current_call_frame.jump(jump_address);
                     }
@@ -384,7 +395,7 @@ impl VM {
                         .push(U256::from(current_call_frame.pc - 1));
                 }
                 Opcode::BLOCKHASH => {
-                    let block_number = current_call_frame.stack.pop().unwrap();
+                    let block_number = current_call_frame.stack.pop()?;
 
                     // If number is not in the valid range (last 256 blocks), return zero.
                     if block_number
@@ -393,7 +404,7 @@ impl VM {
                             .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
                         || block_number >= block_env.number
                     {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -402,20 +413,20 @@ impl VM {
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     };
                 }
                 Opcode::COINBASE => {
                     let coinbase = block_env.coinbase;
-                    current_call_frame.stack.push(address_to_word(coinbase));
+                    current_call_frame.stack.push(address_to_word(coinbase))?;
                 }
                 Opcode::TIMESTAMP => {
                     let timestamp = block_env.timestamp;
-                    current_call_frame.stack.push(timestamp);
+                    current_call_frame.stack.push(timestamp)?;
                 }
                 Opcode::NUMBER => {
                     let block_number = block_env.number;
-                    current_call_frame.stack.push(block_number);
+                    current_call_frame.stack.push(block_number)?;
                 }
                 Opcode::PREVRANDAO => {
                     let randao = block_env.prev_randao.unwrap_or_default();
@@ -425,11 +436,11 @@ impl VM {
                 }
                 Opcode::GASLIMIT => {
                     let gas_limit = block_env.gas_limit;
-                    current_call_frame.stack.push(U256::from(gas_limit));
+                    current_call_frame.stack.push(U256::from(gas_limit))?;
                 }
                 Opcode::CHAINID => {
                     let chain_id = block_env.chain_id;
-                    current_call_frame.stack.push(U256::from(chain_id));
+                    current_call_frame.stack.push(U256::from(chain_id))?;
                 }
                 Opcode::SELFBALANCE => {
                     todo!("when we have accounts implemented")
@@ -443,10 +454,10 @@ impl VM {
                 }
                 Opcode::BLOBBASEFEE => {
                     let blob_base_fee = block_env.calculate_blob_gas_price();
-                    current_call_frame.stack.push(blob_base_fee);
+                    current_call_frame.stack.push(blob_base_fee)?;
                 }
                 Opcode::PUSH0 => {
-                    current_call_frame.stack.push(U256::zero());
+                    current_call_frame.stack.push(U256::zero())?;
                 }
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
@@ -465,36 +476,36 @@ impl VM {
                         .get(current_call_frame.pc()..current_call_frame.pc() + 32)
                         .unwrap();
                     let value_to_push = U256::from(next_32_bytes);
-                    current_call_frame.stack.push(value_to_push);
+                    current_call_frame.stack.push(value_to_push)?;
                     current_call_frame.increment_pc_by(32);
                 }
                 Opcode::AND => {
                     // spend_gas(3);
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a & b);
+                    let a = current_call_frame.stack.pop()?;
+                    let b = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(a & b)?;
                 }
                 Opcode::OR => {
                     // spend_gas(3);
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a | b);
+                    let a = current_call_frame.stack.pop()?;
+                    let b = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(a | b)?;
                 }
                 Opcode::XOR => {
                     // spend_gas(3);
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a ^ b);
+                    let a = current_call_frame.stack.pop()?;
+                    let b = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(a ^ b)?;
                 }
                 Opcode::NOT => {
                     // spend_gas(3);
-                    let a = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(!a);
+                    let a = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(!a)?;
                 }
                 Opcode::BYTE => {
                     // spend_gas(3);
-                    let op1 = current_call_frame.stack.pop().unwrap();
-                    let op2 = current_call_frame.stack.pop().unwrap();
+                    let op1 = current_call_frame.stack.pop()?;
+                    let op2 = current_call_frame.stack.pop()?;
 
                     let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
@@ -503,32 +514,32 @@ impl VM {
                             .stack
                             .push(U256::from(op2.byte(31 - byte_index)));
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     }
                 }
                 Opcode::SHL => {
                     // spend_gas(3);
-                    let shift = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let shift = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     if shift < U256::from(256) {
-                        current_call_frame.stack.push(value << shift);
+                        current_call_frame.stack.push(value << shift)?;
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     }
                 }
                 Opcode::SHR => {
                     // spend_gas(3);
-                    let shift = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let shift = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     if shift < U256::from(256) {
-                        current_call_frame.stack.push(value >> shift);
+                        current_call_frame.stack.push(value >> shift)?;
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     }
                 }
                 Opcode::SAR => {
-                    let shift = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let shift = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     let res = if shift < U256::from(256) {
                         arithmetic_shift_right(value, shift)
                     } else if value.bit(255) {
@@ -536,7 +547,7 @@ impl VM {
                     } else {
                         U256::zero()
                     };
-                    current_call_frame.stack.push(res);
+                    current_call_frame.stack.push(res)?;
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
@@ -549,7 +560,7 @@ impl VM {
                         .stack
                         .get(current_call_frame.stack.len() - depth as usize)
                         .unwrap();
-                    current_call_frame.stack.push(*value_at_depth);
+                    current_call_frame.stack.push(*value_at_depth)?;
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
@@ -565,7 +576,7 @@ impl VM {
                         .swap(stack_top_index - 1, to_swap_index - 1);
                 }
                 Opcode::POP => {
-                    current_call_frame.stack.pop().unwrap();
+                    current_call_frame.stack.pop()?;
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     if current_call_frame.is_static {
@@ -573,14 +584,13 @@ impl VM {
                     }
 
                     let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let topics = (0..number_of_topics)
-                        .map(|_| {
-                            let topic = current_call_frame.stack.pop().unwrap().as_u32();
-                            H32::from_slice(topic.to_be_bytes().as_ref())
-                        })
-                        .collect();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let mut topics = Vec::new();
+                    for _ in 0..number_of_topics {
+                        let topic = current_call_frame.stack.pop()?.as_u32();
+                        topics.push(H32::from_slice(topic.to_be_bytes().as_ref()));
+                    }
 
                     let data = current_call_frame.memory.load_range(offset, size);
                     let log = Log {
@@ -592,14 +602,14 @@ impl VM {
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
                     let value = current_call_frame.memory.load(offset);
-                    current_call_frame.stack.push(value);
+                    current_call_frame.stack.push(value)?;
                 }
                 Opcode::MSTORE => {
                     // spend_gas(3);
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let value = current_call_frame.stack.pop()?;
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
 
@@ -607,8 +617,8 @@ impl VM {
                 }
                 Opcode::MSTORE8 => {
                     // spend_gas(3);
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let value = current_call_frame.stack.pop()?;
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
 
@@ -624,9 +634,9 @@ impl VM {
                 }
                 Opcode::MCOPY => {
                     // spend_gas(3) + dynamic gas
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let src_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let src_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
                     if size == 0 {
                         continue;
                     }
@@ -635,24 +645,26 @@ impl VM {
                         .copy(src_offset, dest_offset, size);
                 }
                 Opcode::CALL => {
-                    let gas = current_call_frame.stack.pop().unwrap();
+                    let gas = current_call_frame.stack.pop()?;
                     let address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
-                    let value = current_call_frame.stack.pop().unwrap();
-                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+                    let value = current_call_frame.stack.pop()?;
+                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                         continue;
                     }
                     // transfer value
                     // transfer(&current_call_frame.msg_sender, &address, value);
                     let callee_bytecode = self.get_account_bytecode(&address);
                     if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+                        current_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_CALL))?;
                         continue;
                     }
                     let calldata = current_call_frame
@@ -675,8 +687,8 @@ impl VM {
                     current_call_frame = new_call_frame;
                 }
                 Opcode::RETURN => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
                     let return_data = current_call_frame.memory.load_range(offset, size).into();
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
                         if let (Some(_ret_offset), Some(_ret_size)) = (
@@ -685,7 +697,9 @@ impl VM {
                         ) {
                             parent_call_frame.returndata = return_data;
                         }
-                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
+                        parent_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_RETURN))?;
                         parent_call_frame.return_data_offset = None;
                         parent_call_frame.return_data_size = None;
                         current_call_frame = parent_call_frame.clone();
@@ -698,18 +712,18 @@ impl VM {
                     }
                 }
                 Opcode::TLOAD => {
-                    let key = current_call_frame.stack.pop().unwrap();
+                    let key = current_call_frame.stack.pop()?;
                     let value = current_call_frame
                         .transient_storage
                         .get(&(current_call_frame.msg_sender, key))
                         .cloned()
                         .unwrap_or(U256::zero());
 
-                    current_call_frame.stack.push(value);
+                    current_call_frame.stack.push(value)?;
                 }
                 Opcode::TSTORE => {
-                    let key = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let key = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
 
                     current_call_frame
                         .transient_storage
@@ -718,7 +732,7 @@ impl VM {
                 _ => unimplemented!(),
             }
         }
-        self.call_frames.push(current_call_frame);
+        Ok(self.write_result())
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {

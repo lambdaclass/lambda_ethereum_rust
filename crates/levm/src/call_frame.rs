@@ -4,6 +4,7 @@ use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
+    vm_result::VMError,
 };
 use std::collections::HashMap;
 
@@ -19,6 +20,39 @@ pub struct Log {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct Stack {
+    pub stack: Vec<U256>,
+}
+
+impl Stack {
+    pub fn pop(&mut self) -> Result<U256, VMError> {
+        self.stack
+            .pop()
+            .ok_or(VMError::StackError("Stack underflow".to_string()))
+    }
+
+    pub fn push(&mut self, value: U256) -> Result<(), VMError> {
+        if self.stack.len() >= 1024 {
+            return Err(VMError::StackError("Stack overflow".to_string()));
+        }
+        self.stack.push(value);
+        Ok(())
+    }
+
+    pub fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    pub fn get(&self, index: usize) -> Option<&U256> {
+        self.stack.get(index)
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.stack.swap(a, b)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
@@ -27,7 +61,7 @@ pub struct CallFrame {
     pub bytecode: Bytes,
     pub delegate: Option<Address>,
     pub msg_value: U256,
-    pub stack: Vec<U256>, // max 1024 in the future
+    pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
     pub returndata: Bytes,
