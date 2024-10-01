@@ -469,50 +469,6 @@ impl VM {
                         .slice(returndata_offset..returndata_offset + size);
                     current_call_frame.memory.store_bytes(dest_offset, &data);
                 }
-                Opcode::CALLDATALOAD => {
-                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let value = U256::from_big_endian(
-                        &current_call_frame.calldata.slice(offset..offset + 32),
-                    );
-                    current_call_frame.stack.push(value);
-                }
-                Opcode::CALLDATASIZE => {
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.calldata.len()));
-                }
-                Opcode::CALLDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let calldata_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    if size == 0 {
-                        continue;
-                    }
-                    let data = current_call_frame
-                        .calldata
-                        .slice(calldata_offset..calldata_offset + size);
-
-                    current_call_frame.memory.store_bytes(dest_offset, &data);
-                }
-                Opcode::RETURNDATASIZE => {
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.returndata.len()));
-                }
-                Opcode::RETURNDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let returndata_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    if size == 0 {
-                        continue;
-                    }
-                    let data = current_call_frame
-                        .returndata
-                        .slice(returndata_offset..returndata_offset + size);
-                    current_call_frame.memory.store_bytes(dest_offset, &data);
-                }
                 Opcode::JUMP => {
                     if tx_env.consumed_gas + gas_cost::JUMP > tx_env.gas_limit {
                         break; // should revert the tx
