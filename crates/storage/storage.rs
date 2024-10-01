@@ -1,4 +1,3 @@
-#[cfg(any(feature = "libmdbx", feature = "libmdbx"))]
 use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
@@ -32,7 +31,6 @@ pub struct Store {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum EngineType {
-    #[cfg(any(feature = "libmdbx", feature = "libmdbx"))]
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
@@ -76,7 +74,6 @@ impl Store {
             EngineType::Libmdbx => Self {
                 engine: Arc::new(LibmdbxStore::new(_path)?),
             },
-            #[cfg(any(feature = "libmdbx", feature = "libmdbx"))]
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
             },

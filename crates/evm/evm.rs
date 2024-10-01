@@ -3,7 +3,6 @@ mod errors;
 mod execution_result;
 
 use db::StoreWrapper;
-use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
 use ethereum_rust_core::{
