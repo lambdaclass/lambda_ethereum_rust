@@ -65,7 +65,8 @@ impl VM {
         let block_env = self.block_env.clone();
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
-            match current_call_frame.next_opcode().unwrap() {
+            let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            match opcode {
                 Opcode::STOP => break,
                 Opcode::ADD => {
                     let augend = current_call_frame.stack.pop().unwrap();
