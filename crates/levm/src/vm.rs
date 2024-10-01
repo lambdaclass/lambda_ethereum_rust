@@ -15,20 +15,27 @@ use sha3::{Digest, Keccak256};
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
+    nonce: u64,
+    pub storage: Storage,
 }
 
 impl Account {
-    pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode }
+    pub fn new(balance: U256, bytecode: Bytes, nonce: u64, storage: Storage) -> Self {
+        Self {
+            balance,
+            bytecode,
+            nonce,
+            storage,
+        }
     }
 }
 
-pub type Db = HashMap<U256, H256>;
+pub type Storage = HashMap<U256, H256>;
 
 pub type WorldState = HashMap<Address, Account>;
 
 #[derive(Debug, Clone, Default)]
-struct Substate; // TODO
+pub struct Substate; // TODO
 
 /// Transaction environment shared by all the call frames
 /// created by the current transaction.
@@ -82,7 +89,6 @@ pub struct VM {
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
     pub world_state: WorldState,
-    pub db: Db, // pub remaining_gas: u64,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -110,7 +116,7 @@ impl VM {
         // TODO: VALIDATE BLOCK AND TX
 
         // just for the tests
-        let initial_account = Account::new(balance, bytecode.clone());
+        let initial_account = Account::new(balance, bytecode.clone(), 0, Storage::default());
         let mut initial_env = Environment::default();
         let mut state = WorldState::new();
         state.insert(address, initial_account);
@@ -467,7 +473,13 @@ impl VM {
                         continue;
                     }
 
-                    if let Some(block_hash) = self.db.get(&block_number) {
+                    if let Some(block_hash) = self
+                        .world_state
+                        .get(&current_call_frame.callee)
+                        .unwrap()
+                        .storage
+                        .get(&block_number)
+                    {
                         current_call_frame
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
@@ -796,6 +808,10 @@ impl VM {
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
+    }
+
+    pub fn current_call_frame(&self) -> &CallFrame {
+        self.call_frames.last().unwrap()
     }
 
     fn get_account_bytecode(&mut self, address: &Address) -> Bytes {

@@ -3,7 +3,7 @@ use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
-    vm::{Account, VM},
+    vm::{Account, Storage, VM},
 };
 
 // cargo test -p 'levm'
@@ -19,6 +19,13 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
         .collect::<Bytes>();
 
     VM::new(bytecode, address, balance)
+}
+
+pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
+    operations
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>()
 }
 
 fn callee_return_bytecode(return_value: U256) -> Bytes {
@@ -1176,7 +1183,7 @@ fn call_returns_if_bytecode_empty() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, 0, Storage::default());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(100_000)), // gas
@@ -1210,7 +1217,7 @@ fn call_changes_callframe_and_stores() {
     let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, 0, Storage::default());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1254,7 +1261,7 @@ fn nested_calls() {
     let callee3_bytecode = callee_return_bytecode(callee3_return_value);
     let callee3_address = Address::from_low_u64_be(U256::from(3).low_u64());
     let callee3_address_u256 = U256::from(3);
-    let callee3_account = Account::new(U256::from(300_000), callee3_bytecode);
+    let callee3_account = Account::new(U256::from(500000), callee3_bytecode, 0, Storage::default());
 
     let mut callee2_ops = vec![
         Operation::Push32(U256::from(32)),       // ret_size
@@ -1292,7 +1299,7 @@ fn nested_calls() {
     let callee2_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee2_address_u256 = U256::from(2);
 
-    let callee2_account = Account::new(U256::from(300_000), callee2_bytecode);
+    let callee2_account = Account::new(U256::from(500000), callee2_bytecode, 0, Storage::default());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(64)),       // ret_size
@@ -1536,7 +1543,7 @@ fn calldataload_being_set_by_parent() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, 0, Storage::default());
 
     let calldata = [
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -1660,7 +1667,7 @@ fn returndatacopy_being_set_by_parent() {
     let callee_bytecode = callee_return_bytecode(U256::from(0xAAAAAAA));
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, 0, Storage::default());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(0)),       // ret_offset
@@ -1709,10 +1716,14 @@ fn block_hash_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops_addr_bal(&operations, Address::default(), U256::MAX);
+    let mut storage = Storage::default();
+    storage.insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    vm.world_state.insert(
+        Address::default(),
+        Account::new(U256::MAX, Bytes::default(), 0, storage),
+    );
     vm.env.block.number = U256::from(current_block_number);
-    vm.db
-        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
 
@@ -1736,9 +1747,13 @@ fn block_hash_same_block_number() {
     ];
 
     let mut vm = new_vm_with_ops(&operations);
+    let mut storage = Storage::default();
+    storage.insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    vm.world_state.insert(
+        Address::default(),
+        Account::new(U256::MAX, Bytes::default(), 0, storage),
+    );
     vm.env.block.number = U256::from(current_block_number);
-    vm.db
-        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
 
@@ -1761,10 +1776,14 @@ fn block_hash_block_number_not_from_recent_256() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let mut vm = new_vm_with_ops_addr_bal(&operations, Address::default(), U256::MAX);
+    let mut storage = Storage::default();
+    storage.insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    vm.world_state.insert(
+        Address::default(),
+        Account::new(U256::MAX, Bytes::default(), 0, storage),
+    );
     vm.env.block.number = U256::from(current_block_number);
-    vm.db
-        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
 
