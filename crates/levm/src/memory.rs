@@ -5,6 +5,12 @@ pub struct Memory {
     data: Vec<u8>,
 }
 
+impl From<Vec<u8>> for Memory {
+    fn from(data: Vec<u8>) -> Self {
+        Memory { data }
+    }
+}
+
 impl Memory {
     pub fn new() -> Self {
         Self { data: Vec::new() }
