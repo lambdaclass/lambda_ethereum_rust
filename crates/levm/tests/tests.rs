@@ -1710,7 +1710,7 @@ fn block_hash_op() {
     ];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = U256::from(current_block_number);
+    vm.env.block.number = U256::from(current_block_number);
     vm.db
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
@@ -1736,7 +1736,7 @@ fn block_hash_same_block_number() {
     ];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = U256::from(current_block_number);
+    vm.env.block.number = U256::from(current_block_number);
     vm.db
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
@@ -1762,7 +1762,7 @@ fn block_hash_block_number_not_from_recent_256() {
     ];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = U256::from(current_block_number);
+    vm.env.block.number = U256::from(current_block_number);
     vm.db
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
@@ -1781,7 +1781,7 @@ fn coinbase_op() {
     let operations = [Operation::Coinbase, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.coinbase = Address::from_low_u64_be(coinbase_address);
+    vm.env.block.coinbase = Address::from_low_u64_be(coinbase_address);
 
     vm.execute();
 
@@ -1798,7 +1798,7 @@ fn timestamp_op() {
     let operations = [Operation::Timestamp, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.timestamp = timestamp;
+    vm.env.block.timestamp = timestamp;
 
     vm.execute();
 
@@ -1812,7 +1812,7 @@ fn number_op() {
     let operations = [Operation::Number, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = block_number;
+    vm.env.block.number = block_number;
 
     vm.execute();
 
@@ -1829,7 +1829,7 @@ fn prevrandao_op() {
     let operations = [Operation::Prevrandao, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.prev_randao = Some(prevrandao);
+    vm.env.block.prev_randao = Some(prevrandao);
 
     vm.execute();
 
@@ -1846,7 +1846,7 @@ fn gaslimit_op() {
     let operations = [Operation::Gaslimit, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.gas_limit = gas_limit;
+    vm.env.block.gas_limit = gas_limit;
 
     vm.execute();
 
@@ -1863,7 +1863,7 @@ fn chain_id_op() {
     let operations = [Operation::Chainid, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.chain_id = chain_id;
+    vm.env.block.chain_id = chain_id;
 
     vm.execute();
 
@@ -1880,7 +1880,7 @@ fn basefee_op() {
     let operations = [Operation::Basefee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.base_fee_per_gas = base_fee_per_gas;
+    vm.env.block.base_fee_per_gas = base_fee_per_gas;
 
     vm.execute();
 
@@ -1895,8 +1895,8 @@ fn blob_base_fee_op() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
-    vm.block_env.blob_gas_used = Some(0);
+    vm.env.block.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
+    vm.env.block.blob_gas_used = Some(0);
 
     vm.execute();
 
@@ -1911,8 +1911,8 @@ fn blob_base_fee_minimun_cost() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.excess_blob_gas = Some(0);
-    vm.block_env.blob_gas_used = Some(0);
+    vm.env.block.excess_blob_gas = Some(0);
+    vm.env.block.blob_gas_used = Some(0);
 
     vm.execute();
 

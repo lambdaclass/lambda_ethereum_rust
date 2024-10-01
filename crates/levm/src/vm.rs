@@ -41,7 +41,7 @@ pub struct Environment {
     /// that originated this execution.
     gas_price: u64,
     /// The block header of the present block.
-    block: BlockEnv,
+    pub block: BlockEnv,
 }
 
 #[derive(Debug, Default)]
@@ -75,14 +75,14 @@ pub struct Message {
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     call_frames: Vec<CallFrame>,
-    env: Environment,
+    pub env: Environment,
     /// Information that is acted upon immediately following the
     /// transaction.
-    accrued_substate: Substate,
+    pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    world_state: WorldState,
-    db: Db, // pub remaining_gas: u64,
+    pub world_state: WorldState,
+    pub db: Db, // pub remaining_gas: u64,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
