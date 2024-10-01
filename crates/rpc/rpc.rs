@@ -26,6 +26,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
+    logs::LogsRequest,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
@@ -191,6 +192,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
+        "eth_getLogs" => LogsRequest::call(req, storage),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
