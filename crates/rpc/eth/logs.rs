@@ -85,12 +85,14 @@ impl RpcHandler for LogsRequest {
     //   then we simply could retrieve each log from the receipt and add the info
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let Ok(Some(from)) = self.from_block.resolve_block_number(&storage) else {
-            return Err(RpcErr::WrongParam("fromBlock".to_string()));
-        };
-        let Ok(Some(to)) = self.to_block.resolve_block_number(&storage) else {
-            return Err(RpcErr::WrongParam("toBlock".to_string()));
-        };
+        let from = self
+            .from_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to = self
+            .to_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
         let address_filter: HashSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
