@@ -727,16 +727,15 @@ impl VM {
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let msg_sender = current_call_frame.msg_sender; // msg_sender is changed to the proxy's address
                     let to = current_call_frame.to; // to remains the same
                     let is_static = current_call_frame.is_static;
-                    println!("Code address: {:?}", code_address);
 
                     self.generic_call(
                         &mut current_call_frame,
                         gas,
                         value,
-                        msg_sender,
+                        code_address,
                         to,
                         code_address,
                         Some(msg_sender),

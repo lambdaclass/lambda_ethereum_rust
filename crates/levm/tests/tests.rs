@@ -1418,7 +1418,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     let mut vm = new_vm_with_ops_addr_bal(
         &caller_ops,
         Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::zero(),
+        U256::from(1000),
     );
 
     vm.add_account(callee_address, callee_account);
@@ -1429,7 +1429,10 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     vm.execute();
 
-    let storage_slot = vm.db.read_account_storage(&Address::from_low_u64_be(U256::from(1).low_u64()), &U256::zero());
+    let storage_slot = vm.db.read_account_storage(
+        &Address::from_low_u64_be(U256::from(1).low_u64()),
+        &U256::zero(),
+    );
     let slot = StorageSlot {
         original_value: U256::from(0xBBBBBBB),
         current_value: U256::from(0xBBBBBBB),
@@ -1492,14 +1495,63 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 }
 
 #[test]
-fn delegatecall_and_callcode_differ_on_value() {
+fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
+    // --- DELEGATECALL
+    let callee_return_value = U256::from(0xBBBBBBB);
+    let callee_ops = vec![
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode.clone());
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(callee_address_u256), // code address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::DelegateCall,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::from(1000),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    let current_call_frame = vm.current_call_frame_mut();
+    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert_eq!(
+        current_call_frame.msg_sender,
+        Address::from_low_u64_be(U256::from(1).low_u64())
+    );
+    assert_eq!(current_call_frame.msg_value, U256::from(0));
+
     // --- CALLCODE ---
 
     let callee_return_value = U256::from(0xAAAAAAA);
-    // let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_ops = vec![
         Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // offset
+        Operation::Push32(U256::zero()),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1514,11 +1566,11 @@ fn delegatecall_and_callcode_differ_on_value() {
     let callee_account = Account::new(U256::from(500000), callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_size
         Operation::Push32(U256::from(0)),       // ret_offset
         Operation::Push32(U256::from(0)),       // args_size
         Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::from(5000)),    // value
+        Operation::Push32(U256::from(100)),     // value
         Operation::Push32(callee_address_u256), // address
         Operation::Push32(U256::from(100_000)), // gas
         Operation::CallCode,
@@ -1528,7 +1580,7 @@ fn delegatecall_and_callcode_differ_on_value() {
     let mut vm = new_vm_with_ops_addr_bal(
         &caller_ops,
         Address::from_low_u64_be(U256::from(1).low_u64()),
-        U256::zero(),
+        U256::from(1000),
     );
 
     vm.add_account(callee_address, callee_account);
@@ -1540,10 +1592,22 @@ fn delegatecall_and_callcode_differ_on_value() {
 
     vm.execute();
 
-    let current_call_frame = vm.current_call_frame_mut();
+    let current_call_frame = vm.current_call_frame_mut().clone();
 
-
-
+    let storage_slot = vm.db.read_account_storage(
+        &Address::from_low_u64_be(U256::from(1).low_u64()),
+        &U256::zero(),
+    );
+    let slot = StorageSlot {
+        original_value: U256::from(0xAAAAAAA),
+        current_value: U256::from(0xAAAAAAA),
+    };
+    assert_eq!(storage_slot, Some(slot));
+    assert_eq!(
+        current_call_frame.msg_sender,
+        Address::from_low_u64_be(U256::from(2).low_u64())
+    );
+    assert_eq!(current_call_frame.msg_value, U256::from(100));
 }
 
 #[test]
