@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 ethereum_rust-rlp.workspace = true
-ethereum_rust-trie = { workspace = true, features = ["default"] }
+# ethereum_rust-trie = { workspace = true, optional = true }
 tinyvec = "1.6.0"
 ethereum-types.workspace = true
 serde.workspace = true
@@ -24,8 +24,16 @@ bytes.workspace = true
 hex.workspace = true
 lazy_static.workspace = true
 
+# FIXME: It is necessary not to re-use the workspace definitions.
+ethereum_rust-trie = { path = "../trie", default-features = false }
+
 [dev-dependencies]
 hex-literal.workspace = true
 
 [lib]
 path = "./core.rs"
+
+[features]
+default = ["libmdbx"]
+no_libmdbx = ["ethereum_rust-trie/no_libmdbx"]
+libmdbx = ["ethereum_rust-trie/libmdbx"]

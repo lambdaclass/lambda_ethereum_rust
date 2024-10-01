@@ -25,17 +25,9 @@ ethereum_rust-blockchain = { path = "./crates/blockchain" }
 ethereum_rust-core = { path = "./crates/core" }
 ethereum_rust-net = { path = "./crates/net" }
 ethereum_rust-rpc = { path = "./crates/rpc" }
-ethereum_rust-storage = { path = "./crates/storage", default-features = false, features = [
-    "libmdbx",
-] }
-ethereum_rust-evm = { path = "./crates/evm", default-features = false, features = [
-    "libmdbx",
-    "c-kzg",
-    "blst",
-] }
-ethereum_rust-trie = { path = "./crates/trie", default-features = false, features = [
-    "libmdbx",
-] }
+ethereum_rust-storage = { path = "./crates/storage" }
+ethereum_rust-evm = { path = "./crates/evm", features = ["c-kzg", "blst"] }
+ethereum_rust-trie = { path = "./crates/trie" }
 ethereum_rust-rlp = { path = "./crates/rlp" }
 ethereum_rust-l2 =  { path = "./crates/l2" }
 

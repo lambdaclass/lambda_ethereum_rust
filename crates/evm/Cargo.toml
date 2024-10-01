@@ -14,8 +14,6 @@ revm = { version = "14.0.3", features = [
     "optional_no_base_fee",
     "optional_block_gas_limit",
 ], default-features = false }
-ethereum_rust-core.workspace = true
-ethereum_rust-storage = { workspace = true, default-features = false }
 # These dependencies must be kept up to date with the corresponding revm version, otherwise errors may pop up because of trait implementation mismatches
 revm-inspectors = { version = "0.8.1" }
 bytes.workspace = true
@@ -23,12 +21,16 @@ thiserror.workspace = true
 hex.workspace = true
 lazy_static.workspace = true
 
+# FIXME: It is necessary not to re-use the workspace definitions.
+ethereum_rust-core = { path = "../../crates/core", default-features = false }
+ethereum_rust-storage = { path = "../../crates/storage", default-features = false }
+
 [features]
-default = ["in_memory"]
+default = ["libmdbx"]
 c-kzg = ["revm/c-kzg"]
 blst = ["revm/blst"]
-in_memory = ["ethereum_rust-storage/in_memory"]
-libmdbx = ["ethereum_rust-storage/libmdbx"]
+no_libmdbx = ["ethereum_rust-storage/no_libmdbx", "ethereum_rust-core/no_libmdbx"]
+libmdbx = ["ethereum_rust-storage/libmdbx", "ethereum_rust-core/libmdbx"]
 
 [lib]
 path = "./evm.rs"

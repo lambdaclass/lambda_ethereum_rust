@@ -23,7 +23,7 @@ digest = "0.10.6"
 lazy_static.workspace = true
 
 [features]
-default = ["no_libmdbx"]
+default = ["libmdbx"]
 no_libmdbx = []
 libmdbx = ["dep:libmdbx"]
 
