@@ -5,30 +5,114 @@ use crate::{
     call_frame::{CallFrame, Log},
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
+    primitives::{Address, Bytes, H256, H32, U256, U512},
 };
-use bytes::Bytes;
-use ethereum_types::{Address, H256, H32, U256, U512};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
+// TODO: complete account abstraction
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
+    storage: HashMap<U256, StorageSlot>,
 }
 
 impl Account {
     pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode }
+        Self { balance, bytecode, storage: Default::default() }
     }
 }
 
-pub type Db = HashMap<U256, H256>;
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct StorageSlot {
+    pub original_value: U256,
+    pub current_value: U256,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Db {
+    pub accounts: HashMap<Address, Account>,
+    pub block_hashes: HashMap<U256, H256>,
+}
+
+impl Db {
+    pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+        self.accounts
+            .get(address)
+            .and_then(|account| account.storage.get(key))
+            .cloned()
+    }
+
+    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+        self.accounts
+            .entry(*address)
+            .or_default()
+            .storage
+            .insert(key, slot);
+    }
+}
+
+pub type WorldState = HashMap<Address, Account>;
+
+#[derive(Debug, Clone, Default)]
+struct Substate; // TODO
+
+/// Transaction environment, is the same for the whole transaction.
+/// Context, basically
+#[derive(Debug, Default, Clone)]
+pub struct Environment {
+    /// The sender address of the transaction that originated
+    /// this execution.
+    msg_sender: Address,
+    to: TransactTo,
+    /// The price of gas paid by the signer of the transaction
+    /// that originated this execution.
+    gas_price: u64,
+    /// The block header of the present block.
+    block: BlockEnv,
+}
+
+#[derive(Debug, Default)]
+/// Message, stuff needed for a call frame
+pub struct Message {
+    /// The address of the account which caused the
+    /// code to be executing; if the execution agent is a
+    /// transaction, this would be the transaction sender.
+    pub msg_sender: Address,
+    pub to: Address,
+    /// The address of the account which owns the code that
+    /// is executing.
+    pub code_address: Address,
+    pub delegate: Option<Address>,
+    /// The byte array that is the input data to this execution;
+    /// if the execution agent is a transaction, this would be
+    /// the transaction data.
+    pub data: Bytes,
+    /// The value, in Wei, passed to this account as part
+    /// of the same procedure as execution; if the execution
+    /// agent is a transaction, this would be the transaction
+    /// value.
+    pub value: U256,
+    /// The byte array that is the machine code to be executed.
+    pub code: Bytes,
+    /// The depth of the present message-call or
+    /// contract-creation.
+    pub depth: u16,
+    pub gas: U256,
+    pub is_static: bool,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>,
-    pub block_env: BlockEnv,
+    call_frames: Vec<CallFrame>,
+    env: Environment,
+    /// Information that is acted upon immediately following the
+    /// transaction.
+    accrued_substate: Substate,
+    /// Mapping between addresses (160-bit identifiers) and account
+    /// states .
+    pub world_state: WorldState,
+    // pub remaining_gas: u64,
     pub db: Db,
 }
 
@@ -47,22 +131,43 @@ fn address_to_word(address: Address) -> U256 {
 }
 
 impl VM {
-    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
-        let initial_account = Account::new(balance, bytecode.clone());
+    // TODO: block and transaction, not this
+    pub fn new(bytecode: Bytes, msg_sender: Address, balance: U256) -> Self {
+        // pub fn new(bytecode: Bytes, state: WorldState) -> Self {
+        // TODO: VALIDATE BLOCK AND TX
 
-        let initial_call_frame = CallFrame::new(bytecode);
-        let mut accounts = HashMap::new();
-        accounts.insert(address, initial_account);
+        // just for the tests
+        let initial_account = Account::new(balance, bytecode.clone());
+        let mut initial_env = Environment::default();
+        let mut state = WorldState::new();
+        state.insert(msg_sender, initial_account);
+        let mut db = Db::default();
+        db.accounts = state.clone();
+
+        initial_env.msg_sender = msg_sender;
+
+        // just a placeholder
+        let initial_msg = Message {
+            msg_sender,
+            to: msg_sender,
+            code_address: msg_sender,
+            code: bytecode,
+            ..Default::default()
+        };
+
+        let first_call_frame = CallFrame::new(initial_msg);
+
         Self {
-            call_frames: vec![initial_call_frame.clone()],
-            accounts,
-            block_env: Default::default(),
-            db: Default::default(),
+            call_frames: vec![first_call_frame],
+            world_state: state,
+            env: initial_env,
+            db,
+            ..Default::default()
         }
     }
 
-    pub fn execute(&mut self) {
-        let block_env = self.block_env.clone();
+    pub fn execute(&mut self) -> ResultAndState {   
+        // let initial_gas_consumed = self.validate_transaction()?;
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             match current_call_frame.next_opcode().unwrap() {
@@ -387,16 +492,16 @@ impl VM {
 
                     // If number is not in the valid range (last 256 blocks), return zero.
                     if block_number
-                        < block_env
+                        < self.env.block
                             .number
                             .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
-                        || block_number >= block_env.number
+                        || block_number >= self.env.block.number
                     {
                         current_call_frame.stack.push(U256::zero());
                         continue;
                     }
 
-                    if let Some(block_hash) = self.db.get(&block_number) {
+                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
                         current_call_frame
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
@@ -405,43 +510,43 @@ impl VM {
                     };
                 }
                 Opcode::COINBASE => {
-                    let coinbase = block_env.coinbase;
+                    let coinbase = self.env.block.coinbase;
                     current_call_frame.stack.push(address_to_word(coinbase));
                 }
                 Opcode::TIMESTAMP => {
-                    let timestamp = block_env.timestamp;
+                    let timestamp = self.env.block.timestamp;
                     current_call_frame.stack.push(timestamp);
                 }
                 Opcode::NUMBER => {
-                    let block_number = block_env.number;
+                    let block_number = self.env.block.number;
                     current_call_frame.stack.push(block_number);
                 }
                 Opcode::PREVRANDAO => {
-                    let randao = block_env.prev_randao.unwrap_or_default();
+                    let randao = self.env.block.prev_randao.unwrap_or_default();
                     current_call_frame
                         .stack
                         .push(U256::from_big_endian(randao.0.as_slice()));
                 }
                 Opcode::GASLIMIT => {
-                    let gas_limit = block_env.gas_limit;
+                    let gas_limit = self.env.block.gas_limit;
                     current_call_frame.stack.push(U256::from(gas_limit));
                 }
                 Opcode::CHAINID => {
-                    let chain_id = block_env.chain_id;
+                    let chain_id = self.env.block.chain_id;
                     current_call_frame.stack.push(U256::from(chain_id));
                 }
                 Opcode::SELFBALANCE => {
                     todo!("when we have accounts implemented")
                 }
                 Opcode::BASEFEE => {
-                    let base_fee = block_env.base_fee_per_gas;
+                    let base_fee = self.env.block.base_fee_per_gas;
                     current_call_frame.stack.push(base_fee);
                 }
                 Opcode::BLOBHASH => {
                     todo!("when we have tx implemented");
                 }
                 Opcode::BLOBBASEFEE => {
-                    let blob_base_fee = block_env.calculate_blob_gas_price();
+                    let blob_base_fee = self.env.block.calculate_blob_gas_price();
                     current_call_frame.stack.push(blob_base_fee);
                 }
                 Opcode::PUSH0 => {
@@ -635,43 +740,33 @@ impl VM {
                 }
                 Opcode::CALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
-                    let address =
+                    let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let value = current_call_frame.stack.pop().unwrap();
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    // check balance
-                    if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-                        continue;
-                    }
-                    // transfer value
-                    // transfer(&current_call_frame.msg_sender, &address, value);
-                    let callee_bytecode = self.get_account_bytecode(&address);
-                    if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-                        continue;
-                    }
-                    let calldata = current_call_frame
-                        .memory
-                        .load_range(args_offset, args_size)
-                        .into();
 
-                    let new_call_frame = CallFrame {
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let to = current_call_frame.to; // to remains the same
+                    let is_static = current_call_frame.is_static;
+
+                    self.generic_call(
+                        &mut current_call_frame,
                         gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
-                        calldata,
-                        ..Default::default()
-                    };
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
+                        value,
+                        msg_sender,
+                        to,
+                        code_address,
+                        None,
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
+                    );
                 }
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -725,21 +820,93 @@ impl VM {
     }
 
     fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
+        self.world_state
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
     fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
+        self.world_state
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
+        self.db.accounts.insert(address, account);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn generic_call(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        gas: U256,
+        value: U256,
+        msg_sender: Address,
+        to: Address,
+        code_address: Address,
+        delegate: Option<Address>,
+        _should_transfer_value: bool,
+        is_static: bool,
+        args_offset: usize,
+        args_size: usize,
+        ret_offset: usize,
+        ret_size: usize,
+    ) {
+        // check balance
+        if self.balance(&current_call_frame.msg_sender) < value {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+            return;
+        }
+
+        // transfer value
+        // transfer(&current_call_frame.msg_sender, &address, value);
+
+        let code_address_bytecode = self.get_account_bytecode(&code_address);
+
+        if code_address_bytecode.is_empty() {
+            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+            return;
+        }
+
+        let calldata = current_call_frame
+            .memory
+            .load_range(args_offset, args_size)
+            .into();
+
+        let msg = Message {
+            msg_sender,
+            to,
+            code_address,
+            delegate,
+            data: calldata,
+            value,
+            code: code_address_bytecode,
+            depth: current_call_frame.depth + 1,
+            gas,
+            is_static,
+        };
+
+        let new_call_frame = CallFrame::new(
+            msg
+        );
+
+        current_call_frame.return_data_offset = Some(ret_offset);
+        current_call_frame.return_data_size = Some(ret_size);
+
+        self.call_frames.push(current_call_frame.clone());
+        *current_call_frame = new_call_frame;
+    }
+
+    pub fn transact(&mut self) -> ResultAndState {
+        let initial_gas_consumed = self.validate_transaction()?;
+
+        match self.env.to {
+            TransactTo::Call(_) => self.call(initial_gas_consumed),
+            TransactTo::Create => self.create(initial_gas_consumed),
+        }
     }
 }
+
 
 pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
     let shift_usize: usize = shift.try_into().unwrap(); // we know its not bigger than 256
@@ -751,5 +918,20 @@ pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
         shifted | mask
     } else {
         value >> shift_usize
+    }
+}
+
+/// Transaction destination.
+#[derive(Clone, Debug)]
+pub enum TransactTo {
+    /// Simple call to an address.
+    Call(Address),
+    /// Contract creation.
+    Create,
+}
+
+impl Default for TransactTo {
+    fn default() -> Self {
+        Self::Create
     }
 }

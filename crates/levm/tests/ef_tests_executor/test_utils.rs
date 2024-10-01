@@ -1,12 +1,8 @@
 use std::{collections::HashMap, path::Path};
 
 use bytes::Bytes;
-use evm_mlir::{
-    db::Db,
-    env::{AccessList, TransactTo},
-    result::ExecutionResult,
-    utils::precompiled_addresses,
-    Env, Evm,
+use levm::{
+    db::Db, vm::TransactTo, result::ExecutionResult, utils::precompiled_addresses, vm::VM, Environment,
 };
 
 use super::models::{AccountInfo, Test, TestSuite, TestUnit};
@@ -29,54 +25,62 @@ fn decode_hex(bytes_in_hex: Bytes) -> Option<Bytes> {
     Some(Bytes::from(opcodes))
 }
 
-fn setup_evm(test: &Test, unit: &TestUnit) -> Evm<Db> {
+fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
     let to = match unit.transaction.to {
         Some(to) => TransactTo::Call(to),
         None => TransactTo::Create,
     };
-    let sender = unit.transaction.sender.unwrap_or_default();
+    let msg_sender = unit.transaction.sender.unwrap_or_default();
+
     let gas_price = unit.transaction.gas_price.unwrap_or_default();
-    let mut env = Env::default();
-    env.tx.transact_to = to.clone();
-    env.tx.gas_price = gas_price;
-    env.tx.caller = sender;
-    env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].as_u64();
-    env.tx.value = unit.transaction.value[test.indexes.value];
-    env.tx.data = decode_hex(unit.transaction.data[test.indexes.data].clone()).unwrap();
-    let access_list_vector = unit
-        .transaction
-        .access_lists
-        .get(test.indexes.data)
-        .cloned()
-        .flatten()
-        .unwrap_or_default();
-    let mut access_list = AccessList::default();
-    for access_list_item in access_list_vector {
-        let storage_keys = access_list_item
-            .storage_keys
-            .iter()
-            .map(|key| ethereum_types::U256::from(key.0))
-            .collect();
 
-        access_list.push((access_list_item.address, storage_keys));
-    }
-    access_list.push((env.block.coinbase, Vec::new())); // after Shanghai, coinbase address is added to access list
-    access_list.push((env.tx.caller, Vec::new())); // after Berlin, tx.sender is added to access list
-    access_list.append(&mut precompiled_addresses()); // precompiled address are always warm
-
+    let mut env = Environment::default();
+    env.msg_sender = msg_sender;
+    env.gas_price = gas_price.into();
     env.block.number = unit.env.current_number;
     env.block.coinbase = unit.env.current_coinbase;
     env.block.timestamp = unit.env.current_timestamp;
-    let excess_blob_gas = unit
+    env.block.excess_blob_gas = unit
         .env
         .current_excess_blob_gas
         .unwrap_or_default()
         .as_u64();
-    env.block.set_blob_base_fee(excess_blob_gas);
+    // env.block.set_blob_base_fee(excess_blob_gas);
 
     if let Some(basefee) = unit.env.current_base_fee {
         env.block.basefee = basefee;
     };
+
+
+    // env.tx.transact_to = to.clone();
+    
+    // env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].as_u64();
+    env.tx.value = unit.transaction.value[test.indexes.value];
+    env.tx.data = decode_hex(unit.transaction.data[test.indexes.data].clone()).unwrap();
+
+    // ACCESS LIST STUFF
+    // let access_list_vector = unit
+    //     .transaction
+    //     .access_lists
+    //     .get(test.indexes.data)
+    //     .cloned()
+    //     .flatten()
+    //     .unwrap_or_default();
+    // let mut access_list = AccessList::default();
+    // for access_list_item in access_list_vector {
+    //     let storage_keys = access_list_item
+    //         .storage_keys
+    //         .iter()
+    //         .map(|key| ethereum_types::U256::from(key.0))
+    //         .collect();
+
+    //     access_list.push((access_list_item.address, storage_keys));
+    // }
+    // access_list.push((env.block.coinbase, Vec::new())); // after Shanghai, coinbase address is added to access list
+    // access_list.push((env.tx.caller, Vec::new())); // after Berlin, tx.sender is added to access list
+    // access_list.append(&mut precompiled_addresses()); // precompiled address are always warm
+
+    
     let mut db = Db::new();
 
     // Load pre storage into db
@@ -91,7 +95,7 @@ fn setup_evm(test: &Test, unit: &TestUnit) -> Evm<Db> {
         );
     }
 
-    Evm::new(env, db)
+    VM::new(env, msg_sender, )
 }
 
 fn verify_result(
@@ -120,7 +124,7 @@ fn verify_result(
 /// Test the resulting storage is the same as the expected storage
 fn verify_storage(
     post_state: &HashMap<ethereum_types::H160, AccountInfo>,
-    res_state: HashMap<ethereum_types::H160, evm_mlir::state::Account>,
+    res_state: HashMap<ethereum_types::H160, levm::state::Account>,
 ) {
     let mut result_state = HashMap::new();
     for address in post_state.keys() {
@@ -155,8 +159,8 @@ pub fn run_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
         };
 
         for test in tests {
-            let mut evm = setup_evm(test, &unit);
-            let res = evm.transact().unwrap();
+            let mut vm = setup_vm(test, &unit);
+            let res = vm.transact();
 
             verify_result(test, unit.out.as_ref(), &res.result)?;
             // TODO: use rlp and hash to check logs

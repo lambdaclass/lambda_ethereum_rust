@@ -3,7 +3,7 @@ use ethereum_types::H32;
 use crate::{
     memory::Memory,
     opcodes::Opcode,
-    primitives::{Address, Bytes, U256},
+    primitives::{Address, Bytes, U256}, vm::Message,
 };
 use std::collections::HashMap;
 
@@ -18,14 +18,15 @@ pub struct Log {
     pub data: Bytes,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
-    pub callee: Address,
-    pub bytecode: Bytes,
+    pub to: Address,
+    pub code_address: Address,
     pub delegate: Option<Address>,
+    pub bytecode: Bytes,
     pub msg_value: U256,
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
@@ -37,16 +38,26 @@ pub struct CallFrame {
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
     pub is_static: bool,
+    pub depth: u16,
 }
 
 impl CallFrame {
-    pub fn new(bytecode: Bytes) -> Self {
+    pub fn new(msg: Message) -> Self {
         Self {
-            bytecode,
+            msg_sender: msg.msg_sender,
+            to: msg.to,
+            code_address: msg.code_address,
+            delegate: msg.delegate,
+            bytecode: msg.code,
+            msg_value: msg.value,
+            calldata: msg.data,
+            gas: msg.gas,
+            is_static: msg.is_static,
+            depth: msg.depth,
             ..Default::default()
         }
     }
-
+    
     pub fn next_opcode(&mut self) -> Option<Opcode> {
         let opcode = self.opcode_at(self.pc);
         self.increment_pc();
