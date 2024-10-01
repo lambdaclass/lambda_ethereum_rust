@@ -44,12 +44,13 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         if self.fork_choice_state.head_block_hash.is_zero() {
             return error_response("forkchoice requested update to zero hash");
         }
+
+        // We get the block bodies even if we only use headers them so we check that they are
+        // stored too.
         let finalized_header_res =
-            storage.get_block_header_by_hash(self.fork_choice_state.finalized_block_hash)?;
-        let safe_header_res =
-            storage.get_block_header_by_hash(self.fork_choice_state.safe_block_hash)?;
-        let head_header_res =
-            storage.get_block_header_by_hash(self.fork_choice_state.head_block_hash)?;
+            storage.get_block_by_hash(self.fork_choice_state.finalized_block_hash)?;
+        let safe_header_res = storage.get_block_by_hash(self.fork_choice_state.safe_block_hash)?;
+        let head_header_res = storage.get_block_by_hash(self.fork_choice_state.head_block_hash)?;
 
         // Check that we already have all the needed blocks stored and that we have the ancestors
         // if we have the descendants, as we are working on the assumption that we only add block
@@ -58,7 +59,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         {
             (None, Some(_), _) => return invalid_fork_choice_state(),
             (_, None, Some(_)) => return invalid_fork_choice_state(),
-            (Some(f), Some(s), Some(h)) => (f, s, h),
+            (Some(f), Some(s), Some(h)) => (f.header, s.header, h.header),
             _ => {
                 warn!("[Engine - ForkChoiceUpdatedV3] Fork choice block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
                 return serde_json::to_value(PayloadStatus::syncing())
