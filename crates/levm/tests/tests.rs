@@ -2057,6 +2057,7 @@ fn log0() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[0].topics.len(), 0);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 649);
 }
 
 #[test]
@@ -2085,6 +2086,7 @@ fn log1() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 1027);
 }
 
 #[test]

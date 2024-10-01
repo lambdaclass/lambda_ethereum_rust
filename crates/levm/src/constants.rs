@@ -70,6 +70,9 @@ pub mod gas_cost {
     pub const PUSHN: u64 = 3;
     pub const DUPN: u64 = 3;
     pub const SWAPN: u64 = 3;
+    pub const LOGN_STATIC: u64 = 375;
+    pub const LOGN_DYNAMIC_BASE: u64 = 375;
+    pub const LOGN_DYNAMIC_BYTE_BASE: u64 = 8;
 }
 
 pub mod call_opcode {

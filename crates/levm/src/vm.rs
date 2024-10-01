@@ -820,15 +820,25 @@ impl VM {
                         panic!("Cannot create log in static context"); // should return an error and halt
                     }
 
-                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+                    let topic_count = (op as u8) - (Opcode::LOG0 as u8);
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let topics = (0..number_of_topics)
+                    let topics = (0..topic_count)
                         .map(|_| {
                             let topic = current_call_frame.stack.pop().unwrap().as_u32();
                             H32::from_slice(topic.to_be_bytes().as_ref())
                         })
                         .collect();
+
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(offset + size) as u64;
+                    let gas_cost = gas_cost::LOGN_STATIC
+                        + gas_cost::LOGN_DYNAMIC_BASE * topic_count as u64
+                        + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64
+                        + memory_expansion_cost;
+                    if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
+                        break; // should revert the tx
+                    }
 
                     let data = current_call_frame.memory.load_range(offset, size);
                     let log = Log {
@@ -837,6 +847,7 @@ impl VM {
                         data: Bytes::from(data),
                     };
                     current_call_frame.logs.push(log);
+                    tx_env.consumed_gas += gas_cost
                 }
                 Opcode::MLOAD => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
