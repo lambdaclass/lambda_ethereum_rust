@@ -10,10 +10,7 @@ use ethereum_types::{H256, U256};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
-use std::{
-    str::FromStr,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -28,6 +25,8 @@ pub struct ConsensusMock {
     execution_client_url: String,
 }
 
+// TODO: Implement `Serializer` in Engine API request structs to avoid manual
+// serialization.
 impl ConsensusMock {
     pub fn new(execution_client_url: &str, secret: Bytes) -> Self {
         Self {
@@ -64,34 +63,29 @@ impl ConsensusMock {
         }
     }
 
-    pub async fn engine_forkchoice_updated_v3(&self) -> Result<ForkChoiceResponse, String> {
-        let genesis_block_hash =
-            H256::from_str("0x72cb6312947af2b38ec764b9932087edc7eab201e5025afd5d4bfe3172b3648b")
-                .unwrap();
-        let forkchoice_state = ForkChoiceState {
-            head_block_hash: genesis_block_hash,
-            safe_block_hash: genesis_block_hash,
-            finalized_block_hash: genesis_block_hash,
-        };
-        let payload_attributes_v3 = PayloadAttributesV3 {
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            ..Default::default()
-        };
+    pub async fn engine_forkchoice_updated_v3(
+        &self,
+        state: ForkChoiceState,
+        payload_attributes: PayloadAttributesV3,
+    ) -> Result<ForkChoiceResponse, String> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
             method: "engine_forkchoiceUpdatedV3".to_string(),
             params: Some(vec![
-                serde_json::to_value(forkchoice_state).unwrap(),
-                serde_json::to_value(payload_attributes_v3).unwrap(),
+                serde_json::to_value(state).unwrap(),
+                serde_json::to_value(payload_attributes).unwrap(),
             ]),
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(s)) => Ok(serde_json::from_value(s.result).unwrap()),
+            Ok(RpcResponse::Success(s)) => match serde_json::from_value(s.result.clone()) {
+                Ok(parsed_value) => Ok(parsed_value),
+                Err(error) => {
+                    dbg!(s.result);
+                    Err(error.to_string())
+                }
+            },
             Ok(RpcResponse::Error(e)) => Err(e.error.message),
             Err(e) => Err(e.to_string()),
         }
@@ -163,6 +157,7 @@ impl ConsensusMock {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[tokio::test]
     async fn test_add_block() {
@@ -171,8 +166,26 @@ mod tests {
         ));
         let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret);
 
+        // If you want to run this test for a second time to enforce a second
+        // block generation, make sure you update the `ForkChoiceState` to the
+        // new head block hash.
+        let genesis_block_hash =
+            H256::from_str("0x72cb6312947af2b38ec764b9932087edc7eab201e5025afd5d4bfe3172b3648b")
+                .unwrap();
+        let fork_choice_state = ForkChoiceState {
+            head_block_hash: genesis_block_hash,
+            safe_block_hash: genesis_block_hash,
+            finalized_block_hash: genesis_block_hash,
+        };
+        let payload_attributes = PayloadAttributesV3 {
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            ..Default::default()
+        };
         let fork_choice_response = consensus_mock_client
-            .engine_forkchoice_updated_v3()
+            .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
             .await
             .unwrap();
 
