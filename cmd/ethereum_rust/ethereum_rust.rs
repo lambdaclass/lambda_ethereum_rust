@@ -98,15 +98,18 @@ async fn main() {
         let size = blocks.len();
         for block in blocks {
             let hash = block.header.compute_block_hash();
-            info!("Adding block {} with hash {}.", block.header.number, hash);
+            info!(
+                "Adding block {} with hash {:#x}.",
+                block.header.number, hash
+            );
             match add_block(&block, &store) {
                 Ok(()) => store
                     .set_canonical_block(block.header.number, hash)
                     .unwrap(),
-                _ => {
+                Err(error) => {
                     warn!(
-                        "Failed to add block {} with hash {}.",
-                        block.header.number, hash
+                        "Failed to add block {} with hash {:#x}: {}",
+                        block.header.number, hash, error
                     );
                 }
             }
