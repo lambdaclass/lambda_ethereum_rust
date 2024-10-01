@@ -7,8 +7,8 @@ use std::cmp::min;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHeader, BlockNumber, Fork, GenericTransaction, Receipt,
-        Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
+        AccountInfo, Block, BlockHash, BlockHeader, Fork, GenericTransaction, Receipt, Transaction,
+        TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -330,13 +330,10 @@ pub fn process_withdrawals(
 }
 
 /// Builds EvmState from a Store
-pub fn evm_state(store: Store, block_number: BlockNumber) -> EvmState {
+pub fn evm_state(store: Store, block_hash: BlockHash) -> EvmState {
     EvmState(
         revm::db::State::builder()
-            .with_database(StoreWrapper {
-                store,
-                block_number,
-            })
+            .with_database(StoreWrapper { store, block_hash })
             .with_bundle_update()
             .without_state_clear()
             .build(),
