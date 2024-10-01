@@ -38,7 +38,7 @@ impl RpcHandler for NewPayloadV3Request {
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let block_hash = self.payload.block_hash;
-        info!("Received new payload with block hash: {block_hash}");
+        info!("Received new payload with block hash: {block_hash:#x}");
 
         let block = match self
             .payload
@@ -101,7 +101,7 @@ impl RpcHandler for NewPayloadV3Request {
         let latest_valid_hash = latest_valid_hash(&storage).map_err(|_| RpcErr::Internal)?;
 
         // Execute and store the block
-        info!("Executing payload with block hash: {block_hash}");
+        info!("Executing payload with block hash: {block_hash:#x}");
         let payload_status = match add_block(&block, &storage) {
             Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(

@@ -50,7 +50,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             storage.get_block_header_by_hash(self.fork_choice_state.head_block_hash)?
         else {
             // TODO: We don't yet support syncing
-            warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
+            warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {:#x}).", self.fork_choice_state.head_block_hash);
             return Err(RpcErr::Internal);
         };
         // Check that we are not being pushed pre-merge
