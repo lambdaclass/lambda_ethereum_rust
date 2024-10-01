@@ -72,10 +72,10 @@ Currently, the database is `libmdbx`, it will be set up
 when you start the client. The location of the db's files will depend on your OS:
 - Mac: `~/Library/Application Support/ethereum_rust`
 - Linux: `~/.config/ethereum_rust`
-This is determined by the [directories-rs crate](https://github.com/dirs-dev/directories-rs)
+
 You can delete the db with:
 ```bash
-make clean-db
+cargo run --bin ethereum_rust -- removedb
 ```
 
 ### Test

@@ -8,6 +8,7 @@ use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::future::IntoFuture;
+use std::path::Path;
 use std::time::Duration;
 use std::{
     fs::File,
@@ -29,6 +30,27 @@ async fn main() {
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let matches = cli::cli().get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("removedb") {
+        let project_dir =
+            ProjectDirs::from("", "", "ethereum_rust").expect("couldn't find home directory");
+        let default_data_dir = project_dir
+            .data_local_dir()
+            .to_str()
+            .expect("invalid data directory")
+            .to_owned();
+
+        let data_dir = matches
+            .get_one::<String>("datadir")
+            .unwrap_or(&default_data_dir);
+        let path = Path::new(&data_dir);
+        if path.exists() {
+            std::fs::remove_dir_all(path).expect("Failed to remove data directory");
+        } else {
+            warn!("Data directory does not exist: {}", data_dir);
+        }
+        return;
+    }
 
     let http_addr = matches
         .get_one::<String>("http.addr")
