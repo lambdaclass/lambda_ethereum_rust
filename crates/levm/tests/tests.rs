@@ -2190,3 +2190,52 @@ fn multiple_logs_of_different_types() {
     assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
     assert_eq!(logs[1].topics.len(), 0);
 }
+
+#[test]
+fn logs_from_multiple_callers() {
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+
+    let data: [u8; 32] = [0xff; 32];
+    let size = 32_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
+    let callee_bytecode = operations
+        .clone()
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let mut caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+    ];
+
+    caller_ops.append(&mut operations);
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    let result = vm.execute().unwrap();
+
+    assert_eq!(result.logs().len(), 2)
+}

@@ -26,3 +26,11 @@ pub enum ExecutionResult {
         return_data: Bytes,
     },
 }
+
+impl ExecutionResult {
+    pub fn logs(&self) -> &[Log] {
+        match self {
+            ExecutionResult::Success { logs, .. } => logs,
+        }
+    }
+}
