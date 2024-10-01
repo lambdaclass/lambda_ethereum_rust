@@ -2,12 +2,13 @@ use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::build_payload;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::Fork;
-use ethereum_rust_core::H256;
+use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
 
 use crate::types::payload::ExecutionPayloadResponse;
+use crate::utils::RpcRequest;
 use crate::{
     types::payload::{ExecutionPayloadV3, PayloadStatus},
     RpcErr, RpcHandler,
@@ -21,6 +22,20 @@ pub struct NewPayloadV3Request {
 
 pub struct GetPayloadV3Request {
     pub payload_id: u64,
+}
+
+impl Into<RpcRequest> for NewPayloadV3Request {
+    fn into(self) -> RpcRequest {
+        RpcRequest {
+            method: "engine_newPayloadV3".to_string(),
+            params: Some(vec![
+                serde_json::to_value(self.payload).unwrap(),
+                serde_json::to_value(self.expected_blob_versioned_hashes).unwrap(),
+                serde_json::to_value(self.parent_beacon_block_root).unwrap(),
+            ]),
+            ..Default::default()
+        }
+    }
 }
 
 impl RpcHandler for NewPayloadV3Request {
@@ -128,6 +143,16 @@ impl RpcHandler for NewPayloadV3Request {
         }?;
 
         serde_json::to_value(payload_status).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl Into<RpcRequest> for GetPayloadV3Request {
+    fn into(self) -> RpcRequest {
+        RpcRequest {
+            method: "engine_getPayloadV3".to_string(),
+            params: Some(vec![serde_json::json!(U256::from(self.payload_id))]),
+            ..Default::default()
+        }
     }
 }
 
