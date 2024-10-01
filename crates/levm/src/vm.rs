@@ -64,15 +64,7 @@ impl VM {
         }
     }
 
-    pub fn write_result(
-        &self,
-        call_frame: CallFrame,
-        reason: ResultReason,
-        is_halt: bool,
-    ) -> ExecutionResult {
-        if is_halt {
-            return ExecutionResult::Halt { reason: reason };
-        }
+    pub fn write_success_result(call_frame: CallFrame, reason: ResultReason) -> ExecutionResult {
         ExecutionResult::Success {
             reason,
             logs: call_frame.logs.clone(),
@@ -88,7 +80,10 @@ impl VM {
             match opcode {
                 Opcode::STOP => {
                     self.call_frames.push(current_call_frame.clone());
-                    return Ok(self.write_result(current_call_frame, ResultReason::Stop, false));
+                    return Ok(Self::write_success_result(
+                        current_call_frame,
+                        ResultReason::Stop,
+                    ));
                 }
                 Opcode::ADD => {
                     let augend = current_call_frame.stack.pop()?;
@@ -423,11 +418,7 @@ impl VM {
                 Opcode::JUMP => {
                     let jump_address = current_call_frame.stack.pop()?;
                     if !current_call_frame.jump(jump_address) {
-                        return Ok(self.write_result(
-                            current_call_frame,
-                            ResultReason::InvalidJump,
-                            true,
-                        ));
+                        return Err(VMError::InvalidJump);
                     }
                 }
                 Opcode::JUMPI => {
@@ -435,11 +426,7 @@ impl VM {
                     let condition = current_call_frame.stack.pop()?;
                     if condition != U256::zero() {
                         if !current_call_frame.jump(jump_address) {
-                            return Ok(self.write_result(
-                                current_call_frame,
-                                ResultReason::InvalidJump,
-                                true,
-                            ));
+                            return Err(VMError::InvalidJump);
                         }
                     }
                 }
@@ -611,11 +598,7 @@ impl VM {
                     let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
 
                     if current_call_frame.stack.len() < depth as usize {
-                        return Ok(self.write_result(
-                            current_call_frame,
-                            ResultReason::StackUnderflow,
-                            true,
-                        ));
+                        return Err(VMError::StackUnderflow);
                     }
 
                     let value_at_depth = current_call_frame
@@ -629,11 +612,7 @@ impl VM {
                     let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
 
                     if current_call_frame.stack.len() < depth as usize {
-                        return Ok(self.write_result(
-                            current_call_frame,
-                            ResultReason::StackUnderflow,
-                            true,
-                        ));
+                        return Err(VMError::StackUnderflow);
                     }
                     let stack_top_index = current_call_frame.stack.len();
                     let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
@@ -646,11 +625,7 @@ impl VM {
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     if current_call_frame.is_static {
-                        return Ok(self.write_result(
-                            current_call_frame,
-                            ResultReason::OpcodeNotAllowedInStaticContext,
-                            true,
-                        ));
+                        return Err(VMError::OpcodeNotAllowedInStaticContext);
                     }
 
                     let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
@@ -817,9 +792,6 @@ impl VM {
                                 .stack
                                 .push(U256::from(SUCCESS_FOR_CALL))?;
                         }
-                        Ok(_) => {
-                            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                        }
                         Err(_) => {
                             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                         }
@@ -842,7 +814,10 @@ impl VM {
                     current_call_frame
                         .stack
                         .push(U256::from(SUCCESS_FOR_RETURN))?;
-                    return Ok(self.write_result(current_call_frame, ResultReason::Return, false));
+                    return Ok(Self::write_success_result(
+                        current_call_frame,
+                        ResultReason::Return,
+                    ));
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop()?;

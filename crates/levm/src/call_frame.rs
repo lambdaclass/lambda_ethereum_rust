@@ -27,14 +27,12 @@ pub struct Stack {
 
 impl Stack {
     pub fn pop(&mut self) -> Result<U256, VMError> {
-        self.stack
-            .pop()
-            .ok_or(VMError::StackError("Stack underflow".to_string()))
+        self.stack.pop().ok_or(VMError::StackUnderflow)
     }
 
     pub fn push(&mut self, value: U256) -> Result<(), VMError> {
         if self.stack.len() >= STACK_LIMIT {
-            return Err(VMError::StackError("Stack overflow".to_string()));
+            return Err(VMError::StackOverflow);
         }
         self.stack.push(value);
         Ok(())

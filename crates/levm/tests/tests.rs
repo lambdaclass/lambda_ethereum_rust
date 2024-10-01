@@ -1357,17 +1357,14 @@ fn pop_op() {
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
 
-// TODO: when adding error handling this should return an error, not panic
 #[test]
-#[should_panic]
 fn pop_on_empty_stack() {
     let operations = [Operation::Pop, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
 
-    vm.execute().unwrap();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+    let result = vm.execute();
+    assert!(result.is_err())
 }
 
 #[test]
@@ -1426,8 +1423,8 @@ fn jump_not_jumpdest_position() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    let result = vm.execute().unwrap();
-    assert!(result.is_halt());
+    let result = vm.execute();
+    assert!(result.is_err());
 }
 
 #[test]
@@ -1442,8 +1439,8 @@ fn jump_position_bigger_than_program_bytecode_size() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    let result = vm.execute().unwrap();
-    assert!(result.is_halt());
+    let result = vm.execute();
+    assert!(result.is_err());
 }
 
 #[test]
@@ -2131,8 +2128,8 @@ fn cant_create_log_in_static_context() {
 
     let mut vm: VM = new_vm_with_ops(&operations);
     vm.current_call_frame_mut().is_static = true;
-    let result = vm.execute().unwrap();
-    assert!(result.is_halt());
+    let result = vm.execute();
+    assert!(result.is_err());
 }
 
 #[test]

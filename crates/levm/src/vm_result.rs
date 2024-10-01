@@ -2,21 +2,19 @@ use bytes::Bytes;
 
 use crate::call_frame::Log;
 
-/// Main EVM error.
+/// Errors that halts the program
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VMError {
-    /// Transaction validation error.
-    StackError(String),
+    StackUnderflow,
+    StackOverflow,
+    InvalidJump,
+    OpcodeNotAllowedInStaticContext,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResultReason {
     Stop,
     Return,
-    StackUnderflow,
-    StackOverflow,
-    InvalidJump,
-    OpcodeNotAllowedInStaticContext,
 }
 
 /// Result of a transaction execution.
@@ -27,18 +25,4 @@ pub enum ExecutionResult {
         logs: Vec<Log>,
         return_data: Bytes,
     },
-
-    Halt {
-        reason: ResultReason,
-    },
-}
-
-impl ExecutionResult {
-    pub fn is_success(&self) -> bool {
-        matches!(self, ExecutionResult::Success { .. })
-    }
-
-    pub fn is_halt(&self) -> bool {
-        matches!(self, ExecutionResult::Halt { .. })
-    }
 }

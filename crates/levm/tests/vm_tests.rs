@@ -133,8 +133,8 @@ fn dup_halts_if_stack_underflow() {
     let operations = [Operation::Dup(5), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    let result = vm.execute().unwrap();
-    assert!(result.is_halt())
+    let result = vm.execute();
+    assert!(result.is_err())
 }
 
 #[test]
@@ -189,8 +189,8 @@ fn swap_halts_if_stack_underflow() {
     let operations = [Operation::Swap(5), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
-    let result = vm.execute().unwrap();
-    assert!(result.is_halt())
+    let result = vm.execute();
+    assert!(result.is_err())
 }
 
 #[test]
