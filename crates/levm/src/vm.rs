@@ -424,10 +424,8 @@ impl VM {
                 Opcode::JUMPI => {
                     let jump_address = current_call_frame.stack.pop()?;
                     let condition = current_call_frame.stack.pop()?;
-                    if condition != U256::zero() {
-                        if !current_call_frame.jump(jump_address) {
-                            return Err(VMError::InvalidJump);
-                        }
+                    if condition != U256::zero() && !current_call_frame.jump(jump_address) {
+                        return Err(VMError::InvalidJump);
                     }
                 }
                 Opcode::JUMPDEST => {
