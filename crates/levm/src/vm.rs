@@ -74,7 +74,8 @@ impl VM {
         let block_env = self.block_env.clone();
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
-            match current_call_frame.next_opcode().unwrap() {
+            let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            match opcode {
                 Opcode::STOP => break,
                 Opcode::ADD => {
                     let augend = current_call_frame.stack.pop().unwrap();
@@ -731,6 +732,9 @@ impl VM {
         self.call_frames.last().unwrap()
     }
 
+    /// Common behavior for CREATE and CREATE2 opcodes
+    ///
+    /// Could be used for CREATE type transactions
     pub fn create(
         &mut self,
         value_in_wei_to_send: U256,
@@ -762,7 +766,7 @@ impl VM {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
             return;
         };
-        sender_account.nonce = new_nonce; // should we increase the nonce here or after the calculation of the address?
+        sender_account.nonce = new_nonce;
         sender_account.balance -= value_in_wei_to_send;
         let code = Bytes::from(
             current_call_frame
