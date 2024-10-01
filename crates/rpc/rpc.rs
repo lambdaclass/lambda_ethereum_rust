@@ -266,7 +266,7 @@ mod tests {
     use std::fs::File;
     use std::io::BufReader;
     use std::str::FromStr;
-
+    use crate::utils::test_utils::example_p2p_node;
     use super::*;
 
     // Maps string rpc response to RpcSuccessResponse as serde Value
@@ -353,15 +353,6 @@ mod tests {
         )
     }
 
-    fn example_p2p_node() -> Node {
-        let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
-        Node {
-            ip: "127.0.0.1".parse().unwrap(),
-            udp_port: 30303,
-            tcp_port: 30303,
-            node_id: node_id_1,
-        }
-    }
 
     fn example_chain_config() -> ChainConfig {
         ChainConfig {

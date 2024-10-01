@@ -27,12 +27,14 @@ pub struct LogsRequest {
 }
 impl LogsRequest {
     pub fn request_to_filter(&self, store: &Store) -> Result<LogsFilter, RpcErr> {
-        let Ok(Some(from_block)) = self.from_block.resolve_block_number(store) else {
-            return Err(RpcErr::WrongParam("fromBlock".to_string()));
-        };
-        let Ok(Some(to_block)) = self.to_block.resolve_block_number(store) else {
-            return Err(RpcErr::WrongParam("toBlock".to_string()));
-        };
+        let from_block = self
+            .from_block
+            .resolve_block_number(&store)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to_block = self
+            .to_block
+            .resolve_block_number(&store)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
         Ok(LogsFilter {
             from_block,
             to_block,
@@ -100,14 +102,6 @@ impl RpcHandler for LogsRequest {
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let filter = self.request_to_filter(&storage)?;
-        let from = self
-            .from_block
-            .resolve_block_number(&storage)?
-            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
-        let to = self
-            .to_block
-            .resolve_block_number(&storage)?
-            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
         let address_filter: HashSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
