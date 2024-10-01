@@ -11,7 +11,6 @@ use ethereum_types::{Address, H256, H32, U256, U512};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
-// TODO: complete account abstraction
 pub struct Account {
     balance: U256,
     bytecode: Bytes,
