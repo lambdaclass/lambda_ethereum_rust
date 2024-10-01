@@ -1,6 +1,7 @@
 use ethereum_types::H32;
 
 use crate::{
+    constants::STACK_LIMIT,
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
@@ -32,7 +33,7 @@ impl Stack {
     }
 
     pub fn push(&mut self, value: U256) -> Result<(), VMError> {
-        if self.stack.len() >= 1024 {
+        if self.stack.len() >= STACK_LIMIT {
             return Err(VMError::StackError("Stack overflow".to_string()));
         }
         self.stack.push(value);

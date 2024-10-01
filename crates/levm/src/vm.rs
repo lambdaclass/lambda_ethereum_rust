@@ -28,6 +28,7 @@ pub type Db = HashMap<U256, H256>;
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
+    pub current_call_frame: CallFrame,
     pub accounts: HashMap<Address, Account>,
     pub block_env: BlockEnv,
     pub db: Db,
@@ -56,16 +57,18 @@ impl VM {
         accounts.insert(address, initial_account);
         Self {
             call_frames: vec![initial_call_frame.clone()],
+            current_call_frame: initial_call_frame,
             accounts,
             block_env: Default::default(),
             db: Default::default(),
         }
     }
 
-    pub fn write_result(&self) -> ExecutionResult {
-        ExecutionResult::Revert {
-            reason: ResultReason::Stop {},
-            gas_used: 1,
+    pub fn write_result(&self, call_frame: CallFrame) -> ExecutionResult {
+        ExecutionResult::Success {
+            reason: ResultReason::Return {},
+            logs: call_frame.logs.clone(),
+            return_data: call_frame.returndata.clone(),
         }
     }
 
@@ -74,10 +77,11 @@ impl VM {
         let mut current_call_frame = self.call_frames.pop().unwrap();
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            dbg!(opcode);
             match opcode {
                 Opcode::STOP => {
-                    self.call_frames.push(current_call_frame);
-                    return Ok(self.write_result());
+                    self.call_frames.push(current_call_frame.clone());
+                    return Ok(self.write_result(current_call_frame));
                 }
                 Opcode::ADD => {
                     let augend = current_call_frame.stack.pop()?;
@@ -765,8 +769,26 @@ impl VM {
                     };
                     current_call_frame.return_data_offset = Some(ret_offset);
                     current_call_frame.return_data_size = Some(ret_size);
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
+                    self.call_frames.push(new_call_frame.clone());
+                    dbg!("EMPIEZO EJECUCION");
+                    let result = self.execute().unwrap();
+                    dbg!("SIGO MI EJECUCION");
+                    if let ExecutionResult::Success {
+                        logs, return_data, ..
+                    } = result
+                    {
+                        current_call_frame.logs.extend(logs);
+                        current_call_frame
+                            .memory
+                            .store_bytes(ret_offset, &return_data);
+                        //current_call_frame.gas -= gas_used;
+                        current_call_frame.returndata = return_data;
+                        current_call_frame
+                            .stack
+                            .push(U256::from(SUCCESS_FOR_CALL))?;
+                    } else {
+                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                    }
                 }
                 Opcode::RETURN => {
                     let offset = current_call_frame
@@ -780,26 +802,12 @@ impl VM {
                         .try_into()
                         .unwrap_or(usize::MAX);
                     let return_data = current_call_frame.memory.load_range(offset, size).into();
-                    if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(_ret_offset), Some(_ret_size)) = (
-                            parent_call_frame.return_data_offset,
-                            parent_call_frame.return_data_size,
-                        ) {
-                            parent_call_frame.returndata = return_data;
-                        }
-                        parent_call_frame
-                            .stack
-                            .push(U256::from(SUCCESS_FOR_RETURN))?;
-                        parent_call_frame.return_data_offset = None;
-                        parent_call_frame.return_data_size = None;
-                        current_call_frame = parent_call_frame.clone();
-                    } else {
-                        // excecution completed (?)
-                        current_call_frame
-                            .stack
-                            .push(U256::from(SUCCESS_FOR_RETURN))?;
-                        break;
-                    }
+
+                    current_call_frame.returndata = return_data;
+                    current_call_frame
+                        .stack
+                        .push(U256::from(SUCCESS_FOR_RETURN))?;
+                    return Ok(self.write_result(current_call_frame));
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop()?;
@@ -822,7 +830,6 @@ impl VM {
                 _ => unimplemented!(),
             }
         }
-        Ok(self.write_result())
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {

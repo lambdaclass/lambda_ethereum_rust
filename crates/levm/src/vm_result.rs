@@ -1,3 +1,6 @@
+use bytes::Bytes;
+use ethereum_types::U256;
+
 use crate::call_frame::Log;
 
 /// Main EVM error.
@@ -18,17 +21,17 @@ pub enum ResultReason {
 pub enum ExecutionResult {
     Success {
         reason: ResultReason,
-        gas_used: u64,
-        gas_refunded: u64,
         logs: Vec<Log>,
+        return_data: Bytes,
     },
     Revert {
         reason: ResultReason,
-        gas_used: u64,
+        gas_used: U256,
+        return_data: Bytes,
     },
     Halt {
         reason: ResultReason,
         /// Halting will spend all the gas, and will be equal to gas_limit.
-        gas_used: u64,
+        gas_used: U256,
     },
 }
