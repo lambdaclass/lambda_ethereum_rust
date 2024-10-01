@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::authentication::AuthenticationError;
 use ethereum_rust_blockchain::error::MempoolError;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum RpcErr {
     MethodNotFound,
     BadParams,
@@ -18,6 +18,7 @@ pub enum RpcErr {
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
     InvalidForkChoiceState(String),
+    UnknownPayload,
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -91,6 +92,11 @@ impl From<RpcErr> for RpcErrorMetadata {
                 code: -38002,
                 data: Some(data),
                 message: "Invalid forkchoice state".to_string(),
+            },
+            RpcErr::UnknownPayload => RpcErrorMetadata {
+                code: -38001,
+                data: None,
+                message: "Unknown payload".to_string(),
             },
         }
     }
