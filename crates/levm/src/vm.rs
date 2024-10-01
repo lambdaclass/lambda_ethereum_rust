@@ -781,10 +781,6 @@ impl VM {
         self.accounts.insert(address, account);
     }
 
-    pub fn current_call_frame(&self) -> &CallFrame {
-        self.call_frames.last().unwrap()
-    }
-
     /// Common behavior for CREATE and CREATE2 opcodes
     ///
     /// Could be used for CREATE type transactions
