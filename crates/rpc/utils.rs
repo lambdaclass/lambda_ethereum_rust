@@ -218,13 +218,40 @@ pub mod test_utils {
     use ethereum_rust_net::types::Node;
     use ethereum_rust_storage::{EngineType, Store};
 
-    pub fn in_mem_test_db() -> Store {
-        return Store::new("in_memory", EngineType::InMemory)
-            .expect("Fatal: Could not instance db");
+    pub struct TestStore {
+        pub inner: Box<Store>,
+        pub kind: EngineType,
     }
 
-    pub fn test_db() -> Store {
-        return Store::new("test_db", EngineType::Libmdbx).expect("Fatal: could instance db");
+    impl Drop for TestStore {
+        fn drop(&mut self) {
+            use EngineType::*;
+            match self.kind {
+                InMemory => drop(&mut self.inner),
+                Libmdbx => {
+                    std::fs::remove_file("__test_db__");
+                    drop(&mut self.inner)
+                }
+            }
+        }
+    }
+
+    pub fn in_mem_test_db() -> TestStore {
+        let store =
+            Store::new("in_memory", EngineType::InMemory).expect("Fatal: Could not instance db");
+        return TestStore {
+            inner: Box::new(store),
+            kind: EngineType::InMemory,
+        };
+    }
+
+    pub fn test_db() -> TestStore {
+        let store =
+            Store::new("__test_db__", EngineType::Libmdbx).expect("Fatal: could instance db");
+        return TestStore {
+            inner: Box::new(store),
+            kind: EngineType::Libmdbx,
+        };
     }
 
     pub fn example_p2p_node() -> Node {

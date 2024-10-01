@@ -43,7 +43,7 @@ mod tests {
     use crate::{
         map_eth_requests, map_http_requests,
         utils::{
-            test_utils::{example_p2p_node, in_mem_test_db, test_db},
+            test_utils::{example_p2p_node, in_mem_test_db, test_db, TestStore},
             RpcRequest,
         },
     };
@@ -53,12 +53,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn filter_request_smoke_test_in_mem() {
-        run_filter_request_test(in_mem_test_db(), example_p2p_node());
-        run_filter_request_test(test_db(), example_p2p_node());
-    }
-
-    fn run_filter_request_test(storage: Store, test_node: Node) {
+    fn filter_request_smoke_test_1() {
         let raw_json = json!(
         {
             "jsonrpc":"2.0",
@@ -74,8 +69,33 @@ mod tests {
             ]
                 ,"id":1
         });
-        let request: RpcRequest = serde_json::from_value(raw_json).expect("Test json is incorrect");
-        let response = map_http_requests(&request, storage, test_node)
+        run_filter_request_test(in_mem_test_db(), example_p2p_node(), raw_json.clone());
+        run_filter_request_test(test_db(), example_p2p_node(), raw_json);
+    }
+
+    #[test]
+    fn filter_request_smoke_test_2() {
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": "0x1",
+                    "toBlock": "0xFF",
+                    "topics": null,
+                    "address": null
+                }
+            ]
+                ,"id":1
+        });
+        run_filter_request_test(in_mem_test_db(), example_p2p_node(), raw_json.clone());
+        run_filter_request_test(test_db(), example_p2p_node(), raw_json);
+    }
+    fn run_filter_request_test(storage: TestStore, test_node: Node, json_req: serde_json::Value) {
+        let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
+        let response = map_http_requests(&request, *storage.inner.clone(), test_node)
             .unwrap()
             .to_string();
         assert!(response.trim().trim_matches('"').starts_with("0x"))
