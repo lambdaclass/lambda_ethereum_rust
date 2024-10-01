@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
@@ -6,12 +7,15 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use std::future::IntoFuture;
+use std::path::Path;
+use std::time::Duration;
 use std::{
     fs::File,
     io,
     net::{SocketAddr, ToSocketAddrs},
 };
-use tokio::try_join;
+use tokio_util::task::TaskTracker;
 use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 mod cli;
@@ -26,6 +30,20 @@ async fn main() {
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let matches = cli::cli().get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("removedb") {
+        let default_datadir = get_default_datadir();
+        let data_dir = matches
+            .get_one::<String>("datadir")
+            .unwrap_or(&default_datadir);
+        let path = Path::new(&data_dir);
+        if path.exists() {
+            std::fs::remove_dir_all(path).expect("Failed to remove data directory");
+        } else {
+            warn!("Data directory does not exist: {}", data_dir);
+        }
+        return;
+    }
 
     let http_addr = matches
         .get_one::<String>("http.addr")
@@ -80,11 +98,11 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let store = match matches.get_one::<String>("datadir") {
-        Some(data_dir) if !data_dir.is_empty() => Store::new(data_dir, EngineType::Libmdbx),
-        _ => Store::new("storage.db", EngineType::InMemory),
-    }
-    .expect("Failed to create Store");
+    let default_datadir = get_default_datadir();
+    let data_dir = matches
+        .get_one::<String>("datadir")
+        .unwrap_or(&default_datadir);
+    let store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
     store
@@ -95,7 +113,19 @@ async fn main() {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
         for block in blocks {
-            let _ = add_block(&block, &store);
+            let hash = block.header.compute_block_hash();
+            info!("Adding block {} with hash {}.", block.header.number, hash);
+            match add_block(&block, &store) {
+                Ok(()) => store
+                    .set_canonical_block(block.header.number, hash)
+                    .unwrap(),
+                _ => {
+                    warn!(
+                        "Failed to add block {} with hash {}.",
+                        block.header.number, hash
+                    );
+                }
+            }
         }
         info!("Added {} blocks to blockchain", size);
     }
@@ -111,17 +141,47 @@ async fn main() {
         node_id: local_node_id,
     };
 
+    // TODO: Check every module starts properly.
+    let tracker = TaskTracker::new();
     let rpc_api = ethereum_rust_rpc::start_api(
         http_socket_addr,
         authrpc_socket_addr,
-        store,
+        store.clone(),
         jwt_secret,
         local_p2p_node,
-    );
-    let networking =
-        ethereum_rust_net::start_network(udp_socket_addr, tcp_socket_addr, bootnodes, signer);
+    )
+    .into_future();
 
-    try_join!(tokio::spawn(rpc_api), tokio::spawn(networking)).unwrap();
+    tracker.spawn(rpc_api);
+
+    // We do not want to start the networking module if the l2 feature is enabled.
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "l2")] {
+            let l2_operator = ethereum_rust_l2::start_operator().into_future();
+            tracker.spawn(l2_operator);
+            let l2_prover = ethereum_rust_l2::start_prover().into_future();
+            tracker.spawn(l2_prover);
+        } else {
+            let networking = ethereum_rust_net::start_network(
+                udp_socket_addr,
+                tcp_socket_addr,
+                bootnodes,
+                signer,
+                store,
+            )
+            .into_future();
+            tracker.spawn(networking);
+        }
+    }
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {
+            info!("Server shut down started...");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            info!("Server shutting down!");
+            return;
+        }
+    }
 }
 
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
@@ -165,4 +225,14 @@ fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
             io::ErrorKind::NotFound,
             "Failed to parse socket address",
         ))
+}
+
+fn get_default_datadir() -> String {
+    let project_dir =
+        ProjectDirs::from("", "", "ethereum_rust").expect("Couldn't find home directory");
+    project_dir
+        .data_local_dir()
+        .to_str()
+        .expect("invalid data directory")
+        .to_owned()
 }

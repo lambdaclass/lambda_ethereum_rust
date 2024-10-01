@@ -2,8 +2,12 @@ use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::types::{AddressFilter, LogsFilter, TopicFilter};
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_core::{
+    types::{AddressFilter, LogsFilter, TopicFilter},
+    H160, H256,
+};
+use ethereum_rust_storage::Store;
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -17,7 +21,7 @@ pub struct LogsRequest {
     /// Will default to `latest` if not provided.
     pub to_block: BlockIdentifier,
     /// The addresses from where the logs origin from.
-    pub address: Option<AddressFilter>,
+    pub address_filters: Option<AddressFilter>,
     /// Which topics to filter.
     pub topics: Vec<TopicFilter>,
 }
@@ -33,7 +37,7 @@ impl LogsRequest {
             from_block,
             to_block,
             addresses: self
-                .address
+                .address_filters
                 .clone()
                 .map(|addr| match addr {
                     AddressFilter::Single(single_address) => vec![single_address],
@@ -79,7 +83,7 @@ impl RpcHandler for LogsRequest {
                 Ok(LogsRequest {
                     from_block,
                     to_block,
-                    address: address_filters,
+                    address_filters,
                     topics: topics_filters.unwrap_or_else(Vec::new),
                 })
             }
@@ -96,7 +100,16 @@ impl RpcHandler for LogsRequest {
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let filter = self.request_to_filter(&storage)?;
-        let address_filter: HashSet<_> = match &self.address {
+        let from = self
+            .from_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to = self
+            .to_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+
+        let address_filter: HashSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
             Some(AddressFilter::Many(addresses)) => addresses.iter().collect(),
             None => HashSet::new(),
