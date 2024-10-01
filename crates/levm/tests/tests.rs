@@ -1196,7 +1196,7 @@ fn call_returns_if_bytecode_empty() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
     println!("to excec");
     vm.execute();
 
@@ -1230,7 +1230,7 @@ fn call_changes_callframe_and_stores() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1311,8 +1311,8 @@ fn nested_calls() {
 
     let mut vm = new_vm_with_ops_addr_bal(&caller_ops, caller_address, caller_balance);
 
-    vm.add_account(callee2_address, callee2_account);
-    vm.add_account(callee3_address, callee3_account);
+    vm.db.add_account(callee2_address, callee2_account);
+    vm.db.add_account(callee3_address, callee3_account);
 
     vm.execute();
 
@@ -1565,7 +1565,7 @@ fn calldataload_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1684,7 +1684,7 @@ fn returndatacopy_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
