@@ -22,15 +22,15 @@ clean: clean-vectors ## 🧹 Remove build artifacts
 	cargo clean
 	rm -rf hive
 
-run-image: build-image ## 🏃 Run the Docker image
-	docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
-
 STAMP_FILE := .docker_build_stamp
 $(STAMP_FILE): $(shell find crates cmd -type f -name '*.rs') Cargo.toml Dockerfile
 	docker build -t ethereum_rust .
 	touch $(STAMP_FILE)
 
 build-image: $(STAMP_FILE) ## 🐳 Build the Docker image
+
+run-image: build-image ## 🏃 Run the Docker image
+	docker run --rm -p 127.0.0.1:8545:8545 ethereum_rust --http.addr 0.0.0.0
 
 $(SPECTEST_ARTIFACT):
 	rm -f tests_*.tar.gz # Delete older versions
