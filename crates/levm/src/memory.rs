@@ -1,3 +1,4 @@
+use crate::constants::WORD_SIZE;
 use crate::primitives::U256;
 
 #[derive(Debug, Clone, Default)]
@@ -53,14 +54,14 @@ impl Memory {
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
 
-    pub fn expansion_cost(&self, memory_byte_size: usize) -> u64 {
+    pub fn expansion_cost(&self, memory_byte_size: usize) -> usize {
         if memory_byte_size <= self.data.len() {
             return 0;
         }
-        let new_memory_size_word = (memory_byte_size as u64 + WORD_SIZE - 1) / WORD_SIZE;
+        let new_memory_size_word = (memory_byte_size + WORD_SIZE - 1) / WORD_SIZE;
         let new_memory_cost =
             (new_memory_size_word * new_memory_size_word) / 512 + (3 * new_memory_size_word);
-        let last_memory_size_word = (self.data.len() as u64 + WORD_SIZE - 1) / WORD_SIZE;
+        let last_memory_size_word = (self.data.len() + WORD_SIZE - 1) / WORD_SIZE;
         let last_memory_cost =
             (last_memory_size_word * last_memory_size_word) / 512 + (3 * last_memory_size_word);
         new_memory_cost - last_memory_cost

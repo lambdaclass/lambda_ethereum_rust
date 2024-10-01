@@ -410,7 +410,7 @@ impl VM {
                         current_call_frame.memory.expansion_cost(offset + size);
                     let gas_cost = gas_cost::KECCAK25_STATIC
                         + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
-                        + memory_expansion_cost;
+                        + memory_expansion_cost as u64;
                     if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
                         break; // should revert the tx
                     }
@@ -787,7 +787,7 @@ impl VM {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
-                    let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost;
+                    let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost as u64;
                     if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
                         break; // should revert the tx
                     }
@@ -800,7 +800,7 @@ impl VM {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
-                    let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost;
+                    let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost as u64;
                     if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
                         break; // should revert the tx
                     }
@@ -816,7 +816,7 @@ impl VM {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + 1);
-                    let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost;
+                    let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost as u64;
                     if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
                         break; // should revert the tx
                     }
@@ -861,7 +861,7 @@ impl VM {
                         current_call_frame.memory.expansion_cost(memory_byte_size);
                     let gas_cost = gas_cost::MCOPY_STATIC
                         + gas_cost::MCOPY_DYNAMIC_BASE * words_copied as u64
-                        + memory_expansion_cost;
+                        + memory_expansion_cost as u64;
 
                     current_call_frame
                         .memory
@@ -901,7 +901,7 @@ impl VM {
                     } else {
                         0
                     };
-                    let gas_cost = memory_expansion_cost
+                    let gas_cost = memory_expansion_cost as u64
                         + code_execution_cost
                         + address_access_cost
                         + positive_value_cost
@@ -953,7 +953,7 @@ impl VM {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
 
-                    let gas_cost = current_call_frame.memory.expansion_cost(offset + size);
+                    let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
                     if tx_env.consumed_gas + gas_cost > tx_env.gas_limit {
                         break; // should revert the tx
                     }
