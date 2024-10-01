@@ -107,9 +107,10 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
             )),
-            Err(ChainError::InvalidBlock(_)) => {
-                Ok(PayloadStatus::invalid_with_hash(latest_valid_hash))
-            }
+            Err(ChainError::InvalidBlock(e)) => Ok(PayloadStatus::invalid_with(
+                latest_valid_hash,
+                e.to_string(),
+            )),
             Err(ChainError::EvmError(error)) => {
                 Ok(PayloadStatus::invalid_with_err(&error.to_string()))
             }
