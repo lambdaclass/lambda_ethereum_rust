@@ -320,8 +320,16 @@ impl VM {
                     current_call_frame.stack.push(result)?;
                 }
                 Opcode::KECCAK256 => {
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let value_bytes = current_call_frame.memory.load_range(offset, size);
 
                     let mut hasher = Keccak256::new();
@@ -332,7 +340,11 @@ impl VM {
                         .push(U256::from_big_endian(&result))?;
                 }
                 Opcode::CALLDATALOAD => {
-                    let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let value = U256::from_big_endian(
                         &current_call_frame.calldata.slice(offset..offset + 32),
                     );
@@ -344,10 +356,21 @@ impl VM {
                         .push(U256::from(current_call_frame.calldata.len()))?;
                 }
                 Opcode::CALLDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let calldata_offset: usize =
-                        current_call_frame.stack.pop()?.try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let dest_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let calldata_offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     if size == 0 {
                         continue;
                     }
@@ -363,10 +386,21 @@ impl VM {
                         .push(U256::from(current_call_frame.returndata.len()))?;
                 }
                 Opcode::RETURNDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let returndata_offset: usize =
-                        current_call_frame.stack.pop()?.try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let dest_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let returndata_offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     if size == 0 {
                         continue;
                     }
@@ -584,8 +618,16 @@ impl VM {
                     }
 
                     let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let mut topics = Vec::new();
                     for _ in 0..number_of_topics {
                         let topic = current_call_frame.stack.pop()?.as_u32();
@@ -602,13 +644,21 @@ impl VM {
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let value = current_call_frame.memory.load(offset);
                     current_call_frame.stack.push(value)?;
                 }
                 Opcode::MSTORE => {
                     // spend_gas(3);
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let value = current_call_frame.stack.pop()?;
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
@@ -617,7 +667,11 @@ impl VM {
                 }
                 Opcode::MSTORE8 => {
                     // spend_gas(3);
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let value = current_call_frame.stack.pop()?;
                     let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
@@ -634,9 +688,21 @@ impl VM {
                 }
                 Opcode::MCOPY => {
                     // spend_gas(3) + dynamic gas
-                    let dest_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let src_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let dest_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let src_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     if size == 0 {
                         continue;
                     }
@@ -649,10 +715,26 @@ impl VM {
                     let address =
                         Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
                     let value = current_call_frame.stack.pop()?;
-                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let args_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let args_size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let ret_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let ret_size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     // check balance
                     if self.balance(&current_call_frame.msg_sender) < value {
                         current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
@@ -687,8 +769,16 @@ impl VM {
                     current_call_frame = new_call_frame;
                 }
                 Opcode::RETURN => {
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let return_data = current_call_frame.memory.load_range(offset, size).into();
                     if let Some(mut parent_call_frame) = self.call_frames.pop() {
                         if let (Some(_ret_offset), Some(_ret_size)) = (
