@@ -32,17 +32,10 @@ async fn main() {
     let matches = cli::cli().get_matches();
 
     if let Some(matches) = matches.subcommand_matches("removedb") {
-        let project_dir =
-            ProjectDirs::from("", "", "ethereum_rust").expect("couldn't find home directory");
-        let default_data_dir = project_dir
-            .data_local_dir()
-            .to_str()
-            .expect("invalid data directory")
-            .to_owned();
-
+        let default_datadir = get_default_datadir();
         let data_dir = matches
             .get_one::<String>("datadir")
-            .unwrap_or(&default_data_dir);
+            .unwrap_or(&default_datadir);
         let path = Path::new(&data_dir);
         if path.exists() {
             std::fs::remove_dir_all(path).expect("Failed to remove data directory");
@@ -105,17 +98,10 @@ async fn main() {
     let tcp_socket_addr =
         parse_socket_addr(tcp_addr, tcp_port).expect("Failed to parse addr and port");
 
-    let project_dir =
-        ProjectDirs::from("", "", "ethereum_rust").expect("couldn't find home directory");
-    let default_data_dir = project_dir
-        .data_local_dir()
-        .to_str()
-        .expect("invalid data directory")
-        .to_owned();
-
+    let default_datadir = get_default_datadir();
     let data_dir = matches
         .get_one::<String>("datadir")
-        .unwrap_or(&default_data_dir);
+        .unwrap_or(&default_datadir);
     let store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
@@ -239,4 +225,14 @@ fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
             io::ErrorKind::NotFound,
             "Failed to parse socket address",
         ))
+}
+
+fn get_default_datadir() -> String {
+    let project_dir =
+        ProjectDirs::from("", "", "ethereum_rust").expect("Couldn't find home directory");
+    project_dir
+        .data_local_dir()
+        .to_str()
+        .expect("invalid data directory")
+        .to_owned()
 }
