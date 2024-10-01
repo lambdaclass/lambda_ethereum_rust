@@ -852,9 +852,7 @@ impl VM {
                     let src_offset: usize =
                         current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    if size == 0 {
-                        continue;
-                    }
+
                     let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
                     let memory_byte_size = (src_offset + size).max(dest_offset + size);
                     let memory_expansion_cost =
@@ -863,10 +861,13 @@ impl VM {
                         + gas_cost::MCOPY_DYNAMIC_BASE * words_copied as u64
                         + memory_expansion_cost as u64;
 
+                    tx_env.consumed_gas += gas_cost;
+                    if size == 0 {
+                        continue;
+                    }
                     current_call_frame
                         .memory
                         .copy(src_offset, dest_offset, size);
-                    tx_env.consumed_gas += gas_cost
                 }
                 Opcode::CALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
