@@ -27,7 +27,6 @@ use std::sync::Arc;
 pub struct Store {
     db: Arc<Database>,
 }
-
 impl Store {
     pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
