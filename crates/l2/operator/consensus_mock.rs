@@ -73,7 +73,13 @@ impl ConsensusMock {
             safe_block_hash: genesis_block_hash,
             finalized_block_hash: genesis_block_hash,
         };
-        let payload_attributes_v3 = PayloadAttributesV3::default();
+        let payload_attributes_v3 = PayloadAttributesV3 {
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            ..Default::default()
+        };
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
