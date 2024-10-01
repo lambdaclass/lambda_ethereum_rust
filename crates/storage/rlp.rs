@@ -28,7 +28,7 @@ pub type TransactionRLP = Rlp<Transaction>;
 // Wrapper for tuples. Used mostly for indexed keys.
 pub type TupleRLP<A, B> = Rlp<(A, B)>;
 
-pub type LogFilterRLP = Rlp<LogsFilter>;
+pub type LogFilterRLP = (u64, Rlp<LogsFilter>);
 
 #[derive(Clone)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);

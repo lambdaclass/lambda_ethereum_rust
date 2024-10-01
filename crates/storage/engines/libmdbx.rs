@@ -7,8 +7,8 @@ use crate::rlp::{
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AddressFilter, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
-    TopicFilter, Transaction,
+    AddressFilter, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter,
+    Receipt, TopicFilter, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -326,14 +326,8 @@ impl StoreEngine for Store {
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
         self.write::<CanonicalBlockHashes>(number, hash.into())
     }
-    fn add_filter(
-        &self,
-        from_block: BlockNumber,
-        to_block: BlockNumber,
-        addresses: AddressFilter,
-        topics: &[TopicFilter],
-    ) -> Result<(), StoreError> {
-        todo!()
+    fn add_filter(&self, id: u64, timestamp: u64, filter: LogsFilter) -> Result<(), StoreError> {
+        self.write::<Filters>(id, Rlp::from((timestamp, filter)))
     }
 }
 
@@ -404,8 +398,11 @@ table!(
 
 // Current filters
 table!(
-     /// Known filters
-     ( Filters ) u64  => LogFilterRLP
+     /// Maps ids to a tuple with filters data:
+     /// - First item is the unix timestamp from
+     ///   when it was created.
+     /// - Second item is the filter itself.
+     ( Filters ) u64  => Rlp<(u64, LogsFilter)>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -501,6 +498,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
+        table_info!(Filters),
     ]
     .into_iter()
     .collect();

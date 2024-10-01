@@ -8,6 +8,7 @@ use engines::api::StoreEngine;
 use ethereum_rust_core::types::AddressFilter;
 use ethereum_rust_core::types::Block;
 use ethereum_rust_core::types::BlockBody;
+use ethereum_rust_core::types::LogsFilter;
 use ethereum_rust_core::types::TopicFilter;
 use ethereum_rust_core::types::Transaction;
 use ethereum_rust_core::types::{
@@ -545,13 +546,11 @@ impl Store {
 
     pub fn add_filter(
         &self,
-        from_block: BlockNumber,
-        to_block: BlockNumber,
-        addresses: AddressFilter,
-        topics: &[TopicFilter],
+        id: u64,
+        timestamp: u64,
+        filter: LogsFilter,
     ) -> Result<(), StoreError> {
-        self.engine
-            .add_filter(from_block, to_block, addresses, topics)
+        self.engine.add_filter(id, timestamp, filter)
     }
 }
 

@@ -1,8 +1,8 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AddressFilter, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt,
-    TopicFilter, Transaction,
+    AddressFilter, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter,
+    Receipt, TopicFilter, Transaction,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256};
@@ -35,6 +35,8 @@ struct StoreInner {
     receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
     state_trie_nodes: NodeMap,
     storage_trie_nodes: HashMap<Address, NodeMap>,
+    // Maps filter ids to a tuple (LogFilter, Timestamp)
+    filters: HashMap<u64, (LogsFilter, u64)>,
 }
 
 #[derive(Default, Debug)]
@@ -297,14 +299,10 @@ impl StoreEngine for Store {
         self.inner().canonical_hashes.insert(number, hash);
         Ok(())
     }
-    fn add_filter(
-        &self,
-        from_block: BlockNumber,
-        to_block: BlockNumber,
-        addresses: AddressFilter,
-        topics: &[TopicFilter],
-    ) -> Result<(), StoreError> {
-        todo!()
+
+    fn add_filter(&self, id: u64, timestamp: u64, filter: LogsFilter) -> Result<(), StoreError> {
+        self.inner().filters.insert(id, (filter, timestamp));
+        Ok(())
     }
 }
 

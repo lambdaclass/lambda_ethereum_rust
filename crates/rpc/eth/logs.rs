@@ -32,7 +32,14 @@ impl LogsRequest {
         Ok(LogsFilter {
             from_block,
             to_block,
-            address: self.address.clone(),
+            addresses: self
+                .address
+                .clone()
+                .map(|addr| match addr {
+                    AddressFilter::Single(single_address) => vec![single_address],
+                    AddressFilter::Many(addresses) => addresses,
+                })
+                .unwrap_or_else(Vec::new),
             topics: self.topics.clone(),
         })
     }
@@ -152,18 +159,16 @@ impl RpcHandler for LogsRequest {
                     }
                     for (i, topic_filter) in self.topics.iter().enumerate() {
                         match topic_filter {
-                            TopicFilter::Topic(t) => {
-                                if let Some(topic) = t {
-                                    if rpc_log.log.topics[i] != *topic {
-                                        return false;
-                                    }
+                            TopicFilter::Topic(topic) => {
+                                if rpc_log.log.topics[i] != *topic {
+                                    return false;
                                 }
                             }
                             TopicFilter::Topics(sub_topics) => {
                                 if !sub_topics.is_empty()
                                     && !sub_topics
                                         .iter()
-                                        .any(|st| st.map_or(true, |t| rpc_log.log.topics[i] == t))
+                                        .any(|topic| rpc_log.log.topics[i] == *topic)
                                 {
                                     return false;
                                 }
