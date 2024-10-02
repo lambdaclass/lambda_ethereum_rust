@@ -362,6 +362,10 @@ impl StoreEngine for Store {
         self.inner().filters.insert(id, (filter, timestamp));
         Ok(())
     }
+
+    fn remove_filter(&self, id: u64) -> Result<(), StoreError> {
+        todo!()
+    }
 }
 
 impl Debug for Store {

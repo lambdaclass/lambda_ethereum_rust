@@ -1,8 +1,9 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::Block;
 use ethereum_rust_core::types::BlockBody;
+use ethereum_rust_core::types::LogsFilter;
 use ethereum_rust_core::types::{
-    BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter, Receipt, Transaction,
+    BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
@@ -227,4 +228,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;
 
     fn add_filter(&self, id: u64, timestamp: u64, filter: LogsFilter) -> Result<(), StoreError>;
+
+    fn remove_filter(&self, id: u64) -> Result<(), StoreError>;
 }

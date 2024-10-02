@@ -39,6 +39,7 @@ impl RpcHandler for FilterRequest {
 pub struct FilterUninstallRequest {
     pub filter_id: u64,
 }
+
 impl RpcHandler for FilterUninstallRequest {
     fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         match params.as_deref() {
@@ -47,9 +48,10 @@ impl RpcHandler for FilterUninstallRequest {
                 let id = param
                     .get("id")
                     .ok_or(RpcErr::MissingParam("id".to_string()))?;
-                let filter_id = parse_json_hex(id)?;
+                let filter_id = parse_json_hex(id).unwrap();
                 Ok(FilterUninstallRequest { filter_id })
             }
+            _ => Err(RpcErr::BadParams),
         }
     }
 

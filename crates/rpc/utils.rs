@@ -1,3 +1,5 @@
+use std::{error::Error, num::ParseIntError};
+
 use ethereum_rust_evm::EvmError;
 use ethereum_rust_storage::error::StoreError;
 use serde::{Deserialize, Serialize};
@@ -210,6 +212,16 @@ fn get_message_from_revert_data(_data: &str) -> String {
     "".to_owned()
 }
 
+pub fn parse_json_hex(hex: &serde_json::Value) -> Result<u64, String> {
+    if let Value::String(maybe_hex) = hex {
+        let trimmed = maybe_hex.trim_start_matches("0x");
+        let maybe_parsed = u64::from_str_radix(trimmed, 16);
+        return maybe_parsed.map_err(|_| format!("Could not parse given hex {}", maybe_hex));
+    } else {
+        return Err(format!("Could not parse given hex {}", hex));
+    }
+}
+
 #[cfg(test)]
 pub mod test_utils {
     use std::str::FromStr;
@@ -249,6 +261,7 @@ pub mod test_utils {
                 kind: EngineType::InMemory,
             }
         }
+
         pub fn in_disk() -> Self {
             use mktemp::Temp;
             let path_buf;
@@ -262,6 +275,7 @@ pub mod test_utils {
                 kind: EngineType::InMemory,
             };
         }
+
         pub fn build_store(&self) -> Store {
             Store::new(&self.path, self.kind).expect("Fatal, could not instance test db")
         }

@@ -46,6 +46,12 @@ impl Store {
         txn.commit().map_err(StoreError::LibmdbxError)
     }
 
+    fn delete<T: Table>(&self, key: T::Key) -> Result<(), StoreError> {
+        let txn = self.db.begin_readwrite().unwrap();
+        txn.delete::<T>(key, None).unwrap();
+        Ok(())
+    }
+
     // Helper method to read from a libmdbx table
     fn read<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
@@ -376,6 +382,10 @@ impl StoreEngine for Store {
 
     fn add_filter(&self, id: u64, timestamp: u64, filter: LogsFilter) -> Result<(), StoreError> {
         self.write::<Filters>(id, Rlp::from((timestamp, filter)))
+    }
+
+    fn remove_filter(&self, id: u64) -> Result<(), StoreError> {
+        self.delete::<Filters>(id)
     }
 }
 
