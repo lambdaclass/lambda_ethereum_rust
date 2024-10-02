@@ -5,7 +5,7 @@ use crate::{
     call_frame::{CallFrame, Log},
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
-    transaction::Transaction,
+    transaction::{TransactTo, TxEnv},
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H256, H32, U256, U512};
@@ -13,25 +13,53 @@ use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
-    balance: U256,
-    bytecode: Bytes,
+    pub balance: U256,
+    pub bytecode: Bytes,
+    pub storage: Storage,
 }
 
 impl Account {
-    pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode }
+    pub fn new(balance: U256, bytecode: Bytes, storage: Storage) -> Self {
+        Self {
+            balance,
+            bytecode,
+            storage,
+        }
+    }
+
+    pub fn with_balance(mut self, balance: U256) -> Self {
+        self.balance = balance;
+        self
+    }
+
+    pub fn with_bytecode(mut self, bytecode: Bytes) -> Self {
+        self.bytecode = bytecode;
+        self
+    }
+
+    pub fn with_storage(mut self, storage: Storage) -> Self {
+        self.storage = storage;
+        self
     }
 }
 
-pub type Db = HashMap<U256, H256>;
+pub type Storage = HashMap<U256, H256>;
 
 pub type WorldState = HashMap<Address, Account>;
 
-#[derive(Debug)]
-pub struct VM<'a> {
+#[derive(Clone, Debug, Default)]
+pub struct Db {
+    pub accounts: HashMap<Address, Account>,
+    // contracts: HashMap<B256, Bytecode>,
+    pub block_hashes: HashMap<U256, H256>,
+}
+
+#[derive(Debug, Default)]
+pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub block_env: BlockEnv,
-    pub db: &'a mut Db,
+    // pub state: WorldState,
+    pub db: Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -48,18 +76,23 @@ fn address_to_word(address: Address) -> U256 {
     U256::from_str(&format!("{address:?}")).unwrap()
 }
 
-impl<'a> VM<'a> {
-    pub fn new(tx_env: Transaction, block_env: BlockEnv, state: &'a mut Db) -> Self {
+impl VM {
+    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
         // let initial_account = Account::new(balance, bytecode.clone());
 
-        let initial_call_frame = CallFrame::new(Bytes::default());
-        // let mut accounts = HashMap::new();
-        // accounts.insert(address, initial_account);
+        let bytecode = match tx_env.transact_to {
+            TransactTo::Call(addr) => db.accounts.get(&addr).unwrap().bytecode.clone(),
+            TransactTo::Create => {
+                todo!()
+            }
+        };
+
+        let initial_call_frame = CallFrame::new(bytecode);
 
         Self {
-            call_frames: vec![initial_call_frame.clone()],
+            call_frames: vec![initial_call_frame],
             block_env,
-            db: state,
+            db,
         }
     }
 
@@ -398,7 +431,7 @@ impl<'a> VM<'a> {
                         continue;
                     }
 
-                    if let Some(block_hash) = self.db.get(&block_number) {
+                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
                         current_call_frame
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
@@ -726,20 +759,26 @@ impl<'a> VM<'a> {
         self.call_frames.last_mut().unwrap()
     }
 
+    pub fn current_call_frame(&self) -> &CallFrame {
+        self.call_frames.last().unwrap()
+    }
+
     fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
+        self.db
+            .accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
     fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
+        self.db
+            .accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
+        self.db.accounts.insert(address, account);
     }
 }
 
