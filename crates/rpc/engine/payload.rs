@@ -29,9 +29,9 @@ impl Into<RpcRequest> for NewPayloadV3Request {
         RpcRequest {
             method: "engine_newPayloadV3".to_string(),
             params: Some(vec![
-                serde_json::to_value(self.payload).unwrap(),
-                serde_json::to_value(self.expected_blob_versioned_hashes).unwrap(),
-                serde_json::to_value(self.parent_beacon_block_root).unwrap(),
+                serde_json::json!(self.payload),
+                serde_json::json!(self.expected_blob_versioned_hashes),
+                serde_json::json!(self.parent_beacon_block_root),
             ]),
             ..Default::default()
         }
