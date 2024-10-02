@@ -1,5 +1,8 @@
 use ethereum_rust_blockchain::is_canonical;
-use ethereum_rust_blockchain::payload::{build_payload, BuildPayloadArgs};
+use ethereum_rust_blockchain::{
+    error::ChainError,
+    payload::{build_payload, BuildPayloadArgs},
+};
 use ethereum_rust_core::types::{BlockHash, BlockHeader, BlockNumber};
 use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -140,7 +143,13 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             };
             let payload_id = args.id();
             response.set_id(payload_id);
-            let payload = build_payload(&args, &storage)?;
+            let payload = match build_payload(&args, &storage) {
+                Ok(payload) => payload,
+                Err(ChainError::EvmError(error)) => return Err(error.into()),
+                // Parent block is guaranteed to be present at this point,
+                // so the only errors that may be returned are internal storage errors
+                _ => return Err(RpcErr::Internal),
+            };
             storage.add_payload(payload_id, payload)?;
         }
 
