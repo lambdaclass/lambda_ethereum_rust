@@ -84,118 +84,28 @@ impl VM {
                     ));
                 }
                 Opcode::ADD => {
-                    let augend = current_call_frame.stack.pop()?;
-                    let addend = current_call_frame.stack.pop()?;
-                    let sum = augend.overflowing_add(addend).0;
-                    current_call_frame.stack.push(sum)?;
+                    VM::add(&mut current_call_frame)?;
                 }
                 Opcode::MUL => {
-                    let multiplicand = current_call_frame.stack.pop()?;
-                    let multiplier = current_call_frame.stack.pop()?;
-                    let product = multiplicand.overflowing_mul(multiplier).0;
-                    current_call_frame.stack.push(product)?;
+                    VM::mul(&mut current_call_frame)?;
                 }
                 Opcode::SUB => {
-                    let minuend = current_call_frame.stack.pop()?;
-                    let subtrahend = current_call_frame.stack.pop()?;
-                    let difference = minuend.overflowing_sub(subtrahend).0;
-                    current_call_frame.stack.push(difference)?;
+                    VM::sub(&mut current_call_frame)?;
                 }
                 Opcode::DIV => {
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-                    let quotient = dividend / divisor;
-                    current_call_frame.stack.push(quotient)?;
+                    VM::div(&mut current_call_frame)?;
                 }
                 Opcode::SDIV => {
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    let dividend_is_negative = is_negative(dividend);
-                    let divisor_is_negative = is_negative(divisor);
-                    let dividend = if dividend_is_negative {
-                        negate(dividend)
-                    } else {
-                        dividend
-                    };
-                    let divisor = if divisor_is_negative {
-                        negate(divisor)
-                    } else {
-                        divisor
-                    };
-                    let quotient = dividend / divisor;
-                    let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
-                    let quotient = if quotient_is_negative {
-                        negate(quotient)
-                    } else {
-                        quotient
-                    };
-
-                    current_call_frame.stack.push(quotient)?;
+                    VM::sdiv(&mut current_call_frame)?;
                 }
                 Opcode::MOD => {
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-                    let remainder = dividend % divisor;
-                    current_call_frame.stack.push(remainder)?;
+                    VM::modulus(&mut current_call_frame)?;
                 }
                 Opcode::SMOD => {
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    let dividend_is_negative = is_negative(dividend);
-                    let divisor_is_negative = is_negative(divisor);
-                    let dividend = if dividend_is_negative {
-                        negate(dividend)
-                    } else {
-                        dividend
-                    };
-                    let divisor = if divisor_is_negative {
-                        negate(divisor)
-                    } else {
-                        divisor
-                    };
-                    let remainder = dividend % divisor;
-                    let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
-                    let remainder = if remainder_is_negative {
-                        negate(remainder)
-                    } else {
-                        remainder
-                    };
-
-                    current_call_frame.stack.push(remainder)?;
+                    VM::smod(&mut current_call_frame)?;
                 }
                 Opcode::ADDMOD => {
-                    let augend = current_call_frame.stack.pop()?;
-                    let addend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-                    let (sum, overflow) = augend.overflowing_add(addend);
-                    let mut remainder = sum % divisor;
-                    if overflow || remainder > divisor {
-                        remainder = remainder.overflowing_sub(divisor).0;
-                    }
-
-                    current_call_frame.stack.push(remainder)?;
+                    VM::addmod(&mut current_call_frame)?;
                 }
                 Opcode::MULMOD => {
                     let multiplicand = U512::from(current_call_frame.stack.pop()?);
@@ -224,29 +134,10 @@ impl VM {
                     current_call_frame.stack.push(remainder)?;
                 }
                 Opcode::EXP => {
-                    let base = current_call_frame.stack.pop()?;
-                    let exponent = current_call_frame.stack.pop()?;
-                    let power = base.overflowing_pow(exponent).0;
-                    current_call_frame.stack.push(power)?;
+                    VM::exp(&mut current_call_frame)?;
                 }
                 Opcode::SIGNEXTEND => {
-                    let byte_size = current_call_frame.stack.pop()?;
-                    let value_to_extend = current_call_frame.stack.pop()?;
-
-                    let bits_per_byte = U256::from(8);
-                    let sign_bit_position_on_byte = 7;
-                    let max_byte_size = 31;
-
-                    let byte_size = byte_size.min(U256::from(max_byte_size));
-                    let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
-                    let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
-                    let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
-                    let result = if is_negative {
-                        value_to_extend | !sign_bit_mask
-                    } else {
-                        value_to_extend & sign_bit_mask
-                    };
-                    current_call_frame.stack.push(result)?;
+                    VM::signextend(&mut current_call_frame)?;
                 }
                 Opcode::LT => {
                     let lho = current_call_frame.stack.pop()?;

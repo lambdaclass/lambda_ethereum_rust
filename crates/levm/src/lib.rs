@@ -7,3 +7,4 @@ pub mod operations;
 pub mod primitives;
 pub mod vm;
 pub mod vm_result;
+pub mod opcode_handlers;
