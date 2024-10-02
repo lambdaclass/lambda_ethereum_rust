@@ -1,6 +1,7 @@
 use ethereum_types::H32;
 use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
+    constants::HALT_FOR_CALL,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     vm::{Account, VM},
@@ -2238,4 +2239,45 @@ fn logs_from_multiple_callers() {
     let result = vm.execute().unwrap();
 
     assert_eq!(result.logs().len(), 2)
+}
+
+#[test]
+fn call_return_success_but_caller_halts() {
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+
+    let operations = vec![Operation::Pop, Operation::Stop];
+    let callee_bytecode = operations
+        .clone()
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.add_account(callee_address, callee_account);
+
+    vm.execute().unwrap();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(HALT_FOR_CALL)
+    );
 }

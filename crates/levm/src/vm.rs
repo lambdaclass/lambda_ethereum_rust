@@ -3,7 +3,7 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::{CallFrame, Log},
-    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     vm_result::{ExecutionResult, ResultReason, VMError},
 };
@@ -791,7 +791,7 @@ impl VM {
                                 .push(U256::from(SUCCESS_FOR_CALL))?;
                         }
                         Err(_) => {
-                            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                            current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
                         }
                     };
                 }
