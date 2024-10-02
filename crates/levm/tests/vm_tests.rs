@@ -1,4 +1,4 @@
-use levm::{
+use ethereum_rust_levm::{
     operations::Operation,
     primitives::{Address, Bytes, U256},
     vm::VM,
