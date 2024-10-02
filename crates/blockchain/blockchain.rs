@@ -2,6 +2,7 @@ pub mod constants;
 pub mod error;
 pub mod mempool;
 pub mod payload;
+mod smoke_test;
 
 use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK};
 use error::{ChainError, InvalidBlockError};
@@ -20,8 +21,9 @@ use ethereum_rust_storage::Store;
 //TODO: Implement a struct Chain or BlockChain to encapsulate
 //functionality and canonical chain state and config
 
-/// Adds a new block to the store. It may or may not be canonical, as long as its parent is part
-/// of the canonical chain. It doesn't modify the canonical chain/head.
+/// Adds a new block to the store. It may or may not be canonical, as long as its ancestry links
+/// with the canonical chain and its parent's post-state is calculated. It doesn't modify the
+/// canonical chain/head. Fork choice needs to be updated for that in a separate step.
 ///
 /// Performs pre and post execution validation, and updates the database with the post state.
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
