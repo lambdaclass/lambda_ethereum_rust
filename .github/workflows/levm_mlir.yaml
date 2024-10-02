@@ -1,4 +1,4 @@
-name: EVM Mlir CI
+name: LEVM Mlir CI
 
 on:
   merge_group:
