@@ -18,14 +18,15 @@ pub struct Log {
     pub data: Bytes,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
-    pub callee: Address,
-    pub bytecode: Bytes,
+    pub to: Address,
+    pub code_address: Address,
     pub delegate: Option<Address>,
+    pub bytecode: Bytes,
     pub msg_value: U256,
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
@@ -34,15 +35,41 @@ pub struct CallFrame {
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
-    pub is_static: bool,
 }
 
 impl CallFrame {
-    pub fn new(bytecode: Bytes) -> Self {
+    pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         Self {
             bytecode,
+            ..Default::default()
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        gas: U256,
+        msg_sender: Address,
+        to: Address,
+        code_address: Address,
+        delegate: Option<Address>,
+        bytecode: Bytes,
+        msg_value: U256,
+        calldata: Bytes,
+        is_static: bool,
+    ) -> Self {
+        Self {
+            gas,
+            msg_sender,
+            to,
+            code_address,
+            delegate,
+            bytecode,
+            msg_value,
+            calldata,
+            is_static,
             ..Default::default()
         }
     }

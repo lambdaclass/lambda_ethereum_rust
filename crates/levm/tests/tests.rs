@@ -1,9 +1,8 @@
-use ethereum_types::H32;
 use levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
     constants::TX_BASE_COST,
     operations::Operation,
-    primitives::{Address, Bytes, H256, U256},
+    primitives::{Address, Bytes, H256, H32, U256},
     vm::{Account, VM},
 };
 
@@ -1267,8 +1266,7 @@ fn call_returns_if_bytecode_empty() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
-    println!("to excec");
+    vm.db.add_account(callee_address, callee_account);
     vm.execute();
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
@@ -1301,7 +1299,7 @@ fn call_changes_callframe_and_stores() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1382,8 +1380,8 @@ fn nested_calls() {
 
     let mut vm = new_vm_with_ops_addr_bal(&caller_ops, caller_address, caller_balance);
 
-    vm.add_account(callee2_address, callee2_account);
-    vm.add_account(callee3_address, callee3_account);
+    vm.db.add_account(callee2_address, callee2_account);
+    vm.db.add_account(callee3_address, callee3_account);
 
     vm.execute();
 
@@ -1492,7 +1490,7 @@ fn calldataload_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1614,7 +1612,7 @@ fn returndatacopy_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1641,6 +1639,7 @@ fn blockhash_op() {
     let mut vm = new_vm_with_ops(&operations);
     vm.block_env.number = U256::from(current_block_number);
     vm.db
+        .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
@@ -1668,6 +1667,7 @@ fn blockhash_same_block_number() {
     let mut vm = new_vm_with_ops(&operations);
     vm.block_env.number = U256::from(current_block_number);
     vm.db
+        .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
@@ -1695,6 +1695,7 @@ fn blockhash_block_number_not_from_recent_256() {
     let mut vm = new_vm_with_ops(&operations);
     vm.block_env.number = U256::from(current_block_number);
     vm.db
+        .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
@@ -2033,6 +2034,104 @@ fn jumpi_for_zero() {
         U256::from(100)
     );
     assert_eq!(vm.consumed_gas, TX_BASE_COST + 19);
+}
+
+#[test]
+fn sstore_op() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().code_address = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    vm.execute();
+
+    let account = vm.db.accounts.get(&sender_address).unwrap();
+    let stored_value = account.storage.get(&key).unwrap();
+    assert_eq!(value, stored_value.current_value);
+}
+
+#[test]
+#[should_panic]
+fn sstore_reverts_when_called_in_static() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().is_static = true;
+    vm.execute();
+}
+
+#[test]
+fn sload_op() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Push((1, key)),
+        Operation::Sload,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().msg_sender = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    vm.execute();
+
+    assert_eq!(value, vm.current_call_frame_mut().stack.pop().unwrap());
+}
+
+#[test]
+fn sload_untouched_key_of_storage() {
+    let key = U256::from(404);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().msg_sender = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    vm.execute();
+
+    assert_eq!(
+        U256::zero(),
+        vm.current_call_frame_mut().stack.pop().unwrap()
+    );
+}
+
+#[test]
+fn sload_on_not_existing_account() {
+    let key = U256::from(80);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().msg_sender = sender_address;
+
+    vm.execute();
+
+    assert_eq!(
+        U256::zero(),
+        vm.current_call_frame_mut().stack.pop().unwrap()
+    );
 }
 
 #[test]
