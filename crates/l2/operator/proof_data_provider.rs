@@ -6,7 +6,7 @@ use std::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::SP1ProofWithPublicValues;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::rpc::l1_rpc::RpcResponse;
 
@@ -57,14 +57,25 @@ impl ProofDataProvider {
     async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
         let buf_reader = BufReader::new(&stream);
 
-        let data: ProofData = serde_json::de::from_reader(buf_reader).unwrap();
+        let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
-            ProofData::Request {} => self.handle_request(&mut stream, *last_proved_block).await,
-            ProofData::Submit { id, proof } => {
-                self.handle_submit(&mut stream, id, proof);
+            Ok(ProofData::Request {}) => {
+                if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
+                    warn!("Failed to handle request: {}", e);
+                }
+            }
+            Ok(ProofData::Submit { id, proof }) => {
+                if let Err(e) = self.handle_submit(&mut stream, id, proof) {
+                    warn!("Failed to handle submit: {}", e);
+                }
                 *last_proved_block += 1;
             }
-            _ => {}
+            Err(e) => {
+                warn!("Failed to parse request: {}", e);
+            }
+            _ => {
+                warn!("Invalid request");
+            }
         }
 
         debug!("Connection closed");
@@ -90,36 +101,50 @@ impl ProofDataProvider {
             .map_err(|e| e.to_string())?;
 
         if let RpcResponse::Success(r) = response {
-            Ok(
-                u64::from_str_radix(r.result.as_str().unwrap().strip_prefix("0x").unwrap(), 16)
-                    .unwrap(),
+            u64::from_str_radix(
+                r.result
+                    .as_str()
+                    .ok_or("Response format error".to_string())?
+                    .strip_prefix("0x")
+                    .ok_or("Response format error".to_string())?,
+                16,
             )
+            .map_err(|e| e.to_string())
         } else {
             Err("Failed to get last block number".to_string())
         }
     }
 
-    async fn handle_request(&self, stream: &mut TcpStream, last_proved_block: u64) {
+    async fn handle_request(
+        &self,
+        stream: &mut TcpStream,
+        last_proved_block: u64,
+    ) -> Result<(), String> {
         debug!("Request received");
 
-        if let Ok(last_block_number) = Self::get_last_block_number().await {
-            let response = if last_block_number > last_proved_block {
-                ProofData::Response {
-                    id: Some(last_proved_block + 1),
-                }
-            } else {
-                ProofData::Response { id: None }
-            };
-            let writer = BufWriter::new(stream);
-            serde_json::to_writer(writer, &response).unwrap();
-        }
+        let last_block_number = Self::get_last_block_number().await?;
+
+        let response = if last_block_number > last_proved_block {
+            ProofData::Response {
+                id: Some(last_proved_block + 1),
+            }
+        } else {
+            ProofData::Response { id: None }
+        };
+        let writer = BufWriter::new(stream);
+        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
 
-    fn handle_submit(&self, stream: &mut TcpStream, id: u64, proof: Box<SP1ProofWithPublicValues>) {
+    fn handle_submit(
+        &self,
+        stream: &mut TcpStream,
+        id: u64,
+        proof: Box<SP1ProofWithPublicValues>,
+    ) -> Result<(), String> {
         debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
 
         let response = ProofData::SubmitAck { id };
         let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).unwrap();
+        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
 }
