@@ -6,10 +6,12 @@ use serde_json::Value;
 use crate::authentication::AuthenticationError;
 use ethereum_rust_blockchain::error::MempoolError;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum RpcErr {
     MethodNotFound,
+    WrongParam(String),
     BadParams,
+    MissingParam(String),
     BadHexFormat(u64),
     UnsuportedFork,
     Internal,
@@ -17,6 +19,8 @@ pub enum RpcErr {
     Revert { data: String },
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
+    InvalidForkChoiceState(String),
+    UnknownPayload,
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -27,10 +31,20 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: "Method not found".to_string(),
             },
+            RpcErr::WrongParam(field) => RpcErrorMetadata {
+                code: -32602,
+                data: None,
+                message: format!("Field '{}' is incorrect or has an unknown format", field),
+            },
             RpcErr::BadParams => RpcErrorMetadata {
                 code: -32000,
                 data: None,
                 message: "Invalid params".to_string(),
+            },
+            RpcErr::MissingParam(parameter_name) => RpcErrorMetadata {
+                code: -32000,
+                data: None,
+                message: format!("Expected parameter: {parameter_name} is missing"),
             },
             RpcErr::UnsuportedFork => RpcErrorMetadata {
                 code: -38005,
@@ -85,6 +99,16 @@ impl From<RpcErr> for RpcErrorMetadata {
                     data: None,
                     message: "Auth failed: Missing authentication header".to_string(),
                 },
+            },
+            RpcErr::InvalidForkChoiceState(data) => RpcErrorMetadata {
+                code: -38002,
+                data: Some(data),
+                message: "Invalid forkchoice state".to_string(),
+            },
+            RpcErr::UnknownPayload => RpcErrorMetadata {
+                code: -38001,
+                data: None,
+                message: "Unknown payload".to_string(),
             },
         }
     }

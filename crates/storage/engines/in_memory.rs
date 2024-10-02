@@ -1,10 +1,10 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -34,6 +34,10 @@ struct StoreInner {
     receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
     state_trie_nodes: NodeMap,
     storage_trie_nodes: HashMap<Address, NodeMap>,
+    // TODO (#307): Remove TotalDifficulty.
+    block_total_difficulties: HashMap<BlockHash, U256>,
+    // Stores local blocks by payload id
+    payloads: HashMap<u64, Block>,
 }
 
 #[derive(Default, Debug)]
@@ -43,6 +47,8 @@ struct ChainData {
     finalized_block_number: Option<BlockNumber>,
     safe_block_number: Option<BlockNumber>,
     latest_block_number: Option<BlockNumber>,
+    // TODO (#307): Remove TotalDifficulty.
+    latest_total_difficulty: Option<U256>,
     pending_block_number: Option<BlockNumber>,
 }
 
@@ -103,6 +109,28 @@ impl StoreEngine for Store {
 
     fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.inner().block_numbers.get(&block_hash).copied())
+    }
+
+    fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_total_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.inner()
+            .block_total_difficulties
+            .insert(block_hash, block_total_difficulty);
+        Ok(())
+    }
+
+    fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<U256>, StoreError> {
+        Ok(self
+            .inner()
+            .block_total_difficulties
+            .get(&block_hash)
+            .copied())
     }
 
     fn add_transaction_location(
@@ -239,6 +267,16 @@ impl StoreEngine for Store {
             .replace(block_number);
         Ok(())
     }
+    fn update_latest_total_difficulty(
+        &self,
+        latest_total_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.inner()
+            .chain_data
+            .latest_total_difficulty
+            .replace(latest_total_difficulty);
+        Ok(())
+    }
 
     fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.inner().chain_data.latest_block_number)
@@ -252,12 +290,19 @@ impl StoreEngine for Store {
         Ok(())
     }
 
+    fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        Ok(self.inner().chain_data.latest_total_difficulty)
+    }
+
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         Ok(self.inner().chain_data.pending_block_number)
     }
 
-    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
-        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
+    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
+        let Some(state_root) = self
+            .get_block_header_by_hash(block_hash)?
+            .map(|h| h.state_root)
+        else {
             return Ok(None);
         };
         let db = Box::new(InMemoryTrieDB::new(self.inner().state_trie_nodes.clone()));
@@ -302,6 +347,15 @@ impl StoreEngine for Store {
         block_number: BlockNumber,
     ) -> Result<Option<BlockHash>, StoreError> {
         Ok(self.inner().canonical_hashes.get(&block_number).cloned())
+    }
+
+    fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.inner().payloads.insert(payload_id, block);
+        Ok(())
+    }
+
+    fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        Ok(self.inner().payloads.get(&payload_id).cloned())
     }
 }
 

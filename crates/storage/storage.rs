@@ -90,7 +90,18 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountInfo>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        match self.get_canonical_block_hash(block_number)? {
+            Some(block_hash) => self.get_account_info_by_hash(block_hash, address),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_account_info_by_hash(
+        &self,
+        block_hash: BlockHash,
+        address: Address,
+    ) -> Result<Option<AccountInfo>, StoreError> {
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -110,23 +121,21 @@ impl Store {
         block_hash: BlockHash,
         block_header: BlockHeader,
     ) -> Result<(), StoreError> {
-        self.engine
-            .clone()
-            .add_block_header(block_hash, block_header)
+        self.engine.add_block_header(block_hash, block_header)
     }
 
     pub fn get_block_header(
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        self.engine.clone().get_block_header(block_number)
+        self.engine.get_block_header(block_number)
     }
 
     pub fn get_block_header_by_hash(
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockHeader>, StoreError> {
-        self.engine.clone().get_block_header_by_hash(block_hash)
+        self.engine.get_block_header_by_hash(block_hash)
     }
 
     pub fn add_block_body(
@@ -134,14 +143,14 @@ impl Store {
         block_hash: BlockHash,
         block_body: BlockBody,
     ) -> Result<(), StoreError> {
-        self.engine.clone().add_block_body(block_hash, block_body)
+        self.engine.add_block_body(block_hash, block_body)
     }
 
     pub fn get_block_body(
         &self,
         block_number: BlockNumber,
     ) -> Result<Option<BlockBody>, StoreError> {
-        self.engine.clone().get_block_body(block_number)
+        self.engine.get_block_body(block_number)
     }
 
     pub fn add_block_number(
@@ -158,7 +167,23 @@ impl Store {
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<BlockNumber>, StoreError> {
-        self.engine.clone().get_block_number(block_hash)
+        self.engine.get_block_number(block_hash)
+    }
+
+    pub fn add_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+        block_difficulty: U256,
+    ) -> Result<(), StoreError> {
+        self.engine
+            .add_block_total_difficulty(block_hash, block_difficulty)
+    }
+
+    pub fn get_block_total_difficulty(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<U256>, StoreError> {
+        self.engine.get_block_total_difficulty(block_hash)
     }
 
     pub fn add_transaction_location(
@@ -192,11 +217,11 @@ impl Store {
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
-        self.engine.clone().add_account_code(code_hash, code)
+        self.engine.add_account_code(code_hash, code)
     }
 
     pub fn get_account_code(&self, code_hash: H256) -> Result<Option<Bytes>, StoreError> {
-        self.engine.clone().get_account_code(code_hash)
+        self.engine.get_account_code(code_hash)
     }
 
     pub fn get_code_by_account_address(
@@ -204,7 +229,10 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<Bytes>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -219,7 +247,10 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<u64>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -231,13 +262,13 @@ impl Store {
     }
 
     /// Applies account updates based on the block's latest storage state
-    /// and returns the new state root after the updates have been aplied
+    /// and returns the new state root after the updates have been applied.
     pub fn apply_account_updates(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         account_updates: &[AccountUpdate],
     ) -> Result<Option<H256>, StoreError> {
-        let Some(mut state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(mut state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         for update in account_updates.iter() {
@@ -320,7 +351,7 @@ impl Store {
         index: Index,
         receipt: Receipt,
     ) -> Result<(), StoreError> {
-        self.engine.clone().add_receipt(block_hash, index, receipt)
+        self.engine.add_receipt(block_hash, index, receipt)
     }
 
     pub fn get_receipt(
@@ -328,19 +359,24 @@ impl Store {
         block_number: BlockNumber,
         index: Index,
     ) -> Result<Option<Receipt>, StoreError> {
-        self.engine.clone().get_receipt(block_number, index)
+        self.engine.get_receipt(block_number, index)
     }
 
     pub fn add_block(&self, block: Block) -> Result<(), StoreError> {
         // TODO Maybe add both in a single tx?
         let header = block.header;
         let number = header.number;
+        let latest_total_difficulty = self.get_latest_total_difficulty()?;
+        let block_total_difficulty =
+            latest_total_difficulty.unwrap_or(U256::zero()) + header.difficulty;
         let hash = header.compute_block_hash();
         self.add_transaction_locations(&block.body.transactions, number, hash)?;
         self.add_block_body(hash, block.body)?;
         self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
-        self.update_latest_block_number(number)
+        self.update_latest_block_number(number)?;
+        self.add_block_total_difficulty(hash, block_total_difficulty)?;
+        self.update_latest_total_difficulty(block_total_difficulty)
     }
 
     fn add_transaction_locations(
@@ -416,7 +452,19 @@ impl Store {
         address: Address,
         storage_key: H256,
     ) -> Result<Option<U256>, StoreError> {
-        let Some(storage_trie) = self.storage_trie(block_number, address)? else {
+        match self.get_canonical_block_hash(block_number)? {
+            Some(block_hash) => self.get_storage_at_hash(block_hash, address, storage_key),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_storage_at_hash(
+        &self,
+        block_hash: BlockHash,
+        address: Address,
+        storage_key: H256,
+    ) -> Result<Option<U256>, StoreError> {
+        let Some(storage_trie) = self.storage_trie(block_hash, address)? else {
             return Ok(None);
         };
         let hashed_key = hash_key(&storage_key);
@@ -467,9 +515,16 @@ impl Store {
     pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.engine.update_latest_block_number(block_number)
     }
+    pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
+        self.engine.update_latest_total_difficulty(block_difficulty)
+    }
 
     pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.get_latest_block_number()
+    }
+
+    pub fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {
+        self.engine.get_latest_total_difficulty()
     }
 
     pub fn update_pending_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
@@ -498,11 +553,11 @@ impl Store {
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         address: Address,
     ) -> Result<Option<Trie>, StoreError> {
         // Fetch Account from state_trie
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -520,7 +575,10 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountState>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -535,7 +593,10 @@ impl Store {
         block_number: BlockNumber,
         address: &Address,
     ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)
@@ -550,6 +611,14 @@ impl Store {
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let trie = self.engine.open_storage_trie(address, storage_root);
         Ok(trie.get_proof(&hash_key(storage_key))?)
+    }
+
+    pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
+        self.engine.add_payload(payload_id, block)
+    }
+
+    pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
+        self.engine.get_payload(payload_id)
     }
 }
 

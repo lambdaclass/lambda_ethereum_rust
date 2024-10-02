@@ -1,6 +1,7 @@
-use bytes::Bytes;
-use ethereum_types::U256;
-use levm::operations::Operation;
+use levm::{
+    operations::Operation,
+    primitives::{Bytes, U256},
+};
 
 #[test]
 fn push0_correct_bytecode() {

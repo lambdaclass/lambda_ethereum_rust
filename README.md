@@ -10,13 +10,19 @@
 
 Many long-established clients accumulate bloat over time. This often occurs due to the need to support legacy features for existing users or through attempts to implement overly ambitious software. The result is often complex, difficult-to-maintain, and error-prone systems.
 
-In contrast, our philosophy is rooted in simplicity:
+In contrast, our philosophy is rooted in simplicity. We strive to write minimal code, prioritize clarity, and embrace simplicity in design. We believe this approach is the best way to build a client that is both fast and resilient. By adhering to these principles, we will be able to iterate fast and explore next-generation features early, either from the Ethereum roadmap or from innovations from the L2s.
 
-1. Write minimal code
-2. Prioritize clarity
-3. Embrace simplicity in design
+Read more about our engineering philosophy [here](https://blog.lambdaclass.com/lambdas-engineering-philosophy/)
 
-We believe this approach is the best way to build a client that is both fast and resilient. By adhering to these principles, we will be able to iterate fast and explore next-generation features early, either from the Ethereum roadmap or from innovations from the L2s.
+## Design Principles
+
+- Ensure effortless setup and execution across all target environments.
+- Be vertically integrated. Have the minimal amount of dependencies.
+- Be structured in a way that makes it easy to build on top of it, i.e rollups, vms, etc.
+- Have a simple type system. Avoid having generics leaking all over the codebase.
+- Have few abstractions. Do not generalize until you absolutely need it. Repeating code two or three times can be fine.
+- Prioritize code readability and maintainability over premature optimizations.
+- Avoid concurrency split all over the codebase. Concurrency adds complexity. Only use where strictly necessary.
 
 ## Quick Start (localnet)
 
@@ -42,14 +48,13 @@ To stop everything, simply run:
 make stop-localnet
 ```
 
-
 ## Dev Setup
 ### Build
 
 #### Rust
-To build the node, you will need the rust toolchain: 
-1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html): 
-2. Add the rust plugin: 
+To build the node, you will need the rust toolchain:
+1. First, [install asdf](https://asdf-vm.com/guide/getting-started.html):
+2. Add the rust plugin:
 ```shell
 asdf plugin-add rust https://github.com/asdf-community/asdf-rust.git
 ```
@@ -61,6 +66,16 @@ asdf install
 You now should be able to build the client:
 ```bash
 make build
+```
+### Database
+Currently, the database is `libmdbx`, it will be set up
+when you start the client. The location of the db's files will depend on your OS:
+- Mac: `~/Library/Application Support/ethereum_rust`
+- Linux: `~/.config/ethereum_rust`
+
+You can delete the db with:
+```bash
+cargo run --bin ethereum_rust -- removedb
 ```
 
 ### Test
@@ -219,3 +234,9 @@ RPC endpoints
 - `eth_syncing`
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
+
+# Crates documentation
+
+In the next sections, you can dive further into the code internals.
+
+-   [net](./crates/net/README.md)

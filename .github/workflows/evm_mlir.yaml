@@ -1,0 +1,177 @@
+name: EVM Mlir CI
+
+on:
+  merge_group:
+  push:
+    paths:
+      - 'crates/evm_mlir/**'
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'crates/evm_mlir/**'
+    branches: [ '**' ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: 1.79.0
+  LLVM_SYS_181_PREFIX: /usr/lib/llvm-18/
+  # mlir-sys still uses 180
+  MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+  # tablegen still uses 180
+  TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
+
+jobs:
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Rustup toolchain install
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Add LLVM deb repository
+        uses: myci-actions/add-deb-repo@11
+        with:
+          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main
+          repo-name: llvm-repo
+          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+      - name: Install LLVM
+        run: sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
+
+      - name: Run cargo check
+        working-directory: ./crates/evm_mlir
+        run: cargo check --workspace --all-features --all-targets
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt, clippy
+
+      - name: Add LLVM deb repository
+        uses: myci-actions/add-deb-repo@11
+        with:
+          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main
+          repo-name: llvm-repo
+          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+      - name: Install LLVM
+        run: sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
+
+      - name: Run cargo fmt
+        working-directory: ./crates/evm_mlir
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        working-directory: ./crates/evm_mlir
+        run: cargo clippy --workspace --all-features --benches --examples --tests -- -D warnings
+
+  test:
+    name: Test (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Add LLVM deb repository
+        uses: myci-actions/add-deb-repo@11
+        with:
+          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main
+          repo-name: llvm-repo
+          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+      - name: Install LLVM
+        run: sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
+
+      - name: Install Link deps
+        run: sudo apt-get install libc-dev build-essential
+
+      - name: Install Solc compiler
+        run: sudo add-apt-repository ppa:ethereum/ethereum; sudo apt-get update; sudo apt-get install solc
+
+      - name: Compile example test contracts
+        working-directory: ./crates/evm_mlir
+        run: make compile-solidity-test-examples
+
+      - name: Install testing tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run tests
+        working-directory: ./crates/evm_mlir
+        run: make test
+
+  ethereum-tests:
+    name: Ethereum Tests (Ubuntu)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        type: [ fast, slow, blake2B ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy
+
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Add LLVM deb repository
+        uses: myci-actions/add-deb-repo@11
+        with:
+          repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main
+          repo-name: llvm-repo
+          keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+      - name: Install LLVM
+        run: sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
+
+      - name: Install Link deps
+        run: sudo apt-get install libc-dev build-essential
+
+      - name: Install testing tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Download test vectors
+        working-directory: ./crates/evm_mlir
+        run: make ethtests
+
+      - name: Run fast ethereum tests
+        if: ${{ matrix.type == 'fast' }}
+        working-directory: ./crates/evm_mlir
+        run: make test-eth
+
+      - name: Run slow ethereum tests
+        if: ${{ matrix.type == 'slow' }}
+        working-directory: ./crates/evm_mlir
+        run: make test-eth-slow
+
+      - name: Run blake2B ethereum test
+        if: ${{ matrix.type == 'blake2B' }}
+        working-directory: ./crates/evm_mlir
+        run: make test-eth-blake2B

@@ -1,6 +1,8 @@
-use bytes::Bytes;
-use ethereum_types::U256;
-use levm::{operations::Operation, vm::VM};
+use levm::{
+    operations::Operation,
+    primitives::{Address, Bytes, U256},
+    vm::VM,
+};
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = operations
@@ -8,7 +10,7 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
 
-    VM::new(bytecode)
+    VM::new(bytecode, Address::zero(), U256::zero())
 }
 
 #[test]
@@ -17,8 +19,8 @@ fn push0_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame().stack[0], U256::zero());
-    assert_eq!(vm.current_call_frame().pc(), 2);
+    assert_eq!(vm.current_call_frame_mut().stack[0], U256::zero());
+    assert_eq!(vm.current_call_frame_mut().pc(), 2);
 }
 
 #[test]
@@ -30,8 +32,8 @@ fn push1_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame().stack[0], to_push);
-    assert_eq!(vm.current_call_frame().pc(), 3);
+    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 3);
 }
 
 #[test]
@@ -43,8 +45,8 @@ fn push5_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame().stack[0], to_push);
-    assert_eq!(vm.current_call_frame().pc(), 7);
+    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 7);
 }
 
 #[test]
@@ -56,8 +58,8 @@ fn push31_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame().stack[0], to_push);
-    assert_eq!(vm.current_call_frame().pc(), 33);
+    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 33);
 }
 
 #[test]
@@ -69,8 +71,8 @@ fn push32_ok() {
 
     vm.execute();
 
-    assert_eq!(vm.current_call_frame().stack[0], to_push);
-    assert_eq!(vm.current_call_frame().pc(), 34);
+    assert_eq!(vm.current_call_frame_mut().stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 34);
 }
 
 #[test]
@@ -86,12 +88,12 @@ fn dup1_ok() {
 
     vm.execute();
 
-    let stack_len = vm.current_call_frame().stack.len();
+    let stack_len = vm.current_call_frame_mut().stack.len();
 
     assert_eq!(stack_len, 2);
-    assert_eq!(vm.current_call_frame().pc(), 4);
-    assert_eq!(vm.current_call_frame().stack[stack_len - 1], value);
-    assert_eq!(vm.current_call_frame().stack[stack_len - 2], value);
+    assert_eq!(vm.current_call_frame_mut().pc(), 4);
+    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1], value);
+    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 2], value);
 }
 
 #[test]
@@ -106,12 +108,12 @@ fn dup16_ok() {
 
     vm.execute();
 
-    let stack_len = vm.current_call_frame().stack.len();
+    let stack_len = vm.current_call_frame_mut().stack.len();
 
     assert_eq!(stack_len, 17);
-    assert_eq!(vm.current_call_frame().pc, 19);
-    assert_eq!(vm.current_call_frame().stack[stack_len - 1], value);
-    assert_eq!(vm.current_call_frame().stack[stack_len - 17], value);
+    assert_eq!(vm.current_call_frame_mut().pc, 19);
+    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1], value);
+    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 17], value);
 }
 
 #[test]
@@ -137,10 +139,10 @@ fn swap1_ok() {
     let mut vm = new_vm_with_ops(&operations);
     vm.execute();
 
-    assert_eq!(vm.current_call_frame().stack.len(), 2);
-    assert_eq!(vm.current_call_frame().pc(), 6);
-    assert_eq!(vm.current_call_frame().stack[0], top);
-    assert_eq!(vm.current_call_frame().stack[1], bottom);
+    assert_eq!(vm.current_call_frame_mut().stack.len(), 2);
+    assert_eq!(vm.current_call_frame_mut().pc(), 6);
+    assert_eq!(vm.current_call_frame_mut().stack[0], top);
+    assert_eq!(vm.current_call_frame_mut().stack[1], bottom);
 }
 
 #[test]
@@ -156,12 +158,12 @@ fn swap16_ok() {
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
-    let stack_len = vm.current_call_frame().stack.len();
+    let stack_len = vm.current_call_frame_mut().stack.len();
 
     assert_eq!(stack_len, 17);
-    assert_eq!(vm.current_call_frame().pc(), 21);
-    assert_eq!(vm.current_call_frame().stack[stack_len - 1], bottom);
-    assert_eq!(vm.current_call_frame().stack[stack_len - 1 - 16], top);
+    assert_eq!(vm.current_call_frame_mut().pc(), 21);
+    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1], bottom);
+    assert_eq!(vm.current_call_frame_mut().stack[stack_len - 1 - 16], top);
 }
 
 #[test]
@@ -171,4 +173,66 @@ fn swap_panics_if_stack_underflow() {
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
+}
+
+#[test]
+fn transient_store() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [
+        Operation::Push32(value),
+        Operation::Push32(key),
+        Operation::Tstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert!(current_call_frame.transient_storage.is_empty());
+
+    vm.execute();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert_eq!(
+        *current_call_frame
+            .transient_storage
+            .get(&(current_call_frame.msg_sender, key))
+            .unwrap(),
+        value
+    )
+}
+
+#[test]
+#[should_panic]
+fn transient_store_no_values_panics() {
+    let operations = [Operation::Tstore, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    assert!(vm.current_call_frame_mut().transient_storage.is_empty());
+
+    vm.execute();
+}
+
+#[test]
+fn transient_load() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let caller = vm.current_call_frame_mut().msg_sender;
+
+    vm.current_call_frame_mut()
+        .transient_storage
+        .insert((caller, key), value);
+
+    vm.execute();
+
+    assert_eq!(*vm.current_call_frame_mut().stack.last().unwrap(), value)
 }
