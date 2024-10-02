@@ -3,39 +3,41 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
     call_frame::{CallFrame, Log},
-    constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
-    primitives::{Address, Bytes, H256, H32, U256, U512},
+    primitives::{Address, Bytes, H256, H32, U256, U512}, vm_result::{ExecutionResult, ResultAndState, ResultReason, VMError},
 };
 use sha3::{Digest, Keccak256};
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 // TODO: complete account abstraction
 pub struct Account {
-    balance: U256,
-    bytecode: Bytes,
-    storage: HashMap<U256, StorageSlot>,
+    pub address: Address,
+    pub balance: U256,
+    pub bytecode: Bytes,
+    pub storage: HashMap<U256, StorageSlot>,
+    pub nonce: U256,
 }
 
 impl Account {
     pub fn new(balance: U256, bytecode: Bytes) -> Self {
-        Self { balance, bytecode, storage: Default::default() }
+        Self { balance, bytecode, ..Default::default() }
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Db {
+pub struct WorldState {
     pub accounts: HashMap<Address, Account>,
     pub block_hashes: HashMap<U256, H256>,
 }
 
-impl Db {
+impl WorldState {
     pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
         self.accounts
             .get(address)
@@ -52,8 +54,6 @@ impl Db {
     }
 }
 
-pub type WorldState = HashMap<Address, Account>;
-
 #[derive(Debug, Clone, Default)]
 struct Substate; // TODO
 
@@ -63,13 +63,13 @@ struct Substate; // TODO
 pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
-    msg_sender: Address,
-    to: TransactTo,
+    pub msg_sender: Address,
+    pub to: TransactTo,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    gas_price: u64,
+    pub gas_price: u64,
     /// The block header of the present block.
-    block: BlockEnv,
+    pub block: BlockEnv,
 }
 
 #[derive(Debug, Default)]
@@ -104,16 +104,13 @@ pub struct Message {
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    call_frames: Vec<CallFrame>,
-    env: Environment,
+    pub call_frames: Vec<CallFrame>,
+    pub env: Environment,
     /// Information that is acted upon immediately following the
     /// transaction.
     accrued_substate: Substate,
-    /// Mapping between addresses (160-bit identifiers) and account
-    /// states .
-    pub world_state: WorldState,
     // pub remaining_gas: u64,
-    pub db: Db,
+    pub world_state: WorldState,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -141,7 +138,7 @@ impl VM {
         let mut initial_env = Environment::default();
         let mut state = WorldState::new();
         state.insert(msg_sender, initial_account);
-        let mut db = Db::default();
+        let mut db = WorldState::default();
         db.accounts = state.clone();
 
         initial_env.msg_sender = msg_sender;
@@ -161,16 +158,26 @@ impl VM {
             call_frames: vec![first_call_frame],
             world_state: state,
             env: initial_env,
-            db,
+            world_state: db,
             ..Default::default()
         }
     }
 
-    pub fn execute(&mut self) -> ResultAndState {   
+    pub fn write_success_result(call_frame: CallFrame, reason: ResultReason) -> ExecutionResult {
+        ExecutionResult::Success {
+            reason,
+            logs: call_frame.logs.clone(),
+            return_data: call_frame.returndata.clone(),
+        }
+    }
+
+    pub fn execute(&mut self) -> Result<ExecutionResult, VMError> {  
         // let initial_gas_consumed = self.validate_transaction()?;
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let block_env = self.env.block.clone();
+        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
         loop {
-            match current_call_frame.next_opcode().unwrap() {
+            let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            match opcode {
                 Opcode::STOP => break,
                 Opcode::ADD => {
                     let augend = current_call_frame.stack.pop().unwrap();
@@ -501,7 +508,7 @@ impl VM {
                         continue;
                     }
 
-                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
+                    if let Some(block_hash) = self.world_state.block_hashes.get(&block_number) {
                         current_call_frame
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
@@ -832,7 +839,7 @@ impl VM {
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {
-        self.db.accounts.insert(address, account);
+        self.world_state.accounts.insert(address, account);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -851,21 +858,20 @@ impl VM {
         args_size: usize,
         ret_offset: usize,
         ret_size: usize,
-    ) {
+    ) -> Result<(), VMError> {
         // check balance
         if self.balance(&current_call_frame.msg_sender) < value {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-            return;
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+            return Ok(());
         }
 
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
         let code_address_bytecode = self.get_account_bytecode(&code_address);
-
         if code_address_bytecode.is_empty() {
-            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-            return;
+            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
+            return Ok(());
         }
 
         let calldata = current_call_frame
@@ -893,18 +899,41 @@ impl VM {
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
 
-        self.call_frames.push(current_call_frame.clone());
-        *current_call_frame = new_call_frame;
+        // self.call_frames.push(current_call_frame.clone());
+        // *current_call_frame = new_call_frame;
+        
+        self.call_frames.push(new_call_frame.clone());
+        self.execute();
+        let result = self.get
+
+        match result {
+            Ok(ExecutionResult::Success {
+                logs, return_data, ..
+            }) => {
+                current_call_frame.logs.extend(logs);
+                current_call_frame
+                    .memory
+                    .store_bytes(ret_offset, &return_data);
+                current_call_frame.returndata = return_data;
+                current_call_frame
+                    .stack
+                    .push(U256::from(SUCCESS_FOR_CALL))?;
+            }
+            Err(_) => {
+                current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
+            }
+        };
+        Ok(())
     }
 
-    pub fn transact(&mut self) -> ResultAndState {
-        let initial_gas_consumed = self.validate_transaction()?;
+    // pub fn transact(&mut self) -> ResultAndState {
+    //     let initial_gas_consumed = self.validate_transaction()?;
 
-        match self.env.to {
-            TransactTo::Call(_) => self.call(initial_gas_consumed),
-            TransactTo::Create => self.create(initial_gas_consumed),
-        }
-    }
+    //     match self.env.to {
+    //         TransactTo::Call(_) => self.call(initial_gas_consumed),
+    //         TransactTo::Create => self.create(initial_gas_consumed),
+    //     }
+    // }
 }
 
 
