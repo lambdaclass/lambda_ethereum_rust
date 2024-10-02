@@ -28,7 +28,6 @@ pub type Db = HashMap<U256, H256>;
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub current_call_frame: CallFrame,
     pub accounts: HashMap<Address, Account>,
     pub block_env: BlockEnv,
     pub db: Db,
@@ -57,7 +56,6 @@ impl VM {
         accounts.insert(address, initial_account);
         Self {
             call_frames: vec![initial_call_frame.clone()],
-            current_call_frame: initial_call_frame,
             accounts,
             block_env: Default::default(),
             db: Default::default(),
