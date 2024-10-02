@@ -115,10 +115,7 @@ fn address_to_word(address: Address) -> U256 {
 
 impl VM {
     pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
-        // let initial_account = Account::new(balance, bytecode.clone());
-
         let bytecode = match tx_env.transact_to {
-            // TransactTo::Call(addr) => db.accounts.get(&addr).unwrap().bytecode.clone(),
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
             TransactTo::Create => {
                 todo!()
