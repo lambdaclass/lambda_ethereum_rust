@@ -84,7 +84,6 @@ pub enum Operation {
     Tstore,
     Mcopy,
     Push0,
-    Push32(U256),
     Push((u8, U256)),
     Dup(u8),
     Swap(u8),
@@ -200,13 +199,6 @@ impl Operation {
                 let mut bytes = vec![opcode as u8];
                 bytes.extend_from_slice(value_to_push);
 
-                Bytes::copy_from_slice(&bytes)
-            }
-            Operation::Push32(value) => {
-                let mut value_to_push = [0; 32];
-                value.to_big_endian(&mut value_to_push);
-                let mut bytes = vec![Opcode::PUSH32 as u8];
-                bytes.extend_from_slice(&value_to_push);
                 Bytes::copy_from_slice(&bytes)
             }
             Operation::Dup(n) => {
