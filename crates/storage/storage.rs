@@ -90,7 +90,18 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountInfo>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        match self.get_canonical_block_hash(block_number)? {
+            Some(block_hash) => self.get_account_info_by_hash(block_hash, address),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_account_info_by_hash(
+        &self,
+        block_hash: BlockHash,
+        address: Address,
+    ) -> Result<Option<AccountInfo>, StoreError> {
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -218,7 +229,10 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<Bytes>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -233,7 +247,10 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<u64>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -245,13 +262,13 @@ impl Store {
     }
 
     /// Applies account updates based on the block's latest storage state
-    /// and returns the new state root after the updates have been aplied
+    /// and returns the new state root after the updates have been applied.
     pub fn apply_account_updates(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         account_updates: &[AccountUpdate],
     ) -> Result<Option<H256>, StoreError> {
-        let Some(mut state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(mut state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         for update in account_updates.iter() {
@@ -435,7 +452,19 @@ impl Store {
         address: Address,
         storage_key: H256,
     ) -> Result<Option<U256>, StoreError> {
-        let Some(storage_trie) = self.storage_trie(block_number, address)? else {
+        match self.get_canonical_block_hash(block_number)? {
+            Some(block_hash) => self.get_storage_at_hash(block_hash, address, storage_key),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_storage_at_hash(
+        &self,
+        block_hash: BlockHash,
+        address: Address,
+        storage_key: H256,
+    ) -> Result<Option<U256>, StoreError> {
+        let Some(storage_trie) = self.storage_trie(block_hash, address)? else {
             return Ok(None);
         };
         let hashed_key = hash_key(&storage_key);
@@ -524,11 +553,11 @@ impl Store {
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
         &self,
-        block_number: BlockNumber,
+        block_hash: BlockHash,
         address: Address,
     ) -> Result<Option<Trie>, StoreError> {
         // Fetch Account from state_trie
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -546,7 +575,10 @@ impl Store {
         block_number: BlockNumber,
         address: Address,
     ) -> Result<Option<AccountState>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -561,7 +593,10 @@ impl Store {
         block_number: BlockNumber,
         address: &Address,
     ) -> Result<Option<Vec<Vec<u8>>>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_number)? else {
+        let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
+            return Ok(None);
+        };
+        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
             return Ok(None);
         };
         Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)
