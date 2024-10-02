@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ethereum_rust_evm_mlir::{
+use ethereum_rust_levm_mlir::{
     context::{Context, Session},
     db::Db,
     env::Env,

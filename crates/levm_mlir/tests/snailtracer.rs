@@ -1,4 +1,4 @@
-use ethereum_rust_evm_mlir::{
+use ethereum_rust_levm_mlir::{
     db::{Bytecode, Db},
     env::TransactTo,
     primitives::{Address, Bytes},
