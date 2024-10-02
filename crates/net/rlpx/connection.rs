@@ -102,7 +102,7 @@ impl RLPxState {
 
 #[cfg(test)]
 mod tests {
-    use crate::rlpx::handshake::RLPxLocalClient;
+    use crate::rlpx::handshake::RLPxClient;
     use hex_literal::hex;
     use k256::SecretKey;
 
@@ -116,15 +116,21 @@ mod tests {
         let ephemeral_key =
             hex!("869d6ecf5211f1cc60418a13b9d870b22959d0c16f02bec714c960dd2298a32d");
 
-        let mut client =
-            RLPxLocalClient::new(nonce.into(), SecretKey::from_slice(&ephemeral_key).unwrap());
+        let mut client = RLPxClient::new(
+            true,
+            nonce.into(),
+            SecretKey::from_slice(&ephemeral_key).unwrap(),
+        );
 
-        assert_eq!(&client.ephemeral_key.to_bytes()[..], &ephemeral_key[..]);
-        assert_eq!(client.nonce.0, nonce);
+        assert_eq!(
+            &client.local_ephemeral_key.to_bytes()[..],
+            &ephemeral_key[..]
+        );
+        assert_eq!(client.local_nonce.0, nonce);
 
         let auth_data = msg[..2].try_into().unwrap();
 
-        client.auth_message = Some(vec![]);
+        client.local_init_message = Some(vec![]);
 
         let state = client.decode_ack_message(
             &SecretKey::from_slice(&static_key).unwrap(),

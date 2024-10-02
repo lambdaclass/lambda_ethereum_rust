@@ -4,6 +4,7 @@ use ethereum_rust_storage::Store;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
+use tracing::info;
 
 use crate::utils::RpcErr;
 
