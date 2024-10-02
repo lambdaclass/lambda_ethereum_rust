@@ -50,8 +50,8 @@ pub struct Environment {
     pub block: BlockEnv,
 }
 
-#[derive(Debug, Default)]
 /// Items used by contract creation or message call.
+#[derive(Debug, Default)]
 pub struct Message {
     /// The address of the account which owns the code that
     /// is executing.
