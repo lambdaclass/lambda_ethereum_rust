@@ -17,6 +17,7 @@ ethereum_rust-rpc.workspace = true
 hex.workspace = true
 bytes.workspace = true
 jsonwebtoken.workspace = true
+sp1-sdk = "2.0.0"
 
 [lib]
 path = "./l2.rs"
