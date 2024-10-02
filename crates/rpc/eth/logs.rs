@@ -62,7 +62,7 @@ impl RpcHandler for LogsRequest {
             _ => Err(RpcErr::BadParams),
         }
     }
-    // TODO: This is longer than it has the right to be, maybe we should refactor it.s
+    // TODO: This is longer than it has the right to be, maybe we should refactor it.
     // The main problem here is the layers of indirection needed
     // to fetch tx and block data for a log rpc response, some ideas here are:
     // - The ideal one is to have a key-value store BlockNumber -> Log, where the log also stores
