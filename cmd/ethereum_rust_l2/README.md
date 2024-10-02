@@ -132,27 +132,27 @@ Options:
 
 #### Adding a configuration
 
-<script src="https://asciinema.org/a/B8LhxhYY3IhAXZPywB9t7TeOk.js" id="asciicast-B8LhxhYY3IhAXZPywB9t7TeOk" async="true"></script>
+![](./assets/config_create.cast.gif)
 
 #### Editing exiting configuration interactively
 
-<script src="https://asciinema.org/a/YWGVVJGLdK8EBLi3S5CppkkgW.js" id="asciicast-YWGVVJGLdK8EBLi3S5CppkkgW" async="true"></script>
+![](./assets/config_edit.cast.gif)
 
 
 #### Deleting existing configuration interactively
 
-<script src="https://asciinema.org/a/y49T7RjKKSz0hNhbTfohnhbE3.js" id="asciicast-y49T7RjKKSz0hNhbTfohnhbE3" async="true"></script>
+![](./assets/config_delete.cast.gif)
 
 #### Setting a configuration interactively
 
-<script src="https://asciinema.org/a/4XJ8OeVqD4QpMXowfxZDTWGLA.js" id="asciicast-4XJ8OeVqD4QpMXowfxZDTWGLA" async="true"></script>
+![](./assets/config_set.cast.gif)
 
 ### `stack`
 
 #### Initializing the stack
 
-<script src="https://asciinema.org/a/PTZuL01FDifYhrQpTxqKTUquy.js" id="asciicast-PTZuL01FDifYhrQpTxqKTUquy" async="true"></script>
+![](./assets/stack_init.cast.gif)
 
 #### Restarting the stack
 
-<script src="https://asciinema.org/a/qvSigcYkieMUv5klCyqSQjXIj.js" id="asciicast-qvSigcYkieMUv5klCyqSQjXIj" async="true"></script>
+![](./assets/stack_restart.cast.gif)
