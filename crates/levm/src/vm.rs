@@ -5,6 +5,7 @@ use crate::{
     call_frame::{CallFrame, Log},
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
+    transaction::Transaction,
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H256, H32, U256, U512};
@@ -24,12 +25,13 @@ impl Account {
 
 pub type Db = HashMap<U256, H256>;
 
-#[derive(Debug, Clone, Default)]
-pub struct VM {
+pub type WorldState = HashMap<Address, Account>;
+
+#[derive(Debug)]
+pub struct VM<'a> {
     pub call_frames: Vec<CallFrame>,
-    pub accounts: HashMap<Address, Account>,
     pub block_env: BlockEnv,
-    pub db: Db,
+    pub db: &'a mut Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -46,18 +48,18 @@ fn address_to_word(address: Address) -> U256 {
     U256::from_str(&format!("{address:?}")).unwrap()
 }
 
-impl VM {
-    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
-        let initial_account = Account::new(balance, bytecode.clone());
+impl<'a> VM<'a> {
+    pub fn new(tx_env: Transaction, block_env: BlockEnv, state: &'a mut Db) -> Self {
+        // let initial_account = Account::new(balance, bytecode.clone());
 
-        let initial_call_frame = CallFrame::new(bytecode);
-        let mut accounts = HashMap::new();
-        accounts.insert(address, initial_account);
+        let initial_call_frame = CallFrame::new(Bytes::default());
+        // let mut accounts = HashMap::new();
+        // accounts.insert(address, initial_account);
+
         Self {
             call_frames: vec![initial_call_frame.clone()],
-            accounts,
-            block_env: Default::default(),
-            db: Default::default(),
+            block_env,
+            db: state,
         }
     }
 
