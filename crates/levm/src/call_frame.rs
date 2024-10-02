@@ -46,8 +46,8 @@ impl Stack {
         self.stack.is_empty()
     }
 
-    pub fn get(&self, index: usize) -> Option<&U256> {
-        self.stack.get(index)
+    pub fn get(&self, index: usize) -> Result<&U256, VMError> {
+        self.stack.get(index).ok_or(VMError::StackUnderflow)
     }
 
     pub fn swap(&mut self, a: usize, b: usize) {

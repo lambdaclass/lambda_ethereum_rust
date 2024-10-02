@@ -599,8 +599,7 @@ impl VM {
 
                     let value_at_depth = current_call_frame
                         .stack
-                        .get(current_call_frame.stack.len() - depth as usize)
-                        .unwrap();
+                        .get(current_call_frame.stack.len() - depth as usize)?;
                     current_call_frame.stack.push(*value_at_depth)?;
                 }
                 // SWAPn
