@@ -92,7 +92,6 @@ fn and_binary_with_zero() {
 #[test]
 fn and_with_hex_numbers() {
     let mut vm = new_vm_with_ops(&[
-        // Operation::Push((32, U256::from(0xFFFF))),
         Operation::Push((32, U256::from(0xFFFF))),
         Operation::Push((32, U256::from(0xF0F0))),
         Operation::And,
