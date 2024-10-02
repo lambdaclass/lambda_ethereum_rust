@@ -3,7 +3,13 @@
 Implementation of a simple Ethereum Virtual Machine in Rust.
 
 ## Status
-<!-- ✅ 🏗️ -->
+<!-- ✅ 🏗️ ❌ -->
+Meaning:
+- ✅: Implemented
+- 🏗️: Work in Progress
+- ❌: Work not Started yet
+
+Features:
 - Opcodes 🏗️
 - Precompiles 🏗️
 - Transaction validation 🏗️
@@ -26,9 +32,9 @@ Implementation of a simple Ethereum Virtual Machine in Rust.
 - Rust
 - Git
 
-### Running 🏗️
+### Running ❌
 
 ### Testing
 To run the project's tests, do `make test`.
-To run the [Ethereum Foundation tests](https://github.com/ethereum/tests), use `make eth-tests`:
+To run the [Ethereum Foundation tests](https://github.com/ethereum/tests), use `make eth-tests` 🏗️
 
