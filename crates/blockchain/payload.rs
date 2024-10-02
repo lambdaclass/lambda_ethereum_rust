@@ -104,14 +104,14 @@ pub fn build_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block, 
     };
     // Apply withdrawals & call beacon root contract, and obtain the new state root
     let spec_id = spec_id(storage, args.timestamp)?;
-    let mut evm_state = evm_state(storage.clone(), parent_block.number);
+    let mut evm_state = evm_state(storage.clone(), args.parent);
     if args.beacon_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
     }
     process_withdrawals(&mut evm_state, &args.withdrawals)?;
     let account_updates = get_state_transitions(&mut evm_state);
     payload.header.state_root = storage
-        .apply_account_updates(parent_block.number, &account_updates)?
+        .apply_account_updates(args.parent, &account_updates)?
         .unwrap_or_default();
     Ok(payload)
 }

@@ -1,10 +1,8 @@
-use std::{cmp::min, time::Duration};
-
+use crate::rpc::l1_rpc::L1Rpc;
 use ethereum_types::{Address, H256, U256};
+use std::{cmp::min, time::Duration};
 use tokio::time::sleep;
 use tracing::debug;
-
-use crate::rpc::l1_rpc::L1Rpc;
 
 pub async fn start_l1_watcher() {
     // This address and topic were used for testing purposes only.
