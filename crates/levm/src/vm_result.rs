@@ -9,6 +9,8 @@ pub enum VMError {
     StackOverflow,
     InvalidJump,
     OpcodeNotAllowedInStaticContext,
+    InvalidBytecode,
+    FatalError, // this should never really happen
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -72,7 +72,7 @@ impl VM {
 
     pub fn execute(&mut self) -> Result<ExecutionResult, VMError> {
         let block_env = self.block_env.clone();
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             match opcode {
@@ -505,7 +505,7 @@ impl VM {
                     let next_n_bytes = current_call_frame
                         .bytecode
                         .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
-                        .expect("invalid bytecode");
+                        .ok_or(VMError::InvalidBytecode)?; // this shouldn't really happen during execution
                     let value_to_push = U256::from(next_n_bytes);
                     current_call_frame.stack.push(value_to_push)?;
                     current_call_frame.increment_pc_by(n_bytes as usize);
@@ -514,7 +514,7 @@ impl VM {
                     let next_32_bytes = current_call_frame
                         .bytecode
                         .get(current_call_frame.pc()..current_call_frame.pc() + 32)
-                        .unwrap();
+                        .ok_or(VMError::InvalidBytecode)?;
                     let value_to_push = U256::from(next_32_bytes);
                     current_call_frame.stack.push(value_to_push)?;
                     current_call_frame.increment_pc_by(32);
@@ -610,7 +610,9 @@ impl VM {
                         return Err(VMError::StackUnderflow);
                     }
                     let stack_top_index = current_call_frame.stack.len();
-                    let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
+                    let to_swap_index = stack_top_index
+                        .checked_sub(depth as usize)
+                        .ok_or(VMError::StackUnderflow)?;
                     current_call_frame
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
