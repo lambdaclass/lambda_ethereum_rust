@@ -126,6 +126,8 @@ fn contract_deps(contracts_path: &PathBuf) -> eyre::Result<()> {
             .arg("install")
             .arg("foundry-rs/forge-std")
             .arg("--no-git")
+            .arg("--root")
+            .arg(contracts_path)
             .current_dir(contracts_path)
             .spawn()?
             .wait()?;
@@ -142,6 +144,7 @@ fn deploy_l1(
     contracts_path: &PathBuf,
 ) -> eyre::Result<()> {
     let cmd = std::process::Command::new("forge")
+        .current_dir(contracts_path)
         .arg("script")
         .arg("script/DeployL1.s.sol:DeployL1Script")
         .arg("--rpc-url")
@@ -149,7 +152,6 @@ fn deploy_l1(
         .arg("--private-key")
         .arg(deployer_private_key) // TODO: In the future this must be the operator's private key.
         .arg("--broadcast")
-        .current_dir(contracts_path)
         .spawn()?
         .wait()?;
     if !cmd.success() {
