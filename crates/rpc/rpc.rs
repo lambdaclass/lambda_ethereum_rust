@@ -18,15 +18,21 @@ use eth::{
     account::{
         GetBalanceRequest, GetCodeRequest, GetProofRequest, GetStorageAtRequest,
         GetTransactionCountRequest,
-    }, block::{
+    },
+    block::{
         BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
         GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
         GetRawHeaderRequest, GetRawReceipts,
-    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, filter::FilterRequest, logs::LogsRequest, transaction::{
+    },
+    client::{ChainId, Syncing},
+    fee_market::FeeHistoryRequest,
+    filter::FilterRequest,
+    logs::LogsRequest,
+    transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
-    }
+    },
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -255,12 +261,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::utils::test_utils::example_p2p_node;
     use ethereum_rust_core::types::{ChainConfig, Genesis};
     use ethereum_rust_storage::EngineType;
     use std::fs::File;
     use std::io::BufReader;
-    use crate::utils::test_utils::example_p2p_node;
-    use super::*;
 
     // Maps string rpc response to RpcSuccessResponse as serde Value
     // This is used to avoid failures due to field order and allow easier string comparisons for responses
@@ -345,7 +351,6 @@ mod tests {
             expected_response.result["accessList"]
         )
     }
-
 
     fn example_chain_config() -> ChainConfig {
         ChainConfig {
