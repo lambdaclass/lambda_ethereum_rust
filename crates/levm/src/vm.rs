@@ -33,14 +33,6 @@ pub struct VM {
     pub db: Db,
 }
 
-/// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
-fn is_negative(value: U256) -> bool {
-    value.bit(255)
-}
-/// negates a number in two's complement
-fn negate(value: U256) -> U256 {
-    !value + U256::one()
-}
 
 fn address_to_word(address: Address) -> U256 {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
@@ -411,74 +403,28 @@ impl VM {
                     current_call_frame.increment_pc_by(32);
                 }
                 Opcode::AND => {
-                    // spend_gas(3);
-                    let a = current_call_frame.stack.pop()?;
-                    let b = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(a & b)?;
+                    Self::and(&mut current_call_frame)?;
                 }
                 Opcode::OR => {
-                    // spend_gas(3);
-                    let a = current_call_frame.stack.pop()?;
-                    let b = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(a | b)?;
+                    Self::or(&mut current_call_frame)?;
                 }
                 Opcode::XOR => {
-                    // spend_gas(3);
-                    let a = current_call_frame.stack.pop()?;
-                    let b = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(a ^ b)?;
+                    Self::xor(&mut current_call_frame)?;
                 }
                 Opcode::NOT => {
-                    // spend_gas(3);
-                    let a = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(!a)?;
+                    Self::not(&mut current_call_frame)?;
                 }
                 Opcode::BYTE => {
-                    // spend_gas(3);
-                    let op1 = current_call_frame.stack.pop()?;
-                    let op2 = current_call_frame.stack.pop()?;
-
-                    let byte_index = op1.try_into().unwrap_or(usize::MAX);
-
-                    if byte_index < 32 {
-                        current_call_frame
-                            .stack
-                            .push(U256::from(op2.byte(31 - byte_index)))?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    }
+                    Self::byte(&mut current_call_frame)?;
                 }
                 Opcode::SHL => {
-                    // spend_gas(3);
-                    let shift = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    if shift < U256::from(256) {
-                        current_call_frame.stack.push(value << shift)?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    }
+                    Self::shl(&mut current_call_frame)?;
                 }
                 Opcode::SHR => {
-                    // spend_gas(3);
-                    let shift = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    if shift < U256::from(256) {
-                        current_call_frame.stack.push(value >> shift)?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    }
+                    Self::shr(&mut current_call_frame)?;
                 }
                 Opcode::SAR => {
-                    let shift = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    let res = if shift < U256::from(256) {
-                        arithmetic_shift_right(value, shift)
-                    } else if value.bit(255) {
-                        U256::MAX
-                    } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(res)?;
+                    Self::sar(&mut current_call_frame)?;
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
