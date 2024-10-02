@@ -19,6 +19,10 @@ lint:
 fmt:
 	cargo fmt --all
 
-eth-tests: #TODO: Implement
-	@echo "Running Ethereum Foundation tests"
+ethtests: # TODO.
+	@echo "Downloads Ethereum Foundation tests"
+	@echo "Not implemented yet"
+
+test-eth: # TODO.
+	@echo "Runs Ethereum Foundation tests"
 	@echo "Not implemented yet"
