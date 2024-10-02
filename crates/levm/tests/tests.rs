@@ -1711,7 +1711,7 @@ fn block_hash_op() {
 
     let mut vm = new_vm_with_ops(&operations);
     vm.block_env.number = U256::from(current_block_number);
-    vm.db
+    vm.world_state
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
@@ -1737,7 +1737,7 @@ fn block_hash_same_block_number() {
 
     let mut vm = new_vm_with_ops(&operations);
     vm.block_env.number = U256::from(current_block_number);
-    vm.db
+    vm.world_state
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();
@@ -1763,7 +1763,7 @@ fn block_hash_block_number_not_from_recent_256() {
 
     let mut vm = new_vm_with_ops(&operations);
     vm.block_env.number = U256::from(current_block_number);
-    vm.db
+    vm.world_state
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
 
     vm.execute();

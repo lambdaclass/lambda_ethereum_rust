@@ -2,10 +2,10 @@ use std::{collections::HashMap, path::Path};
 
 use bytes::Bytes;
 use levm::{
-    db::Db, vm::TransactTo, result::ExecutionResult, utils::precompiled_addresses, vm::VM, Environment,
+    vm_result::ExecutionResult, utils::precompiled_addresses, vm::{WorldState, Environment, Message, TransactTo, VM, call_frame::CallFrame}, transaction::Transaction, block::BlockEnv
 };
 
-use super::models::{AccountInfo, Test, TestSuite, TestUnit};
+use super::models::{AccountInfo, Test, TestSuite, TestUnit, TransactionParts};
 
 /// Receives a Bytes object with the hex representation
 /// And returns a Bytes object with the decimal representation
@@ -25,77 +25,241 @@ fn decode_hex(bytes_in_hex: Bytes) -> Option<Bytes> {
     Some(Bytes::from(opcodes))
 }
 
+
+
+// unit.transaction -> 
+// pub struct TransactionParts {
+//     pub data: Vec<Bytes>,
+//     pub gas_limit: Vec<U256>,
+//     pub gas_price: Option<U256>,
+//     pub nonce: U256,
+//     pub secret_key: H256,
+//     /// if sender is not present we need to derive it from secret key.
+//     #[serde(default)]
+//     pub sender: Option<Address>,
+//     #[serde(deserialize_with = "deserialize_maybe_empty")]
+//     pub to: Option<Address>,
+//     pub value: Vec<U256>,
+//     pub max_fee_per_gas: Option<U256>,
+//     pub max_priority_fee_per_gas: Option<U256>,
+//     #[serde(default)]
+//     pub access_lists: Vec<Option<AccessList>>,
+//     #[serde(default)]
+//     pub blob_versioned_hashes: Vec<H256>,
+//     pub max_fee_per_blob_gas: Option<U256>,
+// }
+
+// TX ENUM ->
+// pub enum Transaction {
+//     Legacy {
+//         chain_id: u64,
+//         nonce: U256,
+//         gas_limit: u64,
+//         msg_sender: Address,
+//         to: Option<Address>,
+//         value: U256,
+//         gas_price: u64,
+//         data: Bytes,
+//     },
+//     AccessList {
+//         chain_id: u64,
+//         nonce: U256,
+//         gas_limit: u64,
+//         msg_sender: Address,
+//         to: Option<Address>,
+//         value: U256,
+//         gas_price: u64,
+//         access_list: AccessList,
+//         y_parity: U256,
+//         data: Bytes,
+//     },
+//     FeeMarket {
+//         chain_id: u64,
+//         nonce: U256,
+//         gas_limit: u64,
+//         msg_sender: Address,
+//         to: Option<Address>,
+//         value: U256,
+//         max_fee_per_gas: u64,
+//         max_priority_fee_per_gas: u64,
+//         access_list: AccessList,
+//         y_parity: U256,
+//         data: Bytes,
+//     },
+//     Blob {
+//         chain_id: u64,
+//         nonce: U256,
+//         gas_limit: u64,
+//         msg_sender: Address,
+//         to: Address, // must not be null
+//         value: U256,
+//         max_fee_per_gas: u64,
+//         max_priority_fee_per_gas: u64,
+//         access_list: AccessList,
+//         y_parity: U256,
+//         max_fee_per_blob_gas: U256,
+//         blob_versioned_hashes: Vec<VersionedHash>,
+//         data: Bytes,
+//     },
+// }
+fn setup_transaction(transaction: &TransactionParts) -> Transaction {
+    let msg_sender = transaction.sender.unwrap_or_default(); // if not present we derive it from secret key
+
+    // si tiene max prio fee es fee market o blob
+    // legacy y access list tienen gas price
+    // access list es legacy pero con access list
+    // blob es fee market pero con blob versioned hashes
+
+    if let Some(gas_price) = transction.gas_price {
+        if let Some(access_list) = transaction.access_lists.get(0).cloned().flatten() {
+            // access list data ( also for Transaction::FeeMarket and Transaction::Blob )
+            // let access_list_vector = unit
+            //     .transaction
+            //     .access_lists
+            //     .get(test.indexes.data)
+            //     .cloned()
+            //     .flatten()
+            //     .unwrap_or_default();
+            // let mut access_list = AccessList::default();
+            // for access_list_item in access_list_vector {
+            //     let storage_keys = access_list_item
+            //         .storage_keys
+            //         .iter()
+            //         .map(|key| ethereum_types::U256::from(key.0))
+            //         .collect();
+
+            //     access_list.push((access_list_item.address, storage_keys));
+            // }
+            // access_list.push((env.block.coinbase, Vec::new())); // after Shanghai, coinbase address is added to access list
+            // access_list.push((env.tx.caller, Vec::new())); // after Berlin, tx.sender is added to access list
+            // access_list.append(&mut precompiled_addresses()); // precompiled address are always warm
+            Transaction::AccessList {
+                chain_id: 0,
+                nonce: transaction.nonce,
+                gas_limit: transaction.gas_limit[0].as_u64(),
+                msg_sender,
+                to: transaction.to,
+                value: transaction.value[0],
+                gas_price,
+                access_list,
+                y_parity: U256::zero(),
+                data: decode_hex(transaction.data[0].clone()).unwrap(),
+            }
+        } else {
+            Transaction::Legacy {
+                chain_id: 0,
+                nonce: transaction.nonce,
+                gas_limit: transaction.gas_limit[0].as_u64(),
+                msg_sender,
+                to: transaction.to,
+                value: transaction.value[0],
+                gas_price,
+                data: decode_hex(transaction.data[0].clone()).unwrap(),
+            }
+        }
+    } else if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas {
+        Transaction::Blob {
+            chain_id: 0,
+            nonce: transaction.nonce,
+            gas_limit: transaction.gas_limit[0].as_u64(),
+            msg_sender,
+            to: transaction.to,
+            value: transaction.value[0],
+            max_fee_per_gas: transaction.max_fee_per_gas.unwrap(),
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas.unwrap(),
+            access_list: transaction.access_lists.get(0).cloned().flatten(),
+            y_parity: U256::zero(),
+            max_fee_per_blob_gas,
+            blob_versioned_hashes: transaction.blob_versioned_hashes.clone(),
+            data: decode_hex(transaction.data[0].clone()).unwrap(),
+        }
+    } else {
+        Transaction::FeeMarket {
+            chain_id: 0,
+            nonce: transaction.nonce,
+            gas_limit: transaction.gas_limit[0].as_u64(),
+            msg_sender,
+            to: transaction.to,
+            value: transaction.value[0],
+            max_fee_per_gas: transaction.max_fee_per_gas.unwrap(),
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas.unwrap(),
+            access_list: transaction.access_lists.get(0).cloned().flatten(),
+            y_parity: U256::zero(),
+            data: decode_hex(transaction.data[0].clone()).unwrap(),
+        }
+    }
+}
+
+
+// unit.env ->
+// pub struct Env {
+//     pub current_coinbase: Address,
+//     pub current_difficulty: U256,
+//     pub current_gas_limit: U256,
+//     pub current_number: U256,
+//     pub current_timestamp: U256,
+//     pub current_base_fee: Option<U256>,
+//     pub previous_hash: Option<H256>,
+//     pub current_random: Option<H256>,
+//     pub current_beacon_root: Option<H256>,
+//     pub current_withdrawals_root: Option<H256>,
+//     pub parent_blob_gas_used: Option<U256>,
+//     pub parent_excess_blob_gas: Option<U256>,
+//     pub current_excess_blob_gas: Option<U256>,
+// }
+
+// pub struct BlockEnv {
+//     pub number: U256,
+//     pub coinbase: Address,
+//     pub timestamp: U256,
+//     pub base_fee_per_gas: U256,
+//     pub gas_limit: usize,
+//     pub chain_id: usize,
+//     pub prev_randao: Option<H256>,
+//     pub excess_blob_gas: Option<u64>,
+//     pub blob_gas_used: Option<u64>,
+// }
+
+fn setup_block_env(env: &Env) -> BlockEnv {
+    let mut block_env = BlockEnv::default();
+    block_env.number = env.current_number;
+    block_env.coinbase = env.current_coinbase;
+    block_env.timestamp = env.current_timestamp;
+    block_env.base_fee_per_gas = env.current_base_fee.unwrap_or_default();
+    block_env.gas_limit = env.current_gas_limit.as_u64();
+    block_env.chain_id = 0;
+    block_env.prev_randao = env.current_random;
+    block_env.excess_blob_gas = env.current_excess_blob_gas;
+    block_env
+}
+
 fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
-    let to = match unit.transaction.to {
-        Some(to) => TransactTo::Call(to),
-        None => TransactTo::Create,
-    };
-    let msg_sender = unit.transaction.sender.unwrap_or_default();
+    let transaction = setup_transaction(&unit.transaction);
+    let block_env = setup_block_env(&unit.env);
 
-    let gas_price = unit.transaction.gas_price.unwrap_or_default();
-
-    let mut env = Environment::default();
-    env.msg_sender = msg_sender;
-    env.gas_price = gas_price.into();
-    env.block.number = unit.env.current_number;
-    env.block.coinbase = unit.env.current_coinbase;
-    env.block.timestamp = unit.env.current_timestamp;
-    env.block.excess_blob_gas = unit
-        .env
-        .current_excess_blob_gas
-        .unwrap_or_default()
-        .as_u64();
-    // env.block.set_blob_base_fee(excess_blob_gas);
-
-    if let Some(basefee) = unit.env.current_base_fee {
-        env.block.basefee = basefee;
-    };
-
-
-    // env.tx.transact_to = to.clone();
-    
-    // env.tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].as_u64();
-    env.tx.value = unit.transaction.value[test.indexes.value];
-    env.tx.data = decode_hex(unit.transaction.data[test.indexes.data].clone()).unwrap();
-
-    // ACCESS LIST STUFF
-    // let access_list_vector = unit
-    //     .transaction
-    //     .access_lists
-    //     .get(test.indexes.data)
-    //     .cloned()
-    //     .flatten()
-    //     .unwrap_or_default();
-    // let mut access_list = AccessList::default();
-    // for access_list_item in access_list_vector {
-    //     let storage_keys = access_list_item
-    //         .storage_keys
-    //         .iter()
-    //         .map(|key| ethereum_types::U256::from(key.0))
-    //         .collect();
-
-    //     access_list.push((access_list_item.address, storage_keys));
-    // }
-    // access_list.push((env.block.coinbase, Vec::new())); // after Shanghai, coinbase address is added to access list
-    // access_list.push((env.tx.caller, Vec::new())); // after Berlin, tx.sender is added to access list
-    // access_list.append(&mut precompiled_addresses()); // precompiled address are always warm
-
-    
-    let mut db = Db::new();
+    let world_state = WorldState::default();
 
     // Load pre storage into db
     for (address, account_info) in unit.pre.iter() {
         let opcodes = decode_hex(account_info.code.clone()).unwrap();
-        db = db.with_contract(address.to_owned(), opcodes);
-        db.set_account(
-            address.to_owned(),
-            account_info.nonce,
-            account_info.balance,
-            account_info.storage.clone(),
-        );
+        // db = db.with_contract(address.to_owned(), opcodes);
+        // db.set_account(
+        //     address.to_owned(),
+        //     account_info.nonce,
+        //     account_info.balance,
+        //     account_info.storage.clone(),
+        // );
+        let account = Account {
+            address: address.to_owned(),
+            balance: account_info.balance,
+            bytecode: opcodes,
+            storage: account_info.storage.clone(),
+            nonce: account_info.nonce,
+        };
+        world_state.accounts.insert(address.clone(), account.clone());
     }
 
-    VM::new(env, msg_sender, )
+    VM::new(transaction, block_env, world_state)
 }
 
 fn verify_result(
@@ -160,7 +324,7 @@ pub fn run_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
 
         for test in tests {
             let mut vm = setup_vm(test, &unit);
-            let res = vm.transact();
+            let res = vm.execute();
 
             verify_result(test, unit.out.as_ref(), &res.result)?;
             // TODO: use rlp and hash to check logs
