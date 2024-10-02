@@ -1,6 +1,14 @@
 # LEVM (Lambda EVM)
 
-## Description
+Implementation of a simple Ethereum Virtual Machine in Rust.
+
+## Status
+<!-- ✅ 🏗️ -->
+- Opcodes 🏗️
+- Precompiles 🏗️
+- Transaction validation 🏗️
+- Pass all EF tests 🏗️
+
 
 ## Useful Links
 [Ethereum Yellowpaper](https://ethereum.github.io/yellowpaper/paper.pdf) - Formal definition of Ethereum protocol.
@@ -18,8 +26,9 @@
 - Rust
 - Git
 
-### Running
+### Running 🏗️
 
 ### Testing
-
+To run the project's tests, do `make test`.
+To run the [Ethereum Foundation tests](https://github.com/ethereum/tests), use `make eth-tests`:
 
