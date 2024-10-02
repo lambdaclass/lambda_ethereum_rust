@@ -1,12 +1,17 @@
 use bytes::Bytes;
 use ethereum_rust_rpc::{
+    engine::{
+        fork_choice::ForkChoiceUpdatedV3,
+        payload::{GetPayloadV3Request, NewPayloadV3Request},
+        ExchangeCapabilitiesRequest,
+    },
     types::{
         fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
         payload::{ExecutionPayloadResponse, ExecutionPayloadV3, PayloadStatus},
     },
-    utils::{RpcErrorResponse, RpcRequest, RpcRequestId, RpcSuccessResponse},
+    utils::{RpcErrorResponse, RpcRequest, RpcSuccessResponse},
 };
-use ethereum_types::{H256, U256};
+use ethereum_types::H256;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
@@ -49,12 +54,7 @@ impl ConsensusMock {
     }
 
     pub async fn engine_exchange_capabilities(&self) -> Result<Vec<String>, String> {
-        let request = RpcRequest {
-            id: RpcRequestId::Number(1),
-            jsonrpc: "2.0".to_string(),
-            method: "engine_exchangeCapabilities".to_string(),
-            params: Some(vec![serde_json::to_value(Self::capabilities()).unwrap()]),
-        };
+        let request = ExchangeCapabilitiesRequest::from(Self::capabilities()).into();
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
@@ -68,15 +68,11 @@ impl ConsensusMock {
         state: ForkChoiceState,
         payload_attributes: PayloadAttributesV3,
     ) -> Result<ForkChoiceResponse, String> {
-        let request = RpcRequest {
-            id: RpcRequestId::Number(1),
-            jsonrpc: "2.0".to_string(),
-            method: "engine_forkchoiceUpdatedV3".to_string(),
-            params: Some(vec![
-                serde_json::to_value(state).unwrap(),
-                serde_json::to_value(payload_attributes).unwrap(),
-            ]),
-        };
+        let request = ForkChoiceUpdatedV3 {
+            fork_choice_state: state,
+            payload_attributes: Some(payload_attributes),
+        }
+        .into();
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(s)) => match serde_json::from_value(s.result.clone()) {
@@ -95,12 +91,7 @@ impl ConsensusMock {
         &self,
         payload_id: u64,
     ) -> Result<ExecutionPayloadResponse, String> {
-        let request = RpcRequest {
-            id: RpcRequestId::Number(1),
-            jsonrpc: "2.0".to_string(),
-            method: "engine_getPayloadV3".to_string(),
-            params: Some(vec![json!(U256::from(payload_id))]),
-        };
+        let request = GetPayloadV3Request { payload_id }.into();
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(s)) => Ok(serde_json::from_value(s.result).unwrap()),
@@ -115,16 +106,12 @@ impl ConsensusMock {
         expected_blob_versioned_hashes: Vec<H256>,
         parent_beacon_block_root: H256,
     ) -> Result<PayloadStatus, String> {
-        let request = RpcRequest {
-            id: RpcRequestId::Number(1),
-            jsonrpc: "2.0".to_string(),
-            method: "engine_newPayloadV3".to_string(),
-            params: Some(vec![
-                serde_json::to_value(execution_payload).unwrap(),
-                serde_json::to_value(expected_blob_versioned_hashes).unwrap(),
-                serde_json::to_value(parent_beacon_block_root).unwrap(),
-            ]),
-        };
+        let request = NewPayloadV3Request {
+            payload: execution_payload,
+            expected_blob_versioned_hashes,
+            parent_beacon_block_root,
+        }
+        .into();
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(s)) => Ok(serde_json::from_value(s.result).unwrap()),
