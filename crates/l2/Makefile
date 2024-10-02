@@ -1,8 +1,8 @@
-.PHONY: init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox
+.PHONY: init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 
-init: init-local-l1 contract-deps deploy-l1 init-l2
+init: init-local-l1 contract-deps setup-prover deploy-l1 init-l2
 
 down: down-local-l1 down-l2
 
@@ -59,3 +59,11 @@ down-l2:
 	pkill -f ethereum_rust || exit 0
 
 restart-l2: down-l2 init-l2
+
+# Prover
+
+SP1_PROGRAM_PATH=$(shell pwd)/prover/sp1/program
+
+setup-prover:
+	cd ${SP1_PROGRAM_PATH} && \
+	cargo prove build
