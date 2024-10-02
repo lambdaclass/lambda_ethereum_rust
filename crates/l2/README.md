@@ -2,6 +2,9 @@
 
 ## ToC
 
+- [Prerequisites](#prerequisites)
+    - [Rust](#rust)
+    - [Foundry](#foundry)
 - [How to run](#how-to-run)
     - [The command you're looking for](#the-command-youre-looking-for)
     - [The other command you will look for in the future](#the-other-command-you-will-look-for-in-the-future)
@@ -11,11 +14,27 @@
         - [L2](#l2)
 - [Local L1 Rich Wallets](#local-l1-rich-wallets)
 
+## Prerequisites
+
+- [Rust (explained in the repo's main README)](../../README.md)
+- [Foundry](#foundry)
+
+#### Foundry
+
+1. First, install `foundryup`:
+    ```shell
+    curl -L https://foundry.paradigm.xyz | bash
+    ```
+2. Then run `foundryup`:
+    ```shell
+    foundryup
+    ```
+
 ## How to run
 
 ### The command you're looking for
 
-Running the below command will start both a local L1 (reth for the moment, but `ethereum_rust` in the future) and a local L2 (`ethereum_rust`).
+Running the below command will start both a local L1 (reth for the moment, but `ethereum_rust` in the future) in the port `8545` and a local L2 (`ethereum_rust`) in the port `1729`.
 
 ```
 make init
@@ -24,6 +43,7 @@ make init
 This command has three steps that can also be run individually:
 
 - `make init-l1` - Starts the L1 (reth) node, creating the volumes necessary for running a docker compose file with reth's docker image.
+- `make contract-deps` - Installs the libs used by the contracts in the foundry project.
 - `make deploy-l1` - Deploys the L1 contracts to the L1 node. This runs the [`DeployL1` script](./contracts/script/DeployL1.s.sol).
 - `make init-l2` - Starts the L2 (`ethereum_rust`) node.
 
@@ -58,6 +78,12 @@ make restart
 - `make init-l2` - Starts the L2 node.
 - `make down-l2` - Stops the L2 node.
 - `make restart-l2` - Restarts the L2 node.
+
+#### Contracts
+
+- `make contract-deps` - Installs the libs used by the contracts in the foundry project.
+- `make clean-contract-deps` - Cleans the contract dependencies.
+- `make restart-contract-deps` - Restarts the contract dependencies (cleans and then installs).
 
 ## Local L1 Rich Wallets
 
