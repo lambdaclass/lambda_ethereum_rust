@@ -235,8 +235,60 @@ RPC endpoints
 
 See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
 
+# Lambda Ethereum Rust L2
+
+Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. The node has the same interface as regular Ethereum Rust, with the addition that blocks execution is proven and the proof is sent to an L1 network for verification, thus inheriting the L1's security.
+
+The main differences with regular Ethereum Rust are:
+
+- There is no consensus, only one sequencer proposes blocks for the network.
+- Block execution is proven using [SP1 ](https://docs.succinct.xyz/)and its proofs are sent to L1 for verification.
+- A set of Solidity contracts to be deployed to the L1 are included as part of network initialization.
+- Two new types of transactions are included 
+
+## Roadmap
+
+### Milestone 0
+
+Users can deposit Eth in the L1 (Ethereum) and receive the corresponding funds on the L2.
+
+#### Status
+
+|        | Name                           | Description                                                                 | Status |
+| --------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
+| Contracts | `CommonBridge`                | Deposit method implementation                                                         | 🏗️     |
+|           | `BlockExecutor`               | Commit and verify methods (placeholders for this stage)          | ✅     |
+| Operator  | `Sequencer`                   | Proposes new blocks to be executed                                          | ✅     |
+|           | `L1Watcher`                   | Listens for and handles L1 deposits                                         | ✅     |
+|           | `L1TxSender`                  | commits new block proposals and sends block execution proofs to be verified | 🏗️     |
+|           | Deposit transactions handling | new transaction type for minting funds corresponding to deposits            | 🏗️     |
+
+
+#### Milestone 1 (MVP)
+
+The network supports basic L2 functionality, allowing users to deposit and withdraw funds to join and exit the network, while also interacting with the network as they do normally on the Ethereum network (deploying contracts, sending transactions, etc).
+
+#### Status
+
+|        | Name                            | Description                                                                                                           | Status |
+| --------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------ |
+| Contracts | `CommonBridge`                 | Withdraw method implementation                                                                                        | ❌     |
+|           | `BlockExecutor`                | Commit and verify implementation                                                                                      | ❌     |
+|           | `Verifier`                     | Use SP1 verifier                                                                                                      | ❌     |
+| Operator  | `ProofDataProvider`            | Feeds the `ProverDataClient` with block data to be proven and delivers proofs to the `L1TxSender` for L1 verification | 🏗️     |
+|           | Withdraw transactions handling |    New transaction type for burning funds on L2 and unlock funds on L1                                                                                                                   | ❌     |
+| Prover    | `ProofDataClient`              |  Asks for block execution data to prove, generates proofs of execution and submits proofs to the `ProofDataProvider`                                                                                                                     | 🏗️     |
+
+#### Future work
+
+- Use Blobs (EIP 4844) for data availability on L1 instead of calldata and send state diffs instead of the entire state.
+- Support native account abstraction on the L2.
+- Base token, common bridge for multiple L2s
+- Validium support (i.e. other data availability solutions instead of Ethereum).
+
 # Crates documentation
 
 In the next sections, you can dive further into the code internals.
 
 -   [net](./crates/net/README.md)
+-   [l2](./crates/l2/README.md)
