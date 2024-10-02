@@ -1,6 +1,13 @@
-.PHONY: all test clippy fmt
+.PHONY: all test clippy fmt usage lint eth-tests
 
 all: test clippy fmt
+
+usage:
+	@echo "Usage:"
+	@echo "    test:         	Runs all tests except Ethereum tests."
+	@echo "    lint:         	Runs clippy and fmt."
+	@echo "    fmt:          	Runs rustfmt."
+	@echo "    eth-tests:    	Runs Ethereum Foundation tests."
 
 test:
 	cargo test -p 'levm'
@@ -15,10 +22,3 @@ fmt:
 eth-tests: #TODO: Implement
 	@echo "Running Ethereum Foundation tests"
 	@echo "Not implemented yet"
-
-usage:
-	@echo "Usage:"
-	@echo "    test:         	Runs all tests except Ethereum tests.
-	@echo "    lint:         	Runs clippy and fmt."
-	@echo "    fmt:          	Runs rustfmt."
-	@echo "    eth-tests:    	Runs Ethereum Foundation tests."
