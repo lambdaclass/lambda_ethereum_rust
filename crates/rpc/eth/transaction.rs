@@ -279,7 +279,7 @@ impl RpcHandler for CreateAccessListRequest {
         let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
             &self.transaction,
             &header,
-            &mut evm_state(storage, header.number),
+            &mut evm_state(storage, header.compute_block_hash()),
             SpecId::CANCUN,
         )? {
             (
@@ -477,7 +477,7 @@ fn simulate_tx(
     match ethereum_rust_evm::simulate_tx_from_generic(
         transaction,
         block_header,
-        &mut evm_state(storage, block_header.number),
+        &mut evm_state(storage, block_header.compute_block_hash()),
         spec_id,
     )? {
         ExecutionResult::Revert {
