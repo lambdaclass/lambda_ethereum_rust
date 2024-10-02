@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::utils::RpcErr;
+use crate::utils::{parse_json_hex, RpcErr};
 use crate::RpcHandler;
 use rand::prelude::*;
 use serde_json::json;
@@ -33,6 +33,28 @@ impl RpcHandler for FilterRequest {
         storage.add_filter(random(), timestamp, filter)?;
         let as_hex = json!(format!("0x{:x}", id));
         Ok(as_hex)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct FilterUninstallRequest {
+    pub filter_id: u64,
+}
+impl RpcHandler for FilterUninstallRequest {
+    fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
+        match params.as_deref() {
+            Some([param]) => {
+                let param = param.as_object().ok_or(RpcErr::BadParams)?;
+                let id = param
+                    .get("id")
+                    .ok_or(RpcErr::MissingParam("id".to_string()))?;
+                let filter_id = parse_json_hex(id)?;
+                Ok(FilterUninstallRequest { filter_id })
+            }
+        }
+    }
+
+    fn handle(&self, storage: ethereum_rust_storage::Store) -> Result<serde_json::Value, RpcErr> {
+        todo!()
     }
 }
 
