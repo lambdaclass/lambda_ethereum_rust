@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
+use ethereum_types::H32;
 use levm::{
     block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
-    vm::{Account, Db, Storage, VM},
+    vm::{Account, Db, StorageSlot, VM},
 };
 
 // cargo test -p 'levm'
@@ -50,7 +53,7 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
             Account {
                 balance: U256::MAX,
                 bytecode,
-                storage: Storage::default(),
+                storage: HashMap::new(),
             },
         ),
         (
@@ -58,7 +61,7 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
             Account {
                 balance,
                 bytecode: Bytes::default(),
-                storage: Storage::default(),
+                storage: HashMap::new(),
             },
         ),
     ];
@@ -1221,7 +1224,7 @@ fn call_changes_callframe_and_stores() {
     let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode, Storage::default());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1265,7 +1268,7 @@ fn nested_calls() {
     let callee3_bytecode = callee_return_bytecode(callee3_return_value);
     let callee3_address = Address::from_low_u64_be(U256::from(3).low_u64());
     let callee3_address_u256 = U256::from(3);
-    let callee3_account = Account::new(U256::from(300_000), callee3_bytecode, Storage::default());
+    let callee3_account = Account::new(U256::from(300_000), callee3_bytecode, HashMap::new());
 
     let mut callee2_ops = vec![
         Operation::Push32(U256::from(32)),       // ret_size
@@ -1303,7 +1306,7 @@ fn nested_calls() {
     let callee2_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee2_address_u256 = U256::from(2);
 
-    let callee2_account = Account::new(U256::from(300_000), callee2_bytecode, Storage::default());
+    let callee2_account = Account::new(U256::from(300_000), callee2_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(64)),       // ret_size
@@ -1369,7 +1372,7 @@ fn staticcall_changes_callframe_is_static() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1420,7 +1423,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode.clone());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode.clone(), HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1474,7 +1477,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1528,7 +1531,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode.clone());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode.clone(), HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1579,7 +1582,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(0)),       // ret_size
@@ -1821,7 +1824,7 @@ fn calldataload_being_set_by_parent() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode, Storage::default());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, HashMap::new());
 
     let calldata = [
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -1945,7 +1948,7 @@ fn returndatacopy_being_set_by_parent() {
     let callee_bytecode = callee_return_bytecode(U256::from(0xAAAAAAA));
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_account = Account::new(U256::from(500000), callee_bytecode, Storage::default());
+    let callee_account = Account::new(U256::from(500000), callee_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(0)),       // ret_offset

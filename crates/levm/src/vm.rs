@@ -14,11 +14,16 @@ use sha3::{Digest, Keccak256};
 pub struct Account {
     pub balance: U256,
     pub bytecode: Bytes,
-    pub storage: Storage,
+    pub storage: HashMap<U256, StorageSlot>,
+}
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct StorageSlot {
+    pub original_value: U256,
+    pub current_value: U256,
 }
 
 impl Account {
-    pub fn new(balance: U256, bytecode: Bytes, storage: Storage) -> Self {
+    pub fn new(balance: U256, bytecode: Bytes, storage: HashMap<U256, StorageSlot>) -> Self {
         Self {
             balance,
             bytecode,
@@ -36,7 +41,7 @@ impl Account {
         self
     }
 
-    pub fn with_storage(mut self, storage: Storage) -> Self {
+    pub fn with_storage(mut self, storage: HashMap<U256, StorageSlot>) -> Self {
         self.storage = storage;
         self
     }
@@ -51,6 +56,39 @@ pub struct Db {
     pub accounts: HashMap<Address, Account>,
     // contracts: HashMap<B256, Bytecode>,
     pub block_hashes: HashMap<U256, H256>,
+}
+
+impl Db {
+    pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+        self.accounts
+            .get(address)
+            .and_then(|account| account.storage.get(key))
+            .cloned()
+    }
+
+    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+        self.accounts
+            .entry(*address)
+            .or_default()
+            .storage
+            .insert(key, slot);
+    }
+
+    fn get_account_bytecode(&self, address: &Address) -> Bytes {
+        self.accounts
+            .get(address)
+            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
+    }
+
+    pub fn add_account(&mut self, address: Address, account: Account) {
+        self.accounts.insert(address, account);
+    }
 }
 
 #[derive(Debug, Default)]
@@ -80,13 +118,14 @@ impl VM {
         // let initial_account = Account::new(balance, bytecode.clone());
 
         let bytecode = match tx_env.transact_to {
-            TransactTo::Call(addr) => db.accounts.get(&addr).unwrap().bytecode.clone(),
+            // TransactTo::Call(addr) => db.accounts.get(&addr).unwrap().bytecode.clone(),
+            TransactTo::Call(addr) => db.get_account_bytecode(&addr),
             TransactTo::Create => {
                 todo!()
             }
         };
 
-        let initial_call_frame = CallFrame::new(bytecode);
+        let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
 
         Self {
             call_frames: vec![initial_call_frame],
@@ -890,22 +929,65 @@ impl VM {
         self.call_frames.last().unwrap()
     }
 
-    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.db
-            .accounts
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    fn balance(&mut self, address: &Address) -> U256 {
-        self.db
-            .accounts
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
-    }
-
     pub fn add_account(&mut self, address: Address, account: Account) {
         self.db.accounts.insert(address, account);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn generic_call(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        gas: U256,
+        value: U256,
+        msg_sender: Address,
+        to: Address,
+        code_address: Address,
+        delegate: Option<Address>,
+        _should_transfer_value: bool,
+        is_static: bool,
+        args_offset: usize,
+        args_size: usize,
+        ret_offset: usize,
+        ret_size: usize,
+    ) {
+        // check balance
+        if self.db.balance(&current_call_frame.msg_sender) < value {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+            return;
+        }
+
+        // transfer value
+        // transfer(&current_call_frame.msg_sender, &address, value);
+
+        let callee_bytecode = self.db.get_account_bytecode(&code_address);
+
+        if callee_bytecode.is_empty() {
+            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+            return;
+        }
+
+        let calldata = current_call_frame
+            .memory
+            .load_range(args_offset, args_size)
+            .into();
+
+        let new_call_frame = CallFrame::new(
+            gas,
+            msg_sender,
+            to,
+            code_address,
+            delegate,
+            callee_bytecode,
+            value,
+            calldata,
+            is_static,
+        );
+
+        current_call_frame.return_data_offset = Some(ret_offset);
+        current_call_frame.return_data_size = Some(ret_size);
+
+        self.call_frames.push(current_call_frame.clone());
+        *current_call_frame = new_call_frame;
     }
 }
 
