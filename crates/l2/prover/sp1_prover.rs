@@ -3,7 +3,7 @@ use tracing::info;
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/elf/riscv32im-succinct-zkvm-elf");
+pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/program/elf/riscv32im-succinct-zkvm-elf");
 
 pub struct SP1Prover {
     client: ProverClient,
