@@ -2121,6 +2121,7 @@ fn log2() {
         logs[0].topics,
         vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 1405);
 }
 
 #[test]
@@ -2162,6 +2163,7 @@ fn log3() {
             H32::from_slice(&topic3)
         ]
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 1783);
 }
 
 #[test]
@@ -2207,6 +2209,7 @@ fn log4() {
             H32::from_slice(&topic4)
         ]
     );
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 2161);
 }
 
 #[test]
@@ -2230,6 +2233,7 @@ fn log_with_0_data_size() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, Vec::new());
     assert_eq!(logs[0].topics.len(), 0);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 393);
 }
 
 #[test]
@@ -2276,6 +2280,7 @@ fn log_with_data_in_memory_smaller_than_size() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data);
     assert_eq!(logs[0].topics.len(), 0);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 649);
 }
 
 #[test]
@@ -2309,4 +2314,5 @@ fn multiple_logs_of_different_types() {
     assert_eq!(logs[1].data, data.to_vec());
     assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
     assert_eq!(logs[1].topics.len(), 0);
+    assert_eq!(vm.consumed_gas, TX_BASE_COST + 1664);
 }
