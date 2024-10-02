@@ -31,5 +31,9 @@ Features:
 
 ### Testing
 To run the project's tests, do `make test`.  
-To run the [Ethereum Foundation tests](https://github.com/ethereum/tests), use `make eth-tests` 🏗️
+To run the [Ethereum Foundation Tests](https://github.com/ethereum/tests) use the following commands:  
+```bash
+make ethtests   # Downloads the tests
+make test-eth   # Runs tests
+```
 
