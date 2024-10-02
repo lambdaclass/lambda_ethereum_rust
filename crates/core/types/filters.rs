@@ -87,9 +87,6 @@ impl RLPDecode for TopicFilter {
 
 impl RLPEncode for TopicFilter {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        // Since a topic can be a topic or a list of topics,
-        // let's first check if it is a list, and if not,
-        // try to decode the single variant
         match self {
             TopicFilter::Topic(topic) => {
                 RLPEncode::encode(topic, buf);
