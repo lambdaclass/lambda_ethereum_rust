@@ -66,7 +66,7 @@ fn push31_ok() {
 fn push32_ok() {
     let to_push = U256::from_big_endian(&[0xff; 32]);
 
-    let operations = [Operation::Push32(to_push), Operation::Stop];
+    let operations = [Operation::Push((32,to_push)), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
@@ -181,8 +181,8 @@ fn transient_store() {
     let key = U256::from_big_endian(&[0xff; 2]);
 
     let operations = [
-        Operation::Push32(value),
-        Operation::Push32(key),
+        Operation::Push((32,value)),
+        Operation::Push((32,key)),
         Operation::Tstore,
         Operation::Stop,
     ];
@@ -222,7 +222,7 @@ fn transient_load() {
     let value = U256::from_big_endian(&[0xaa; 3]);
     let key = U256::from_big_endian(&[0xff; 2]);
 
-    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+    let operations = [Operation::Push((32,key)), Operation::Tload, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
 
