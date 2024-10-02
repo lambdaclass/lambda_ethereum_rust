@@ -9,7 +9,7 @@ mod smoke_test {
     use ethereum_rust_storage::{EngineType, Store};
 
     use crate::{
-        add_block,
+        add_block, is_canonical,
         payload::{build_payload, BuildPayloadArgs},
     };
 
@@ -27,29 +27,30 @@ mod smoke_test {
             .set_canonical_block(1, block_1a.header.compute_block_hash())
             .unwrap();
 
-        let retrieved_1 = store.get_block_header(1).unwrap().unwrap();
+        let retrieved_1a = store.get_block_header(1).unwrap().unwrap();
 
-        assert_eq!(retrieved_1, block_1a.header);
+        assert_eq!(retrieved_1a, block_1a.header);
+        assert!(is_canonical(&store, 1, block_1a.header.compute_block_hash()).unwrap());
 
         // Add second block at height 1. Will not be canonical.
         let block_1b = new_block(&store, &genesis_header);
         add_block(&block_1b, &store).expect("Could not add block 1b.");
-        let retrieved_2 = store
+        let retrieved_1b = store
             .get_block_header_by_hash(block_1b.header.compute_block_hash())
             .unwrap()
             .unwrap();
 
-        assert_ne!(retrieved_1, retrieved_2);
+        assert_ne!(retrieved_1a, retrieved_1b);
+        assert!(!is_canonical(&store, 1, block_1b.header.compute_block_hash()).unwrap());
 
         // Add a third block at height 2, from the non canonical block.
-
         let block_2 = new_block(&store, &block_1b.header);
-        add_block(&block_1b, &store).expect("Could not add block 2.");
-        let retrieved_3 = store
+        add_block(&block_2, &store).expect("Could not add block 2.");
+        let retrieved_2 = store
             .get_block_header_by_hash(block_2.header.compute_block_hash())
             .unwrap();
 
-        assert!(!retrieved_3.is_none());
+        assert!(!retrieved_2.is_none());
         assert!(store.get_canonical_block_hash(2).unwrap().is_none());
     }
 

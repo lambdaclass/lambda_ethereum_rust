@@ -108,17 +108,12 @@ pub fn find_parent_header(
     block_header: &BlockHeader,
     storage: &Store,
 ) -> Result<BlockHeader, ChainError> {
-    let parent_hash = block_header.parent_hash;
-    let parent_number = storage.get_block_number(parent_hash)?;
+    let Some(parent_header) = storage.get_block_header_by_hash(block_header.parent_hash)? else {
+        return Err(ChainError::ParentNotFound);
+    };
 
-    if let Some(parent_number) = parent_number {
-        let parent_header = storage.get_block_header(parent_number)?;
-
-        if let Some(parent_header) = parent_header {
-            Ok(parent_header)
-        } else {
-            Err(ChainError::ParentNotFound)
-        }
+    if parent_header.number == block_header.number - 1 {
+        Ok(parent_header)
     } else {
         Err(ChainError::ParentNotFound)
     }
