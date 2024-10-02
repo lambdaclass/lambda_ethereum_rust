@@ -31,17 +31,17 @@ impl ProofDataClient {
         let prover = SP1Prover::new();
 
         loop {
-            let id = self.request_new_data().unwrap();
+            if let Some(id) = self.request_new_data().unwrap() {
+                let proof = prover.prove(id).unwrap();
 
-            let proof = prover.prove(id).unwrap();
-
-            self.submit_proof(id, proof).unwrap();
-
-            sleep(Duration::from_secs(5)).await;
+                self.submit_proof(id, proof).unwrap();
+            } else {
+                sleep(Duration::from_secs(10)).await;
+            }
         }
     }
 
-    fn request_new_data(&self) -> Result<u64, String> {
+    fn request_new_data(&self) -> Result<Option<u64>, String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
@@ -56,7 +56,7 @@ impl ProofDataClient {
 
         match response {
             ProofData::Response { id } => {
-                debug!("Received response: {}", id);
+                debug!("Received response: {:?}", id);
                 Ok(id)
             }
             _ => {

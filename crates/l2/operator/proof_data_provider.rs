@@ -19,7 +19,7 @@ pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
 pub enum ProofData {
     Request {},
     Response {
-        id: u64,
+        id: Option<u64>,
     },
     Submit {
         id: u64,
@@ -103,13 +103,15 @@ impl ProofDataProvider {
         debug!("Request received");
 
         if let Ok(last_block_number) = Self::get_last_block_number().await {
-            if last_block_number > last_proved_block {
-                let response = ProofData::Response {
-                    id: last_proved_block + 1,
-                };
-                let writer = BufWriter::new(stream);
-                serde_json::to_writer(writer, &response).unwrap();
-            }
+            let response = if last_block_number > last_proved_block {
+                ProofData::Response {
+                    id: Some(last_proved_block + 1),
+                }
+            } else {
+                ProofData::Response { id: None }
+            };
+            let writer = BufWriter::new(stream);
+            serde_json::to_writer(writer, &response).unwrap();
         }
     }
 
