@@ -32,3 +32,15 @@ pub const RIPEMD_PADDING_LEN: usize = 12;
 // Identity
 pub const IDENTITY_STATIC_COST: u64 = 15;
 pub const IDENTITY_ADDRESS: u64 = 0x04;
+
+// modexp
+pub const MODEXP_ADDRESS: u64 = 0x05;
+pub const MIN_MODEXP_COST: u64 = 200;
+/// (0; 32) contains byte size of B.
+pub const BSIZE_END: usize = 32;
+/// (32; 64) contains byte size of E.
+pub const ESIZE_END: usize = 64;
+/// (64; 96) contains byte size of M.
+pub const MSIZE_END: usize = 96;
+/// Used to get values of B, E and M.
+pub const MXP_PARAMS_OFFSET: usize = 96;

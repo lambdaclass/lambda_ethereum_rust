@@ -1,11 +1,12 @@
 use bytes::Bytes;
-use ethereum_types::Address;
+use ethereum_types::{Address, U256};
 use secp256k1::{ecdsa, Message, Secp256k1};
 use sha3::{Digest, Keccak256};
 
 use crate::constants::{
-    ECRECOVER_ADDRESS, ECRECOVER_COST, ECR_HASH_END, ECR_PADDING_LEN, ECR_PARAMS_OFFSET,
-    ECR_SIG_END, ECR_V_BASE, ECR_V_POS, IDENTITY_ADDRESS, IDENTITY_STATIC_COST, REVERT_FOR_CALL,
+    BSIZE_END, ECRECOVER_ADDRESS, ECRECOVER_COST, ECR_HASH_END, ECR_PADDING_LEN, ECR_PARAMS_OFFSET,
+    ECR_SIG_END, ECR_V_BASE, ECR_V_POS, ESIZE_END, IDENTITY_ADDRESS, IDENTITY_STATIC_COST,
+    MIN_MODEXP_COST, MODEXP_ADDRESS, MSIZE_END, MXP_PARAMS_OFFSET, REVERT_FOR_CALL,
     RIPEMD_160_ADDRESS, RIPEMD_160_STATIC_COST, RIPEMD_OUTPUT_LEN, RIPEMD_PADDING_LEN,
     SHA2_256_ADDRESS, SHA2_256_STATIC_COST, SUCCESS_FOR_CALL,
 };
@@ -16,6 +17,17 @@ pub enum PrecompileError {
     NotEnoughGas,
     Secp256k1Error,
     InvalidEcPoint,
+}
+
+// Left pads calldata with zeros until specified length
+pub fn left_pad(calldata: &Bytes, target_len: usize) -> Bytes {
+    let mut padded_calldata = vec![0u8; target_len];
+    if calldata.len() < target_len {
+        padded_calldata[target_len - calldata.len()..].copy_from_slice(calldata);
+    } else {
+        return calldata.clone();
+    }
+    padded_calldata.into()
 }
 
 // Right pads calldata with zeros until specified length
@@ -130,6 +142,79 @@ pub fn identity(
     Ok(calldata.clone())
 }
 
+/// Arbitrary-precision exponentiation under modulo.
+/// More info in https://eips.ethereum.org/EIPS/eip-198 and https://www.evm.codes/precompiled.
+pub fn modexp(
+    calldata: &Bytes,
+    gas_limit: u64,
+    consumed_gas: &mut u64,
+) -> Result<Bytes, PrecompileError> {
+    if calldata.is_empty() {
+        *consumed_gas += MIN_MODEXP_COST;
+        return Ok(Bytes::new());
+    }
+
+    let calldata = right_pad(calldata, MXP_PARAMS_OFFSET);
+
+    // Cast sizes as usize and check for overflow.
+    // Bigger sizes are not accepted, as memory can't index bigger values.
+    let b_size = usize::try_from(U256::from_big_endian(&calldata[..BSIZE_END]))
+        .map_err(|_| PrecompileError::InvalidCalldata)?;
+    let e_size = usize::try_from(U256::from_big_endian(&calldata[BSIZE_END..ESIZE_END]))
+        .map_err(|_| PrecompileError::InvalidCalldata)?;
+    let m_size = usize::try_from(U256::from_big_endian(&calldata[ESIZE_END..MSIZE_END]))
+        .map_err(|_| PrecompileError::InvalidCalldata)?;
+
+    // Handle special case when both the base and mod are zero.
+    if b_size == 0 && m_size == 0 {
+        *consumed_gas += 200;
+        return Ok(Bytes::new());
+    }
+
+    let params_len = MXP_PARAMS_OFFSET + b_size + e_size + m_size;
+    if calldata.len() < params_len {
+        return Err(PrecompileError::InvalidCalldata);
+    }
+
+    let b = U256::from_big_endian(&calldata[MXP_PARAMS_OFFSET..MXP_PARAMS_OFFSET + b_size]);
+    let e = U256::from_big_endian(
+        &calldata[MXP_PARAMS_OFFSET + b_size..MXP_PARAMS_OFFSET + b_size + e_size],
+    );
+    let m = U256::from_big_endian(&calldata[MXP_PARAMS_OFFSET + b_size + e_size..params_len]);
+
+    // Compute gas cost
+    let max_length = b_size.max(m_size);
+    let words = (max_length + 7) / 8;
+    let multiplication_complexity = (words * words) as u64;
+    let iteration_count = if e_size <= 32 && e != U256::zero() {
+        e.bits() - 1
+    } else if e_size > 32 {
+        8 * (e_size - 32) + e.bits().max(1) - 1
+    } else {
+        0
+    };
+    let calculate_iteration_count = iteration_count.max(1);
+    let gas_cost =
+        (multiplication_complexity * (calculate_iteration_count as u64) / 3).max(MIN_MODEXP_COST);
+    if gas_limit < gas_cost {
+        return Err(PrecompileError::NotEnoughGas);
+    }
+    *consumed_gas += gas_cost;
+
+    let result = if m == U256::zero() {
+        U256::zero()
+    } else if e == U256::zero() {
+        U256::from(1_u8) % m
+    } else {
+        b.pow(e) % m
+    };
+    let mut calldata = Vec::with_capacity(32);
+    result.to_big_endian(&mut calldata);
+    dbg!(calldata.len());
+    let result = left_pad(&Bytes::from(calldata), m_size);
+    Ok(result.slice(..m_size))
+}
+
 pub fn execute_precompile(
     callee_address: Address,
     calldata: Bytes,
@@ -148,6 +233,9 @@ pub fn execute_precompile(
         }
         x if x == Address::from_low_u64_be(IDENTITY_ADDRESS) => {
             identity(&calldata, gas_to_send, consumed_gas)
+        }
+        x if x == Address::from_low_u64_be(MODEXP_ADDRESS) => {
+            modexp(&calldata, gas_to_send, consumed_gas)
         }
         _ => {
             unreachable!()
