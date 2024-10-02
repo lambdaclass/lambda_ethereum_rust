@@ -206,7 +206,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
     // Obtain the world state trie for the given block
-    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError>;
+    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError>;
 
     // Obtain a world state from an empty root
     // This method should be used when creating the genesis world state
