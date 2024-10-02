@@ -69,7 +69,6 @@ impl RLPDecode for LogsFilter {
 }
 impl RLPDecode for TopicFilter {
     fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let decoder = Decoder::new(rlp)?;
         // Since a topic can be a topic or a list of topics,
         // let's first check if it is a list, and if not,
         // try to decode the single variant

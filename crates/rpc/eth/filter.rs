@@ -1,9 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::types::block_identifier::BlockIdentifier;
 use crate::utils::RpcErr;
 use crate::RpcHandler;
-use ethereum_rust_core::types::LogsFilter;
 use rand::prelude::*;
 use serde_json::json;
 
@@ -34,26 +32,24 @@ impl RpcHandler for FilterRequest {
 
         storage.add_filter(random(), timestamp, filter)?;
         let as_hex = json!(format!("0x{:x}", id));
-        return Ok(as_hex.into());
+        Ok(as_hex)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        map_eth_requests, map_http_requests,
+        map_http_requests,
         utils::{
-            test_utils::{example_p2p_node, in_mem_test_db, test_db, TestStore},
+            test_utils::{example_p2p_node, TestDB},
             RpcRequest,
         },
     };
-    use ethereum_rust_net::types::Node;
-    use ethereum_rust_storage::Store;
-    use serde::Deserialize;
+    use ethereum_rust_storage::EngineType;
     use serde_json::json;
 
     #[test]
-    fn filter_request_smoke_test_1() {
+    fn filter_request_smoke_test_valid_params() {
         let raw_json = json!(
         {
             "jsonrpc":"2.0",
@@ -69,12 +65,12 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(in_mem_test_db(), example_p2p_node(), raw_json.clone());
-        run_filter_request_test(test_db(), example_p2p_node(), raw_json);
+        run_filter_request_test(raw_json.clone(), EngineType::InMemory);
+        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
     }
 
     #[test]
-    fn filter_request_smoke_test_2() {
+    fn filter_request_smoke_test_valid_null_topics_null_addr() {
         let raw_json = json!(
         {
             "jsonrpc":"2.0",
@@ -90,12 +86,78 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(in_mem_test_db(), example_p2p_node(), raw_json.clone());
-        run_filter_request_test(test_db(), example_p2p_node(), raw_json);
+        run_filter_request_test(raw_json.clone(), EngineType::InMemory);
+        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
     }
-    fn run_filter_request_test(storage: TestStore, test_node: Node, json_req: serde_json::Value) {
+
+    #[test]
+    fn filter_request_smoke_test_valid_addr_topic_null() {
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": "0x1",
+                    "toBlock": "0xFF",
+                    "topics": null,
+                    "address": [ "0xb794f5ea0ba39494ce839613fffba74279579268" ]
+                }
+            ]
+                ,"id":1
+        });
+        run_filter_request_test(raw_json.clone(), EngineType::InMemory);
+        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+    }
+
+    #[test]
+    #[should_panic]
+    fn filter_request_smoke_test_invalid_block_range() {
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": "0xFFF",
+                    "toBlock": "0xA",
+                    "topics": null,
+                    "address": null
+                }
+            ]
+                ,"id":1
+        });
+        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+    }
+
+    #[test]
+    #[should_panic]
+    fn filter_request_smoke_test_from_block_missing() {
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": null,
+                    "toBlock": "0xA",
+                    "topics": null,
+                    "address": null
+                }
+            ]
+                ,"id":1
+        });
+        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+    }
+
+    fn run_filter_request_test(json_req: serde_json::Value, storage_type: EngineType) {
+        let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
-        let response = map_http_requests(&request, *storage.inner.clone(), test_node)
+        let test_store = TestDB::new(storage_type);
+        let response = map_http_requests(&request, test_store.build_store(), node)
             .unwrap()
             .to_string();
         assert!(response.trim().trim_matches('"').starts_with("0x"))

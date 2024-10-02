@@ -5,15 +5,12 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
-use ethereum_rust_core::types::AddressFilter;
 use ethereum_rust_core::types::Block;
 use ethereum_rust_core::types::BlockBody;
 use ethereum_rust_core::types::LogsFilter;
-use ethereum_rust_core::types::TopicFilter;
-use ethereum_rust_core::types::Transaction;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, BlockHash, BlockHeader, BlockNumber, ChainConfig,
-    Genesis, GenesisAccount, Index, Receipt,
+    Genesis, GenesisAccount, Index, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;

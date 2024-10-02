@@ -26,6 +26,7 @@ rand.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"
+mktemp = "0.5.1"
 
 [lib]
 path = "./rpc.rs"

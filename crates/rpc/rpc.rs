@@ -25,7 +25,6 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    logs::LogsRequest,
     filter::FilterRequest,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -261,11 +260,9 @@ where
 #[cfg(test)]
 mod tests {
     use ethereum_rust_core::types::{ChainConfig, Genesis};
-    use ethereum_rust_core::H512;
     use ethereum_rust_storage::EngineType;
     use std::fs::File;
     use std::io::BufReader;
-    use std::str::FromStr;
     use crate::utils::test_utils::example_p2p_node;
     use super::*;
 

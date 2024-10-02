@@ -2,8 +2,7 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
-    BlockTotalDifficultyRLP, LogFilterRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP,
-    TupleRLP,
+    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;

@@ -1,7 +1,8 @@
 use bytes::Bytes;
+use ethereum_rust_core::types::Block;
+use ethereum_rust_core::types::BlockBody;
 use ethereum_rust_core::types::{
-    AddressFilter, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    LogsFilter, Receipt, TopicFilter, Transaction,
+    BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{fmt::Debug, panic::RefUnwindSafe};

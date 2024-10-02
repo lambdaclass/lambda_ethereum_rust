@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bytes::Bytes;
 use ethereum_rust_core::{
-    types::{Block, BlockBody, BlockHash, BlockHeader, LogsFilter, Receipt, Transaction},
+    types::{Block, BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
     H256,
 };
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
@@ -31,8 +31,6 @@ pub type TransactionRLP = Rlp<Transaction>;
 
 // Wrapper for tuples. Used mostly for indexed keys.
 pub type TupleRLP<A, B> = Rlp<(A, B)>;
-
-pub type LogFilterRLP = (u64, Rlp<LogsFilter>);
 
 #[derive(Clone)]
 pub struct Rlp<T>(Vec<u8>, PhantomData<T>);

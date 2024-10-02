@@ -2,12 +2,8 @@ use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::{
-    types::{AddressFilter, LogsFilter, TopicFilter},
-    H160, H256,
-};
+use ethereum_rust_core::types::{AddressFilter, LogsFilter, TopicFilter};
 use ethereum_rust_storage::Store;
-use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -25,32 +21,6 @@ pub struct LogsRequest {
     /// Which topics to filter.
     pub topics: Vec<TopicFilter>,
 }
-impl LogsRequest {
-    pub fn request_to_filter(&self, store: &Store) -> Result<LogsFilter, RpcErr> {
-        let from_block = self
-            .from_block
-            .resolve_block_number(&store)?
-            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
-        let to_block = self
-            .to_block
-            .resolve_block_number(&store)?
-            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
-        Ok(LogsFilter {
-            from_block,
-            to_block,
-            addresses: self
-                .address_filters
-                .clone()
-                .map(|addr| match addr {
-                    AddressFilter::Single(single_address) => vec![single_address],
-                    AddressFilter::Many(addresses) => addresses,
-                })
-                .unwrap_or_else(Vec::new),
-            topics: self.topics.clone(),
-        })
-    }
-}
-// pub type LogsRPC = LogsFilter;
 impl RpcHandler for LogsRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
         match params.as_deref() {
@@ -188,5 +158,34 @@ impl RpcHandler for LogsRequest {
         };
 
         serde_json::to_value(filtered_logs).map_err(|_| RpcErr::Internal)
+    }
+}
+
+impl LogsRequest {
+    pub fn request_to_filter(&self, store: &Store) -> Result<LogsFilter, RpcErr> {
+        let from_block = self
+            .from_block
+            .resolve_block_number(store)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to_block = self
+            .to_block
+            .resolve_block_number(store)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+        if from_block > to_block {
+            return Err(RpcErr::BadParams);
+        }
+        Ok(LogsFilter {
+            from_block,
+            to_block,
+            addresses: self
+                .address_filters
+                .clone()
+                .map(|addr| match addr {
+                    AddressFilter::Single(single_address) => vec![single_address],
+                    AddressFilter::Many(addresses) => addresses,
+                })
+                .unwrap_or_default(),
+            topics: self.topics.clone(),
+        })
     }
 }

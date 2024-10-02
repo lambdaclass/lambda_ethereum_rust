@@ -1,8 +1,8 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    AddressFilter, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    LogsFilter, Receipt, TopicFilter, Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter, Receipt,
+    Transaction,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};

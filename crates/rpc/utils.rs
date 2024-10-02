@@ -218,40 +218,53 @@ pub mod test_utils {
     use ethereum_rust_net::types::Node;
     use ethereum_rust_storage::{EngineType, Store};
 
-    pub struct TestStore {
-        pub inner: Box<Store>,
+    pub struct TestDB {
+        pub path: String,
         pub kind: EngineType,
     }
 
-    impl Drop for TestStore {
+    // When the struct goes out of scope,
+    // this will clean up the path used for the db.
+    impl Drop for TestDB {
         fn drop(&mut self) {
-            use EngineType::*;
             match self.kind {
-                InMemory => drop(&mut self.inner),
-                Libmdbx => {
-                    std::fs::remove_file("__test_db__");
-                    drop(&mut self.inner)
+                EngineType::Libmdbx => {
+                    std::fs::remove_dir(&self.path).expect("Fatal: could not delete test path");
                 }
+                EngineType::InMemory => {}
             }
         }
     }
 
-    pub fn in_mem_test_db() -> TestStore {
-        let store =
-            Store::new("in_memory", EngineType::InMemory).expect("Fatal: Could not instance db");
-        return TestStore {
-            inner: Box::new(store),
-            kind: EngineType::InMemory,
-        };
-    }
-
-    pub fn test_db() -> TestStore {
-        let store =
-            Store::new("__test_db__", EngineType::Libmdbx).expect("Fatal: could instance db");
-        return TestStore {
-            inner: Box::new(store),
-            kind: EngineType::Libmdbx,
-        };
+    impl TestDB {
+        pub fn new(kind: EngineType) -> Self {
+            match kind {
+                EngineType::InMemory => Self::in_mem(),
+                EngineType::Libmdbx => Self::in_disk(),
+            }
+        }
+        pub fn in_mem() -> Self {
+            return Self {
+                path: "in_memory".to_string(),
+                kind: EngineType::InMemory,
+            };
+        }
+        pub fn in_disk() -> Self {
+            use mktemp::Temp;
+            let path_buf;
+            {
+                let temp_dir = Temp::new_dir().unwrap();
+                path_buf = temp_dir.to_path_buf();
+                temp_dir.release();
+            };
+            return Self {
+                path: path_buf.display().to_string(),
+                kind: EngineType::InMemory,
+            };
+        }
+        pub fn build_store(&self) -> Store {
+            Store::new(&self.path, self.kind).expect("Fatal, could not instance test db")
+        }
     }
 
     pub fn example_p2p_node() -> Node {
