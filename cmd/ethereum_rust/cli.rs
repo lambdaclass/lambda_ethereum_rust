@@ -72,7 +72,6 @@ pub fn cli() -> Command {
             Arg::new("network")
                 .long("network")
                 .value_name("GENESIS_FILE_PATH")
-                .required(true)
                 .action(ArgAction::Set),
         )
         .arg(
@@ -87,7 +86,6 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("datadir")
                 .long("datadir")
-                .default_value("")
                 .value_name("DATABASE_DIRECTORY")
                 .action(ArgAction::Set),
         )
@@ -96,5 +94,13 @@ pub fn cli() -> Command {
                 .long("import")
                 .required(false)
                 .value_name("CHAIN_RLP_PATH"),
+        )
+        .subcommand(
+            Command::new("removedb").about("Remove the database").arg(
+                Arg::new("datadir")
+                    .long("datadir")
+                    .value_name("DATABASE_DIRECTORY")
+                    .action(ArgAction::Set),
+            ),
         )
 }

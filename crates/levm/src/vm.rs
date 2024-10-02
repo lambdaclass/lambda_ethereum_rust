@@ -53,6 +53,22 @@ impl Db {
             .storage
             .insert(key, slot);
     }
+
+    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
+        self.accounts
+            .get(address)
+            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
+    }
+
+    pub fn add_account(&mut self, address: Address, account: Account) {
+        self.accounts.insert(address, account);
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -881,24 +897,6 @@ impl VM {
         self.call_frames.last_mut().unwrap()
     }
 
-    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.db
-            .accounts
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    fn balance(&mut self, address: &Address) -> U256 {
-        self.db
-            .accounts
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
-    }
-
-    pub fn add_account(&mut self, address: Address, account: Account) {
-        self.db.accounts.insert(address, account);
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn generic_call(
         &mut self,
@@ -917,7 +915,7 @@ impl VM {
         ret_size: usize,
     ) {
         // check balance
-        if self.balance(&current_call_frame.msg_sender) < value {
+        if self.db.balance(&current_call_frame.msg_sender) < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
             return;
         }
@@ -925,7 +923,7 @@ impl VM {
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
-        let callee_bytecode = self.get_account_bytecode(&code_address);
+        let callee_bytecode = self.db.get_account_bytecode(&code_address);
 
         if callee_bytecode.is_empty() {
             current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));

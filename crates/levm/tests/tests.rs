@@ -1195,7 +1195,7 @@ fn call_returns_if_bytecode_empty() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
     vm.execute();
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
@@ -1228,7 +1228,7 @@ fn call_changes_callframe_and_stores() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1309,8 +1309,8 @@ fn nested_calls() {
 
     let mut vm = new_vm_with_ops_addr_bal(&caller_ops, caller_address, caller_balance);
 
-    vm.add_account(callee2_address, callee2_account);
-    vm.add_account(callee3_address, callee3_account);
+    vm.db.add_account(callee2_address, callee2_account);
+    vm.db.add_account(callee3_address, callee3_account);
 
     vm.execute();
 
@@ -1375,7 +1375,7 @@ fn staticcall_changes_callframe_is_static() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1425,7 +1425,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         U256::from(1000),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -1480,7 +1480,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -1533,7 +1533,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         U256::from(1000),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -1586,7 +1586,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         U256::from(1000),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -1837,7 +1837,7 @@ fn calldataload_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 
@@ -1956,7 +1956,7 @@ fn returndatacopy_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute();
 

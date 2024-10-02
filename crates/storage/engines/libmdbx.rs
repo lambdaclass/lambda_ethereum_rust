@@ -27,7 +27,6 @@ use std::sync::Arc;
 pub struct Store {
     db: Arc<Database>,
 }
-
 impl Store {
     pub fn new(path: &str) -> Result<Self, StoreError> {
         Ok(Self {
@@ -337,8 +336,11 @@ impl StoreEngine for Store {
         }
     }
 
-    fn state_trie(&self, block_number: BlockNumber) -> Result<Option<Trie>, StoreError> {
-        let Some(state_root) = self.get_block_header(block_number)?.map(|h| h.state_root) else {
+    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
+        let Some(state_root) = self
+            .get_block_header_by_hash(block_hash)?
+            .map(|h| h.state_root)
+        else {
             return Ok(None);
         };
         let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
