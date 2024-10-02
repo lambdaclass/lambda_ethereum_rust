@@ -1,6 +1,6 @@
 use crate::primitives::U256;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Memory {
     data: Vec<u8>,
 }
@@ -14,6 +14,10 @@ impl From<Vec<u8>> for Memory {
 impl Memory {
     pub fn new() -> Self {
         Self { data: Vec::new() }
+    }
+
+    pub fn new_from_vec(data: Vec<u8>) -> Self {
+        Self { data }
     }
 
     fn resize(&mut self, offset: usize) {

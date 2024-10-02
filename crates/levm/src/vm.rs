@@ -5,9 +5,8 @@ use crate::{
     call_frame::{CallFrame, Log},
     constants::{REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
-    primitives::{Address, Bytes, U256, U512},
+    primitives::{Address, Bytes, H256, H32, U256, U512},
 };
-use ethereum_types::{H256, H32};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
@@ -27,7 +26,7 @@ impl Account {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
@@ -97,7 +96,7 @@ impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         let initial_account = Account::new(balance, bytecode.clone());
 
-        let initial_call_frame = CallFrame::new(bytecode);
+        let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
         let mut db: Db = Default::default();
         db.accounts.insert(address, initial_account);
         Self {
@@ -663,9 +662,15 @@ impl VM {
                 }
                 Opcode::SLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
+                    let address = if let Some(delegate) = current_call_frame.delegate {
+                        delegate
+                    } else {
+                        current_call_frame.code_address
+                    };
+
                     let current_value = self
                         .db
-                        .read_account_storage(&current_call_frame.msg_sender, &key)
+                        .read_account_storage(&address, &key)
                         .unwrap_or_default()
                         .current_value;
                     current_call_frame.stack.push(current_value);
@@ -679,15 +684,21 @@ impl VM {
                     let value = current_call_frame.stack.pop().unwrap();
                     // maybe we need the journal struct as accessing the Db could be slow, with the journal
                     // we can have prefetched values directly in memory and only commits the values to the db once everything is done
-                    let address = &current_call_frame.msg_sender; // should change when we have create/call transactions
-                    let slot = self.db.read_account_storage(address, &key);
+
+                    let address = if let Some(delegate) = current_call_frame.delegate {
+                        delegate
+                    } else {
+                        current_call_frame.code_address
+                    };
+
+                    let slot = self.db.read_account_storage(&address, &key);
                     let (original_value, _) = match slot {
                         Some(slot) => (slot.original_value, slot.current_value),
                         None => (value, value),
                     };
 
                     self.db.write_account_storage(
-                        address,
+                        &address,
                         key,
                         StorageSlot {
                             original_value,
@@ -715,43 +726,64 @@ impl VM {
                 }
                 Opcode::CALL => {
                     let gas = current_call_frame.stack.pop().unwrap();
-                    let address =
+                    let code_address =
                         Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
                     let value = current_call_frame.stack.pop().unwrap();
                     let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
                     let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    // check balance
-                    if self.db.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-                        continue;
-                    }
-                    // transfer value
-                    // transfer(&current_call_frame.msg_sender, &address, value);
-                    let callee_bytecode = self.db.get_account_bytecode(&address);
-                    if callee_bytecode.is_empty() {
-                        current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-                        continue;
-                    }
-                    let calldata = current_call_frame
-                        .memory
-                        .load_range(args_offset, args_size)
-                        .into();
 
-                    let new_call_frame = CallFrame {
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let to = current_call_frame.to; // to remains the same
+                    let is_static = current_call_frame.is_static;
+
+                    self.generic_call(
+                        &mut current_call_frame,
                         gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
-                        calldata,
-                        ..Default::default()
-                    };
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-                    self.call_frames.push(current_call_frame.clone());
-                    current_call_frame = new_call_frame;
+                        value,
+                        msg_sender,
+                        to,
+                        code_address,
+                        None,
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
+                    );
+                }
+                Opcode::CALLCODE => {
+                    // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage remains the same. Note that an account with no code will return success as true.
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let code_address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let value = current_call_frame.stack.pop().unwrap();
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let msg_sender = current_call_frame.msg_sender; // msg_sender is changed to the proxy's address
+                    let to = current_call_frame.to; // to remains the same
+                    let is_static = current_call_frame.is_static;
+
+                    self.generic_call(
+                        &mut current_call_frame,
+                        gas,
+                        value,
+                        code_address,
+                        to,
+                        code_address,
+                        Some(msg_sender),
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
+                    );
                 }
                 Opcode::RETURN => {
                     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
@@ -775,6 +807,67 @@ impl VM {
                             .push(U256::from(SUCCESS_FOR_RETURN));
                         break;
                     }
+                }
+                Opcode::DELEGATECALL => {
+                    // The delegatecall executes the setVars(uint256) code from Contract B but updates Contract A’s storage. The execution has the same storage, msg.sender & msg.value as its parent call setVarsDelegateCall.
+                    // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage, the current sender and the current value remain the same. Note that an account with no code will return success as true.
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let code_address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let value = current_call_frame.msg_value; // value remains the same
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let to = current_call_frame.to; // to remains the same
+                    let is_static = current_call_frame.is_static;
+
+                    self.generic_call(
+                        &mut current_call_frame,
+                        gas,
+                        value,
+                        msg_sender,
+                        to,
+                        code_address,
+                        Some(msg_sender),
+                        false,
+                        is_static,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
+                    );
+                }
+                Opcode::STATICCALL => {
+                    // it cannot be used to transfer Ether
+                    let gas = current_call_frame.stack.pop().unwrap();
+                    let code_address =
+                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
+                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+
+                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
+                    let value = current_call_frame.msg_value;
+
+                    self.generic_call(
+                        &mut current_call_frame,
+                        gas,
+                        value, // check
+                        msg_sender,
+                        code_address,
+                        code_address,
+                        None,
+                        false,
+                        true,
+                        args_offset,
+                        args_size,
+                        ret_offset,
+                        ret_size,
+                    );
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
@@ -802,6 +895,63 @@ impl VM {
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn generic_call(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        gas: U256,
+        value: U256,
+        msg_sender: Address,
+        to: Address,
+        code_address: Address,
+        delegate: Option<Address>,
+        _should_transfer_value: bool,
+        is_static: bool,
+        args_offset: usize,
+        args_size: usize,
+        ret_offset: usize,
+        ret_size: usize,
+    ) {
+        // check balance
+        if self.db.balance(&current_call_frame.msg_sender) < value {
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
+            return;
+        }
+
+        // transfer value
+        // transfer(&current_call_frame.msg_sender, &address, value);
+
+        let callee_bytecode = self.db.get_account_bytecode(&code_address);
+
+        if callee_bytecode.is_empty() {
+            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
+            return;
+        }
+
+        let calldata = current_call_frame
+            .memory
+            .load_range(args_offset, args_size)
+            .into();
+
+        let new_call_frame = CallFrame::new(
+            gas,
+            msg_sender,
+            to,
+            code_address,
+            delegate,
+            callee_bytecode,
+            value,
+            calldata,
+            is_static,
+        );
+
+        current_call_frame.return_data_offset = Some(ret_offset);
+        current_call_frame.return_data_size = Some(ret_size);
+
+        self.call_frames.push(current_call_frame.clone());
+        *current_call_frame = new_call_frame;
     }
 }
 
