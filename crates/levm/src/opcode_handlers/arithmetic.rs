@@ -134,42 +134,46 @@ impl VM {
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
-        } else {
-            let sum = augend.overflowing_add(addend).0;
-            let remainder = sum % divisor;
-            current_call_frame.stack.push(remainder)?;
+            return Ok(());
         }
+        let (sum, overflow) = augend.overflowing_add(addend);
+        let mut remainder = sum % divisor;
+        if overflow || remainder > divisor {
+            remainder = remainder.overflowing_sub(divisor).0;
+        }
+
+        current_call_frame.stack.push(remainder)?;
         Ok(())
     }
 
     // MULMOD operation
-    // pub fn mulmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-    //     let multiplicand = U512::from(current_call_frame.stack.pop()?);
+    pub fn mulmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let multiplicand = U512::from(current_call_frame.stack.pop()?);
 
-    //     let multiplier = U512::from(current_call_frame.stack.pop()?);
-    //     let divisor = U512::from(current_call_frame.stack.pop()?);
-    //     if divisor.is_zero() {
-    //         current_call_frame.stack.push(U256::zero())?;
-    //         continue;
-    //     }
+        let multiplier = U512::from(current_call_frame.stack.pop()?);
+        let divisor = U512::from(current_call_frame.stack.pop()?);
+        if divisor.is_zero() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(());
+        }
 
-    //     let (product, overflow) = multiplicand.overflowing_mul(multiplier);
-    //     let mut remainder = product % divisor;
-    //     if overflow || remainder > divisor {
-    //         remainder = remainder.overflowing_sub(divisor).0;
-    //     }
-    //     let mut result = Vec::new();
-    //     for byte in remainder.0.iter().take(4) {
-    //         let bytes = byte.to_le_bytes();
-    //         result.extend_from_slice(&bytes);
-    //     }
-    //     // before reverse we have something like [120, 255, 0, 0....]
-    //     // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
-    //     result.reverse();
-    //     let remainder = U256::from(result.as_slice());
-    //     current_call_frame.stack.push(remainder)?;
-    //     Ok(())
-    // }
+        let (product, overflow) = multiplicand.overflowing_mul(multiplier);
+        let mut remainder = product % divisor;
+        if overflow || remainder > divisor {
+            remainder = remainder.overflowing_sub(divisor).0;
+        }
+        let mut result = Vec::new();
+        for byte in remainder.0.iter().take(4) {
+            let bytes = byte.to_le_bytes();
+            result.extend_from_slice(&bytes);
+        }
+        // before reverse we have something like [120, 255, 0, 0....]
+        // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
+        result.reverse();
+        let remainder = U256::from(result.as_slice());
+        current_call_frame.stack.push(remainder)?;
+        Ok(())
+    }
 
     // EXP operation
     pub fn exp(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
