@@ -27,7 +27,7 @@ impl SP1Prover {
         Self { client, pk, vk }
     }
 
-    pub fn prove(&self, id: u32) -> Result<SP1ProofWithPublicValues, String> {
+    pub fn prove(&self, id: u64) -> Result<SP1ProofWithPublicValues, String> {
         // Setup the inputs.
         let mut stdin = SP1Stdin::new();
         stdin.write(&id);

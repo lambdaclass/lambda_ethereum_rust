@@ -41,7 +41,7 @@ impl ProofDataClient {
         }
     }
 
-    fn request_new_data(&self) -> Result<u32, String> {
+    fn request_new_data(&self) -> Result<u64, String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
@@ -66,7 +66,7 @@ impl ProofDataClient {
         }
     }
 
-    fn submit_proof(&self, id: u32, proof: SP1ProofWithPublicValues) -> Result<(), String> {
+    fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
