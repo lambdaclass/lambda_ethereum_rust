@@ -40,10 +40,11 @@ Running the below command will start both a local L1 (reth for the moment, but `
 make init
 ```
 
-This command has three steps that can also be run individually:
+This command has five steps that can also be run individually:
 
 - `make init-l1` - Starts the L1 (reth) node, creating the volumes necessary for running a docker compose file with reth's docker image.
 - `make contract-deps` - Installs the libs used by the contracts in the foundry project.
+- `make setup-prover` - Build the ELF for the SP1 prover program.
 - `make deploy-l1` - Deploys the L1 contracts to the L1 node. This runs the [`DeployL1` script](./contracts/script/DeployL1.s.sol).
 - `make init-l2` - Starts the L2 (`ethereum_rust`) node.
 
@@ -84,6 +85,10 @@ make restart
 - `make contract-deps` - Installs the libs used by the contracts in the foundry project.
 - `make clean-contract-deps` - Cleans the contract dependencies.
 - `make restart-contract-deps` - Restarts the contract dependencies (cleans and then installs).
+
+#### Prover
+
+- `make setup-prover` - Build the ELF for the SP1 prover program.
 
 ## Local L1 Rich Wallets
 
