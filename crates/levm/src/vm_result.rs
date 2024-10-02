@@ -9,6 +9,7 @@ pub enum VMError {
     StackOverflow,
     InvalidJump,
     OpcodeNotAllowedInStaticContext,
+    OpcodeNotFound,
     InvalidBytecode,
     FatalError, // this should never really happen
 }

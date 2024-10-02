@@ -834,7 +834,7 @@ impl VM {
                         .transient_storage
                         .insert((current_call_frame.msg_sender, key), value);
                 }
-                _ => unimplemented!(),
+                _ => return Err(VMError::OpcodeNotFound),
             }
         }
     }
