@@ -818,9 +818,10 @@ fn sar_shift_negative_value() {
 fn keccak256_zero_offset_size_four() {
     let operations = [
         // Put the required value in memory
-        Operation::Push((32, U256::from(
-            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
-        ))),
+        Operation::Push((
+            32,
+            U256::from("0xFFFFFFFF00000000000000000000000000000000000000000000000000000000"),
+        )),
         Operation::Push0,
         Operation::Mstore,
         // Call the opcode
@@ -845,9 +846,10 @@ fn keccak256_zero_offset_size_four() {
 fn keccak256_zero_offset_size_bigger_than_actual_memory() {
     let operations = [
         // Put the required value in memory
-        Operation::Push((32, U256::from(
-            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
-        ))),
+        Operation::Push((
+            32,
+            U256::from("0xFFFFFFFF00000000000000000000000000000000000000000000000000000000"),
+        )),
         Operation::Push0,
         Operation::Mstore,
         // Call the opcode
@@ -892,9 +894,10 @@ fn keccak256_zero_offset_zero_size() {
 fn keccak256_offset_four_size_four() {
     let operations = [
         // Put the required value in memory
-        Operation::Push((32, U256::from(
-            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
-        ))),
+        Operation::Push((
+            32,
+            U256::from("0xFFFFFFFF00000000000000000000000000000000000000000000000000000000"),
+        )),
         Operation::Push0,
         Operation::Mstore,
         // Call the opcode
