@@ -12,6 +12,7 @@ tokio-util.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sp1-sdk = "2.0.0"
 ethereum-types.workspace = true
 ethereum_rust-rpc.workspace = true
 
