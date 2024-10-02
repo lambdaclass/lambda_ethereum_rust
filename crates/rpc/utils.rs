@@ -244,10 +244,10 @@ pub mod test_utils {
             }
         }
         pub fn in_mem() -> Self {
-            return Self {
+            Self {
                 path: "in_memory".to_string(),
                 kind: EngineType::InMemory,
-            };
+            }
         }
         pub fn in_disk() -> Self {
             use mktemp::Temp;
