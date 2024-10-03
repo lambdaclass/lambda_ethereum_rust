@@ -1,8 +1,8 @@
-.PHONY: init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox
+.PHONY: init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover
 
 L2_GENESIS_FILE_PATH=../../test_data/genesis-l2.json
 
-init: init-local-l1 contract-deps deploy-l1 init-l2
+init: init-local-l1 contract-deps setup-prover deploy-l1 init-l2
 
 down: down-local-l1 down-l2
 
@@ -17,17 +17,16 @@ L1_RPC_URL=http://localhost:8545
 L1_PRIVATE_KEY=0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924
 
 contract-deps:
-	mkdir -p ${FOUNDRY_PROJECT_HOME}/lib/
-	forge install foundry-rs/forge-std --no-git --root ${FOUNDRY_PROJECT_HOME}/lib/
-	forge install succinctlabs/sp1-contracts --no-git --root ${FOUNDRY_PROJECT_HOME}/lib/
+	mkdir -p ${FOUNDRY_PROJECT_HOME}
+	forge install foundry-rs/forge-std --no-git --root ${FOUNDRY_PROJECT_HOME}
+	forge install succinctlabs/sp1-contracts --no-git --root ${FOUNDRY_PROJECT_HOME}
 
 clean-contract-deps:
-	rm -rf contracts/lib/
+	rm -rf contracts/lib
 
 restart-contract-deps: clean-contract-deps contract-deps
 
 deploy-l1:
-	git submodule update --init --recursive --remote
 	cd ${FOUNDRY_PROJECT_HOME} && \
 	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast
 
@@ -60,3 +59,11 @@ down-l2:
 	pkill -f ethereum_rust || exit 0
 
 restart-l2: down-l2 init-l2
+
+# Prover
+
+SP1_PROGRAM_PATH=$(shell pwd)/prover/sp1/program
+
+setup-prover:
+	cd ${SP1_PROGRAM_PATH} && \
+	cargo prove build

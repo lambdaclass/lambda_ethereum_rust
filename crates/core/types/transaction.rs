@@ -1020,6 +1020,7 @@ mod serde_impl {
 
 #[cfg(test)]
 mod tests {
+
     use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
 
     use super::*;
