@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
+    u64,
 };
 
 use crate::{
@@ -17,7 +18,7 @@ use sha3::{Digest, Keccak256};
 pub struct Account {
     pub balance: U256,
     pub bytecode: Bytes,
-    nonce: u64,
+    pub nonce: u64,
     pub storage: HashMap<U256, StorageSlot>,
 }
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -32,7 +33,12 @@ impl Account {
             balance,
             bytecode,
             storage,
+            nonce: 0,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
     }
 
     pub fn with_balance(mut self, balance: U256) -> Self {
@@ -96,6 +102,28 @@ impl Db {
 }
 
 #[derive(Debug, Clone, Default)]
+// TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
+pub struct Substate {
+    warm_addresses: HashSet<Address>,
+}
+
+/// Transaction environment shared by all the call frames
+/// created by the current transaction.
+#[derive(Debug, Default, Clone)]
+pub struct Environment {
+    /// The sender address of the transaction that originated
+    /// this execution.
+    // origin: Address,
+    /// The price of gas paid by the signer of the transaction
+    /// that originated this execution.
+    // gas_price: u64,
+    gas_limit: u64,
+    pub consumed_gas: u64,
+    /// The block header of the present block.
+    pub block: BlockEnv,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct VM {
     call_frames: Vec<CallFrame>,
     pub env: Environment,
@@ -137,12 +165,17 @@ impl VM {
 
         let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
 
+        let env = Environment {
+            block: block_env,
+            consumed_gas: TX_BASE_COST,
+            gas_limit: u64::MAX,
+        };
+
         Self {
             call_frames: vec![initial_call_frame],
-            block_env,
             db,
-            accrued_substate,
             env,
+            accrued_substate: Substate::default(),
         }
     }
 
@@ -1276,10 +1309,6 @@ impl VM {
 
     pub fn add_account(&mut self, address: Address, account: Account) {
         self.db.accounts.insert(address, account);
-    }
-
-    pub fn current_call_frame(&self) -> &CallFrame {
-        self.call_frames.last().unwrap()
     }
 
     #[allow(clippy::too_many_arguments)]

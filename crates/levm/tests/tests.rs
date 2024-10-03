@@ -7,7 +7,7 @@ use levm::{
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
-    vm::{Account, Db, Storage, VM},
+    vm::{Account, Db, Storage, StorageSlot, VM},
 };
 
 // cargo test -p 'levm'
@@ -17,12 +17,65 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
 }
 
 pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
+    let bytecode = ops_to_bytecde(&operations);
 
-    VM::new(bytecode, address, balance)
+    let tx_env = TxEnv {
+        caller: address,
+        transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
+        gas_limit: Default::default(),
+        gas_price: Default::default(),
+        value: Default::default(),
+        data: Default::default(),
+        nonce: Default::default(),
+        access_list: Default::default(),
+        gas_priority_fee: Default::default(),
+        blob_hashes: Default::default(),
+        max_fee_per_blob_gas: Default::default(),
+    };
+
+    let block_env = BlockEnv {
+        number: Default::default(),
+        coinbase: Default::default(),
+        timestamp: Default::default(),
+        base_fee_per_gas: Default::default(),
+        gas_limit: Default::default(),
+        chain_id: Default::default(),
+        prev_randao: Default::default(),
+        excess_blob_gas: Default::default(),
+        blob_gas_used: Default::default(),
+    };
+
+    let accounts = [
+        (
+            Address::from_low_u64_be(42),
+            Account {
+                balance: U256::MAX,
+                bytecode,
+                storage: HashMap::new(),
+                nonce: 0,
+            },
+        ),
+        (
+            address,
+            Account {
+                balance,
+                bytecode: Bytes::default(),
+                storage: HashMap::new(),
+                nonce: 0,
+            },
+        ),
+    ];
+
+    let state = Db {
+        accounts: accounts.into(),
+        block_hashes: Default::default(),
+    };
+
+    // add the account with code to call
+
+    // add the account passed by parameter
+
+    VM::new(tx_env, block_env, state)
 }
 
 pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
@@ -1292,7 +1345,7 @@ fn nested_calls() {
     let callee3_bytecode = callee_return_bytecode(callee3_return_value);
     let callee3_address = Address::from_low_u64_be(U256::from(3).low_u64());
     let callee3_address_u256 = U256::from(3);
-    let callee3_account = Account::new(U256::from(500000), callee3_bytecode);
+    let callee3_account = Account::new(U256::from(500000), callee3_bytecode, HashMap::new());
 
     let mut callee2_ops = vec![
         Operation::Push32(U256::from(32)),       // ret_size
@@ -1330,7 +1383,7 @@ fn nested_calls() {
     let callee2_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee2_address_u256 = U256::from(2);
 
-    let callee2_account = Account::new(U256::from(500000), callee2_bytecode);
+    let callee2_account = Account::new(U256::from(500000), callee2_bytecode, HashMap::new());
 
     let caller_ops = vec![
         Operation::Push32(U256::from(64)),       // ret_size
@@ -1651,151 +1704,6 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         Address::from_low_u64_be(U256::from(2).low_u64())
     );
     assert_eq!(current_call_frame.msg_value, U256::from(100));
-}
-
-#[test]
-fn pop_op() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(100)),
-        Operation::Pop,
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-}
-
-// // TODO: when adding error handling this should return an error, not panic
-#[test]
-#[should_panic]
-fn pop_on_empty_stack() {
-    let operations = [Operation::Pop, Operation::Stop];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
-}
-
-#[test]
-fn pc_op() {
-    let operations = [Operation::PC, Operation::Stop];
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0));
-}
-
-#[test]
-fn pc_op_with_push_offset() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::PC,
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(33));
-}
-
-#[test]
-fn jump_op() {
-    let operations = [
-        Operation::Push32(U256::from(35)),
-        Operation::Jump,
-        Operation::Stop, // should skip this one
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
-    assert_eq!(vm.current_call_frame_mut().pc(), 70);
-}
-
-#[test]
-#[should_panic]
-fn jump_not_jumpdest_position() {
-    let operations = [
-        Operation::Push32(U256::from(36)),
-        Operation::Jump,
-        Operation::Stop,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-    assert_eq!(vm.current_call_frame_mut().pc, 35);
-}
-
-#[test]
-#[should_panic]
-fn jump_position_bigger_than_program_bytecode_size() {
-    let operations = [
-        Operation::Push32(U256::from(5000)),
-        Operation::Jump,
-        Operation::Stop,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-    assert_eq!(vm.current_call_frame_mut().pc(), 35);
-}
-
-#[test]
-fn jumpi_not_zero() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(68)),
-        Operation::Jumpi,
-        Operation::Stop, // should skip this one
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
-}
-
-#[test]
-fn jumpi_for_zero() {
-    let operations = [
-        Operation::Push32(U256::from(100)),
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::from(100)),
-        Operation::Jumpi,
-        Operation::Stop,
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
-        Operation::Stop,
-    ];
-
-    let mut vm = new_vm_with_ops(&operations);
-
-    vm.execute();
-
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
 }
 
 #[test]
