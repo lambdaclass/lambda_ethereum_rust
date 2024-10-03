@@ -52,6 +52,9 @@ cargo install --path ../../cmd/ethereum_rust_l2
 
 ### Initialize the stack
 
+> [!IMPORTANT]
+> Add the SPI_PROVER=mock env variable to the command (to run the prover you need ).
+
 ![](../../cmd/ethereum_rust_l2/assets/stack_init.cast.gif)
 
 ### Restarting the stack
