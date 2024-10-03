@@ -280,16 +280,3 @@ impl VM {
         self.accounts.insert(address, account);
     }
 }
-
-pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
-    let shift_usize: usize = shift.try_into().unwrap(); // we know its not bigger than 256
-
-    if value.bit(255) {
-        // if negative fill with 1s
-        let shifted = value >> shift_usize;
-        let mask = U256::MAX << (256 - shift_usize);
-        shifted | mask
-    } else {
-        value >> shift_usize
-    }
-}
