@@ -2,7 +2,7 @@ use crate::rpc::l1_rpc::L1Rpc;
 use ethereum_types::{Address, H256, U256};
 use std::{cmp::min, time::Duration};
 use tokio::time::sleep;
-use tracing::debug;
+use tracing::{debug, error};
 
 pub async fn start_l1_watcher() {
     // This address and topic were used for testing purposes only.
@@ -38,24 +38,29 @@ impl L1Watcher {
         let l1_rpc = L1Rpc::new("http://localhost:8545");
 
         loop {
-            let current_block = l1_rpc.get_block_number().await.unwrap();
-            debug!(
-                "Current block number: {} ({:#x})",
-                current_block, current_block
-            );
-            let new_last_block = min(last_block + step, current_block);
-            debug!(
-                "Looking logs from block {:#x} to {:#x}",
-                last_block, new_last_block
-            );
+            match l1_rpc.get_block_number().await {
+                Ok(current_block) => {
+                    debug!(
+                        "Current block number: {} ({:#x})",
+                        current_block, current_block
+                    );
+                    let new_last_block = min(last_block + step, current_block);
+                    debug!(
+                        "Looking logs from block {:#x} to {:#x}",
+                        last_block, new_last_block
+                    );
 
-            let logs = l1_rpc
-                .get_logs(last_block, new_last_block, self.address, self.topics[0])
-                .await;
+                    let logs = l1_rpc
+                        .get_logs(last_block, new_last_block, self.address, self.topics[0])
+                        .await;
 
-            debug!("Logs: {:#?}", logs);
+                    debug!("Logs: {:#?}", logs);
 
-            last_block = new_last_block + 1;
+                    last_block = new_last_block + 1;
+                }
+                Err(e) => error!("Error getting block number: {}", e),
+            }
+
             sleep(Duration::from_secs(5)).await;
         }
     }
