@@ -1,3 +1,6 @@
+use core::fmt;
+use std::fmt::Display;
+
 use thiserror::Error;
 
 use ethereum_rust_evm::EvmError;
@@ -53,4 +56,41 @@ pub enum MempoolError {
     TxIntrinsicGasCostAboveLimitError,
     #[error("Transaction blob base fee too low")]
     TxBlobBaseFeeTooLowError,
+}
+
+#[derive(Debug)]
+pub enum ForkChoiceElement {
+    Head,
+    Safe,
+    Finalized,
+}
+
+impl Display for ForkChoiceElement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            ForkChoiceElement::Finalized => "Finalized",
+            ForkChoiceElement::Safe => "Safe",
+            ForkChoiceElement::Head => "Head",
+        };
+
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum InvalidForkChoice {
+    #[error("DB error: {0}")]
+    StoreError(#[from] StoreError),
+    #[error("The node has not finished syncing.")]
+    Syncing,
+    #[error("Head hash value is invalid.")]
+    InvalidHeadHash,
+    #[error("A fork choice element (safe, finalized or head) was not found, but an ancestor was, so it's not a sync problem.")]
+    ElementNotFound,
+    #[error("Pre merge block can't be a fork choice update.")]
+    PreMergeBlock,
+    #[error("Safe, finalized and head blocks are not in the correct order.")]
+    Unordered,
+    #[error("The following blocks are not connected between each other: {0}, {1}")]
+    Disconnected(ForkChoiceElement, ForkChoiceElement),
 }

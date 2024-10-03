@@ -9,7 +9,7 @@ mod smoke_test {
     use ethereum_rust_storage::{EngineType, Store};
 
     use crate::{
-        add_block, is_canonical,
+        add_block, is_canonical, new_head,
         payload::{build_payload, BuildPayloadArgs},
     };
 
@@ -18,40 +18,50 @@ mod smoke_test {
         // Goal: Start from genesis, create new block, check balances in the new state.
         let store = test_store();
         let genesis_header = store.get_block_header(0).unwrap().unwrap();
-        let block_1a = new_block(&store, &genesis_header);
+        let genesis_hash = genesis_header.compute_block_hash();
 
         // Add first block. We'll make it canonical.
+        let block_1a = new_block(&store, &genesis_header);
+        let hash_1a = block_1a.header.compute_block_hash();
         add_block(&block_1a, &store).unwrap();
-
-        store
-            .set_canonical_block(1, block_1a.header.compute_block_hash())
-            .unwrap();
-
+        store.set_canonical_block(1, hash_1a).unwrap();
         let retrieved_1a = store.get_block_header(1).unwrap().unwrap();
 
         assert_eq!(retrieved_1a, block_1a.header);
-        assert!(is_canonical(&store, 1, block_1a.header.compute_block_hash()).unwrap());
+        assert!(is_canonical(&store, 1, hash_1a).unwrap());
 
         // Add second block at height 1. Will not be canonical.
         let block_1b = new_block(&store, &genesis_header);
+        let hash_1b = block_1b.header.compute_block_hash();
         add_block(&block_1b, &store).expect("Could not add block 1b.");
-        let retrieved_1b = store
-            .get_block_header_by_hash(block_1b.header.compute_block_hash())
-            .unwrap()
-            .unwrap();
+        let retrieved_1b = store.get_block_header_by_hash(hash_1b).unwrap().unwrap();
 
         assert_ne!(retrieved_1a, retrieved_1b);
-        assert!(!is_canonical(&store, 1, block_1b.header.compute_block_hash()).unwrap());
+        assert!(!is_canonical(&store, 1, hash_1b).unwrap());
 
-        // Add a third block at height 2, from the non canonical block.
+        // Add a third block at height 2, child to the non canonical block.
         let block_2 = new_block(&store, &block_1b.header);
+        let hash_2 = block_2.header.compute_block_hash();
         add_block(&block_2, &store).expect("Could not add block 2.");
-        let retrieved_2 = store
-            .get_block_header_by_hash(block_2.header.compute_block_hash())
-            .unwrap();
+        let retrieved_2 = store.get_block_header_by_hash(hash_2).unwrap();
 
         assert!(!retrieved_2.is_none());
         assert!(store.get_canonical_block_hash(2).unwrap().is_none());
+
+        // Receive block 2 as new head.
+        new_head(
+            &store,
+            block_2.header.compute_block_hash(),
+            genesis_header.compute_block_hash(),
+            genesis_header.compute_block_hash(),
+        )
+        .unwrap();
+
+        // Check that canonical blocks changed to the new branch.
+        assert!(is_canonical(&store, 0, genesis_hash).unwrap());
+        assert!(is_canonical(&store, 1, hash_1b).unwrap());
+        assert!(is_canonical(&store, 2, hash_2).unwrap());
+        assert!(!is_canonical(&store, 1, hash_1a).unwrap());
     }
 
     fn new_block(store: &Store, parent: &BlockHeader) -> Block {
