@@ -42,7 +42,7 @@ pub async fn start_block_producer() {
         {
             Ok(response) => response,
             Err(e) => {
-                error!("Error sending forkChoice: {}", e.to_string());
+                error!("Error sending forkChoice: {e}");
                 continue;
             }
         };
@@ -55,7 +55,7 @@ pub async fn start_block_producer() {
         {
             Ok(response) => response,
             Err(e) => {
-                error!("Error sending getPayload: {}", e.to_string());
+                error!("Error sending getPayload: {e}");
                 continue;
             }
         };
@@ -70,7 +70,7 @@ pub async fn start_block_producer() {
         {
             Ok(response) => response,
             Err(e) => {
-                error!("Error sending newPayload: {}", e.to_string());
+                error!("Error sending newPayload: {e}");
                 continue;
             }
         };

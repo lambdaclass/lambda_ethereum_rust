@@ -61,17 +61,17 @@ impl ProofDataProvider {
         match data {
             Ok(ProofData::Request {}) => {
                 if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
-                    warn!("Failed to handle request: {}", e);
+                    warn!("Failed to handle request: {e}");
                 }
             }
             Ok(ProofData::Submit { id, proof }) => {
                 if let Err(e) = self.handle_submit(&mut stream, id, proof) {
-                    warn!("Failed to handle submit: {}", e);
+                    warn!("Failed to handle submit: {e}");
                 }
                 *last_proved_block += 1;
             }
             Err(e) => {
-                warn!("Failed to parse request: {}", e);
+                warn!("Failed to parse request: {e}");
             }
             _ => {
                 warn!("Invalid request");

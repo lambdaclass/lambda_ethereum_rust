@@ -32,7 +32,7 @@ impl SP1Prover {
         let mut stdin = SP1Stdin::new();
         stdin.write(&id);
 
-        info!("Starting Fibonacci proof for n = {}", id);
+        info!("Starting Fibonacci proof for n = {id}");
 
         // Generate the proof
         let proof = self

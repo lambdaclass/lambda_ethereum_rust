@@ -37,21 +37,21 @@ impl ProofDataClient {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry
-                                warn!("Failed to submit proof: {}", e);
+                                warn!("Failed to submit proof: {e}");
                             }
                         }
                         Err(e) => error!(e),
                     };
                 }
                 Ok(None) => sleep(Duration::from_secs(10)).await,
-                Err(e) => warn!("Failed to request new data: {}", e),
+                Err(e) => warn!("Failed to request new data: {e}"),
             }
         }
     }
 
     fn request_new_data(&self) -> Result<Option<u64>, String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
-            .map_err(|e| format!("Failed to connect to ProofDataProvider: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         debug!("Connection established!");
@@ -64,20 +64,20 @@ impl ProofDataClient {
 
         let buf_reader = BufReader::new(&stream);
         let response: ProofData = serde_json::de::from_reader(buf_reader)
-            .map_err(|e| format!("Invalid response format: {}", e.to_string()))?;
+            .map_err(|e| format!("Invalid response format: {e}"))?;
 
         match response {
             ProofData::Response { id } => {
-                debug!("Received response: {:?}", id);
+                debug!("Received response: {id:?}");
                 Ok(id)
             }
-            _ => Err(format!("Unexpected response {:?}", response)),
+            _ => Err(format!("Unexpected response {response:?}")),
         }
     }
 
     fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
-            .map_err(|e| format!("Failed to connect to ProofDataProvider: {}", e.to_string()))?;
+            .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {
@@ -91,13 +91,13 @@ impl ProofDataClient {
 
         let buf_reader = BufReader::new(&stream);
         let response: ProofData = serde_json::de::from_reader(buf_reader)
-            .map_err(|e| format!("Invalid response format: {}", e.to_string()))?;
+            .map_err(|e| format!("Invalid response format: {e}"))?;
         match response {
             ProofData::SubmitAck { id: res_id } => {
-                debug!("Received submit ack: {}", res_id);
+                debug!("Received submit ack: {res_id}");
                 Ok(())
             }
-            _ => Err(format!("Unexpected response {:?}", response)),
+            _ => Err(format!("Unexpected response {response:?}")),
         }
     }
 }
