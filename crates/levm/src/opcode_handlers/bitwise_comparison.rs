@@ -90,6 +90,99 @@ impl VM {
         current_call_frame.stack.push(res)?;
         Ok(())
     }
+
+    // LT operation (Less Than)
+    pub fn lt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let lho = current_call_frame.stack.pop()?;
+        let rho = current_call_frame.stack.pop()?;
+        let result = if lho < rho { U256::one() } else { U256::zero() };
+        current_call_frame.stack.push(result)?;
+        Ok(())
+    }
+
+    // GT operation (Greater Than)
+    pub fn gt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let lho = current_call_frame.stack.pop()?;
+        let rho = current_call_frame.stack.pop()?;
+        let result = if lho > rho { U256::one() } else { U256::zero() };
+        current_call_frame.stack.push(result)?;
+        Ok(())
+    }
+
+    // SLT operation (Signed Less Than)
+    pub fn slt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let lho = current_call_frame.stack.pop()?;
+        let rho = current_call_frame.stack.pop()?;
+        let lho_is_negative = lho.bit(255);
+        let rho_is_negative = rho.bit(255);
+        let result = if lho_is_negative == rho_is_negative {
+            // if both have the same sign, compare their magnitudes
+            if lho < rho {
+                U256::one()
+            } else {
+                U256::zero()
+            }
+        } else {
+            // if they have different signs, the negative number is smaller
+            if lho_is_negative {
+                U256::one()
+            } else {
+                U256::zero()
+            }
+        };
+        current_call_frame.stack.push(result)?;
+        Ok(())
+    }
+
+    // SGT operation (Signed Greater Than)
+    pub fn sgt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let lho = current_call_frame.stack.pop()?;
+        let rho = current_call_frame.stack.pop()?;
+        let lho_is_negative = lho.bit(255);
+        let rho_is_negative = rho.bit(255);
+        let result = if lho_is_negative == rho_is_negative {
+            // if both have the same sign, compare their magnitudes
+            if lho > rho {
+                U256::one()
+            } else {
+                U256::zero()
+            }
+        } else {
+            // if they have different signs, the positive number is bigger
+            if rho_is_negative {
+                U256::one()
+            } else {
+                U256::zero()
+            }
+        };
+        current_call_frame.stack.push(result)?;
+        Ok(())
+    }
+
+    // EQ operation (Equal)
+    pub fn eq(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let lho = current_call_frame.stack.pop()?;
+        let rho = current_call_frame.stack.pop()?;
+        let result = if lho == rho {
+            U256::one()
+        } else {
+            U256::zero()
+        };
+        current_call_frame.stack.push(result)?;
+        Ok(())
+    }
+
+    // ISZERO operation
+    pub fn iszero(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let operand = current_call_frame.stack.pop()?;
+        let result = if operand == U256::zero() {
+            U256::one()
+        } else {
+            U256::zero()
+        };
+        current_call_frame.stack.push(result)?;
+        Ok(())
+    }
 }
 
 fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {

@@ -8,7 +8,7 @@ use crate::{
     vm_result::{ExecutionResult, ResultReason, VMError},
 };
 use bytes::Bytes;
-use ethereum_types::{Address, H256, H32, U256, U512};
+use ethereum_types::{Address, H256, H32, U256};
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
@@ -109,79 +109,22 @@ impl VM {
                     VM::signextend(&mut current_call_frame)?;
                 }
                 Opcode::LT => {
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let result = if lho < rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result)?;
+                    VM::lt(&mut current_call_frame)?;
                 }
                 Opcode::GT => {
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let result = if lho > rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result)?;
+                    VM::gt(&mut current_call_frame)?;
                 }
                 Opcode::SLT => {
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let lho_is_negative = lho.bit(255);
-                    let rho_is_negative = rho.bit(255);
-                    let result = if lho_is_negative == rho_is_negative {
-                        // if both have the same sign, compare their magnitudes
-                        if lho < rho {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    } else {
-                        // if they have different signs, the negative number is smaller
-                        if lho_is_negative {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    };
-                    current_call_frame.stack.push(result)?;
+                    VM::slt(&mut current_call_frame)?;
                 }
                 Opcode::SGT => {
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let lho_is_negative = lho.bit(255);
-                    let rho_is_negative = rho.bit(255);
-                    let result = if lho_is_negative == rho_is_negative {
-                        // if both have the same sign, compare their magnitudes
-                        if lho > rho {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    } else {
-                        // if they have different signs, the positive number is bigger
-                        if rho_is_negative {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    };
-                    current_call_frame.stack.push(result)?;
+                    VM::sgt(&mut current_call_frame)?;
                 }
                 Opcode::EQ => {
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let result = if lho == rho {
-                        U256::one()
-                    } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(result)?;
+                    VM::eq(&mut current_call_frame)?;
                 }
                 Opcode::ISZERO => {
-                    let operand = current_call_frame.stack.pop()?;
-                    let result = if operand == U256::zero() {
-                        U256::one()
-                    } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(result)?;
+                    VM::iszero(&mut current_call_frame)?;
                 }
                 Opcode::KECCAK256 => {
                     let offset = current_call_frame
