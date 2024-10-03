@@ -14,7 +14,7 @@ use super::consensus_mock::ConsensusMock;
 pub async fn start_block_producer() {
     // This is the genesis block hash
     let mut current_block_hash =
-        H256::from_str("0x493dba6364c3e0b575b81efe8b255eb76d8fcd302517557beac9ead7816ea7a3")
+        H256::from_str("0x676fb5bffb4b4962edb2e1e03ac733597d5ba6ac290b230a2bf01448decae584")
             .unwrap();
 
     loop {
