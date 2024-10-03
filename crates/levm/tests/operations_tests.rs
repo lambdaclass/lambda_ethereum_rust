@@ -25,7 +25,7 @@ fn push31_correct_bytecode() {
 
 #[test]
 fn push32_correct_bytecode() {
-    let op = Operation::Push((32, U256::MAX)).to_bytecode();
+    let op = Operation::Push32(U256::MAX).to_bytecode();
     let mut expected = vec![0x7f];
     expected.extend_from_slice(&[0xff; 32]);
     assert_eq!(op, Bytes::from(expected))
