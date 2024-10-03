@@ -1,5 +1,3 @@
-use std::u64;
-
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 
