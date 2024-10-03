@@ -6,19 +6,19 @@ use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, S
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/program/elf/riscv32im-succinct-zkvm-elf");
 
-pub struct SP1Prover {
+pub struct Prover {
     client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
 }
 
-impl Default for SP1Prover {
+impl Default for Prover {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SP1Prover {
+impl Prover {
     pub fn new() -> Self {
         info!("Setting up prover...");
         let client = ProverClient::new();

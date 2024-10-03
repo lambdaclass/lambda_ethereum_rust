@@ -12,7 +12,7 @@ use prover_lib::inputs::ProverInput;
 
 use crate::operator::proof_data_provider::ProofData;
 
-use super::sp1_prover::SP1Prover;
+use super::prover::Prover;
 
 pub async fn start_proof_data_client(ip: IpAddr, port: u16) {
     let proof_data_client = ProofDataClient::new(ip, port);
@@ -30,7 +30,7 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self) {
-        let prover = SP1Prover::new();
+        let prover = Prover::new();
 
         loop {
             match self.request_new_data() {
