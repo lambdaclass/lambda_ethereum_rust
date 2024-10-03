@@ -1,4 +1,4 @@
-pub mod arithmetic;
+pub mod stop_and_arithmetic;
 pub mod bitwise_comparison;
 pub mod keccak;
 pub mod environment;

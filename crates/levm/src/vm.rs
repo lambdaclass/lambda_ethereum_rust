@@ -62,11 +62,7 @@ impl VM {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             match opcode {
                 Opcode::STOP => {
-                    self.call_frames.push(current_call_frame.clone());
-                    return Ok(Self::write_success_result(
-                        current_call_frame,
-                        ResultReason::Stop,
-                    ));
+                    return self.op_stop(&mut current_call_frame);
                 }
                 Opcode::ADD => {
                     self.op_add(&mut current_call_frame)?;
@@ -266,12 +262,14 @@ impl VM {
         self.call_frames.last_mut().unwrap()
     }
 
+    // Auxiliar for system opcodes
     pub fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
+    // Auxiliar for system opcodes
     pub fn balance(&mut self, address: &Address) -> U256 {
         self.accounts
             .get(address)

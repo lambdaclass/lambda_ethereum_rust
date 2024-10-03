@@ -1,8 +1,18 @@
-// Arithmetic Operations (11)
-// Opcodes: ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
+use crate::vm_result::{ExecutionResult, ResultReason};
+
+// Stop and Arithmetic Operations (12)
+// Opcodes: STOP, ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
 use super::*;
 
 impl VM {
+    // STOP operation
+    pub fn op_stop(&mut self, current_call_frame: &mut CallFrame) -> Result<ExecutionResult, VMError> {
+        self.call_frames.push(current_call_frame.clone());
+        return Ok(Self::write_success_result(
+            current_call_frame.clone(),
+            ResultReason::Stop,
+        ));
+    }
     // ADD operation
     pub fn op_add(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let augend = current_call_frame.stack.pop()?;
