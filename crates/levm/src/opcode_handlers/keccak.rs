@@ -3,10 +3,8 @@
 use super::*;
 use sha3::{Digest, Keccak256};
 
-// Implement empty op_keccak256 method
-
 impl VM {
-    pub fn op_keccak256(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_keccak256(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let offset = current_call_frame
             .stack
             .pop()?

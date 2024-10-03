@@ -4,7 +4,7 @@ use super::*;
 
 impl VM {
     // ADD operation
-    pub fn op_add(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_add(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
         let sum = augend.overflowing_add(addend).0;
@@ -13,7 +13,7 @@ impl VM {
     }
 
     // SUB operation
-    pub fn op_sub(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sub(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let minuend = current_call_frame.stack.pop()?;
         let subtrahend = current_call_frame.stack.pop()?;
         let difference = minuend.overflowing_sub(subtrahend).0;
@@ -22,7 +22,7 @@ impl VM {
     }
 
     // MUL operation
-    pub fn op_mul(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mul(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let multiplicand = current_call_frame.stack.pop()?;
         let multiplier = current_call_frame.stack.pop()?;
         let product = multiplicand.overflowing_mul(multiplier).0;
@@ -31,7 +31,7 @@ impl VM {
     }
 
     // DIV operation
-    pub fn op_div(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_div(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         let quotient = if divisor.is_zero() {
@@ -44,7 +44,7 @@ impl VM {
     }
 
     // SDIV operation
-    pub fn op_sdiv(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sdiv(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
@@ -79,7 +79,7 @@ impl VM {
     }
 
     // MOD operation
-    pub fn op_modulus(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_modulus(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         let remainder = if divisor.is_zero() {
@@ -92,7 +92,7 @@ impl VM {
     }
 
     // SMOD operation
-    pub fn op_smod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_smod(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
@@ -127,7 +127,7 @@ impl VM {
     }
 
     // ADDMOD operation
-    pub fn op_addmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_addmod(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
@@ -146,9 +146,8 @@ impl VM {
     }
 
     // MULMOD operation
-    pub fn op_mulmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mulmod(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let multiplicand = U512::from(current_call_frame.stack.pop()?);
-
         let multiplier = U512::from(current_call_frame.stack.pop()?);
         let divisor = U512::from(current_call_frame.stack.pop()?);
         if divisor.is_zero() {
@@ -166,8 +165,6 @@ impl VM {
             let bytes = byte.to_le_bytes();
             result.extend_from_slice(&bytes);
         }
-        // before reverse we have something like [120, 255, 0, 0....]
-        // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
         result.reverse();
         let remainder = U256::from(result.as_slice());
         current_call_frame.stack.push(remainder)?;
@@ -175,7 +172,7 @@ impl VM {
     }
 
     // EXP operation
-    pub fn op_exp(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_exp(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
         let power = base.overflowing_pow(exponent).0;
@@ -184,7 +181,7 @@ impl VM {
     }
 
     // SIGNEXTEND operation
-    pub fn op_signextend(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_signextend(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let byte_size = current_call_frame.stack.pop()?;
         let value_to_extend = current_call_frame.stack.pop()?;
 
@@ -210,7 +207,8 @@ impl VM {
 fn is_negative(value: U256) -> bool {
     value.bit(255)
 }
-/// negates a number in two's complement
+
+/// Negates a number in two's complement
 fn negate(value: U256) -> U256 {
     !value + U256::one()
 }

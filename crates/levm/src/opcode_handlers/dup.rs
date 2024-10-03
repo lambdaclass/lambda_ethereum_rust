@@ -4,7 +4,7 @@ use super::*;
 
 impl VM {
     // DUP operation
-    pub fn op_dup(current_call_frame: &mut CallFrame, op: Opcode) -> Result<(), VMError> {
+    pub fn op_dup(&self, current_call_frame: &mut CallFrame, op: Opcode) -> Result<(), VMError> {
         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
 
         if current_call_frame.stack.len() < depth as usize {

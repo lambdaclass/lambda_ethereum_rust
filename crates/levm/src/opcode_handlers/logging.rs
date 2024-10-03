@@ -2,10 +2,8 @@
 // Opcodes: LOG0 ... LOG4
 use super::*;
 
-// Implement empty op_log(n) method
-
 impl VM {
-    pub fn op_log(current_call_frame: &mut CallFrame, op: Opcode) -> Result<(), VMError> {
+    pub fn op_log(&self, current_call_frame: &mut CallFrame, op: Opcode) -> Result<(), VMError> {
         if current_call_frame.is_static {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }

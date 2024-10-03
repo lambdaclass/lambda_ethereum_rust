@@ -1,47 +1,46 @@
-// System Operations (10)
-// Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
 use super::*;
 
-// Implement empty methods
+// System Operations (10)
+// Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
 
 impl VM {
-    pub fn op_create(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_create(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_call(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_call(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_callcode(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_callcode(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_return(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_return(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_delegatecall(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_delegatecall(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_create2(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_create2(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_staticcall(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_staticcall(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_revert(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_revert(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_invalid(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_invalid(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_selfdestruct(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_selfdestruct(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
 }

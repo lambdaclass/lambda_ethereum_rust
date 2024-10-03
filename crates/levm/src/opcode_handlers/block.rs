@@ -1,51 +1,51 @@
+use crate::block::BlockEnv;
+
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
 use super::*;
 
-// Implement empty methods for the block information opcodes
-
 impl VM {
-    pub fn op_blockhash(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_blockhash(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_coinbase(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_coinbase(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_timestamp(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_timestamp(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_number(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_number(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_prevrandao(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_prevrandao(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_gaslimit(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_gaslimit(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_chainid(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_chainid(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_selfbalance(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_selfbalance(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_basefee(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_basefee(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_blobhash(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_blobhash(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 
-    pub fn op_blobbasefee(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_blobbasefee(&self, current_call_frame: &mut CallFrame, block_env: BlockEnv) -> Result<(), VMError> {
         Ok(())
     }
 }

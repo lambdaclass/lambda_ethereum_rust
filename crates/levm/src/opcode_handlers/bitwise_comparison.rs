@@ -4,7 +4,7 @@ use super::*;
 
 impl VM {
     // AND operation
-    pub fn op_and(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_and(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a & b)?;
@@ -12,7 +12,7 @@ impl VM {
     }
 
     // OR operation
-    pub fn op_or(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_or(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a | b)?;
@@ -20,7 +20,7 @@ impl VM {
     }
 
     // XOR operation
-    pub fn op_xor(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_xor(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a ^ b)?;
@@ -28,14 +28,14 @@ impl VM {
     }
 
     // NOT operation
-    pub fn op_not(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_not(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let a = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(!a)?;
         Ok(())
     }
 
     // BYTE operation
-    pub fn op_byte(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_byte(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let op1 = current_call_frame.stack.pop()?;
         let op2 = current_call_frame.stack.pop()?;
 
@@ -50,7 +50,7 @@ impl VM {
     }
 
     // SHL operation (Shift Left)
-    pub fn op_shl(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_shl(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
@@ -62,7 +62,7 @@ impl VM {
     }
 
     // SHR operation (Shift Right)
-    pub fn op_shr(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_shr(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
@@ -74,7 +74,7 @@ impl VM {
     }
 
     // SAR operation (Arithmetic Shift Right)
-    pub fn op_sar(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sar(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         let res = if shift < U256::from(256) {
@@ -89,7 +89,7 @@ impl VM {
     }
 
     // LT operation (Less Than)
-    pub fn op_lt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_lt(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho < rho { U256::one() } else { U256::zero() };
@@ -98,7 +98,7 @@ impl VM {
     }
 
     // GT operation (Greater Than)
-    pub fn op_gt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_gt(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho > rho { U256::one() } else { U256::zero() };
@@ -107,7 +107,7 @@ impl VM {
     }
 
     // SLT operation (Signed Less Than)
-    pub fn op_slt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_slt(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let lho_is_negative = lho.bit(255);
@@ -132,7 +132,7 @@ impl VM {
     }
 
     // SGT operation (Signed Greater Than)
-    pub fn op_sgt(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sgt(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let lho_is_negative = lho.bit(255);
@@ -157,7 +157,7 @@ impl VM {
     }
 
     // EQ operation (Equal)
-    pub fn op_eq(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_eq(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho == rho {
@@ -170,7 +170,7 @@ impl VM {
     }
 
     // ISZERO operation
-    pub fn op_iszero(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_iszero(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let operand = current_call_frame.stack.pop()?;
         let result = if operand == U256::zero() {
             U256::one()

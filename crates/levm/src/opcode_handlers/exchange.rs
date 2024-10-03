@@ -3,7 +3,7 @@
 use super::*;
 
 impl VM {
-    pub fn op_swap(current_call_frame: &mut CallFrame, op: Opcode) -> Result<(), VMError> {
+    pub fn op_swap(&self, current_call_frame: &mut CallFrame, op: Opcode) -> Result<(), VMError> {
         let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
 
         if current_call_frame.stack.len() < depth as usize {
