@@ -48,7 +48,7 @@ impl L1Watcher {
                         .get_logs(last_block, new_last_block, self.address, self.topics[0])
                         .await;
 
-                    debug!("Logs: {:#?}", logs);
+                    debug!("Logs: {logs:#?}");
 
                     last_block = new_last_block + 1;
                 }
