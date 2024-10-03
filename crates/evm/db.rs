@@ -1,4 +1,4 @@
-use ethereum_rust_core::{types::BlockNumber, Address as CoreAddress, H256 as CoreH256};
+use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use revm::primitives::{
     AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
@@ -7,7 +7,7 @@ use revm::primitives::{
 
 pub struct StoreWrapper {
     pub store: Store,
-    pub block_number: BlockNumber,
+    pub block_hash: BlockHash,
 }
 
 impl revm::Database for StoreWrapper {
@@ -16,7 +16,7 @@ impl revm::Database for StoreWrapper {
     fn basic(&mut self, address: RevmAddress) -> Result<Option<RevmAccountInfo>, Self::Error> {
         let acc_info = match self
             .store
-            .get_account_info(self.block_number, CoreAddress::from(address.0.as_ref()))?
+            .get_account_info_by_hash(self.block_hash, CoreAddress::from(address.0.as_ref()))?
         {
             None => return Ok(None),
             Some(acc_info) => acc_info,
@@ -44,8 +44,8 @@ impl revm::Database for StoreWrapper {
     fn storage(&mut self, address: RevmAddress, index: RevmU256) -> Result<RevmU256, Self::Error> {
         Ok(self
             .store
-            .get_storage_at(
-                self.block_number,
+            .get_storage_at_hash(
+                self.block_hash,
                 CoreAddress::from(address.0.as_ref()),
                 CoreH256::from(index.to_be_bytes()),
             )?
