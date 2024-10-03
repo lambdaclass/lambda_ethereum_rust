@@ -9,9 +9,7 @@ use crate::trie::db::libmdbx_dupsort::LibmdbxDupsortTrieDB;
 use crate::trie::trie::Trie;
 use anyhow::Result;
 use bytes::Bytes;
-/*use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
-};*/
+
 use crate::core::{
     block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber},
     genesis::ChainConfig,

@@ -13,8 +13,6 @@ use super::{
     genesis::ChainConfig,
 };
 
-//use super::{BlockHash, BlockNumber, ChainConfig};
-
 #[derive(Debug)]
 pub struct ForkId {
     fork_hash: H32,

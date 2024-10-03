@@ -17,11 +17,6 @@ use super::{
     constants::INITIAL_BASE_FEE,
 };
 
-/*use super::{
-    compute_receipts_root, compute_transactions_root, compute_withdrawals_root, AccountState,
-    Block, BlockBody, BlockHeader, BlockNumber, DEFAULT_OMMERS_HASH, INITIAL_BASE_FEE,
-};*/
-
 #[allow(unused)]
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

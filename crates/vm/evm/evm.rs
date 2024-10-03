@@ -3,15 +3,6 @@ mod errors;
 mod execution_result;
 
 use db::StoreWrapper;
-use std::cmp::min;
-
-/*use ethereum_rust_core::{
-    types::{
-        AccountInfo, Block, BlockHash, BlockHeader, Fork, GenericTransaction, Receipt, Transaction,
-        TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
-    },
-    Address, BigEndianHash, H256, U256,
-};*/
 use ethereum_rust_storage::{
     core::{
         account::AccountInfo,
@@ -35,6 +26,7 @@ use revm::{
     Database, DatabaseCommit, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
+use std::cmp::min;
 // Rename imported types for clarity
 use revm_primitives::{
     ruint::Uint, AccessList as RevmAccessList, AccessListItem as RevmAccessListItem,

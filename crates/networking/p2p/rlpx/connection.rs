@@ -1,6 +1,5 @@
 use super::{frame, message as rlpx};
 use aes::cipher::KeyIvInit;
-//use ethereum_rust_core::H256;
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_storage::core::H256;
 use sha3::{Digest, Keccak256};

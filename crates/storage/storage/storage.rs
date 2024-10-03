@@ -4,17 +4,12 @@ use self::engines::in_memory::Store as InMemoryStore;
 use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
-use engines::api::StoreEngine;
-use trie::trie::Trie;
-/*use ethereum_rust_core::types::{
-    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
-};*/
 use core::account::{code_hash, AccountInfo, AccountState, EMPTY_TRIE_HASH};
 use core::block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber};
 use core::genesis::{ChainConfig, Genesis, GenesisAccount};
 use core::receipt::{Index, Receipt};
 use core::transaction::Transaction;
+use engines::api::StoreEngine;
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::{Address, H256, U256};
@@ -23,6 +18,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
+use trie::trie::Trie;
 
 pub mod core;
 mod engines;

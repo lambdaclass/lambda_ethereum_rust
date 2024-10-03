@@ -3,7 +3,6 @@ use crate::{
     types::Node,
 };
 use ethereum_rust_storage::core::{H256, H512, U256};
-//use ethereum_rust_core::{H256, H512, U256};
 use sha3::{Digest, Keccak256};
 use tokio::sync::mpsc::UnboundedSender;
 

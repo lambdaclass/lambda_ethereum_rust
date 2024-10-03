@@ -10,7 +10,6 @@ use discv4::{
     get_expiration, is_expired, time_now_unix, time_since_in_hs, FindNodeMessage, Message,
     NeighborsMessage, Packet, PingMessage, PongMessage,
 };
-//use ethereum_rust_core::{H256, H512};
 use ethereum_rust_storage::{
     core::{H256, H512},
     Store,

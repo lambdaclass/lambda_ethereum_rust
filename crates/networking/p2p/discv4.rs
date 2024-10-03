@@ -2,7 +2,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::types::{Endpoint, Node, NodeRecord};
 use bytes::BufMut;
-//use ethereum_rust_core::{H256, H512, H520};
 use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,

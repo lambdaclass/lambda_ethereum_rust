@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use super::transaction::TxType;
 
-//use super::TxType;
 pub type Index = u64;
 
 /// Result of a transaction

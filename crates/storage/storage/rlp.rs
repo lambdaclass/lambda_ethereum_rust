@@ -1,10 +1,6 @@
 use std::marker::PhantomData;
 
 use bytes::Bytes;
-/*use ethereum_rust_core::{
-    types::{Block, BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
-    H256,
-};*/
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::U256;
 use keccak_hash::H256;

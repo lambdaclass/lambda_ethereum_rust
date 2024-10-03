@@ -12,7 +12,6 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 
-//use super::GenesisAccount;
 use lazy_static::lazy_static;
 
 use crate::trie::trie::Trie;
