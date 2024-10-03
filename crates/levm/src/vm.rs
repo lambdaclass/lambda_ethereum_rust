@@ -9,7 +9,6 @@ use crate::{
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H256, H32, U256};
-use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
@@ -127,24 +126,7 @@ impl VM {
                     VM::op_iszero(&mut current_call_frame)?;
                 }
                 Opcode::KECCAK256 => {
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let value_bytes = current_call_frame.memory.load_range(offset, size);
-
-                    let mut hasher = Keccak256::new();
-                    hasher.update(value_bytes);
-                    let result = hasher.finalize();
-                    current_call_frame
-                        .stack
-                        .push(U256::from_big_endian(&result))?;
+                    VM::op_keccak256(&mut current_call_frame)?;
                 }
                 Opcode::CALLDATALOAD => {
                     let offset: usize = current_call_frame
