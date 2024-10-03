@@ -1,4 +1,5 @@
 use levm::{
+    constants::TX_BASE_COST,
     operations::Operation,
     primitives::{Address, Bytes, U256},
     vm::VM,
@@ -203,7 +204,8 @@ fn transient_store() {
             .get(&(current_call_frame.msg_sender, key))
             .unwrap(),
         value
-    )
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 106)
 }
 
 #[test]
@@ -234,5 +236,6 @@ fn transient_load() {
 
     vm.execute();
 
-    assert_eq!(*vm.current_call_frame_mut().stack.last().unwrap(), value)
+    assert_eq!(*vm.current_call_frame_mut().stack.last().unwrap(), value);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 103)
 }

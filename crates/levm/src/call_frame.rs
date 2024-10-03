@@ -19,16 +19,17 @@ pub struct Log {
     pub data: Bytes,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 /// A call frame, or execution environment, is the context in which
 /// the EVM is currently executing.
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
-    pub callee: Address,
+    pub to: Address,
+    pub code_address: Address,
+    pub delegate: Option<Address>,
     pub bytecode: Bytes,
-    // pub delegate: Option<Address>,
     pub msg_value: U256,
     pub stack: Vec<U256>, // max 1024 in the future
     pub memory: Memory,
@@ -37,20 +38,41 @@ pub struct CallFrame {
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
-    pub is_static: bool,
 }
 
 impl CallFrame {
-    pub fn new(msg: Message) -> Self {
+    pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         Self {
-            msg_sender: msg.sender,
-            callee: msg.owner,
-            bytecode: msg.code,
-            msg_value: msg.value,
-            calldata: msg.data,
-            gas: msg.gas,
+            bytecode,
+            ..Default::default()
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        gas: U256,
+        msg_sender: Address,
+        to: Address,
+        code_address: Address,
+        delegate: Option<Address>,
+        bytecode: Bytes,
+        msg_value: U256,
+        calldata: Bytes,
+        is_static: bool,
+    ) -> Self {
+        Self {
+            gas,
+            msg_sender,
+            to,
+            code_address,
+            delegate,
+            bytecode,
+            msg_value,
+            calldata,
+            is_static,
             ..Default::default()
         }
     }
@@ -78,7 +100,7 @@ impl CallFrame {
             // Should be a halt when we implement it
             panic!("Invalid jump");
         }
-        self.pc = jump_address.as_usize() + 1;
+        self.pc = jump_address.as_usize();
     }
 
     fn valid_jump(&self, jump_address: U256) -> bool {
