@@ -369,11 +369,6 @@ fn find_ancestry(
         }
     }
 
-    println!(
-        "Block numbers: ancestor: {}. descendant: {}",
-        ancestor.number, descendant.number
-    );
-
     while block_number > ancestor.number && !found {
         block_number -= 1;
         let parent_hash = header.parent_hash;
