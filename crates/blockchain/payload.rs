@@ -28,7 +28,7 @@ use crate::{
     mempool::{self, PendingTxFilter},
 };
 
-use tracing::info;
+use tracing::debug;
 
 pub struct BuildPayloadArgs {
     pub parent: BlockHash,
@@ -200,9 +200,8 @@ impl<'a> PayloadBuildContext<'a> {
 
 /// Completes the payload building process, return the block value
 pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainError> {
-    info!("Building payload");
-    let parent_hash = payload.header.parent_hash;
-    let mut evm_state = evm_state(store.clone(), parent_hash);
+    debug!("Building payload");
+    let mut evm_state = evm_state(store.clone(), payload.header.parent_hash);
     let mut context = PayloadBuildContext::new(payload, &mut evm_state);
     apply_withdrawals(&mut context)?;
     fill_transactions(&mut context)?;
@@ -227,7 +226,7 @@ fn fetch_mempool_transactions(
     context: &mut PayloadBuildContext,
 ) -> Result<(TransactionQueue, TransactionQueue), StoreError> {
     let tx_filter = PendingTxFilter {
-        /*TODO: add tip filter */
+        /*TODO(https://github.com/lambdaclass/ethereum_rust/issues/680): add tip filter */
         base_fee: context.base_fee_per_gas(),
         blob_fee: Some(context.base_fee_per_blob_gas),
         ..Default::default()
@@ -258,21 +257,21 @@ fn fetch_mempool_transactions(
 /// Returns the block value
 pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
     let chain_config = context.store().get_chain_config()?;
-    info!("Fetching transactions from mempool");
+    debug!("Fetching transactions from mempool");
     // Fetch mempool transactions
     let (mut plain_txs, mut blob_txs) = fetch_mempool_transactions(context)?;
     // Execute and add transactions to payload (if suitable)
     loop {
         // Check if we have enough gas to run more transactions
         if context.remaining_gas < TX_GAS_COST {
-            info!("No more gas to run transactions");
+            debug!("No more gas to run transactions");
             break;
         };
         if !blob_txs.is_empty()
             && context.base_fee_per_blob_gas * context.blob_count
                 > U256::from(MAX_BLOB_GAS_PER_BLOCK)
         {
-            info!("No more blob gas to run blob transactions");
+            debug!("No more blob gas to run blob transactions");
             blob_txs.clear();
         }
         // Fetch the next transactions
@@ -292,7 +291,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
 
         // Check if we have enough gas to run the transaction
         if context.remaining_gas < head_tx.tx.gas_limit() {
-            info!(
+            debug!(
                 "Skipping transaction: {}, no gas left",
                 head_tx.tx.compute_hash()
             );
@@ -308,7 +307,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         // Check wether the tx is replay-protected
         if head_tx.tx.protected() && !chain_config.is_eip155_activated(context.block_number()) {
             // Ignore replay protected tx & all txs from the sender
-            info!("Ignoring replay-protected transaction: {}", tx_hash);
+            debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
             continue;
         }
@@ -320,13 +319,13 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             }
             // Ignore following txs from sender
             Err(_) => {
-                info!("Failed to execute transaction: {}", tx_hash);
+                debug!("Failed to execute transaction: {}", tx_hash);
                 txs.pop();
                 continue;
             }
         };
         // Add transaction to block
-        info!("Adding transaction: {} to payload", tx_hash);
+        debug!("Adding transaction: {} to payload", tx_hash);
         context.payload.body.transactions.push(head_tx.tx);
         // Save receipt for hash calculation
         context.receipts.push(receipt);
@@ -335,7 +334,8 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
 }
 
 /// Executes the transaction, updates gas-related context values & return the receipt
-// TODO: Handle blobs in blob txs
+/// The payload build context should have enough remaining gas to cover the transaction's gas_limit
+// TODO(https://github.com/lambdaclass/ethereum_rust/issues/678): Handle blobs in blob txs
 fn apply_transaction(
     head: &HeadTransaction,
     context: &mut PayloadBuildContext,
@@ -346,7 +346,7 @@ fn apply_transaction(
         context.evm_state,
         spec_id(context.store(), context.payload.header.timestamp)?,
     )?;
-    context.remaining_gas -= result.gas_used();
+    context.remaining_gas = context.remaining_gas.saturating_sub(result.gas_used());
     context.block_value += U256::from(result.gas_used()) * head.tip;
     let receipt = Receipt::new(
         head.tx.tx_type(),
@@ -473,8 +473,8 @@ impl TransactionQueue {
 /// The transaction with the highest tip should go first,
 ///  if both have the same tip then the one with the lowest timestamp should go first
 /// This function will not return Ordering::Equal (TODO: make this true with timestamp)
-/// TODO: add timestamp
+/// TODO(https://github.com/lambdaclass/ethereum_rust/issues/681): add timestamp
 fn compare_heads(a: &HeadTransaction, b: &HeadTransaction) -> Ordering {
     b.tip.cmp(&a.tip)
-    // TODO: Add timestamp field to mempool txs so we can compare by it
+    // compare by timestamp if tips are equal
 }

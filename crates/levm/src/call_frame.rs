@@ -19,6 +19,8 @@ pub struct Log {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// A call frame, or execution environment, is the context in which
+/// the EVM is currently executing.
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
