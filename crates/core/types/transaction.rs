@@ -627,6 +627,8 @@ impl Transaction {
             .map(|tip| min(tip, self.gas_fee_cap()))
     }
 
+    /// Returns whether the transaction is replay-protected.
+    /// For more information check out [EIP-155](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md)
     pub fn protected(&self) -> bool {
         match self {
             Transaction::LegacyTransaction(tx) if tx.v.bits() <= 8 => {
