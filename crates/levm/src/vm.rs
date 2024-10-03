@@ -20,6 +20,7 @@ pub struct Account {
     pub nonce: u64,
     pub storage: HashMap<U256, StorageSlot>,
 }
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StorageSlot {
     pub original_value: U256,
