@@ -1,10 +1,10 @@
-use ethereum_types::H32;
 use ethereum_rust_levm::{
     block::TARGET_BLOB_GAS_PER_BLOCK,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     vm::{Account, VM},
 };
+use ethereum_types::H32;
 
 // cargo test -p 'levm'
 

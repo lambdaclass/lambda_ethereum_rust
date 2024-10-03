@@ -775,7 +775,6 @@ impl VM {
                             .push(U256::from(SUCCESS_FOR_RETURN));
                         break;
                     }
-                    break; // TODO: remove
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
