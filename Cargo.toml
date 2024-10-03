@@ -12,10 +12,11 @@ members = [
     "cmd/ef_tests",
     "crates/levm",
     "crates/levm/bench/revm_comparison",
-    "crates/l2"
+    "crates/l2",
+    "cmd/ethereum_rust_l2",
 ]
 resolver = "2"
-default-members = ["cmd/ethereum_rust"]
+default-members = ["cmd/ethereum_rust", "cmd/ethereum_rust_l2"]
 
 [workspace.package]
 version = "0.1.0"
