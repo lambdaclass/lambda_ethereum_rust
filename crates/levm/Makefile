@@ -15,9 +15,9 @@ fmt: ## 📄 Runs rustfmt
 	cargo fmt --all
 
 ethtests: # 📥 Downloads Ethereum Foundation tests.
-	@echo "Downloads Ethereum Foundation tests"
+	@echo "Downloading Ethereum Foundation tests..."
 	@echo "Not implemented yet"
 
 test-eth: # 💎 Runs Ethereum Foundation tests.
-	@echo "Runs Ethereum Foundation tests"
+	@echo "Running Ethereum Foundation tests..."
 	@echo "Not implemented yet"

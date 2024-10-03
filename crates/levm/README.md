@@ -37,3 +37,4 @@ make ethtests   # Downloads the tests
 make test-eth   # Runs tests
 ```
 
+Run `make help` to see available commands
