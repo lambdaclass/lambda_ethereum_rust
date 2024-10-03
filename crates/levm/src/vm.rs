@@ -11,8 +11,8 @@ use ethereum_types::{Address, H256, U256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
-    balance: U256,
-    bytecode: Bytes,
+    pub balance: U256,
+    pub bytecode: Bytes,
 }
 
 impl Account {
@@ -260,20 +260,6 @@ impl VM {
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
-    }
-
-    // Auxiliar for system opcodes
-    pub fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    // Auxiliar for system opcodes
-    pub fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
     }
 
     pub fn add_account(&mut self, address: Address, account: Account) {

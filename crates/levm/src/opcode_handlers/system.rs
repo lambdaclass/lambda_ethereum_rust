@@ -102,4 +102,16 @@ impl VM {
     pub fn op_selfdestruct(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         Ok(())
     }
+
+    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
+        self.accounts
+            .get(address)
+            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
+    }
 }
