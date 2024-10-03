@@ -28,7 +28,7 @@ restart-contract-deps: clean-contract-deps contract-deps
 
 deploy-l1:
 	cd ${FOUNDRY_PROJECT_HOME} && \
-	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast
+	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast --use $$(which solc)
 
 deploy-block-executor:
 	forge create ${FOUNDRY_PROJECT_HOME}/src/l1/BlockExecutor.sol:BlockExecutor --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}

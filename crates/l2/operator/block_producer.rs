@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tracing::error;
+use tracing::{debug, error};
 
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
@@ -19,7 +19,7 @@ pub async fn start_block_producer() {
 
     loop {
         let secret = Bytes::from_static(include_bytes!(
-            "/Users/manu/Documents/Lambda/eth/ethereum_rust/jwt.hex"
+            "/Users/federicoborello/Desktop/ethereum_lambda/ethereum_rust/l2/sp1-execute-block/crates/l2/jwt.hex"
         ));
         let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret);
 
@@ -36,26 +36,29 @@ pub async fn start_block_producer() {
             ..Default::default()
         };
 
-        let fork_choice_response = match consensus_mock_client
+        let response = consensus_mock_client
             .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
-            .await
-        {
-            Ok(response) => response,
+            .await;
+        debug!("ForkChoice Response: {response:?}");
+        let fork_choice_response = match response {
+            Ok(r) => r,
             Err(e) => {
                 error!("Error sending forkChoice: {e}");
+                sleep(Duration::from_secs(10)).await;
                 continue;
             }
         };
 
         let payload_id = fork_choice_response.payload_id.unwrap();
 
-        let execution_payload_response = match consensus_mock_client
+        let payload_response = consensus_mock_client
             .engine_get_payload_v3(payload_id)
-            .await
-        {
+            .await;
+        let execution_payload_response = match payload_response {
             Ok(response) => response,
             Err(e) => {
                 error!("Error sending getPayload: {e}");
+                sleep(Duration::from_secs(10)).await;
                 continue;
             }
         };
@@ -71,6 +74,7 @@ pub async fn start_block_producer() {
             Ok(response) => response,
             Err(e) => {
                 error!("Error sending newPayload: {e}");
+                sleep(Duration::from_secs(10)).await;
                 continue;
             }
         };

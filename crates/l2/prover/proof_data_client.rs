@@ -8,7 +8,7 @@ use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
-use prover_lib::input::ProverInput;
+use prover_lib::inputs::ProverInput;
 
 use crate::operator::proof_data_provider::ProofData;
 
@@ -48,7 +48,10 @@ impl ProofDataClient {
                     };
                 }
                 Ok(None) => sleep(Duration::from_secs(10)).await,
-                Err(e) => warn!("Failed to request new data: {e}"),
+                Err(e) => {
+                    warn!("Failed to request new data: {e}");
+                    sleep(Duration::from_secs(10)).await;
+                }
             }
         }
     }

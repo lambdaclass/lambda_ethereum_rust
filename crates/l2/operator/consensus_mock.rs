@@ -16,6 +16,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::info;
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -73,6 +74,8 @@ impl ConsensusMock {
             payload_attributes: Some(payload_attributes),
         }
         .into();
+
+        info!("ForkChoice request sent {request:?}");
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(s)) => match serde_json::from_value(s.result.clone()) {

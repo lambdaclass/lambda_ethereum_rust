@@ -5,6 +5,7 @@ use ethereum_rust_rpc::{
 use ethereum_types::{Address, H256, U256};
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::debug;
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -44,7 +45,6 @@ impl L1Rpc {
             method: "eth_blockNumber".to_string(),
             params: None,
         };
-
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
             Ok(RpcResponse::Error(e)) => Err(e.error.message),
