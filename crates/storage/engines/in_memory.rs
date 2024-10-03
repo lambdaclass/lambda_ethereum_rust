@@ -185,17 +185,20 @@ impl StoreEngine for Store {
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
     ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
-        let mut txs: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
         for (_, tx) in self.inner().transaction_pool.iter() {
             if filter(tx) {
-                txs.entry(tx.sender()).or_default().push(tx.clone())
+                txs_by_sender
+                    .entry(tx.sender())
+                    .or_default()
+                    .push(tx.clone())
             }
         }
         // As we store txs in hashmaps they won't be sorted by nonce
-        for (_, txs) in txs.iter_mut() {
+        for (_, txs) in txs_by_sender.iter_mut() {
             txs.sort_by_key(|tx| tx.nonce());
         }
-        Ok(txs)
+        Ok(txs_by_sender)
     }
 
     fn add_receipt(

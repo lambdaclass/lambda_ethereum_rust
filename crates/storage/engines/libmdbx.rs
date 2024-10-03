@@ -242,15 +242,18 @@ impl StoreEngine for Store {
             .cursor::<TransactionPool>()
             .map_err(StoreError::LibmdbxError)?;
         let mut tx_iter = cursor.walk(None);
-        let mut txs: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
         while let Some(Ok((_, tx))) = tx_iter.next() {
             let tx = tx.to();
             if filter(&tx) {
                 // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
-                txs.entry(tx.sender()).or_default().push(tx.clone())
+                txs_by_sender
+                    .entry(tx.sender())
+                    .or_default()
+                    .push(tx.clone())
             }
         }
-        Ok(txs)
+        Ok(txs_by_sender)
     }
 
     /// Stores the chain config serialized as json
