@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use ethereum_rust_core::{
     serde_utils,
     types::{
-        compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
-        BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
+        BlockHash, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, H256, U256,
 };
@@ -220,17 +220,6 @@ pub struct ExecutionPayloadResponse {
     // Total fees consumed by the block (fees paid)
     pub block_value: U256,
     pub blobs_bundle: BlobsBundle,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BlobsBundle {
-    #[serde(with = "serde_utils::bytes::vec")]
-    commitments: Vec<Bytes>,
-    #[serde(serialize_with = "super::account_proof::serialize_proofs")]
-    pub proofs: Vec<Vec<u8>>,
-    #[serde(with = "serde_utils::bytes::vec")]
-    pub blobs: Vec<Bytes>,
 }
 
 // TODO: Fill BlobsBundle

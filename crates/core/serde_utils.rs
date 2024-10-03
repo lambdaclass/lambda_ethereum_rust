@@ -283,3 +283,50 @@ pub mod bool {
         serializer.serialize_str(&format!("{:#x}", *value as u8))
     }
 }
+
+// Serde doesn't support const generics on `Serialize` impls so we need separate impls for different array sizes
+
+pub mod bytes48 {
+    use super::*;
+
+    pub mod vec {
+        use super::*;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(value: &Vec<[u8; 48]>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq_serializer = serializer.serialize_seq(Some(value.len()))?;
+            for encoded in value {
+                seq_serializer.serialize_element(&format!("0x{}", hex::encode(encoded)))?;
+            }
+            seq_serializer.end()
+        }
+    }
+}
+
+pub mod blob {
+    use super::*;
+
+    pub mod vec {
+        use crate::types::BYTES_PER_BLOB;
+
+        use super::*;
+        use serde::ser::SerializeSeq;
+
+        pub fn serialize<S>(
+            value: &Vec<[u8; BYTES_PER_BLOB]>,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut seq_serializer = serializer.serialize_seq(Some(value.len()))?;
+            for encoded in value {
+                seq_serializer.serialize_element(&format!("0x{}", hex::encode(encoded)))?;
+            }
+            seq_serializer.end()
+        }
+    }
+}
