@@ -328,7 +328,9 @@ fn total_difficulty_check<'a>(
         if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
             return Err(InvalidForkChoice::PreMergeBlock);
         }
-        if head_block.number > 0 && parent_total_difficulty.unwrap() >= U256::zero() {
+        if head_block.number > 0
+            && parent_total_difficulty.unwrap() >= terminal_total_difficulty.unwrap().into()
+        {
             return Err(InvalidForkChoice::StoreError(StoreError::Custom(
                 "Parent block is already post terminal total difficulty".to_string(),
             )));
