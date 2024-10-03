@@ -4,7 +4,6 @@ use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
-    vm::Message,
 };
 use std::collections::HashMap;
 

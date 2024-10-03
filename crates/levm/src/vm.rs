@@ -96,10 +96,10 @@ pub struct Substate {
 pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
-    origin: Address,
+    // origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    gas_price: u64,
+    // gas_price: u64,
     gas_limit: u64,
     pub consumed_gas: u64,
     /// The block header of the present block.
@@ -181,8 +181,8 @@ impl VM {
             block: BlockEnv::default(),
             consumed_gas: TX_BASE_COST,
             gas_limit: u64::MAX,
-            gas_price: 0,
-            origin: address,
+            // gas_price: 0,
+            // origin: address,
         };
 
         let accrued_substate = Substate { warm_addresses };
