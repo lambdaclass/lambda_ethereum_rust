@@ -108,8 +108,8 @@ mod tests {
             fork_hash: H32::zero(),
             fork_next: 0,
         };
-        let expexted = hex!("c6840000000080");
-        assert_eq!(fork.encode_to_vec(), expexted);
+        let expected = hex!("c6840000000080");
+        assert_eq!(fork.encode_to_vec(), expected);
     }
     #[test]
     fn encode_fork_id2() {
@@ -117,8 +117,8 @@ mod tests {
             fork_hash: H32::from_str("0xdeadbeef").unwrap(),
             fork_next: u64::from_str_radix("baddcafe", 16).unwrap(),
         };
-        let expexted = hex!("ca84deadbeef84baddcafe");
-        assert_eq!(fork.encode_to_vec(), expexted);
+        let expected = hex!("ca84deadbeef84baddcafe");
+        assert_eq!(fork.encode_to_vec(), expected);
     }
     #[test]
     fn encode_fork_id3() {
@@ -126,7 +126,7 @@ mod tests {
             fork_hash: H32::from_low_u64_le(u32::MAX.into()),
             fork_next: u64::MAX,
         };
-        let expexted = hex!("ce84ffffffff88ffffffffffffffff");
-        assert_eq!(fork.encode_to_vec(), expexted);
+        let expected = hex!("ce84ffffffff88ffffffffffffffff");
+        assert_eq!(fork.encode_to_vec(), expected);
     }
 }
