@@ -108,7 +108,7 @@ pub struct Environment {
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    call_frames: Vec<CallFrame>,
+    pub call_frames: Vec<CallFrame>,
     pub env: Environment,
     /// Information that is acted upon immediately following the
     /// transaction.

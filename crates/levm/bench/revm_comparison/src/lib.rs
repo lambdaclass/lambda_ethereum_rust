@@ -1,4 +1,4 @@
-use ethereum_rust_levm::{call_frame::CallFrame, primitives::Bytes, vm::VM};
+use ethereum_rust_levm::{call_frame::CallFrame, primitives::{Address, Bytes, U256}, vm::VM};
 use revm::{
     db::BenchmarkDB,
     primitives::{address, Bytecode, TransactTo},
@@ -12,17 +12,19 @@ pub const FACTORIAL_BYTECODE: &str =
     "5f355f60015b8215601b57906001018091029160019003916005565b9150505f5260205ff3";
 
 pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
+    let bytecode = Bytes::from(hex::decode(program).unwrap());
     for _ in 0..runs - 1 {
-        let bytecode = Bytes::from(hex::decode(program).unwrap());
-        let mut call_frame = CallFrame::new(bytecode);
+        let mut call_frame = CallFrame::new_from_bytecode(bytecode.clone());    // TODO: remove the clones
         let mut calldata = vec![0x00; 32];
         calldata[28..32].copy_from_slice(&number_of_iterations.to_be_bytes());
         call_frame.calldata = Bytes::from(calldata);
 
-        let mut vm = VM {
-            call_frames: vec![call_frame],
-            ..Default::default()
-        };
+        let mut vm = VM::new(bytecode.clone(), Address::zero(), U256::zero());
+        *vm.current_call_frame_mut() = call_frame;
+        // let mut vm = VM {
+        //     call_frames: vec![call_frame],
+        //     ..Default::default()
+        // };
 
         black_box(vm.execute());
         // black_box(executor.execute(black_box(&mut context), black_box(initial_gas)));
