@@ -324,6 +324,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
 }
 
 /// Executes the transaction, updates gas-related context values & return the receipt
+/// The payload build context should have enough remaining gas to cover the transaction's gas_limit
 // TODO(https://github.com/lambdaclass/ethereum_rust/issues/678): Handle blobs in blob txs
 fn apply_transaction(
     head: &HeadTransaction,
@@ -335,7 +336,7 @@ fn apply_transaction(
         context.evm_state,
         spec_id(context.store(), context.payload.header.timestamp)?,
     )?;
-    context.remaining_gas -= result.gas_used();
+    context.remaining_gas = context.remaining_gas.saturating_sub(result.gas_used());
     context.block_value += U256::from(result.gas_used()) * head.tip;
     let receipt = Receipt::new(
         head.tx.tx_type(),
