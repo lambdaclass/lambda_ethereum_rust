@@ -289,13 +289,7 @@ impl VM {
                     Self::op_push(&mut current_call_frame, op)?;
                 }
                 Opcode::PUSH32 => {
-                    let next_32_bytes = current_call_frame
-                        .bytecode
-                        .get(current_call_frame.pc()..current_call_frame.pc() + 32)
-                        .ok_or(VMError::InvalidBytecode)?;
-                    let value_to_push = U256::from(next_32_bytes);
-                    current_call_frame.stack.push(value_to_push)?;
-                    current_call_frame.increment_pc_by(32);
+                    Self::op_push(&mut current_call_frame, Opcode::PUSH32)?; // This opcode is removed in another branch
                 }
                 Opcode::AND => {
                     Self::op_and(&mut current_call_frame)?;
