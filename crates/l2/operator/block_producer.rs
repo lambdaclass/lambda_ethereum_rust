@@ -3,6 +3,7 @@ use std::{
     str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use tracing::error;
 
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
@@ -13,12 +14,12 @@ use super::consensus_mock::ConsensusMock;
 pub async fn start_block_producer() {
     // This is the genesis block hash
     let mut current_block_hash =
-        H256::from_str("0x676fb5bffb4b4962edb2e1e03ac733597d5ba6ac290b230a2bf01448decae584")
+        H256::from_str("0x493dba6364c3e0b575b81efe8b255eb76d8fcd302517557beac9ead7816ea7a3")
             .unwrap();
 
     loop {
         let secret = Bytes::from_static(include_bytes!(
-            "/Users/ivanlitteri/Repositories/lambdaclass/ethereum_rust/jwt.hex"
+            "/Users/manu/Documents/Lambda/eth/ethereum_rust/jwt.hex"
         ));
         let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret);
 
@@ -35,29 +36,47 @@ pub async fn start_block_producer() {
             ..Default::default()
         };
 
-        let fork_choice_response = consensus_mock_client
+        let fork_choice_response = match consensus_mock_client
             .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
             .await
-            .unwrap();
+        {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Error sending forkChoice: {}", e.to_string());
+                continue;
+            }
+        };
 
         let payload_id = fork_choice_response.payload_id.unwrap();
 
-        let execution_payload_response = consensus_mock_client
+        let execution_payload_response = match consensus_mock_client
             .engine_get_payload_v3(payload_id)
             .await
-            .unwrap();
+        {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Error sending getPayload: {}", e.to_string());
+                continue;
+            }
+        };
 
-        let payload_status = consensus_mock_client
+        let payload_status = match consensus_mock_client
             .engine_new_payload_v3(
                 execution_payload_response.execution_payload,
                 Default::default(),
                 Default::default(),
             )
             .await
-            .unwrap();
+        {
+            Ok(response) => response,
+            Err(e) => {
+                error!("Error sending newPayload: {}", e.to_string());
+                continue;
+            }
+        };
 
         current_block_hash = payload_status.latest_valid_hash.unwrap();
 
-        sleep(Duration::from_secs(5)).await;
+        sleep(Duration::from_secs(9)).await;
     }
 }
