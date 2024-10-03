@@ -629,13 +629,9 @@ impl Transaction {
 
     pub fn protected(&self) -> bool {
         match self {
-            Transaction::LegacyTransaction(tx) => {
-                if tx.v.bits() <= 8 {
-                    let v = tx.v.as_u64();
-                    v != 27 && v != 28 && v != 1 && v != 0
-                } else {
-                    true
-                }
+            Transaction::LegacyTransaction(tx) if tx.v.bits() <= 8 => {
+                let v = tx.v.as_u64();
+                v != 27 && v != 28 && v != 1 && v != 0
             }
             _ => true,
         }
