@@ -144,10 +144,7 @@ fn deploy_l1(
     contracts_path: &PathBuf,
 ) -> eyre::Result<()> {
     // Run 'which solc' to get the path of the solc binary
-    let solc_path_output = std::process::Command::new("which")
-        .arg("solc")
-        .output()
-        .expect("Failed to execute command");
+    let solc_path_output = std::process::Command::new("which").arg("solc").output()?;
 
     let solc_path = String::from_utf8_lossy(&solc_path_output.stdout)
         .trim()
