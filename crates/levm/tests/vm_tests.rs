@@ -205,7 +205,7 @@ fn transient_store() {
             .unwrap(),
         value
     );
-    assert_eq!(vm.consumed_gas, TX_BASE_COST + 106)
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 106)
 }
 
 #[test]
@@ -237,5 +237,5 @@ fn transient_load() {
     vm.execute();
 
     assert_eq!(*vm.current_call_frame_mut().stack.last().unwrap(), value);
-    assert_eq!(vm.consumed_gas, TX_BASE_COST + 103)
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 103)
 }
