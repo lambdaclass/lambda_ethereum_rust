@@ -18,5 +18,4 @@ impl VM {
             .swap(stack_top_index - 1, to_swap_index - 1);
         Ok(())
     }
-    
 }

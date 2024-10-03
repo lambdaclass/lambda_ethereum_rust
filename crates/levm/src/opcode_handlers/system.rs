@@ -1,4 +1,7 @@
-use crate::{constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN}, vm_result::{ExecutionResult, ResultReason}};
+use crate::{
+    constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    vm_result::{ExecutionResult, ResultReason},
+};
 
 use super::*;
 
@@ -14,10 +17,26 @@ impl VM {
         let gas = current_call_frame.stack.pop()?;
         let address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
         let value = current_call_frame.stack.pop()?;
-        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let args_size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+        let args_offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let args_size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let ret_offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let ret_size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
 
         // check balance
         if self.balance(&current_call_frame.msg_sender) < value {
@@ -29,11 +48,16 @@ impl VM {
         // transfer(&current_call_frame.msg_sender, &address, value);
         let callee_bytecode = self.get_account_bytecode(&address);
         if callee_bytecode.is_empty() {
-            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
+            current_call_frame
+                .stack
+                .push(U256::from(SUCCESS_FOR_CALL))?;
             return Ok(());
         }
 
-        let calldata = current_call_frame.memory.load_range(args_offset, args_size).into();
+        let calldata = current_call_frame
+            .memory
+            .load_range(args_offset, args_size)
+            .into();
 
         let new_call_frame = CallFrame {
             gas,
@@ -51,11 +75,17 @@ impl VM {
         let result = self.execute();
 
         match result {
-            Ok(ExecutionResult::Success { logs, return_data, .. }) => {
+            Ok(ExecutionResult::Success {
+                logs, return_data, ..
+            }) => {
                 current_call_frame.logs.extend(logs);
-                current_call_frame.memory.store_bytes(ret_offset, &return_data);
+                current_call_frame
+                    .memory
+                    .store_bytes(ret_offset, &return_data);
                 current_call_frame.returndata = return_data;
-                current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
+                current_call_frame
+                    .stack
+                    .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             Err(_) => {
                 current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
@@ -69,14 +99,30 @@ impl VM {
         Ok(())
     }
 
-    pub fn op_return(&self, current_call_frame: &mut CallFrame) -> Result<ExecutionResult, VMError> {
-        let offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+    pub fn op_return(
+        &self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<ExecutionResult, VMError> {
+        let offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
         let return_data = current_call_frame.memory.load_range(offset, size).into();
 
         current_call_frame.returndata = return_data;
-        current_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN))?;
-        Ok(Self::write_success_result(current_call_frame.clone(), ResultReason::Return))
+        current_call_frame
+            .stack
+            .push(U256::from(SUCCESS_FOR_RETURN))?;
+        Ok(Self::write_success_result(
+            current_call_frame.clone(),
+            ResultReason::Return,
+        ))
     }
 
     pub fn op_delegatecall(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {

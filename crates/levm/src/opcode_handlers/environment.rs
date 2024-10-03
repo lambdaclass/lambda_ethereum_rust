@@ -30,9 +30,7 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let value = U256::from_big_endian(
-            &current_call_frame.calldata.slice(offset..offset + 32),
-        );
+        let value = U256::from_big_endian(&current_call_frame.calldata.slice(offset..offset + 32));
         current_call_frame.stack.push(value)?;
         Ok(())
     }

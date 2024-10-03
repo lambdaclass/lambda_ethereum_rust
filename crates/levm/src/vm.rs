@@ -31,7 +31,6 @@ pub struct VM {
     pub db: Db,
 }
 
-
 impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         let initial_account = Account::new(balance, bytecode.clone());

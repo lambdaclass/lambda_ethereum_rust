@@ -6,7 +6,10 @@ use super::*;
 
 impl VM {
     // STOP operation
-    pub fn op_stop(&mut self, current_call_frame: &mut CallFrame) -> Result<ExecutionResult, VMError> {
+    pub fn op_stop(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<ExecutionResult, VMError> {
         self.call_frames.push(current_call_frame.clone());
         Ok(Self::write_success_result(
             current_call_frame.clone(),

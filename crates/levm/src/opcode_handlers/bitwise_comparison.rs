@@ -42,7 +42,9 @@ impl VM {
         let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
         if byte_index < 32 {
-            current_call_frame.stack.push(U256::from(op2.byte(31 - byte_index)))?;
+            current_call_frame
+                .stack
+                .push(U256::from(op2.byte(31 - byte_index)))?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
