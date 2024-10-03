@@ -100,30 +100,7 @@ impl VM {
                     VM::addmod(&mut current_call_frame)?;
                 }
                 Opcode::MULMOD => {
-                    let multiplicand = U512::from(current_call_frame.stack.pop()?);
-
-                    let multiplier = U512::from(current_call_frame.stack.pop()?);
-                    let divisor = U512::from(current_call_frame.stack.pop()?);
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    let (product, overflow) = multiplicand.overflowing_mul(multiplier);
-                    let mut remainder = product % divisor;
-                    if overflow || remainder > divisor {
-                        remainder = remainder.overflowing_sub(divisor).0;
-                    }
-                    let mut result = Vec::new();
-                    for byte in remainder.0.iter().take(4) {
-                        let bytes = byte.to_le_bytes();
-                        result.extend_from_slice(&bytes);
-                    }
-                    // before reverse we have something like [120, 255, 0, 0....]
-                    // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
-                    result.reverse();
-                    let remainder = U256::from(result.as_slice());
-                    current_call_frame.stack.push(remainder)?;
+                    VM::mulmod(&mut current_call_frame)?;
                 }
                 Opcode::EXP => {
                     VM::exp(&mut current_call_frame)?;

@@ -1,7 +1,8 @@
+// Arithmetic Operations (11)
+// Opcodes: ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
+
 use crate::{call_frame::CallFrame, vm::VM, vm_result::VMError};
 use ethereum_types::{U256, U512};
-
-use super::{is_negative, negate};
 
 impl VM {
     // ADD operation
@@ -205,4 +206,13 @@ impl VM {
         current_call_frame.stack.push(result)?;
         Ok(())
     }
+}
+
+/// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
+fn is_negative(value: U256) -> bool {
+    value.bit(255)
+}
+/// negates a number in two's complement
+fn negate(value: U256) -> U256 {
+    !value + U256::one()
 }

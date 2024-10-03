@@ -1,4 +1,6 @@
-// bitwise_comparison.rs
+// Comparison and Bitwise Logic Operations (14)
+// Opcodes: LT, GT, SLT, SGT, EQ, ISZERO, AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR
+
 
 use crate::{call_frame::CallFrame, vm::VM, vm_result::VMError};
 use ethereum_types::U256;

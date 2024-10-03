@@ -1,0 +1,2 @@
+// KECCAK256 (1)
+// Opcodes: KECCAK256
