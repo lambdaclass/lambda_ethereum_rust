@@ -63,6 +63,11 @@ impl Account {
         self.storage = storage;
         self
     }
+
+    pub fn with_nonce(mut self, nonce: u64) -> Self {
+        self.nonce = nonce;
+        self
+    }
 }
 
 pub type Storage = HashMap<U256, H256>;

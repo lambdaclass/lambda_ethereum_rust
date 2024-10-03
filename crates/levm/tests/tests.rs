@@ -3149,9 +3149,12 @@ fn cant_create_accounts_with_same_address() {
     .concat();
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.db
-        .accounts
-        .insert(sender_addr, Account::default().with_balance(sender_balance));
+    vm.db.accounts.insert(
+        sender_addr,
+        Account::default()
+            .with_balance(sender_balance)
+            .with_nonce(sender_nonce),
+    );
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3263,5 +3266,5 @@ fn create_on_create() {
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
-    assert_eq!(vm.db.accounts.len(), 3);
+    assert_eq!(vm.db.accounts.len(), 4);
 }
