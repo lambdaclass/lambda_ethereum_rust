@@ -106,34 +106,6 @@ pub struct Environment {
     pub block: BlockEnv,
 }
 
-/// Items used by contract creation or message call.
-#[derive(Debug, Default)]
-pub struct Message {
-    /// The address of the account which owns the code that
-    /// is executing.
-    pub owner: Address,
-    /// The byte array that is the input data to this execution;
-    /// if the execution agent is a transaction, this would be
-    /// the transaction data.
-    pub data: Bytes,
-    /// The address of the account which caused the
-    /// code to be executing; if the execution agent is a
-    /// transaction, this would be the transaction sender.
-    pub sender: Address,
-    /// The value, in Wei, passed to this account as part
-    /// of the same procedure as execution; if the execution
-    /// agent is a transaction, this would be the transaction
-    /// value.
-    pub value: U256,
-    /// The byte array that is the machine code to be executed.
-    pub code: Bytes,
-    /// The depth of the present message-call or
-    /// contract-creation.
-    pub depth: u16,
-    /// The gas available.
-    pub gas: U256,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     call_frames: Vec<CallFrame>,
