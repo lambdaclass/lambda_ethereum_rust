@@ -17,7 +17,7 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
 }
 
 pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
-    let bytecode = ops_to_bytecde(&operations);
+    let bytecode = ops_to_bytecde(operations);
 
     let tx_env = TxEnv {
         caller: address,
