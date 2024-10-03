@@ -6,7 +6,7 @@ use crate::rlp::{
 };
 use crate::trie::db::libmdbx::LibmdbxTrieDB;
 use crate::trie::db::libmdbx_dupsort::LibmdbxDupsortTrieDB;
-use crate::trie::trie::Trie;
+use crate::trie::trie_struct::Trie;
 use anyhow::Result;
 use bytes::Bytes;
 

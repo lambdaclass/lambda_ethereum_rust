@@ -1,4 +1,4 @@
-use crate::{trie::trie::Trie, Address, Receipt, Transaction, H256, U256};
+use crate::{trie::trie_struct::Trie, Address, Receipt, Transaction, H256, U256};
 use bytes::Bytes;
 use ethereum_rust_rlp::{
     decode::RLPDecode,

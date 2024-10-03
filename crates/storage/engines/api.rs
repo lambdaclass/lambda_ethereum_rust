@@ -10,7 +10,7 @@ use crate::{
         transaction::Transaction,
     },
     error::StoreError,
-    trie::trie::Trie,
+    trie::trie_struct::Trie,
 };
 
 pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {

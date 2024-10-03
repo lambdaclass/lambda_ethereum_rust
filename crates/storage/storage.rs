@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
-use trie::trie::Trie;
+use trie::trie_struct::Trie;
 
 pub mod core;
 mod engines;

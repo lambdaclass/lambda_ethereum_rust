@@ -6,7 +6,7 @@ use ethereum_rust_rlp::{
 };
 use smallvec::SmallVec;
 
-use super::trie::PathRLP;
+use super::trie_struct::PathRLP;
 
 /// Struct representing a half-byte
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -87,6 +87,10 @@ impl<'a> NibbleSlice<'a> {
     /// Returns the amount of half-bytes in the slice, taking into account the current offset
     pub const fn len(&self) -> usize {
         2 * self.data.len() - self.offset
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     pub const fn offset(&self) -> usize {

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use ethereum_rust_rlp::encode::RLPEncode;
 
-use crate::trie::trie::Trie;
+use crate::trie::trie_struct::Trie;
 
 use super::{
     account::AccountState,

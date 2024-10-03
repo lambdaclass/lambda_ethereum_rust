@@ -6,4 +6,4 @@ pub mod node_hash;
 pub mod rlp;
 pub mod state;
 pub mod test_utils;
-pub mod trie;
+pub mod trie_struct;

@@ -3,7 +3,7 @@ use crate::trie::{
     nibble::NibbleSlice,
     node_hash::{NodeEncoder, NodeHash, PathKind},
     state::TrieState,
-    trie::{PathRLP, ValueRLP},
+    trie_struct::{PathRLP, ValueRLP},
 };
 
 use super::{BranchNode, ExtensionNode, Node};

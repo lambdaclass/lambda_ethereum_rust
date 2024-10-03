@@ -14,7 +14,7 @@ use ethereum_rust_rlp::{
 
 use lazy_static::lazy_static;
 
-use crate::trie::trie::Trie;
+use crate::trie::trie_struct::Trie;
 
 use super::genesis::GenesisAccount;
 

@@ -6,7 +6,7 @@ use crate::{
         transaction::Transaction,
     },
     error::StoreError,
-    trie::{db::in_memory::InMemoryTrieDB, trie::Trie},
+    trie::{db::in_memory::InMemoryTrieDB, trie_struct::Trie},
 };
 use bytes::Bytes;
 

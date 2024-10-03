@@ -7,7 +7,8 @@ pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
 use super::{
-    error::TrieError, nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, trie::ValueRLP,
+    error::TrieError, nibble::NibbleSlice, node_hash::NodeHash, state::TrieState,
+    trie_struct::ValueRLP,
 };
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
