@@ -242,7 +242,7 @@ Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. 
 The main differences with regular Ethereum Rust are:
 
 - There is no consensus, only one sequencer proposes blocks for the network.
-- Block execution is proven using [SP1 ](https://docs.succinct.xyz/)and its proofs are sent to L1 for verification.
+- Block execution is proven using a RISC-V zkVM and its proofs are sent to L1 for verification.
 - A set of Solidity contracts to be deployed to the L1 are included as part of network initialization.
 - Two new types of transactions are included 
 
@@ -274,7 +274,7 @@ The network supports basic L2 functionality, allowing users to deposit and withd
 | --------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------ |
 | Contracts | `CommonBridge`                 | Withdraw method implementation                                                                                        | ❌     |
 |           | `BlockExecutor`                | Commit and verify implementation                                                                                      | ❌     |
-|           | `Verifier`                     | Use SP1 verifier                                                                                                      | ❌     |
+|           | `Verifier`                     | Use Solidity verifier                                                                                                      | ❌     |
 | Operator  | `ProofDataProvider`            | Feeds the `ProverDataClient` with block data to be proven and delivers proofs to the `L1TxSender` for L1 verification | 🏗️     |
 |           | Withdraw transactions handling |    New transaction type for burning funds on L2 and unlock funds on L1                                                                                                                   | ❌     |
 | Prover    | `ProofDataClient`              |  Asks for block execution data to prove, generates proofs of execution and submits proofs to the `ProofDataProvider`                                                                                                                     | 🏗️     |
