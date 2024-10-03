@@ -8,10 +8,12 @@ use crate::{
     call_frame::{CallFrame, Log},
     constants::*,
     opcodes::Opcode,
-    primitives::{Address, Bytes, H160, H256, H32, U256, U512},
+    primitives::{Address, Bytes, H256, H32, U256, U512},
+    transaction::{TransactTo, TxEnv},
 };
 extern crate ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_types::H160;
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
@@ -22,31 +24,58 @@ pub struct Account {
     pub storage: HashMap<U256, StorageSlot>,
 }
 
-impl Account {
-    pub fn new(balance: U256, bytecode: Bytes, nonce: u64) -> Self {
-        Self {
-            balance,
-
-            bytecode,
-            nonce,
-            storage: Default::default(),
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
-    }
-}
-
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
 }
 
-#[derive(Debug, Clone, Default)]
+impl Account {
+    pub fn new(
+        balance: U256,
+        bytecode: Bytes,
+        nonce: u64,
+        storage: HashMap<U256, StorageSlot>,
+    ) -> Self {
+        Self {
+            balance,
+            bytecode,
+            storage,
+            nonce,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
+    }
+
+    pub fn with_balance(mut self, balance: U256) -> Self {
+        self.balance = balance;
+        self
+    }
+
+    pub fn with_bytecode(mut self, bytecode: Bytes) -> Self {
+        self.bytecode = bytecode;
+        self
+    }
+
+    pub fn with_storage(mut self, storage: HashMap<U256, StorageSlot>) -> Self {
+        self.storage = storage;
+        self
+    }
+
+    pub fn with_nonce(mut self, nonce: u64) -> Self {
+        self.nonce = nonce;
+        self
+    }
+}
+
+pub type Storage = HashMap<U256, H256>;
+
+#[derive(Clone, Debug, Default)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
+    // contracts: HashMap<B256, Bytecode>,
     pub block_hashes: HashMap<U256, H256>,
 }
 
@@ -66,7 +95,7 @@ impl Db {
             .insert(key, slot);
     }
 
-    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
+    fn get_account_bytecode(&self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
@@ -82,10 +111,6 @@ impl Db {
         self.accounts.insert(address, account);
     }
 }
-
-pub type Storage = HashMap<U256, H256>;
-
-pub type WorldState = HashMap<Address, Account>;
 
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
@@ -140,33 +165,48 @@ fn address_to_word(address: Address) -> U256 {
 // tuple of environmental data.
 
 impl VM {
-    // TODO: block and transaction, not this
-    pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
-        let initial_account = Account::new(balance, bytecode.clone(), 0);
-
-        let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
-
-        let mut db = Db::default();
-        db.accounts.insert(address, initial_account);
-
-        let mut warm_addresses = HashSet::new();
-        warm_addresses.insert(address);
-
-        let env = Environment {
-            block: BlockEnv::default(),
-            consumed_gas: TX_BASE_COST,
-            gas_limit: u64::MAX,
-            // gas_price: 0,
-            // origin: address,
+    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
+        let bytecode = match tx_env.transact_to {
+            TransactTo::Call(addr) => db.get_account_bytecode(&addr),
+            TransactTo::Create => {
+                todo!()
+            }
         };
 
-        let accrued_substate = Substate { warm_addresses };
+        let caller = match tx_env.transact_to {
+            TransactTo::Call(addr) => addr,
+            TransactTo::Create => tx_env.msg_sender,
+        };
+
+        let code_addr = match tx_env.transact_to {
+            TransactTo::Call(addr) => addr,
+            TransactTo::Create => todo!(),
+        };
+
+        // TODO: this is mostly placeholder
+        let initial_call_frame = CallFrame::new(
+            U256::MAX,
+            tx_env.msg_sender,
+            caller,
+            code_addr,
+            Default::default(),
+            bytecode,
+            tx_env.value,
+            tx_env.data,
+            false,
+        );
+
+        let env = Environment {
+            block: block_env,
+            consumed_gas: TX_BASE_COST,
+            gas_limit: u64::MAX,
+        };
 
         Self {
-            call_frames: vec![initial_call_frame.clone()],
+            call_frames: vec![initial_call_frame],
             db,
-            accrued_substate,
             env,
+            accrued_substate: Substate::default(),
         }
     }
 
@@ -1479,7 +1519,7 @@ impl VM {
             return;
         }
         // nonce == 1, as we will execute this contract right now
-        let new_account = Account::new(value_in_wei_to_send, code.clone(), 1);
+        let new_account = Account::new(value_in_wei_to_send, code.clone(), 1, Default::default());
         self.db.add_account(new_address, new_account);
 
         let mut gas = current_call_frame.gas;
