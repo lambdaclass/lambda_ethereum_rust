@@ -313,7 +313,7 @@ pub mod blob {
     }
 }
 
-// Serde doesn't support const generics on `Serialize` impls so we need separate impls for different array sizes
+// Const generics are not supported on `Serialize` impls so we need separate impls for different array sizes
 fn serialize_vec_of_hex_encodables<S: Serializer, T: std::convert::AsRef<[u8]>>(
     value: &Vec<T>,
     serializer: S,
