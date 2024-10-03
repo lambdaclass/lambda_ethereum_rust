@@ -1,5 +1,6 @@
 use tracing::info;
 
+use prover_lib::inputs::ProverInput;
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
@@ -27,12 +28,15 @@ impl SP1Prover {
         Self { client, pk, vk }
     }
 
-    pub fn prove(&self, id: u64) -> Result<SP1ProofWithPublicValues, String> {
+    pub fn prove(&self, input: ProverInput) -> Result<SP1ProofWithPublicValues, String> {
         // Setup the inputs.
         let mut stdin = SP1Stdin::new();
-        stdin.write(&id);
+        stdin.write(&input);
 
-        info!("Starting Fibonacci proof for n = {id}");
+        info!(
+            "Starting block execution proof for block = {}",
+            input.block.header.number
+        );
 
         // Generate the proof
         let proof = self

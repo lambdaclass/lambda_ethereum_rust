@@ -8,6 +8,8 @@ use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
+use prover_lib::input::ProverInput;
+
 use crate::operator::proof_data_provider::ProofData;
 
 use super::sp1_prover::SP1Prover;
@@ -33,7 +35,9 @@ impl ProofDataClient {
         loop {
             match self.request_new_data() {
                 Ok(Some(id)) => {
-                    match prover.prove(id) {
+                    // TODO: send a proper input
+                    let prover_input = ProverInput::default();
+                    match prover.prove(prover_input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry
