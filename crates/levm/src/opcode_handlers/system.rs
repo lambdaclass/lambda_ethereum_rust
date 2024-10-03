@@ -76,7 +76,7 @@ impl VM {
 
         current_call_frame.returndata = return_data;
         current_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN))?;
-        return Ok(Self::write_success_result(current_call_frame.clone(), ResultReason::Return));
+        Ok(Self::write_success_result(current_call_frame.clone(), ResultReason::Return))
     }
 
     pub fn op_delegatecall(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {

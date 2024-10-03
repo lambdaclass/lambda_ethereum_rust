@@ -8,10 +8,10 @@ impl VM {
     // STOP operation
     pub fn op_stop(&mut self, current_call_frame: &mut CallFrame) -> Result<ExecutionResult, VMError> {
         self.call_frames.push(current_call_frame.clone());
-        return Ok(Self::write_success_result(
+        Ok(Self::write_success_result(
             current_call_frame.clone(),
             ResultReason::Stop,
-        ));
+        ))
     }
     // ADD operation
     pub fn op_add(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
