@@ -40,10 +40,7 @@ impl L1Watcher {
         loop {
             match l1_rpc.get_block_number().await {
                 Ok(current_block) => {
-                    debug!(
-                        "Current block number: {} ({:#x})",
-                        current_block, current_block
-                    );
+                    debug!("Current block number: {current_block} ({current_block:#x})");
                     let new_last_block = min(last_block + step, current_block);
                     debug!(
                         "Looking logs from block {:#x} to {:#x}",
