@@ -1,28 +1,23 @@
 .PHONY: all test clippy fmt usage lint eth-tests
 
-all: test clippy fmt
+all: test clippy fmt ## 🚀 Runs all tests, linter and formatter
 
-usage:
-	@echo "Usage:"
-	@echo "    test:         	Runs all tests except Ethereum tests."
-	@echo "    lint:         	Runs clippy and fmt."
-	@echo "    fmt:          	Runs rustfmt."
-	@echo "    eth-tests:    	Runs Ethereum Foundation tests."
+help: ## 📚 Show help for each of the Makefile recipes
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-test:
+test: ## 🧪 Runs all tests except Ethereum tests
 	cargo test -p 'levm'
 
-lint:
-	cargo fmt --all -- --check
-	cargo clippy --workspace --all-features --benches --examples --tests -- -D warnings
+lint: ## 🧹 Linter check
+	cargo clippy --all-targets --all-features --workspace -- -D warnings
 
-fmt:
+fmt: ## 📄 Runs rustfmt
 	cargo fmt --all
 
-ethtests: # TODO.
+ethtests: # 📥 Downloads Ethereum Foundation tests.
 	@echo "Downloads Ethereum Foundation tests"
 	@echo "Not implemented yet"
 
-test-eth: # TODO.
+test-eth: # 💎 Runs Ethereum Foundation tests.
 	@echo "Runs Ethereum Foundation tests"
 	@echo "Not implemented yet"
