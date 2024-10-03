@@ -1,9 +1,17 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use crate::utils::RpcErr;
+use tracing::error;
+
+use crate::utils::{RpcErr, RpcRequest};
 use crate::RpcHandler;
+use ethereum_rust_core::types::LogsFilter;
+use ethereum_rust_storage::Store;
 use rand::prelude::*;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use super::logs::LogsRequest;
 
@@ -12,16 +20,13 @@ pub struct FilterRequest {
     pub request_data: LogsRequest,
 }
 
-impl RpcHandler for FilterRequest {
-    fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, crate::utils::RpcErr> {
-        let filter = LogsRequest::parse(params)?;
-        Ok(FilterRequest {
-            request_data: filter,
-        })
-    }
-    fn handle(
+/// Maps IDs to active log filters and their timestamps.
+pub type ActiveFilters = Arc<Mutex<HashMap<u64, (u64, LogsFilter)>>>;
+impl FilterRequest {
+    pub fn handle(
         &self,
         storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
         let filter = self.request_data.request_to_filter(&storage)?;
         let id: u64 = random();
@@ -29,10 +34,32 @@ impl RpcHandler for FilterRequest {
             .duration_since(UNIX_EPOCH)
             .map(|unix_time| unix_time.as_secs())
             .map_err(|_err| RpcErr::Internal)?;
+        let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
+            error!("Logs filtering mutex is poisoned! Cleaning up..");
+            **poisoned_guard.get_mut() = HashMap::new();
+            filters.clear_poison();
+            poisoned_guard.into_inner()
+        });
 
-        storage.add_filter(random(), timestamp, filter)?;
+        active_filters_guard.insert(id, (timestamp, filter));
         let as_hex = json!(format!("0x{:x}", id));
         Ok(as_hex)
+    }
+
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, crate::utils::RpcErr> {
+        let filter = LogsRequest::parse(params)?;
+        Ok(FilterRequest {
+            request_data: filter,
+        })
+    }
+
+    pub fn stateful_call(
+        req: &RpcRequest,
+        storage: Store,
+        state: ActiveFilters,
+    ) -> Result<Value, RpcErr> {
+        let request = Self::parse(&req.params)?;
+        request.handle(storage, state)
     }
 }
 
@@ -157,9 +184,10 @@ mod tests {
         let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
         let test_store = TestDB::new(storage_type);
-        let response = map_http_requests(&request, test_store.build_store(), node)
-            .unwrap()
-            .to_string();
+        let response =
+            map_http_requests(&request, test_store.build_store(), node, Default::default())
+                .unwrap()
+                .to_string();
         assert!(response.trim().trim_matches('"').starts_with("0x"))
     }
 }

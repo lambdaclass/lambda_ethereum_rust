@@ -1,6 +1,11 @@
 use crate::authentication::authenticate;
 use bytes::Bytes;
-use std::{future::IntoFuture, net::SocketAddr};
+use std::{
+    collections::HashMap,
+    future::IntoFuture,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 use types::transaction::SendRawTransactionRequest;
 
 use axum::{routing::post, Json, Router};
@@ -26,7 +31,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::FilterRequest,
+    filter::{ActiveFilters, FilterRequest},
     logs::LogsRequest,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -57,6 +62,7 @@ pub struct RpcApiContext {
     storage: Store,
     jwt_secret: Bytes,
     local_p2p_node: Node,
+    active_filters: ActiveFilters,
 }
 
 trait RpcHandler: Sized {
@@ -81,6 +87,7 @@ pub async fn start_api(
         storage: storage.clone(),
         jwt_secret,
         local_p2p_node,
+        active_filters: Arc::new(Mutex::new(HashMap::new())),
     };
     let http_router = Router::new()
         .route("/", post(handle_http_request))
@@ -119,7 +126,12 @@ pub async fn handle_http_request(
     let storage = service_context.storage;
     let local_p2p_node = service_context.local_p2p_node;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    let res = map_http_requests(&req, storage, local_p2p_node);
+    let res = map_http_requests(
+        &req,
+        storage,
+        local_p2p_node,
+        service_context.active_filters,
+    );
     rpc_response(req.id, res)
 }
 
@@ -135,7 +147,7 @@ pub async fn handle_authrpc_request(
         Err(error) => rpc_response(req.id, Err(error)),
         Ok(()) => {
             // Proceed with the request
-            let res = map_authrpc_requests(&req, storage);
+            let res = map_authrpc_requests(&req, storage, service_context.active_filters);
             rpc_response(req.id, res)
         }
     }
@@ -146,9 +158,10 @@ pub fn map_http_requests(
     req: &RpcRequest,
     storage: Store,
     local_p2p_node: Node,
+    filters: ActiveFilters,
 ) -> Result<Value, RpcErr> {
     match req.namespace() {
-        Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
+        Ok(RpcNamespace::Eth) => map_eth_requests(req, storage, filters),
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
         Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound),
@@ -156,15 +169,23 @@ pub fn map_http_requests(
 }
 
 /// Handle requests from consensus client
-pub fn map_authrpc_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_authrpc_requests(
+    req: &RpcRequest,
+    storage: Store,
+    active_filters: ActiveFilters,
+) -> Result<Value, RpcErr> {
     match req.namespace() {
         Ok(RpcNamespace::Engine) => map_engine_requests(req, storage),
-        Ok(RpcNamespace::Eth) => map_eth_requests(req, storage),
+        Ok(RpcNamespace::Eth) => map_eth_requests(req, storage, active_filters),
         _ => Err(RpcErr::MethodNotFound),
     }
 }
 
-pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+pub fn map_eth_requests(
+    req: &RpcRequest,
+    storage: Store,
+    filters: ActiveFilters,
+) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "eth_chainId" => ChainId::call(req, storage),
         "eth_syncing" => Syncing::call(req, storage),
@@ -194,7 +215,7 @@ pub fn map_eth_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcEr
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_getLogs" => LogsRequest::call(req, storage),
-        "eth_newFilter" => FilterRequest::call(req, storage),
+        "eth_newFilter" => FilterRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
@@ -282,7 +303,7 @@ mod tests {
         let storage =
             Store::new("temp.db", EngineType::InMemory).expect("Failed to create test DB");
         storage.set_chain_config(&example_chain_config()).unwrap();
-        let result = map_http_requests(&request, storage, local_p2p_node);
+        let result = map_http_requests(&request, storage, local_p2p_node, Default::default());
         let rpc_response = rpc_response(request.id, result);
         let expected_response = to_rpc_response_success_value(
             r#"{"jsonrpc":"2.0","id":1,"result":{"enode":"enode://d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666@127.0.0.1:30303?discport=30303","id":"d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666","ip":"127.0.0.1","name":"ethereum_rust/0.1.0/rust1.80","ports":{"discovery":30303,"listener":30303},"protocols":{"eth":{"chainId":3151908,"homesteadBlock":0,"daoForkBlock":null,"daoForkSupport":false,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"istanbulBlock":0,"muirGlacierBlock":null,"berlinBlock":0,"londonBlock":0,"arrowGlacierBlock":null,"grayGlacierBlock":null,"mergeNetsplitBlock":0,"shanghaiTime":0,"cancunTime":0,"pragueTime":1718232101,"verkleTime":null,"terminalTotalDifficulty":0,"terminalTotalDifficultyPassed":true}}}}"#,
@@ -313,7 +334,7 @@ mod tests {
             .expect("Failed to add genesis block to DB");
         let local_p2p_node = example_p2p_node();
         // Process request
-        let result = map_http_requests(&request, storage, local_p2p_node);
+        let result = map_http_requests(&request, storage, local_p2p_node, Default::default());
         let response = rpc_response(request.id, result);
         let expected_response = to_rpc_response_success_value(
             r#"{"jsonrpc":"2.0","id":1,"result":{"accessList":[],"gasUsed":"0x5208"}}"#,
@@ -336,7 +357,7 @@ mod tests {
             .expect("Failed to add genesis block to DB");
         let local_p2p_node = example_p2p_node();
         // Process request
-        let result = map_http_requests(&request, storage, local_p2p_node);
+        let result = map_http_requests(&request, storage, local_p2p_node, Default::default());
         let response =
             serde_json::from_value::<RpcSuccessResponse>(rpc_response(request.id, result).0)
                 .expect("Request failed");
