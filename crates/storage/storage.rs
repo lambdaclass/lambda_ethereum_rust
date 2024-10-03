@@ -6,8 +6,9 @@ use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
-    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
+    code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
+    BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
+    EMPTY_TRIE_HASH,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -214,6 +215,21 @@ impl Store {
 
     pub fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
         self.engine.get_transaction_from_pool(hash)
+    }
+
+    pub fn add_blobs_bundle_to_pool(
+        &self,
+        hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.engine.add_blobs_bundle_to_pool(hash, blobs_bundle)
+    }
+
+    pub fn get_blobs_bundle_from_pool(
+        &self,
+        hash: H256,
+    ) -> Result<Option<BlobsBundle>, StoreError> {
+        self.engine.get_blobs_bundle_from_pool(hash)
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {

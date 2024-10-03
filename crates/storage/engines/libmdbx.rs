@@ -8,7 +8,8 @@ use crate::rlp::{
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -214,6 +215,19 @@ impl StoreEngine for Store {
 
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
+    }
+
+    fn add_blobs_bundle_to_pool(
+        &self,
+        hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.write::<BlobsBundlePool>(hash.into(), blobs_bundle.into())?;
+        Ok(())
+    }
+
+    fn get_blobs_bundle_from_pool(&self, hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
+        Ok(self.read::<BlobsBundlePool>(hash.into())?.map(|bb| bb.to()))
     }
 
     /// Stores the chain config serialized as json

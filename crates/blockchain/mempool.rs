@@ -16,11 +16,11 @@ use ethereum_rust_storage::Store;
 /// Add a blob transaction and its blob bundle to the mempool
 pub fn add_blob_transaction(
     transaction: EIP4844Transaction,
-    blob_bundle: BlobsBundle,
+    blobs_bundle: BlobsBundle,
     store: Store,
 ) -> Result<H256, MempoolError> {
     // Validate blob bundle
-    validate_blob_bundle(&transaction, &blob_bundle)?;
+    validate_blobs_bundle(&transaction, &blobs_bundle)?;
 
     // Validate transaction
     let transaction = Transaction::EIP4844Transaction(transaction);
@@ -29,6 +29,7 @@ pub fn add_blob_transaction(
     // Add transaction and blob bundle to storage
     let hash = transaction.compute_hash();
     store.add_transaction_to_pool(hash, transaction)?;
+    store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
     Ok(hash)
 }
 
@@ -50,6 +51,10 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
 
 pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
     Ok(store.get_transaction_from_pool(hash)?)
+}
+
+pub fn get_blobs_bundle(hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
+    Ok(store.get_blobs_bundle_from_pool(hash)?)
 }
 
 /*
@@ -131,14 +136,14 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
     Ok(())
 }
 
-fn validate_blob_bundle(
+fn validate_blobs_bundle(
     tx: &EIP4844Transaction,
-    blob_bundle: &BlobsBundle,
+    blobs_bundle: &BlobsBundle,
 ) -> Result<(), MempoolError> {
     let tx_blob_count = tx.blob_versioned_hashes.len();
-    if tx_blob_count != blob_bundle.blobs.len()
-        || tx_blob_count != blob_bundle.commitments.len()
-        || tx_blob_count != blob_bundle.proofs.len()
+    if tx_blob_count != blobs_bundle.blobs.len()
+        || tx_blob_count != blobs_bundle.commitments.len()
+        || tx_blob_count != blobs_bundle.proofs.len()
     {
         return Err(MempoolError::BlobsBundleWrongLen);
     };
