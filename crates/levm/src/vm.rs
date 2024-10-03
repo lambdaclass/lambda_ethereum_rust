@@ -904,7 +904,7 @@ impl VM {
         
         self.call_frames.push(new_call_frame.clone());
         self.execute();
-        let result = self.get
+        let result = self.get_result();
 
         match result {
             Ok(ExecutionResult::Success {

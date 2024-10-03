@@ -2,10 +2,14 @@ use std::{collections::HashMap, path::Path};
 
 use bytes::Bytes;
 use levm::{
-    vm_result::ExecutionResult, utils::precompiled_addresses, vm::{WorldState, Environment, Message, TransactTo, VM, call_frame::CallFrame}, transaction::Transaction, block::BlockEnv
+    block::BlockEnv,
+    primitives::U256,
+    transaction::Transaction,
+    vm::{Environment, Message, TransactTo, WorldState, VM},
+    vm_result::ExecutionResult,
 };
 
-use super::models::{AccountInfo, Test, TestSuite, TestUnit, TransactionParts};
+use super::models::{AccountInfo, Env, Test, TestSuite, TestUnit, TransactionParts};
 
 /// Receives a Bytes object with the hex representation
 /// And returns a Bytes object with the decimal representation
@@ -25,9 +29,7 @@ fn decode_hex(bytes_in_hex: Bytes) -> Option<Bytes> {
     Some(Bytes::from(opcodes))
 }
 
-
-
-// unit.transaction -> 
+// unit.transaction ->
 // pub struct TransactionParts {
 //     pub data: Vec<Bytes>,
 //     pub gas_limit: Vec<U256>,
@@ -110,7 +112,7 @@ fn setup_transaction(transaction: &TransactionParts) -> Transaction {
     // access list es legacy pero con access list
     // blob es fee market pero con blob versioned hashes
 
-    if let Some(gas_price) = transction.gas_price {
+    if let Some(gas_price) = transaction.gas_price {
         if let Some(access_list) = transaction.access_lists.get(0).cloned().flatten() {
             // access list data ( also for Transaction::FeeMarket and Transaction::Blob )
             // let access_list_vector = unit
@@ -190,7 +192,6 @@ fn setup_transaction(transaction: &TransactionParts) -> Transaction {
     }
 }
 
-
 // unit.env ->
 // pub struct Env {
 //     pub current_coinbase: Address,
@@ -226,10 +227,14 @@ fn setup_block_env(env: &Env) -> BlockEnv {
     block_env.coinbase = env.current_coinbase;
     block_env.timestamp = env.current_timestamp;
     block_env.base_fee_per_gas = env.current_base_fee.unwrap_or_default();
-    block_env.gas_limit = env.current_gas_limit.as_u64();
+    block_env.gas_limit = env.current_gas_limit.as_u64() as usize;
     block_env.chain_id = 0;
     block_env.prev_randao = env.current_random;
-    block_env.excess_blob_gas = env.current_excess_blob_gas;
+    block_env.excess_blob_gas = if let Some(excess_blob_gas) = env.current_excess_blob_gas {
+        Some(excess_blob_gas.as_u64())
+    } else {
+        None
+    };
     block_env
 }
 
@@ -239,24 +244,19 @@ fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
 
     let world_state = WorldState::default();
 
-    // Load pre storage into db
+    // Load pre storage into world state
     for (address, account_info) in unit.pre.iter() {
         let opcodes = decode_hex(account_info.code.clone()).unwrap();
-        // db = db.with_contract(address.to_owned(), opcodes);
-        // db.set_account(
-        //     address.to_owned(),
-        //     account_info.nonce,
-        //     account_info.balance,
-        //     account_info.storage.clone(),
-        // );
         let account = Account {
-            address: address.to_owned(),
+            address: address,
             balance: account_info.balance,
             bytecode: opcodes,
             storage: account_info.storage.clone(),
             nonce: account_info.nonce,
         };
-        world_state.accounts.insert(address.clone(), account.clone());
+        world_state
+            .accounts
+            .insert(address, account.clone());
     }
 
     VM::new(transaction, block_env, world_state)
