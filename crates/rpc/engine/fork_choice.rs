@@ -1,12 +1,10 @@
 use ethereum_rust_blockchain::{
-    error::ChainError,
+    error::{ChainError, InvalidForkChoice},
     new_head,
     payload::{build_payload, BuildPayloadArgs},
 };
-use ethereum_rust_core::types::{BlockHash, BlockHeader, BlockNumber};
-use ethereum_rust_core::{H256, U256};
-use ethereum_rust_storage::{error::StoreError, Store};
-use serde_json::{json, Value};
+use ethereum_rust_storage::Store;
+use serde_json::Value;
 use tracing::warn;
 
 use crate::{
@@ -37,13 +35,6 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let error_response = |err_msg: &str| {
-            serde_json::to_value(ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
-                err_msg,
-            )))
-            .map_err(|_| RpcErr::Internal)
-        };
-
         // Build block from received payload
         let mut response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
             self.fork_choice_state.head_block_hash,
@@ -72,19 +63,21 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         }
 
         // TODO: Map error better.
-        new_head(
+        let response = match new_head(
             &storage,
             self.fork_choice_state.head_block_hash,
             self.fork_choice_state.safe_block_hash,
             self.fork_choice_state.finalized_block_hash,
-        )
-        .map_err(|_| RpcErr::Internal)?;
-
+        ) {
+            Ok(()) => response,
+            Err(InvalidForkChoice::Syncing) => ForkChoiceResponse::from(PayloadStatus::syncing()),
+            Err(reason) => {
+                warn!("Invalid fork choice state. Reason: {:#?}", reason);
+                ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
+                    reason.to_string().as_str(),
+                ))
+            }
+        };
         serde_json::to_value(response).map_err(|_| RpcErr::Internal)
     }
-}
-
-fn invalid_fork_choice_state() -> Result<Value, RpcErr> {
-    serde_json::to_value(json!({"error": {"code": -38002, "message": "Invalid forkchoice state"}}))
-        .map_err(|_| RpcErr::Internal)
 }
