@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-
-use ethereum_types::H32;
 use ethereum_rust_levm::{
     block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     constants::{MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN, TX_BASE_COST},
@@ -9,6 +6,8 @@ use ethereum_rust_levm::{
     transaction::{TransactTo, TxEnv},
     vm::{Account, Db, Storage, StorageSlot, VM},
 };
+use ethereum_types::H32;
+use std::collections::HashMap;
 
 // cargo test -p ethereum_rust-levm
 
