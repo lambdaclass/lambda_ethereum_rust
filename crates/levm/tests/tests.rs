@@ -20,7 +20,8 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
     let bytecode = ops_to_bytecde(operations);
 
     let tx_env = TxEnv {
-        caller: address,
+        msg_sender: address,
+        chain_id: Some(1),
         transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
         gas_limit: Default::default(),
         gas_price: Default::default(),
@@ -28,7 +29,7 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
         data: Default::default(),
         nonce: Default::default(),
         access_list: Default::default(),
-        gas_priority_fee: Default::default(),
+        max_priority_fee_per_gas: Default::default(),
         blob_hashes: Default::default(),
         max_fee_per_blob_gas: Default::default(),
     };

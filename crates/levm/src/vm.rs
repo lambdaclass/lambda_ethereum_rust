@@ -59,8 +59,6 @@ impl Account {
 
 pub type Storage = HashMap<U256, H256>;
 
-pub type WorldState = HashMap<Address, Account>;
-
 #[derive(Clone, Debug, Default)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
@@ -132,7 +130,6 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    // pub state: WorldState,
     pub db: Db,
 }
 
@@ -163,7 +160,28 @@ impl VM {
             }
         };
 
-        let initial_call_frame = CallFrame::new_from_bytecode(bytecode);
+        let caller = match tx_env.transact_to {
+            TransactTo::Call(addr) => addr,
+            TransactTo::Create => tx_env.msg_sender,
+        };
+
+        let code_addr = match tx_env.transact_to {
+            TransactTo::Call(addr) => addr,
+            TransactTo::Create => todo!(),
+        };
+
+        // TODO: this is mostly placeholder
+        let initial_call_frame = CallFrame::new(
+            U256::MAX,
+            tx_env.msg_sender,
+            caller,
+            code_addr,
+            Default::default(),
+            bytecode,
+            tx_env.value,
+            tx_env.data,
+            false,
+        );
 
         let env = Environment {
             block: block_env,
@@ -1305,10 +1323,6 @@ impl VM {
 
     pub fn current_call_frame(&self) -> &CallFrame {
         self.call_frames.last().unwrap()
-    }
-
-    pub fn add_account(&mut self, address: Address, account: Account) {
-        self.db.accounts.insert(address, account);
     }
 
     #[allow(clippy::too_many_arguments)]
