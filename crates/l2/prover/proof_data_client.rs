@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use prover_lib::inputs::ProverInput;
 use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, warn};
@@ -33,7 +34,9 @@ impl ProofDataClient {
         loop {
             match self.request_new_data() {
                 Ok(Some(id)) => {
-                    match prover.prove(id) {
+                    // TODO: send a proper input
+                    let prover_input = ProverInput::default();
+                    match prover.prove(prover_input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry

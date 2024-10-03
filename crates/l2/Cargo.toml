@@ -19,5 +19,7 @@ bytes.workspace = true
 jsonwebtoken.workspace = true
 sp1-sdk = "2.0.0"
 
+prover-lib = { path = "./prover/sp1/lib" }
+
 [lib]
 path = "./l2.rs"

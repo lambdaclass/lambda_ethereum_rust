@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 alloy-sol-types = "0.7.7"
 sp1-zkvm = "2.0.0"
-lib = { path = "../lib" }
+prover-lib = { path = "../lib" }
 
 # TODO We need the patch_000_mdbx branch, check how to reference the repo directly (merge the branch?).
 # ethereum_rust

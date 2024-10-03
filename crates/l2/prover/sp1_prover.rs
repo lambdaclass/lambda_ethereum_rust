@@ -1,10 +1,7 @@
 use tracing::info;
 
-use lib::{db_memorydb::MemoryDB, inputs::ProverInput};
-use sp1_sdk::{
-    network::prover, ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin,
-    SP1VerifyingKey,
-};
+use prover_lib::inputs::ProverInput;
+use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/program/elf/riscv32im-succinct-zkvm-elf");
