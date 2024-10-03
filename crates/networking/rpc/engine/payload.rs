@@ -1,8 +1,9 @@
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::payload_block_value;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
-use ethereum_rust_core::types::Fork;
-use ethereum_rust_core::H256;
+
+use ethereum_rust_storage::core::genesis::Fork;
+use ethereum_rust_storage::core::H256;
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};

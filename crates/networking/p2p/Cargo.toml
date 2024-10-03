@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ethereum_rust-core.workspace = true
 ethereum_rust-rlp.workspace = true
 ethereum_rust-storage.workspace = true
 

@@ -1,11 +1,11 @@
 use bytes::{BufMut, Bytes};
-use ethereum_rust_core::H512;
 use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
+use ethereum_rust_storage::core::H512;
 use std::net::{IpAddr, SocketAddr};
 
 const MAX_NODE_RECORD_ENCODED_SIZE: usize = 300;

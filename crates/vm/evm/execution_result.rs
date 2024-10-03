@@ -1,6 +1,7 @@
 use bytes::Bytes;
-use ethereum_rust_core::Address;
-use ethereum_rust_core::{types::Log, H256};
+use ethereum_rust_storage::core::receipt::Log;
+use ethereum_rust_storage::core::Address;
+use ethereum_rust_storage::core::H256;
 use revm::primitives::result::Output as RevmOutput;
 use revm::primitives::result::SuccessReason as RevmSuccessReason;
 use revm::primitives::ExecutionResult as RevmExecutionResult;

@@ -5,13 +5,18 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
-use ethereum_rust_core::types::{
+use trie::trie::Trie;
+/*use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
     ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
-};
+};*/
+use core::account::{code_hash, AccountInfo, AccountState, EMPTY_TRIE_HASH};
+use core::block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber};
+use core::genesis::{ChainConfig, Genesis, GenesisAccount};
+use core::receipt::{Index, Receipt};
+use core::transaction::Transaction;
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
@@ -19,9 +24,11 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
 
+pub mod core;
 mod engines;
 pub mod error;
 mod rlp;
+pub mod trie;
 
 #[derive(Debug, Clone)]
 pub struct Store {
@@ -324,7 +331,7 @@ impl Store {
             let code_hash = code_hash(&account.code);
             self.add_account_code(code_hash, account.code)?;
             // Store the account's storage in a clean storage trie and compute its root
-            let mut storage_trie = self.engine.open_storage_trie(address, *EMPTY_TRIE_HASH);
+            let mut storage_trie = self.engine.open_storage_trie(address, *EMPTY_TRIE_HASH); // ojo que hay como 3 de estos
             for (storage_key, storage_value) in account.storage {
                 if !storage_value.is_zero() {
                     let hashed_key = hash_key(&storage_key);
@@ -639,12 +646,12 @@ mod tests {
     use std::{fs, panic, str::FromStr};
 
     use bytes::Bytes;
-    use ethereum_rust_core::{
+    /*use ethereum_rust_core::{
         types::{Transaction, TxType},
         Bloom,
-    };
+    };*/
     use ethereum_rust_rlp::decode::RLPDecode;
-    use ethereum_types::{H256, U256};
+    use ethereum_types::{Bloom, H256, U256};
 
     use super::*;
 
@@ -836,7 +843,7 @@ mod tests {
 
     fn test_store_block_receipt(store: Store) {
         let receipt = Receipt {
-            tx_type: TxType::EIP2930,
+            tx_type: core::transaction::TxType::EIP2930,
             succeeded: true,
             cumulative_gas_used: 1747,
             bloom: Bloom::random(),

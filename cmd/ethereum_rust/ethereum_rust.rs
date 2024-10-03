@@ -1,10 +1,11 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
-use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
+use ethereum_rust_storage::core::block::Block;
+use ethereum_rust_storage::core::genesis::Genesis;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::future::IntoFuture;

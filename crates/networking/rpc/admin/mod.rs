@@ -1,6 +1,5 @@
-use ethereum_rust_core::types::ChainConfig;
 use ethereum_rust_net::types::Node;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{core::genesis::ChainConfig, Store};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;

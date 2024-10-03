@@ -1,28 +1,18 @@
-mod db;
-mod error;
-mod nibble;
-mod node;
-mod node_hash;
-mod rlp;
-mod state;
-
-#[cfg(test)]
-mod test_utils;
-
 use ethereum_rust_rlp::constants::RLP_NULL;
 use ethereum_types::H256;
-use node::Node;
-use node_hash::NodeHash;
+
 use sha3::{Digest, Keccak256};
 
-pub use self::db::{
-    in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
-    TrieDB,
-};
-pub use self::error::TrieError;
-use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
-
 use lazy_static::lazy_static;
+
+use super::{
+    db::TrieDB,
+    error::TrieError,
+    nibble::NibbleSlice,
+    node::{LeafNode, Node},
+    node_hash::NodeHash,
+    state::TrieState,
+};
 
 lazy_static! {
     // Hash value for an empty trie, equal to keccak(RLP_NULL)
@@ -184,7 +174,11 @@ impl Trie {
 
     #[cfg(test)]
     /// Creates a new Trie based on a temporary Libmdbx DB
-    fn new_temp() -> Self {
+    pub fn new_temp() -> Self {
+        use crate::trie::db::libmdbx::LibmdbxTrieDB;
+
+        use super::test_utils;
+
         let db = test_utils::new_db::<test_utils::TestNodes>();
         Trie::new(Box::new(LibmdbxTrieDB::<test_utils::TestNodes>::new(db)))
     }
@@ -194,13 +188,14 @@ impl Trie {
 mod test {
     use std::sync::Arc;
 
-    use crate::test_utils::TestNodes;
+    use crate::trie::{
+        db::libmdbx::LibmdbxTrieDB,
+        test_utils::{self, TestNodes},
+    };
 
     use super::*;
     // Rename imports to avoid potential name clashes
-    use super::test_utils;
     use cita_trie::{MemoryDB as CitaMemoryDB, PatriciaTrie as CitaTrie, Trie as CitaTrieTrait};
-    use db::libmdbx::LibmdbxTrieDB;
     use hasher::HasherKeccak;
     use hex_literal::hex;
     use proptest::{

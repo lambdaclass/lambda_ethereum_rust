@@ -1,19 +1,21 @@
 use std::cmp::min;
 
-use ethereum_rust_core::{
-    types::{
-        calculate_base_fee_per_gas, compute_receipts_root, compute_transactions_root,
-        compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader, Withdrawal,
-        DEFAULT_OMMERS_HASH,
-    },
-    Address, Bloom, Bytes, H256, U256,
-};
 use ethereum_rust_evm::{
     beacon_root_contract_call, evm_state, get_state_transitions, process_withdrawals, spec_id,
     SpecId,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{
+    core::{
+        block::{
+            calculate_base_fee_per_gas, compute_receipts_root, compute_transactions_root,
+            compute_withdrawals_root, Block, BlockBody, BlockHash, BlockHeader, Withdrawal,
+            DEFAULT_OMMERS_HASH,
+        },
+        Address, Bloom, Bytes, H256, U256,
+    },
+    Store,
+};
 use sha3::{Digest, Keccak256};
 
 use crate::{

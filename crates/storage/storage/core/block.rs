@@ -1,11 +1,4 @@
-use super::{
-    BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
-    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
-};
-use crate::{
-    types::{Receipt, Transaction},
-    Address, H256, U256,
-};
+use crate::{trie::trie::Trie, Address, Receipt, Transaction, H256, U256};
 use bytes::Bytes;
 use ethereum_rust_rlp::{
     decode::RLPDecode,
@@ -13,7 +6,6 @@ use ethereum_rust_rlp::{
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
-use ethereum_rust_trie::Trie;
 use ethereum_types::Bloom;
 use keccak_hash::keccak;
 use serde::{Deserialize, Serialize};
@@ -24,6 +16,11 @@ pub type BlockNumber = u64;
 pub type BlockHash = H256;
 
 use lazy_static::lazy_static;
+
+use super::constants::{
+    BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOB_BASE_FEE_UPDATE_FRACTION, ELASTICITY_MULTIPLIER,
+    GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM, INITIAL_BASE_FEE, MIN_BASE_FEE_PER_BLOB_GAS,
+};
 
 lazy_static! {
     pub static ref DEFAULT_OMMERS_HASH: H256 = H256::from_slice(&hex::decode("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347").unwrap()); // = Keccak256(RLP([])) as of EIP-3675
@@ -78,26 +75,26 @@ pub struct BlockHeader {
     pub logs_bloom: Bloom,
     #[serde(default)]
     pub difficulty: U256,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub number: BlockNumber,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub gas_used: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub timestamp: u64,
-    #[serde(with = "crate::serde_utils::bytes")]
+    #[serde(with = "crate::core::serde_utils::bytes")]
     pub extra_data: Bytes,
     #[serde(rename(serialize = "mixHash"))]
     pub prev_randao: H256,
-    #[serde(with = "crate::serde_utils::u64::hex_str_padding")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str_padding")]
     pub nonce: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str_opt")]
     pub base_fee_per_gas: Option<u64>,
     pub withdrawals_root: Option<H256>,
-    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str_opt")]
     pub blob_gas_used: Option<u64>,
-    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str_opt")]
     pub excess_blob_gas: Option<u64>,
     pub parent_beacon_block_root: Option<H256>,
 }
@@ -267,12 +264,12 @@ impl BlockHeader {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub index: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub validator_index: u64,
     pub address: Address,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub amount: u64,
 }
 

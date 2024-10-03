@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 ethereum_rust-blockchain.workspace = true
 ethereum_rust-rpc.workspace = true
-ethereum_rust-core.workspace = true
 ethereum_rust-net.workspace = true
 ethereum_rust-storage.workspace = true
 ethereum_rust-evm.workspace = true

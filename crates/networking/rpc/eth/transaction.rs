@@ -7,14 +7,17 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::{
-    types::{AccessListEntry, BlockHash, BlockHeader, BlockNumber, GenericTransaction, TxKind},
-    H256, U256,
-};
 
 use ethereum_rust_blockchain::mempool;
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{
+    core::{
+        block::{BlockHash, BlockHeader, BlockNumber},
+        transaction::{AccessListEntry, GenericTransaction, TxKind},
+        H256, U256,
+    },
+    Store,
+};
 
 use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
 use serde::Serialize;
@@ -68,7 +71,7 @@ pub struct AccessListResult {
     access_list: Vec<AccessListEntry>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
-    #[serde(with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     gas_used: u64,
 }
 
@@ -205,7 +208,7 @@ impl RpcHandler for GetTransactionByHashRequest {
                 _ => return Ok(Value::Null),
             };
 
-        let transaction: ethereum_rust_core::types::Transaction =
+        let transaction: ethereum_rust_storage::core::transaction::Transaction =
             match storage.get_transaction_by_location(block_hash, index)? {
                 Some(transaction) => transaction,
                 _ => return Ok(Value::Null),

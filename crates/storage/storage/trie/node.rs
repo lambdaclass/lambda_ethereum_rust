@@ -6,9 +6,9 @@ pub use branch::BranchNode;
 pub use extension::ExtensionNode;
 pub use leaf::LeafNode;
 
-use crate::error::TrieError;
-
-use super::{nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, ValueRLP};
+use super::{
+    error::TrieError, nibble::NibbleSlice, node_hash::NodeHash, state::TrieState, trie::ValueRLP,
+};
 
 /// A Node in an Ethereum Compatible Patricia Merkle Trie
 #[derive(Debug, Clone)]

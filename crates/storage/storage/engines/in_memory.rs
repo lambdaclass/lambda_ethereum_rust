@@ -1,9 +1,17 @@
-use crate::error::StoreError;
-use bytes::Bytes;
-use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+use crate::{
+    core::{
+        block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber},
+        genesis::ChainConfig,
+        receipt::{Index, Receipt},
+        transaction::Transaction,
+    },
+    error::StoreError,
+    trie::{db::in_memory::InMemoryTrieDB, trie::Trie},
 };
-use ethereum_rust_trie::{InMemoryTrieDB, Trie};
+use bytes::Bytes;
+/*use ethereum_rust_core::types::{
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+};*/
 use ethereum_types::{Address, H256, U256};
 use std::{
     collections::HashMap,

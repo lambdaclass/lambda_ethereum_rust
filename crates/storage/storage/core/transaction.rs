@@ -979,31 +979,31 @@ mod serde_impl {
     pub struct GenericTransaction {
         #[serde(default)]
         pub r#type: TxType,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str")]
         pub nonce: u64,
         pub to: TxKind,
         pub from: Address,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
         pub gas: Option<u64>,
         #[serde(default)]
         pub value: U256,
-        #[serde(default, with = "crate::serde_utils::bytes")]
+        #[serde(default, with = "crate::core::serde_utils::bytes")]
         pub input: Bytes,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str")]
         pub gas_price: u64,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
         pub max_priority_fee_per_gas: Option<u64>,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_gas: Option<u64>,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
         pub max_fee_per_blob_gas: Option<u64>,
         #[serde(default)]
         pub access_list: Vec<AccessListEntry>,
         #[serde(default)]
         pub blob_versioned_hashes: Vec<H256>,
-        #[serde(default, with = "crate::serde_utils::bytes::vec")]
+        #[serde(default, with = "crate::core::serde_utils::bytes::vec")]
         pub blobs: Vec<Bytes>,
-        #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+        #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
         pub chain_id: Option<u64>,
     }
 }
@@ -1011,7 +1011,12 @@ mod serde_impl {
 #[cfg(test)]
 mod tests {
 
-    use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
+    //use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
+
+    use crate::core::{
+        block::{compute_receipts_root, compute_transactions_root, BlockBody},
+        receipt::Receipt,
+    };
 
     use super::*;
     use hex_literal::hex;

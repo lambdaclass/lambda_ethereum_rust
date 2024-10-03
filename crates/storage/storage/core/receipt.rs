@@ -8,7 +8,9 @@ use ethereum_rust_rlp::{
 use ethereum_types::{Address, Bloom, BloomInput, H256};
 use serde::{Deserialize, Serialize};
 
-use super::TxType;
+use super::transaction::TxType;
+
+//use super::TxType;
 pub type Index = u64;
 
 /// Result of a transaction

@@ -1,9 +1,9 @@
-use crate::{
+use crate::trie::{
     error::TrieError,
     nibble::{Nibble, NibbleSlice, NibbleVec},
     node_hash::{NodeEncoder, NodeHash},
     state::TrieState,
-    PathRLP, ValueRLP,
+    trie::{PathRLP, ValueRLP},
 };
 
 use super::{ExtensionNode, LeafNode, Node};

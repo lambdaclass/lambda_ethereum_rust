@@ -1,10 +1,10 @@
 use bytes::BufMut;
-use ethereum_rust_core::H512;
 use ethereum_rust_rlp::{
     encode::RLPEncode as _,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
+use ethereum_rust_storage::core::H512;
 use k256::PublicKey;
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 

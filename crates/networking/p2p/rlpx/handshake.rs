@@ -5,13 +5,13 @@ use crate::rlpx::{
 
 use aes::cipher::{KeyIvInit, StreamCipher};
 use bytes::BufMut;
-use ethereum_rust_core::{Signature, H128, H256, H512};
 use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
+use ethereum_rust_storage::core::{Signature, H128, H256, H512};
 use k256::{ecdsa::SigningKey, elliptic_curve::sec1::ToEncodedPoint, PublicKey, SecretKey};
 use rand::Rng;
 use sha3::{Digest, Keccak256};

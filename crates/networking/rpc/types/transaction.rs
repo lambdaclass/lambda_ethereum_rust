@@ -1,14 +1,14 @@
-use ethereum_rust_core::{
+use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder};
+use ethereum_rust_storage::core::{
+    block::{BlockHash, BlockNumber},
+    constants::BYTES_PER_BLOB,
     serde_utils,
-    types::{
-        BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction,
-        LegacyTransaction, Transaction, BYTES_PER_BLOB,
+    transaction::{
+        EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction, Transaction,
     },
     Address, H256,
 };
-use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError, structs::Decoder};
 use serde::Serialize;
-
 #[allow(unused)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,5 +1,4 @@
 use bytes::Bytes;
-use ethereum_rust_trie::Trie;
 use ethereum_types::{Address, Bloom, H256, U256};
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
@@ -7,10 +6,21 @@ use std::collections::HashMap;
 
 use ethereum_rust_rlp::encode::RLPEncode;
 
+use crate::trie::trie::Trie;
+
 use super::{
+    account::AccountState,
+    block::{
+        compute_receipts_root, compute_transactions_root, compute_withdrawals_root, Block,
+        BlockBody, BlockHeader, BlockNumber, DEFAULT_OMMERS_HASH,
+    },
+    constants::INITIAL_BASE_FEE,
+};
+
+/*use super::{
     compute_receipts_root, compute_transactions_root, compute_withdrawals_root, AccountState,
     Block, BlockBody, BlockHeader, BlockNumber, DEFAULT_OMMERS_HASH, INITIAL_BASE_FEE,
-};
+};*/
 
 #[allow(unused)]
 #[derive(Debug, Deserialize, Clone)]
@@ -23,21 +33,21 @@ pub struct Genesis {
     /// Genesis header values
     pub coinbase: Address,
     pub difficulty: U256,
-    #[serde(default, with = "crate::serde_utils::bytes")]
+    #[serde(default, with = "crate::core::serde_utils::bytes")]
     pub extra_data: Bytes,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub gas_limit: u64,
-    #[serde(with = "crate::serde_utils::u64::hex_str")]
+    #[serde(with = "crate::core::serde_utils::u64::hex_str")]
     pub nonce: u64,
     #[serde(alias = "mixHash", alias = "mixhash")]
     pub mix_hash: H256,
-    #[serde(deserialize_with = "crate::serde_utils::u64::deser_hex_or_dec_str")]
+    #[serde(deserialize_with = "crate::core::serde_utils::u64::deser_hex_or_dec_str")]
     pub timestamp: u64,
-    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
     pub base_fee_per_gas: Option<u64>,
-    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
     pub blob_gas_used: Option<u64>,
-    #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(default, with = "crate::core::serde_utils::u64::hex_str_opt")]
     pub excess_blob_gas: Option<u64>,
 }
 
@@ -156,13 +166,13 @@ impl ChainConfig {
 #[allow(unused)]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct GenesisAccount {
-    #[serde(default, with = "crate::serde_utils::bytes")]
+    #[serde(default, with = "crate::core::serde_utils::bytes")]
     pub code: Bytes,
     #[serde(default)]
     pub storage: HashMap<H256, U256>,
-    #[serde(deserialize_with = "crate::serde_utils::u256::deser_hex_or_dec_str")]
+    #[serde(deserialize_with = "crate::core::serde_utils::u256::deser_hex_or_dec_str")]
     pub balance: U256,
-    #[serde(default, with = "crate::serde_utils::u64::hex_str")]
+    #[serde(default, with = "crate::core::serde_utils::u64::hex_str")]
     pub nonce: u64,
 }
 
@@ -186,7 +196,7 @@ impl Genesis {
 
         BlockHeader {
             parent_hash: H256::zero(),
-            ommers_hash: *DEFAULT_OMMERS_HASH,
+            ommers_hash: *DEFAULT_OMMERS_HASH, // ver que hay 2 de estos
             coinbase: self.coinbase,
             state_root: self.compute_state_root(),
             transactions_root: compute_transactions_root(&[]),
@@ -237,8 +247,6 @@ impl Genesis {
 mod tests {
     use std::str::FromStr;
     use std::{fs::File, io::BufReader};
-
-    use crate::types::INITIAL_BASE_FEE;
 
     use super::*;
 

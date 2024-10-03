@@ -6,6 +6,8 @@ use ethereum_rust_rlp::{
 };
 use smallvec::SmallVec;
 
+use super::trie::PathRLP;
+
 /// Struct representing a half-byte
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Nibble {
@@ -92,7 +94,7 @@ impl<'a> NibbleSlice<'a> {
     }
 
     /// Returns the full original path, ignoring the current offset
-    pub fn data(&self) -> super::PathRLP {
+    pub fn data(&self) -> PathRLP {
         self.data.to_vec()
     }
 

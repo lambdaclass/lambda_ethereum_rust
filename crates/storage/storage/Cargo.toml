@@ -6,19 +6,29 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ethereum_rust-core.workspace = true
-ethereum_rust-trie.workspace = true
 ethereum_rust-rlp.workspace = true
+tinyvec = "1.6.0"
+keccak-hash = "0.10.0"
+secp256k1 = { version = "0.29", default-features = false, features = [
+    "global-context",
+    "recovery",
+] }
+crc32fast.workspace = true
+lazy_static.workspace = true
+ethereum-types.workspace = true
 
-ethereum-types = "0.14.1"
+# trie deps
+smallvec = {version = "1.10.0", features = ["const_generics", "union"]}
+digest = "0.10.6"
+
 anyhow = "1.0.86"
 bytes.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 sha3.workspace = true
 hex.workspace = true
-serde = { version = "1.0.203", features = ["derive"] }
-serde_json = "1.0.117"
+serde.workspace = true
+serde_json.workspace = true
 libmdbx = { workspace = true, optional = true }
 
 [features]
@@ -29,6 +39,10 @@ libmdbx = ["dep:libmdbx"]
 [dev-dependencies]
 hex.workspace = true
 hex-literal.workspace = true
+proptest = "1.0.0"
+tempdir = "0.3.7"
+cita_trie = "4.0.0" # used for proptest comparisons
+hasher = "0.1.4" # cita_trie needs this
 
 [lib]
 path = "./storage.rs"

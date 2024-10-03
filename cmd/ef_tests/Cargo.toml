@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 ethereum_rust-blockchain.workspace = true
-ethereum_rust-core.workspace = true
 ethereum_rust-storage.workspace = true
 ethereum_rust-rlp.workspace = true
 serde.workspace = true

@@ -1,4 +1,4 @@
-use ethereum_rust_core::types::ChainConfig;
+use ethereum_rust_storage::core::genesis::ChainConfig;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 

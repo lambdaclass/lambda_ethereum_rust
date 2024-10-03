@@ -1,9 +1,10 @@
-use crate::error::TrieError;
-use crate::nibble::NibbleSlice;
-use crate::nibble::NibbleVec;
-use crate::node_hash::{NodeEncoder, NodeHash, PathKind};
-use crate::state::TrieState;
-use crate::ValueRLP;
+use crate::trie::{
+    error::TrieError,
+    nibble::{NibbleSlice, NibbleVec},
+    node_hash::{NodeEncoder, NodeHash, PathKind},
+    state::TrieState,
+    trie::ValueRLP,
+};
 
 use super::{BranchNode, LeafNode, Node};
 
@@ -220,10 +221,7 @@ impl ExtensionNode {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        pmt_node,
-        {nibble::Nibble, Trie},
-    };
+    use crate::{pmt_node, trie::nibble::Nibble, Trie};
 
     #[test]
     fn new() {

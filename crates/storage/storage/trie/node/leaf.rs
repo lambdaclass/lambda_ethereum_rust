@@ -1,13 +1,12 @@
-use crate::{
+use crate::trie::{
     error::TrieError,
     nibble::NibbleSlice,
-    node::BranchNode,
     node_hash::{NodeEncoder, NodeHash, PathKind},
     state::TrieState,
-    PathRLP, ValueRLP,
+    trie::{PathRLP, ValueRLP},
 };
 
-use super::{ExtensionNode, Node};
+use super::{BranchNode, ExtensionNode, Node};
 /// Leaf Node of an an Ethereum Compatible Patricia Merkle Trie
 /// Contains the node's hash, value & path
 #[derive(Debug, Clone, Default)]
@@ -135,7 +134,7 @@ impl LeafNode {
             encoded_value.first().copied().unwrap_or_default(),
         );
 
-        let mut encoder = crate::node_hash::NodeEncoder::new();
+        let mut encoder = crate::trie::node_hash::NodeEncoder::new();
         encoder.write_list_header(path_len + value_len);
         encoder.write_path_slice(&path, PathKind::Leaf);
         encoder.write_bytes(encoded_value);

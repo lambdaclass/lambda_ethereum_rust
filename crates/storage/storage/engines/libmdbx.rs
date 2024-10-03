@@ -4,14 +4,22 @@ use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
     BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
 };
+use crate::trie::db::libmdbx::LibmdbxTrieDB;
+use crate::trie::db::libmdbx_dupsort::LibmdbxDupsortTrieDB;
+use crate::trie::trie::Trie;
 use anyhow::Result;
 use bytes::Bytes;
-use ethereum_rust_core::types::{
+/*use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+};*/
+use crate::core::{
+    block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber},
+    genesis::ChainConfig,
+    receipt::{Index, Receipt},
+    transaction::Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_trie::{LibmdbxDupsortTrieDB, LibmdbxTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
 use libmdbx::orm::{Decodable, Encodable, Table};
 use libmdbx::{

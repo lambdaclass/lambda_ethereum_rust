@@ -8,7 +8,12 @@ use ethereum_rust_rlp::{
 
 use ethereum_types::H32;
 
-use super::{BlockHash, BlockNumber, ChainConfig};
+use super::{
+    block::{BlockHash, BlockNumber},
+    genesis::ChainConfig,
+};
+
+//use super::{BlockHash, BlockNumber, ChainConfig};
 
 #[derive(Debug)]
 pub struct ForkId {

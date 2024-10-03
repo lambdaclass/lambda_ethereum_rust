@@ -1,14 +1,15 @@
 use bytes::BufMut;
-use ethereum_rust_core::{
-    types::{BlockHash, ForkId},
-    U256,
-};
+
 use ethereum_rust_rlp::{
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{
+    core::{block::BlockHash, fork_id::ForkId, U256},
+    error::StoreError,
+    Store,
+};
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
 pub const ETH_VERSION: u32 = 68;

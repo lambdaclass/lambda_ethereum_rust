@@ -7,11 +7,11 @@ use crate::{
     },
     error::MempoolError,
 };
-use ethereum_rust_core::{
-    types::{BlockHeader, ChainConfig, Transaction},
-    H256,
+
+use ethereum_rust_storage::{
+    core::{block::BlockHeader, genesis::ChainConfig, transaction::Transaction, H256},
+    Store,
 };
-use ethereum_rust_storage::Store;
 
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
     // Validate transaction
@@ -181,10 +181,13 @@ mod tests {
     use super::{
         add_transaction, get_transaction, transaction_intrinsic_gas, validate_transaction,
     };
-    use ethereum_rust_core::types::{
-        BlockHeader, ChainConfig, EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
+
+    use ethereum_rust_storage::core::block::BlockHeader;
+    use ethereum_rust_storage::core::genesis::ChainConfig;
+    use ethereum_rust_storage::core::transaction::{
+        EIP1559Transaction, EIP4844Transaction, Transaction, TxKind,
     };
-    use ethereum_rust_core::{Address, Bytes, H256, U256};
+    use ethereum_rust_storage::core::{Address, Bytes, H256, U256};
     use ethereum_rust_storage::EngineType;
     use ethereum_rust_storage::{error::StoreError, Store};
 

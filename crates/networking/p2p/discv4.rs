@@ -2,13 +2,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::types::{Endpoint, Node, NodeRecord};
 use bytes::BufMut;
-use ethereum_rust_core::{H256, H512, H520};
+//use ethereum_rust_core::{H256, H512, H520};
 use ethereum_rust_rlp::{
     decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{self, Decoder, Encoder},
 };
+use ethereum_rust_storage::core::{H256, H512, H520};
 use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
 use sha3::{Digest, Keccak256};
 
@@ -509,7 +510,8 @@ impl RLPEncode for ENRResponseMessage {
 mod tests {
     use super::*;
     use bytes::Bytes;
-    use ethereum_rust_core::{H256, H264};
+    use ethereum_rust_storage::core::H264;
+    //use ethereum_rust_core::{H256, H264};
     use std::fmt::Write;
     use std::net::IpAddr;
     use std::num::ParseIntError;

@@ -1,7 +1,7 @@
 use anyhow::Error;
 use bytes::Bytes;
-use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_rlp::decode::RLPDecode as _;
+use ethereum_rust_storage::core::{block::Block, genesis::Genesis};
 use std::{
     fs::File,
     io::{BufReader, Read as _},
@@ -37,8 +37,10 @@ pub fn genesis_file(file: File) -> Result<Genesis, serde_json::Error> {
 
 #[cfg(test)]
 mod tests {
+    use ethereum_rust_storage::core::H256;
+
     use crate::decode::chain_file;
-    use ethereum_rust_core::H256;
+
     use std::{fs::File, str::FromStr as _};
 
     #[test]

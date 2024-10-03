@@ -1,14 +1,21 @@
 use std::marker::PhantomData;
 
 use bytes::Bytes;
-use ethereum_rust_core::{
+/*use ethereum_rust_core::{
     types::{Block, BlockBody, BlockHash, BlockHeader, Receipt, Transaction},
     H256,
-};
+};*/
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::U256;
+use keccak_hash::H256;
 #[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
+
+use crate::core::{
+    block::{Block, BlockBody, BlockHash, BlockHeader},
+    receipt::Receipt,
+    transaction::Transaction,
+};
 
 // Account types
 pub type AccountCodeHashRLP = Rlp<H256>;

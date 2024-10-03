@@ -1,7 +1,10 @@
 use std::{fmt::Display, str::FromStr};
 
-use ethereum_rust_core::types::{BlockHash, BlockHeader, BlockNumber};
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{
+    core::block::{BlockHash, BlockHeader, BlockNumber},
+    error::StoreError,
+    Store,
+};
 use serde::Deserialize;
 use serde_json::Value;
 

@@ -1,4 +1,4 @@
-use ethereum_rust_core::{serde_utils, Address, H256, U256};
+use ethereum_rust_storage::core::{Address, H256, U256};
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 
 #[derive(Debug, Serialize)]
@@ -9,7 +9,7 @@ pub struct AccountProof {
     pub address: Address,
     pub balance: U256,
     pub code_hash: H256,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     pub nonce: u64,
     pub storage_hash: H256,
     pub storage_proof: Vec<StorageProof>,

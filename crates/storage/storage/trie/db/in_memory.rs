@@ -1,5 +1,6 @@
+use crate::trie::error::TrieError;
+
 use super::TrieDB;
-use crate::error::TrieError;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},

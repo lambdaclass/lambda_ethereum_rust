@@ -1,7 +1,8 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::error::TrieError;
 use libmdbx::orm::{Database, DupSort, Encodable};
+
+use crate::trie::error::TrieError;
 
 use super::TrieDB;
 
@@ -73,8 +74,9 @@ fn node_hash_to_fixed_size(node_hash: Vec<u8>) -> [u8; 33] {
 #[cfg(test)]
 mod test {
 
+    use crate::trie::test_utils::new_db;
+
     use super::*;
-    use crate::test_utils::new_db;
     use libmdbx::{dupsort, table};
 
     dupsort!(

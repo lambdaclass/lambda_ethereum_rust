@@ -1,16 +1,20 @@
 use bytes::Bytes;
-use ethereum_rust_core::types::{
-    code_hash, Account as ethereum_rustAccount, AccountInfo, Block as CoreBlock, BlockBody,
-    EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
-    Transaction as ethereum_rustTransaction, TxKind,
+
+use ethereum_rust_storage::core::{
+    account::{code_hash, Account as ethereum_rustAccount, AccountInfo},
+    block::{Block as CoreBlock, BlockBody, BlockHeader, Withdrawal},
+    genesis::{Genesis, GenesisAccount},
+    serde_utils::{self},
+    transaction::{
+        EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, LegacyTransaction,
+        Transaction as ethereum_rustTransaction, TxKind,
+    },
+    Address, Bloom, H256, H64, U256,
 };
-use ethereum_rust_core::types::{Genesis, GenesisAccount, Withdrawal};
-use ethereum_rust_core::{types::BlockHeader, Address, Bloom, H256, H64, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::network::Network;
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TestUnit {
@@ -18,7 +22,7 @@ pub struct TestUnit {
     pub info: Option<serde_json::Value>,
     pub blocks: Vec<BlockWithRLP>,
     pub genesis_block_header: Header,
-    #[serde(rename = "genesisRLP", with = "ethereum_rust_core::serde_utils::bytes")]
+    #[serde(rename = "genesisRLP", with = "serde_utils::bytes")]
     pub genesis_rlp: Bytes,
     pub lastblockhash: H256,
     pub network: Network,
@@ -70,7 +74,7 @@ impl TestUnit {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
     pub balance: U256,
-    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
+    #[serde(with = "serde_utils::bytes")]
     pub code: Bytes,
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
@@ -109,7 +113,7 @@ pub struct Header {
     pub bloom: Bloom,
     pub coinbase: Address,
     pub difficulty: U256,
-    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
+    #[serde(with = "serde_utils::bytes")]
     pub extra_data: Bytes,
     pub gas_limit: U256,
     pub gas_used: U256,
@@ -134,7 +138,7 @@ pub struct Header {
 #[derive(Debug, PartialEq, Eq, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockWithRLP {
-    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
+    #[serde(with = "serde_utils::bytes")]
     pub rlp: Bytes,
     #[serde(flatten)]
     inner: Option<BlockInner>,
@@ -191,7 +195,7 @@ impl From<Block> for CoreBlock {
 pub struct Transaction {
     #[serde(rename = "type")]
     pub transaction_type: Option<U256>,
-    #[serde(with = "ethereum_rust_core::serde_utils::bytes")]
+    #[serde(with = "serde_utils::bytes")]
     pub data: Bytes,
     pub gas_limit: U256,
     pub gas_price: Option<U256>,

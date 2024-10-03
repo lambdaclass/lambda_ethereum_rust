@@ -1,12 +1,20 @@
 use bytes::Bytes;
-use ethereum_rust_core::types::{
+/*use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
-};
+};*/
 use ethereum_types::{Address, H256, U256};
 use std::{fmt::Debug, panic::RefUnwindSafe};
 
-use crate::error::StoreError;
-use ethereum_rust_trie::Trie;
+use crate::{
+    core::{
+        block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber},
+        genesis::ChainConfig,
+        receipt::{Index, Receipt},
+        transaction::Transaction,
+    },
+    error::StoreError,
+    trie::trie::Trie,
+};
 
 pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     /// Add block header

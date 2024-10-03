@@ -2,8 +2,11 @@ use ethereum_rust_blockchain::{
     error::ChainError,
     payload::{build_payload, BuildPayloadArgs},
 };
-use ethereum_rust_core::{types::BlockHeader, H256, U256};
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{
+    core::{block::BlockHeader, H256, U256},
+    error::StoreError,
+    Store,
+};
 use serde_json::Value;
 use tracing::warn;
 

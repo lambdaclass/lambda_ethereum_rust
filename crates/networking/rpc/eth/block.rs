@@ -12,14 +12,17 @@ use crate::{
     utils::RpcErr,
     RpcHandler,
 };
-use ethereum_rust_core::{
-    types::{
-        calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-        Receipt,
+
+use ethereum_rust_storage::{
+    core::{
+        block::{
+            calculate_base_fee_per_blob_gas, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+        },
+        receipt::Receipt,
+        U256,
     },
-    U256,
+    Store,
 };
-use ethereum_rust_storage::Store;
 
 pub struct GetBlockByNumberRequest {
     pub block: BlockIdentifier,

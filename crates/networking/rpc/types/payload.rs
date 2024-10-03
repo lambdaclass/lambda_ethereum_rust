@@ -1,15 +1,15 @@
 use bytes::Bytes;
 use ethereum_rust_rlp::error::RLPDecodeError;
-use serde::{Deserialize, Serialize};
-
-use ethereum_rust_core::{
-    serde_utils,
-    types::{
+use ethereum_rust_storage::core::{
+    block::{
         compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
-        BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        BlockHeader, Withdrawal, DEFAULT_OMMERS_HASH,
     },
+    serde_utils,
+    transaction::Transaction,
     Address, Bloom, H256, U256,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,24 +20,24 @@ pub struct ExecutionPayloadV3 {
     receipts_root: H256,
     logs_bloom: Bloom,
     prev_randao: H256,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     block_number: u64,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     gas_limit: u64,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     gas_used: u64,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     timestamp: u64,
-    #[serde(with = "serde_utils::bytes")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::bytes")]
     extra_data: Bytes,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     base_fee_per_gas: u64,
     pub block_hash: H256,
     transactions: Vec<EncodedTransaction>,
     withdrawals: Vec<Withdrawal>,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     blob_gas_used: u64,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     excess_blob_gas: u64,
 }
 

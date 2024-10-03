@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
-use ethereum_rust_trie::Trie;
 use ethereum_types::{H256, U256};
 use sha3::{Digest as _, Keccak256};
 
@@ -13,8 +12,12 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 
-use super::GenesisAccount;
+//use super::GenesisAccount;
 use lazy_static::lazy_static;
+
+use crate::trie::trie::Trie;
+
+use super::genesis::GenesisAccount;
 
 lazy_static! {
     // Keccak256(""), represents the code hash for an account without code

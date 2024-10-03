@@ -1,18 +1,18 @@
 use super::transaction::RpcTransaction;
-use ethereum_rust_core::{
-    serde_utils,
-    types::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Withdrawal},
-    H256, U256,
-};
+
 use ethereum_rust_rlp::encode::RLPEncode;
 
+use ethereum_rust_storage::core::{
+    block::{Block, BlockBody, BlockHash, BlockHeader, BlockNumber, Withdrawal},
+    H256, U256,
+};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
     hash: H256,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     size: u64,
     // TODO (#307): Remove TotalDifficulty.
     total_difficulty: U256,
@@ -104,10 +104,11 @@ impl FullBlockBody {
 mod test {
 
     use bytes::Bytes;
-    use ethereum_rust_core::{
-        types::{EIP1559Transaction, Transaction, TxKind},
-        Address, Bloom, H256, U256,
+    use ethereum_rust_storage::core::{
+        transaction::{EIP1559Transaction, Transaction, TxKind},
+        Address, Bloom,
     };
+
     use std::str::FromStr;
 
     use super::*;

@@ -1,6 +1,7 @@
 use ethereum_rust_rlp::error::RLPDecodeError;
-use ethereum_rust_trie::TrieError;
 use thiserror::Error;
+
+use crate::trie::error::TrieError;
 
 // TODO improve errors
 #[derive(Debug, Error)]

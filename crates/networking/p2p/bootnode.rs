@@ -1,5 +1,7 @@
-use ethereum_rust_core::H512;
+//use ethereum_rust_core::H512;
 use std::{net::SocketAddr, num::ParseIntError, str::FromStr};
+
+use ethereum_rust_storage::core::H512;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct BootNode {

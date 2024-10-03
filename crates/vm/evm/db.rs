@@ -1,5 +1,8 @@
-use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256};
-use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_storage::{
+    core::{block::BlockHash, Address as CoreAddress, H256 as CoreH256},
+    error::StoreError,
+    Store,
+};
 use revm::primitives::{
     AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
     Bytes as RevmBytes, B256 as RevmB256, U256 as RevmU256,

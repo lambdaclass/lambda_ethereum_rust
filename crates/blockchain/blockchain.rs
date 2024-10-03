@@ -5,15 +5,17 @@ pub mod payload;
 
 use constants::{GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MAX_BLOB_NUMBER_PER_BLOCK};
 use error::{ChainError, InvalidBlockError};
-use ethereum_rust_core::types::{
-    validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
-    BlockHash, BlockHeader, EIP4844Transaction, Receipt, Transaction,
-};
-use ethereum_rust_core::H256;
 
 use ethereum_rust_evm::{
     evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
 };
+use ethereum_rust_storage::core::block::{
+    validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
+    BlockHash, BlockHeader,
+};
+use ethereum_rust_storage::core::receipt::Receipt;
+use ethereum_rust_storage::core::transaction::{EIP4844Transaction, Transaction};
+use ethereum_rust_storage::core::H256;
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
 

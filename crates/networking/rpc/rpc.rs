@@ -259,8 +259,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::{ChainConfig, Genesis};
-    use ethereum_rust_core::H512;
+
+    use ethereum_rust_storage::core::genesis::{ChainConfig, Genesis};
+    use ethereum_rust_storage::core::H512;
     use ethereum_rust_storage::EngineType;
     use std::fs::File;
     use std::io::BufReader;

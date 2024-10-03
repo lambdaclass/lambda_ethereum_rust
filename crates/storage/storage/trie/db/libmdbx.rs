@@ -1,6 +1,5 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use crate::error::TrieError;
 use libmdbx::orm::{Database, Table};
 
 /// Libmdbx implementation for the TrieDB trait, with get and put operations.
@@ -8,6 +7,8 @@ pub struct LibmdbxTrieDB<T: Table> {
     db: Arc<Database>,
     phantom: PhantomData<T>,
 }
+
+use crate::trie::error::TrieError;
 
 use super::TrieDB;
 
@@ -45,7 +46,7 @@ mod test {
     use std::sync::Arc;
 
     use super::LibmdbxTrieDB;
-    use crate::test_utils::new_db;
+    use crate::trie::{db::TrieDB, test_utils::new_db};
     use libmdbx::{
         orm::{table, Database},
         table_info,
@@ -54,8 +55,6 @@ mod test {
         /// NodeHash to Node table
         ( Nodes )  Vec<u8> => Vec<u8>
     );
-
-    use crate::TrieDB;
 
     #[test]
     fn simple_addition() {

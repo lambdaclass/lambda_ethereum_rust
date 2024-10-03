@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::error::TrieError;
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 
 use super::db::TrieDB;
 
+use super::error::TrieError;
 /// Libmdbx database representing the trie state
 /// It contains a table mapping node hashes to rlp encoded nodes
 /// All nodes are stored in the DB and no node is ever removed

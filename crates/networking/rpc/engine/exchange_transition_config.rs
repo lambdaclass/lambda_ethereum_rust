@@ -1,5 +1,4 @@
-use ethereum_rust_core::{serde_utils, H256};
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{core::H256, Store};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{info, warn};
@@ -9,10 +8,10 @@ use crate::{utils::RpcErr, RpcHandler};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangeTransitionConfigPayload {
-    #[serde(with = "serde_utils::u128::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u128::hex_str")]
     terminal_total_difficulty: u128,
     terminal_block_hash: H256,
-    #[serde(with = "serde_utils::u64::hex_str")]
+    #[serde(with = "ethereum_rust_storage::core::serde_utils::u64::hex_str")]
     terminal_block_number: u64,
 }
 
