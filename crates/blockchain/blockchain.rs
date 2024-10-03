@@ -10,7 +10,7 @@ use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, validate_no_cancun_header_fields, Block,
     BlockHash, BlockHeader, BlockNumber, EIP4844Transaction, Receipt, Transaction,
 };
-use ethereum_rust_core::{H256, U256};
+use ethereum_rust_core::H256;
 
 use ethereum_rust_evm::{
     evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
@@ -186,7 +186,7 @@ pub fn new_head(
     };
 
     // Check that we are not being pushed pre-merge
-    total_difficulty_check(&head_hash, &head, &store)?;
+    total_difficulty_check(&head_hash, &head, store)?;
 
     // Check that the headers are in the correct order.
     if finalized.number > safe.number || safe.number > head.number {
@@ -195,17 +195,17 @@ pub fn new_head(
 
     // If the head block is already in our canonical chain, the beacon client is
     // probably resyncing. Ignore the update.
-    if is_canonical(&store, head.number, head_hash).map_err(wrap)? {
+    if is_canonical(store, head.number, head_hash).map_err(wrap)? {
         return Ok(());
     }
 
     // If both finalized and safe blocks are canonical, we can skip the ancestry check.
     let finalized_canonical =
-        is_canonical(&store, finalized.number, finalized_hash).map_err(wrap)?;
-    let safe_canonical = is_canonical(&store, safe.number, safe_hash).map_err(wrap)?;
+        is_canonical(store, finalized.number, finalized_hash).map_err(wrap)?;
+    let safe_canonical = is_canonical(store, safe.number, safe_hash).map_err(wrap)?;
 
     // Find out if blocks are correctly connected.
-    let Some(head_ancestry) = find_ancestry(&store, &safe, &head).map_err(wrap)? else {
+    let Some(head_ancestry) = find_ancestry(store, &safe, &head).map_err(wrap)? else {
         return Err(InvalidForkChoice::Disconnected(
             error::ForkChoiceElement::Head,
             error::ForkChoiceElement::Safe,
@@ -216,7 +216,7 @@ pub fn new_head(
         // Skip check. We will not canonize anything between safe and finalized blocks.
         Vec::new()
     } else {
-        let Some(ancestry) = find_ancestry(&store, &finalized, &safe).map_err(wrap)? else {
+        let Some(ancestry) = find_ancestry(store, &finalized, &safe).map_err(wrap)? else {
             return Err(InvalidForkChoice::Disconnected(
                 error::ForkChoiceElement::Safe,
                 error::ForkChoiceElement::Finalized,

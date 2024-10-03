@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod smoke_test {
+mod test {
     use std::{fs::File, io::BufReader};
 
     use ethereum_rust_core::{
@@ -45,7 +45,7 @@ mod smoke_test {
         add_block(&block_2, &store).expect("Could not add block 2.");
         let retrieved_2 = store.get_block_header_by_hash(hash_2).unwrap();
 
-        assert!(!retrieved_2.is_none());
+        assert!(retrieved_2.is_some());
         assert!(store.get_canonical_block_hash(2).unwrap().is_none());
 
         // Receive block 2 as new head.
@@ -75,7 +75,7 @@ mod smoke_test {
             version: 1,
         };
 
-        build_payload(&args, &store).unwrap()
+        build_payload(&args, store).unwrap()
     }
 
     fn test_store() -> Store {
