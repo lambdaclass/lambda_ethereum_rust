@@ -1,13 +1,18 @@
 use std::{collections::HashMap, path::Path};
 
-use bytes::Bytes;
 use levm::{
-    block::BlockEnv,
-    primitives::U256,
-    transaction::Transaction,
-    vm::{Environment, Message, TransactTo, WorldState, VM},
-    vm_result::ExecutionResult,
+    block::BlockEnv, 
+    primitives::{Bytes, U256}, 
+    transaction::{Transaction, TxEnv, TransactTo}, vm::{Account, StorageSlot, Db, VM}
 };
+
+// use levm::{
+//     block::BlockEnv,
+//     primitives::U256,
+//     transaction::Transaction,
+//     vm::{Account, Environment, Message, StorageSlot, TransactTo, WorldState, VM},
+//     vm_result::ExecutionResult,
+// };
 
 use super::models::{AccountInfo, Env, Test, TestSuite, TestUnit, TransactionParts};
 
@@ -191,6 +196,46 @@ fn setup_transaction(transaction: &TransactionParts) -> Transaction {
         }
     }
 }
+// /// The transaction environment.
+// #[derive(Clone, Debug)]
+// pub struct TxEnv {
+//     pub msg_sender: Address,
+//     pub gas_limit: u64,
+//     pub gas_price: U256,
+//     pub transact_to: TransactTo,
+//     pub value: U256,
+//     pub data: Bytes,
+//     pub nonce: Option<u64>,
+//     pub chain_id: Option<u64>,
+//     pub access_list: AccessList,
+//     pub max_priority_fee_per_gas: Option<U256>,
+//     pub blob_hashes: Vec<H256>, 
+//     pub max_fee_per_blob_gas: Option<U256>,
+// }
+
+fn setup_txenv(transaction: &TransactionParts) -> TxEnv {
+    let msg_sender = transaction.sender.unwrap_or_default(); // if not present we derive it from secret key
+    let transact_to: TransactTo = match transaction.to {
+        Some(to) => TransactTo::Call(to),
+        None => TransactTo::Create,
+    };
+
+    TxEnv {
+        msg_sender,
+        gas_limit: transaction.gas_limit[0].as_u64(),
+        gas_price: transaction.gas_price,
+        transact_to,
+        value: transaction.value[0],
+        chain_id: 0,
+        data: decode_hex(transaction.data[0].clone()).unwrap(),
+        nonce: Some(transaction.nonce.as_u64()),
+        chain_id: 0,
+        access_list: transaction.access_lists.get(0).cloned().flatten(),
+        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+        blob_hashes: transaction.blob_versioned_hashes.clone(),
+        max_fee_per_blob_gas: transaction.max_fee_per_gas,
+    }
+}
 
 // unit.env ->
 // pub struct Env {
@@ -239,27 +284,51 @@ fn setup_block_env(env: &Env) -> BlockEnv {
 }
 
 fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
-    let transaction = setup_transaction(&unit.transaction);
+    let transaction_env = setup_txenv(&unit.transaction);
     let block_env = setup_block_env(&unit.env);
 
-    let world_state = WorldState::default();
+    let db = Db::default();
 
-    // Load pre storage into world state
+    // Load pre storage into db
     for (address, account_info) in unit.pre.iter() {
         let opcodes = decode_hex(account_info.code.clone()).unwrap();
-        let account = Account {
-            address: address,
-            balance: account_info.balance,
-            bytecode: opcodes,
-            storage: account_info.storage.clone(),
-            nonce: account_info.nonce,
-        };
-        world_state
+
+        // pub struct Account {
+        //     pub address: Address,
+        //     pub balance: U256,
+        //     pub bytecode: Bytes,
+        //     pub storage: HashMap<U256, StorageSlot>,
+        //     pub nonce: U256,
+        // }
+
+        let storage = account_info
+            .storage
+            .iter()
+            .map(|(key, value)| {
+                (
+                    U256::from(key.clone()),
+                    StorageSlot {
+                        original_value: value.clone(),
+                        current_value: value.clone(),
+                    },
+                )
+            })
+            .collect();
+
+        let account = Account::new_from(
+            address,
+            account_info.balance,
+            opcodes,
+            storage,
+            account_info.nonce,
+        );
+
+        db
             .accounts
             .insert(address, account.clone());
     }
 
-    VM::new(transaction, block_env, world_state)
+    VM::new(transaction, block_env, db)
 }
 
 fn verify_result(

@@ -76,7 +76,23 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
-    pub fn new(msg: Message) -> Self {
+    pub fn new(msg_sender: Address, to: Address, code_address: Address, delegate: Option<Address>, bytecode: Bytes, msg_value: U256, calldata: Bytes, gas: U256, is_static: bool, depth: u16) -> Self {
+        Self {
+            msg_sender,
+            to,
+            code_address,
+            delegate,
+            bytecode,
+            msg_value,
+            calldata,
+            gas,
+            is_static,
+            depth,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_from_message(msg: Message) -> Self {
         Self {
             msg_sender: msg.msg_sender,
             to: msg.to,

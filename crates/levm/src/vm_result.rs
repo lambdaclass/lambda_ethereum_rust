@@ -39,6 +39,7 @@ pub enum ExecutionResult {
         gas_refunded: u64,
         logs: Vec<Log>,
         output: Output,
+        return_data: Bytes,
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas.
     Revert { gas_used: u64, output: Bytes },

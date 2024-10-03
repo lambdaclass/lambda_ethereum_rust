@@ -1,11 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
-    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
-    call_frame::{CallFrame, Log},
-    constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
-    opcodes::Opcode,
-    primitives::{Address, Bytes, H256, H32, U256, U512}, vm_result::{ExecutionResult, ResultAndState, ResultReason, VMError},
+    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT}, call_frame::{CallFrame, Log}, constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN}, opcodes::Opcode, primitives::{Address, Bytes, H256, H32, U256, U512}, transaction::{TransactTo, TxEnv}, vm_result::{ExecutionResult, ResultAndState, ResultReason, VMError}
 };
 use sha3::{Digest, Keccak256};
 
@@ -23,6 +19,10 @@ impl Account {
     pub fn new(balance: U256, bytecode: Bytes) -> Self {
         Self { balance, bytecode, ..Default::default() }
     }
+
+    pub fn new_from(address: Address, balance: U256, bytecode: Bytes, storage: HashMap<U256, StorageSlot>, nonce: U256) -> Self {
+        Self { address, balance, bytecode, storage, nonce }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -32,19 +32,18 @@ pub struct StorageSlot {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct WorldState {
+pub struct Db {
     pub accounts: HashMap<Address, Account>,
     pub block_hashes: HashMap<U256, H256>,
 }
 
-impl WorldState {
+impl Db {
     pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
         self.accounts
             .get(address)
             .and_then(|account| account.storage.get(key))
             .cloned()
     }
-
     pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
         self.accounts
             .entry(*address)
@@ -52,22 +51,35 @@ impl WorldState {
             .storage
             .insert(key, slot);
     }
+
+    fn get_account_bytecode(&self, address: &Address) -> Bytes {
+        self.accounts
+            .get(address)
+            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
+    }
+    fn balance(&mut self, address: &Address) -> U256 {
+        self.accounts
+            .get(address)
+            .map_or(U256::zero(), |acc| acc.balance)
+    }
+    pub fn add_account(&mut self, address: Address, account: Account) {
+        self.accounts.insert(address, account);
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 struct Substate; // TODO
 
-/// Transaction environment, is the same for the whole transaction.
-/// Context, basically
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
-    pub msg_sender: Address,
-    pub to: TransactTo,
+    // origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    pub gas_price: u64,
+    // gas_price: u64,
+    gas_limit: u64,
+    pub consumed_gas: u64,
     /// The block header of the present block.
     pub block: BlockEnv,
 }
@@ -104,13 +116,14 @@ pub struct Message {
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    pub call_frames: Vec<CallFrame>,
+    call_frames: Vec<CallFrame>,
     pub env: Environment,
     /// Information that is acted upon immediately following the
     /// transaction.
-    accrued_substate: Substate,
-    // pub remaining_gas: u64,
-    pub world_state: WorldState,
+    pub accrued_substate: Substate,
+    /// Mapping between addresses (160-bit identifiers) and account
+    /// states.
+    pub db: Db,
 }
 
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
@@ -129,37 +142,59 @@ fn address_to_word(address: Address) -> U256 {
 
 impl VM {
     // TODO: block and transaction, not this
-    pub fn new(bytecode: Bytes, msg_sender: Address, balance: U256) -> Self {
-        // pub fn new(bytecode: Bytes, state: WorldState) -> Self {
-        // TODO: VALIDATE BLOCK AND TX
+    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
+        // TxEnv {
+        //     msg_sender,
+        //     gas_limit: transaction.gas_limit[0].as_u64(),
+        //     gas_price: transaction.gas_price,
+        //     transact_to,
+        //     value: transaction.value[0],
+        //     chain_id: 0,
+        //     data: decode_hex(transaction.data[0].clone()).unwrap(),
+        //     nonce: Some(transaction.nonce.as_u64()),
+        //     chain_id: 0,
+        //     access_list: transaction.access_lists.get(0).cloned().flatten(),
+        //     max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+        //     blob_hashes: transaction.blob_versioned_hashes.clone(),
+        //     max_fee_per_blob_gas: transaction.max_fee_per_gas,
+        // }
 
-        // just for the tests
-        let initial_account = Account::new(balance, bytecode.clone());
-        let mut initial_env = Environment::default();
-        let mut state = WorldState::new();
-        state.insert(msg_sender, initial_account);
-        let mut db = WorldState::default();
-        db.accounts = state.clone();
-
-        initial_env.msg_sender = msg_sender;
-
-        // just a placeholder
-        let initial_msg = Message {
-            msg_sender,
-            to: msg_sender,
-            code_address: msg_sender,
-            code: bytecode,
-            ..Default::default()
+        let bytecode = match tx_env.transact_to {
+            TransactTo::Call(addr) => db.get_account_bytecode(&addr),
+            TransactTo::Create => {
+                todo!()
+            }
         };
 
-        let first_call_frame = CallFrame::new(initial_msg);
+        let to = match tx_env.transact_to {
+            TransactTo::Call(addr) => addr,
+            TransactTo::Create => Address::zero(),
+        };
+
+        let initial_call_frame = CallFrame::new(
+            tx_env.msg_sender,
+            to,
+            tx_env.msg_sender,
+            None,
+            bytecode,
+            tx_env.value,
+            tx_env.data,
+            U256::zero(),
+            false,
+            0,
+        );
+
+        let env = Environment {
+            block: block_env,
+            consumed_gas: TX_BASE_COST,
+            gas_limit: u64::MAX,
+        };
 
         Self {
-            call_frames: vec![first_call_frame],
-            world_state: state,
-            env: initial_env,
-            world_state: db,
-            ..Default::default()
+            call_frames: vec![initial_call_frame],
+            db,
+            env,
+            accrued_substate: Substate::default(),
         }
     }
 
@@ -169,6 +204,53 @@ impl VM {
             logs: call_frame.logs.clone(),
             return_data: call_frame.returndata.clone(),
         }
+    }
+
+    pub fn get_result(&self) -> Result<ResultAndState, VMError> {
+        let gas_remaining = self.inner_context.gas_remaining.unwrap_or(0);
+        let gas_initial = self.initial_gas;
+        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
+        let gas_used = gas_initial.saturating_sub(gas_remaining);
+        let gas_refunded = self
+            .inner_context
+            .gas_refund
+            .min(gas_used / GAS_REFUND_DENOMINATOR);
+        let exit_status = self
+            .inner_context
+            .exit_status
+            .clone()
+            .unwrap_or(ExitStatusCode::Default);
+        let return_values = self.return_values().to_vec();
+        let halt_reason = self.halt_reason.unwrap_or(HaltReason::OpcodeNotFound);
+        let result = match exit_status {
+            ExitStatusCode::Return => ExecutionResult::Success {
+                reason: SuccessReason::Return,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.into()), // TODO: add case Output::Create
+                logs: self.logs(),
+            },
+            ExitStatusCode::Stop => ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.into()), // TODO: add case Output::Create
+                logs: self.logs(),
+            },
+            ExitStatusCode::Revert => ExecutionResult::Revert {
+                output: return_values.into(),
+                gas_used,
+            },
+            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Halt {
+                reason: halt_reason,
+                gas_used,
+            },
+        };
+
+        // TODO: Check if this is ok
+        let state = self.journal.into_state();
+
+        Ok(ResultAndState { result, state })
     }
 
     pub fn execute(&mut self) -> Result<ExecutionResult, VMError> {  
@@ -508,7 +590,7 @@ impl VM {
                         continue;
                     }
 
-                    if let Some(block_hash) = self.world_state.block_hashes.get(&block_number) {
+                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
                         current_call_frame
                             .stack
                             .push(U256::from_big_endian(&block_hash.0));
@@ -775,28 +857,50 @@ impl VM {
                         ret_size,
                     );
                 }
+                // Opcode::RETURN => {
+                //     let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                //     let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                //     let return_data = current_call_frame.memory.load_range(offset, size).into();
+                //     if let Some(mut parent_call_frame) = self.call_frames.pop() {
+                //         if let (Some(_ret_offset), Some(_ret_size)) = (
+                //             parent_call_frame.return_data_offset,
+                //             parent_call_frame.return_data_size,
+                //         ) {
+                //             parent_call_frame.returndata = return_data;
+                //         }
+                //         parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
+                //         parent_call_frame.return_data_offset = None;
+                //         parent_call_frame.return_data_size = None;
+                //         current_call_frame = parent_call_frame.clone();
+                //     } else {
+                //         excecution completed (?)
+                //         current_call_frame
+                //             .stack
+                //             .push(U256::from(SUCCESS_FOR_RETURN));
+                //         break;
+                //     }
+                // }
                 Opcode::RETURN => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let return_data = current_call_frame.memory.load_range(offset, size).into();
-                    if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(_ret_offset), Some(_ret_size)) = (
-                            parent_call_frame.return_data_offset,
-                            parent_call_frame.return_data_size,
-                        ) {
-                            parent_call_frame.returndata = return_data;
-                        }
-                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
-                        parent_call_frame.return_data_offset = None;
-                        parent_call_frame.return_data_size = None;
-                        current_call_frame = parent_call_frame.clone();
-                    } else {
-                        // excecution completed (?)
-                        current_call_frame
-                            .stack
-                            .push(U256::from(SUCCESS_FOR_RETURN));
-                        break;
-                    }
+
+                    current_call_frame.returndata = return_data;
+                    current_call_frame
+                        .stack
+                        .push(U256::from(SUCCESS_FOR_RETURN))?;
+                    return Ok(Self::write_success_result(
+                        current_call_frame,
+                        ResultReason::Return,
+                    ));
                 }
                 Opcode::TLOAD => {
                     let key = current_call_frame.stack.pop().unwrap();
@@ -816,30 +920,19 @@ impl VM {
                         .transient_storage
                         .insert((current_call_frame.msg_sender, key), value);
                 }
-                _ => unimplemented!(),
+                _ => return Err(VMError::OpcodeNotFound),
             }
         }
-        self.call_frames.push(current_call_frame);
+    }
+
+    pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
+        // let initial_gas_consumed = self.validate_transaction()?;
+        self.execute();
+        self.get_result()
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
-    }
-
-    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.world_state
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    fn balance(&mut self, address: &Address) -> U256 {
-        self.world_state
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
-    }
-
-    pub fn add_account(&mut self, address: Address, account: Account) {
-        self.world_state.accounts.insert(address, account);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -860,7 +953,7 @@ impl VM {
         ret_size: usize,
     ) -> Result<(), VMError> {
         // check balance
-        if self.balance(&current_call_frame.msg_sender) < value {
+        if self.db.balance(&current_call_frame.msg_sender) < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(());
         }
@@ -868,7 +961,7 @@ impl VM {
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
-        let code_address_bytecode = self.get_account_bytecode(&code_address);
+        let code_address_bytecode = self.db.get_account_bytecode(&code_address);
         if code_address_bytecode.is_empty() {
             current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
             return Ok(());
@@ -879,21 +972,17 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
-        let msg = Message {
+        let new_call_frame = CallFrame::new(
             msg_sender,
             to,
             code_address,
             delegate,
-            data: calldata,
+            code_address_bytecode,
             value,
-            code: code_address_bytecode,
-            depth: current_call_frame.depth + 1,
+            calldata,
             gas,
             is_static,
-        };
-
-        let new_call_frame = CallFrame::new(
-            msg
+            current_call_frame.depth + 1,
         );
 
         current_call_frame.return_data_offset = Some(ret_offset);
@@ -903,9 +992,8 @@ impl VM {
         // *current_call_frame = new_call_frame;
         
         self.call_frames.push(new_call_frame.clone());
-        self.execute();
-        let result = self.get_result();
-
+        let result = self.execute();
+        
         match result {
             Ok(ExecutionResult::Success {
                 logs, return_data, ..
@@ -919,21 +1007,15 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
+            Ok(_) => {
+                current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
+            }
             Err(_) => {
                 current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
             }
         };
         Ok(())
     }
-
-    // pub fn transact(&mut self) -> ResultAndState {
-    //     let initial_gas_consumed = self.validate_transaction()?;
-
-    //     match self.env.to {
-    //         TransactTo::Call(_) => self.call(initial_gas_consumed),
-    //         TransactTo::Create => self.create(initial_gas_consumed),
-    //     }
-    // }
 }
 
 
@@ -947,20 +1029,5 @@ pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
         shifted | mask
     } else {
         value >> shift_usize
-    }
-}
-
-/// Transaction destination.
-#[derive(Clone, Debug)]
-pub enum TransactTo {
-    /// Simple call to an address.
-    Call(Address),
-    /// Contract creation.
-    Create,
-}
-
-impl Default for TransactTo {
-    fn default() -> Self {
-        Self::Create
     }
 }
