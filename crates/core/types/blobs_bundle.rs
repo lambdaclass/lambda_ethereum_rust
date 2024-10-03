@@ -16,6 +16,7 @@ pub type Proof = Bytes48;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Struct containing all the blobs for a blob transaction, along with the corresponding commitments and proofs
 pub struct BlobsBundle {
     #[serde(with = "serde_utils::blob::vec")]
     pub blobs: Vec<Blob>,

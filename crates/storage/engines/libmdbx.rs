@@ -1,8 +1,9 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
-    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP,
+    TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
@@ -437,8 +438,13 @@ dupsort!(
 );
 
 table!(
-    /// Transaction pool trable.
+    /// Transaction pool table.
     ( TransactionPool ) TransactionHashRLP => TransactionRLP
+);
+
+table!(
+    /// BlobsBundle pool table, contains the corresponding blob bundle for each blob transaction in the TransactionPool table
+    ( BlobsBundlePool ) TransactionHashRLP => BlobsBubdleRLP
 );
 
 table!(
@@ -554,6 +560,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(TransactionPool),
+        table_info!(BlobsBundlePool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
