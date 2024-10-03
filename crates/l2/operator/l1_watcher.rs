@@ -52,7 +52,7 @@ impl L1Watcher {
 
                     last_block = new_last_block + 1;
                 }
-                Err(e) => error!("Error getting block number: {}", e),
+                Err(e) => error!("Error getting block number: {e}"),
             }
 
             sleep(Duration::from_secs(5)).await;
