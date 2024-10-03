@@ -1,3 +1,6 @@
+pub mod inputs;
+pub mod db_memorydb;
+
 use alloy_sol_types::sol;
 
 sol! {

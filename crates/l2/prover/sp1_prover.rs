@@ -1,5 +1,6 @@
 use tracing::info;
 
+use lib::{db_memorydb::MemoryDB, inputs::Input};
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
