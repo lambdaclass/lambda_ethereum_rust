@@ -2,13 +2,13 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
-    call_frame::{CallFrame, Log},
+    call_frame::CallFrame,
     constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     vm_result::{ExecutionResult, ResultReason, VMError},
 };
 use bytes::Bytes;
-use ethereum_types::{Address, H256, H32, U256};
+use ethereum_types::{Address, H256, U256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
@@ -286,14 +286,7 @@ impl VM {
                 }
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
-                    let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
-                    let next_n_bytes = current_call_frame
-                        .bytecode
-                        .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
-                        .ok_or(VMError::InvalidBytecode)?; // this shouldn't really happen during execution
-                    let value_to_push = U256::from(next_n_bytes);
-                    current_call_frame.stack.push(value_to_push)?;
-                    current_call_frame.increment_pc_by(n_bytes as usize);
+                    Self::op_push(&mut current_call_frame, op)?;
                 }
                 Opcode::PUSH32 => {
                     let next_32_bytes = current_call_frame
@@ -351,34 +344,7 @@ impl VM {
                     current_call_frame.stack.pop()?;
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    if current_call_frame.is_static {
-                        return Err(VMError::OpcodeNotAllowedInStaticContext);
-                    }
-
-                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let mut topics = Vec::new();
-                    for _ in 0..number_of_topics {
-                        let topic = current_call_frame.stack.pop()?.as_u32();
-                        topics.push(H32::from_slice(topic.to_be_bytes().as_ref()));
-                    }
-
-                    let data = current_call_frame.memory.load_range(offset, size);
-                    let log = Log {
-                        address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
-                        topics,
-                        data: Bytes::from(data),
-                    };
-                    current_call_frame.logs.push(log);
+                    Self::op_log(&mut current_call_frame, op)?;
                 }
                 Opcode::MLOAD => {
                     // spend_gas(3);

@@ -10,8 +10,9 @@ pub mod exchange;
 pub mod logging;
 pub mod system;
 
-use crate::{call_frame::CallFrame, opcodes::Opcode, vm::VM, vm_result::VMError};
-use ethereum_types::{Address, U256, U512};
+use crate::{call_frame::{CallFrame, Log}, opcodes::Opcode, vm::VM, vm_result::VMError};
+use ethereum_types::{Address, U256, U512, H32};
+use bytes::Bytes;
 
 
 use std::str::FromStr;
