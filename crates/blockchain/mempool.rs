@@ -13,20 +13,20 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_storage::Store;
 
-/// Add a blob transaction and its blob bundle to the mempool
+/// Add a blob transaction and its blobs bundle to the mempool
 pub fn add_blob_transaction(
     transaction: EIP4844Transaction,
     blobs_bundle: BlobsBundle,
     store: Store,
 ) -> Result<H256, MempoolError> {
-    // Validate blob bundle
+    // Validate blobs bundle
     validate_blobs_bundle(&transaction, &blobs_bundle)?;
 
     // Validate transaction
     let transaction = Transaction::EIP4844Transaction(transaction);
     validate_transaction(&transaction, store.clone())?;
 
-    // Add transaction and blob bundle to storage
+    // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
     store.add_transaction_to_pool(hash, transaction)?;
     store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
@@ -34,7 +34,7 @@ pub fn add_blob_transaction(
 }
 
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
-    // Blob transactions should be submitted via add_blob_transaction along with the corresponding blob bundle
+    // Blob transactions should be submitted via add_blob_transaction along with the corresponding blobs bundle
     if matches!(transaction, Transaction::EIP4844Transaction(_)) {
         return Err(MempoolError::BlobTxNoBlobsBundle);
     }

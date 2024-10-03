@@ -457,7 +457,7 @@ table!(
 );
 
 table!(
-    /// BlobsBundle pool table, contains the corresponding blob bundle for each blob transaction in the TransactionPool table
+    /// BlobsBundle pool table, contains the corresponding blobs bundle for each blob transaction in the TransactionPool table
     ( BlobsBundlePool ) TransactionHashRLP => BlobsBubdleRLP
 );
 
