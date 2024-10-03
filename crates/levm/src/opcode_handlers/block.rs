@@ -87,3 +87,9 @@ impl VM {
         Ok(())
     }
 }
+
+use std::str::FromStr;
+fn address_to_word(address: Address) -> U256 {
+    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
+    U256::from_str(&format!("{address:?}")).unwrap()
+}
