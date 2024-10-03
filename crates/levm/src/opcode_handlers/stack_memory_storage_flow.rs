@@ -81,14 +81,26 @@ impl VM {
     }
 
     pub fn op_jump(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let jump_address = current_call_frame.stack.pop()?;
+        if !current_call_frame.jump(jump_address) {
+            return Err(VMError::InvalidJump);
+        }
         Ok(())
     }
 
     pub fn op_jumpi(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        let jump_address = current_call_frame.stack.pop()?;
+        let condition = current_call_frame.stack.pop()?;
+        if condition != U256::zero() && !current_call_frame.jump(jump_address) {
+            return Err(VMError::InvalidJump);
+        }
         Ok(())
     }
 
     pub fn op_pc(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        current_call_frame
+            .stack
+            .push(U256::from(current_call_frame.pc - 1))?;
         Ok(())
     }
 

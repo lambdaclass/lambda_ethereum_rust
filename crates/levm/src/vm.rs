@@ -1,9 +1,8 @@
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 use crate::{
-    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
+    block::BlockEnv,
     call_frame::CallFrame,
-    constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
     opcodes::Opcode,
     vm_result::{ExecutionResult, ResultReason, VMError},
 };
@@ -139,25 +138,16 @@ impl VM {
                     self.op_returndatacopy(&mut current_call_frame)?;
                 }
                 Opcode::JUMP => {
-                    let jump_address = current_call_frame.stack.pop()?;
-                    if !current_call_frame.jump(jump_address) {
-                        return Err(VMError::InvalidJump);
-                    }
+                    self.op_jump(&mut current_call_frame)?;
                 }
                 Opcode::JUMPI => {
-                    let jump_address = current_call_frame.stack.pop()?;
-                    let condition = current_call_frame.stack.pop()?;
-                    if condition != U256::zero() && !current_call_frame.jump(jump_address) {
-                        return Err(VMError::InvalidJump);
-                    }
+                    self.op_jumpi(&mut current_call_frame)?;
                 }
                 Opcode::JUMPDEST => {
                     // just consume some gas, jumptable written at the start
                 }
                 Opcode::PC => {
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.pc - 1))?;
+                    self.op_pc(&mut current_call_frame)?;
                 }
                 Opcode::BLOCKHASH => {
                     self.op_blockhash(&mut current_call_frame, &block_env)?;
