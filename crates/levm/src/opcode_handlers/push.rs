@@ -14,4 +14,9 @@ impl VM {
         current_call_frame.increment_pc_by(n_bytes as usize);
         Ok(())
     }
+
+    pub fn op_push0(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+        current_call_frame.stack.push(U256::zero())?;
+        Ok(())
+    }
 }

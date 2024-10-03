@@ -33,11 +33,6 @@ pub struct VM {
 }
 
 
-fn address_to_word(address: Address) -> U256 {
-    // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
-    U256::from_str(&format!("{address:?}")).unwrap()
-}
-
 impl VM {
     pub fn new(bytecode: Bytes, address: Address, balance: U256) -> Self {
         let initial_account = Account::new(balance, bytecode.clone());
@@ -129,74 +124,19 @@ impl VM {
                     self.op_keccak256(&mut current_call_frame)?;
                 }
                 Opcode::CALLDATALOAD => {
-                    let offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let value = U256::from_big_endian(
-                        &current_call_frame.calldata.slice(offset..offset + 32),
-                    );
-                    current_call_frame.stack.push(value)?;
+                    self.op_calldataload(&mut current_call_frame)?;
                 }
                 Opcode::CALLDATASIZE => {
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.calldata.len()))?;
+                    self.op_calldatasize(&mut current_call_frame)?;
                 }
                 Opcode::CALLDATACOPY => {
-                    let dest_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let calldata_offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    if size == 0 {
-                        continue;
-                    }
-                    let data = current_call_frame
-                        .calldata
-                        .slice(calldata_offset..calldata_offset + size);
-
-                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                    self.op_calldatacopy(&mut current_call_frame)?;
                 }
                 Opcode::RETURNDATASIZE => {
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.returndata.len()))?;
+                    self.op_returndatasize(&mut current_call_frame)?;
                 }
                 Opcode::RETURNDATACOPY => {
-                    let dest_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let returndata_offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    if size == 0 {
-                        continue;
-                    }
-                    let data = current_call_frame
-                        .returndata
-                        .slice(returndata_offset..returndata_offset + size);
-                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                    self.op_returndatacopy(&mut current_call_frame)?;
                 }
                 Opcode::JUMP => {
                     let jump_address = current_call_frame.stack.pop()?;
@@ -253,7 +193,7 @@ impl VM {
                     self.op_blobbasefee(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::PUSH0 => {
-                    current_call_frame.stack.push(U256::zero())?;
+                    self.op_push0(&mut current_call_frame)?;
                 }
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
@@ -292,208 +232,40 @@ impl VM {
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
-
-                    if current_call_frame.stack.len() < depth as usize {
-                        return Err(VMError::StackUnderflow);
-                    }
-                    let stack_top_index = current_call_frame.stack.len();
-                    let to_swap_index = stack_top_index
-                        .checked_sub(depth as usize)
-                        .ok_or(VMError::StackUnderflow)?;
-                    current_call_frame
-                        .stack
-                        .swap(stack_top_index - 1, to_swap_index - 1);
+                    self.op_swap(&mut current_call_frame, op)?;
                 }
                 Opcode::POP => {
-                    current_call_frame.stack.pop()?;
+                    self.op_pop(&mut current_call_frame)?;
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     self.op_log(&mut current_call_frame, op)?;
                 }
                 Opcode::MLOAD => {
-                    // spend_gas(3);
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let value = current_call_frame.memory.load(offset);
-                    current_call_frame.stack.push(value)?;
+                    self.op_mload(&mut current_call_frame)?;
                 }
                 Opcode::MSTORE => {
-                    // spend_gas(3);
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let value = current_call_frame.stack.pop()?;
-                    let mut value_bytes = [0u8; 32];
-                    value.to_big_endian(&mut value_bytes);
-
-                    current_call_frame.memory.store_bytes(offset, &value_bytes);
+                    self.op_mstore(&mut current_call_frame)?;
                 }
                 Opcode::MSTORE8 => {
-                    // spend_gas(3);
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let value = current_call_frame.stack.pop()?;
-                    let mut value_bytes = [0u8; 32];
-                    value.to_big_endian(&mut value_bytes);
-
-                    current_call_frame
-                        .memory
-                        .store_bytes(offset, value_bytes[31..32].as_ref());
+                    self.op_mstore8(&mut current_call_frame)?;
                 }
                 Opcode::MSIZE => {
-                    // spend_gas(2);
-                    current_call_frame
-                        .stack
-                        .push(current_call_frame.memory.size())?;
+                    self.op_msize(&mut current_call_frame)?;
                 }
                 Opcode::MCOPY => {
-                    // spend_gas(3) + dynamic gas
-                    let dest_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let src_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    if size == 0 {
-                        continue;
-                    }
-                    current_call_frame
-                        .memory
-                        .copy(src_offset, dest_offset, size);
+                    self.op_mcopy(&mut current_call_frame)?;
                 }
                 Opcode::CALL => {
-                    let gas = current_call_frame.stack.pop()?;
-                    let address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
-                    let value = current_call_frame.stack.pop()?;
-                    let args_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let args_size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let ret_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let ret_size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    // check balance
-                    if self.balance(&current_call_frame.msg_sender) < value {
-                        current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                        continue;
-                    }
-                    // transfer value
-                    // transfer(&current_call_frame.msg_sender, &address, value);
-                    let callee_bytecode = self.get_account_bytecode(&address);
-                    if callee_bytecode.is_empty() {
-                        current_call_frame
-                            .stack
-                            .push(U256::from(SUCCESS_FOR_CALL))?;
-                        continue;
-                    }
-                    let calldata = current_call_frame
-                        .memory
-                        .load_range(args_offset, args_size)
-                        .into();
-
-                    let new_call_frame = CallFrame {
-                        gas,
-                        msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-                        callee: address,
-                        bytecode: callee_bytecode,
-                        msg_value: value,
-                        calldata,
-                        ..Default::default()
-                    };
-                    current_call_frame.return_data_offset = Some(ret_offset);
-                    current_call_frame.return_data_size = Some(ret_size);
-                    self.call_frames.push(new_call_frame.clone());
-                    let result = self.execute();
-
-                    match result {
-                        Ok(ExecutionResult::Success {
-                            logs, return_data, ..
-                        }) => {
-                            current_call_frame.logs.extend(logs);
-                            current_call_frame
-                                .memory
-                                .store_bytes(ret_offset, &return_data);
-                            current_call_frame.returndata = return_data;
-                            current_call_frame
-                                .stack
-                                .push(U256::from(SUCCESS_FOR_CALL))?;
-                        }
-                        Err(_) => {
-                            current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-                        }
-                    };
+                    self.op_call(&mut current_call_frame)?;
                 }
                 Opcode::RETURN => {
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let return_data = current_call_frame.memory.load_range(offset, size).into();
-
-                    current_call_frame.returndata = return_data;
-                    current_call_frame
-                        .stack
-                        .push(U256::from(SUCCESS_FOR_RETURN))?;
-                    return Ok(Self::write_success_result(
-                        current_call_frame,
-                        ResultReason::Return,
-                    ));
+                    return self.op_return(&mut current_call_frame);
                 }
                 Opcode::TLOAD => {
-                    let key = current_call_frame.stack.pop()?;
-                    let value = current_call_frame
-                        .transient_storage
-                        .get(&(current_call_frame.msg_sender, key))
-                        .cloned()
-                        .unwrap_or(U256::zero());
-
-                    current_call_frame.stack.push(value)?;
+                    self.op_tload(&mut current_call_frame)?;
                 }
                 Opcode::TSTORE => {
-                    let key = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-
-                    current_call_frame
-                        .transient_storage
-                        .insert((current_call_frame.msg_sender, key), value);
+                    self.op_tstore(&mut current_call_frame)?;
                 }
                 _ => return Err(VMError::OpcodeNotFound),
             }
@@ -504,13 +276,13 @@ impl VM {
         self.call_frames.last_mut().unwrap()
     }
 
-    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
+    pub fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
-    fn balance(&mut self, address: &Address) -> U256 {
+    pub fn balance(&mut self, address: &Address) -> U256 {
         self.accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
