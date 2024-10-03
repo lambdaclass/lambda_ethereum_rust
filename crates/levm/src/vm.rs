@@ -220,66 +220,37 @@ impl VM {
                         .push(U256::from(current_call_frame.pc - 1))?;
                 }
                 Opcode::BLOCKHASH => {
-                    let block_number = current_call_frame.stack.pop()?;
-
-                    // If number is not in the valid range (last 256 blocks), return zero.
-                    if block_number
-                        < block_env
-                            .number
-                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
-                        || block_number >= block_env.number
-                    {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    if let Some(block_hash) = self.db.get(&block_number) {
-                        current_call_frame
-                            .stack
-                            .push(U256::from_big_endian(&block_hash.0))?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    };
+                    self.op_blockhash(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::COINBASE => {
-                    let coinbase = block_env.coinbase;
-                    current_call_frame.stack.push(address_to_word(coinbase))?;
+                    self.op_coinbase(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::TIMESTAMP => {
-                    let timestamp = block_env.timestamp;
-                    current_call_frame.stack.push(timestamp)?;
+                    self.op_timestamp(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::NUMBER => {
-                    let block_number = block_env.number;
-                    current_call_frame.stack.push(block_number)?;
+                    self.op_number(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::PREVRANDAO => {
-                    let randao = block_env.prev_randao.unwrap_or_default();
-                    current_call_frame
-                        .stack
-                        .push(U256::from_big_endian(randao.0.as_slice()))?;
+                    self.op_prevrandao(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::GASLIMIT => {
-                    let gas_limit = block_env.gas_limit;
-                    current_call_frame.stack.push(U256::from(gas_limit))?;
+                    self.op_gaslimit(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::CHAINID => {
-                    let chain_id = block_env.chain_id;
-                    current_call_frame.stack.push(U256::from(chain_id))?;
+                    self.op_chainid(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::SELFBALANCE => {
-                    todo!("when we have accounts implemented")
+                    self.op_selfbalance(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::BASEFEE => {
-                    let base_fee = block_env.base_fee_per_gas;
-                    current_call_frame.stack.push(base_fee)?;
+                    self.op_basefee(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::BLOBHASH => {
-                    todo!("when we have tx implemented");
+                    self.op_blobhash(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::BLOBBASEFEE => {
-                    let blob_base_fee = block_env.calculate_blob_gas_price();
-                    current_call_frame.stack.push(blob_base_fee)?;
+                    self.op_blobbasefee(&mut current_call_frame, &block_env)?;
                 }
                 Opcode::PUSH0 => {
                     current_call_frame.stack.push(U256::zero())?;
