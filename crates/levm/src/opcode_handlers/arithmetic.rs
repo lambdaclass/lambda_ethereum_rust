@@ -1,12 +1,10 @@
 // Arithmetic Operations (11)
 // Opcodes: ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
-
-use crate::{call_frame::CallFrame, vm::VM, vm_result::VMError};
-use ethereum_types::{U256, U512};
+use super::*;
 
 impl VM {
     // ADD operation
-    pub fn add(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_add(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
         let sum = augend.overflowing_add(addend).0;
@@ -15,7 +13,7 @@ impl VM {
     }
 
     // SUB operation
-    pub fn sub(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sub(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let minuend = current_call_frame.stack.pop()?;
         let subtrahend = current_call_frame.stack.pop()?;
         let difference = minuend.overflowing_sub(subtrahend).0;
@@ -24,7 +22,7 @@ impl VM {
     }
 
     // MUL operation
-    pub fn mul(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mul(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let multiplicand = current_call_frame.stack.pop()?;
         let multiplier = current_call_frame.stack.pop()?;
         let product = multiplicand.overflowing_mul(multiplier).0;
@@ -33,7 +31,7 @@ impl VM {
     }
 
     // DIV operation
-    pub fn div(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_div(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         let quotient = if divisor.is_zero() {
@@ -46,7 +44,7 @@ impl VM {
     }
 
     // SDIV operation
-    pub fn sdiv(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sdiv(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
@@ -81,7 +79,7 @@ impl VM {
     }
 
     // MOD operation
-    pub fn modulus(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_modulus(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         let remainder = if divisor.is_zero() {
@@ -94,7 +92,7 @@ impl VM {
     }
 
     // SMOD operation
-    pub fn smod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_smod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
@@ -129,7 +127,7 @@ impl VM {
     }
 
     // ADDMOD operation
-    pub fn addmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_addmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
@@ -148,7 +146,7 @@ impl VM {
     }
 
     // MULMOD operation
-    pub fn mulmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mulmod(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let multiplicand = U512::from(current_call_frame.stack.pop()?);
 
         let multiplier = U512::from(current_call_frame.stack.pop()?);
@@ -177,7 +175,7 @@ impl VM {
     }
 
     // EXP operation
-    pub fn exp(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_exp(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
         let power = base.overflowing_pow(exponent).0;
@@ -186,7 +184,7 @@ impl VM {
     }
 
     // SIGNEXTEND operation
-    pub fn signextend(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_signextend(current_call_frame: &mut CallFrame) -> Result<(), VMError> {
         let byte_size = current_call_frame.stack.pop()?;
         let value_to_extend = current_call_frame.stack.pop()?;
 

@@ -76,55 +76,55 @@ impl VM {
                     ));
                 }
                 Opcode::ADD => {
-                    VM::add(&mut current_call_frame)?;
+                    VM::op_add(&mut current_call_frame)?;
                 }
                 Opcode::MUL => {
-                    VM::mul(&mut current_call_frame)?;
+                    VM::op_mul(&mut current_call_frame)?;
                 }
                 Opcode::SUB => {
-                    VM::sub(&mut current_call_frame)?;
+                    VM::op_sub(&mut current_call_frame)?;
                 }
                 Opcode::DIV => {
-                    VM::div(&mut current_call_frame)?;
+                    VM::op_div(&mut current_call_frame)?;
                 }
                 Opcode::SDIV => {
-                    VM::sdiv(&mut current_call_frame)?;
+                    VM::op_sdiv(&mut current_call_frame)?;
                 }
                 Opcode::MOD => {
-                    VM::modulus(&mut current_call_frame)?;
+                    VM::op_modulus(&mut current_call_frame)?;
                 }
                 Opcode::SMOD => {
-                    VM::smod(&mut current_call_frame)?;
+                    VM::op_smod(&mut current_call_frame)?;
                 }
                 Opcode::ADDMOD => {
-                    VM::addmod(&mut current_call_frame)?;
+                    VM::op_addmod(&mut current_call_frame)?;
                 }
                 Opcode::MULMOD => {
-                    VM::mulmod(&mut current_call_frame)?;
+                    VM::op_mulmod(&mut current_call_frame)?;
                 }
                 Opcode::EXP => {
-                    VM::exp(&mut current_call_frame)?;
+                    VM::op_exp(&mut current_call_frame)?;
                 }
                 Opcode::SIGNEXTEND => {
-                    VM::signextend(&mut current_call_frame)?;
+                    VM::op_signextend(&mut current_call_frame)?;
                 }
                 Opcode::LT => {
-                    VM::lt(&mut current_call_frame)?;
+                    VM::op_lt(&mut current_call_frame)?;
                 }
                 Opcode::GT => {
-                    VM::gt(&mut current_call_frame)?;
+                    VM::op_gt(&mut current_call_frame)?;
                 }
                 Opcode::SLT => {
-                    VM::slt(&mut current_call_frame)?;
+                    VM::op_slt(&mut current_call_frame)?;
                 }
                 Opcode::SGT => {
-                    VM::sgt(&mut current_call_frame)?;
+                    VM::op_sgt(&mut current_call_frame)?;
                 }
                 Opcode::EQ => {
-                    VM::eq(&mut current_call_frame)?;
+                    VM::op_eq(&mut current_call_frame)?;
                 }
                 Opcode::ISZERO => {
-                    VM::iszero(&mut current_call_frame)?;
+                    VM::op_iszero(&mut current_call_frame)?;
                 }
                 Opcode::KECCAK256 => {
                     let offset = current_call_frame
@@ -323,32 +323,32 @@ impl VM {
                     current_call_frame.increment_pc_by(32);
                 }
                 Opcode::AND => {
-                    Self::and(&mut current_call_frame)?;
+                    Self::op_and(&mut current_call_frame)?;
                 }
                 Opcode::OR => {
-                    Self::or(&mut current_call_frame)?;
+                    Self::op_or(&mut current_call_frame)?;
                 }
                 Opcode::XOR => {
-                    Self::xor(&mut current_call_frame)?;
+                    Self::op_xor(&mut current_call_frame)?;
                 }
                 Opcode::NOT => {
-                    Self::not(&mut current_call_frame)?;
+                    Self::op_not(&mut current_call_frame)?;
                 }
                 Opcode::BYTE => {
-                    Self::byte(&mut current_call_frame)?;
+                    Self::op_byte(&mut current_call_frame)?;
                 }
                 Opcode::SHL => {
-                    Self::shl(&mut current_call_frame)?;
+                    Self::op_shl(&mut current_call_frame)?;
                 }
                 Opcode::SHR => {
-                    Self::shr(&mut current_call_frame)?;
+                    Self::op_shr(&mut current_call_frame)?;
                 }
                 Opcode::SAR => {
-                    Self::sar(&mut current_call_frame)?;
+                    Self::op_sar(&mut current_call_frame)?;
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    Self::dup(&mut current_call_frame, op)?;
+                    Self::op_dup(&mut current_call_frame, op)?;
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
