@@ -348,16 +348,7 @@ impl VM {
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
-
-                    if current_call_frame.stack.len() < depth as usize {
-                        return Err(VMError::StackUnderflow);
-                    }
-
-                    let value_at_depth = current_call_frame
-                        .stack
-                        .get(current_call_frame.stack.len() - depth as usize)?;
-                    current_call_frame.stack.push(*value_at_depth)?;
+                    Self::dup(&mut current_call_frame, op)?;
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
