@@ -68,7 +68,7 @@ pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block,
         .ok_or_else(|| ChainError::ParentNotFound)?;
     let chain_config = storage.get_chain_config()?;
     let gas_limit = calc_gas_limit(parent_block.gas_limit, DEFAULT_BUILDER_GAS_CEIL);
-    let payload = Block {
+    let mut payload = Block {
         header: BlockHeader {
             parent_hash: args.parent,
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -181,8 +181,8 @@ impl<'a> PayloadBuildContext<'a> {
 }
 
 impl<'a> PayloadBuildContext<'a> {
-    fn parent_number(&self) -> BlockNumber {
-        self.payload.header.number - 1
+    fn parent_hash(&self) -> BlockHash {
+        self.payload.header.parent_hash
     }
 
     fn block_number(&self) -> BlockNumber {
@@ -201,8 +201,8 @@ impl<'a> PayloadBuildContext<'a> {
 /// Completes the payload building process, return the block value
 pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainError> {
     info!("Building payload");
-    let parent_number = payload.header.number.saturating_sub(1);
-    let mut evm_state = evm_state(store.clone(), parent_number);
+    let parent_hash = payload.header.parent_hash;
+    let mut evm_state = evm_state(store.clone(), parent_hash);
     let mut context = PayloadBuildContext::new(payload, &mut evm_state);
     apply_withdrawals(&mut context)?;
     fill_transactions(&mut context)?;
@@ -361,7 +361,7 @@ fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError>
     let account_updates = get_state_transitions(context.evm_state);
     context.payload.header.state_root = context
         .store()
-        .apply_account_updates(context.parent_number(), &account_updates)?
+        .apply_account_updates(context.parent_hash(), &account_updates)?
         .unwrap_or_default();
     context.payload.header.transactions_root =
         compute_transactions_root(&context.payload.body.transactions);
