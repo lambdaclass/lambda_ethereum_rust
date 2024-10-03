@@ -8,7 +8,7 @@ use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, BlockHeader, Receipt, Transaction,
 };
 use ethereum_rust_evm::{block_env, tx_env};
-use lib::{db_memorydb::MemoryDB, inputs::Input};
+use lib::{db_memorydb::MemoryDB, inputs::ProverInput};
 
 use revm::{
     db::CacheDB, inspectors::TracerEip3155, primitives::ResultAndState as RevmResultAndState,
@@ -18,7 +18,7 @@ use revm::{
 sp1_zkvm::entrypoint!(main);
 
 pub fn main() {
-    let input = sp1_zkvm::io::read::<Input>();
+    let input = sp1_zkvm::io::read::<ProverInput>();
     sp1_zkvm::io::commit(&input);
     let block = input.block;
     let parent_block_header = input.parent_block_header;
