@@ -3,8 +3,12 @@ name: LEVM benchmarks
 on:
   merge_group:
   push:
+    paths:
+      - 'crates/vm/levm_mlir/**'
     branches: [ main ]
   pull_request:
+    paths:
+      - 'crates/vm/levm_mlir/**'
     branches: [ '**' ]
 
 concurrency:
@@ -41,4 +45,6 @@ jobs:
         run: echo "### Benchmark Results :rocket:" > bench-comment.md
 
       - name: Run benchmarks
-        run: make revm-comparison
+        run: 
+          cd crates/vm/levm
+          make revm-comparison
