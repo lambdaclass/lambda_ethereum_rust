@@ -1,13 +1,15 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
-    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP,
+    TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -255,6 +257,19 @@ impl StoreEngine for Store {
         }
         Ok(txs_by_sender)
     }
+    
+    fn add_blobs_bundle_to_pool(
+        &self,
+        hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.write::<BlobsBundlePool>(hash.into(), blobs_bundle.into())?;
+        Ok(())
+    }
+
+    fn get_blobs_bundle_from_pool(&self, hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
+        Ok(self.read::<BlobsBundlePool>(hash.into())?.map(|bb| bb.to()))
+    }
 
     /// Stores the chain config serialized as json
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
@@ -465,8 +480,13 @@ dupsort!(
 );
 
 table!(
-    /// Transaction pool trable.
+    /// Transaction pool table.
     ( TransactionPool ) TransactionHashRLP => TransactionRLP
+);
+
+table!(
+    /// BlobsBundle pool table, contains the corresponding blobs bundle for each blob transaction in the TransactionPool table
+    ( BlobsBundlePool ) TransactionHashRLP => BlobsBubdleRLP
 );
 
 table!(
@@ -582,6 +602,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(TransactionPool),
+        table_info!(BlobsBundlePool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),

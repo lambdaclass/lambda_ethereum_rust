@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
 use std::{collections::HashMap, fmt::Debug, panic::RefUnwindSafe};
@@ -100,6 +101,16 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
     ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError>;
+    
+    /// Store blobs_bundle into pool table
+    fn add_blobs_bundle_to_pool(
+        &self,
+        hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError>;
+
+    // Get a blobs_bundle from pool table
+    fn get_blobs_bundle_from_pool(&self, hash: H256) -> Result<Option<BlobsBundle>, StoreError>;
 
     /// Add receipt
     fn add_receipt(
