@@ -21,8 +21,8 @@ use sha3::{Digest, Keccak256};
 
 use crate::{
     constants::{
-        GAS_LIMIT_BOUND_DIVISOR, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK,
-        TX_GAS_COST,
+        GAS_LIMIT_BOUND_DIVISOR, GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT,
+        TARGET_BLOB_GAS_PER_BLOCK, TX_GAS_COST,
     },
     error::ChainError,
     mempool::{self, PendingTxFilter},
@@ -189,7 +189,10 @@ impl<'a> PayloadBuildContext<'a> {
 }
 
 /// Completes the payload building process, return the block value
-pub fn build_payload(payload: &mut Block, store: &Store) -> Result<(BlobsBundle, U256), ChainError> {
+pub fn build_payload(
+    payload: &mut Block,
+    store: &Store,
+) -> Result<(BlobsBundle, U256), ChainError> {
     debug!("Building payload");
     let mut evm_state = evm_state(store.clone(), payload.header.parent_hash);
     let mut context = PayloadBuildContext::new(payload, &mut evm_state);
@@ -258,7 +261,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             break;
         };
         if !blob_txs.is_empty()
-            && context.base_fee_per_blob_gas * context.blob_count
+            && context.base_fee_per_blob_gas * context.blobs_bundle.blobs.len()
                 > U256::from(MAX_BLOB_GAS_PER_BLOCK)
         {
             debug!("No more blob gas to run blob transactions");
@@ -342,23 +345,26 @@ fn apply_blob_transaction(
 ) -> Result<Receipt, ChainError> {
     // Fetch blobs bundle
     let tx_hash = head.tx.compute_hash();
-    let Ok(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash)? else {
+    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash)? else {
         // No blob tx should enter the mempool without its blobs bundle so this is an internal error
-        return Err(StoreError::Custom(format!(
-            "No blobs bundle found for blob tx {tx_hash}"
-        )));
+        return Err(
+            StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
+        );
     };
-    if (context.blobs_bundle.blobs.len() + blobs_bundle.blobs.len()) * GAS_PER_BLOB
+    if (context.blobs_bundle.blobs.len() + blobs_bundle.blobs.len()) as u64 * GAS_PER_BLOB
         > MAX_BLOB_GAS_PER_BLOCK
     {
         // This error will only be used for debug tracing
-        return Err(EvmError::Custom(format!("max data blobs reached")));
+        return Err(EvmError::Custom(format!("max data blobs reached")).into());
     };
     // Apply transaction
     let receipt = apply_transaction(head, context)?;
     // Update context with blob data
-    context.payload.header.blob_gas_used += blobs_bundle.blobs.len() * GAS_PER_BLOB;
+    let prev_blob_gas = context.payload.header.blob_gas_used.unwrap_or_default();
+    context.payload.header.blob_gas_used =
+        Some(prev_blob_gas + blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB);
     context.blobs_bundle += blobs_bundle;
+    Ok(receipt)
 }
 
 /// Runs a plain (non blob) transaction, updates the gas count and returns the receipt

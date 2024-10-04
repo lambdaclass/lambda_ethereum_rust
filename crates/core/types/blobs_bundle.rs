@@ -58,8 +58,8 @@ impl RLPDecode for BlobsBundle {
 
 impl AddAssign for BlobsBundle {
     fn add_assign(&mut self, rhs: Self) {
-        self.blobs.extend_from_slice(&self.blobs);
-        self.commitments.extend_from_slice(&self.commitments);
-        self.proofs.extend_from_slice(&self.proofs);
+        self.blobs.extend_from_slice(&rhs.blobs);
+        self.commitments.extend_from_slice(&rhs.commitments);
+        self.proofs.extend_from_slice(&rhs.proofs);
     }
 }

@@ -155,12 +155,13 @@ impl RpcHandler for GetPayloadV3Request {
         let Some(mut payload) = storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload);
         };
-        let (blobs_bundle, block_value) = build_payload(&mut payload, &storage).map_err(|_| RpcErr::Internal)?;
+        let (blobs_bundle, block_value) =
+            build_payload(&mut payload, &storage).map_err(|_| RpcErr::Internal)?;
         serde_json::to_value(ExecutionPayloadResponse {
             execution_payload: ExecutionPayloadV3::from_block(payload),
             block_value,
-            blobs_bundle
-    })
+            blobs_bundle,
+        })
         .map_err(|_| RpcErr::Internal)
     }
 }
