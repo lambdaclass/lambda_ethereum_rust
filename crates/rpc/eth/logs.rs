@@ -85,7 +85,6 @@ impl RpcHandler for LogsFilter {
     //   then we simply could retrieve each log from the receipt and add the info
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        println!("handling");
         let from = self
             .from_block
             .resolve_block_number(&storage)?
