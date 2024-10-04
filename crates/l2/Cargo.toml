@@ -14,6 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 ethereum-types.workspace = true
 ethereum_rust-rpc.workspace = true
+ethereum_rust-storage.workspace = true
 # TODO We need the patch_000_mdbx branch, check how to reference the repo directly (merge the branch?).
 # Using this branch to have De/Serialization for the Block type.
 # ethereum_rust

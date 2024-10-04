@@ -12,7 +12,7 @@ use prover_lib::inputs::ProverInput;
 
 use crate::operator::proof_data_provider::ProofData;
 
-use super::prover::Prover;
+use super::zk_prover::Prover;
 
 pub async fn start_proof_data_client(ip: IpAddr, port: u16) {
     let proof_data_client = ProofDataClient::new(ip, port);
@@ -34,9 +34,7 @@ impl ProofDataClient {
 
         loop {
             match self.request_new_data() {
-                Ok(Some(id)) => {
-                    // TODO: send a proper input
-                    let prover_input = ProverInput::default();
+                Ok((Some(id), prover_input)) => {
                     match prover.prove(prover_input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
@@ -47,7 +45,7 @@ impl ProofDataClient {
                         Err(e) => error!(e),
                     };
                 }
-                Ok(None) => sleep(Duration::from_secs(10)).await,
+                Ok(_) => sleep(Duration::from_secs(10)).await,
                 Err(e) => {
                     warn!("Failed to request new data: {e}");
                     sleep(Duration::from_secs(10)).await;
@@ -56,7 +54,7 @@ impl ProofDataClient {
         }
     }
 
-    fn request_new_data(&self) -> Result<Option<u64>, String> {
+    fn request_new_data(&self) -> Result<(Option<u64>, ProverInput), String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
@@ -74,9 +72,21 @@ impl ProofDataClient {
             .map_err(|e| format!("Invalid response format: {e}"))?;
 
         match response {
-            ProofData::Response { id } => {
-                debug!("Received response: {id:?}");
-                Ok(id)
+            ProofData::Response {
+                id,
+                block,
+                parent_block_header,
+                state,
+            } => {
+                debug!("Received response ID: {id:?}");
+                debug!("Received response block: {block:?}");
+                let prover_input = ProverInput {
+                    db: state.unwrap(),
+                    parent_block_header: parent_block_header.unwrap(),
+                    block: block.unwrap(),
+                };
+
+                Ok((id, prover_input))
             }
             _ => Err(format!("Unexpected response {response:?}")),
         }

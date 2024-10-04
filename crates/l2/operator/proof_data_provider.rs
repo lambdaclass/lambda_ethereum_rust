@@ -5,17 +5,18 @@ use std::{
 };
 
 use ethereum_rust_core::types::{Block, BlockBody, BlockHeader};
+use ethereum_rust_storage::Store;
 use ethereum_types::{Bloom, H160, H256, U256};
+use prover_lib::db_memorydb::MemoryDB;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Result as SerdeResult;
 use sp1_sdk::SP1ProofWithPublicValues;
 use tracing::{debug, info, warn};
 
 use crate::rpc::l1_rpc::RpcResponse;
 
-pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
-    let proof_data_provider = ProofDataProvider::new(ip, port);
+pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
+    let proof_data_provider = ProofDataProvider::new(store, ip, port);
     proof_data_provider.start().await;
 }
 
@@ -23,6 +24,9 @@ pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
 pub enum ProofData {
     Request {},
     Response {
+        block: Option<Block>,
+        parent_block_header: Option<BlockHeader>,
+        state: Option<MemoryDB>,
         id: Option<u64>,
     },
     Submit {
@@ -35,13 +39,14 @@ pub enum ProofData {
 }
 
 struct ProofDataProvider {
+    store: Store,
     ip: IpAddr,
     port: u16,
 }
 
 impl ProofDataProvider {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        Self { ip, port }
+    pub fn new(store: Store, ip: IpAddr, port: u16) -> Self {
+        Self { store, ip, port }
     }
 
     pub async fn start(&self) {
@@ -122,7 +127,6 @@ impl ProofDataProvider {
     fn convert_value_to_block(value: &serde_json::Value) -> Result<Block, String> {
         // Check if the value is an object
         if let serde_json::Value::Object(obj) = value {
-            // Extract header values
             let header = BlockHeader {
                 parent_hash: {
                     let hash = obj
@@ -212,7 +216,6 @@ impl ProofDataProvider {
                     16,
                 )
                 .map_err(|e| e.to_string())?,
-                // TODO
                 extra_data: {
                     let extra_data = obj
                         .get("extraData")
@@ -284,6 +287,7 @@ impl ProofDataProvider {
                 },
             };
 
+            // TODO the BlockBody should be parsed too
             let body = BlockBody {
                 transactions: [].to_vec(),
                 ommers: [].to_vec(),
@@ -345,16 +349,47 @@ impl ProofDataProvider {
         debug!("Request received");
 
         let last_block_number = Self::get_last_block_number().await?;
-        let block = Self::get_block_by_number(last_block_number, false).await;
+        let block = Self::get_block_by_number(last_block_number, false).await?;
+
+        let parent_block_header = {
+            if last_block_number > 0 {
+                let parent_block = Self::get_block_by_number(last_block_number - 1, false).await?;
+                parent_block.header
+            } else {
+                BlockHeader::default()
+            }
+        };
+
+        let block_body = self
+            .store
+            .get_block_body(last_block_number)
+            .unwrap()
+            .unwrap();
+        let block_header = self
+            .store
+            .get_block_header(last_block_number)
+            .unwrap()
+            .unwrap();
+        println!("BlockHeader: {block_header:#?}");
+        //let block = Block{header, body}
+        //let state = MemoryDB::new(accounts, storage, block_hashes);
 
         info!("get block by number result: {block:?}");
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
                 id: Some(last_proved_block + 1),
+                block: Some(block),
+                parent_block_header: Some(parent_block_header),
+                state: Some(MemoryDB::default()),
             }
         } else {
-            ProofData::Response { id: None }
+            ProofData::Response {
+                id: None,
+                block: None,
+                parent_block_header: None,
+                state: None,
+            }
         };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
