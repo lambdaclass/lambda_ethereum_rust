@@ -1,5 +1,5 @@
 use ethereum_rust_blockchain::error::ChainError;
-use ethereum_rust_blockchain::payload::payload_block_value;
+use ethereum_rust_blockchain::payload::build_payload;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::H256;
@@ -152,10 +152,10 @@ impl RpcHandler for GetPayloadV3Request {
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested payload with id: {:#018x}", self.payload_id);
-        let Some(payload) = storage.get_payload(self.payload_id)? else {
+        let Some(mut payload) = storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload);
         };
-        let block_value = payload_block_value(&payload, &storage).ok_or(RpcErr::Internal)?;
+        let block_value = build_payload(&mut payload, &storage).map_err(|_| RpcErr::Internal)?;
         serde_json::to_value(ExecutionPayloadResponse::new(
             ExecutionPayloadV3::from_block(payload),
             block_value,

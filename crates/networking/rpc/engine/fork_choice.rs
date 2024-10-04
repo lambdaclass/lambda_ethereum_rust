@@ -1,6 +1,6 @@
 use ethereum_rust_blockchain::{
     error::ChainError,
-    payload::{build_payload, BuildPayloadArgs},
+    payload::{create_payload, BuildPayloadArgs},
 };
 use ethereum_rust_core::{types::BlockHeader, H256, U256};
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -107,7 +107,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             };
             let payload_id = args.id();
             response.set_id(payload_id);
-            let payload = match build_payload(&args, &storage) {
+            let payload = match create_payload(&args, &storage) {
                 Ok(payload) => payload,
                 Err(ChainError::EvmError(error)) => return Err(error.into()),
                 // Parent block is guaranteed to be present at this point,
