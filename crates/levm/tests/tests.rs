@@ -268,6 +268,67 @@ fn addmod_op(){
 }
 
 #[test]
+fn mulmod_op(){
+    // (10 * 10) % 8 = 4
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(8))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Mulmod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(4));
+}
+
+#[test]
+fn exp_op(){
+    // 10^2 = 100
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(2))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Exp,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
+}
+
+#[test]
+fn sign_extend_op(){
+    // Input: 0, 0x7F. Output: 0x7F
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(0x7F))),
+        Operation::Push((1,U256::zero())),
+        Operation::SignExtend,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0x7F));
+}
+
+#[test]
+fn sign_extend_2_op(){
+    // Input: 0, 0xFF. Output: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(0xFF))),
+        Operation::Push((1,U256::zero())),
+        Operation::SignExtend,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::MAX);
+}
+
+#[test]
 fn and_basic() {
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0b1010)),
