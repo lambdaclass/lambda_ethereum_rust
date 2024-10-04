@@ -45,6 +45,6 @@ jobs:
         run: echo "### Benchmark Results :rocket:" > bench-comment.md
 
       - name: Run benchmarks
-        run: 
+        run: |
           cd crates/vm/levm
           make revm-comparison
