@@ -1782,6 +1782,28 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
+            Ok(ExecutionResult::Revert {
+                gas_used,
+                output,
+            }) => {
+                current_call_frame
+                    .memory
+                    .store_bytes(ret_offset, &output);
+                current_call_frame.returndata = output;
+                current_call_frame
+                    .stack
+                    .push(U256::from(REVERT_FOR_CALL))?;
+                current_call_frame.gas -= U256::from(gas_used);
+            }
+            Ok(ExecutionResult::Halt {
+                reason,
+                gas_used,
+            }) => {
+                current_call_frame
+                    .stack
+                    .push(U256::from(reason as u8))?;
+                current_call_frame.gas -= U256::from(gas_used);
+            }
             Err(_) => {
                 current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
             }
