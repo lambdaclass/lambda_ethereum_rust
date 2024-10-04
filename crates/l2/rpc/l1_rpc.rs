@@ -113,6 +113,25 @@ impl L1Rpc {
         }
     }
 
+    pub async fn get_gas_price(&self) -> Result<u64, String> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_gasPrice".to_string(),
+            params: None,
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => u64::from_str_radix(
+                &serde_json::from_value::<String>(result.result).unwrap()[2..],
+                16,
+            )
+            .map_err(|e| e.to_string()),
+            Ok(RpcResponse::Error(e)) => Err(e.error.message),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
     pub async fn get_nonce(&self, address: Address) -> Result<u64, String> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
