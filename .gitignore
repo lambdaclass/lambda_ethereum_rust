@@ -39,5 +39,5 @@ crates/levm_mlir/*.tar.gz
 volumes
 jwt.hex
 
-# Used by the make target
+# Used by the make test target
 /tmp
