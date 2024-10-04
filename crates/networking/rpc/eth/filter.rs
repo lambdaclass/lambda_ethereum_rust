@@ -59,7 +59,7 @@ impl FilterRequest {
         Ok(as_hex)
     }
 
-    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, crate::utils::RpcErr> {
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         let filter = LogsFilter::parse(params)?;
         Ok(FilterRequest {
             request_data: filter,
