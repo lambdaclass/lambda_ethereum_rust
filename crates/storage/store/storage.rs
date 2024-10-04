@@ -5,16 +5,13 @@ use self::engines::libmdbx::Store as LibmdbxStore;
 use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
-use ethereum_rust_core::types::Block;
-use ethereum_rust_core::types::BlockBody;
 use ethereum_rust_core::types::{
-    code_hash, AccountInfo, AccountState, BlockHash, BlockHeader, BlockNumber, ChainConfig,
-    Genesis, GenesisAccount, Index, Receipt, Transaction,
+    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
+    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_trie::Trie;
-use ethereum_rust_trie::EMPTY_TRIE_HASH;
 use ethereum_types::{Address, H256, U256};
 use sha3::{Digest as _, Keccak256};
 use std::collections::HashMap;
