@@ -44,6 +44,7 @@ revm-comparison:
 
 build-revm-comparison:
 	cd bench/revm_comparison && \
+		CARGO_TARGET_DIR=../../target \
 		cargo build --release \
 		--bin levm_factorial \
 		--bin revm_factorial \

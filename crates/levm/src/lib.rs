@@ -7,3 +7,4 @@ pub mod operations;
 pub mod primitives;
 pub mod transaction;
 pub mod vm;
+pub mod utils;

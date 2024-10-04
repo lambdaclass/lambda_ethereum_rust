@@ -1,8 +1,4 @@
-use ethereum_rust_levm::{
-    call_frame::CallFrame,
-    primitives::{Address, Bytes, U256},
-    vm::VM,
-};
+use ethereum_rust_levm::{call_frame::CallFrame, primitives::Bytes, utils::new_vm_with_bytecode};
 use revm::{
     db::BenchmarkDB,
     primitives::{address, Bytecode, TransactTo},
@@ -23,12 +19,8 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
         calldata[28..32].copy_from_slice(&number_of_iterations.to_be_bytes());
         call_frame.calldata = Bytes::from(calldata);
 
-        let mut vm = VM::new(bytecode.clone(), Address::zero(), U256::zero());
+        let mut vm = new_vm_with_bytecode(bytecode.clone());
         *vm.current_call_frame_mut() = call_frame;
-        // let mut vm = VM {
-        //     call_frames: vec![call_frame],
-        //     ..Default::default()
-        // };
 
         black_box(vm.execute());
         // black_box(executor.execute(black_box(&mut context), black_box(initial_gas)));
