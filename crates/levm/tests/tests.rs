@@ -228,6 +228,20 @@ fn mod_op(){
 
 #[test]
 fn smod_op(){
+    // First Example
+    // 10 % 3 = 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(3))),
+        Operation::Push((1,U256::from(10))),
+        Operation::SMod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(1));
+
+    // Second Example
     // Example taken from evm.codes
     // In 2's complement it is: -8 % -3 = -2
     let a = U256::from_str_radix("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD", 16).unwrap();
