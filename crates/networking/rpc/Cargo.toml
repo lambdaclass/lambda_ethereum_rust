@@ -22,6 +22,7 @@ ethereum_rust-rlp.workspace = true
 hex.workspace = true
 axum-extra = {version = "0.9.3", features = ["typed-header"]}
 jsonwebtoken = "9.3.0"
+rand.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"
