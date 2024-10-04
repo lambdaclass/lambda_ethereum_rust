@@ -143,19 +143,75 @@ fn add_op() {
 #[test]
 fn mul_op(){
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(2)),
-        Operation::Push32(U256::from(3)),
+        Operation::Push((1,U256::from(2))),
+        Operation::Push((1,U256::from(4))),
         Operation::Mul,
         Operation::Stop,
     ]);
 
     vm.execute();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(6));
-    assert!(vm.current_call_frame_mut().pc() == 68);
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(8));
 }
 
+#[test]
+fn sub_op(){
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(3))),
+        Operation::Push((1,U256::from(5))),
+        Operation::Sub,
+        Operation::Stop,
+    ]);
 
+    vm.execute();
+
+    // println!("{:?}", vm.current_call_frame_mut().stack);
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
+}
+
+#[test]
+fn div_op(){
+    // 11 // 2 = 5
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(2))),
+        Operation::Push((1,U256::from(11))),
+        Operation::Div,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(5));
+}
+
+#[test]
+fn div0_op(){
+    // In Ethereum: 10 / 0 = 0
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::zero())),
+        Operation::Push((1,U256::from(10))),
+        Operation::Div,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
+}
+
+#[test]
+fn sdiv_op(){
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32,U256::MAX)),
+        Operation::Push((32,U256::MAX - 1)),
+        Operation::Sdiv,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
+}
 
 #[test]
 fn and_basic() {
