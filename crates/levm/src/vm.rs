@@ -110,6 +110,11 @@ impl Db {
     pub fn add_account(&mut self, address: Address, account: Account) {
         self.accounts.insert(address, account);
     }
+
+    pub fn with_account(mut self, address: Address, account: Account) -> Self {
+        self.add_account(address, account);
+        self
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -136,7 +141,7 @@ pub struct Environment {
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    call_frames: Vec<CallFrame>,
+    pub call_frames: Vec<CallFrame>,
     pub env: Environment,
     /// Information that is acted upon immediately following the
     /// transaction.
@@ -186,7 +191,7 @@ impl VM {
         // TODO: this is mostly placeholder
         let initial_call_frame = CallFrame::new(
             U256::MAX,
-            tx_env.msg_sender,
+            caller,
             caller,
             code_addr,
             Default::default(),
@@ -745,7 +750,12 @@ impl VM {
                     self.env.consumed_gas += gas_cost::CHAINID
                 }
                 Opcode::CALLER => {
-                    todo!()
+                    if self.env.consumed_gas + gas_cost::CALLER > self.env.gas_limit {
+                        break;
+                    }
+
+                    let caller = current_call_frame.msg_sender;
+                    current_call_frame.stack.push(U256::from(caller.as_bytes()));
                 }
                 Opcode::ORIGIN => {
                     todo!()

@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use ethereum_types::H32;
 use levm::{
-    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
+    block::{self, BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     constants::{MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN, TX_BASE_COST},
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
     vm::{Account, Db, Storage, StorageSlot, VM},
 };
+use sha3::digest::block_buffer::Block;
 
 // cargo test -p 'levm'
 
@@ -28,7 +29,7 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
     let tx_env = TxEnv {
         msg_sender: address,
         chain_id: Some(1),
-        transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
+        transact_to: TransactTo::Call(Address::from_low_u64_be(0x42)),
         gas_limit: Default::default(),
         gas_price: Default::default(),
         value: Default::default(),
@@ -54,7 +55,7 @@ pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, bala
 
     let accounts = [
         (
-            Address::from_low_u64_be(42),
+            Address::from_low_u64_be(0x42),
             Account {
                 balance: U256::MAX,
                 bytecode,
@@ -3267,4 +3268,33 @@ fn create_on_create() {
 
     vm.execute();
     assert_eq!(vm.db.accounts.len(), 4);
+}
+
+#[test]
+fn caller_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Caller, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(address_that_has_the_code.as_bytes())
+    );
 }
