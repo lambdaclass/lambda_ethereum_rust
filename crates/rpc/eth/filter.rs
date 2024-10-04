@@ -123,7 +123,7 @@ mod tests {
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
         assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
         assert!(matches!(filter.to_block, BlockIdentifier::Number(2)));
-        assert!(matches!(filter.address_filters, None));
+        assert!(filter.address_filters.is_none());
         assert!(matches!(&filter.topics[..], [TopicFilter::Topic(_)]));
     }
 
@@ -151,7 +151,7 @@ mod tests {
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
         assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
         assert!(matches!(filter.to_block, BlockIdentifier::Number(255)));
-        assert!(matches!(filter.address_filters, None));
+        assert!(filter.address_filters.is_none());
         assert!(matches!(&filter.topics[..], []));
     }
 
@@ -245,6 +245,6 @@ mod tests {
         let hex = trimmed_id.trim_start_matches("0x");
         let parsed = u64::from_str_radix(hex, 16);
         assert!(u64::from_str_radix(hex, 16).is_ok());
-        return parsed.unwrap();
+        parsed.unwrap()
     }
 }

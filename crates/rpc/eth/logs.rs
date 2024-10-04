@@ -37,11 +37,9 @@ pub struct LogsFilter {
 }
 impl RpcHandler for LogsFilter {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsFilter, RpcErr> {
-        println!("INSIDE PARSE");
         match params.as_deref() {
             Some([param]) => {
                 let param = param.as_object().ok_or(RpcErr::BadParams)?;
-                println!("from block");
                 let from_block = param
                     .get("fromBlock")
                     .ok_or_else(|| RpcErr::MissingParam("fromBlock".to_string()))
@@ -50,7 +48,6 @@ impl RpcHandler for LogsFilter {
                     .get("toBlock")
                     .ok_or_else(|| RpcErr::MissingParam("toBlock".to_string()))
                     .and_then(|block_number| BlockIdentifier::parse(block_number.clone(), 0))?;
-                println!("to block");
                 let address_filters = param
                     .get("address")
                     .ok_or_else(|| RpcErr::MissingParam("address".to_string()))
