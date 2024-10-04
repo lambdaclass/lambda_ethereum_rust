@@ -4,11 +4,11 @@ on:
   merge_group:
   push:
     paths:
-      - 'crates/vm/levm_mlir/**'
+      - 'crates/vm/levm/**'
     branches: [ main ]
   pull_request:
     paths:
-      - 'crates/vm/levm_mlir/**'
+      - 'crates/vm/levm/**'
     branches: [ '**' ]
 
 concurrency:
