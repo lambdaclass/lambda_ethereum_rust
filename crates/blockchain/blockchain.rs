@@ -209,7 +209,7 @@ pub fn new_head(
     };
 
     let link_block_number = match new_canonical_blocks.last() {
-        Some((number, _)) => number.clone(),
+        Some((number, _)) => *number,
         None => head.number,
     };
 
