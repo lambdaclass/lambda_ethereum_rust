@@ -141,10 +141,10 @@ fn add_op() {
 }
 
 #[test]
-fn mul_op(){
+fn mul_op() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(2))),
-        Operation::Push((1,U256::from(4))),
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(4))),
         Operation::Mul,
         Operation::Stop,
     ]);
@@ -155,10 +155,10 @@ fn mul_op(){
 }
 
 #[test]
-fn sub_op(){
+fn sub_op() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(3))),
-        Operation::Push((1,U256::from(5))),
+        Operation::Push((1, U256::from(3))),
+        Operation::Push((1, U256::from(5))),
         Operation::Sub,
         Operation::Stop,
     ]);
@@ -170,11 +170,11 @@ fn sub_op(){
 }
 
 #[test]
-fn div_op(){
+fn div_op() {
     // 11 // 2 = 5
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(2))),
-        Operation::Push((1,U256::from(11))),
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(11))),
         Operation::Div,
         Operation::Stop,
     ]);
@@ -185,8 +185,8 @@ fn div_op(){
 
     // In EVM: 10 / 0 = 0
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::zero())),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::zero())),
+        Operation::Push((1, U256::from(10))),
         Operation::Div,
         Operation::Stop,
     ]);
@@ -197,11 +197,11 @@ fn div_op(){
 }
 
 #[test]
-fn sdiv_op(){
+fn sdiv_op() {
     // Values are treated as two's complement signed 256-bit integers
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((32,U256::MAX)),
-        Operation::Push((32,U256::MAX - 1)),
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::MAX - 1)),
         Operation::Sdiv,
         Operation::Stop,
     ]);
@@ -212,11 +212,11 @@ fn sdiv_op(){
 }
 
 #[test]
-fn mod_op(){
+fn mod_op() {
     // 10 % 3 = 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(3))),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::from(3))),
+        Operation::Push((1, U256::from(10))),
         Operation::Mod,
         Operation::Stop,
     ]);
@@ -227,12 +227,12 @@ fn mod_op(){
 }
 
 #[test]
-fn smod_op(){
+fn smod_op() {
     // First Example
     // 10 % 3 = 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(3))),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::from(3))),
+        Operation::Push((1, U256::from(10))),
         Operation::SMod,
         Operation::Stop,
     ]);
@@ -244,30 +244,42 @@ fn smod_op(){
     // Second Example
     // Example taken from evm.codes
     // In 2's complement it is: -8 % -3 = -2
-    let a = U256::from_str_radix("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD", 16).unwrap();
-    let b = U256::from_str_radix("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8", 16).unwrap();
+    let a = U256::from_str_radix(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD",
+        16,
+    )
+    .unwrap();
+    let b = U256::from_str_radix(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8",
+        16,
+    )
+    .unwrap();
     // Values are treated as two's complement signed 256-bit integers
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((32,a)),
-        Operation::Push((32,b)),
+        Operation::Push((32, a)),
+        Operation::Push((32, b)),
         Operation::SMod,
         Operation::Stop,
     ]);
 
     vm.execute();
 
-    let c = U256::from_str_radix("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe", 16).unwrap();
+    let c = U256::from_str_radix(
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+        16,
+    )
+    .unwrap();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == c);
 }
 
 #[test]
-fn addmod_op(){
+fn addmod_op() {
     // (10 + 10) % 8 = 4
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(8))),
-        Operation::Push((1,U256::from(10))),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::from(8))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(10))),
         Operation::Addmod,
         Operation::Stop,
     ]);
@@ -278,12 +290,12 @@ fn addmod_op(){
 }
 
 #[test]
-fn mulmod_op(){
+fn mulmod_op() {
     // (10 * 10) % 8 = 4
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(8))),
-        Operation::Push((1,U256::from(10))),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::from(8))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(10))),
         Operation::Mulmod,
         Operation::Stop,
     ]);
@@ -294,11 +306,11 @@ fn mulmod_op(){
 }
 
 #[test]
-fn exp_op(){
+fn exp_op() {
     // 10^2 = 100
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(2))),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(10))),
         Operation::Exp,
         Operation::Stop,
     ]);
@@ -334,11 +346,11 @@ fn sign_extend_op() {
 }
 
 #[test]
-fn lt_op(){
+fn lt_op() {
     // Input: 9, 10. Output: 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(10))),
-        Operation::Push((1,U256::from(9))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(9))),
         Operation::Lt,
         Operation::Stop,
     ]);
@@ -349,11 +361,11 @@ fn lt_op(){
 }
 
 #[test]
-fn gt_op(){
+fn gt_op() {
     // Input: 10, 9. Output: 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(9))),
-        Operation::Push((1,U256::from(10))),
+        Operation::Push((1, U256::from(9))),
+        Operation::Push((1, U256::from(10))),
         Operation::Gt,
         Operation::Stop,
     ]);
@@ -364,11 +376,11 @@ fn gt_op(){
 }
 
 #[test]
-fn slt_op(){
+fn slt_op() {
     // Input: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0. Output: 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((32,U256::zero())),
-        Operation::Push((32,U256::MAX)),
+        Operation::Push((32, U256::zero())),
+        Operation::Push((32, U256::MAX)),
         Operation::Slt,
         Operation::Stop,
     ]);
@@ -379,11 +391,11 @@ fn slt_op(){
 }
 
 #[test]
-fn sgt_op(){
+fn sgt_op() {
     // Input: 0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF. Output: 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((32,U256::MAX)),
-        Operation::Push((32,U256::zero())),
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::zero())),
         Operation::Sgt,
         Operation::Stop,
     ]);
@@ -423,7 +435,7 @@ fn is_zero_op() {
     // Case 1: Input is 0, Output should be 1 (since 0 == 0 is true)
     let mut vm_zero = new_vm_with_ops(&[
         Operation::Push((1, U256::zero())),
-        Operation::IsZero,                  
+        Operation::IsZero,
         Operation::Stop,
     ]);
 
