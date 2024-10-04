@@ -3298,3 +3298,35 @@ fn caller_op() {
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLER);
 }
+
+#[test]
+fn origin_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let msg_sender = Address::from_low_u64_be(0x999);
+
+    let operations = [Operation::Origin, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        msg_sender,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(msg_sender.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ORIGIN);
+}

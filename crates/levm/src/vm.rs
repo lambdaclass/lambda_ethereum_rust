@@ -129,7 +129,7 @@ pub struct Substate {
 pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
-    // origin: Address,
+    origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
     // gas_price: u64,
@@ -205,6 +205,7 @@ impl VM {
             block: block_env,
             consumed_gas: TX_BASE_COST,
             gas_limit: u64::MAX,
+            origin: tx_env.msg_sender,
         };
 
         Self {
@@ -759,7 +760,13 @@ impl VM {
                     self.env.consumed_gas += gas_cost::CALLER;
                 }
                 Opcode::ORIGIN => {
-                    todo!()
+                    if self.env.consumed_gas + gas_cost::ORIGIN > self.env.gas_limit {
+                        break;
+                    }
+
+                    let origin = self.env.origin;
+                    current_call_frame.stack.push(U256::from(origin.as_bytes()));
+                    self.env.consumed_gas += gas_cost::ORIGIN;
                 }
                 Opcode::BALANCE => {
                     todo!()
