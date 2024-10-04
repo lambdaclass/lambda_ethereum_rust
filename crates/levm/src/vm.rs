@@ -310,38 +310,36 @@ impl VM {
                     self.env.consumed_gas += gas_cost::MOD
                 }
                 Opcode::SMOD => {
+                    // Check gas limit for the operation
                     if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
-                        break; // should revert the tx
+                        break; // should revert the transaction
                     }
+
                     let dividend = current_call_frame.stack.pop().unwrap();
                     let divisor = current_call_frame.stack.pop().unwrap();
                     if divisor.is_zero() {
                         current_call_frame.stack.push(U256::zero());
                         continue;
                     }
-
                     let dividend_is_negative = is_negative(dividend);
                     let divisor_is_negative = is_negative(divisor);
-                    let dividend = if dividend_is_negative {
+                    let normalized_dividend = if dividend_is_negative {
                         negate(dividend)
                     } else {
                         dividend
                     };
-                    let divisor = if divisor_is_negative {
+                    let normalized_divisor = if divisor_is_negative {
                         negate(divisor)
                     } else {
                         divisor
                     };
-                    let remainder = dividend % divisor;
-                    let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
-                    let remainder = if remainder_is_negative {
-                        negate(remainder)
-                    } else {
-                        remainder
-                    };
-
+                    let mut remainder = normalized_dividend % normalized_divisor;
+                    // The remainder should have the same sign as the dividend
+                    if dividend_is_negative {
+                        remainder = negate(remainder);
+                    }
                     current_call_frame.stack.push(remainder);
-                    self.env.consumed_gas += gas_cost::SMOD
+                    self.env.consumed_gas += gas_cost::SMOD;
                 }
                 Opcode::ADDMOD => {
                     if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {

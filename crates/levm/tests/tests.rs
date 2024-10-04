@@ -258,6 +258,9 @@ fn smod_op(){
 
     let c = U256::from_str_radix("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe", 16).unwrap();
 
+    // println!("{c}");
+    // println!("{}", vm.current_call_frame_mut().stack.pop().unwrap());
+
     // I think the test is fine but SMOD may be implemented wrong? Result should be -2, not 2.
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == c);
 }
