@@ -1,14 +1,14 @@
-name: EVM Mlir CI
+name: LEVM Mlir CI
 
 on:
   merge_group:
   push:
     paths:
-      - 'crates/evm_mlir/**'
+      - 'crates/levm_mlir/**'
     branches: [ main ]
   pull_request:
     paths:
-      - 'crates/evm_mlir/**'
+      - 'crates/levm_mlir/**'
     branches: [ '**' ]
 
 concurrency:
@@ -50,7 +50,7 @@ jobs:
         run: sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
 
       - name: Run cargo check
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: cargo check --workspace --all-features --all-targets
 
   lint:
@@ -76,11 +76,11 @@ jobs:
         run: sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
 
       - name: Run cargo fmt
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: cargo clippy --workspace --all-features --benches --examples --tests -- -D warnings
 
   test:
@@ -112,7 +112,7 @@ jobs:
         run: sudo add-apt-repository ppa:ethereum/ethereum; sudo apt-get update; sudo apt-get install solc
 
       - name: Compile example test contracts
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: make compile-solidity-test-examples
 
       - name: Install testing tools
@@ -121,7 +121,7 @@ jobs:
           tool: cargo-nextest
 
       - name: Run tests
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: make test
 
   ethereum-tests:
@@ -158,20 +158,20 @@ jobs:
           tool: cargo-nextest
 
       - name: Download test vectors
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: make ethtests
 
       - name: Run fast ethereum tests
         if: ${{ matrix.type == 'fast' }}
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: make test-eth
 
       - name: Run slow ethereum tests
         if: ${{ matrix.type == 'slow' }}
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: make test-eth-slow
 
       - name: Run blake2B ethereum test
         if: ${{ matrix.type == 'blake2B' }}
-        working-directory: ./crates/evm_mlir
+        working-directory: ./crates/levm_mlir
         run: make test-eth-blake2B
