@@ -9,6 +9,7 @@ use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::future::IntoFuture;
 use std::path::Path;
+use std::str::FromStr;
 use std::time::Duration;
 use std::{
     fs::File,
@@ -39,15 +40,12 @@ async fn main() {
         return;
     }
 
-    let subscriber = if matches.get_flag("verbose") {
-        FmtSubscriber::builder()
-            .with_max_level(Level::DEBUG)
-            .finish()
-    } else {
-        FmtSubscriber::builder()
-            .with_max_level(Level::INFO)
-            .finish()
-    };
+    let log_level = matches
+        .get_one::<String>("log-level")
+        .expect("log-level is required");
+    let log_level = Level::from_str(&log_level).unwrap_or(Level::INFO);
+
+    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 

@@ -1,5 +1,6 @@
-use clap::{arg, Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, Command};
 use ethereum_rust_net::bootnode::BootNode;
+use tracing::Level;
 
 pub fn cli() -> Command {
     Command::new("ethereum_rust")
@@ -19,7 +20,13 @@ pub fn cli() -> Command {
                 .value_name("PORT")
                 .action(ArgAction::Set),
         )
-        .arg(arg!(-v --verbose "Max verbosity for logs").required(false))
+        .arg(
+            Arg::new("log-level")
+                .long("log-level")
+                .default_value(Level::INFO.as_str())
+                .value_name("LOG_LEVEL")
+                .action(ArgAction::Set),
+        )
         .arg(
             Arg::new("authrpc.addr")
                 .long("authrpc.addr")
