@@ -143,6 +143,13 @@ fn deploy_l1(
     deployer_private_key: &str,
     contracts_path: &PathBuf,
 ) -> eyre::Result<()> {
+    // Run 'which solc' to get the path of the solc binary
+    let solc_path_output = std::process::Command::new("which").arg("solc").output()?;
+
+    let solc_path = String::from_utf8_lossy(&solc_path_output.stdout)
+        .trim()
+        .to_string();
+
     let cmd = std::process::Command::new("forge")
         .current_dir(contracts_path)
         .arg("script")
@@ -152,6 +159,8 @@ fn deploy_l1(
         .arg("--private-key")
         .arg(deployer_private_key) // TODO: In the future this must be the operator's private key.
         .arg("--broadcast")
+        .arg("--use")
+        .arg(solc_path)
         .spawn()?
         .wait()?;
     if !cmd.success() {
