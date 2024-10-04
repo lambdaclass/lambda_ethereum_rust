@@ -22,15 +22,8 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
         let mut vm = new_vm_with_bytecode(bytecode.clone());
         *vm.current_call_frame_mut() = call_frame;
 
-        black_box(vm.execute());
-        // black_box(executor.execute(black_box(&mut context), black_box(initial_gas)));
-        // assert!(context.get_result().unwrap().result.is_success());
+        vm.execute();
     }
-    // black_box(executor.execute(black_box(&mut context), black_box(initial_gas)));
-    // let result = context.get_result().unwrap().result;
-    // assert!(result.is_success());
-
-    // println!("\t0x{}", hex::encode(result.output().unwrap()));
 }
 
 pub fn run_with_revm(program: &str, runs: usize, number_of_iterations: u32) {

@@ -1,5 +1,10 @@
 use ethereum_rust_levm::{
-    block::TARGET_BLOB_GAS_PER_BLOCK, constants::{MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN, TX_BASE_COST}, operations::Operation, primitives::{Address, Bytes, H256, U256}, utils::{new_vm_with_ops, new_vm_with_ops_addr_bal}, vm::{Account, Storage, StorageSlot, VM}
+    block::TARGET_BLOB_GAS_PER_BLOCK,
+    constants::{MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN, TX_BASE_COST},
+    operations::Operation,
+    primitives::{Address, Bytes, H256, U256},
+    utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
+    vm::{Account, Storage, StorageSlot, VM},
 };
 use ethereum_types::H32;
 use std::collections::HashMap;
@@ -1348,7 +1353,8 @@ fn nested_calls() {
     let caller_address = Address::from_low_u64_be(U256::from(1).low_u64());
     let caller_balance = U256::from(1_000_000);
 
-    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&caller_ops), caller_address, caller_balance);
+    let mut vm =
+        new_vm_with_ops_addr_bal(ops_to_bytecde(&caller_ops), caller_address, caller_balance);
 
     vm.db.add_account(callee2_address, callee2_account);
     vm.db.add_account(callee3_address, callee3_account);
@@ -1894,8 +1900,8 @@ fn blockhash_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), Address::default(), U256::MAX);
+    let mut vm =
+        new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
     vm.db
         .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
@@ -1954,8 +1960,8 @@ fn blockhash_block_number_not_from_recent_256() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), Address::default(), U256::MAX);
+    let mut vm =
+        new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
     vm.db
         .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
@@ -2924,8 +2930,7 @@ fn create_happy_path() {
     ]
     .concat();
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -2956,8 +2961,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -2983,8 +2987,7 @@ fn cant_create_on_static_contexts() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
     vm.current_call_frame_mut().is_static = true;
 
@@ -3011,8 +3014,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3150,8 +3152,7 @@ fn create2_happy_path() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3193,8 +3194,7 @@ fn create_on_create() {
     ]
     .concat();
 
-    let mut vm = new_vm_with_ops_addr_bal(
-        ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
 
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
