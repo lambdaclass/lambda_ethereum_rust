@@ -48,7 +48,7 @@ impl FilterRequest {
             .map(|unix_time| unix_time.as_secs())
             .map_err(|_err| RpcErr::Internal)?;
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
-            error!("Logs filtering mutex is poisoned! Cleaning up..");
+            error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
             **poisoned_guard.get_mut() = HashMap::new();
             filters.clear_poison();
             poisoned_guard.into_inner()
