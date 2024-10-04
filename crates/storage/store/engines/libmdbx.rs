@@ -552,6 +552,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
+        table_info!(Payloads),
     ]
     .into_iter()
     .collect();
