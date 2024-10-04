@@ -310,9 +310,8 @@ impl VM {
                     self.env.consumed_gas += gas_cost::MOD
                 }
                 Opcode::SMOD => {
-                    // Check gas limit for the operation
                     if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
-                        break; // should revert the transaction
+                        break; // should revert the tx
                     }
 
                     let dividend = current_call_frame.stack.pop().unwrap();
@@ -339,7 +338,7 @@ impl VM {
                         remainder = negate(remainder);
                     }
                     current_call_frame.stack.push(remainder);
-                    self.env.consumed_gas += gas_cost::SMOD;
+                    self.env.consumed_gas += gas_cost::SMOD
                 }
                 Opcode::ADDMOD => {
                     if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
