@@ -355,7 +355,7 @@ fn apply_blob_transaction(
         > MAX_BLOB_GAS_PER_BLOCK
     {
         // This error will only be used for debug tracing
-        return Err(EvmError::Custom(format!("max data blobs reached")).into());
+        return Err(EvmError::Custom("max data blobs reached".to_string()).into());
     };
     // Apply transaction
     let receipt = apply_plain_transaction(head, context)?;

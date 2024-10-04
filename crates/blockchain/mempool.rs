@@ -57,9 +57,9 @@ pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, 
     Ok(store.get_transaction_from_pool(hash)?)
 }
 
-/// Fetch a blob tx's blobs bundle from the mempool by the transaction's hash
-pub fn get_blobs_bundle(hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
-    Ok(store.get_blobs_bundle_from_pool(hash)?)
+/// Fetch a blobs bundle from the mempool given its blob transaction hash
+pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
+    Ok(store.get_blobs_bundle_from_pool(tx_hash)?)
 }
 
 /// Applies the filter and returns a set of suitable transactions from the mempool.
@@ -107,7 +107,6 @@ pub struct PendingTxFilter {
     pub only_plain_txs: bool,
     pub only_blob_txs: bool,
 }
-
 /*
 
 SOME VALIDATIONS THAT WE COULD INCLUDE
