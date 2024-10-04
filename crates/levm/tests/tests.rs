@@ -141,6 +141,23 @@ fn add_op() {
 }
 
 #[test]
+fn mul_op(){
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push32(U256::from(2)),
+        Operation::Push32(U256::from(3)),
+        Operation::Mul,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(6));
+    assert!(vm.current_call_frame_mut().pc() == 68);
+}
+
+
+
+#[test]
 fn and_basic() {
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0b1010)),
