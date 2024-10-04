@@ -17,6 +17,7 @@ ethereum-types.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-rlp.workspace = true
 ethereum_rust-rpc.workspace = true
+ethereum_rust-blockchain.workspace = true
 libsecp256k1 = "0.7.1"
 bytes.workspace = true
 keccak-hash = "0.10.0"
