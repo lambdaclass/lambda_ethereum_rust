@@ -7,22 +7,22 @@ use ethereum_rust_storage::Store;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum AddressFilter {
     Single(H160),
     Many(Vec<H160>),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum TopicFilter {
     Topic(Option<H256>),
     Topics(Vec<Option<H256>>),
 }
 
-#[derive(Debug)]
-pub struct LogsRequest {
+#[derive(Debug, Clone)]
+pub struct LogsFilter {
     /// The oldest block from which to start
     /// retrieving logs.
     /// Will default to `latest` if not provided.
@@ -35,8 +35,8 @@ pub struct LogsRequest {
     /// Which topics to filter.
     pub topics: Vec<TopicFilter>,
 }
-impl RpcHandler for LogsRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
+impl RpcHandler for LogsFilter {
+    fn parse(params: &Option<Vec<Value>>) -> Result<LogsFilter, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
                 let param = param.as_object().ok_or(RpcErr::BadParams)?;
@@ -66,11 +66,11 @@ impl RpcHandler for LogsRequest {
                             _ => Err(RpcErr::WrongParam("topics".to_string())),
                         }
                     })?;
-                Ok(LogsRequest {
+                Ok(LogsFilter {
                     from_block,
+                    to_block,
                     address_filters,
                     topics: topics_filters.unwrap_or_else(Vec::new),
-                    to_block,
                 })
             }
             _ => Err(RpcErr::BadParams),
@@ -93,6 +93,10 @@ impl RpcHandler for LogsRequest {
             .to_block
             .resolve_block_number(&storage)?
             .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+
+        if (from..=to).is_empty() {
+            return Err(RpcErr::BadParams);
+        }
 
         let address_filter: HashSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
