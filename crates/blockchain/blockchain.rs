@@ -199,49 +199,51 @@ pub fn new_head(
         return Ok(());
     }
 
-    // If both finalized and safe blocks are canonical, we can skip the ancestry check.
-    let finalized_canonical =
-        is_canonical(store, finalized.number, finalized_hash).map_err(wrap)?;
-    let safe_canonical = is_canonical(store, safe.number, safe_hash).map_err(wrap)?;
-
     // Find out if blocks are correctly connected.
-    let Some(head_ancestry) = find_ancestry(store, &safe, &head).map_err(wrap)? else {
+    let Some(new_canonical_blocks) = find_link_with_canonical_chain(store, &head).map_err(wrap)?
+    else {
         return Err(InvalidForkChoice::Disconnected(
             error::ForkChoiceElement::Head,
             error::ForkChoiceElement::Safe,
         ));
     };
 
-    let safe_ancestry = if safe_canonical && finalized_canonical {
-        // Skip check. We will not canonize anything between safe and finalized blocks.
-        Vec::new()
-    } else {
-        let Some(ancestry) = find_ancestry(store, &finalized, &safe).map_err(wrap)? else {
-            return Err(InvalidForkChoice::Disconnected(
-                error::ForkChoiceElement::Safe,
-                error::ForkChoiceElement::Finalized,
-            ));
-        };
-        ancestry
+    let link_block_number = match new_canonical_blocks.last() {
+        Some((number, _)) => number.clone(),
+        None => head.number,
     };
 
-    // Canonize blocks from both ancestries.
-    for (number, hash) in safe_ancestry {
-        store.set_canonical_block(number, hash).map_err(wrap)?;
-    }
+    // Check that finalized and safe blocks are either in the new canonical blocks, or already
+    // but prior to the canonical link to the new head.
+    if !(is_canonical(store, finalized.number, finalized_hash).map_err(wrap)?
+        && finalized.number <= link_block_number
+        || new_canonical_blocks.contains(&(finalized.number, finalized_hash))
+        || (finalized.number == head.number && finalized_hash == head_hash))
+    {
+        return Err(InvalidForkChoice::Disconnected(
+            error::ForkChoiceElement::Head,
+            error::ForkChoiceElement::Finalized,
+        ));
+    };
 
-    for (number, hash) in head_ancestry {
+    if !(is_canonical(store, safe.number, safe_hash).map_err(wrap)?
+        && safe.number <= link_block_number
+        || new_canonical_blocks.contains(&(safe.number, safe_hash))
+        || (safe.number == head.number && safe_hash == head_hash))
+    {
+        return Err(InvalidForkChoice::Disconnected(
+            error::ForkChoiceElement::Head,
+            error::ForkChoiceElement::Safe,
+        ));
+    };
+
+    // Finished all validations.
+    for (number, hash) in new_canonical_blocks {
         store.set_canonical_block(number, hash).map_err(wrap)?;
     }
 
     store
         .set_canonical_block(head.number, head_hash)
-        .map_err(wrap)?;
-    store
-        .set_canonical_block(safe.number, safe_hash)
-        .map_err(wrap)?;
-    store
-        .set_canonical_block(finalized.number, finalized_hash)
         .map_err(wrap)?;
 
     store
@@ -339,53 +341,48 @@ fn total_difficulty_check<'a>(
     Ok(())
 }
 
-// Find branch of the blockchain connecting two blocks. If the blocks are connected through
-// parent hashes, then a vector of number-hash pairs is returned for the branch. If they are not
-// connected, an error is returned.
+// Find branch of the blockchain connecting a block with the canonical chain. Returns the
+// number-hash pairs representing all blocks in that brunch. If genesis is reached and the link
+// hasn't been found, an error is returned.
 //
 // Return values:
 // - Err(StoreError): a db-related error happened.
-// - Ok(None): the headers are not related by ancestry.
-// - Ok(Some([])): the headers are the same block.
+// - Ok(None): The block is not connected to the canonical chain.
+// - Ok(Some([])): the block is already canonical.
 // - Ok(Some(branch)): the "branch" is a sequence of blocks that connects the ancestor and the
 //   descendant.
-fn find_ancestry(
-    storage: &Store,
-    ancestor: &BlockHeader,
-    descendant: &BlockHeader,
+fn find_link_with_canonical_chain(
+    store: &Store,
+    block: &BlockHeader,
 ) -> Result<Option<Vec<(BlockNumber, BlockHash)>>, StoreError> {
-    let mut block_number = descendant.number;
-    let mut found = false;
-    let descendant_hash = descendant.compute_block_hash();
-    let ancestor_hash = ancestor.compute_block_hash();
-    let mut header = descendant.clone();
+    let mut block_number = block.number;
+    let block_hash = block.compute_block_hash();
+    let mut header = block.clone();
     let mut branch = Vec::new();
 
-    if ancestor.number == descendant.number {
-        if ancestor_hash == descendant_hash {
-            return Ok(Some(branch));
-        } else {
-            return Ok(None);
-        }
+    if is_canonical(store, block_number, block_hash)? {
+        return Ok(Some(branch));
     }
 
-    while block_number > ancestor.number && !found {
+    let Some(genesis_number) = store.get_earliest_block_number()? else {
+        return Err(StoreError::Custom(
+            "Earliest block number not found. Node setup must have been faulty.".to_string(),
+        ));
+    };
+
+    while block_number > genesis_number {
         block_number -= 1;
         let parent_hash = header.parent_hash;
 
         // Check that the parent exists.
-        let parent_header = match storage.get_block_header_by_hash(parent_hash) {
+        let parent_header = match store.get_block_header_by_hash(parent_hash) {
             Ok(Some(header)) => header,
             Ok(None) => return Ok(None),
             Err(error) => return Err(error),
         };
 
-        if block_number == ancestor.number {
-            if ancestor_hash == parent_hash {
-                found = true;
-            } else {
-                return Ok(None);
-            }
+        if is_canonical(store, block_number, parent_hash)? {
+            return Ok(Some(branch));
         } else {
             branch.push((block_number, parent_hash));
         }
@@ -393,11 +390,7 @@ fn find_ancestry(
         header = parent_header;
     }
 
-    if found {
-        Ok(Some(branch))
-    } else {
-        Ok(None)
-    }
+    Ok(None)
 }
 #[cfg(test)]
 mod tests {}
