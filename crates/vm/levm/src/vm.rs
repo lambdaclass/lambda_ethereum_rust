@@ -248,10 +248,9 @@ impl VM {
                 }
                 Opcode::ADD => {
                     if self.env.consumed_gas + gas_cost::ADD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let augend = current_call_frame.stack.pop()?;
@@ -262,10 +261,9 @@ impl VM {
                 }
                 Opcode::MUL => {
                     if self.env.consumed_gas + gas_cost::MUL > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let multiplicand = current_call_frame.stack.pop()?;
@@ -276,10 +274,9 @@ impl VM {
                 }
                 Opcode::SUB => {
                     if self.env.consumed_gas + gas_cost::SUB > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let minuend = current_call_frame.stack.pop()?;
@@ -290,10 +287,9 @@ impl VM {
                 }
                 Opcode::DIV => {
                     if self.env.consumed_gas + gas_cost::DIV > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let dividend = current_call_frame.stack.pop()?;
@@ -308,10 +304,9 @@ impl VM {
                 }
                 Opcode::SDIV => {
                     if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let dividend = current_call_frame.stack.pop()?;
@@ -346,10 +341,9 @@ impl VM {
                 }
                 Opcode::MOD => {
                     if self.env.consumed_gas + gas_cost::MOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let dividend = current_call_frame.stack.pop()?;
@@ -364,10 +358,9 @@ impl VM {
                 }
                 Opcode::SMOD => {
                     if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let dividend = current_call_frame.stack.pop()?;
@@ -402,10 +395,9 @@ impl VM {
                 }
                 Opcode::ADDMOD => {
                     if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let augend = current_call_frame.stack.pop()?;
@@ -426,10 +418,9 @@ impl VM {
                 }
                 Opcode::MULMOD => {
                     if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let multiplicand = U512::from(current_call_frame.stack.pop()?);
@@ -465,10 +456,9 @@ impl VM {
                     let gas_cost =
                         gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -478,10 +468,9 @@ impl VM {
                 }
                 Opcode::SIGNEXTEND => {
                     if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let byte_size = current_call_frame.stack.pop()?;
@@ -505,10 +494,9 @@ impl VM {
                 }
                 Opcode::LT => {
                     if self.env.consumed_gas + gas_cost::LT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let lho = current_call_frame.stack.pop()?;
@@ -519,10 +507,9 @@ impl VM {
                 }
                 Opcode::GT => {
                     if self.env.consumed_gas + gas_cost::GT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let lho = current_call_frame.stack.pop()?;
@@ -533,10 +520,9 @@ impl VM {
                 }
                 Opcode::SLT => {
                     if self.env.consumed_gas + gas_cost::SLT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let lho = current_call_frame.stack.pop()?;
@@ -563,10 +549,9 @@ impl VM {
                 }
                 Opcode::SGT => {
                     if self.env.consumed_gas + gas_cost::SGT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let lho = current_call_frame.stack.pop()?;
@@ -593,10 +578,9 @@ impl VM {
                 }
                 Opcode::EQ => {
                     if self.env.consumed_gas + gas_cost::EQ > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let lho = current_call_frame.stack.pop()?;
@@ -611,10 +595,9 @@ impl VM {
                 }
                 Opcode::ISZERO => {
                     if self.env.consumed_gas + gas_cost::ISZERO > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let operand = current_call_frame.stack.pop()?;
@@ -645,10 +628,9 @@ impl VM {
                         + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
                         + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -664,10 +646,9 @@ impl VM {
                 }
                 Opcode::CALLDATALOAD => {
                     if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let offset: usize = current_call_frame
@@ -683,10 +664,9 @@ impl VM {
                 }
                 Opcode::CALLDATASIZE => {
                     if self.env.consumed_gas + gas_cost::CALLDATASIZE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     current_call_frame
@@ -718,10 +698,9 @@ impl VM {
                         + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost;
@@ -736,10 +715,9 @@ impl VM {
                 }
                 Opcode::RETURNDATASIZE => {
                     if self.env.consumed_gas + gas_cost::RETURNDATASIZE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     current_call_frame
@@ -771,10 +749,9 @@ impl VM {
                         + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost;
@@ -788,10 +765,9 @@ impl VM {
                 }
                 Opcode::JUMP => {
                     if self.env.consumed_gas + gas_cost::JUMP > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let jump_address = current_call_frame.stack.pop()?;
@@ -814,20 +790,18 @@ impl VM {
                 Opcode::JUMPDEST => {
                     // just consume some gas, jumptable written at the start
                     if self.env.consumed_gas + gas_cost::JUMPDEST > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost::JUMPDEST
                 }
                 Opcode::PC => {
                     if self.env.consumed_gas + gas_cost::PC > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     current_call_frame
@@ -837,10 +811,9 @@ impl VM {
                 }
                 Opcode::BLOCKHASH => {
                     if self.env.consumed_gas + gas_cost::BLOCKHASH > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let block_number = current_call_frame.stack.pop()?;
@@ -869,10 +842,9 @@ impl VM {
                 }
                 Opcode::COINBASE => {
                     if self.env.consumed_gas + gas_cost::COINBASE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let coinbase = block_env.coinbase;
@@ -881,10 +853,9 @@ impl VM {
                 }
                 Opcode::TIMESTAMP => {
                     if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let timestamp = block_env.timestamp;
@@ -893,10 +864,9 @@ impl VM {
                 }
                 Opcode::NUMBER => {
                     if self.env.consumed_gas + gas_cost::NUMBER > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let block_number = block_env.number;
@@ -905,10 +875,9 @@ impl VM {
                 }
                 Opcode::PREVRANDAO => {
                     if self.env.consumed_gas + gas_cost::PREVRANDAO > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let randao = block_env.prev_randao.unwrap_or_default();
@@ -919,10 +888,9 @@ impl VM {
                 }
                 Opcode::GASLIMIT => {
                     if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let gas_limit = block_env.gas_limit;
@@ -931,10 +899,9 @@ impl VM {
                 }
                 Opcode::CHAINID => {
                     if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let chain_id = block_env.chain_id;
@@ -943,10 +910,9 @@ impl VM {
                 }
                 Opcode::SELFBALANCE => {
                     if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost::SELFBALANCE;
@@ -954,10 +920,9 @@ impl VM {
                 }
                 Opcode::BASEFEE => {
                     if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let base_fee = block_env.base_fee_per_gas;
@@ -966,10 +931,9 @@ impl VM {
                 }
                 Opcode::BLOBHASH => {
                     if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost::BLOBHASH;
@@ -977,10 +941,9 @@ impl VM {
                 }
                 Opcode::BLOBBASEFEE => {
                     if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let blob_base_fee = block_env.calculate_blob_gas_price();
@@ -989,10 +952,9 @@ impl VM {
                 }
                 Opcode::PUSH0 => {
                     if self.env.consumed_gas + gas_cost::PUSH0 > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     current_call_frame.stack.push(U256::zero())?;
@@ -1001,10 +963,9 @@ impl VM {
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
@@ -1019,10 +980,9 @@ impl VM {
                 }
                 Opcode::PUSH32 => {
                     if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let next_32_bytes = current_call_frame
@@ -1036,10 +996,9 @@ impl VM {
                 }
                 Opcode::AND => {
                     if self.env.consumed_gas + gas_cost::AND > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let a = current_call_frame.stack.pop()?;
@@ -1049,10 +1008,9 @@ impl VM {
                 }
                 Opcode::OR => {
                     if self.env.consumed_gas + gas_cost::OR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let a = current_call_frame.stack.pop()?;
@@ -1062,10 +1020,9 @@ impl VM {
                 }
                 Opcode::XOR => {
                     if self.env.consumed_gas + gas_cost::XOR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let a = current_call_frame.stack.pop()?;
@@ -1075,10 +1032,9 @@ impl VM {
                 }
                 Opcode::NOT => {
                     if self.env.consumed_gas + gas_cost::NOT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let a = current_call_frame.stack.pop()?;
@@ -1087,10 +1043,9 @@ impl VM {
                 }
                 Opcode::BYTE => {
                     if self.env.consumed_gas + gas_cost::BYTE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let op1 = current_call_frame.stack.pop()?;
@@ -1109,10 +1064,9 @@ impl VM {
                 }
                 Opcode::SHL => {
                     if self.env.consumed_gas + gas_cost::SHL > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let shift = current_call_frame.stack.pop()?;
@@ -1126,10 +1080,9 @@ impl VM {
                 }
                 Opcode::SHR => {
                     if self.env.consumed_gas + gas_cost::SHR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let shift = current_call_frame.stack.pop()?;
@@ -1143,10 +1096,9 @@ impl VM {
                 }
                 Opcode::SAR => {
                     if self.env.consumed_gas + gas_cost::SAR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let shift = current_call_frame.stack.pop()?;
@@ -1164,10 +1116,9 @@ impl VM {
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::DUPN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
@@ -1185,10 +1136,9 @@ impl VM {
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::SWAPN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
@@ -1207,10 +1157,9 @@ impl VM {
                 }
                 Opcode::POP => {
                     if self.env.consumed_gas + gas_cost::POP > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     current_call_frame.stack.pop()?;
@@ -1245,10 +1194,9 @@ impl VM {
                         + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -1271,10 +1219,9 @@ impl VM {
                         current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
                     let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -1288,10 +1235,9 @@ impl VM {
                         current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
                     let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -1308,10 +1254,9 @@ impl VM {
                         current_call_frame.memory.expansion_cost(offset + 1);
                     let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -1372,10 +1317,9 @@ impl VM {
                 }
                 Opcode::MSIZE => {
                     if self.env.consumed_gas + gas_cost::MSIZE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     current_call_frame
@@ -1385,10 +1329,9 @@ impl VM {
                 }
                 Opcode::GAS => {
                     if self.env.consumed_gas + gas_cost::GAS > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     let remaining_gas = self.env.gas_limit - self.env.consumed_gas - gas_cost::GAS;
@@ -1483,10 +1426,9 @@ impl VM {
                         + positive_value_cost
                         + value_to_empty_account_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
 
@@ -1557,10 +1499,9 @@ impl VM {
 
                     let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Success {
-                            reason: ResultReason::Stop,
-                            logs: current_call_frame.logs,
-                            return_data: current_call_frame.returndata,
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
                         }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost;
@@ -1666,10 +1607,10 @@ impl VM {
                 }
                 Opcode::TLOAD => {
                     if self.env.consumed_gas + gas_cost::TLOAD > self.env.gas_limit {
-                        return Ok(Self::write_success_result(
-                            current_call_frame,
-                            ResultReason::Stop,
-                        )); // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let key = current_call_frame.stack.pop()?;
                     let value = current_call_frame
@@ -1683,10 +1624,10 @@ impl VM {
                 }
                 Opcode::TSTORE => {
                     if self.env.consumed_gas + gas_cost::TSTORE > self.env.gas_limit {
-                        return Ok(Self::write_success_result(
-                            current_call_frame,
-                            ResultReason::Stop,
-                        )); // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let key = current_call_frame.stack.pop()?;
                     let value = current_call_frame.stack.pop()?;
@@ -1782,26 +1723,14 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            Ok(ExecutionResult::Revert {
-                gas_used,
-                output,
-            }) => {
-                current_call_frame
-                    .memory
-                    .store_bytes(ret_offset, &output);
+            Ok(ExecutionResult::Revert { gas_used, output }) => {
+                current_call_frame.memory.store_bytes(ret_offset, &output);
                 current_call_frame.returndata = output;
-                current_call_frame
-                    .stack
-                    .push(U256::from(REVERT_FOR_CALL))?;
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 current_call_frame.gas -= U256::from(gas_used);
             }
-            Ok(ExecutionResult::Halt {
-                reason,
-                gas_used,
-            }) => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(reason as u8))?;
+            Ok(ExecutionResult::Halt { reason, gas_used }) => {
+                current_call_frame.stack.push(U256::from(reason as u8))?;
                 current_call_frame.gas -= U256::from(gas_used);
             }
             Err(_) => {
