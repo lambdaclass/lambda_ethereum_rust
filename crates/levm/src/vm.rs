@@ -790,7 +790,14 @@ impl VM {
                     self.env.consumed_gas += gas_cost::BALANCE;
                 }
                 Opcode::ADDRESS => {
-                    todo!()
+                    if self.env.consumed_gas + gas_cost::ADDRESS > self.env.gas_limit {
+                        break; // should revert the tx
+                    }
+
+                    let addr = current_call_frame.code_address;
+
+                    current_call_frame.stack.push(U256::from(addr.as_bytes()));
+                    self.env.consumed_gas += gas_cost::ADDRESS;
                 }
                 Opcode::SELFBALANCE => {
                     if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
