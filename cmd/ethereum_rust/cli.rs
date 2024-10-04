@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{arg, Arg, ArgAction, Command};
 use ethereum_rust_net::bootnode::BootNode;
 
 pub fn cli() -> Command {
@@ -19,6 +19,7 @@ pub fn cli() -> Command {
                 .value_name("PORT")
                 .action(ArgAction::Set),
         )
+        .arg(arg!(-v --verbose "Max verbosity for logs").required(false))
         .arg(
             Arg::new("authrpc.addr")
                 .long("authrpc.addr")

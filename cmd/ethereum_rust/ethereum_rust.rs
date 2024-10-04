@@ -23,12 +23,6 @@ mod decode;
 
 #[tokio::main]
 async fn main() {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
     let matches = cli::cli().get_matches();
 
     if let Some(matches) = matches.subcommand_matches("removedb") {
@@ -44,6 +38,18 @@ async fn main() {
         }
         return;
     }
+
+    let subscriber = if matches.get_flag("verbose") {
+        FmtSubscriber::builder()
+            .with_max_level(Level::DEBUG)
+            .finish()
+    } else {
+        FmtSubscriber::builder()
+            .with_max_level(Level::INFO)
+            .finish()
+    };
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let http_addr = matches
         .get_one::<String>("http.addr")
