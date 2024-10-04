@@ -10,6 +10,7 @@ use crate::{
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, H32, U256, U512},
     transaction::{TransactTo, TxEnv},
+    vm_result::{ExecutionResult, ResultReason, VMError},
 };
 extern crate ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -18,6 +19,7 @@ use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug)]
 pub struct Account {
+    pub address: Address,
     pub balance: U256,
     pub bytecode: Bytes,
     pub nonce: u64,
@@ -32,12 +34,14 @@ pub struct StorageSlot {
 
 impl Account {
     pub fn new(
+        address: Address,
         balance: U256,
         bytecode: Bytes,
         nonce: u64,
         storage: HashMap<U256, StorageSlot>,
     ) -> Self {
         Self {
+            address,
             balance,
             bytecode,
             storage,
@@ -67,6 +71,10 @@ impl Account {
     pub fn with_nonce(mut self, nonce: u64) -> Self {
         self.nonce = nonce;
         self
+    }
+
+    pub fn increment_nonce(&mut self) {
+        self.nonce += 1;
     }
 }
 
@@ -110,6 +118,12 @@ impl Db {
     pub fn add_account(&mut self, address: Address, account: Account) {
         self.accounts.insert(address, account);
     }
+
+    pub fn increment_account_nonce(&mut self, address: &Address) {
+        if let Some(acc) = self.accounts.get_mut(address) {
+            acc.increment_nonce()
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -136,7 +150,7 @@ pub struct Environment {
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
-    call_frames: Vec<CallFrame>,
+    pub call_frames: Vec<CallFrame>,
     pub env: Environment,
     /// Information that is acted upon immediately following the
     /// transaction.
@@ -173,7 +187,7 @@ impl VM {
             }
         };
 
-        let caller = match tx_env.transact_to {
+        let to = match tx_env.transact_to {
             TransactTo::Call(addr) => addr,
             TransactTo::Create => tx_env.msg_sender,
         };
@@ -185,15 +199,16 @@ impl VM {
 
         // TODO: this is mostly placeholder
         let initial_call_frame = CallFrame::new(
-            U256::MAX,
             tx_env.msg_sender,
-            caller,
+            to,
             code_addr,
-            Default::default(),
+            None,
             bytecode,
             tx_env.value,
             tx_env.data,
             false,
+            U256::zero(),
+            0,
         );
 
         let env = Environment {
@@ -210,65 +225,94 @@ impl VM {
         }
     }
 
-    pub fn execute(&mut self) {
+    pub fn write_success_result(call_frame: CallFrame, reason: ResultReason) -> ExecutionResult {
+        ExecutionResult::Success {
+            reason,
+            logs: call_frame.logs.clone(),
+            return_data: call_frame.returndata.clone(),
+        }
+    }
+
+    pub fn execute(&mut self) -> Result<ExecutionResult, VMError> {
         let block_env = self.env.block.clone();
-        let mut current_call_frame = self.call_frames.pop().unwrap();
+        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             match opcode {
-                Opcode::STOP => break,
+                Opcode::STOP => {
+                    self.call_frames.push(current_call_frame.clone());
+                    return Ok(Self::write_success_result(
+                        current_call_frame,
+                        ResultReason::Stop,
+                    ));
+                }
                 Opcode::ADD => {
                     if self.env.consumed_gas + gas_cost::ADD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let augend = current_call_frame.stack.pop().unwrap();
-                    let addend = current_call_frame.stack.pop().unwrap();
+                    let augend = current_call_frame.stack.pop()?;
+                    let addend = current_call_frame.stack.pop()?;
                     let sum = augend.overflowing_add(addend).0;
-                    current_call_frame.stack.push(sum);
+                    current_call_frame.stack.push(sum)?;
                     self.env.consumed_gas += gas_cost::ADD
                 }
                 Opcode::MUL => {
                     if self.env.consumed_gas + gas_cost::MUL > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let multiplicand = current_call_frame.stack.pop().unwrap();
-                    let multiplier = current_call_frame.stack.pop().unwrap();
+                    let multiplicand = current_call_frame.stack.pop()?;
+                    let multiplier = current_call_frame.stack.pop()?;
                     let product = multiplicand.overflowing_mul(multiplier).0;
-                    current_call_frame.stack.push(product);
+                    current_call_frame.stack.push(product)?;
                     self.env.consumed_gas += gas_cost::MUL
                 }
                 Opcode::SUB => {
                     if self.env.consumed_gas + gas_cost::SUB > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let minuend = current_call_frame.stack.pop().unwrap();
-                    let subtrahend = current_call_frame.stack.pop().unwrap();
+                    let minuend = current_call_frame.stack.pop()?;
+                    let subtrahend = current_call_frame.stack.pop()?;
                     let difference = minuend.overflowing_sub(subtrahend).0;
-                    current_call_frame.stack.push(difference);
+                    current_call_frame.stack.push(difference)?;
                     self.env.consumed_gas += gas_cost::SUB
                 }
                 Opcode::DIV => {
                     if self.env.consumed_gas + gas_cost::DIV > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
                     let quotient = dividend / divisor;
-                    current_call_frame.stack.push(quotient);
+                    current_call_frame.stack.push(quotient)?;
                     self.env.consumed_gas += gas_cost::DIV
                 }
                 Opcode::SDIV => {
                     if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -292,31 +336,37 @@ impl VM {
                         quotient
                     };
 
-                    current_call_frame.stack.push(quotient);
+                    current_call_frame.stack.push(quotient)?;
                     self.env.consumed_gas += gas_cost::SDIV
                 }
                 Opcode::MOD => {
                     if self.env.consumed_gas + gas_cost::MOD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
                     let remainder = dividend % divisor;
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                     self.env.consumed_gas += gas_cost::MOD
                 }
                 Opcode::SMOD => {
                     if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let dividend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let dividend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -340,18 +390,21 @@ impl VM {
                         remainder
                     };
 
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                     self.env.consumed_gas += gas_cost::SMOD
                 }
                 Opcode::ADDMOD => {
                     if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let augend = current_call_frame.stack.pop().unwrap();
-                    let addend = current_call_frame.stack.pop().unwrap();
-                    let divisor = current_call_frame.stack.pop().unwrap();
+                    let augend = current_call_frame.stack.pop()?;
+                    let addend = current_call_frame.stack.pop()?;
+                    let divisor = current_call_frame.stack.pop()?;
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
                     let (sum, overflow) = augend.overflowing_add(addend);
@@ -360,18 +413,21 @@ impl VM {
                         remainder = remainder.overflowing_sub(divisor).0;
                     }
 
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                     self.env.consumed_gas += gas_cost::ADDMOD
                 }
                 Opcode::MULMOD => {
                     if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let multiplicand = U512::from(current_call_frame.stack.pop().unwrap());
-                    let multiplier = U512::from(current_call_frame.stack.pop().unwrap());
-                    let divisor = U512::from(current_call_frame.stack.pop().unwrap());
+                    let multiplicand = U512::from(current_call_frame.stack.pop()?);
+                    let multiplier = U512::from(current_call_frame.stack.pop()?);
+                    let divisor = U512::from(current_call_frame.stack.pop()?);
                     if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
@@ -389,30 +445,36 @@ impl VM {
                     // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
                     result.reverse();
                     let remainder = U256::from(result.as_slice());
-                    current_call_frame.stack.push(remainder);
+                    current_call_frame.stack.push(remainder)?;
                     self.env.consumed_gas += gas_cost::MULMOD
                 }
                 Opcode::EXP => {
-                    let base = current_call_frame.stack.pop().unwrap();
-                    let exponent = current_call_frame.stack.pop().unwrap();
+                    let base = current_call_frame.stack.pop()?;
+                    let exponent = current_call_frame.stack.pop()?;
 
                     let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
                     let gas_cost =
                         gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
                     let power = base.overflowing_pow(exponent).0;
-                    current_call_frame.stack.push(power);
+                    current_call_frame.stack.push(power)?;
                     self.env.consumed_gas += gas_cost
                 }
                 Opcode::SIGNEXTEND => {
                     if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let byte_size = current_call_frame.stack.pop().unwrap();
-                    let value_to_extend = current_call_frame.stack.pop().unwrap();
+                    let byte_size = current_call_frame.stack.pop()?;
+                    let value_to_extend = current_call_frame.stack.pop()?;
 
                     let bits_per_byte = U256::from(8);
                     let sign_bit_position_on_byte = 7;
@@ -427,35 +489,44 @@ impl VM {
                     } else {
                         value_to_extend & sign_bit_mask
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::SIGNEXTEND
                 }
                 Opcode::LT => {
                     if self.env.consumed_gas + gas_cost::LT > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let result = if lho < rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::LT
                 }
                 Opcode::GT => {
                     if self.env.consumed_gas + gas_cost::GT > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let result = if lho > rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::GT
                 }
                 Opcode::SLT => {
                     if self.env.consumed_gas + gas_cost::SLT > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let lho_is_negative = lho.bit(255);
                     let rho_is_negative = rho.bit(255);
                     let result = if lho_is_negative == rho_is_negative {
@@ -473,15 +544,18 @@ impl VM {
                             U256::zero()
                         }
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::SLT
                 }
                 Opcode::SGT => {
                     if self.env.consumed_gas + gas_cost::SGT > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let lho_is_negative = lho.bit(255);
                     let rho_is_negative = rho.bit(255);
                     let result = if lho_is_negative == rho_is_negative {
@@ -499,39 +573,53 @@ impl VM {
                             U256::zero()
                         }
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::SGT
                 }
                 Opcode::EQ => {
                     if self.env.consumed_gas + gas_cost::EQ > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let lho = current_call_frame.stack.pop().unwrap();
-                    let rho = current_call_frame.stack.pop().unwrap();
+                    let lho = current_call_frame.stack.pop()?;
+                    let rho = current_call_frame.stack.pop()?;
                     let result = if lho == rho {
                         U256::one()
                     } else {
                         U256::zero()
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::EQ
                 }
                 Opcode::ISZERO => {
                     if self.env.consumed_gas + gas_cost::ISZERO > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let operand = current_call_frame.stack.pop().unwrap();
+                    let operand = current_call_frame.stack.pop()?;
                     let result = if operand == U256::zero() {
                         U256::one()
                     } else {
                         U256::zero()
                     };
-                    current_call_frame.stack.push(result);
+                    current_call_frame.stack.push(result)?;
                     self.env.consumed_gas += gas_cost::ISZERO
                 }
                 Opcode::KECCAK256 => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
 
                     let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
                     let memory_expansion_cost =
@@ -540,7 +628,10 @@ impl VM {
                         + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
                         + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
                     let value_bytes = current_call_frame.memory.load_range(offset, size);
@@ -550,34 +641,55 @@ impl VM {
                     let result = hasher.finalize();
                     current_call_frame
                         .stack
-                        .push(U256::from_big_endian(&result));
+                        .push(U256::from_big_endian(&result))?;
                     self.env.consumed_gas += gas_cost
                 }
                 Opcode::CALLDATALOAD => {
                     if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let offset: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let value = U256::from_big_endian(
                         &current_call_frame.calldata.slice(offset..offset + 32),
                     );
-                    current_call_frame.stack.push(value);
+                    current_call_frame.stack.push(value)?;
                     self.env.consumed_gas += gas_cost::CALLDATALOAD
                 }
                 Opcode::CALLDATASIZE => {
                     if self.env.consumed_gas + gas_cost::CALLDATASIZE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     current_call_frame
                         .stack
-                        .push(U256::from(current_call_frame.calldata.len()));
+                        .push(U256::from(current_call_frame.calldata.len()))?;
                     self.env.consumed_gas += gas_cost::CALLDATASIZE
                 }
                 Opcode::CALLDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let calldata_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let dest_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let calldata_offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
 
                     let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
                     let memory_expansion_cost =
@@ -586,7 +698,10 @@ impl VM {
                         + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost;
                     if size == 0 {
@@ -600,18 +715,32 @@ impl VM {
                 }
                 Opcode::RETURNDATASIZE => {
                     if self.env.consumed_gas + gas_cost::RETURNDATASIZE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     current_call_frame
                         .stack
-                        .push(U256::from(current_call_frame.returndata.len()));
+                        .push(U256::from(current_call_frame.returndata.len()))?;
                     self.env.consumed_gas += gas_cost::RETURNDATASIZE
                 }
                 Opcode::RETURNDATACOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let returndata_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let dest_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let returndata_offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
 
                     let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
                     let memory_expansion_cost =
@@ -620,7 +749,10 @@ impl VM {
                         + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost;
                     if size == 0 {
@@ -633,44 +765,58 @@ impl VM {
                 }
                 Opcode::JUMP => {
                     if self.env.consumed_gas + gas_cost::JUMP > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let jump_address = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.jump(jump_address);
-                    self.env.consumed_gas += gas_cost::JUMP
+                    let jump_address = current_call_frame.stack.pop()?;
+
+                    if !current_call_frame.jump(jump_address) {
+                        self.env.consumed_gas = self.env.gas_limit;
+                        return Err(VMError::InvalidJump);
+                    }
+                    self.env.consumed_gas += gas_cost::JUMP;
                 }
                 Opcode::JUMPI => {
-                    if self.env.consumed_gas + gas_cost::JUMPI > self.env.gas_limit {
-                        break; // should revert the tx
-                    }
-                    let jump_address = current_call_frame.stack.pop().unwrap();
-                    let condition = current_call_frame.stack.pop().unwrap();
-                    if condition != U256::zero() {
-                        current_call_frame.jump(jump_address);
+                    let jump_address = current_call_frame.stack.pop()?;
+                    let condition = current_call_frame.stack.pop()?;
+                    if condition != U256::zero() && !current_call_frame.jump(jump_address) {
+                        self.env.consumed_gas = self.env.gas_limit;
+                        return Err(VMError::InvalidJump);
                     }
                     self.env.consumed_gas += gas_cost::JUMPI
                 }
                 Opcode::JUMPDEST => {
                     // just consume some gas, jumptable written at the start
                     if self.env.consumed_gas + gas_cost::JUMPDEST > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost::JUMPDEST
                 }
                 Opcode::PC => {
                     if self.env.consumed_gas + gas_cost::PC > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     current_call_frame
                         .stack
-                        .push(U256::from(current_call_frame.pc - 1));
+                        .push(U256::from(current_call_frame.pc - 1))?;
                     self.env.consumed_gas += gas_cost::PC
                 }
                 Opcode::BLOCKHASH => {
                     if self.env.consumed_gas + gas_cost::BLOCKHASH > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let block_number = current_call_frame.stack.pop().unwrap();
+                    let block_number = current_call_frame.stack.pop()?;
 
                     self.env.consumed_gas += gas_cost::BLOCKHASH;
                     // If number is not in the valid range (last 256 blocks), return zero.
@@ -682,218 +828,281 @@ impl VM {
                             .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
                         || block_number >= self.env.block.number
                     {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                         continue;
                     }
 
                     if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
                         current_call_frame
                             .stack
-                            .push(U256::from_big_endian(&block_hash.0));
+                            .push(U256::from_big_endian(&block_hash.0))?;
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     };
                 }
                 Opcode::COINBASE => {
                     if self.env.consumed_gas + gas_cost::COINBASE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let coinbase = block_env.coinbase;
-                    current_call_frame.stack.push(address_to_word(coinbase));
+                    current_call_frame.stack.push(address_to_word(coinbase))?;
                     self.env.consumed_gas += gas_cost::COINBASE
                 }
                 Opcode::TIMESTAMP => {
                     if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let timestamp = block_env.timestamp;
-                    current_call_frame.stack.push(timestamp);
+                    current_call_frame.stack.push(timestamp)?;
                     self.env.consumed_gas += gas_cost::TIMESTAMP
                 }
                 Opcode::NUMBER => {
                     if self.env.consumed_gas + gas_cost::NUMBER > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let block_number = block_env.number;
-                    current_call_frame.stack.push(block_number);
+                    current_call_frame.stack.push(block_number)?;
                     self.env.consumed_gas += gas_cost::NUMBER
                 }
                 Opcode::PREVRANDAO => {
                     if self.env.consumed_gas + gas_cost::PREVRANDAO > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let randao = block_env.prev_randao.unwrap_or_default();
                     current_call_frame
                         .stack
-                        .push(U256::from_big_endian(randao.0.as_slice()));
+                        .push(U256::from_big_endian(randao.0.as_slice()))?;
                     self.env.consumed_gas += gas_cost::PREVRANDAO
                 }
                 Opcode::GASLIMIT => {
                     if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let gas_limit = block_env.gas_limit;
-                    current_call_frame.stack.push(U256::from(gas_limit));
+                    current_call_frame.stack.push(U256::from(gas_limit))?;
                     self.env.consumed_gas += gas_cost::GASLIMIT
                 }
                 Opcode::CHAINID => {
                     if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let chain_id = block_env.chain_id;
-                    current_call_frame.stack.push(U256::from(chain_id));
+                    current_call_frame.stack.push(U256::from(chain_id))?;
                     self.env.consumed_gas += gas_cost::CHAINID
                 }
                 Opcode::SELFBALANCE => {
                     if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost::SELFBALANCE;
                     todo!("when we have accounts implemented");
                 }
                 Opcode::BASEFEE => {
                     if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let base_fee = block_env.base_fee_per_gas;
-                    current_call_frame.stack.push(base_fee);
+                    current_call_frame.stack.push(base_fee)?;
                     self.env.consumed_gas += gas_cost::BASEFEE
                 }
                 Opcode::BLOBHASH => {
                     if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost::BLOBHASH;
                     todo!("when we have tx implemented");
                 }
                 Opcode::BLOBBASEFEE => {
                     if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let blob_base_fee = block_env.calculate_blob_gas_price();
-                    current_call_frame.stack.push(blob_base_fee);
+                    current_call_frame.stack.push(blob_base_fee)?;
                     self.env.consumed_gas += gas_cost::BLOBBASEFEE
                 }
                 Opcode::PUSH0 => {
                     if self.env.consumed_gas + gas_cost::PUSH0 > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    current_call_frame.stack.push(U256::zero());
+                    current_call_frame.stack.push(U256::zero())?;
                     self.env.consumed_gas += gas_cost::PUSH0
                 }
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
                     let next_n_bytes = current_call_frame
                         .bytecode
                         .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
-                        .expect("invalid bytecode");
+                        .ok_or(VMError::InvalidBytecode)?; // this shouldn't really happen during execution
                     let value_to_push = U256::from(next_n_bytes);
-                    current_call_frame.stack.push(value_to_push);
+                    current_call_frame.stack.push(value_to_push)?;
                     current_call_frame.increment_pc_by(n_bytes as usize);
                     self.env.consumed_gas += gas_cost::PUSHN
                 }
                 Opcode::PUSH32 => {
                     if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let next_32_bytes = current_call_frame
                         .bytecode
                         .get(current_call_frame.pc()..current_call_frame.pc() + WORD_SIZE)
-                        .unwrap();
+                        .ok_or(VMError::InvalidBytecode)?;
                     let value_to_push = U256::from(next_32_bytes);
-                    current_call_frame.stack.push(value_to_push);
+                    current_call_frame.stack.push(value_to_push)?;
                     current_call_frame.increment_pc_by(WORD_SIZE);
                     self.env.consumed_gas += gas_cost::PUSHN
                 }
                 Opcode::AND => {
                     if self.env.consumed_gas + gas_cost::AND > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a & b);
+                    let a = current_call_frame.stack.pop()?;
+                    let b = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(a & b)?;
                     self.env.consumed_gas += gas_cost::AND
                 }
                 Opcode::OR => {
                     if self.env.consumed_gas + gas_cost::OR > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a | b);
+                    let a = current_call_frame.stack.pop()?;
+                    let b = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(a | b)?;
                     self.env.consumed_gas += gas_cost::OR
                 }
                 Opcode::XOR => {
                     if self.env.consumed_gas + gas_cost::XOR > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let a = current_call_frame.stack.pop().unwrap();
-                    let b = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(a ^ b);
+                    let a = current_call_frame.stack.pop()?;
+                    let b = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(a ^ b)?;
                     self.env.consumed_gas += gas_cost::XOR
                 }
                 Opcode::NOT => {
                     if self.env.consumed_gas + gas_cost::NOT > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let a = current_call_frame.stack.pop().unwrap();
-                    current_call_frame.stack.push(!a);
+                    let a = current_call_frame.stack.pop()?;
+                    current_call_frame.stack.push(!a)?;
                     self.env.consumed_gas += gas_cost::NOT
                 }
                 Opcode::BYTE => {
                     if self.env.consumed_gas + gas_cost::BYTE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let op1 = current_call_frame.stack.pop().unwrap();
-                    let op2 = current_call_frame.stack.pop().unwrap();
+                    let op1 = current_call_frame.stack.pop()?;
+                    let op2 = current_call_frame.stack.pop()?;
 
                     let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
                     if byte_index < WORD_SIZE {
                         current_call_frame
                             .stack
-                            .push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)));
+                            .push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)))?;
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     }
                     self.env.consumed_gas += gas_cost::BYTE
                 }
                 Opcode::SHL => {
                     if self.env.consumed_gas + gas_cost::SHL > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let shift = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let shift = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     if shift < U256::from(256) {
-                        current_call_frame.stack.push(value << shift);
+                        current_call_frame.stack.push(value << shift)?;
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     }
                     self.env.consumed_gas += gas_cost::SHL
                 }
                 Opcode::SHR => {
                     if self.env.consumed_gas + gas_cost::SHR > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let shift = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let shift = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     if shift < U256::from(256) {
-                        current_call_frame.stack.push(value >> shift);
+                        current_call_frame.stack.push(value >> shift)?;
                     } else {
-                        current_call_frame.stack.push(U256::zero());
+                        current_call_frame.stack.push(U256::zero())?;
                     }
                     self.env.consumed_gas += gas_cost::SHR
                 }
                 Opcode::SAR => {
                     if self.env.consumed_gas + gas_cost::SAR > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let shift = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let shift = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     let res = if shift < U256::from(256) {
                         arithmetic_shift_right(value, shift)
                     } else if value.bit(255) {
@@ -901,38 +1110,46 @@ impl VM {
                     } else {
                         U256::zero()
                     };
-                    current_call_frame.stack.push(res);
+                    current_call_frame.stack.push(res)?;
                     self.env.consumed_gas += gas_cost::SAR
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::DUPN > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
-                    assert!(
-                        current_call_frame.stack.len().ge(&(depth as usize)),
-                        "stack underflow: not enough values on the stack"
-                    );
+
+                    if current_call_frame.stack.len() < depth as usize {
+                        return Err(VMError::StackUnderflow);
+                    }
+
                     let value_at_depth = current_call_frame
                         .stack
-                        .get(current_call_frame.stack.len() - depth as usize)
-                        .unwrap();
-                    current_call_frame.stack.push(*value_at_depth);
+                        .get(current_call_frame.stack.len() - depth as usize)?;
+                    current_call_frame.stack.push(*value_at_depth)?;
                     self.env.consumed_gas += gas_cost::DUPN
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::SWAPN > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
-                    assert!(
-                        current_call_frame.stack.len().ge(&(depth as usize)),
-                        "stack underflow: not enough values on the stack"
-                    );
+
+                    if current_call_frame.stack.len() < depth as usize {
+                        return Err(VMError::StackUnderflow);
+                    }
                     let stack_top_index = current_call_frame.stack.len();
-                    let to_swap_index = stack_top_index.checked_sub(depth as usize).unwrap();
+                    let to_swap_index = stack_top_index
+                        .checked_sub(depth as usize)
+                        .ok_or(VMError::StackUnderflow)?;
                     current_call_frame
                         .stack
                         .swap(stack_top_index - 1, to_swap_index - 1);
@@ -940,34 +1157,47 @@ impl VM {
                 }
                 Opcode::POP => {
                     if self.env.consumed_gas + gas_cost::POP > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    current_call_frame.stack.pop().unwrap();
+                    current_call_frame.stack.pop()?;
                     self.env.consumed_gas += gas_cost::POP
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     if current_call_frame.is_static {
-                        panic!("Cannot create log in static context"); // should return an error and halt
+                        return Err(VMError::OpcodeNotAllowedInStaticContext);
                     }
 
-                    let topic_count = (op as u8) - (Opcode::LOG0 as u8);
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let topics = (0..topic_count)
-                        .map(|_| {
-                            let topic = current_call_frame.stack.pop().unwrap().as_u32();
-                            H32::from_slice(topic.to_be_bytes().as_ref())
-                        })
-                        .collect();
+                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let mut topics = Vec::new();
+                    for _ in 0..number_of_topics {
+                        let topic = current_call_frame.stack.pop()?.as_u32();
+                        topics.push(H32::from_slice(topic.to_be_bytes().as_ref()));
+                    }
 
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + size) as u64;
                     let gas_cost = gas_cost::LOGN_STATIC
-                        + gas_cost::LOGN_DYNAMIC_BASE * topic_count as u64
+                        + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics as u64
                         + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
                     let data = current_call_frame.memory.load_range(offset, size);
@@ -980,28 +1210,38 @@ impl VM {
                     self.env.consumed_gas += gas_cost
                 }
                 Opcode::MLOAD => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
                     let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
                     let value = current_call_frame.memory.load(offset);
-                    current_call_frame.stack.push(value);
+                    current_call_frame.stack.push(value)?;
                     self.env.consumed_gas += gas_cost
                 }
                 Opcode::MSTORE => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
                     let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop()?;
                     let mut value_bytes = [0u8; WORD_SIZE];
                     value.to_big_endian(&mut value_bytes);
 
@@ -1009,15 +1249,18 @@ impl VM {
                     self.env.consumed_gas += gas_cost
                 }
                 Opcode::MSTORE8 => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
                     let memory_expansion_cost =
                         current_call_frame.memory.expansion_cost(offset + 1);
                     let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let value = current_call_frame.stack.pop()?;
                     let mut value_bytes = [0u8; WORD_SIZE];
                     value.to_big_endian(&mut value_bytes);
 
@@ -1027,7 +1270,7 @@ impl VM {
                     self.env.consumed_gas += gas_cost
                 }
                 Opcode::SLOAD => {
-                    let key = current_call_frame.stack.pop().unwrap();
+                    let key = current_call_frame.stack.pop()?;
                     let address = if let Some(delegate) = current_call_frame.delegate {
                         delegate
                     } else {
@@ -1039,15 +1282,15 @@ impl VM {
                         .read_account_storage(&address, &key)
                         .unwrap_or_default()
                         .current_value;
-                    current_call_frame.stack.push(current_value);
+                    current_call_frame.stack.push(current_value)?;
                 }
                 Opcode::SSTORE => {
                     if current_call_frame.is_static {
                         panic!("Cannot write to storage in a static context");
                     }
 
-                    let key = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let key = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
                     // maybe we need the journal struct as accessing the Db could be slow, with the journal
                     // we can have prefetched values directly in memory and only commits the values to the db once everything is done
 
@@ -1074,26 +1317,43 @@ impl VM {
                 }
                 Opcode::MSIZE => {
                     if self.env.consumed_gas + gas_cost::MSIZE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     current_call_frame
                         .stack
-                        .push(current_call_frame.memory.size());
+                        .push(current_call_frame.memory.size())?;
                     self.env.consumed_gas += gas_cost::MSIZE
                 }
                 Opcode::GAS => {
                     if self.env.consumed_gas + gas_cost::GAS > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     let remaining_gas = self.env.gas_limit - self.env.consumed_gas - gas_cost::GAS;
-                    current_call_frame.stack.push(remaining_gas.into());
+                    current_call_frame.stack.push(remaining_gas.into())?;
                     self.env.consumed_gas += gas_cost::GAS
                 }
                 Opcode::MCOPY => {
-                    let dest_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let src_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size: usize = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let dest_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let src_offset: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size: usize = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
 
                     let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
                     let memory_byte_size = (src_offset + size).max(dest_offset + size);
@@ -1112,16 +1372,30 @@ impl VM {
                         .copy(src_offset, dest_offset, size);
                 }
                 Opcode::CALL => {
-                    let gas = current_call_frame.stack.pop().unwrap();
+                    let gas = current_call_frame.stack.pop()?;
                     let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
-                    let value = current_call_frame.stack.pop().unwrap();
-                    let args_offset: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let args_size: usize =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+                    let value = current_call_frame.stack.pop()?;
+                    let args_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let args_size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let ret_offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let ret_size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
 
                     let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
                     let memory_expansion_cost =
@@ -1152,7 +1426,10 @@ impl VM {
                         + positive_value_cost
                         + value_to_empty_account_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
 
                     self.accrued_substate.warm_addresses.insert(code_address);
@@ -1175,18 +1452,18 @@ impl VM {
                         args_size,
                         ret_offset,
                         ret_size,
-                    );
+                    )?;
                 }
                 Opcode::CALLCODE => {
                     // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage remains the same. Note that an account with no code will return success as true.
-                    let gas = current_call_frame.stack.pop().unwrap();
+                    let gas = current_call_frame.stack.pop()?;
                     let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
-                    let value = current_call_frame.stack.pop().unwrap();
-                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+                    let value = current_call_frame.stack.pop()?;
+                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
                     let msg_sender = current_call_frame.msg_sender; // msg_sender is changed to the proxy's address
                     let to = current_call_frame.to; // to remains the same
@@ -1206,47 +1483,50 @@ impl VM {
                         args_size,
                         ret_offset,
                         ret_size,
-                    );
+                    )?;
                 }
                 Opcode::RETURN => {
-                    let offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let offset = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
+                    let size = current_call_frame
+                        .stack
+                        .pop()?
+                        .try_into()
+                        .unwrap_or(usize::MAX);
 
                     let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        break; // should revert the tx
-                    }
-                    let return_data = current_call_frame.memory.load_range(offset, size).into();
-                    if let Some(mut parent_call_frame) = self.call_frames.pop() {
-                        if let (Some(_ret_offset), Some(_ret_size)) = (
-                            parent_call_frame.return_data_offset,
-                            parent_call_frame.return_data_size,
-                        ) {
-                            parent_call_frame.returndata = return_data;
-                        }
-                        parent_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN));
-                        parent_call_frame.return_data_offset = None;
-                        parent_call_frame.return_data_size = None;
-                        current_call_frame = parent_call_frame.clone();
-                    } else {
-                        // excecution completed (?)
-                        current_call_frame
-                            .stack
-                            .push(U256::from(SUCCESS_FOR_RETURN));
-                        break;
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
                     self.env.consumed_gas += gas_cost;
+                    let return_data = current_call_frame.memory.load_range(offset, size).into();
+
+                    current_call_frame.returndata = return_data;
+                    current_call_frame
+                        .stack
+                        .push(U256::from(SUCCESS_FOR_RETURN))?;
+
+                    return Ok(Self::write_success_result(
+                        current_call_frame,
+                        ResultReason::Return,
+                    ));
                 }
                 Opcode::DELEGATECALL => {
                     // The delegatecall executes the setVars(uint256) code from Contract B but updates Contract A’s storage. The execution has the same storage, msg.sender & msg.value as its parent call setVarsDelegateCall.
                     // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage, the current sender and the current value remain the same. Note that an account with no code will return success as true.
-                    let gas = current_call_frame.stack.pop().unwrap();
+                    let gas = current_call_frame.stack.pop()?;
                     let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
-                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
                     let value = current_call_frame.msg_value; // value remains the same
                     let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
@@ -1267,17 +1547,17 @@ impl VM {
                         args_size,
                         ret_offset,
                         ret_size,
-                    );
+                    )?;
                 }
                 Opcode::STATICCALL => {
                     // it cannot be used to transfer Ether
-                    let gas = current_call_frame.stack.pop().unwrap();
+                    let gas = current_call_frame.stack.pop()?;
                     let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop().unwrap().low_u64());
-                    let args_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
                     let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
                     let value = current_call_frame.msg_value;
@@ -1296,14 +1576,12 @@ impl VM {
                         args_size,
                         ret_offset,
                         ret_size,
-                    );
+                    )?;
                 }
                 Opcode::CREATE => {
-                    let value_in_wei_to_send = current_call_frame.stack.pop().unwrap();
-                    let code_offset_in_memory =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let code_size_in_memory =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
+                    let value_in_wei_to_send = current_call_frame.stack.pop()?;
+                    let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
 
                     self.create(
                         value_in_wei_to_send,
@@ -1311,15 +1589,13 @@ impl VM {
                         code_size_in_memory,
                         None,
                         &mut current_call_frame,
-                    );
+                    )?;
                 }
                 Opcode::CREATE2 => {
-                    let value_in_wei_to_send = current_call_frame.stack.pop().unwrap();
-                    let code_offset_in_memory =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let code_size_in_memory =
-                        current_call_frame.stack.pop().unwrap().try_into().unwrap();
-                    let salt = current_call_frame.stack.pop().unwrap();
+                    let value_in_wei_to_send = current_call_frame.stack.pop()?;
+                    let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let salt = current_call_frame.stack.pop()?;
 
                     self.create(
                         value_in_wei_to_send,
@@ -1327,39 +1603,43 @@ impl VM {
                         code_size_in_memory,
                         Some(salt),
                         &mut current_call_frame,
-                    );
+                    )?;
                 }
                 Opcode::TLOAD => {
                     if self.env.consumed_gas + gas_cost::TLOAD > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let key = current_call_frame.stack.pop().unwrap();
+                    let key = current_call_frame.stack.pop()?;
                     let value = current_call_frame
                         .transient_storage
                         .get(&(current_call_frame.msg_sender, key))
                         .cloned()
                         .unwrap_or(U256::zero());
 
-                    current_call_frame.stack.push(value);
+                    current_call_frame.stack.push(value)?;
                     self.env.consumed_gas += gas_cost::TLOAD
                 }
                 Opcode::TSTORE => {
                     if self.env.consumed_gas + gas_cost::TSTORE > self.env.gas_limit {
-                        break; // should revert the tx
+                        return Ok(ExecutionResult::Revert {
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        }); // should revert the tx
                     }
-                    let key = current_call_frame.stack.pop().unwrap();
-                    let value = current_call_frame.stack.pop().unwrap();
+                    let key = current_call_frame.stack.pop()?;
+                    let value = current_call_frame.stack.pop()?;
 
                     current_call_frame
                         .transient_storage
                         .insert((current_call_frame.msg_sender, key), value);
                     self.env.consumed_gas += gas_cost::TSTORE
                 }
-                _ => unimplemented!(),
+                _ => return Err(VMError::OpcodeNotFound),
             }
         }
-        // self.consumed_gas = tx_env.consumed_gas;
-        self.call_frames.push(current_call_frame);
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -1386,22 +1666,25 @@ impl VM {
         args_size: usize,
         ret_offset: usize,
         ret_size: usize,
-    ) {
+    ) -> Result<(), VMError> {
         // check balance
         if self.db.balance(&current_call_frame.msg_sender) < value {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL));
-            return;
+            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+            return Ok(());
         }
 
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
-        let callee_bytecode = self.db.get_account_bytecode(&code_address);
-
-        if callee_bytecode.is_empty() {
-            current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL));
-            return;
+        let code_address_bytecode = self.db.get_account_bytecode(&code_address);
+        if code_address_bytecode.is_empty() {
+            current_call_frame
+                .stack
+                .push(U256::from(SUCCESS_FOR_CALL))?;
+            return Ok(());
         }
+
+        self.db.increment_account_nonce(&code_address);
 
         let calldata = current_call_frame
             .memory
@@ -1409,22 +1692,52 @@ impl VM {
             .into();
 
         let new_call_frame = CallFrame::new(
-            gas,
             msg_sender,
             to,
             code_address,
             delegate,
-            callee_bytecode,
+            code_address_bytecode,
             value,
             calldata,
             is_static,
+            gas,
+            current_call_frame.depth + 1,
         );
 
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
 
-        self.call_frames.push(current_call_frame.clone());
-        *current_call_frame = new_call_frame;
+        self.call_frames.push(new_call_frame.clone());
+        let result = self.execute();
+
+        match result {
+            Ok(ExecutionResult::Success {
+                logs, return_data, ..
+            }) => {
+                current_call_frame.logs.extend(logs);
+                current_call_frame
+                    .memory
+                    .store_bytes(ret_offset, &return_data);
+                current_call_frame.returndata = return_data;
+                current_call_frame
+                    .stack
+                    .push(U256::from(SUCCESS_FOR_CALL))?;
+            }
+            Ok(ExecutionResult::Revert { gas_used, output }) => {
+                current_call_frame.memory.store_bytes(ret_offset, &output);
+                current_call_frame.returndata = output;
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                current_call_frame.gas -= U256::from(gas_used);
+            }
+            Ok(ExecutionResult::Halt { reason, gas_used }) => {
+                current_call_frame.stack.push(U256::from(reason as u8))?;
+                current_call_frame.gas -= U256::from(gas_used);
+            }
+            Err(_) => {
+                current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
+            }
+        };
+        Ok(())
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
@@ -1472,14 +1785,18 @@ impl VM {
         code_size_in_memory: usize,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
-    ) {
+    ) -> Result<(), VMError> {
         if code_size_in_memory > MAX_CODE_SIZE * 2 {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
-            return;
+            current_call_frame
+                .stack
+                .push(U256::from(REVERT_FOR_CREATE))?;
+            return Ok(());
         }
         if current_call_frame.is_static {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
-            return;
+            current_call_frame
+                .stack
+                .push(U256::from(REVERT_FOR_CREATE))?;
+            return Ok(());
         }
 
         let sender_account = self
@@ -1489,13 +1806,17 @@ impl VM {
             .unwrap();
 
         if sender_account.balance < value_in_wei_to_send {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
-            return;
+            current_call_frame
+                .stack
+                .push(U256::from(REVERT_FOR_CREATE))?;
+            return Ok(());
         }
 
         let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
-            return;
+            current_call_frame
+                .stack
+                .push(U256::from(REVERT_FOR_CREATE))?;
+            return Ok(());
         };
         sender_account.nonce = new_nonce;
         sender_account.balance -= value_in_wei_to_send;
@@ -1515,36 +1836,63 @@ impl VM {
         };
 
         if self.db.accounts.contains_key(&new_address) {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CREATE));
-            return;
+            current_call_frame
+                .stack
+                .push(U256::from(REVERT_FOR_CREATE))?;
+            return Ok(());
         }
-        // nonce == 1, as we will execute this contract right now
-        let new_account = Account::new(value_in_wei_to_send, code.clone(), 1, Default::default());
+
+        let new_account = Account::new(
+            new_address,
+            value_in_wei_to_send,
+            code.clone(),
+            0,
+            Default::default(),
+        );
         self.db.add_account(new_address, new_account);
 
         let mut gas = current_call_frame.gas;
         gas -= gas / 64; // 63/64 of the gas to the call
         current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
 
-        let new_call_frame = CallFrame::new(
+        // let new_call_frame = CallFrame::new(
+        //     current_call_frame.msg_sender,
+        //     new_address,
+        //     new_address,
+        //     None,
+        //     code,
+        //     value_in_wei_to_send,
+        //     Bytes::new(),
+        //     false,
+        //     gas,
+        //     0,
+        // );
+
+        // current_call_frame.return_data_offset = Some(code_offset_in_memory);
+        // current_call_frame.return_data_size = Some(code_size_in_memory);
+
+        current_call_frame
+            .stack
+            .push(address_to_word(new_address))?;
+
+        // self.call_frames.push(current_call_frame.clone());
+        // *current_call_frame = new_call_frame;
+        // Ok(())
+        self.generic_call(
+            current_call_frame,
             gas,
+            value_in_wei_to_send,
             current_call_frame.msg_sender,
             new_address,
             new_address,
             None,
-            code,
-            value_in_wei_to_send,
-            Bytes::new(),
+            true,
             false,
-        );
-
-        current_call_frame.return_data_offset = Some(code_offset_in_memory);
-        current_call_frame.return_data_size = Some(code_size_in_memory);
-
-        current_call_frame.stack.push(address_to_word(new_address));
-
-        self.call_frames.push(current_call_frame.clone());
-        *current_call_frame = new_call_frame;
+            code_offset_in_memory,
+            code_size_in_memory,
+            code_offset_in_memory,
+            code_size_in_memory,
+        )
     }
 }
 

@@ -1,9 +1,11 @@
 use ethereum_types::H32;
 
 use crate::{
+    constants::STACK_LIMIT,
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
+    vm_result::VMError,
 };
 use std::collections::HashMap;
 
@@ -18,6 +20,41 @@ pub struct Log {
     pub data: Bytes,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Stack {
+    pub stack: Vec<U256>,
+}
+
+impl Stack {
+    pub fn pop(&mut self) -> Result<U256, VMError> {
+        self.stack.pop().ok_or(VMError::StackUnderflow)
+    }
+
+    pub fn push(&mut self, value: U256) -> Result<(), VMError> {
+        if self.stack.len() >= STACK_LIMIT {
+            return Err(VMError::StackOverflow);
+        }
+        self.stack.push(value);
+        Ok(())
+    }
+
+    pub fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
+    pub fn get(&self, index: usize) -> Result<&U256, VMError> {
+        self.stack.get(index).ok_or(VMError::StackUnderflow)
+    }
+
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.stack.swap(a, b)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 /// A call frame, or execution environment, is the context in which
 /// the EVM is currently executing.
@@ -30,7 +67,7 @@ pub struct CallFrame {
     pub delegate: Option<Address>,
     pub bytecode: Bytes,
     pub msg_value: U256,
-    pub stack: Vec<U256>, // max 1024 in the future
+    pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
     pub returndata: Bytes,
@@ -40,6 +77,7 @@ pub struct CallFrame {
     pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
+    pub depth: usize,
 }
 
 impl CallFrame {
@@ -52,7 +90,6 @@ impl CallFrame {
 
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        gas: U256,
         msg_sender: Address,
         to: Address,
         code_address: Address,
@@ -61,6 +98,8 @@ impl CallFrame {
         msg_value: U256,
         calldata: Bytes,
         is_static: bool,
+        gas: U256,
+        depth: usize,
     ) -> Self {
         Self {
             gas,
@@ -72,6 +111,7 @@ impl CallFrame {
             msg_value,
             calldata,
             is_static,
+            depth,
             ..Default::default()
         }
     }
@@ -94,12 +134,13 @@ impl CallFrame {
         self.pc
     }
 
-    pub fn jump(&mut self, jump_address: U256) {
+    /// Jump to the given address, returns false if the jump position wasn't a JUMPDEST
+    pub fn jump(&mut self, jump_address: U256) -> bool {
         if !self.valid_jump(jump_address) {
-            // Should be a halt when we implement it
-            panic!("Invalid jump");
+            return false;
         }
-        self.pc = jump_address.as_usize();
+        self.pc = jump_address.as_usize() + 1;
+        true
     }
 
     fn valid_jump(&self, jump_address: U256) -> bool {
