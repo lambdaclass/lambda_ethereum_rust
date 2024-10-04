@@ -246,11 +246,25 @@ fn smod_op(){
     vm.execute();
 
     let c = U256::from_str_radix("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe", 16).unwrap();
-    println!("{}", c);
-    println!("{}", vm.current_call_frame_mut().stack.pop().unwrap());
 
-    // I think the test is fine but SMOD may be wrong? Result should be -2, not 2.
+    // I think the test is fine but SMOD may be implemented wrong? Result should be -2, not 2.
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == c);
+}
+
+#[test]
+fn addmod_op(){
+    // (10 + 10) % 8 = 4
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(8))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Addmod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(4));
 }
 
 #[test]
