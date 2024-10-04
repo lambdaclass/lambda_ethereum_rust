@@ -85,7 +85,8 @@ impl RpcHandler for FeeHistoryRequest {
             let body = storage
                 .get_block_body(block_number)?
                 .ok_or(RpcErr::Internal)?;
-            let blob_base_fee = calculate_base_fee_per_blob_gas(&header);
+            let blob_base_fee =
+                calculate_base_fee_per_blob_gas(header.excess_blob_gas.unwrap_or_default());
 
             base_fee_per_gas.push(header.base_fee_per_gas.unwrap_or_default());
             base_fee_per_blob_gas.push(blob_base_fee);
@@ -105,7 +106,8 @@ impl RpcHandler for FeeHistoryRequest {
             .get_block_header(end_block)?
             .ok_or(RpcErr::Internal)?;
 
-        let blob_base_fee = calculate_base_fee_per_blob_gas(&header);
+        let blob_base_fee =
+            calculate_base_fee_per_blob_gas(header.excess_blob_gas.unwrap_or_default());
         base_fee_per_gas.push(header.base_fee_per_gas.unwrap_or_default());
         base_fee_per_blob_gas.push(blob_base_fee);
 
