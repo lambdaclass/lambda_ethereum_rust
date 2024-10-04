@@ -189,14 +189,14 @@ impl<'a> PayloadBuildContext<'a> {
 }
 
 /// Completes the payload building process, return the block value
-pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainError> {
+pub fn build_payload(payload: &mut Block, store: &Store) -> Result<(BlobsBundle, U256), ChainError> {
     debug!("Building payload");
     let mut evm_state = evm_state(store.clone(), payload.header.parent_hash);
     let mut context = PayloadBuildContext::new(payload, &mut evm_state);
     apply_withdrawals(&mut context)?;
     fill_transactions(&mut context)?;
     finalize_payload(&mut context)?;
-    Ok(context.block_value)
+    Ok((context.blobs_bundle, context.block_value))
 }
 
 pub fn apply_withdrawals(context: &mut PayloadBuildContext) -> Result<(), EvmError> {
