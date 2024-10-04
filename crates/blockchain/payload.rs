@@ -358,7 +358,7 @@ fn apply_blob_transaction(
         return Err(EvmError::Custom(format!("max data blobs reached")).into());
     };
     // Apply transaction
-    let receipt = apply_transaction(head, context)?;
+    let receipt = apply_plain_transaction(head, context)?;
     // Update context with blob data
     let prev_blob_gas = context.payload.header.blob_gas_used.unwrap_or_default();
     context.payload.header.blob_gas_used =
