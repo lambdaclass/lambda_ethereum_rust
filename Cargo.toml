@@ -1,17 +1,16 @@
 [workspace]
 members = [
     "crates/blockchain",
-    "crates/core",
-    "crates/net",
-    "crates/rpc",
-    "crates/storage",
-    "crates/evm",
-    "crates/trie",
-    "crates/rlp",
+    "crates/common",
+    "crates/networking/p2p",
+    "crates/networking/rpc",
+    "crates/storage/store",
+    "crates/vm/evm",
+    "crates/storage/trie",
+    "crates/common/rlp",
     "cmd/ethereum_rust",
     "cmd/ef_tests",
-    "crates/levm",
-    "crates/l2",
+    "crates/vm/levm",
     "cmd/ethereum_rust_l2",
 ]
 resolver = "2"
@@ -23,13 +22,13 @@ edition = "2021"
 
 [workspace.dependencies]
 ethereum_rust-blockchain = { path = "./crates/blockchain" }
-ethereum_rust-core = { path = "./crates/core" }
-ethereum_rust-net = { path = "./crates/net" }
-ethereum_rust-rpc = { path = "./crates/rpc" }
-ethereum_rust-storage = { path = "./crates/storage" }
-ethereum_rust-evm = { path = "./crates/evm" }
-ethereum_rust-trie = { path = "./crates/trie" }
-ethereum_rust-rlp = { path = "./crates/rlp" }
+ethereum_rust-core = { path = "./crates/common" }
+ethereum_rust-net = { path = "./crates/networking/p2p" }
+ethereum_rust-rpc = { path = "./crates/networking/rpc" }
+ethereum_rust-storage = { path = "./crates/storage/store" }
+ethereum_rust-evm = { path = "./crates/vm/evm" }
+ethereum_rust-trie = { path = "./crates/storage/trie" }
+ethereum_rust-rlp = { path = "./crates/common/rlp" }
 ethereum_rust-l2 =  { path = "./crates/l2" }
 
 tracing = { version = "0.1", features = ["log"] }
