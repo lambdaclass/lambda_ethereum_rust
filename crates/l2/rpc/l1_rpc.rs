@@ -51,7 +51,7 @@ impl L1Rpc {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
             method: "eth_sendRawTransaction".to_string(),
-            params: Some(vec![json!("0x".to_string() + &hex::encode(&data))]),
+            params: Some(vec![json!("0x".to_string() + &hex::encode(data))]),
         };
 
         match self.send_request(request).await {
