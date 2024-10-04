@@ -209,3 +209,21 @@ fn get_message_from_revert_data(_data: &str) -> String {
     // See https://github.com/ethereum/go-ethereum/blob/8fd43c80132434dca896d8ae5004ae2aac1450d3/accounts/abi/abi.go#L275
     "".to_owned()
 }
+
+#[cfg(test)]
+pub mod test_utils {
+    use std::str::FromStr;
+
+    use ethereum_rust_core::H512;
+    use ethereum_rust_net::types::Node;
+
+    pub fn example_p2p_node() -> Node {
+        let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
+        Node {
+            ip: "127.0.0.1".parse().unwrap(),
+            udp_port: 30303,
+            tcp_port: 30303,
+            node_id: node_id_1,
+        }
+    }
+}
