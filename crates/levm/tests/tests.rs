@@ -201,6 +201,7 @@ fn div0_op(){
 
 #[test]
 fn sdiv_op(){
+    // Values are treated as two's complement signed 256-bit integers
     let mut vm = new_vm_with_ops(&[
         Operation::Push((32,U256::MAX)),
         Operation::Push((32,U256::MAX - 1)),
@@ -211,6 +212,45 @@ fn sdiv_op(){
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
+}
+
+#[test]
+fn mod_op(){
+    // 10 % 3 = 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(3))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Mod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(1));
+}
+
+#[test]
+fn smod_op(){
+    // Example taken from evm.codes
+    // In 2's complement it is: -8 % -3 = -2
+    let a = U256::from_str_radix("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD", 16).unwrap();
+    let b = U256::from_str_radix("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8", 16).unwrap();
+    // Values are treated as two's complement signed 256-bit integers
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32,a)),
+        Operation::Push((32,b)),
+        Operation::SMod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let c = U256::from_str_radix("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe", 16).unwrap();
+    println!("{}", c);
+    println!("{}", vm.current_call_frame_mut().stack.pop().unwrap());
+
+    // I think the test is fine but SMOD may be wrong? Result should be -2, not 2.
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == c);
 }
 
 #[test]
