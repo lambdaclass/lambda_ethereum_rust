@@ -1,25 +1,107 @@
+use std::collections::HashMap;
+
 use ethereum_types::H32;
 use levm::{
-    block::TARGET_BLOB_GAS_PER_BLOCK,
-    constants::HALT_FOR_CALL,
+    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
+    constants::*,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
-    vm::{Account, VM},
+    transaction::{TransactTo, TxEnv},
+    vm::{Account, Db, Storage, StorageSlot, VM},
 };
 
 // cargo test -p 'levm'
 
+fn word_to_address(word: U256) -> Address {
+    let mut bytes = [0u8; 32];
+    word.to_big_endian(&mut bytes);
+    Address::from_slice(&bytes[12..])
+}
+
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
-    new_vm_with_ops_addr_bal(operations, Address::zero(), U256::zero())
+    new_vm_with_ops_addr_bal(operations, Address::from_low_u64_be(100), U256::MAX)
 }
 
 pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
-    let bytecode = operations
+    let bytecode = ops_to_bytecde(operations);
+
+    let tx_env = TxEnv {
+        msg_sender: address,
+        chain_id: Some(1),
+        transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
+        gas_limit: Default::default(),
+        gas_price: Default::default(),
+        value: Default::default(),
+        data: Default::default(),
+        nonce: Default::default(),
+        access_list: Default::default(),
+        max_priority_fee_per_gas: Default::default(),
+        blob_hashes: Default::default(),
+        max_fee_per_blob_gas: Default::default(),
+    };
+
+    let block_env = BlockEnv {
+        number: Default::default(),
+        coinbase: Default::default(),
+        timestamp: Default::default(),
+        base_fee_per_gas: Default::default(),
+        gas_limit: Default::default(),
+        chain_id: Default::default(),
+        prev_randao: Default::default(),
+        excess_blob_gas: Default::default(),
+        blob_gas_used: Default::default(),
+    };
+
+    let accounts = [
+        (
+            Address::from_low_u64_be(42),
+            Account {
+                address: Address::from_low_u64_be(42),
+                balance: U256::MAX,
+                bytecode,
+                storage: HashMap::new(),
+                nonce: 0,
+            },
+        ),
+        (
+            address,
+            Account {
+                address,
+                balance,
+                bytecode: Bytes::default(),
+                storage: HashMap::new(),
+                nonce: 0,
+            },
+        ),
+    ];
+
+    let state = Db {
+        accounts: accounts.into(),
+        block_hashes: Default::default(),
+    };
+
+    // add the account with code to call
+
+    // add the account passed by parameter
+
+    VM::new(tx_env, block_env, state)
+}
+
+fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
+    vec![
+        Operation::Push((16, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value_to_transfer))),
+        Operation::Create,
+        Operation::Stop,
+    ]
+}
+
+pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
+    operations
         .iter()
         .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    VM::new(bytecode, address, balance)
+        .collect::<Bytes>()
 }
 
 fn callee_return_bytecode(return_value: U256) -> Bytes {
@@ -73,6 +155,7 @@ fn and_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b1000));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -88,6 +171,7 @@ fn and_binary_with_zero() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -103,6 +187,7 @@ fn and_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF0F0));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xF000)),
@@ -115,6 +200,7 @@ fn and_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF000));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xB020)),
@@ -127,6 +213,7 @@ fn and_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b1000000000000));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -142,6 +229,7 @@ fn or_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b1110));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0b1010)),
@@ -154,6 +242,7 @@ fn or_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b1010));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(u64::MAX)),
@@ -166,6 +255,7 @@ fn or_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xFFFFFFFFFFFFFFFF_u64));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -181,6 +271,7 @@ fn or_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xFFFF));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xF000)),
@@ -193,6 +284,7 @@ fn or_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF0F0));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xB020)),
@@ -205,6 +297,7 @@ fn or_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b1011111100101111));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -220,6 +313,7 @@ fn xor_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b110));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0b1010)),
@@ -232,6 +326,7 @@ fn xor_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b1010));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(u64::MAX)),
@@ -244,6 +339,7 @@ fn xor_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(u64::MAX));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(u64::MAX)),
@@ -256,6 +352,7 @@ fn xor_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -271,6 +368,7 @@ fn xor_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xFF));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFF)),
@@ -283,6 +381,7 @@ fn xor_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFFFF)),
@@ -295,6 +394,7 @@ fn xor_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF0F));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xF000)),
@@ -307,6 +407,7 @@ fn xor_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF0));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x4C0F)),
@@ -319,6 +420,7 @@ fn xor_with_hex_numbers() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0b111011001000100));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -334,6 +436,7 @@ fn not() {
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     let expected = !U256::from(0b1010);
     assert_eq!(result, expected);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::MAX),
@@ -345,6 +448,7 @@ fn not() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::zero()),
@@ -356,6 +460,7 @@ fn not() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::MAX);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(1)),
@@ -367,6 +472,7 @@ fn not() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::MAX - 1);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 }
 
 #[test]
@@ -382,6 +488,7 @@ fn byte_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF1));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x33ED)),
@@ -394,6 +501,7 @@ fn byte_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x33));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -409,6 +517,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xFF));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::MAX),
@@ -421,6 +530,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xFF));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x00E0D0000)),
@@ -433,6 +543,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x0D));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFDEA179)),
@@ -445,6 +556,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFDEA179)),
@@ -457,6 +569,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::zero()),
@@ -469,6 +582,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let word = U256::from_big_endian(&[
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x57, 0x08, 0x09, 0x90, 0x0B, 0x0C, 0x0D, 0x0E,
@@ -487,6 +601,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x90));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(word),
@@ -499,6 +614,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x57));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(word),
@@ -511,6 +627,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xDD));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(word),
@@ -523,6 +640,7 @@ fn byte_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x40));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -538,6 +656,7 @@ fn shl_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xDDDD));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x12345678)),
@@ -550,6 +669,7 @@ fn shl_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x2468acf0));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x12345678)),
@@ -562,6 +682,7 @@ fn shl_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(4886718336_u64));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFF)),
@@ -574,6 +695,7 @@ fn shl_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xFF << 4));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -589,6 +711,7 @@ fn shl_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::zero()),
@@ -601,6 +724,7 @@ fn shl_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::MAX),
@@ -613,6 +737,7 @@ fn shl_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::MAX - 1);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -628,6 +753,7 @@ fn shr_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xDDDD));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x12345678)),
@@ -640,6 +766,7 @@ fn shr_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x91a2b3c));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0x12345678)),
@@ -652,6 +779,7 @@ fn shr_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x1234567));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::from(0xFF)),
@@ -664,6 +792,7 @@ fn shr_basic() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0xF));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -679,6 +808,7 @@ fn shr_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::zero()),
@@ -691,6 +821,7 @@ fn shr_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::zero());
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
         Operation::Push32(U256::MAX),
@@ -703,6 +834,7 @@ fn shr_edge_cases() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::MAX >> 1);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -718,6 +850,7 @@ fn sar_shift_by_0() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x12345678));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -744,6 +877,7 @@ fn sar_shifting_large_value_with_all_bits_set() {
         0xff, 0xff,
     ]);
     assert_eq!(result, expected);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -770,6 +904,7 @@ fn sar_shifting_negative_value_and_small_shift() {
         0x00, 0x00,
     ]);
     assert_eq!(result, expected);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -785,6 +920,7 @@ fn sar_shift_positive_value() {
 
     let result = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(result, U256::from(0x07FFFF));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -812,6 +948,7 @@ fn sar_shift_negative_value() {
     ]);
     // change 0x8f to 0xf8
     assert_eq!(result, expected);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 }
 
 #[test]
@@ -822,11 +959,11 @@ fn keccak256_zero_offset_size_four() {
             "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
         )),
         Operation::Push0,
-        Operation::Mstore,
+        Operation::Mstore, // gas_cost = 3 + 3 = 6
         // Call the opcode
         Operation::Push((1, 4.into())), // size
         Operation::Push0,               // offset
-        Operation::Keccak256,
+        Operation::Keccak256,           // gas_cost = 30 + 6 + 0 = 36
         Operation::Stop,
     ];
 
@@ -834,11 +971,12 @@ fn keccak256_zero_offset_size_four() {
 
     vm.execute().unwrap();
 
-    assert!(
-        vm.current_call_frame_mut().stack.pop().unwrap()
-            == U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from("0x29045a592007d0c246ef02c2223570da9522d0cf0f73282c79a1bc8f0bb2c238")
     );
-    assert!(vm.current_call_frame_mut().pc() == 40);
+    assert_eq!(vm.current_call_frame_mut().pc(), 40);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 52);
 }
 
 #[test]
@@ -849,7 +987,7 @@ fn keccak256_zero_offset_size_bigger_than_actual_memory() {
             "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
         )),
         Operation::Push0,
-        Operation::Mstore,
+        Operation::Mstore, // gas_cost = 3 + 3 = 6
         // Call the opcode
         Operation::Push((1, 33.into())), // size > memory.data.len() (32)
         Operation::Push0,                // offset
@@ -865,7 +1003,8 @@ fn keccak256_zero_offset_size_bigger_than_actual_memory() {
         vm.current_call_frame_mut().stack.pop().unwrap()
             == U256::from("0xae75624a7d0413029c1e0facdd38cc8e177d9225892e2490a69c2f1f89512061")
     );
-    assert!(vm.current_call_frame_mut().pc() == 40);
+    assert_eq!(vm.current_call_frame_mut().pc(), 40);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 61);
 }
 
 #[test]
@@ -881,11 +1020,12 @@ fn keccak256_zero_offset_zero_size() {
 
     vm.execute().unwrap();
 
-    assert!(
-        vm.current_call_frame_mut().stack.pop().unwrap()
-            == U256::from("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
     );
-    assert!(vm.current_call_frame_mut().pc() == 4);
+    assert_eq!(vm.current_call_frame_mut().pc(), 4);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 34);
 }
 
 #[test]
@@ -908,11 +1048,12 @@ fn keccak256_offset_four_size_four() {
 
     vm.execute().unwrap();
 
-    assert!(
-        vm.current_call_frame_mut().stack.pop().unwrap()
-            == U256::from("0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c")
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from("0xe8e77626586f73b955364c7b4bbf0bb7f7685ebd40e852b164633a4acbd3244c")
     );
-    assert!(vm.current_call_frame_mut().pc() == 41);
+    assert_eq!(vm.current_call_frame_mut().pc(), 41);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 53);
 }
 
 #[test]
@@ -932,6 +1073,7 @@ fn mstore() {
         U256::from(32)
     );
     assert_eq!(vm.current_call_frame_mut().pc(), 69);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 14);
 }
 
 #[test]
@@ -952,6 +1094,7 @@ fn mstore_saves_correct_value() {
 
     let memory_size = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(memory_size, U256::from(32));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 14);
 }
 
 #[test]
@@ -963,12 +1106,7 @@ fn mstore8() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
@@ -978,6 +1116,7 @@ fn mstore8() {
     stored_value.to_big_endian(&mut value_bytes);
 
     assert_eq!(value_bytes[0..1], [0xAB]);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 12);
 }
 
 #[test]
@@ -994,12 +1133,7 @@ fn mcopy() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
@@ -1008,6 +1142,7 @@ fn mcopy() {
 
     let memory_size = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(memory_size, U256::from(96));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 35);
 }
 
 #[test]
@@ -1021,34 +1156,26 @@ fn mload() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
     let loaded_value = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(loaded_value, U256::from(0x33333));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
 
 #[test]
 fn msize() {
     let operations = [Operation::Msize, Operation::Stop];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
     let initial_size = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(initial_size, U256::from(0));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 
     let operations = [
         Operation::Push32(U256::from(0x33333)), // value
@@ -1058,17 +1185,13 @@ fn msize() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
     let after_store_size = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(after_store_size, U256::from(32));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 14);
 
     let operations = [
         Operation::Push32(U256::from(0x55555)), // value
@@ -1078,17 +1201,13 @@ fn msize() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
     let final_size = vm.current_call_frame_mut().stack.pop().unwrap();
     assert_eq!(final_size, U256::from(96));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 20);
 }
 
 #[test]
@@ -1103,12 +1222,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
@@ -1117,8 +1231,9 @@ fn mstore_mload_offset_not_multiple_of_32() {
 
     assert_eq!(loaded_value, U256::from(0xabcdef));
     assert_eq!(memory_size, U256::from(64));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 23);
 
-    //check with big offset
+    // check with big offset
 
     let operations = [
         Operation::Push32(0x123456.into()), // value
@@ -1130,12 +1245,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
@@ -1144,6 +1254,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
 
     assert_eq!(loaded_value, U256::from(0x123456));
     assert_eq!(memory_size, U256::from(2048));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 217);
 }
 
 #[test]
@@ -1155,12 +1266,7 @@ fn mload_uninitialized_memory() {
         Operation::Stop,
     ];
 
-    let bytecode = operations
-        .iter()
-        .flat_map(Operation::to_bytecode)
-        .collect::<Bytes>();
-
-    let mut vm = VM::new(bytecode, Address::zero(), U256::zero());
+    let mut vm = new_vm_with_ops(&operations);
 
     vm.execute().unwrap();
 
@@ -1169,6 +1275,7 @@ fn mload_uninitialized_memory() {
 
     assert_eq!(loaded_value, U256::zero());
     assert_eq!(memory_size, U256::from(96));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 17);
 }
 
 #[test]
@@ -1177,16 +1284,19 @@ fn call_returns_if_bytecode_empty() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    // let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(100_000)), // gas
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // ret_offset
         Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
         Operation::Call,
         Operation::Stop,
     ];
@@ -1197,8 +1307,7 @@ fn call_returns_if_bytecode_empty() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
-    println!("to excec");
+    vm.db.add_account(callee_address, callee_account);
     vm.execute().unwrap();
 
     let success = vm.current_call_frame_mut().stack.pop().unwrap();
@@ -1211,7 +1320,9 @@ fn call_changes_callframe_and_stores() {
     let callee_bytecode = callee_return_bytecode(callee_return_value);
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -1231,7 +1342,7 @@ fn call_changes_callframe_and_stores() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute().unwrap();
 
@@ -1255,7 +1366,9 @@ fn nested_calls() {
     let callee3_bytecode = callee_return_bytecode(callee3_return_value);
     let callee3_address = Address::from_low_u64_be(U256::from(3).low_u64());
     let callee3_address_u256 = U256::from(3);
-    let callee3_account = Account::new(U256::from(300_000), callee3_bytecode);
+    let callee3_account = Account::default()
+        .with_balance(50_000.into())
+        .with_bytecode(callee3_bytecode);
 
     let mut callee2_ops = vec![
         Operation::Push32(U256::from(32)),       // ret_size
@@ -1293,7 +1406,9 @@ fn nested_calls() {
     let callee2_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee2_address_u256 = U256::from(2);
 
-    let callee2_account = Account::new(U256::from(300_000), callee2_bytecode);
+    let callee2_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee2_bytecode);
 
     let caller_ops = vec![
         Operation::Push32(U256::from(64)),       // ret_size
@@ -1312,8 +1427,8 @@ fn nested_calls() {
 
     let mut vm = new_vm_with_ops_addr_bal(&caller_ops, caller_address, caller_balance);
 
-    vm.add_account(callee2_address, callee2_account);
-    vm.add_account(callee3_address, callee3_account);
+    vm.db.add_account(callee2_address, callee2_account);
+    vm.db.add_account(callee3_address, callee3_account);
 
     vm.execute().unwrap();
 
@@ -1343,19 +1458,55 @@ fn nested_calls() {
 }
 
 #[test]
-fn pop_op() {
-    let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(100)),
-        Operation::Pop,
+fn staticcall_changes_callframe_is_static() {
+    let callee_return_value = U256::from(0xAAAAAAA);
+    let callee_ops = [
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // offset
+        Operation::Mstore,
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::StaticCall,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute().unwrap();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+    let mut current_call_frame = vm.call_frames[0].clone();
+
+    let ret_offset = 0;
+    let ret_size = 32;
+    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
+
+    assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
+    assert!(current_call_frame.is_static);
 }
 
 #[test]
@@ -1365,6 +1516,7 @@ fn pop_on_empty_stack() {
     let mut vm = new_vm_with_ops(&operations);
 
     let result = vm.execute();
+
     assert!(result.is_err())
 }
 
@@ -1375,7 +1527,11 @@ fn pc_op() {
 
     vm.execute().unwrap();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0));
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(0)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1390,42 +1546,237 @@ fn pc_op_with_push_offset() {
 
     vm.execute().unwrap();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(33));
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(33)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 5);
 }
 
 #[test]
-fn jump_op() {
-    let operations = [
-        Operation::Push32(U256::from(35)),
-        Operation::Jump,
-        Operation::Stop, // should skip this one
-        Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
+fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
+    // --- DELEGATECALL --- changes account 1 storage
+    let callee_return_value = U256::from(0xBBBBBBB);
+    let callee_ops = [
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(callee_address_u256), // code address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::DelegateCall,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::from(1000),
+    );
+
+    vm.db.add_account(callee_address, callee_account);
+
+    let current_call_frame = vm.current_call_frame_mut();
+    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
 
     vm.execute().unwrap();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
-    assert_eq!(vm.current_call_frame_mut().pc(), 70);
-}
+    let storage_slot = vm.db.read_account_storage(
+        &Address::from_low_u64_be(U256::from(1).low_u64()),
+        &U256::zero(),
+    );
+    let slot = StorageSlot {
+        original_value: U256::from(0xBBBBBBB),
+        current_value: U256::from(0xBBBBBBB),
+    };
 
-#[test]
-fn jump_not_jumpdest_position() {
-    let operations = [
-        Operation::Push32(U256::from(36)),
-        Operation::Jump,
-        Operation::Stop,
-        Operation::Push32(U256::from(10)),
+    assert_eq!(storage_slot, Some(slot));
+
+    // --- CALL --- changes account 2 storage
+
+    let callee_return_value = U256::from(0xAAAAAAA);
+    let callee_ops = [
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
 
-    let result = vm.execute();
-    assert!(result.is_err());
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::zero()),        // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Call,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::zero(),
+    );
+
+    vm.db.add_account(callee_address, callee_account);
+
+    let current_call_frame = vm.current_call_frame_mut();
+    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+
+    vm.execute().unwrap();
+
+    let storage_slot = vm.db.read_account_storage(&callee_address, &U256::zero());
+    let slot = StorageSlot {
+        original_value: U256::from(0xAAAAAAA),
+        current_value: U256::from(0xAAAAAAA),
+    };
+
+    assert_eq!(storage_slot, Some(slot));
+}
+
+#[test]
+fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
+    // --- DELEGATECALL
+    let callee_return_value = U256::from(0xBBBBBBB);
+    let callee_ops = [
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(32)),      // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(callee_address_u256), // code address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::DelegateCall,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::from(1000),
+    );
+
+    vm.db.add_account(callee_address, callee_account);
+
+    let current_call_frame = vm.current_call_frame_mut();
+    current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
+    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+
+    vm.execute().unwrap();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert_eq!(
+        current_call_frame.msg_sender,
+        Address::from_low_u64_be(U256::from(1).low_u64())
+    );
+    assert_eq!(current_call_frame.msg_value, U256::from(0));
+
+    // --- CALLCODE ---
+
+    let callee_return_value = U256::from(0xAAAAAAA);
+    let callee_ops = [
+        Operation::Push32(callee_return_value), // value
+        Operation::Push32(U256::zero()),        // key
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let callee_bytecode = callee_ops
+        .iter()
+        .flat_map(Operation::to_bytecode)
+        .collect::<Bytes>();
+
+    let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
+    let callee_address_u256 = U256::from(2);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
+
+    let caller_ops = vec![
+        Operation::Push32(U256::from(0)),       // ret_size
+        Operation::Push32(U256::from(0)),       // ret_offset
+        Operation::Push32(U256::from(0)),       // args_size
+        Operation::Push32(U256::from(0)),       // args_offset
+        Operation::Push32(U256::from(100)),     // value
+        Operation::Push32(callee_address_u256), // address
+        Operation::Push32(U256::from(100_000)), // gas
+        Operation::CallCode,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &caller_ops,
+        Address::from_low_u64_be(U256::from(1).low_u64()),
+        U256::from(1000),
+    );
+
+    vm.db.add_account(callee_address, callee_account);
+
+    vm.execute().unwrap();
+
+    let current_call_frame = vm.call_frames[0].clone();
+
+    let storage_slot = vm.db.read_account_storage(
+        &Address::from_low_u64_be(U256::from(1).low_u64()),
+        &U256::zero(),
+    );
+    let slot = StorageSlot {
+        original_value: U256::from(0xAAAAAAA),
+        current_value: U256::from(0xAAAAAAA),
+    };
+    assert_eq!(storage_slot, Some(slot));
+    assert_eq!(
+        current_call_frame.msg_sender,
+        Address::from_low_u64_be(U256::from(2).low_u64())
+    );
+    assert_eq!(current_call_frame.msg_value, U256::from(100));
 }
 
 #[test]
@@ -1459,7 +1810,11 @@ fn jumpi_not_zero() {
 
     vm.execute().unwrap();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(10));
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(10)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 19);
 }
 
 #[test]
@@ -1479,7 +1834,11 @@ fn jumpi_for_zero() {
 
     vm.execute().unwrap();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(100)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 19);
 }
 
 #[test]
@@ -1511,6 +1870,7 @@ fn calldataload() {
             0x0D, 0x0E, 0x0F, 0x10
         ])
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 }
 
 #[test]
@@ -1532,7 +1892,9 @@ fn calldataload_being_set_by_parent() {
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
     let callee_address_u256 = U256::from(2);
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
 
     let calldata = [
         0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
@@ -1561,7 +1923,7 @@ fn calldataload_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute().unwrap();
 
@@ -1591,6 +1953,7 @@ fn calldatasize() {
     let current_call_frame = vm.current_call_frame_mut();
     let top_of_stack = current_call_frame.stack.pop().unwrap();
     assert_eq!(top_of_stack, U256::from(3));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1611,8 +1974,8 @@ fn calldatacopy() {
 
     let current_call_frame = vm.current_call_frame_mut();
     let memory = current_call_frame.memory.load_range(0, 2);
-    println!("{:?}", current_call_frame);
     assert_eq!(memory, vec![0x22, 0x33]);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
 
 #[test]
@@ -1628,6 +1991,7 @@ fn returndatasize() {
     let current_call_frame = vm.current_call_frame_mut();
     let top_of_stack = current_call_frame.stack.pop().unwrap();
     assert_eq!(top_of_stack, U256::from(3));
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1649,6 +2013,7 @@ fn returndatacopy() {
     let current_call_frame = vm.current_call_frame_mut();
     let memory = current_call_frame.memory.load_range(0, 2);
     assert_eq!(memory, vec![0xBB, 0xCC]);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 18);
 }
 
 #[test]
@@ -1656,7 +2021,9 @@ fn returndatacopy_being_set_by_parent() {
     let callee_bytecode = callee_return_bytecode(U256::from(0xAAAAAAA));
 
     let callee_address = Address::from_low_u64_be(U256::from(2).low_u64());
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::default()
+        .with_balance(50000.into())
+        .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
         Operation::Push32(U256::from(0)),       // ret_offset
@@ -1680,12 +2047,11 @@ fn returndatacopy_being_set_by_parent() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute().unwrap();
 
     let current_call_frame = vm.current_call_frame_mut();
-    println!("{:?}", current_call_frame);
 
     let result = current_call_frame.memory.load(0);
 
@@ -1693,7 +2059,7 @@ fn returndatacopy_being_set_by_parent() {
 }
 
 #[test]
-fn block_hash_op() {
+fn blockhash_op() {
     let block_number = 1_u8;
     let block_hash = 12345678;
     let current_block_number = 3_u8;
@@ -1705,10 +2071,11 @@ fn block_hash_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = U256::from(current_block_number);
+    let mut vm = new_vm_with_ops_addr_bal(&operations, Address::default(), U256::MAX);
     vm.db
+        .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    vm.env.block.number = U256::from(current_block_number);
 
     vm.execute().unwrap();
 
@@ -1716,10 +2083,11 @@ fn block_hash_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         expected_block_hash
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 23);
 }
 
 #[test]
-fn block_hash_same_block_number() {
+fn blockhash_same_block_number() {
     let block_number = 1_u8;
     let block_hash = 12345678;
     let current_block_number = block_number;
@@ -1732,9 +2100,13 @@ fn block_hash_same_block_number() {
     ];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = U256::from(current_block_number);
-    vm.db
-        .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    let mut storage = Storage::default();
+    storage.insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    // vm.world_state.insert(
+    //     Address::default(),
+    //     Account::new(U256::MAX, Bytes::default(), 0, storage),
+    // );
+    vm.env.block.number = U256::from(current_block_number);
 
     vm.execute().unwrap();
 
@@ -1742,10 +2114,11 @@ fn block_hash_same_block_number() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         expected_block_hash
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 23);
 }
 
 #[test]
-fn block_hash_block_number_not_from_recent_256() {
+fn blockhash_block_number_not_from_recent_256() {
     let block_number = 1_u8;
     let block_hash = 12345678;
     let current_block_number = 258;
@@ -1757,10 +2130,11 @@ fn block_hash_block_number_not_from_recent_256() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = U256::from(current_block_number);
+    let mut vm = new_vm_with_ops_addr_bal(&operations, Address::default(), U256::MAX);
     vm.db
+        .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
+    vm.env.block.number = U256::from(current_block_number);
 
     vm.execute().unwrap();
 
@@ -1768,6 +2142,7 @@ fn block_hash_block_number_not_from_recent_256() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         expected_block_hash
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 23);
 }
 
 #[test]
@@ -1777,7 +2152,7 @@ fn coinbase_op() {
     let operations = [Operation::Coinbase, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.coinbase = Address::from_low_u64_be(coinbase_address);
+    vm.env.block.coinbase = Address::from_low_u64_be(coinbase_address);
 
     vm.execute().unwrap();
 
@@ -1785,6 +2160,7 @@ fn coinbase_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(coinbase_address)
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1794,11 +2170,12 @@ fn timestamp_op() {
     let operations = [Operation::Timestamp, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.timestamp = timestamp;
+    vm.env.block.timestamp = timestamp;
 
     vm.execute().unwrap();
 
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), timestamp);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1808,7 +2185,7 @@ fn number_op() {
     let operations = [Operation::Number, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.number = block_number;
+    vm.env.block.number = block_number;
 
     vm.execute().unwrap();
 
@@ -1816,6 +2193,7 @@ fn number_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         block_number
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1825,7 +2203,7 @@ fn prevrandao_op() {
     let operations = [Operation::Prevrandao, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.prev_randao = Some(prevrandao);
+    vm.env.block.prev_randao = Some(prevrandao);
 
     vm.execute().unwrap();
 
@@ -1833,6 +2211,7 @@ fn prevrandao_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from_big_endian(&prevrandao.0)
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1842,7 +2221,7 @@ fn gaslimit_op() {
     let operations = [Operation::Gaslimit, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.gas_limit = gas_limit;
+    vm.env.block.gas_limit = gas_limit;
 
     vm.execute().unwrap();
 
@@ -1850,6 +2229,7 @@ fn gaslimit_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(gas_limit)
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1859,7 +2239,7 @@ fn chain_id_op() {
     let operations = [Operation::Chainid, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.chain_id = chain_id;
+    vm.env.block.chain_id = chain_id;
 
     vm.execute().unwrap();
 
@@ -1867,6 +2247,7 @@ fn chain_id_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(chain_id)
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
@@ -1876,7 +2257,7 @@ fn basefee_op() {
     let operations = [Operation::Basefee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.base_fee_per_gas = base_fee_per_gas;
+    vm.env.block.base_fee_per_gas = base_fee_per_gas;
 
     vm.execute().unwrap();
 
@@ -1884,15 +2265,16 @@ fn basefee_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         base_fee_per_gas
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
-fn blob_base_fee_op() {
+fn blobbasefee_op() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
-    vm.block_env.blob_gas_used = Some(0);
+    vm.env.block.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
+    vm.env.block.blob_gas_used = Some(0);
 
     vm.execute().unwrap();
 
@@ -1900,21 +2282,180 @@ fn blob_base_fee_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(2)
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
 #[test]
-fn blob_base_fee_minimun_cost() {
+fn blobbasefee_minimum_cost() {
     let operations = [Operation::BlobBaseFee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.block_env.excess_blob_gas = Some(0);
-    vm.block_env.blob_gas_used = Some(0);
+    vm.env.block.excess_blob_gas = Some(0);
+    vm.env.block.blob_gas_used = Some(0);
 
     vm.execute().unwrap();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::one()
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
+}
+
+#[test]
+fn pop_op() {
+    let operations = [
+        Operation::Push32(U256::one()),
+        Operation::Push32(U256::from(100)),
+        Operation::Pop,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::one()
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 8);
+}
+
+#[test]
+fn jump_op() {
+    let operations = [
+        Operation::Push32(U256::from(35)),
+        Operation::Jump,
+        Operation::Stop, // should skip this one
+        Operation::Jumpdest,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(10)
+    );
+    assert_eq!(vm.current_call_frame_mut().pc(), 70);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 14);
+}
+
+#[test]
+fn jump_not_jumpdest_position() {
+    let operations = [
+        Operation::Push32(U256::from(36)),
+        Operation::Jump,
+        Operation::Stop,
+        Operation::Push32(U256::from(10)),
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let result = vm.execute();
+    assert!(result.is_err());
+}
+
+#[test]
+fn sstore_op() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().code_address = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    vm.execute().unwrap();
+
+    let account = vm.db.accounts.get(&sender_address).unwrap();
+    let stored_value = account.storage.get(&key).unwrap();
+    assert_eq!(value, stored_value.current_value);
+}
+
+#[test]
+#[should_panic]
+fn sstore_reverts_when_called_in_static() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().is_static = true;
+    vm.execute().unwrap();
+}
+
+#[test]
+fn sload_op() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Push((1, key)),
+        Operation::Sload,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().msg_sender = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    vm.execute().unwrap();
+
+    assert_eq!(value, vm.current_call_frame_mut().stack.pop().unwrap());
+}
+
+#[test]
+fn sload_untouched_key_of_storage() {
+    let key = U256::from(404);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().msg_sender = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    vm.execute().unwrap();
+
+    assert_eq!(
+        U256::zero(),
+        vm.current_call_frame_mut().stack.pop().unwrap()
+    );
+}
+
+#[test]
+fn sload_on_not_existing_account() {
+    let key = U256::from(80);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![Operation::Push((2, key)), Operation::Sload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().msg_sender = sender_address;
+
+    vm.execute().unwrap();
+
+    assert_eq!(
+        U256::zero(),
+        vm.current_call_frame_mut().stack.pop().unwrap()
     );
 }
 
@@ -1940,6 +2481,7 @@ fn log0() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[0].topics.len(), 0);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 649);
 }
 
 #[test]
@@ -1968,6 +2510,7 @@ fn log1() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1027);
 }
 
 #[test]
@@ -2002,6 +2545,7 @@ fn log2() {
         logs[0].topics,
         vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1405);
 }
 
 #[test]
@@ -2043,6 +2587,7 @@ fn log3() {
             H32::from_slice(&topic3)
         ]
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1783);
 }
 
 #[test]
@@ -2088,6 +2633,7 @@ fn log4() {
             H32::from_slice(&topic4)
         ]
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2161);
 }
 
 #[test]
@@ -2111,6 +2657,7 @@ fn log_with_0_data_size() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, Vec::new());
     assert_eq!(logs[0].topics.len(), 0);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 393);
 }
 
 #[test]
@@ -2157,6 +2704,7 @@ fn log_with_data_in_memory_smaller_than_size() {
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data);
     assert_eq!(logs[0].topics.len(), 0);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 649);
 }
 
 #[test]
@@ -2213,7 +2761,13 @@ fn logs_from_multiple_callers() {
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(
+        callee_address,
+        U256::from(500000),
+        callee_bytecode,
+        0,
+        HashMap::new(),
+    );
 
     let mut caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -2234,7 +2788,7 @@ fn logs_from_multiple_callers() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     let result = vm.execute().unwrap();
 
@@ -2252,7 +2806,13 @@ fn call_return_success_but_caller_halts() {
         .iter()
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
-    let callee_account = Account::new(U256::from(500000), callee_bytecode);
+    let callee_account = Account::new(
+        callee_address,
+        U256::from(500000),
+        callee_bytecode,
+        0,
+        HashMap::new(),
+    );
 
     let caller_ops = vec![
         Operation::Push32(U256::from(32)),      // ret_size
@@ -2272,7 +2832,7 @@ fn call_return_success_but_caller_halts() {
         U256::zero(),
     );
 
-    vm.add_account(callee_address, callee_account);
+    vm.db.add_account(callee_address, callee_account);
 
     vm.execute().unwrap();
 
@@ -2280,4 +2840,544 @@ fn call_return_success_but_caller_halts() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(HALT_FOR_CALL)
     );
+}
+
+#[test]
+fn push0_ok() {
+    let mut vm = new_vm_with_ops(&[Operation::Push0, Operation::Stop]);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], U256::zero());
+    assert_eq!(vm.current_call_frame_mut().pc(), 2);
+}
+
+#[test]
+fn push1_ok() {
+    let to_push = U256::from_big_endian(&[0xff]);
+    let operations = [Operation::Push((1, to_push)), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 3);
+}
+
+#[test]
+fn push5_ok() {
+    let to_push = U256::from_big_endian(&[0xff, 0xff, 0xff, 0xff, 0xff]);
+    let operations = [Operation::Push((5, to_push)), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 7);
+}
+
+#[test]
+fn push31_ok() {
+    let to_push = U256::from_big_endian(&[0xff; 31]);
+    let operations = [Operation::Push((31, to_push)), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 33);
+}
+
+#[test]
+fn push32_ok() {
+    let to_push = U256::from_big_endian(&[0xff; 32]);
+    let operations = [Operation::Push32(to_push), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], to_push);
+    assert_eq!(vm.current_call_frame_mut().pc(), 34);
+}
+
+#[test]
+fn dup1_ok() {
+    let value = U256::one();
+    let operations = [
+        Operation::Push((1, value)),
+        Operation::Dup(1),
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    let stack_len = vm.current_call_frame_mut().stack.len();
+
+    assert_eq!(stack_len, 2);
+    assert_eq!(vm.current_call_frame_mut().pc(), 4);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1],
+        value
+    );
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 2],
+        value
+    );
+}
+
+#[test]
+fn dup16_ok() {
+    let value = U256::one();
+    let mut operations = vec![Operation::Push((1, value))];
+    operations.extend(vec![Operation::Push0; 15]);
+    operations.extend(vec![Operation::Dup(16), Operation::Stop]);
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+
+    let stack_len = vm.current_call_frame_mut().stack.len();
+
+    assert_eq!(stack_len, 17);
+    assert_eq!(vm.current_call_frame_mut().pc, 19);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1],
+        value
+    );
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 17],
+        value
+    );
+}
+
+#[test]
+fn dup_halts_if_stack_underflow() {
+    let operations = [Operation::Dup(5), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    let result = vm.execute();
+    assert!(result.is_err())
+}
+
+#[test]
+fn swap1_ok() {
+    let bottom = U256::from_big_endian(&[0xff]);
+    let top = U256::from_big_endian(&[0xee]);
+    let operations = [
+        Operation::Push((1, bottom)),
+        Operation::Push((1, top)),
+        Operation::Swap(1),
+        Operation::Stop,
+    ];
+    let mut vm = new_vm_with_ops(&operations);
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.len(), 2);
+    assert_eq!(vm.current_call_frame_mut().pc(), 6);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[0], top);
+    assert_eq!(vm.current_call_frame_mut().stack.stack[1], bottom);
+}
+
+#[test]
+fn swap16_ok() {
+    let bottom = U256::from_big_endian(&[0xff]);
+    let top = U256::from_big_endian(&[0xee]);
+    let mut operations = vec![Operation::Push((1, bottom))];
+    operations.extend(vec![Operation::Push0; 15]);
+    operations.extend(vec![Operation::Push((1, top))]);
+    operations.extend(vec![Operation::Swap(16), Operation::Stop]);
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    vm.execute().unwrap();
+    let stack_len = vm.current_call_frame_mut().stack.len();
+
+    assert_eq!(stack_len, 17);
+    assert_eq!(vm.current_call_frame_mut().pc(), 21);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1],
+        bottom
+    );
+    assert_eq!(
+        vm.current_call_frame_mut().stack.stack[stack_len - 1 - 16],
+        top
+    );
+}
+
+#[test]
+fn swap_halts_if_stack_underflow() {
+    let operations = [Operation::Swap(5), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
+
+    let result = vm.execute();
+    assert!(result.is_err())
+}
+
+#[test]
+fn transient_store() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [
+        Operation::Push32(value),
+        Operation::Push32(key),
+        Operation::Tstore,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert!(current_call_frame.transient_storage.is_empty());
+
+    vm.execute().unwrap();
+
+    let current_call_frame = vm.current_call_frame_mut();
+
+    assert_eq!(
+        *current_call_frame
+            .transient_storage
+            .get(&(current_call_frame.msg_sender, key))
+            .unwrap(),
+        value
+    )
+}
+
+#[test]
+#[should_panic]
+fn transient_store_no_values_panics() {
+    let operations = [Operation::Tstore, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+    assert!(vm.current_call_frame_mut().transient_storage.is_empty());
+
+    vm.execute().unwrap();
+}
+
+#[test]
+fn transient_load() {
+    let value = U256::from_big_endian(&[0xaa; 3]);
+    let key = U256::from_big_endian(&[0xff; 2]);
+
+    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let caller = vm.current_call_frame_mut().msg_sender;
+
+    vm.current_call_frame_mut()
+        .transient_storage
+        .insert((caller, key), value);
+
+    vm.execute().unwrap();
+
+    assert_eq!(
+        *vm.current_call_frame_mut().stack.stack.last().unwrap(),
+        value
+    )
+}
+
+#[test]
+fn create_happy_path() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 13;
+    let sender_nonce = 0;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    // Code that returns the value 0xffffffff putting it in memory
+    let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
+
+    let operations = [
+        vec![
+            Operation::Push((13, U256::from_big_endian(&initialization_code))),
+            Operation::Push0,
+            Operation::Mstore,
+        ],
+        create_opcodes(size, offset, value_to_transfer),
+    ]
+    .concat();
+
+    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+    let return_of_created_callframe = call_frame.stack.pop().unwrap();
+    assert_eq!(return_of_created_callframe, U256::from(SUCCESS_FOR_RETURN));
+    let returned_addr = call_frame.stack.pop().unwrap();
+    // check the created account is correct
+    let new_account = vm.db.accounts.get(&word_to_address(returned_addr)).unwrap();
+    assert_eq!(new_account.balance, U256::from(value_to_transfer));
+    assert_eq!(new_account.nonce, 1);
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce + 1);
+    assert_eq!(sender_account.balance, sender_balance - value_to_transfer);
+}
+
+#[test]
+fn cant_create_with_size_longer_than_max_code_size() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = MAX_CODE_SIZE * 2 + 1;
+    let sender_nonce = 0;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = create_opcodes(size, offset, value_to_transfer);
+
+    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_on_static_contexts() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 10;
+    let sender_nonce = 0;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = create_opcodes(size, offset, value_to_transfer);
+
+    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+    vm.current_call_frame_mut().is_static = true;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_if_transfer_value_bigger_than_balance() {
+    let value_to_transfer = 100;
+    let offset = 19;
+    let size = 10;
+    let sender_nonce = 0;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = create_opcodes(size, offset, value_to_transfer);
+
+    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_if_sender_nonce_would_overflow() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 10;
+    let sender_nonce = u64::MAX;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    let operations = create_opcodes(size, offset, value_to_transfer);
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.accounts.insert(
+        sender_addr,
+        Account::new(
+            sender_addr,
+            sender_balance,
+            Bytes::new(),
+            sender_nonce,
+            HashMap::new(),
+        ),
+    );
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+    let create_return_value = call_frame.stack.pop().unwrap();
+    assert_eq!(create_return_value, U256::from(REVERT_FOR_CREATE));
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce);
+    assert_eq!(sender_account.balance, sender_balance);
+}
+
+#[test]
+fn cant_create_accounts_with_same_address() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 13;
+    let sender_nonce = 1;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    // Code that returns the value 0xffffffff putting it in memory
+    let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
+
+    let operations = [
+        vec![
+            Operation::Push((13, U256::from_big_endian(&initialization_code))),
+            Operation::Push0,
+            Operation::Mstore,
+        ],
+        create_opcodes(size, offset, value_to_transfer),
+    ]
+    .concat();
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.accounts.insert(
+        sender_addr,
+        Account::default()
+            .with_balance(sender_balance)
+            .with_nonce(sender_nonce),
+    );
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+
+    let return_of_created_callframe = call_frame.stack.pop().unwrap();
+
+    assert_eq!(return_of_created_callframe, U256::from(SUCCESS_FOR_RETURN));
+
+    let returned_addr = call_frame.stack.pop().unwrap();
+    // check the created account is correct
+    let new_account = vm.db.accounts.get(&word_to_address(returned_addr)).unwrap();
+    assert_eq!(new_account.balance, U256::from(value_to_transfer));
+    assert_eq!(new_account.nonce, 1);
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get_mut(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce + 1);
+    assert_eq!(sender_account.balance, sender_balance - value_to_transfer);
+
+    // after a happy create, we do again a create with same inputs, this should revert as we will create
+    // an account with the same address
+    sender_account.nonce = sender_nonce;
+    let mut new_vm = new_vm_with_ops(&operations);
+    new_vm.db = vm.db.clone();
+    new_vm.db.accounts = vm.db.accounts.clone();
+    new_vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    new_vm.execute().unwrap();
+    let call_frame = new_vm.current_call_frame_mut();
+    let return_of_created_callframe = call_frame.stack.pop().unwrap();
+    assert_eq!(return_of_created_callframe, U256::from(REVERT_FOR_CREATE));
+}
+
+#[test]
+fn create2_happy_path() {
+    let value: u8 = 10;
+    let offset: u8 = 19;
+    let size: u8 = 13;
+    let salt: u8 = 4;
+    let sender_nonce = 0;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    // Code that returns the value 0xffffffff putting it in memory
+    let initialization_code = hex::decode("63FFFFFFFF6000526004601CF3").unwrap();
+    let expected_address = VM::calculate_create2_address(
+        sender_addr,
+        &Bytes::from(initialization_code.clone()),
+        U256::from(salt),
+    );
+
+    let operations = vec![
+        // Store initialization code in memory
+        Operation::Push((13, U256::from_big_endian(&initialization_code))),
+        Operation::Push0,
+        Operation::Mstore,
+        // Create
+        Operation::Push((1, U256::from(salt))),
+        Operation::Push((1, U256::from(size))),
+        Operation::Push((1, U256::from(offset))),
+        Operation::Push((1, U256::from(value))),
+        Operation::Create2,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+
+    let call_frame = vm.current_call_frame_mut();
+    let return_of_created_callframe = call_frame.stack.pop().unwrap();
+    assert_eq!(return_of_created_callframe, U256::from(SUCCESS_FOR_RETURN));
+    let returned_addr = call_frame.stack.pop().unwrap();
+    assert_eq!(word_to_address(returned_addr), expected_address);
+    // check the created account is correct
+    let new_account = vm.db.accounts.get(&word_to_address(returned_addr)).unwrap();
+    assert_eq!(new_account.balance, U256::from(value));
+    assert_eq!(new_account.nonce, 1);
+
+    // Check that the sender account is updated
+    let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
+    assert_eq!(sender_account.nonce, sender_nonce + 1);
+    assert_eq!(sender_account.balance, sender_balance - value);
+}
+
+#[test]
+fn create_on_create() {
+    let value_to_transfer = 10;
+    let offset = 19;
+    let size = 13;
+    let sender_balance = U256::from(25);
+    let sender_addr = Address::from_low_u64_be(40);
+
+    // push0, push0, mstore, push1 0, push1 0, push1 0, create, push0, push0, return
+    let initialization_code = hex::decode("5f5f52600060006000f05f5ff3").unwrap();
+
+    let operations = [
+        vec![
+            Operation::Push((13, U256::from_big_endian(&initialization_code))),
+            Operation::Push0,
+            Operation::Mstore,
+        ],
+        create_opcodes(size, offset, value_to_transfer),
+    ]
+    .concat();
+
+    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+
+    vm.current_call_frame_mut().msg_sender = sender_addr;
+
+    vm.execute().unwrap();
+    assert_eq!(vm.db.accounts.len(), 4);
 }
