@@ -14,8 +14,8 @@ These are the obtained results:
 ### MacBook Air M1 (16 GB RAM)
 |        |     Mean [s]    | Min [s] | Max [s] |  Relative   |
 |--------|-----------------|---------|---------|-------------|
-| `revm` | 6.760 s ± 0.057 |  6.691  |  6.856  |    1.00     |
-| `levm` | 7.010 s ± 0.023 |  6.972  |  7.043  | 1.04 ± 0.01 |
+| `revm` | 6.726 s ± 0.052 |  6.661  |  6.807  |    1.00     |
+| `levm` | 7.508 s ± 0.087 |  7.441  |  7.744  | 1.12 ± 0.02 |
 
 ## Fibonacci
 This program computed the nth Fibonacci number, with n passed via calldata. Again, we chose 1000 as n and ran the program on a loop 100,000 times.
@@ -25,5 +25,5 @@ These are the obtained results:
 ### MacBook Air M1 (16 GB RAM)
 |        |     Mean [s]    | Min [s] | Max [s] |  Relative   |
 |--------|-----------------|---------|---------|-------------|
-| `revm` | 6.257 s ± 0.093 |  6.134  |  6.422  |    1.00     |
-| `levm` | 7.055 s ± 0.021 |  7.038  |  1.110  | 1.13 ± 0.02 |
+| `revm` | 6.271 s ± 0.026 |  6.234  |  6.312  |    1.00     |
+| `levm` | 7.329 s ± 0.078 |  7.274  |  7.532  | 1.17 ± 0.01 |

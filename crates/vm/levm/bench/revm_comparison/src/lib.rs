@@ -13,15 +13,14 @@ pub const FACTORIAL_BYTECODE: &str =
 
 pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
     let bytecode = Bytes::from(hex::decode(program).unwrap());
+    let mut call_frame = CallFrame::new_from_bytecode(bytecode);
+    let mut calldata = vec![0x00; 32];
+    calldata[28..32].copy_from_slice(&number_of_iterations.to_be_bytes());
+    call_frame.calldata = Bytes::from(calldata);
+
+    let mut vm = new_vm_with_bytecode(Bytes::new());
     for _ in 0..runs - 1 {
-        let mut call_frame = CallFrame::new_from_bytecode(bytecode.clone()); // TODO: remove the clones
-        let mut calldata = vec![0x00; 32];
-        calldata[28..32].copy_from_slice(&number_of_iterations.to_be_bytes());
-        call_frame.calldata = Bytes::from(calldata);
-
-        let mut vm = new_vm_with_bytecode(bytecode.clone());
-        *vm.current_call_frame_mut() = call_frame;
-
+        *vm.current_call_frame_mut() = call_frame.clone();
         vm.execute();
     }
 }
