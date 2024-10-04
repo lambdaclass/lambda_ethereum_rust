@@ -42,11 +42,9 @@ async fn main() {
 
     let log_level = matches
         .get_one::<String>("log-level")
-        .expect("log-level is required");
+        .expect("shouldn't happen, log-level is used with a default value");
     let log_level = Level::from_str(log_level).unwrap_or(Level::INFO);
-
     let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
-
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let http_addr = matches
