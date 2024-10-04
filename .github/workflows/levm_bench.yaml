@@ -9,7 +9,7 @@ on:
   pull_request:
     paths:
       - 'crates/vm/levm/**'
-    branches: [ '**' ]
+    branches: [ '*' ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,9 +40,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: hyperfine@1.16
-
-      - name: Create markdown file
-        run: echo "### Benchmark Results :rocket:" > bench-comment.md
 
       - name: Run benchmarks
         run: |
