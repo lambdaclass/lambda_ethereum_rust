@@ -107,13 +107,21 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
             )),
-            Err(ChainError::InvalidBlock(_)) => {
-                Ok(PayloadStatus::invalid_with_hash(latest_valid_hash))
+            Err(ChainError::InvalidBlock(error)) => {
+                warn!("Error adding block: {error}");
+                Ok(PayloadStatus::invalid_with(
+                    latest_valid_hash,
+                    error.to_string(),
+                ))
             }
             Err(ChainError::EvmError(error)) => {
+                warn!("Error executing block: {error}");
                 Ok(PayloadStatus::invalid_with_err(&error.to_string()))
             }
-            Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
+            Err(ChainError::StoreError(error)) => {
+                warn!("Error storing block: {error}");
+                Err(RpcErr::Internal)
+            }
             Ok(()) => {
                 info!("Block with hash {block_hash} executed succesfully");
                 // TODO: We don't have a way to fetch blocks by number if they are not canonical
