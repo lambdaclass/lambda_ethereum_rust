@@ -182,11 +182,8 @@ fn div_op(){
     vm.execute();
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(5));
-}
 
-#[test]
-fn div0_op(){
-    // In Ethereum: 10 / 0 = 0
+    // In EVM: 10 / 0 = 0
     let mut vm = new_vm_with_ops(&[
         Operation::Push((1,U256::zero())),
         Operation::Push((1,U256::from(10))),
@@ -299,33 +296,136 @@ fn exp_op(){
 }
 
 #[test]
-fn sign_extend_op(){
-    // Input: 0, 0x7F. Output: 0x7F
-    let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(0x7F))),
-        Operation::Push((1,U256::zero())),
+fn sign_extend_op() {
+    // Case 1: Input: 0, 0x7F. Output: 0x7F
+    let mut vm_case_1 = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(0x7F))),
+        Operation::Push((1, U256::zero())),
         Operation::SignExtend,
         Operation::Stop,
     ]);
 
-    vm.execute();
+    vm_case_1.execute();
+    assert!(vm_case_1.current_call_frame_mut().stack.pop().unwrap() == U256::from(0x7F));
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0x7F));
+    // Case 2: Input: 0, 0xFF. Output: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    let mut vm_case_2 = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(0xFF))),
+        Operation::Push((1, U256::zero())),
+        Operation::SignExtend,
+        Operation::Stop,
+    ]);
+
+    vm_case_2.execute();
+    assert!(vm_case_2.current_call_frame_mut().stack.pop().unwrap() == U256::MAX);
 }
 
 #[test]
-fn sign_extend_2_op(){
-    // Input: 0, 0xFF. Output: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+fn lt_op(){
+    // Input: 9, 10. Output: 1
     let mut vm = new_vm_with_ops(&[
-        Operation::Push((1,U256::from(0xFF))),
-        Operation::Push((1,U256::zero())),
-        Operation::SignExtend,
+        Operation::Push((1,U256::from(10))),
+        Operation::Push((1,U256::from(9))),
+        Operation::Lt,
         Operation::Stop,
     ]);
 
     vm.execute();
 
-    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::MAX);
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn gt_op(){
+    // Input: 10, 9. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1,U256::from(9))),
+        Operation::Push((1,U256::from(10))),
+        Operation::Gt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn slt_op(){
+    // Input: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32,U256::zero())),
+        Operation::Push((32,U256::MAX)),
+        Operation::Slt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn sgt_op(){
+    // Input: 0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32,U256::MAX)),
+        Operation::Push((32,U256::zero())),
+        Operation::Sgt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn eq_op() {
+    // Case 1: Input: 10, 10. Output: 1 (true)
+    let mut vm_equal = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Eq,
+        Operation::Stop,
+    ]);
+
+    vm_equal.execute();
+    assert!(vm_equal.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+
+    // Case 2: Input: 10, 20. Output: 0 (false)
+    let mut vm_not_equal = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(20))),
+        Operation::Eq,
+        Operation::Stop,
+    ]);
+
+    vm_not_equal.execute();
+    assert!(vm_not_equal.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
+}
+
+#[test]
+fn is_zero_op() {
+    // Case 1: Input is 0, Output should be 1 (since 0 == 0 is true)
+    let mut vm_zero = new_vm_with_ops(&[
+        Operation::Push((1, U256::zero())),
+        Operation::IsZero,                  
+        Operation::Stop,
+    ]);
+
+    vm_zero.execute();
+    assert!(vm_zero.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+
+    // Case 2: Input is non-zero (e.g., 10), Output should be 0 (since 10 != 0 is false)
+    let mut vm_non_zero = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::IsZero,
+        Operation::Stop,
+    ]);
+
+    vm_non_zero.execute();
+    assert!(vm_non_zero.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
 }
 
 #[test]
