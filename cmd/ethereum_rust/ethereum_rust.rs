@@ -43,7 +43,7 @@ async fn main() {
     let log_level = matches
         .get_one::<String>("log-level")
         .expect("log-level is required");
-    let log_level = Level::from_str(&log_level).unwrap_or(Level::INFO);
+    let log_level = Level::from_str(log_level).unwrap_or(Level::INFO);
 
     let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
 
