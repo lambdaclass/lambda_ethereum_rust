@@ -2,14 +2,13 @@ use std::collections::HashMap;
 
 use ethereum_types::H32;
 use levm::{
-    block::{self, BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
-    constants::{MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN, TX_BASE_COST},
+    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
+    constants::{gas_cost, MAX_CODE_SIZE, REVERT_FOR_CREATE, SUCCESS_FOR_RETURN, TX_BASE_COST},
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
     vm::{Account, Db, Storage, StorageSlot, VM},
 };
-use sha3::digest::block_buffer::Block;
 
 // cargo test -p 'levm'
 
@@ -3297,4 +3296,5 @@ fn caller_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(address_that_has_the_code.as_bytes())
     );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLER);
 }

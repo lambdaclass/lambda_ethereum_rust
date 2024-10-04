@@ -756,6 +756,7 @@ impl VM {
 
                     let caller = current_call_frame.msg_sender;
                     current_call_frame.stack.push(U256::from(caller.as_bytes()));
+                    self.env.consumed_gas += gas_cost::CALLER;
                 }
                 Opcode::ORIGIN => {
                     todo!()

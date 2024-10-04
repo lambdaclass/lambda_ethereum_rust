@@ -13,8 +13,14 @@ pub enum TransactTo {
     Create,
 }
 
+impl Default for TransactTo {
+    fn default() -> Self {
+        TransactTo::Create
+    }
+}
+
 /// The transaction environment.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TxEnv {
     /// Caller aka Author aka transaction signer.
     pub msg_sender: Address,
