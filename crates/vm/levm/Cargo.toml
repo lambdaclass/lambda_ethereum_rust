@@ -1,0 +1,13 @@
+[package]
+name = "levm"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ethereum-types.workspace = true
+bytes.workspace = true
+sha3 = "0.10.8"
+ethereum_rust-rlp.workspace = true
+
+[dev-dependencies]
+hex = "0.4.3"

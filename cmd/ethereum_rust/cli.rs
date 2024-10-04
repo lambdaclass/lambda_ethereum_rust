@@ -1,5 +1,6 @@
 use clap::{Arg, ArgAction, Command};
 use ethereum_rust_net::bootnode::BootNode;
+use tracing::Level;
 
 pub fn cli() -> Command {
     Command::new("ethereum_rust")
@@ -17,6 +18,14 @@ pub fn cli() -> Command {
                 .long("http.port")
                 .default_value("8545")
                 .value_name("PORT")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("log-level")
+                .long("log-level")
+                .default_value(Level::INFO.as_str())
+                .value_name("LOG_LEVEL")
+                .required(false)
                 .action(ArgAction::Set),
         )
         .arg(

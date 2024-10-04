@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     constants::{
         MAX_INITCODE_SIZE, MIN_BASE_FEE_PER_BLOB_GAS, TX_ACCESS_LIST_ADDRESS_GAS,
@@ -9,9 +11,9 @@ use crate::{
 };
 use ethereum_rust_core::{
     types::{BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, Transaction},
-    H256,
+    Address, H256, U256,
 };
-use ethereum_rust_storage::Store;
+use ethereum_rust_storage::{error::StoreError, Store};
 
 /// Add a blob transaction and its blobs bundle to the mempool
 pub fn add_blob_transaction(
@@ -33,6 +35,7 @@ pub fn add_blob_transaction(
     Ok(hash)
 }
 
+/// Add a transaction to the mempool
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
     // Blob transactions should be submitted via add_blob_transaction along with the corresponding blobs bundle
     if matches!(transaction, Transaction::EIP4844Transaction(_)) {
@@ -49,14 +52,61 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     Ok(hash)
 }
 
+/// Fetch a transaction from the mempool
 pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
     Ok(store.get_transaction_from_pool(hash)?)
 }
 
-pub fn get_blobs_bundle(hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
-    Ok(store.get_blobs_bundle_from_pool(hash)?)
+/// Fetch a blobs bundle from the mempool given its blob transaction hash
+pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
+    Ok(store.get_blobs_bundle_from_pool(tx_hash)?)
 }
 
+/// Applies the filter and returns a set of suitable transactions from the mempool.
+/// These transactions will be grouped by sender and sorted by nonce
+pub fn filter_transactions(
+    filter: &PendingTxFilter,
+    store: &Store,
+) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+    let filter_tx = |tx: &Transaction| -> bool {
+        // Filter by tx type
+        let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
+        if filter.only_plain_txs && is_blob_tx || filter.only_blob_txs && !is_blob_tx {
+            return false;
+        }
+        // Filter by tip & base_fee
+        if let Some(min_tip) = filter.min_tip {
+            if !tx
+                .effective_gas_tip(filter.base_fee)
+                .is_some_and(|tip| tip >= min_tip)
+            {
+                return false;
+            }
+        }
+        // Filter by blob gas fee
+        if let (true, Some(blob_fee)) = (is_blob_tx, filter.blob_fee) {
+            if !tx.max_fee_per_blob_gas().is_some_and(|fee| fee >= blob_fee) {
+                return false;
+            }
+        }
+        true
+    };
+    store.filter_pool_transactions(&filter_tx)
+}
+
+/// Remove a transaction from the mempool
+pub fn remove_transaction(hash: H256, store: &Store) -> Result<(), StoreError> {
+    store.remove_transaction_from_pool(hash)
+}
+
+#[derive(Debug, Default)]
+pub struct PendingTxFilter {
+    pub min_tip: Option<u64>,
+    pub base_fee: Option<u64>,
+    pub blob_fee: Option<U256>,
+    pub only_plain_txs: bool,
+    pub only_blob_txs: bool,
+}
 /*
 
 SOME VALIDATIONS THAT WE COULD INCLUDE
