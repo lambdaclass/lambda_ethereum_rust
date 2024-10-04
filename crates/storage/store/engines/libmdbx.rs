@@ -64,7 +64,7 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
         block_header: BlockHeader,
-    ) -> Result<(), StoreError> {
+    ) -> std::result::Result<(), StoreError> {
         self.write::<Headers>(block_hash.into(), block_header.into())
     }
 
@@ -83,11 +83,14 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
         block_body: BlockBody,
-    ) -> Result<(), StoreError> {
+    ) -> std::result::Result<(), StoreError> {
         self.write::<Bodies>(block_hash.into(), block_body.into())
     }
 
-    fn get_block_body(&self, block_number: BlockNumber) -> Result<Option<BlockBody>, StoreError> {
+    fn get_block_body(
+        &self,
+        block_number: BlockNumber,
+    ) -> std::result::Result<Option<BlockBody>, StoreError> {
         if let Some(hash) = self.get_block_hash_by_block_number(block_number)? {
             self.get_block_body_by_hash(hash)
         } else {
@@ -113,11 +116,14 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
         block_number: BlockNumber,
-    ) -> Result<(), StoreError> {
+    ) -> std::result::Result<(), StoreError> {
         self.write::<BlockNumbers>(block_hash.into(), block_number)
     }
 
-    fn get_block_number(&self, block_hash: BlockHash) -> Result<Option<BlockNumber>, StoreError> {
+    fn get_block_number(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<BlockNumber>, StoreError> {
         self.read::<BlockNumbers>(block_hash.into())
     }
     fn add_block_total_difficulty(
