@@ -232,7 +232,7 @@ impl Store {
     ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
         self.engine.filter_pool_transactions(filter)
     }
-    
+
     /// Add a blobs bundle from the pool by the blob transaction's hash
     pub fn add_blobs_bundle_to_pool(
         &self,

@@ -101,7 +101,7 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
     ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError>;
-    
+
     /// Store blobs_bundle into pool table
     fn add_blobs_bundle_to_pool(
         &self,

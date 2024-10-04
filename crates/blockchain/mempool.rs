@@ -11,7 +11,7 @@ use crate::{
 };
 use ethereum_rust_core::{
     types::{BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, Transaction},
-    Address, U256, H256,
+    Address, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 

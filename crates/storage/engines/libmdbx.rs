@@ -257,7 +257,7 @@ impl StoreEngine for Store {
         }
         Ok(txs_by_sender)
     }
-    
+
     fn add_blobs_bundle_to_pool(
         &self,
         hash: H256,
