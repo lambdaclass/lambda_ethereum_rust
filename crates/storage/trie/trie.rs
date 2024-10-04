@@ -6,7 +6,7 @@ mod node_hash;
 mod rlp;
 mod state;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "libmdbx"))]
 mod test_utils;
 
 use ethereum_rust_rlp::constants::RLP_NULL;
@@ -15,10 +15,11 @@ use node::Node;
 use node_hash::NodeHash;
 use sha3::{Digest, Keccak256};
 
-pub use self::db::{
-    in_memory::InMemoryTrieDB, libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB,
-    TrieDB,
-};
+#[cfg(feature = "libmdbx")]
+pub use self::db::{libmdbx::LibmdbxTrieDB, libmdbx_dupsort::LibmdbxDupsortTrieDB};
+
+pub use self::db::{in_memory::InMemoryTrieDB, TrieDB};
+
 pub use self::error::TrieError;
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 
@@ -182,7 +183,7 @@ impl Trie {
             .unwrap_or(*EMPTY_TRIE_HASH)
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "libmdbx"))]
     /// Creates a new Trie based on a temporary Libmdbx DB
     fn new_temp() -> Self {
         let db = test_utils::new_db::<test_utils::TestNodes>();
@@ -190,7 +191,7 @@ impl Trie {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "libmdbx"))]
 mod test {
     use std::sync::Arc;
 

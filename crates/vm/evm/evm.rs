@@ -18,6 +18,7 @@ use revm::{
     db::{states::bundle_state::BundleRetention, AccountStatus},
     inspector_handle_register,
     inspectors::TracerEip3155,
+    interpreter::instructions::system::address,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, U256 as RevmU256},
     Database, DatabaseCommit, Evm,
@@ -25,8 +26,7 @@ use revm::{
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
 use revm_primitives::{
-    ruint::Uint, AccessList as RevmAccessList, AccessListItem as RevmAccessListItem,
-    TxKind as RevmTxKind,
+    ruint::Uint, AccessList as RevmAccessList, AccessListItem, FixedBytes, TxKind as RevmTxKind,
 };
 // Export needed types
 pub use errors::EvmError;
@@ -156,15 +156,8 @@ pub fn create_access_list(
 
     // Run the tx with the resulting access list and estimate its gas used
     let execution_result = if execution_result.is_success() {
-        tx_env.access_list.extend(access_list.0.iter().map(|item| {
-            (
-                item.address,
-                item.storage_keys
-                    .iter()
-                    .map(|b| RevmU256::from_be_slice(b.as_slice()))
-                    .collect(),
-            )
-        }));
+        tx_env.access_list.extend(access_list.0.clone());
+
         run_without_commit(tx_env, block_env, state, spec_id)?
     } else {
         execution_result
@@ -432,12 +425,16 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .access_list()
             .into_iter()
             .map(|(addr, list)| {
-                (
+                let (address, storage_keys) = (
                     RevmAddress(addr.0.into()),
                     list.into_iter()
-                        .map(|a| RevmU256::from_be_bytes(a.0))
+                        .map(|a| FixedBytes::from_slice(a.as_bytes()))
                         .collect(),
-                )
+                );
+                AccessListItem {
+                    address,
+                    storage_keys,
+                }
             })
             .collect(),
         gas_priority_fee: tx.max_priority_fee().map(RevmU256::from),
@@ -447,6 +444,9 @@ fn tx_env(tx: &Transaction) -> TxEnv {
             .map(|hash| B256::from(hash.0))
             .collect(),
         max_fee_per_blob_gas,
+        // TODO revise
+        // https://eips.ethereum.org/EIPS/eip-7702
+        authorization_list: None,
     }
 }
 
@@ -467,16 +467,19 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
-            .iter()
-            .map(|entry| {
-                (
-                    RevmAddress(entry.address.0.into()),
-                    entry
-                        .storage_keys
+            .into_iter()
+            .map(|list| {
+                let (address, storage_keys) = (
+                    Address::from_slice(list.address.as_bytes()),
+                    list.storage_keys
                         .iter()
-                        .map(|a| RevmU256::from_be_bytes(a.0))
+                        .map(|a| FixedBytes::from_slice(a.as_bytes()))
                         .collect(),
-                )
+                );
+                AccessListItem {
+                    address,
+                    storage_keys,
+                }
             })
             .collect(),
         gas_priority_fee: tx.max_priority_fee_per_gas.map(RevmU256::from),
@@ -486,6 +489,9 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
             .map(|hash| B256::from(hash.0))
             .collect(),
         max_fee_per_blob_gas: tx.max_fee_per_blob_gas.map(RevmU256::from),
+        // TODO revise
+        // https://eips.ethereum.org/EIPS/eip-7702
+        authorization_list: None,
     }
 }
 
@@ -496,16 +502,7 @@ fn access_list_inspector(
     spec_id: SpecId,
 ) -> Result<AccessListInspector, EvmError> {
     // Access list provided by the transaction
-    let current_access_list = RevmAccessList(
-        tx_env
-            .access_list
-            .iter()
-            .map(|(addr, list)| RevmAccessListItem {
-                address: *addr,
-                storage_keys: list.iter().map(|v| B256::from(v.to_be_bytes())).collect(),
-            })
-            .collect(),
-    );
+    let current_access_list = RevmAccessList(tx_env.access_list.clone());
     // Addresses accessed when using precompiles
     let precompile_addresses = Precompiles::new(PrecompileSpecId::from_spec_id(spec_id))
         .addresses()

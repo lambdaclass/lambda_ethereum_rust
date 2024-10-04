@@ -7,13 +7,27 @@ edition = "2021"
 
 [dependencies]
 thiserror.workspace = true
-ethereum_rust-core.workspace = true
 ethereum_rust-rlp.workspace = true
-ethereum_rust-storage.workspace = true
-ethereum_rust-evm.workspace = true
 sha3.workspace = true
 tracing.workspace = true
 
+# FIXME: It is necessary not to re-use the workspace definitions.
+ethereum_rust-core = { path = "../common", default-features = false }
+ethereum_rust-storage = { path = "../storage/store", default-features = false }
+ethereum_rust-evm = { path = "../vm/evm", default-features = false }
 
 [lib]
 path = "./blockchain.rs"
+
+[features]
+default = ["libmdbx"]
+no_libmdbx = [
+    "ethereum_rust-core/no_libmdbx",
+    "ethereum_rust-storage/no_libmdbx",
+    "ethereum_rust-evm/no_libmdbx",
+]
+libmdbx = [
+    "ethereum_rust-core/libmdbx",
+    "ethereum_rust-storage/libmdbx",
+    "ethereum_rust-evm/libmdbx",
+]
