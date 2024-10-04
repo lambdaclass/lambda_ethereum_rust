@@ -1,4 +1,4 @@
-use ethereum_rust_evm_mlir::{
+use ethereum_rust_levm_mlir::{
     context::Context, db::Db, executor::Executor, journal::Journal, primitives::Bytes,
     program::Program, syscall::SyscallContext, Env,
 };
@@ -14,7 +14,7 @@ pub const FIBONACCI_BYTECODE: &str =
 pub const FACTORIAL_BYTECODE: &str =
     "5f355f60015b8215601b57906001018091029160019003916005565b9150505f5260205ff3";
 
-pub fn run_with_evm_mlir(program: &str, runs: usize, number_of_iterations: u32) {
+pub fn run_with_levm_mlir(program: &str, runs: usize, number_of_iterations: u32) {
     let bytes = hex::decode(program).unwrap();
     let program = Program::from_bytecode(&bytes);
 

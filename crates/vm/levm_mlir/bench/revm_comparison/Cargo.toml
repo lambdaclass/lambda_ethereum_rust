@@ -8,21 +8,21 @@ name = "revm_comparison"
 path = "src/lib.rs"
 
 [dependencies]
-ethereum_rust-evm_mlir = { path = "../../" }
+ethereum_rust-levm_mlir = { path = "../../" }
 hex = "0.4.3"
 revm = "9.0.0"
 
 [[bin]]
-name="evm_mlir_factorial"
-path="src/evm_mlir_factorial.rs"
+name="levm_mlir_factorial"
+path="src/levm_mlir_factorial.rs"
 
 [[bin]]
 name="revm_factorial"
 path="src/revm_factorial.rs"
 
 [[bin]]
-name="evm_mlir_fibonacci"
-path="src/evm_mlir_fibonacci.rs"
+name="levm_mlir_fibonacci"
+path="src/levm_mlir_fibonacci.rs"
 
 [[bin]]
 name="revm_fibonacci"

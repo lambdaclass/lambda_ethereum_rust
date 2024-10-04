@@ -30,10 +30,10 @@ ethereum-package/
 **/*.ll
 **/*.o
 **/*.asm
-crates/evm_mlir/output
+crates/levm_mlir/output
 
-crates/evm_mlir/ethtests
-crates/evm_mlir/*.tar.gz
+crates/levm_mlir/ethtests
+crates/levm_mlir/*.tar.gz
 
 # Ethereum Rust L2 stuff
 volumes

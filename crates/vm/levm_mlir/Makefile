@@ -70,29 +70,29 @@ test-eth-blake2B: check-ethtests
 revm-comparison:
 	$(MAKE) build-revm-comparison
 	@echo
-	@printf "%s" "evm_mlir_factorial result: "
-	@target/release/evm_mlir_factorial 1 1000
+	@printf "%s" "levm_mlir_factorial result: "
+	@target/release/levm_mlir_factorial 1 1000
 	@printf "%s" "revm_factorial result: "
 	@target/release/revm_factorial 1 1000
 	hyperfine -w 5 -r 10 -N \
-		-n "evm_mlir_factorial" "target/release/evm_mlir_factorial 100000 1000" \
+		-n "levm_mlir_factorial" "target/release/levm_mlir_factorial 100000 1000" \
 		-n "revm_factorial" "target/release/revm_factorial 100000 1000"
 	@echo
-	@printf "%s" "evm_mlir_fibonacci result: "
-	@target/release/evm_mlir_fibonacci 1 1000
+	@printf "%s" "levm_mlir_fibonacci result: "
+	@target/release/levm_mlir_fibonacci 1 1000
 	@printf "%s" "revm_fibonacci result: "
 	@target/release/revm_fibonacci 1 1000
 	hyperfine -w 5 -r 10 -N \
-		-n "evm_mlir_fibonacci" "target/release/evm_mlir_fibonacci 100000 1000" \
+		-n "levm_mlir_fibonacci" "target/release/levm_mlir_fibonacci 100000 1000" \
 		-n "revm_fibonacci" "target/release/revm_fibonacci 100000 1000"
 	@echo
 
 build-revm-comparison:
 	cd bench/revm_comparison && \
 		cargo build --release \
-		--bin evm_mlir_factorial \
+		--bin levm_mlir_factorial \
 		--bin revm_factorial \
-		--bin evm_mlir_fibonacci \
+		--bin levm_mlir_fibonacci \
 		--bin revm_fibonacci
 
 ###### Ethereum tests ######

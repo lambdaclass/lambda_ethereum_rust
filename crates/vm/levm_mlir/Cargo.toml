@@ -2,7 +2,7 @@
 members = ["bench/revm_comparison"]
 
 [package]
-name = "ethereum_rust-evm_mlir"
+name = "ethereum_rust-levm_mlir"
 edition = "2021"
 
 [dependencies]
