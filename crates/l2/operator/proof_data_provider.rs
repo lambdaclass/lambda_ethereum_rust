@@ -1,10 +1,14 @@
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, TcpListener, TcpStream},
+    str::FromStr,
 };
 
+use ethereum_rust_core::types::{Block, BlockBody, BlockHeader};
+use ethereum_types::{Bloom, H160, H256, U256};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Result as SerdeResult;
 use sp1_sdk::SP1ProofWithPublicValues;
 use tracing::{debug, info, warn};
 
@@ -115,6 +119,224 @@ impl ProofDataProvider {
         }
     }
 
+    fn convert_value_to_block(value: &serde_json::Value) -> Result<Block, String> {
+        // Check if the value is an object
+        if let serde_json::Value::Object(obj) = value {
+            // Extract header values
+            let header = BlockHeader {
+                parent_hash: {
+                    let hash = obj
+                        .get("parentHash")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing parentHash")?
+                        .to_string();
+                    H256::from_str(&hash).map_err(|e| e.to_string())?
+                },
+                number: u64::from_str_radix(
+                    obj.get("number")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing number")?
+                        .strip_prefix("0x")
+                        .ok_or("Missing number")?,
+                    16,
+                )
+                .map_err(|e| e.to_string())?,
+                ommers_hash: {
+                    let hash = obj
+                        .get("sha3Uncles")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing sha3Uncles")?
+                        .to_string();
+                    H256::from_str(&hash).map_err(|e| e.to_string())?
+                },
+                coinbase: H160::default(),
+                state_root: {
+                    let hash = obj
+                        .get("stateRoot")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing stateRoot")?
+                        .to_string();
+                    H256::from_str(&hash).map_err(|e| e.to_string())?
+                },
+                transactions_root: {
+                    let hash = obj
+                        .get("transactionsRoot")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing transactionsRoot")?
+                        .to_string();
+                    H256::from_str(&hash).map_err(|e| e.to_string())?
+                },
+                receipts_root: {
+                    let hash = obj
+                        .get("receiptsRoot")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing receiptRoot")?
+                        .to_string();
+                    H256::from_str(&hash).map_err(|e| e.to_string())?
+                },
+                // TODO
+                logs_bloom: Bloom::default(),
+                difficulty: U256::from_str_radix(
+                    obj.get("difficulty")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing difficulty")?
+                        .strip_prefix("0x")
+                        .ok_or("Missing difficulty")?,
+                    16,
+                )
+                .map_err(|e| e.to_string())?,
+                gas_limit: u64::from_str_radix(
+                    obj.get("gasLimit")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing gasLimit")?
+                        .strip_prefix("0x")
+                        .ok_or("Missing gasLimit")?,
+                    16,
+                )
+                .map_err(|e| e.to_string())?,
+                gas_used: u64::from_str_radix(
+                    obj.get("gasUsed")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing gasUsed")?
+                        .strip_prefix("0x")
+                        .ok_or("Missing gasUsed")?,
+                    16,
+                )
+                .map_err(|e| e.to_string())?,
+                timestamp: u64::from_str_radix(
+                    obj.get("timestamp")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing timestamp")?
+                        .strip_prefix("0x")
+                        .ok_or("Missing timestamp")?,
+                    16,
+                )
+                .map_err(|e| e.to_string())?,
+                // TODO
+                extra_data: {
+                    let extra_data = obj
+                        .get("extraData")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing extraData")?
+                        .strip_prefix("0x")
+                        .ok_or("Missing extraData")?;
+                    bytes::Bytes::copy_from_slice(extra_data.as_bytes())
+                },
+                // TODO
+                prev_randao: H256::default(),
+                nonce: u64::from_str_radix(
+                    obj.get("nonce")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing nonce")?
+                        .strip_prefix("0x")
+                        .ok_or("Nonce error")?,
+                    16,
+                )
+                .map_err(|e| e.to_string())?,
+                base_fee_per_gas: Some(
+                    u64::from_str_radix(
+                        obj.get("gasLimit")
+                            .and_then(serde_json::Value::as_str)
+                            .ok_or("Missing gasLimit")?
+                            .strip_prefix("0x")
+                            .unwrap(),
+                        16,
+                    )
+                    .map_err(|e| e.to_string())?,
+                ),
+                withdrawals_root: {
+                    let hash = obj
+                        .get("withdrawalsRoot")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing withdrawalsRoot")?
+                        .to_string();
+                    Some(H256::from_str(&hash).map_err(|e| e.to_string())?)
+                },
+                blob_gas_used: Some(
+                    u64::from_str_radix(
+                        obj.get("blobGasUsed")
+                            .and_then(serde_json::Value::as_str)
+                            .ok_or("Missing blobGasUsed")?
+                            .strip_prefix("0x")
+                            .unwrap(),
+                        16,
+                    )
+                    .map_err(|e| e.to_string())?,
+                ),
+                excess_blob_gas: Some(
+                    u64::from_str_radix(
+                        obj.get("excessBlobGas")
+                            .and_then(serde_json::Value::as_str)
+                            .ok_or("Missing excessBlobGas")?
+                            .strip_prefix("0x")
+                            .unwrap(),
+                        16,
+                    )
+                    .map_err(|e| e.to_string())?,
+                ),
+                parent_beacon_block_root: {
+                    let hash = obj
+                        .get("parentBeaconBlockRoot")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("Missing parentBeaconBlockRoot")?
+                        .to_string();
+                    Some(H256::from_str(&hash).map_err(|e| e.to_string())?)
+                },
+            };
+
+            let body = BlockBody {
+                transactions: [].to_vec(),
+                ommers: [].to_vec(),
+                withdrawals: Some([].to_vec()),
+            };
+
+            Ok(Block { header, body })
+        } else {
+            Err("Expected a JSON object".to_string())
+        }
+    }
+
+    async fn get_block_by_number(block_number: u64, full: bool) -> Result<Block, String> {
+        let hex_string_block = format!("0x{:x}", block_number);
+        let json_body = format!(
+            r#"{{ 
+                "jsonrpc": "2.0", 
+                "method": "eth_getBlockByNumber", 
+                "params": ["{}", {}], 
+                "id": 1 
+            }}"#,
+            hex_string_block, full
+        );
+        warn!("JSON body: {json_body}");
+        let response = Client::new()
+            .post("http://localhost:8551")
+            .header("content-type", "application/json")
+            .body(json_body)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?
+            .json::<RpcResponse>()
+            .await
+            .map_err(|e| e.to_string())?;
+        warn!("JSON body sent");
+        if let RpcResponse::Success(r) = response {
+            // Attempt to deserialize the response into a Block struct
+            warn!("JSON response: {:?}", r.result.as_object());
+            match Self::convert_value_to_block(&r.result) {
+                Ok(block) => {
+                    info!("Parsed Block: {:?}", block);
+                    Ok(block)
+                }
+                Err(e) => {
+                    warn!("Failed to parse block from JSON value: {}", e);
+                    Err(e)
+                }
+            }
+        } else {
+            Err("Failed to get block by number".to_string())
+        }
+    }
+
     async fn handle_request(
         &self,
         stream: &mut TcpStream,
@@ -123,6 +345,9 @@ impl ProofDataProvider {
         debug!("Request received");
 
         let last_block_number = Self::get_last_block_number().await?;
+        let block = Self::get_block_by_number(last_block_number, false).await;
+
+        info!("get block by number result: {block:?}");
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
