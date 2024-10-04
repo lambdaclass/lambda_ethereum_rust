@@ -34,10 +34,10 @@ pub enum Opcode {
     KECCAK256 = 0x20,
 
     // Environmental Information
-    // ADDRESS = 0x30,
-    // BALANCE = 0x31,
-    // ORIGIN = 0x32,
-    // CALLER = 0x33,
+    ADDRESS = 0x30,
+    BALANCE = 0x31,
+    ORIGIN = 0x32,
+    CALLER = 0x33,
     // CALLVALUE = 0x34,
     CALLDATALOAD = 0x35,
     CALLDATASIZE = 0x36,

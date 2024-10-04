@@ -744,6 +744,18 @@ impl VM {
                     current_call_frame.stack.push(U256::from(chain_id));
                     self.env.consumed_gas += gas_cost::CHAINID
                 }
+                Opcode::CALLER => {
+                    todo!()
+                }
+                Opcode::ORIGIN => {
+                    todo!()
+                }
+                Opcode::BALANCE => {
+                    todo!()
+                }
+                Opcode::ADDRESS => {
+                    todo!()
+                }
                 Opcode::SELFBALANCE => {
                     if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
                         break; // should revert the tx
