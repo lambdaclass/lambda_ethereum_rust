@@ -10,7 +10,9 @@ use crate::rpc::l1_rpc::L1Rpc;
 
 const RICH_WALLET_PK: &str = "0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924";
 const RICH_WALLET_ADDR: &str = "0x3D1e15a1a55578f7c920884a9943b3B35D0D885b";
+const BLOCK_EXECUTOR_ADDR: &str = "0x31e68fE377E509c8324b6206ADC7f11003Bd9130";
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [227, 206, 09, 77];
+const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
 
 pub struct L1TxSender;
 
@@ -43,9 +45,7 @@ impl L1TxSender {
         calldata.extend(current_commitment.0);
 
         let tx = EIP1559Transaction {
-            to: TxKind::Call(
-                Address::from_str("0x31e68fE377E509c8324b6206ADC7f11003Bd9130").unwrap(),
-            ),
+            to: TxKind::Call(Address::from_str(BLOCK_EXECUTOR_ADDR).unwrap()),
             data: calldata.into(),
             chain_id: 3151908,
             ..Default::default()
@@ -58,6 +58,34 @@ impl L1TxSender {
             }
             Err(e) => {
                 warn!("Failed to send commitment: {:#?}", e);
+                Err(e)
+            }
+        }
+    }
+
+    pub async fn send_verification(block_proof: &[u8]) -> Result<H256, String> {
+        let mut calldata = Vec::new();
+        calldata.extend(VERIFY_FUNCTION_SELECTOR);
+        calldata.extend(H256::from_low_u64_be(32).as_bytes());
+        calldata.extend(H256::from_low_u64_be(block_proof.len() as u64).as_bytes());
+        calldata.extend(block_proof);
+        let leading_zeros = 32 - (calldata.len() % 32);
+        calldata.extend(vec![0; leading_zeros]);
+
+        let tx = EIP1559Transaction {
+            to: TxKind::Call(Address::from_str(BLOCK_EXECUTOR_ADDR).unwrap()),
+            data: calldata.into(),
+            chain_id: 3151908,
+            ..Default::default()
+        };
+
+        match Self::send_transaction(tx).await {
+            Ok(hash) => {
+                debug!("Verification sent: {:#?}", hash);
+                Ok(hash)
+            }
+            Err(e) => {
+                warn!("Failed to send verification: {:#?}", e);
                 Err(e)
             }
         }
