@@ -19,7 +19,7 @@
 - [Rust (explained in the repo's main README)](../../README.md)
 - [Foundry](#foundry)
 
-#### Foundry
+### Foundry
 
 1. First, install `foundryup`:
     ```shell
@@ -32,63 +32,37 @@
 
 ## How to run
 
-### The command you're looking for
+### Install `ethereum_rust_l2` CLI
 
-Running the below command will start both a local L1 (reth for the moment, but `ethereum_rust` in the future) in the port `8545` and a local L2 (`ethereum_rust`) in the port `1729`.
+First of all, you need to install the `ethereum_rust_l2` CLI. You can do that by running the command below:
 
 ```
-make init
+cargo install --path ../../cmd/ethereum_rust_l2
 ```
 
-This command has five steps that can also be run individually:
+> [!IMPORTANT]
+> Most of the CLI interaction needs a configuration to be set. You can set a configuration with the `config` command.
 
-- `make init-l1` - Starts the L1 (reth) node, creating the volumes necessary for running a docker compose file with reth's docker image.
-- `make contract-deps` - Installs the libs used by the contracts in the foundry project.
-- `make setup-prover` - Build the ELF for the SP1 prover program.
-- `make deploy-l1` - Deploys the L1 contracts to the L1 node. This runs the [`DeployL1` script](./contracts/script/DeployL1.s.sol).
-- `make init-l2` - Starts the L2 (`ethereum_rust`) node.
+### Configure your stack
 
-### The command you will be looking for
+> [!TIP]
+> You can create multiple configurations and switch between them.
+
+![](../../cmd/ethereum_rust_l2/assets/config_create.cast.gif)
+
+### Initialize the stack
+
+> [!IMPORTANT]
+> Add the SPI_PROVER=mock env variable to the command (to run the prover you need ).
+
+![](../../cmd/ethereum_rust_l2/assets/stack_init.cast.gif)
+
+### Restarting the stack
 
 > [!WARNING]
 > This command will cleanup your running L1 and L2 nodes.
 
-Use this command to restart the whole setup with a clean state.
-
-```
-make restart
-```
-
-### Other useful commands
-
-#### General
-
-- `make down` - Stops the L1 and L2 nodes.
-- `make clean` - Cleans the L1 state.
-
-#### L1
-
-- `make init-l1` - Starts the L1 node.
-- `make deploy-l1` - Deploys the L1 contracts.
-- `make down-l1` - Stops the L1 node.
-- `make clean-l1` - Cleans the L1 state.
-- `make restart-l1` - Restarts the L1 node.
-
-#### L2
-
-- `make init-l2` - Starts the L2 node.
-- `make down-l2` - Stops the L2 node.
-- `make restart-l2` - Restarts the L2 node.
-
-#### Contracts
-
-- `make contract-deps` - Installs the libs used by the contracts in the foundry project.
-- `make clean-contract-deps` - Cleans the contract dependencies.
-- `make restart-contract-deps` - Restarts the contract dependencies (cleans and then installs).
-
-#### Prover
-
-- `make setup-prover` - Build the ELF for the SP1 prover program.
+![](../../cmd/ethereum_rust_l2/assets/stack_restart.cast.gif)
 
 ## Local L1 Rich Wallets
 
@@ -103,4 +77,5 @@ Most of them are [here](https://github.com/ethpandaops/ethereum-package/blob/mai
 
 ## Docs
 
-[Ethereum Rust L2 Docs](./docs/README.md)
+- [Ethereum Rust L2 Docs](./docs/README.md)
+- [Ethereum Rust L2 CLI Docs](../../cmd/ethereum_rust_l2/README.md)
