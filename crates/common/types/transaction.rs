@@ -791,16 +791,21 @@ mod serde_impl {
         where
             D: serde::Deserializer<'de>,
         {
-            let str = String::deserialize(deserializer)?;
-            Ok(if str.is_empty() {
-                TxKind::Create
-            } else {
-                TxKind::Call(
-                    Address::from_str(str.trim_start_matches("0x")).map_err(|_| {
-                        serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
-                    })?,
-                )
-            })
+            let str_option = Option::<String>::deserialize(deserializer)?;
+            match str_option {
+                Some(str) => Ok(if str.is_empty() {
+                    TxKind::Create
+                } else {
+                    TxKind::Call(
+                        Address::from_str(str.trim_start_matches("0x")).map_err(|_| {
+                            serde::de::Error::custom(format!(
+                                "Failed to deserialize hex value {str}"
+                            ))
+                        })?,
+                    )
+                }),
+                None => Ok(TxKind::Create),
+            }
         }
     }
 
