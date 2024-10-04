@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
-use ethereum_rust_blockchain::add_block;
+use ethereum_rust_blockchain::import_block;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;
@@ -115,7 +115,7 @@ async fn main() {
         for block in blocks {
             let hash = block.header.compute_block_hash();
             info!("Adding block {} with hash {}.", block.header.number, hash);
-            if add_block(&block, &store).is_err() {
+            if import_block(&block, &store).is_err() {
                 warn!(
                     "Failed to add block {} with hash {}.",
                     block.header.number, hash

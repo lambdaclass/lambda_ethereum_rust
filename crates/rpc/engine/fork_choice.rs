@@ -1,6 +1,6 @@
 use ethereum_rust_blockchain::{
+    apply_fork_choice,
     error::{ChainError, InvalidForkChoice},
-    new_head,
     payload::{build_payload, BuildPayloadArgs},
 };
 use ethereum_rust_storage::Store;
@@ -63,7 +63,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         }
 
         // TODO: Map error better.
-        let response = match new_head(
+        let response = match apply_fork_choice(
             &storage,
             self.fork_choice_state.head_block_hash,
             self.fork_choice_state.safe_block_hash,

@@ -26,7 +26,7 @@ use ethereum_rust_storage::Store;
 /// canonical chain/head. Fork choice needs to be updated for that in a separate step.
 ///
 /// Performs pre and post execution validation, and updates the database with the post state.
-pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
+pub fn import_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // TODO(#438): handle cases where blocks are missing between the canonical chain and the block.
 
     // Validate if it can be the new head and find the parent
@@ -108,14 +108,9 @@ pub fn find_parent_header(
     block_header: &BlockHeader,
     storage: &Store,
 ) -> Result<BlockHeader, ChainError> {
-    let Some(parent_header) = storage.get_block_header_by_hash(block_header.parent_hash)? else {
-        return Err(ChainError::ParentNotFound);
-    };
-
-    if parent_header.number == block_header.number - 1 {
-        Ok(parent_header)
-    } else {
-        Err(ChainError::ParentNotFound)
+    match storage.get_block_header_by_hash(block_header.parent_hash)? {
+        Some(parent_header) => Ok(parent_header),
+        None => Err(ChainError::ParentNotFound),
     }
 }
 
@@ -159,7 +154,14 @@ pub fn is_canonical(
     }
 }
 
-pub fn new_head(
+/// Applies new fork choice data to the current blockchain. It performs validity checks:
+/// - The finalized, safe and head hashes must correspond to already saved blocks.
+/// - The saved blocks should be in the correct order (finalized <= safe <= head).
+/// - They must be connected.
+///
+/// After the validity checks, the canonical chain is updated so that all head's ancestors
+/// and itself are made canonical.
+pub fn apply_fork_choice(
     store: &Store,
     head_hash: H256,
     safe_hash: H256,
@@ -214,7 +216,9 @@ pub fn new_head(
     };
 
     // Check that finalized and safe blocks are either in the new canonical blocks, or already
-    // but prior to the canonical link to the new head.
+    // but prior to the canonical link to the new head. This is a relatively quick way of making
+    // sure that head, safe and finalized are connected.
+
     if !(is_canonical(store, finalized.number, finalized_hash).map_err(wrap)?
         && finalized.number <= link_block_number
         || new_canonical_blocks.contains(&(finalized.number, finalized_hash))

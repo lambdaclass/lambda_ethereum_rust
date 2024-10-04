@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use crate::types::{BlockWithRLP, TestUnit};
-use ethereum_rust_blockchain::add_block;
+use ethereum_rust_blockchain::import_block;
 use ethereum_rust_core::types::{
     Account as CoreAccount, Block as CoreBlock, BlockHeader as CoreBlockHeader,
 };
@@ -32,7 +32,7 @@ pub fn run_ef_test(test_key: &str, test: &TestUnit) {
         let block: &CoreBlock = &block_fixture.block().unwrap().clone().into();
 
         // Attempt to add the block as the head of the chain
-        let chain_result = add_block(block, &store);
+        let chain_result = import_block(block, &store);
         match chain_result {
             Err(error) => {
                 assert!(
