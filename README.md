@@ -152,6 +152,7 @@ Ethereum Rust supports the following command line arguments:
 - `--discovery.addr <ADDRESS>`: UDP address for P2P discovery. Default value: 0.0.0.0.
 - `--discovery.port <PORT>`: UDP port for P2P discovery. Default value: 30303.
 - `--bootnodes <BOOTNODE_LIST>`: Comma separated enode URLs for P2P discovery bootstrap.
+- `--log-level <LOG_LEVEL>`: The verbosity level used for logs. Default value: info. possible values: info, debug, trace, warn, error
 
 ## Roadmap
 
