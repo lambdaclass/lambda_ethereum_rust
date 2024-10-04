@@ -379,10 +379,49 @@ pub fn calculate_base_fee_per_gas(
     })
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidBlockHeaderError {
+    #[error("Gas used is greater than gas limit")]
+    GasUsedGreaterThanGasLimit,
+    #[error("Base fee per gas is incorrect")]
+    BaseFeePerGasIncorrect,
+    #[error("Timestamp is not greater than parent timestamp")]
+    TimestampNotGreaterThanParent,
+    #[error("Block number is not one greater than parent number")]
+    BlockNumberNotOneGreater,
+    #[error("Extra data is too long")]
+    ExtraDataTooLong,
+    #[error("Difficulty is not zero")]
+    DifficultyNotZero,
+    #[error("Nonce is not zero")]
+    NonceNotZero,
+    #[error("Ommers hash is not the default")]
+    OmmersHashNotDefault,
+    #[error("Parent hash is incorrect")]
+    ParentHashIncorrect,
+    // Cancun fork errors
+    #[error("Excess blob gas is not present")]
+    ExcessBlobGasNotPresent,
+    #[error("Blob gas used is not present")]
+    BlobGasUsedNotPresent,
+    #[error("Excess blob gas is incorrect")]
+    ExcessBlobGasIncorrect,
+    #[error("Parent beacon block root is not present")]
+    ParentBeaconBlockRootNotPresent,
+    // Other fork errors
+    #[error("Excess blob gas is present")]
+    ExcessBlobGasPresent,
+    #[error("Blob gas used is present")]
+    BlobGasUsedPresent,
+}
+
 /// Validates that the header fields are correct in reference to the parent_header
-pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
+pub fn validate_block_header(
+    header: &BlockHeader,
+    parent_header: &BlockHeader,
+) -> Result<(), InvalidBlockHeaderError> {
     if header.gas_used > header.gas_limit {
-        return false;
+        return Err(InvalidBlockHeaderError::GasUsedGreaterThanGasLimit);
     }
     let expected_base_fee_per_gas = if let Some(base_fee) = calculate_base_fee_per_gas(
         header.gas_limit,
@@ -392,32 +431,77 @@ pub fn validate_block_header(header: &BlockHeader, parent_header: &BlockHeader) 
     ) {
         base_fee
     } else {
-        return false;
+        return Err(InvalidBlockHeaderError::BaseFeePerGasIncorrect);
     };
 
-    expected_base_fee_per_gas == header.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE)
-        && header.timestamp > parent_header.timestamp
-        && header.number == parent_header.number + 1
-        && header.extra_data.len() <= 32
-        && header.difficulty.is_zero()
-        && header.nonce == 0
-        && header.ommers_hash == *DEFAULT_OMMERS_HASH
-        && header.parent_hash == parent_header.compute_block_hash()
+    if expected_base_fee_per_gas != header.base_fee_per_gas.unwrap_or(INITIAL_BASE_FEE) {
+        return Err(InvalidBlockHeaderError::BaseFeePerGasIncorrect);
+    }
+
+    if header.timestamp <= parent_header.timestamp {
+        return Err(InvalidBlockHeaderError::TimestampNotGreaterThanParent);
+    }
+
+    if header.number != parent_header.number + 1 {
+        return Err(InvalidBlockHeaderError::BlockNumberNotOneGreater);
+    }
+
+    if header.extra_data.len() > 32 {
+        return Err(InvalidBlockHeaderError::ExtraDataTooLong);
+    }
+
+    if !header.difficulty.is_zero() {
+        return Err(InvalidBlockHeaderError::DifficultyNotZero);
+    }
+
+    if header.nonce != 0 {
+        return Err(InvalidBlockHeaderError::NonceNotZero);
+    }
+
+    if header.ommers_hash != *DEFAULT_OMMERS_HASH {
+        return Err(InvalidBlockHeaderError::OmmersHashNotDefault);
+    }
+
+    if header.parent_hash != parent_header.compute_block_hash() {
+        return Err(InvalidBlockHeaderError::ParentHashIncorrect);
+    }
+
+    Ok(())
 }
 /// Validates that excess_blob_gas and blob_gas_used are present in the header and
 /// validates that excess_blob_gas value is correct on the block header
 /// according to the values in the parent header.
-pub fn validate_cancun_header_fields(header: &BlockHeader, parent_header: &BlockHeader) -> bool {
-    header.excess_blob_gas.is_some()
-        && header.blob_gas_used.is_some()
-        && header.excess_blob_gas.unwrap() == calc_excess_blob_gas(parent_header)
-        && header.parent_beacon_block_root.is_some()
+pub fn validate_cancun_header_fields(
+    header: &BlockHeader,
+    parent_header: &BlockHeader,
+) -> Result<(), InvalidBlockHeaderError> {
+    if header.excess_blob_gas.is_none() {
+        return Err(InvalidBlockHeaderError::ExcessBlobGasNotPresent);
+    }
+    if header.blob_gas_used.is_none() {
+        return Err(InvalidBlockHeaderError::BlobGasUsedNotPresent);
+    }
+    if header.excess_blob_gas.unwrap() != calc_excess_blob_gas(parent_header) {
+        return Err(InvalidBlockHeaderError::ExcessBlobGasIncorrect);
+    }
+    if header.parent_beacon_block_root.is_none() {
+        return Err(InvalidBlockHeaderError::ParentBeaconBlockRootNotPresent);
+    }
+    Ok(())
 }
 
 /// Validates that the excess blob gas value is correct on the block header
 /// according to the values in the parent header.
-pub fn validate_no_cancun_header_fields(header: &BlockHeader) -> bool {
-    header.excess_blob_gas.is_none() && header.blob_gas_used.is_none()
+pub fn validate_no_cancun_header_fields(
+    header: &BlockHeader,
+) -> Result<(), InvalidBlockHeaderError> {
+    if header.excess_blob_gas.is_some() {
+        return Err(InvalidBlockHeaderError::ExcessBlobGasPresent);
+    }
+    if header.blob_gas_used.is_some() {
+        return Err(InvalidBlockHeaderError::BlobGasUsedPresent);
+    }
+    Ok(())
 }
 
 fn calc_excess_blob_gas(parent_header: &BlockHeader) -> u64 {
@@ -552,7 +636,7 @@ mod test {
             excess_blob_gas: Some(0x00),
             parent_beacon_block_root: Some(H256::zero()),
         };
-        assert!(validate_block_header(&block, &parent_block))
+        assert!(validate_block_header(&block, &parent_block).is_ok())
     }
 
     #[test]
