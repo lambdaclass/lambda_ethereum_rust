@@ -43,6 +43,10 @@ pub mod gas_cost {
     pub const RETURNDATASIZE: u64 = 2;
     pub const RETURNDATACOPY_STATIC: u64 = 3;
     pub const RETURNDATACOPY_DYNAMIC_BASE: u64 = 3;
+    pub const ADDERSS: u64 = 2;
+    pub const BALANCE: u64 = 100;
+    pub const ORIGIN: u64 = 2;
+    pub const CALLER: u64 = 2;
     pub const BLOCKHASH: u64 = 20;
     pub const COINBASE: u64 = 2;
     pub const TIMESTAMP: u64 = 2;
