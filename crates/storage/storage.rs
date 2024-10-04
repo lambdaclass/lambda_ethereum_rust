@@ -7,7 +7,6 @@ use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::Block;
 use ethereum_rust_core::types::BlockBody;
-use ethereum_rust_core::types::LogsFilter;
 use ethereum_rust_core::types::{
     code_hash, AccountInfo, AccountState, BlockHash, BlockHeader, BlockNumber, ChainConfig,
     Genesis, GenesisAccount, Index, Receipt, Transaction,
@@ -623,15 +622,6 @@ impl Store {
 
     pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         self.engine.get_payload(payload_id)
-    }
-
-    pub fn add_filter(
-        &self,
-        id: u64,
-        timestamp: u64,
-        filter: LogsFilter,
-    ) -> Result<(), StoreError> {
-        self.engine.add_filter(id, timestamp, filter)
     }
 }
 

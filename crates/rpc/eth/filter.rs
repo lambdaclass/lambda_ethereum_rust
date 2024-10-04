@@ -4,20 +4,19 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use ethereum_rust_storage::Store;
 use tracing::error;
 
 use crate::utils::{RpcErr, RpcRequest};
 use crate::RpcHandler;
-use ethereum_rust_core::types::LogsFilter;
-use ethereum_rust_storage::Store;
 use rand::prelude::*;
 use serde_json::{json, Value};
 
-use super::logs::LogsRequest;
+use super::logs::LogsFilter;
 
 #[derive(Debug, Clone)]
 pub struct FilterRequest {
-    pub request_data: LogsRequest,
+    pub request_data: LogsFilter,
 }
 
 /// Maps IDs to active log filters and their timestamps.
@@ -28,7 +27,21 @@ impl FilterRequest {
         storage: ethereum_rust_storage::Store,
         filters: ActiveFilters,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
-        let filter = self.request_data.request_to_filter(&storage)?;
+        let from = self
+            .request_data
+            .from_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to = self
+            .request_data
+            .to_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+
+        if (from..=to).is_empty() {
+            return Err(RpcErr::BadParams);
+        }
+
         let id: u64 = random();
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -41,13 +54,13 @@ impl FilterRequest {
             poisoned_guard.into_inner()
         });
 
-        active_filters_guard.insert(id, (timestamp, filter));
+        active_filters_guard.insert(id, (timestamp, self.request_data.clone()));
         let as_hex = json!(format!("0x{:x}", id));
         Ok(as_hex)
     }
 
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, crate::utils::RpcErr> {
-        let filter = LogsRequest::parse(params)?;
+        let filter = LogsFilter::parse(params)?;
         Ok(FilterRequest {
             request_data: filter,
         })
@@ -65,35 +78,53 @@ impl FilterRequest {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        map_http_requests,
-        utils::{
-            test_utils::{example_p2p_node, TestDB},
-            RpcRequest,
-        },
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
     };
-    use ethereum_rust_storage::EngineType;
+
+    use crate::{
+        eth::logs::{AddressFilter, TopicFilter},
+        map_http_requests,
+    };
+    use crate::{
+        types::block_identifier::BlockIdentifier,
+        utils::{test_utils::example_p2p_node, RpcRequest},
+    };
+    use ethereum_rust_storage::{EngineType, Store};
     use serde_json::json;
+
+    use super::ActiveFilters;
 
     #[test]
     fn filter_request_smoke_test_valid_params() {
-        let raw_json = json!(
-        {
-            "jsonrpc":"2.0",
-            "method":"eth_newFilter",
-            "params":
-            [
+        let filter_req_params = json!(
                 {
                     "fromBlock": "0x1",
                     "toBlock": "0x2",
                     "address": null,
                     "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
                 }
+        );
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                filter_req_params.clone()
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), EngineType::InMemory);
-        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+        let filters = Arc::new(Mutex::new(HashMap::new()));
+        let id = run_filter_request_test(raw_json.clone(), filters.clone());
+        let filters = filters.lock().unwrap();
+        assert!(filters.len() == 1);
+        let (_, filter) = filters.clone().get(&id).unwrap().clone();
+        assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
+        assert!(matches!(filter.to_block, BlockIdentifier::Number(2)));
+        assert!(matches!(filter.address_filters, None));
+        assert!(matches!(&filter.topics[..], [TopicFilter::Topic(_)]));
     }
 
     #[test]
@@ -113,8 +144,15 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), EngineType::InMemory);
-        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+        let filters = Arc::new(Mutex::new(HashMap::new()));
+        let id = run_filter_request_test(raw_json.clone(), filters.clone());
+        let filters = filters.lock().unwrap();
+        assert!(filters.len() == 1);
+        let (_, filter) = filters.clone().get(&id).unwrap().clone();
+        assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
+        assert!(matches!(filter.to_block, BlockIdentifier::Number(255)));
+        assert!(matches!(filter.address_filters, None));
+        assert!(matches!(&filter.topics[..], []));
     }
 
     #[test]
@@ -134,8 +172,18 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), EngineType::InMemory);
-        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+        let filters = Arc::new(Mutex::new(HashMap::new()));
+        let id = run_filter_request_test(raw_json.clone(), filters.clone());
+        let filters = filters.lock().unwrap();
+        assert!(filters.len() == 1);
+        let (_, filter) = filters.clone().get(&id).unwrap().clone();
+        assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
+        assert!(matches!(filter.to_block, BlockIdentifier::Number(255)));
+        assert!(matches!(
+            filter.address_filters.unwrap(),
+            AddressFilter::Many(_)
+        ));
+        assert!(matches!(&filter.topics[..], []));
     }
 
     #[test]
@@ -156,7 +204,7 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+        run_filter_request_test(raw_json.clone(), Default::default());
     }
 
     #[test]
@@ -177,17 +225,26 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), EngineType::Libmdbx);
+        run_filter_request_test(raw_json.clone(), Default::default());
     }
 
-    fn run_filter_request_test(json_req: serde_json::Value, storage_type: EngineType) {
+    fn run_filter_request_test(json_req: serde_json::Value, filters_pointer: ActiveFilters) -> u64 {
         let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
-        let test_store = TestDB::new(storage_type);
-        let response =
-            map_http_requests(&request, test_store.build_store(), node, Default::default())
-                .unwrap()
-                .to_string();
-        assert!(response.trim().trim_matches('"').starts_with("0x"))
+        let response = map_http_requests(
+            &request,
+            Store::new("in-mem", EngineType::InMemory).unwrap(),
+            node,
+            filters_pointer.clone(),
+        )
+        .unwrap()
+        .to_string();
+        // Check id is a hex num.
+        let trimmed_id = response.trim().trim_matches('"');
+        assert!(trimmed_id.starts_with("0x"));
+        let hex = trimmed_id.trim_start_matches("0x");
+        let parsed = u64::from_str_radix(hex, 16);
+        assert!(u64::from_str_radix(hex, 16).is_ok());
+        return parsed.unwrap();
     }
 }

@@ -216,56 +216,6 @@ pub mod test_utils {
 
     use ethereum_rust_core::H512;
     use ethereum_rust_net::types::Node;
-    use ethereum_rust_storage::{EngineType, Store};
-
-    pub struct TestDB {
-        pub path: String,
-        pub kind: EngineType,
-    }
-
-    // When the struct goes out of scope,
-    // this will clean up the path used for the db.
-    impl Drop for TestDB {
-        fn drop(&mut self) {
-            match self.kind {
-                EngineType::Libmdbx => {
-                    std::fs::remove_dir(&self.path).expect("Fatal: could not delete test path");
-                }
-                EngineType::InMemory => {}
-            }
-        }
-    }
-
-    impl TestDB {
-        pub fn new(kind: EngineType) -> Self {
-            match kind {
-                EngineType::InMemory => Self::in_mem(),
-                EngineType::Libmdbx => Self::in_disk(),
-            }
-        }
-        pub fn in_mem() -> Self {
-            Self {
-                path: "in_memory".to_string(),
-                kind: EngineType::InMemory,
-            }
-        }
-        pub fn in_disk() -> Self {
-            use mktemp::Temp;
-            let path_buf;
-            {
-                let temp_dir = Temp::new_dir().unwrap();
-                path_buf = temp_dir.to_path_buf();
-                temp_dir.release();
-            };
-            return Self {
-                path: path_buf.display().to_string(),
-                kind: EngineType::InMemory,
-            };
-        }
-        pub fn build_store(&self) -> Store {
-            Store::new(&self.path, self.kind).expect("Fatal, could not instance test db")
-        }
-    }
 
     pub fn example_p2p_node() -> Node {
         let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();

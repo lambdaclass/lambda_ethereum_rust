@@ -1,8 +1,7 @@
 use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter, Receipt,
-    Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
@@ -39,8 +38,6 @@ struct StoreInner {
     block_total_difficulties: HashMap<BlockHash, U256>,
     // Stores local blocks by payload id
     payloads: HashMap<u64, Block>,
-    // Maps filter ids to a tuple (LogFilter, Timestamp)
-    filters: HashMap<u64, (LogsFilter, u64)>,
 }
 
 #[derive(Default, Debug)]
@@ -359,11 +356,6 @@ impl StoreEngine for Store {
 
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         Ok(self.inner().payloads.get(&payload_id).cloned())
-    }
-
-    fn add_filter(&self, id: u64, timestamp: u64, filter: LogsFilter) -> Result<(), StoreError> {
-        self.inner().filters.insert(id, (filter, timestamp));
-        Ok(())
     }
 }
 

@@ -32,7 +32,7 @@ use eth::{
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
     filter::{ActiveFilters, FilterRequest},
-    logs::LogsRequest,
+    logs::LogsFilter,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
@@ -214,7 +214,7 @@ pub fn map_eth_requests(
         "eth_getTransactionCount" => GetTransactionCountRequest::call(req, storage),
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
-        "eth_getLogs" => LogsRequest::call(req, storage),
+        "eth_getLogs" => LogsFilter::call(req, storage),
         "eth_newFilter" => FilterRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),

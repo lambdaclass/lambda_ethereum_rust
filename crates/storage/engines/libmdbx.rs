@@ -7,8 +7,7 @@ use crate::rlp::{
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, LogsFilter, Receipt,
-    Transaction,
+    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -376,10 +375,6 @@ impl StoreEngine for Store {
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
     }
-
-    fn add_filter(&self, id: u64, timestamp: u64, filter: LogsFilter) -> Result<(), StoreError> {
-        self.write::<Filters>(id, Rlp::from((timestamp, filter)))
-    }
 }
 
 impl Debug for Store {
@@ -458,15 +453,6 @@ table!(
 table!(
     /// payload id to payload block table
     ( Payloads ) u64 => BlockRLP
-);
-
-// Current filters
-table!(
-     /// Maps ids to a tuple with filters data:
-     /// - First item is the unix timestamp from
-     ///   when it was created.
-     /// - Second item is the filter itself.
-     ( Filters ) u64  => Rlp<(u64, LogsFilter)>
 );
 
 // Storage values are stored as bytes instead of using their rlp encoding
@@ -566,7 +552,6 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
         table_info!(CanonicalBlockHashes),
-        table_info!(Filters),
     ]
     .into_iter()
     .collect();

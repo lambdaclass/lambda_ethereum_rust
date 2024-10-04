@@ -2,13 +2,27 @@ use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
 };
-use ethereum_rust_core::types::{AddressFilter, LogsFilter, TopicFilter};
+use ethereum_rust_core::{H160, H256};
 use ethereum_rust_storage::Store;
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum AddressFilter {
+    Single(H160),
+    Many(Vec<H160>),
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum TopicFilter {
+    Topic(Option<H256>),
+    Topics(Vec<Option<H256>>),
+}
 
 #[derive(Debug, Clone)]
-pub struct LogsRequest {
+pub struct LogsFilter {
     /// The oldest block from which to start
     /// retrieving logs.
     /// Will default to `latest` if not provided.
@@ -21,11 +35,13 @@ pub struct LogsRequest {
     /// Which topics to filter.
     pub topics: Vec<TopicFilter>,
 }
-impl RpcHandler for LogsRequest {
-    fn parse(params: &Option<Vec<Value>>) -> Result<LogsRequest, RpcErr> {
+impl RpcHandler for LogsFilter {
+    fn parse(params: &Option<Vec<Value>>) -> Result<LogsFilter, RpcErr> {
+        println!("INSIDE PARSE");
         match params.as_deref() {
             Some([param]) => {
                 let param = param.as_object().ok_or(RpcErr::BadParams)?;
+                println!("from block");
                 let from_block = param
                     .get("fromBlock")
                     .ok_or_else(|| RpcErr::MissingParam("fromBlock".to_string()))
@@ -34,6 +50,7 @@ impl RpcHandler for LogsRequest {
                     .get("toBlock")
                     .ok_or_else(|| RpcErr::MissingParam("toBlock".to_string()))
                     .and_then(|block_number| BlockIdentifier::parse(block_number.clone(), 0))?;
+                println!("to block");
                 let address_filters = param
                     .get("address")
                     .ok_or_else(|| RpcErr::MissingParam("address".to_string()))
@@ -52,7 +69,7 @@ impl RpcHandler for LogsRequest {
                             _ => Err(RpcErr::WrongParam("topics".to_string())),
                         }
                     })?;
-                Ok(LogsRequest {
+                Ok(LogsFilter {
                     from_block,
                     to_block,
                     address_filters,
@@ -71,7 +88,19 @@ impl RpcHandler for LogsRequest {
     //   then we simply could retrieve each log from the receipt and add the info
     //   needed for the RPCLog struct.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        let filter = self.request_to_filter(&storage)?;
+        println!("handling");
+        let from = self
+            .from_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to = self
+            .to_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+
+        if (from..=to).is_empty() {
+            return Err(RpcErr::BadParams);
+        }
 
         let address_filter: HashSet<_> = match &self.address_filters {
             Some(AddressFilter::Single(address)) => std::iter::once(address).collect(),
@@ -84,7 +113,7 @@ impl RpcHandler for LogsRequest {
         // For that, we'll need each block in range, and its transactions,
         // and for each transaction, we'll need its receipts, which
         // contain the actual logs we want.
-        for block_num in filter.from_block..=filter.to_block {
+        for block_num in from..=to {
             // Take the header of the block, we
             // will use it to access the transactions.
             let block_body = storage.get_block_body(block_num)?.ok_or(RpcErr::Internal)?;
@@ -136,16 +165,18 @@ impl RpcHandler for LogsRequest {
                     }
                     for (i, topic_filter) in self.topics.iter().enumerate() {
                         match topic_filter {
-                            TopicFilter::Topic(topic) => {
-                                if rpc_log.log.topics[i] != *topic {
-                                    return false;
+                            TopicFilter::Topic(t) => {
+                                if let Some(topic) = t {
+                                    if rpc_log.log.topics[i] != *topic {
+                                        return false;
+                                    }
                                 }
                             }
                             TopicFilter::Topics(sub_topics) => {
                                 if !sub_topics.is_empty()
                                     && !sub_topics
                                         .iter()
-                                        .any(|topic| rpc_log.log.topics[i] == *topic)
+                                        .any(|st| st.map_or(true, |t| rpc_log.log.topics[i] == t))
                                 {
                                     return false;
                                 }
@@ -158,34 +189,5 @@ impl RpcHandler for LogsRequest {
         };
 
         serde_json::to_value(filtered_logs).map_err(|_| RpcErr::Internal)
-    }
-}
-
-impl LogsRequest {
-    pub fn request_to_filter(&self, store: &Store) -> Result<LogsFilter, RpcErr> {
-        let from_block = self
-            .from_block
-            .resolve_block_number(store)?
-            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
-        let to_block = self
-            .to_block
-            .resolve_block_number(store)?
-            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
-        if from_block > to_block {
-            return Err(RpcErr::BadParams);
-        }
-        Ok(LogsFilter {
-            from_block,
-            to_block,
-            addresses: self
-                .address_filters
-                .clone()
-                .map(|addr| match addr {
-                    AddressFilter::Single(single_address) => vec![single_address],
-                    AddressFilter::Many(addresses) => addresses,
-                })
-                .unwrap_or_default(),
-            topics: self.topics.clone(),
-        })
     }
 }
