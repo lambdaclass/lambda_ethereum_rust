@@ -8,6 +8,7 @@ use levm::{
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
     vm::{Account, Db, Storage, StorageSlot, VM},
+    vm_result::{ExecutionResult, VMError},
 };
 
 // cargo test -p 'levm'
@@ -1792,7 +1793,13 @@ fn jump_position_bigger_than_program_bytecode_size() {
     let mut vm = new_vm_with_ops(&operations);
 
     let result = vm.execute();
-    assert!(result.is_err());
+    assert_eq!(
+        result,
+        Ok(ExecutionResult::Halt {
+            reason: VMError::InvalidJump,
+            gas_used: vm.env.consumed_gas,
+        })
+    );
 }
 
 #[test]
@@ -2358,7 +2365,13 @@ fn jump_not_jumpdest_position() {
     let mut vm = new_vm_with_ops(&operations);
 
     let result = vm.execute();
-    assert!(result.is_err());
+    assert_eq!(
+        result,
+        Ok(ExecutionResult::Halt {
+            reason: VMError::InvalidJump,
+            gas_used: vm.env.consumed_gas,
+        })
+    );
 }
 
 #[test]

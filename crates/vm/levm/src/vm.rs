@@ -774,7 +774,10 @@ impl VM {
 
                     if !current_call_frame.jump(jump_address) {
                         self.env.consumed_gas = self.env.gas_limit;
-                        return Err(VMError::InvalidJump);
+                        return Ok(ExecutionResult::Halt {
+                            reason: VMError::InvalidJump,
+                            gas_used: self.env.consumed_gas,
+                        }); // halt
                     }
                     self.env.consumed_gas += gas_cost::JUMP;
                 }
@@ -783,7 +786,10 @@ impl VM {
                     let condition = current_call_frame.stack.pop()?;
                     if condition != U256::zero() && !current_call_frame.jump(jump_address) {
                         self.env.consumed_gas = self.env.gas_limit;
-                        return Err(VMError::InvalidJump);
+                        return Ok(ExecutionResult::Halt {
+                            reason: VMError::InvalidJump,
+                            gas_used: self.env.consumed_gas,
+                        }); // halt
                     }
                     self.env.consumed_gas += gas_cost::JUMPI
                 }
