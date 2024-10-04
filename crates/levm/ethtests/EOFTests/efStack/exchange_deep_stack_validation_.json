@@ -1,0 +1,24 @@
+{
+    "exchange_deep_stack_validation" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "a90a780b6a1540d3461354402fd210346a8fbd65f04c38f19824f037b7b57dab",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/exchange_deep_stack_validation_Copier.json",
+            "sourceHash" : "3700789635d3dd9e341223b683b7b996cb2a223a9bd0d252c7b7e6278da3232f"
+        },
+        "vectors" : {
+            "exchange_deep_stack_validation_0" : {
+                "code" : "0xef000101000402000100450400000000800021600160016001600160016001600160016001600160016001600160016001600160016001600160016001600160016001600160016001600160016001600160016001e8ff00",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,127 @@
+{
+    "typeTwoBerlin" : {
+        "_info" : {
+            "comment" : "Ori Pomerantz qbzzt1@gmail.com",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.ea13235b.Linux.g++",
+            "generatedTestHash" : "847262048c945b3ff73981386f2cc9d247e79df6557fffa208212c09b92e2919",
+            "labels" : {
+                "0" : "declaredKeyWrite"
+            },
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stEIP1559/typeTwoBerlinFiller.yml",
+            "sourceHash" : "620e0b4295220c16b4aabefa5f44fcab1b0673df248cb8b255018fe4f86b2169"
+        },
+        "env" : {
+            "currentBaseFee" : "0x03e8",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0xff112233445566",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000020000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "expectException" : "TR_TypeNotSupported",
+                    "hash" : "0x716ece27b2ad0ec9edbb6bd19f1c37b65f48f10d9c0251b309b14354353da8c7",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f86a01018203e88203e883061a8094cccccccccccccccccccccccccccccccccccccccc830186a000c001a031616d40ae792e8f02c4eb3a46a0b29f74c7025c0d95b14bed325c2e88e0aef8a010c151566d00f2050f75740f954d115c038e1a56a2b5bb459c3ef644145ca625"
+                }
+            ],
+            "Cancun" : [
+                {
+                    "hash" : "0xb7d8dee970c492907f61651e240a3429b84967eb18145c10d102a179b16c794c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f86a01018203e88203e883061a8094cccccccccccccccccccccccccccccccccccccccc830186a000c001a031616d40ae792e8f02c4eb3a46a0b29f74c7025c0d95b14bed325c2e88e0aef8a010c151566d00f2050f75740f954d115c038e1a56a2b5bb459c3ef644145ca625"
+                }
+            ],
+            "London" : [
+                {
+                    "hash" : "0xb7d8dee970c492907f61651e240a3429b84967eb18145c10d102a179b16c794c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f86a01018203e88203e883061a8094cccccccccccccccccccccccccccccccccccccccc830186a000c001a031616d40ae792e8f02c4eb3a46a0b29f74c7025c0d95b14bed325c2e88e0aef8a010c151566d00f2050f75740f954d115c038e1a56a2b5bb459c3ef644145ca625"
+                }
+            ],
+            "Paris" : [
+                {
+                    "hash" : "0xb7d8dee970c492907f61651e240a3429b84967eb18145c10d102a179b16c794c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f86a01018203e88203e883061a8094cccccccccccccccccccccccccccccccccccccccc830186a000c001a031616d40ae792e8f02c4eb3a46a0b29f74c7025c0d95b14bed325c2e88e0aef8a010c151566d00f2050f75740f954d115c038e1a56a2b5bb459c3ef644145ca625"
+                }
+            ],
+            "Shanghai" : [
+                {
+                    "hash" : "0xb7d8dee970c492907f61651e240a3429b84967eb18145c10d102a179b16c794c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f86a01018203e88203e883061a8094cccccccccccccccccccccccccccccccccccccccc830186a000c001a031616d40ae792e8f02c4eb3a46a0b29f74c7025c0d95b14bed325c2e88e0aef8a010c151566d00f2050f75740f954d115c038e1a56a2b5bb459c3ef644145ca625"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xcccccccccccccccccccccccccccccccccccccccc" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600260005500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                ]
+            ],
+            "data" : [
+                "0x00"
+            ],
+            "gasLimit" : [
+                "0x061a80"
+            ],
+            "maxFeePerGas" : "0x03e8",
+            "maxPriorityFeePerGas" : "0x03e8",
+            "nonce" : "0x01",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xcccccccccccccccccccccccccccccccccccccccc",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    }
+}

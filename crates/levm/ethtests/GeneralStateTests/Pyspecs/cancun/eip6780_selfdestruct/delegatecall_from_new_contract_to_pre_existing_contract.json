@@ -1,0 +1,706 @@
+{
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Cancun-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_0-call_times_1-callcode]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "09fd06704da4e76d6d3d94e7d48c7340eeb5f1b7dce130c026dee06a5878d3a8",
+            "hash" : "0xc06b1b03ec8d23bd41d357ecf8122aab28af625eab312c11cf9bec0113744ca4",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x200dcc1a6a0a9a2f799a0f8841c6a18b0068b289d35d30c7c2ecccc4bff75bce",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf31ca045e5e5d2de3f49c0ab19b9188457cc70d70a7ef4ac5f26b40fb3810c50441fe3a033fcbf3201b5ba1158b7ad36aa90c0ebddfc6b03c1685238699fb353d405845a"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x610021600081600b8239f3600060006000600060007311111111111111111111111111111111111111115af2",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x00",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Cancun-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_0-call_times_1-delegatecall]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "69a1311621c216098a91bbcabf65743160747ff54c564aa7296955b6954067bc",
+            "hash" : "0xb7129fcf2a3d2061aab2e4c5cfce5dc120fd42bffeacb4ab710ba21afb0ae23b",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x3d7e2aadb4b892898a1a8a910b536cf438c0dec1635fee08d5e9358608cb89dd",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af31ca042acfcbda723adcc6796dc6bd41402325f3767bdffd8559f4944ebcc8afc8fcca01484e8b06ac6b76483268adc2bfbffa5f04c55ca67e69310b1dd22c0a4ef10ca"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x61001f600081600b8239f360006000600060007311111111111111111111111111111111111111115af4",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x00",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Cancun-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_1-call_times_1-callcode]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "6a12d83e0d0be106745d062d16bb404dc607f35ca435349c42076bdef4319b9d",
+            "hash" : "0x2c7f2482998464cfefa711477ade9d10c250fce4e1e2f99a0600a63ca745a62e",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xca62b6a664eb977785a5afaa5088f0625922fb5445bac70ee3be905bfeec034f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf31ca045e5e5d2de3f49c0ab19b9188457cc70d70a7ef4ac5f26b40fb3810c50441fe3a033fcbf3201b5ba1158b7ad36aa90c0ebddfc6b03c1685238699fb353d405845a"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x610021600081600b8239f3600060006000600060007311111111111111111111111111111111111111115af2",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x01",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x64e2ebd6405af8cb348aec519084d3fff42ebba6" : {
+                "balance" : "0x01",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Cancun-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_1-call_times_1-delegatecall]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "da5258fabb8b9a884cc6a871d6ba0bdaf442ea7e83af2f141f8238d27c222ce0",
+            "hash" : "0x161883f16c22cdc981ff312d9f3281d32f40c9219f57e2e231bb034f4c54f3a1",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x11e146d2795c223cdf8da8ab50fd1145019224a0b6928b8e63c356470ba5c9d1",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af31ca042acfcbda723adcc6796dc6bd41402325f3767bdffd8559f4944ebcc8afc8fcca01484e8b06ac6b76483268adc2bfbffa5f04c55ca67e69310b1dd22c0a4ef10ca"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x61001f600081600b8239f360006000600060007311111111111111111111111111111111111111115af4",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x01",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x64e2ebd6405af8cb348aec519084d3fff42ebba6" : {
+                "balance" : "0x01",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Shanghai-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_0-call_times_1-callcode]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "230a5a2f25866b37b8f26a54f579fa677e7d16b6bfda63482a28b1c16e52ebb2",
+            "hash" : "0x01afd5a277d7fe74b7f26320291ff8fc75f5133420fe04bc5ec6a7d9f9478fa4",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "hash" : "0x200dcc1a6a0a9a2f799a0f8841c6a18b0068b289d35d30c7c2ecccc4bff75bce",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf31ca045e5e5d2de3f49c0ab19b9188457cc70d70a7ef4ac5f26b40fb3810c50441fe3a033fcbf3201b5ba1158b7ad36aa90c0ebddfc6b03c1685238699fb353d405845a"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x610021600081600b8239f3600060006000600060007311111111111111111111111111111111111111115af2",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x00",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Shanghai-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_0-call_times_1-delegatecall]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "7c9bf700bde43af0ed1f6ccb9833eb59d5deada95c62b0eebe49a91ea3ff63d0",
+            "hash" : "0x1b72f7630ea8cd624b8dd25b639f5fbaad8c2c30bc135abe6191aadab75a3f10",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "hash" : "0x3d7e2aadb4b892898a1a8a910b536cf438c0dec1635fee08d5e9358608cb89dd",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af31ca042acfcbda723adcc6796dc6bd41402325f3767bdffd8559f4944ebcc8afc8fcca01484e8b06ac6b76483268adc2bfbffa5f04c55ca67e69310b1dd22c0a4ef10ca"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x61001f600081600b8239f360006000600060007311111111111111111111111111111111111111115af4",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x00",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Shanghai-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_1-call_times_1-callcode]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "0af7264dd1d131e0a422196a1c0a1ba5547000628dfd19a6cf6235b9d8c2f8ea",
+            "hash" : "0xa7c6d0e1bfc4f0b6db46f8aeffb7d8dde9ef799ef24e12d666136058972c365e",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "hash" : "0xca62b6a664eb977785a5afaa5088f0625922fb5445bac70ee3be905bfeec034f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf31ca045e5e5d2de3f49c0ab19b9188457cc70d70a7ef4ac5f26b40fb3810c50441fe3a033fcbf3201b5ba1158b7ad36aa90c0ebddfc6b03c1685238699fb353d405845a"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x610021600081600b8239f3600060006000600060007311111111111111111111111111111111111111115af2",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x01",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x64e2ebd6405af8cb348aec519084d3fff42ebba6" : {
+                "balance" : "0x01",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602c6000600073000000000000000000000000000000000000abcd3c602c60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602cf3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py::test_delegatecall_from_new_contract_to_pre_existing_contract[fork_Shanghai-state_test-create_opcode_CREATE-selfdestruct_contract_initial_balance_1-call_times_1-delegatecall]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "592a315e5ef04e1df9bcdc8fbc17f145adff96f6637596b48bd982fb76e0c748",
+            "hash" : "0x5c817b3b09e640f22fd56587a9259da5a469214408bf5539507e4a668a33391d",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip6780_selfdestruct/test_selfdestruct.py",
+            "sourceHash" : "7496f4b06341e22fc1aee1b39620bd84c707689b1abfb02c00d645e6af9d387b"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "hash" : "0x11e146d2795c223cdf8da8ab50fd1145019224a0b6928b8e63c356470ba5c9d1",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf9011d800a8405f5e10080830186a0b8cc602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af31ca042acfcbda723adcc6796dc6bd41402325f3767bdffd8559f4944ebcc8afc8fcca01484e8b06ac6b76483268adc2bfbffa5f04c55ca67e69310b1dd22c0a4ef10ca"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000001234" : {
+                "balance" : "0x00",
+                "code" : "0x6000600055",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x00" : "0x01"
+                }
+            },
+            "0x000000000000000000000000000000000000abcd" : {
+                "balance" : "0x00",
+                "code" : "0x61001f600081600b8239f360006000600060007311111111111111111111111111111111111111115af4",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x1111111111111111111111111111111111111111" : {
+                "balance" : "0x01",
+                "code" : "0x60015f54015f55611234ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x64e2ebd6405af8cb348aec519084d3fff42ebba6" : {
+                "balance" : "0x01",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x056bc75e2d63100000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x602a6000600073000000000000000000000000000000000000abcd3c602a60006000f06000557364e2ebd6405af8cb348aec519084d3fff42ebba63b6001557364e2ebd6405af8cb348aec519084d3fff42ebba63f600255600060006000600060007364e2ebd6405af8cb348aec519084d3fff42ebba645f16003557364e2ebd6405af8cb348aec519084d3fff42ebba6316004557364e2ebd6405af8cb348aec519084d3fff42ebba63b6005557364e2ebd6405af8cb348aec519084d3fff42ebba63f6006556001602af3"
+            ],
+            "gasLimit" : [
+                "0x05f5e100"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    }
+}

@@ -1,0 +1,464 @@
+{
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py::test_no_memory_corruption_on_upper_call_stack_levels[fork_Cancun-state_test-opcode_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "224d5c1bc480f83e652d26a01d6f2300bb2c9782980bface24ca2200e48c7b71",
+            "hash" : "0xb863d32550b9f00b2267ad82e16eef1c2ebb68654805cff157d3923877581b2e",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py",
+            "sourceHash" : "8483b97c8f78bef7eef3ee4d82749178258777b02ea85679be2894a1dab29658"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xc802071bb5b7c728d641a97af5b3e110135728109c0502e6098f9f6d77537da3",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164ce"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000100" : {
+                "balance" : "0x00",
+                "code" : "0x7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f206000527f2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f406020527f4142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606040527f6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f806060527f8182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa06080527fa1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc060a0527fc1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe060c0527fe1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0160e0527f02030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021610100527f22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f4041610120527f42434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f6061610140527f62636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f8081610160527f82838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1610180527fa2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c16101a0527fc2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e16101c0527fe2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff01026101e0527f030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122610200527f232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142610220527f434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162610240527f636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182610260527f838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2610280527fa3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c26102a0527fc3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e26102c0527fe3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0102036102e0527f0405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223610300527f2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243610320527f4445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263610340527f6465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80818283610360527f8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3610380527fa4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c36103a0527fc4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e36103c0527fe4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff010203046103e052600060006000600060006102005af259620186a05560005160005560205160015560405160025560605160035560805160045560a05160055560c05160065560e051600755610100516008556101205160095561014051600a5561016051600b5561018051600c556101a051600d556101c051600e556101e051600f5561020051601055610220516011556102405160125561026051601355610280516014556102a0516015556102c0516016556102e051601755610300516018556103205160195561034051601a5561036051601b5561038051601c556103a051601d556103c051601e556103e051601f55",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x0000000000000000000000000000000000000200" : {
+                "balance" : "0x00",
+                "code" : "0x6001600160005e6001600060015e6020600060015e61040061040060005e600161080060005e600160006108005e600162030d405560006000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x1d6329f1c35ca4bfabb9f5610000000000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0f4240"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py::test_no_memory_corruption_on_upper_call_stack_levels[fork_Cancun-state_test-opcode_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "b58a060daf92b3db90be28d85387252e4416997eebab34e02adc2601a4c8379a",
+            "hash" : "0x3b7d27c18c7ae56e86475eda1c8c1b98f424d40d0c1f762a105dd03889f53a3b",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py",
+            "sourceHash" : "8483b97c8f78bef7eef3ee4d82749178258777b02ea85679be2894a1dab29658"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x2157d7a530378219a0fbc7b5530acf0762a534b1b1cbb5df7ef20c8611521561",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164ce"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000100" : {
+                "balance" : "0x00",
+                "code" : "0x7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f206000527f2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f406020527f4142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606040527f6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f806060527f8182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa06080527fa1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc060a0527fc1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe060c0527fe1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0160e0527f02030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021610100527f22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f4041610120527f42434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f6061610140527f62636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f8081610160527f82838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1610180527fa2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c16101a0527fc2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e16101c0527fe2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff01026101e0527f030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122610200527f232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142610220527f434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162610240527f636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182610260527f838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2610280527fa3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c26102a0527fc3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e26102c0527fe3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0102036102e0527f0405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223610300527f2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243610320527f4445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263610340527f6465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80818283610360527f8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3610380527fa4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c36103a0527fc4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e36103c0527fe4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff010203046103e052600060006000600060006102005af159620186a05560005160005560205160015560405160025560605160035560805160045560a05160055560c05160065560e051600755610100516008556101205160095561014051600a5561016051600b5561018051600c556101a051600d556101c051600e556101e051600f5561020051601055610220516011556102405160125561026051601355610280516014556102a0516015556102c0516016556102e051601755610300516018556103205160195561034051601a5561036051601b5561038051601c556103a051601d556103c051601e556103e051601f55",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x0000000000000000000000000000000000000200" : {
+                "balance" : "0x00",
+                "code" : "0x6001600160005e6001600060015e6020600060015e61040061040060005e600161080060005e600160006108005e600162030d405560006000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x1d6329f1c35ca4bfabb9f5610000000000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0f4240"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py::test_no_memory_corruption_on_upper_call_stack_levels[fork_Cancun-state_test-opcode_CREATE2]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "1e17c9656c7347f6a239cc124ed950320f10bf9046078cfacbfb1c495047a29f",
+            "hash" : "0x3634adb476c6402e97bc25d4a99de1968dda8c08ba49374e46b6ee3a5b0d1aca",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py",
+            "sourceHash" : "8483b97c8f78bef7eef3ee4d82749178258777b02ea85679be2894a1dab29658"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x7d88a35098a05796467e85e89fc87a63136d6f91fe762573c43526db5fcbc374",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164ce"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000100" : {
+                "balance" : "0x00",
+                "code" : "0x7f6001600160005e6001600060015e6020600060015e61040061040060005e60016000527f61080060005e600160006108005e600162030d405560006000f33b3c3d3e3f406020527f4142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606040527f6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f806060527f8182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa06080527fa1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc060a0527fc1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe060c0527fe1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0160e0527f02030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021610100527f22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f4041610120527f42434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f6061610140527f62636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f8081610160527f82838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1610180527fa2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c16101a0527fc2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e16101c0527fe2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff01026101e0527f030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122610200527f232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142610220527f434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162610240527f636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182610260527f838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2610280527fa3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c26102a0527fc3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e26102c0527fe3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0102036102e0527f0405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223610300527f2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243610320527f4445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263610340527f6465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80818283610360527f8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3610380527fa4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c36103a0527fc4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e36103c0527fe4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff010203046103e0526000603a60006000f559620186a05560005160005560205160015560405160025560605160035560805160045560a05160055560c05160065560e051600755610100516008556101205160095561014051600a5561016051600b5561018051600c556101a051600d556101c051600e556101e051600f5561020051601055610220516011556102405160125561026051601355610280516014556102a0516015556102c0516016556102e051601755610300516018556103205160195561034051601a5561036051601b5561038051601c556103a051601d556103c051601e556103e051601f55",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x0000000000000000000000000000000000000200" : {
+                "balance" : "0x00",
+                "code" : "0x6001600160005e6001600060015e6020600060015e61040061040060005e600161080060005e600160006108005e600162030d405560006000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x1d6329f1c35ca4bfabb9f5610000000000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0f4240"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py::test_no_memory_corruption_on_upper_call_stack_levels[fork_Cancun-state_test-opcode_CREATE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "eb9644de0ede1928d8d40643127db74620caef06e9da5ceddb3dc12452d1b9ed",
+            "hash" : "0x1024b8f9cc4c4a4c7999c849edd3175049ea618f891dc0939a07c6d6f52701a9",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py",
+            "sourceHash" : "8483b97c8f78bef7eef3ee4d82749178258777b02ea85679be2894a1dab29658"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xdb1edf7fa2b9b9ab7426723cf489dce4c420fac9fff3dfad3c7088fa043e1ad7",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164ce"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000100" : {
+                "balance" : "0x00",
+                "code" : "0x7f6001600160005e6001600060015e6020600060015e61040061040060005e60016000527f61080060005e600160006108005e600162030d405560006000f33b3c3d3e3f406020527f4142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606040527f6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f806060527f8182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa06080527fa1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc060a0527fc1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe060c0527fe1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0160e0527f02030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021610100527f22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f4041610120527f42434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f6061610140527f62636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f8081610160527f82838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1610180527fa2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c16101a0527fc2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e16101c0527fe2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff01026101e0527f030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122610200527f232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142610220527f434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162610240527f636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182610260527f838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2610280527fa3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c26102a0527fc3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e26102c0527fe3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0102036102e0527f0405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223610300527f2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243610320527f4445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263610340527f6465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80818283610360527f8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3610380527fa4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c36103a0527fc4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e36103c0527fe4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff010203046103e052603a60006000f059620186a05560005160005560205160015560405160025560605160035560805160045560a05160055560c05160065560e051600755610100516008556101205160095561014051600a5561016051600b5561018051600c556101a051600d556101c051600e556101e051600f5561020051601055610220516011556102405160125561026051601355610280516014556102a0516015556102c0516016556102e051601755610300516018556103205160195561034051601a5561036051601b5561038051601c556103a051601d556103c051601e556103e051601f55",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x0000000000000000000000000000000000000200" : {
+                "balance" : "0x00",
+                "code" : "0x6001600160005e6001600060015e6020600060015e61040061040060005e600161080060005e600160006108005e600162030d405560006000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x1d6329f1c35ca4bfabb9f5610000000000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0f4240"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py::test_no_memory_corruption_on_upper_call_stack_levels[fork_Cancun-state_test-opcode_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "7810b7a984913d979155cd743c588046f599528091c1e6a26e7230315d7e5947",
+            "hash" : "0x2b7000baf0a355b64aa2a5378ece85c8e97f73547fa50c6a5293efe354d880b2",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py",
+            "sourceHash" : "8483b97c8f78bef7eef3ee4d82749178258777b02ea85679be2894a1dab29658"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x70fa41206e0eea3fdbe926381492f6096e049ff9bf42770571397282f4d5d57e",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164ce"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000100" : {
+                "balance" : "0x00",
+                "code" : "0x7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f206000527f2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f406020527f4142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606040527f6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f806060527f8182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa06080527fa1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc060a0527fc1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe060c0527fe1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0160e0527f02030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021610100527f22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f4041610120527f42434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f6061610140527f62636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f8081610160527f82838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1610180527fa2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c16101a0527fc2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e16101c0527fe2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff01026101e0527f030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122610200527f232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142610220527f434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162610240527f636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182610260527f838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2610280527fa3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c26102a0527fc3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e26102c0527fe3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0102036102e0527f0405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223610300527f2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243610320527f4445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263610340527f6465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80818283610360527f8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3610380527fa4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c36103a0527fc4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e36103c0527fe4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff010203046103e05260006000600060006102005af459620186a05560005160005560205160015560405160025560605160035560805160045560a05160055560c05160065560e051600755610100516008556101205160095561014051600a5561016051600b5561018051600c556101a051600d556101c051600e556101e051600f5561020051601055610220516011556102405160125561026051601355610280516014556102a0516015556102c0516016556102e051601755610300516018556103205160195561034051601a5561036051601b5561038051601c556103a051601d556103c051601e556103e051601f55",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x0000000000000000000000000000000000000200" : {
+                "balance" : "0x00",
+                "code" : "0x6001600160005e6001600060015e6020600060015e61040061040060005e600161080060005e600160006108005e600162030d405560006000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x1d6329f1c35ca4bfabb9f5610000000000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0f4240"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py::test_no_memory_corruption_on_upper_call_stack_levels[fork_Cancun-state_test-opcode_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "364c40171260d0fc87f2361953963283f0a38f134fa3ded203746fdaa2b23ec7",
+            "hash" : "0x0eb219a4dabe4a291da59872a1491a1814ef370531f59dc8950751cabefe44cd",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip5656_mcopy/test_mcopy_contexts.py",
+            "sourceHash" : "8483b97c8f78bef7eef3ee4d82749178258777b02ea85679be2894a1dab29658"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xa5288a1355431ceeaeb7e5b7efd5560780f266f58e5ed27928fc5d7f7700ad5c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a830f4240940000000000000000000000000000000000000100808025a06ed8419ab28c42e73d2f147ebdddfd5de4fb1eb6b4f332d0c5fab55da6ee7eaaa05930cef304a571952dbcc5d64ddb799bba262cfe26fcdded394288f1999164ce"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000100" : {
+                "balance" : "0x00",
+                "code" : "0x7f0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f206000527f2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f406020527f4142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606040527f6162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f806060527f8182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa06080527fa1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc060a0527fc1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe060c0527fe1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0160e0527f02030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021610100527f22232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f4041610120527f42434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f6061610140527f62636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f8081610160527f82838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1610180527fa2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c16101a0527fc2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e16101c0527fe2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff01026101e0527f030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122610200527f232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142610220527f434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162610240527f636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182610260527f838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2610280527fa3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c26102a0527fc3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e26102c0527fe3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0102036102e0527f0405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20212223610300527f2425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40414243610320527f4445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f60616263610340527f6465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f80818283610360527f8485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3610380527fa4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c36103a0527fc4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e36103c0527fe4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff010203046103e05260006000600060006102005afa59620186a05560005160005560205160015560405160025560605160035560805160045560a05160055560c05160065560e051600755610100516008556101205160095561014051600a5561016051600b5561018051600c556101a051600d556101c051600e556101e051600f5561020051601055610220516011556102405160125561026051601355610280516014556102a0516015556102c0516016556102e051601755610300516018556103205160195561034051601a5561036051601b5561038051601c556103a051601d556103c051601e556103e051601f55",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x0000000000000000000000000000000000000200" : {
+                "balance" : "0x00",
+                "code" : "0x6001600160005e6001600060015e6020600060015e61040061040060005e600161080060005e600160006108005e60006000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x1d6329f1c35ca4bfabb9f5610000000000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0f4240"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

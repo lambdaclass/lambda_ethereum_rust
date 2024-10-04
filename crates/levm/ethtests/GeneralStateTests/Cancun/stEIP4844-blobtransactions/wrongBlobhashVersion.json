@@ -1,0 +1,88 @@
+{
+    "wrongBlobhashVersion" : {
+        "_info" : {
+            "comment" : "BLOB001",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.ea13235b.Linux.g++",
+            "generatedTestHash" : "cbea3d40811e37da5eaf4d1c2e87a807a75a212594c33ad89ceb68f4eb4a71d8",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Cancun/stEIP4844-blobtransactions/wrongBlobhashVersionFiller.yml",
+            "sourceHash" : "c3f265b58c0579fcb5f494407aee468ce80129b39294ef90e1d579178d93cd75"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x1000000000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000020000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "expectException" : "TR_BLOBVERSION_INVALID",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f9010c01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010af842a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8a045a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a0daa1a9e47f815525ac6e11929160073fea1abf7acee286d4858fd4b1d9611fcda054d245d4a23cf599e6a8611692fdeab9be366108af5ba72554062346fa41a55a"
+                }
+            ]
+        },
+        "pre" : {
+            "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60004960005500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000",
+                            "0x0000000000000000000000000000000000000000000000000000000000000001"
+                        ]
+                    }
+                ]
+            ],
+            "blobVersionedHashes" : [
+                "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+            ],
+            "data" : [
+                "0x00"
+            ],
+            "gasLimit" : [
+                "0x3d0900"
+            ],
+            "maxFeePerBlobGas" : "0x0a",
+            "maxFeePerGas" : "0x012a05f200",
+            "maxPriorityFeePerGas" : "0x02",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    }
+}

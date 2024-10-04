@@ -1,0 +1,41 @@
+{
+    "non_constant_stack_height" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "ad1207cfcc032ef0b7c5e7a63f75609b00c596e6de239ab0b2a273ed60a4c447",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/non_constant_stack_height_Copier.json",
+            "sourceHash" : "f2e82643380f6dc9439834944570fa90584166c142f4018670dce70e4fbfbde0"
+        },
+        "vectors" : {
+            "non_constant_stack_height_0" : {
+                "code" : "0xef0001010004020001000e04000000008000045fe100075f5f5fe10001505f5ffd",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "non_constant_stack_height_1" : {
+                "code" : "0xef0001010004020001000f04000000008000055f5fe100075f5f5fe10001505f5ffd",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "non_constant_stack_height_2" : {
+                "code" : "0xef0001010004020001000f04000000008000045fe100075f5f5fe1000150505f5ffd",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

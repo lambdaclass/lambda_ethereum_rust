@@ -1,0 +1,156 @@
+random:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 0
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Ori Pomerantz     qbzzt1@gmail.com
+
+  pre:
+
+    # The "user" account
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: F000000000000000
+      code: 0x
+      nonce: 1
+      storage: {}
+
+    # Store the block random value in that number
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: F000000000000000
+      code: |
+       :yul london
+       {
+           sstore(number(), difficulty())
+       }        
+      nonce: 1
+      storage:
+        1: 0x60A7
+        2: 0x60A7
+        3: 0x60A7
+        4: 0x60A7
+
+
+
+
+  blocks:
+
+# Block 1, no mixHash so we inherit the value from the genesis
+  - transactions:
+    - data: 0x
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+      value: 0
+
+# Block 2, we have a mixHash
+  - blockHeader:
+      "Paris":
+        mixHash: 0x0102030405060708091011121314151617181920212223242526272829303132
+        stateRoot: 0xe2eb7e02ca4367423c01b5039686c2ab18919d0e2672411d9ae0441cc4e64a81
+      "Shanghai":
+        mixHash: 0x0102030405060708091011121314151617181920212223242526272829303132
+        stateRoot: 0xe2eb7e02ca4367423c01b5039686c2ab18919d0e2672411d9ae0441cc4e64a81
+      ">=Cancun":
+        mixHash: 0x0102030405060708091011121314151617181920212223242526272829303132
+        stateRoot: 0xe62e0cba0f84855b753da4c263ea99adc002b78ff40bd9e742db7d7c8400b7a1
+
+    transactions:
+    - data: 0x
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+      value: 0
+
+
+# Block 3, we have a mixHash
+  - blockHeader:
+      "Paris":
+        mixHash: 0x0000000405060708091011121314151617181920212223242526272829303132
+        stateRoot: 0x73140ff0c686e09c6624d9ce852320aedcac23c1b1d8c7686bcca27e022940f0
+      "Shanghai":
+        mixHash: 0x0000000405060708091011121314151617181920212223242526272829303132
+        stateRoot: 0x73140ff0c686e09c6624d9ce852320aedcac23c1b1d8c7686bcca27e022940f0
+      ">=Cancun":
+        mixHash: 0x0000000405060708091011121314151617181920212223242526272829303132
+        stateRoot: 0x3527334981e8a940a4473a92ad396e2c7d6ec9daaca3cadac7588cb8725446a3
+    transactions:
+    - data: 0x
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+      value: 0
+
+# Block 4, no mixHash so we inherit the value from the previous block
+  - transactions:
+    - data: 0x
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+      value: 0
+
+
+
+  expect:
+
+  - network:
+    - "Paris"
+    - "Shanghai"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          # Coming from the genesis
+          1: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+          # Coming from blockHeader
+          2: 0x0102030405060708091011121314151617181920212223242526272829303132
+
+          # Coming from blockHeader
+          3: 0x0000000405060708091011121314151617181920212223242526272829303132
+
+          # Inherited from the blockHeader of the previous block
+          4: 0x0000000405060708091011121314151617181920212223242526272829303132
+
+  - network:
+    - ">=Cancun"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          # Coming from the genesis
+          1: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+          # Coming from blockHeader
+          2: 0x0102030405060708091011121314151617181920212223242526272829303132
+
+          # Coming from blockHeader
+          3: 0x0000000405060708091011121314151617181920212223242526272829303132
+
+          # Inherited from the blockHeader of the previous block
+          4: 0x0000000405060708091011121314151617181920212223242526272829303132
+

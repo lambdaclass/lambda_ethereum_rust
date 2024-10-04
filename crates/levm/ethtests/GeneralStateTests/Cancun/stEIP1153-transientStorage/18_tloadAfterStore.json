@@ -1,0 +1,76 @@
+{
+    "18_tloadAfterStore" : {
+        "_info" : {
+            "comment" : "tload from same slot after store returns 0",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.ea13235b.Linux.g++",
+            "generatedTestHash" : "f6b3bba22956234992faa82681e286b2b6597ed5a0989164d142a8fa680847e8",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/18_tloadAfterStoreFiller.yml",
+            "sourceHash" : "e41607cf57400011c492bd25d78774076d213548b1465955e357f6672cff74a4"
+        },
+        "env" : {
+            "currentBaseFee" : "0x0a",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x10000000000000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000020000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xefcf5e87d0bc8cb0fce00f2399f273c3ba2c0e86ddc6598666037a219fe5221d",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f869018080820fa0871000000000000094a00000000000000000000000000000000000000a8080c001a0e4a89c7b1a6be38d09addd42532dac2f629ace5c584717d5425d6f479f039ae0a01eb43f5559a982db645131807a740be4db1f877fa8bbc9648e1d15827d9c8a39"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600a5f555f5c60015500",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xffff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x3635c9adc5dea00000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x10000000000000"
+            ],
+            "maxFeePerGas" : "0x0fa0",
+            "maxPriorityFeePerGas" : "0x00",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

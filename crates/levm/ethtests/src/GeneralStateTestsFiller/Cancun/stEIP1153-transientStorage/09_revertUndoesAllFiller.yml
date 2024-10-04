@@ -1,0 +1,95 @@
+# 09
+# Revert undoes all the transient storage writes to the same key from a failed call.
+# TSTORE(x, y), CALL(self, ...), TSTORE(x, z), TSTORE(x, z + 1) REVERT, TLOAD(x) returns y
+#
+# Expect storage slot 0 of address a to be 0. Call failed.
+# Expect storage slot 1 of address a to be 4. The original value in transient storage before failed reentrant subcall.
+# Expect storage slot 2 of address a to be 10. The original value in transient storage before failed reentrant subcall.
+
+09_revertUndoesAll:
+  _info:
+    comment: Revert undoes all the transient storage writes to the same key from the failed call.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          switch selector()
+
+          case 0x3f371692 { // doReenter()
+            doReenter()
+          }
+
+          case 0x578290e5 { // storeTwiceAndRevert()
+            storeTwiceAndRevert()
+          }
+
+          function storeTwiceAndRevert() {
+            verbatim_2i_0o(hex"5D", 0, 5)
+            verbatim_2i_0o(hex"5D", 0, 6)
+            verbatim_2i_0o(hex"5D", 1, 11)
+            verbatim_2i_0o(hex"5D", 1, 12)
+            revert(0,0)
+          }
+
+          function doReenter() {
+            verbatim_2i_0o(hex"5D", 0, 4)
+            verbatim_2i_0o(hex"5D", 1, 10)
+            mstore(0, hex"578290e5") // storeTwiceAndRevert()
+
+            let fail := call(gas(), address(), 0, 0, 32, 0, 0)
+            sstore(0, fail)
+
+            let v0 := verbatim_1i_1o(hex"5C", 0)
+            sstore(1, v0)
+
+            let v1 := verbatim_1i_1o(hex"5C", 1)
+            sstore(2, v1)
+          }
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+
+      storage: { 0x00: 0xffff }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: :abi doReenter()
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x00: 0
+            0x01: 4
+            0x02: 10

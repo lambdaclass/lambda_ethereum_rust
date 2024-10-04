@@ -1,0 +1,1700 @@
+validInvalid:
+  _info:
+     comment: |
+       Test various examples to see if they are valid or invalid.
+       Implements
+         EOF1I0001 check that EOF1 with a bad magic number fails
+         EOF1I0002 check that EOF1 with a bad version number fails
+         EOF1I0003 check that EOF1 with a bad section order fails
+         EOF1I0004 check that EOF1 missing a section fails
+         EOF1I0005 check that EOF1 with a bad end of sections number fails
+         EOF1I0006 check that EOF1 with too many or too few bytes fails
+         EOF1I0007 check that EOF1 with a malformed code section fails
+         EOF1I0008 check that EOF1 with an illegal opcode fails
+         EOF1I0009 check that EOF1 with the wrong maxStackDepth fails
+         EOF1I0010 check that return values are not allowed on section 0
+         EOF1I0011 check that function calls to code sections that don't exist fail
+         EOF1I0012 check that code sections that cause stack underflow fail
+         EOF1I0013 check that we can't return more values than we declare
+         EOF1I0014 check that code that looks deeper in the stack than the parameters fails
+         EOF1I0015 check that code that uses removed opcodes fails
+         EOF1I0016 check that code that uses new relative jumps to outside the section fails
+         EOF1I0017 check that parameters are not allowed on section 0
+         EOF1I0018 inconsistent number of code sections (between types and code)
+         EOF1I0019 check that jumps into the middle on an opcode are not allowed
+         EOF1I0020 check that you can't get to the same opcode with two different stack heights
+         EOF1I0022 stack underflow caused by a function call
+         EOF1I0023 sections with unreachable code fail
+         EOF1I0024 sections that end with a non-terminator opcode fail
+         EOF1I0025 data stack height of 1024 is invalid
+         EOF1V0001 check that simple valid EOF1 deploys
+         EOF1V0002 check that valid EOF1 with two code sections deploys
+         EOF1V0003 check that valid EOF1 with four code sections deploys
+         EOF1V0004 check that valid EOF1 can include 0xFE, the designated invalid opcode
+         EOF1V0005 check that EOF1 with the right maxStackDepth deploys
+         EOF1V0006 check that return values are allowed on code sections that aren't zero
+         EOF1V0007 check that function calls to code sections that exist are allowed
+         EOF1V0008 check that code that uses a new style relative jump (5C) succeeds
+         EOF1V0009 check that parameters are allowed on code sections that aren't zero
+         EOF1V0010 parameters are part of the max stack height
+         EOF1V0011 check that code that uses a new style conditional jump (5D) succeeds
+         EOF1V0012 return values on code sections affect maxStackHeight of the caller
+         EOF1V0013 jump tables work
+         EOF1V0014 sections that end with a legit terminating opcode are OK
+         EOF1V0015 data stack height of 1023 is valid
+         EOF1V0016 check that data section size can be less than the declared size
+
+  forks:
+    - ">=Prague"
+
+  vectors:
+
+  # Data 0
+  # EOF1V0001 check that simple EOF1 deploys
+  - data: |
+     :label EOF1V0001 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+
+  # Data 1
+  # EOF1V0016 check that EOF1 with too many or too few bytes fails
+  - data: |
+     :label EOF1V0016 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           0bad  # 2 bytes instead of four
+
+
+  # Data 2
+  # EOF1I0006 check that EOF1 with too many or too few bytes fails
+  - data: |
+     :label EOF1I0006 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           0bad60A70BAD  # 6 bytes instead of four
+    expectException:
+      ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+  # Data 3
+  # EOF1V0001 Valid
+  - data: |
+     :label EOF1V0001 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+
+  # Data 4
+  # EOF1I0008 check that EOF1 with an illegal opcode fails
+  - data: |
+     :label EOF1I0008 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           EF #  2 INVALID
+           00 #  3 STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_UndefinedInstruction"
+
+
+  # Data 5
+  # EOF1V0004 check that valid EOF1 can include 0xFE, the designated invalid opcode
+  - data: |
+     :label EOF1V0004 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           FE #  3 Designated invalid opcode
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+
+  # Data 6
+  # EOF1I0005 check that EOF1 with a bad end of sections number fails
+  - data: |
+     :label EOF1I0005 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      FF      # Bad end of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+
+  # Data 7
+  # EOF1V0008 check that code that uses a new style relative jump (E0) succeeds
+  - data: |
+     :label EOF1V0008 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        000E  #   code seg 0: 14 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           5F # 0 PUSH0
+      E10003  #  1   RJUMPI +3
+      E00003  #  4   RJUMP +3
+      E00003  #  7   RJUMP +3
+      E0FFFA  #  10  RJUMP -6
+          00  #  13  STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+  # Data 8
+  # EOF1I0023 sections with unreachable code fail
+  - data: |
+     :label EOF1I0023 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0005  #   code seg 0: 5 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0000  # Max stack height 0
+              # Code segment 0 code
+      E00001  #  0   RJUMP +1
+          5B  #  3   NOP
+          00  #  9   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_UnreachableCode"
+
+  # Data 9
+  # EOF1V0011 check that code that uses a new style conditional jump (5D) succeeds
+  - data: |
+     :label EOF1V0011 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0007  #   code seg 0: 7 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+        6001  #  0   PUSH1 1
+      E10001  #  2   RJUMPI +1
+          5B  #  5   NOP
+          00  #  6   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+
+  # Data 10
+  # EOF1V0014 sections that end with a legit terminating opcode are OK
+  - data: |
+     :label EOF1V0014 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+     010014 # Types length ( 20 )
+     020005 # Total code sections ( 5 )
+       0019 # Code section  0 , 25  bytes
+       0003 # Code section  1 , 3  bytes
+       0003 # Code section  2 , 3  bytes
+       0001 # Code section  3 , 1  bytes
+       0001 # Code section  4 , 1  bytes
+     040004 # Data section length ( 4 )
+         00 # Terminator (end of header)
+            # Code 0 types
+         00 # 0 inputs
+         80 # 0 outputs (Non-returning function)
+       0001 # max stack: 1
+            # Code 1 types
+         00 # 0 inputs
+         80 # 0 outputs (Non-returning function)
+       0002 # max stack: 2
+            # Code 2 types
+         00 # 0 inputs
+         80 # 0 outputs (Non-returning function)
+       0002 # max stack: 2
+            # Code 3 types
+         00 # 0 inputs
+         80 # 0 outputs (Non-returning function)
+       0000 # max stack: 0
+            # Code 4 types
+         00 # 0 inputs
+         00 # 0 outputs
+       0000 # max stack: 0
+            # Code section 0
+         5f # [0] PUSH0 
+         35 # [1] CALLDATALOAD 
+     e2030000000300060009 # [2] RJUMPV(0,3,6,9) 
+     e50001 # [12] JUMPF(1) 
+     e50002 # [15] JUMPF(2) 
+     e50003 # [18] JUMPF(3) 
+     e30004 # [21] CALLF(4) 
+         00 # [24] STOP 
+            # Code section 1
+         5f # [0] PUSH0 
+         5f # [1] PUSH0 
+         f3 # [2] RETURN 
+            # Code section 2
+         5f # [0] PUSH0 
+         5f # [1] PUSH0 
+         fd # [2] REVERT 
+            # Code section 3
+         fe # [0] INVALID 
+            # Code section 4
+         e4 # [0] RETF 
+            # Data section 
+     0bad60a7
+
+  # Data 11
+  # EOF1V0013 jump tables work
+  - data: |
+     :label EOF1V0013 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        000D  #   code seg 0: 13 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+        6001  #  0   PUSH1 1
+        E201  #  2   RJUMPV (empty table)
+        0002  #  4   0 -> +2
+        0000  #  6   1 ->  0
+        3050  #  8   ADDRESS, POP
+        3050  # 10   ADDRESS, POP
+          00  # 12   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+
+
+  # Data 12
+  # EOF1I0019 check that jumps into the middle on an opcode are not allowed
+  - data: |
+     :label EOF1I0019 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        000D  #   code seg 0: 13 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+        6001  #  0   PUSH1 1
+        E202  #  2   RJUMPV
+        0002  #  4   0 => +2 (10)
+        FFFF  #  6   1 -> -1 ( 7)
+        3050  #  8   ADDRESS, POP
+        3050  # 10   ADDRESS, POP
+          00  # 12   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidJumpDestination"
+
+
+
+
+  # Data 13
+  # EOF1I0020 check that you can't get to the same opcode with two different stack heights
+  - data: |
+     :label EOF1I0020 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0008  #   code seg 0: 8 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+        6001  #  0   PUSH1 1
+      E10001  #  2   RJUMPI +1
+          30  #  5   ADDRESS
+          5B  #  6   NOP
+          00  #  7   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+
+
+
+  # Data 14
+  # EOF1I0019 check that jumps into the middle on an opcode are not allowed
+  - data: |
+     :label EOF1I0019 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        000A  #   code seg 0: 10 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0000  # Max stack height 0
+              # Code segment 0 code
+      E00003  #  0   RJUMP +3
+      E00002  #  3   RJUMP +2
+      E0FFFA  #  6   RJUMP -6
+          00  #  9   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidJumpDestination"
+
+  # Data 15
+  # EOF1I0019 check that jumps into the middle on an opcode are not allowed
+  - data: |
+     :label EOF1I0019 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0010  #   code seg 0: 16 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0003  # Max stack height 3
+              # Code segment 0 code
+        6000  #  0   PUSH1 0
+        6000  #  2   PUSH1 0
+        6000  #  4   PUSH1 0
+      E10003  #  6   RJUMPI +3
+      E10002  #  9   RJUMPI +2
+      E1FFFA  # 12   RJUMPI -6
+          00  # 15   STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidJumpDestination"
+
+
+
+  # Data 16
+  # EOF1I0018 inconsistent number of code sections (between types and code)
+  - data: |
+     :label EOF1I0018 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010008  # Two code segments
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Non-existing Code segment 1 header
+          00  # Zero inputs
+          00  # Zero outputs
+        0000  # Max stack height 0
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidTypeSectionSize"
+
+  # Data 17
+  # EOF1I0018 inconsistent number of code sections (between types and code)
+  - data: |
+     :label EOF1I0018 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010008  # Two code segments
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidTypeSectionSize"
+
+  # Data 18
+  # EOF1I0015 check that code that uses removed opcodes fails
+  - data: |
+     :label EOF1I0015 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0005  #   code seg 0: 5 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+         6003 #  0 PUSH1 3
+           56 #  2 JUMP
+           5B #  3 JUMPDEST
+           00 #  4 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UndefinedInstruction"
+
+  # Data 19
+  # EOF1I0015 check that code that uses removed opcodes fails
+  - data: |
+     :label EOF1I0015 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0007  #   code seg 0: 5 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+         6001 #  0 PUSH1 1
+         6003 #  2 PUSH1 3
+           57 #  4 JUMPI
+           5B #  5 JUMPDEST
+           00 #  6 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UndefinedInstruction"
+
+  # Data 20
+  # EOF1I0015 check that code that uses removed opcodes fails
+  - data: |
+     :label EOF1I0015 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0004  #   code seg 0: 4 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+         6001 #  0 PUSH1 1
+           FF #  2 SELFDESTRUCT
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UndefinedInstruction"
+
+  # Data 21
+  # EOF1I0015 check that code that uses removed opcodes fails
+  - data: |
+     :label EOF1I0015 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0004  #   code seg 0: 4 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0007  # Max stack height 1
+              # Code segment 0 code
+    expectException:
+      ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+  # Data 22
+  # EOF1I0015 check that code that uses removed opcodes fails
+  - data: |
+     :label EOF1I0015 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0010  #   code seg 0: 16 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+        6001  # PUSH1 1
+        6002  # PUSH1 2
+        6003  # PUSH1 3
+        6004  # PUSH1 4
+        6005  # PUSH1 5
+        6006  # PUSH1 6
+        6007  # PUSH1 7
+          F2  # CALLCODE
+          00  # STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UndefinedInstruction"
+
+  # Data 23
+  # EOF1I0016 check that code that uses new relative jumps to outside the section fails
+  - data: |
+     :label EOF1I0016 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0005  #   code seg 0: 5 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+         6003 #  0 PUSH1 3
+           56 #  2 JUMP
+           5B #  3 JUMPDEST
+           00 #  4 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UndefinedInstruction"
+
+
+  # Data 24
+  # EOF1V0002 check that valid EOF1 with two code sections deploys
+  # EOF1V0006 check that return values are allowed on code sections that aren't zero
+  - data: |
+     :label EOF1V0002 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010008 # Types length ( 8 )
+      020002 # Total code sections ( 2 )
+        0006 # Code section  0 , 6  bytes
+        0003 # Code section  1 , 3  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          01 # 1 inputs
+          01 # 1 outputs
+        0001 # max stack: 1
+             # Code section 0
+          30 # [0] ADDRESS 
+      e30001 # [1] CALLF(1) 
+          50 # [4] POP 
+          00 # [5] STOP 
+             # Code section 1
+          50 # [0] POP 
+          30 # [1] ADDRESS 
+          e4 # [2] RETF 
+             # Data section 
+      0bad60a7
+  # Data 25
+  # EOF1V0012 return values on code sections affect maxStackHeight of the caller
+  - data: |
+     :label EOF1V0012 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010008  # Two code segments
+      020002  # Two code segments
+        0004  #   code seg 0: 4 bytes
+        0002  #   code seg 1: 2 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 1 header
+          00  # Zero inputs
+          01  # Zero outputs
+        0001  # Max stack height 1
+              # Code segment 0 code
+      E30001  #  0 CALLF #1 
+          00  #  3 STOP 
+              # Code segment 1 code
+          30  #  0 ADDRESS
+          E4  #  1 RETF
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+  # Data 26
+  # EOF1I0024 sections that end with a non-terminator opcode fail
+  - data: |
+     :label EOF1I0024 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010008  # Two code segments
+      020002  # Two code segments
+        0003  #   code seg 0: 3 bytes
+        0001  #   code seg 1: 1 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 1 header
+          00  # Zero inputs
+          01  # One output
+        0001  # Max stack height 1
+              # Code segment 0 code
+      E30001  #  0 CALLF #1 
+              # Code segment 1 code
+          30  #  0 ADDRESS
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidCodeTermination"
+
+
+  # Data 27
+  # EOF1I0022 stack underflow caused by a function call
+  - data: |
+     :label EOF1I0022 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010008  # Two code segments
+      020002  # Two code segments
+        0004  #   code seg 0: 4 bytes
+        0002  #   code seg 1: 2 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 1 header
+          01  # One input
+          00  # Zero outputs
+        0001  # Max stack height 1
+              # Code segment 0 code
+      E30001  #  0 CALLF #1 
+          00  #  3 STOP 
+              # Code segment 1 code
+          50  #  0 POP
+          E4  #  1 RETF
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_StackUnderflow"
+
+
+  # Data 28
+  # EOF1V0015 data stack height of 1023 is valid
+  - data: |
+     :label EOF1V0015 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      01000C  # Three code segments
+      020003  # Three code segments
+        0028  #   code seg 0: 40 bytes
+        000B  #   code seg 1: 11 bytes
+        001F  #   code seg 2: 31 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        03ff  # Max stack height 1023
+              # Code segment 1 header
+          00  # Zero inputs
+          0a  # Ten outputs
+        000a  # Max stack height 10
+              # Code segment 2 header
+          00  # Zero inputs
+          64  # A hundred outputs
+        0064  # Max stack height 100
+              # Code segment 0 code
+          E30002  #  0 CALLF #2
+          E30002  #  3 CALLF #2
+          E30002  #  6 CALLF #2
+          E30002  #  9 CALLF #2
+          E30002  #  C CALLF #2
+          E30002  #  F CALLF #2
+          E30002  # 12 CALLF #2
+          E30002  # 15 CALLF #2
+          E30002  # 18 CALLF #2
+          E30002  # 1B CALLF #2
+          E30001  # 1E CALLF #1
+          E30001  # 21 CALLF #1
+              30  # 24 ADDRESS
+              30  # 25 ADDRESS
+              30  # 26 ADDRESS
+          00      # 27 STOP
+              # Code segment 1 code
+          30  #  0 ADDRESS
+          30  #  1 ADDRESS
+          30  #  2 ADDRESS
+          30  #  3 ADDRESS
+          30  #  4 ADDRESS
+          30  #  5 ADDRESS
+          30  #  6 ADDRESS
+          30  #  7 ADDRESS
+          30  #  8 ADDRESS
+          30  #  9 ADDRESS
+          E4  #  A RETF
+              # Code segment 2 code
+          E30001  #  0 CALLF #1
+          E30001  #  3 CALLF #1
+          E30001  #  6 CALLF #1
+          E30001  #  9 CALLF #1
+          E30001  #  C CALLF #1
+          E30001  #  F CALLF #1
+          E30001  # 12 CALLF #1
+          E30001  # 15 CALLF #1
+          E30001  # 18 CALLF #1
+          E30001  # 1B CALLF #1
+          E4      # 1E RETF
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+  # Data 29
+  # EOF1I0025 data stack height of 1024 is invalid
+  - data: |
+     :label EOF1I0025 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      01000C  # Three code segments
+      020003  # Three code segments
+        0029  #   code seg 0: 41 bytes
+        000B  #   code seg 1: 11 bytes
+        001F  #   code seg 2: 31 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0400  # Max stack height 1024
+              # Code segment 1 header
+          00  # Zero inputs
+          0a  # Ten outputs
+        000a  # Max stack height 10
+              # Code segment 2 header
+          00  # Zero inputs
+          64  # A hundred outputs
+        0064  # Max stack height 100
+              # Code segment 0 code
+          E30002  #  0 CALLF #2
+          E30002  #  3 CALLF #2
+          E30002  #  6 CALLF #2
+          E30002  #  9 CALLF #2
+          E30002  #  C CALLF #2
+          E30002  #  F CALLF #2
+          E30002  # 12 CALLF #2
+          E30002  # 15 CALLF #2
+          E30002  # 18 CALLF #2
+          E30002  # 1B CALLF #2
+          E30001  # 1E CALLF #1
+          E30001  # 21 CALLF #1
+              30  # 24 ADDRESS
+              30  # 25 ADDRESS
+              30  # 26 ADDRESS
+              30  # 27 ADDRESS
+          00      # 28 STOP
+              # Code segment 1 code
+          30  #  0 ADDRESS
+          30  #  1 ADDRESS
+          30  #  2 ADDRESS
+          30  #  3 ADDRESS
+          30  #  4 ADDRESS
+          30  #  5 ADDRESS
+          30  #  6 ADDRESS
+          30  #  7 ADDRESS
+          30  #  8 ADDRESS
+          30  #  9 ADDRESS
+          E4  #  A RETF
+              # Code segment 2 code
+          E30001  #  0 CALLF #1
+          E30001  #  3 CALLF #1
+          E30001  #  6 CALLF #1
+          E30001  #  9 CALLF #1
+          E30001  #  C CALLF #1
+          E30001  #  F CALLF #1
+          E30001  # 12 CALLF #1
+          E30001  # 15 CALLF #1
+          E30001  # 18 CALLF #1
+          E30001  # 1B CALLF #1
+          E4      # 1E RETF
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_MaxStackHeightExceeded"
+
+  # Data 30
+  # EOF1V0003 check that valid EOF1 with four code sections deploys
+  - data: |
+     :label EOF1V0003 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010010 # Types length ( 16 )
+      020004 # Total code sections ( 4 )
+        000b # Code section  0 , 11  bytes
+        0003 # Code section  1 , 3  bytes
+        0003 # Code section  2 , 3  bytes
+        0003 # Code section  3 , 3  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          01 # 1 inputs
+          01 # 1 outputs
+        0001 # max stack: 1
+             # Code 2 types
+          00 # 0 inputs
+          00 # 0 outputs
+        0001 # max stack: 1
+             # Code 3 types
+          01 # 1 inputs
+          01 # 1 outputs
+        0001 # max stack: 1
+             # Code section 0
+          30 # [0] ADDRESS 
+      e30001 # [1] CALLF(1) 
+      e30003 # [4] CALLF(3) 
+      e30002 # [7] CALLF(2) 
+          00 # [10] STOP 
+             # Code section 1
+          50 # [0] POP 
+          30 # [1] ADDRESS 
+          e4 # [2] RETF 
+             # Code section 2
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          e4 # [2] RETF 
+             # Code section 3
+          50 # [0] POP 
+          30 # [1] ADDRESS 
+          e4 # [2] RETF 
+             # Data section 
+      0bad60a7
+
+
+  # Data 31
+  # EOF1V0005 check that EOF1 with the right maxStackDepth deploys
+  - data: |
+     :label EOF1V0005 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010010 # Types length ( 16 )
+      020004 # Total code sections ( 4 )
+        0015 # Code section  0 , 21  bytes
+        0005 # Code section  1 , 5  bytes
+        0007 # Code section  2 , 7  bytes
+        0007 # Code section  3 , 7  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0002 # max stack: 2
+             # Code 2 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0003 # max stack: 3
+             # Code 3 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code section 0
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          5f # [2] PUSH0 
+          35 # [3] CALLDATALOAD 
+      e202000000030006 # [4] RJUMPV(0,3,6) 
+      e50001 # [12] JUMPF(1) 
+      e50002 # [15] JUMPF(2) 
+      e50003 # [18] JUMPF(3) 
+             # Code section 1
+          30 # [0] ADDRESS 
+          30 # [1] ADDRESS 
+          50 # [2] POP 
+          50 # [3] POP 
+          00 # [4] STOP 
+             # Code section 2
+          30 # [0] ADDRESS 
+          30 # [1] ADDRESS 
+          30 # [2] ADDRESS 
+          50 # [3] POP 
+          50 # [4] POP 
+          50 # [5] POP 
+          00 # [6] STOP 
+             # Code section 3
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          30 # [2] ADDRESS 
+          50 # [3] POP 
+          30 # [4] ADDRESS 
+          50 # [5] POP 
+          00 # [6] STOP 
+             # Data section 
+      0bad60a7
+
+  # Data 32
+  # EOF1V0007 check that function calls to code sections that exist are allowed
+  - data: |
+     :label EOF1V0007 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010010 # Types length ( 16 )
+      020004 # Total code sections ( 4 )
+        0010 # Code section  0 , 16  bytes
+        0003 # Code section  1 , 3  bytes
+        0007 # Code section  2 , 7  bytes
+        0007 # Code section  3 , 7  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0000 # max stack: 0
+             # Code 2 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0003 # max stack: 3
+             # Code 3 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code section 0
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          5f # [2] PUSH0 
+          35 # [3] CALLDATALOAD 
+      e20100000003 # [4] RJUMPV(0,3) 
+      e50001 # [10] JUMPF(1) 
+      e50003 # [13] JUMPF(3) 
+             # Code section 1
+      e50002 # [0] JUMPF(2) 
+             # Code section 2
+          30 # [0] ADDRESS 
+          30 # [1] ADDRESS 
+          30 # [2] ADDRESS 
+          50 # [3] POP 
+          50 # [4] POP 
+          50 # [5] POP 
+          00 # [6] STOP 
+             # Code section 3
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          30 # [2] ADDRESS 
+          50 # [3] POP 
+          30 # [4] ADDRESS 
+          50 # [5] POP 
+          00 # [6] STOP 
+             # Data section 
+      0bad60a7
+
+  # Data 33
+  # EOF1I0011 check that function calls to code sections that don't exist fail
+  - data: |
+     :label EOF1I0011 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010010 # Types length ( 16 )
+      020004 # Total code sections ( 4 )
+        0015 # Code section  0 , 21  bytes
+        0003 # Code section  1 , 3  bytes
+        0007 # Code section  2 , 7  bytes
+        0007 # Code section  3 , 7  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0000 # max stack: 0
+             # Code 2 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0003 # max stack: 3
+             # Code 3 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code section 0
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          5f # [2] PUSH0 
+          35 # [3] CALLDATALOAD 
+      e202000000030006 # [4] RJUMPV(0,3,6) 
+      e50001 # [12] JUMPF(1) 
+      e50002 # [15] JUMPF(2) 
+      e50003 # [18] JUMPF(3) 
+             # Code section 1
+      e5000f # [0] JUMPF(15) 
+             # Code section 2
+          30 # [0] ADDRESS 
+          30 # [1] ADDRESS 
+          30 # [2] ADDRESS 
+          50 # [3] POP 
+          50 # [4] POP 
+          50 # [5] POP 
+          00 # [6] STOP 
+             # Code section 3
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+          30 # [2] ADDRESS 
+          50 # [3] POP 
+          30 # [4] ADDRESS 
+          50 # [5] POP 
+          00 # [6] STOP 
+             # Data section 
+      0bad60a7
+    expectException:
+      ">=Prague": "EOF_InvalidCodeSectionIndex"
+
+
+  # Data 34
+  # EOF1I0012 check that code sections that cause stack underflow fail
+  - data: |
+     :label EOF1I0012 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010008 # Types length ( 8 )
+      020002 # Total code sections ( 2 )
+        0006 # Code section  0 , 6  bytes
+        0003 # Code section  1 , 3  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          02 # 2 inputs
+          80 # 0 outputs (Non-returning function)
+        0002 # max stack: 2
+             # Code section 0
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+      e50001 # [2] JUMPF(1) 
+          00 # [5] STOP 
+             # Code section 1
+          50 # [0] POP 
+          50 # [1] POP 
+          00 # [2] STOP 
+             # Data section 
+      0bad60a7
+    expectException:
+      ">=Prague" : "EOF_StackUnderflow"
+
+
+  # Data 35
+  # EOF1I0013 check that we can't return more values than we declare
+  - data: |
+     :label EOF1I0013 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010008 # Types length ( 8 )
+      020002 # Total code sections ( 2 )
+        0006 # Code section  0 , 6  bytes
+        0003 # Code section  1 , 3  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0001 # max stack: 1
+             # Code 1 types
+          00 # 0 inputs
+          01 # 1 outputs
+        0002 # max stack: 2
+             # Code section 0
+          30 # [0] ADDRESS 
+          50 # [1] POP 
+      e30001 # [2] CALLF(1) 
+          00 # [5] STOP 
+             # Code section 1
+          30 # [0] ADDRESS 
+          30 # [1] ADDRESS 
+          e4 # [2] RETF 
+             # Data section 
+      0bad60a7
+    expectException:
+      ">=Prague" : "EOF_InvalidNumberOfOutputs"
+
+  # Data 36
+  # EOF1I0014 check that code that looks deeper in the stack than the parameters fails
+  - data: |
+     :label EOF1I0014 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010008 # Types length ( 8 )
+      020002 # Total code sections ( 2 )
+      0006 # Code section  0 , 6  bytes
+      0003 # Code section  1 , 3  bytes
+      040004 # Data section length ( 4 )
+        00 # Terminator (end of header)
+           # Code 0 types
+        00 # 0 inputs
+        80 # 0 outputs (Non-returning function)
+      0001 # max stack: 1
+           # Code 1 types
+        01 # 1 inputs
+        01 # 1 outputs
+      0002 # max stack: 2
+           # Code section 0
+        30 # [0] ADDRESS 
+        50 # [1] POP 
+      e30001 # [2] CALLF(1) 
+        00 # [5] STOP 
+           # Code section 1
+        30 # [0] ADDRESS 
+        91 # [1] SWAP2 
+        e4 # [2] RETF 
+           # Data section 
+      0bad60a7
+    expectException:
+      ">=Prague" : "EOF_StackUnderflow"
+
+  # Data 37
+  # EOF1I0010 check that return values are not allowed on section 0
+  - data: |
+     :label EOF1I0010 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          01  # One output (not allowed in section 0)
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           FE #  3 Designated invalid opcode
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidFirstSectionType"
+
+  # Data 38
+  # EOF1V0009 check that parameters are allowed on code sections that aren't zero
+  # EOF1V0010 parameters are part of the max stack height
+  - data: |
+     :label EOF1V0010 :raw 0x
+      # EOF deployed code 
+      EF0001 # Magic and Version ( 1 )
+      010008 # Types length ( 8 )
+      020002 # Total code sections ( 2 )
+        0005 # Code section  0 , 5  bytes
+        0003 # Code section  1 , 3  bytes
+      040004 # Data section length ( 4 )
+          00 # Terminator (end of header)
+             # Code 0 types
+          00 # 0 inputs
+          80 # 0 outputs (Non-returning function)
+        0002 # max stack: 2
+             # Code 1 types
+          02 # 2 inputs
+          80 # 0 outputs (Non-returning function)
+        0002 # max stack: 2
+             # Code section 0
+          30 # [0] ADDRESS 
+          5f # [1] PUSH0 
+      e50001 # [2] JUMPF(1) 
+             # Code section 1
+          50 # [0] POP 
+          50 # [1] POP 
+          00 # [2] STOP 
+             # Data section 
+      0bad60a7
+  # Data 39
+  # EOF1I0017 check that parameters are not allowed on section 0
+  - data: |
+     :label EOF1I0017 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          01  # One inputs (not allowed in section 0)
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           FE #  3 Designated invalid opcode
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidFirstSectionType"
+
+
+  # Data 40
+  # EOF1I0009 check that EOF1 with the wrong maxStackDepth fails
+  - data: |
+     :label EOF1I0009 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0003  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidMaxStackHeight"
+
+  # Data 41
+  # EOF1I0009 check that EOF1 with the wrong maxStackDepth fails
+  - data: |
+     :label EOF1I0009 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0001  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0005  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           30 #  3 ADDRESS 
+           50 #  4 POP
+           00 #  5 STOP
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+  # Data 42
+  # EOF1I0007 check that EOF1 with a malformed code section fails
+  - data: |
+     :label EOF1I0007 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040004  # Four byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           62 #  3 PUSH3 (without a value)
+              # Data segment
+           0bad60A7  # 4 bytes (valid)
+    expectException:
+      ">=Prague" : "EOF_TruncatedImmediate"
+
+
+  # Data 43
+  # check that EOF1 with a bad end of sections number fails
+  - data: |
+     :label badsectionnumber :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      FF      # End of header (bad)
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+
+  # Data 44
+  # EOF1I0001 check that EOF1 with a bad magic number fails
+  - data: |
+      :label EOF1I0001 :raw 0x
+      # EOF deployed code 
+      ef0201  # Bad magic followed by version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_InvalidPrefix"
+
+  # Data 45
+  # EOF1I0002 check that EOF1 with a bad version number fails (ver 0)
+  - data: |
+     :label EOF1I0002 :raw 0x
+      # EOF deployed code 
+      ef0000  # Magic followed by bad version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UnknownVersion"
+
+  # EOF1I0002 check that EOF1 with a bad version number fails (ver 2)
+  - data: |
+     :label EOF1I0002 :raw 0x
+      # EOF deployed code 
+      ef0002  # Magic followed by bad version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_UnknownVersion"
+
+  # EOF1I0003 check that EOF1 with a bad section order fails
+  - data: |
+     :label EOF1I0003 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by bad version
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      010004  # One code segment
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_TypeSectionMissing"
+
+  # EOF1I0003 check that EOF1 with a bad section order fails
+  - data: |
+     :label EOF1I0003 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by bad version
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      010004  # One code segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_TypeSectionMissing"
+
+
+  # EOF1I0004 check that EOF1 missing a section fails
+  - data: |
+     :label EOF1I0004 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by bad version
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_TypeSectionMissing"
+
+  # EOF1I0004 check that EOF1 missing a section fails
+  - data: |
+     :label EOF1I0004 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by bad version
+      010004  # One code segment
+      040001  # One byte data segment
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_CodeSectionMissing"
+
+  # EOF1I0004 check that EOF1 missing a section fails
+  - data: |
+     :label EOF1I0004 :raw 0x
+      # EOF deployed code 
+      ef0001  # Magic followed by bad version
+      010004  # One code segment
+      020001  # One code segment
+        0003  #   code seg 0: 3 bytes
+      00      # End of header
+              # Code segment 0 header
+          00  # Zero inputs
+          80  # Non-Returning Function
+        0001  # Max stack height 1
+              # Code segment 0 code
+           30 #  1 ADDRESS 
+           50 #  2 POP
+           00 #  3 STOP
+              # Data segment
+           ef
+    expectException:
+      ">=Prague" : "EOF_DataSectionMissing"
+
+
+  # EOF1 constructor returning an EOF1 contract
+  # TODO: rewrite to EOFCREATE, when it's ready
+  # - data: |
+  #     :label eofreof1 :raw 
+  #     0xEF0001  # Magic and version
+  #       010004  # One code segment
+  #       020001  # One code segment
+  #         000a  # Code segment zero length: 10 bytes
+  #       040016  # Data segment length (the code being deployed): 0x16=22 bytes
+  #       00      # End of header 
+
+  #       # Code segment zero (header)
+  #           00 # No inputs
+  #           80  # Non-Returning Function
+  #         0003 # Max stack height 3
+
+
+  #       # Code segment zero (actual code)
+  #       38    #  0   CODESIZE   <codesize>
+  #       6000  #  1   PUSH1 0    0,<codesize>
+  #       6000  #  3   PUSH1 0    0,0,<codesize>
+  #       39    #  5   CODECOPY (from the code to memory, copy everything)
+  #       38    #  6   CODESIZE  <codesize>
+  #       601D  #  7   PUSH1 0x1d (= 22)  <codesize>,0x1d 
+  #       F3    #  9   RETURN   (the deployed code is code size long, starting at byte 22)
+  #             # 10        
+
+  #       # Data segment (which happens to also be EOF1 code)
+  #       EF0001 # Magic and version
+  #       010004 # One code segment
+  #       020001 # One code segment
+  #         0003 # Code segment zero's length: 3 bytes 
+  #       04001d # Data segment length: 22 bytes 
+  #              # (not specified here, but part of the buffer returned by the init code)
+  #       00     # End of header
+  #       # Code segment 0 header         
+  #           00 # No inputs
+  #           00 # No outputs
+  #         0001 # Max stack height 1
+  #       # Code segment 0 code
+  #           38 # CODESIZE
+  #           50 # POP
+  #           00 # STOP
+  # # Init code which doesn't create a contract
+  # - data: :label bad :raw 0x610BADFE
+  #   expectException:
+  #     ">=Prague" : "EOF_InvalidMagic"
+

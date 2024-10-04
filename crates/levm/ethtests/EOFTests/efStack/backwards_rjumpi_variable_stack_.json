@@ -1,0 +1,92 @@
+{
+    "backwards_rjumpi_variable_stack" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "2ba9c90c8eb9972915f2eae298a589578411461538811397c6401c2635f678c2",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/backwards_rjumpi_variable_stack_Copier.json",
+            "sourceHash" : "6ff69d92e4a7be1352c8f19dcbd8bba6faddf36cb1cd96959e192039a4864f5f"
+        },
+        "vectors" : {
+            "backwards_rjumpi_variable_stack_0" : {
+                "code" : "0xef0001010004020001000e04000000008000045f6000e100025f5f6000e1fffb00",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_1" : {
+                "code" : "0xef0001010004020001001004000000008000045f6000e100025f5f5f506000e1fff900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_2" : {
+                "code" : "0xef0001010004020001001504000000008000045f6000e100025f5f5f506000e1fff96000e1fff400",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_3" : {
+                "code" : "0xef0001010004020001001604000000008000055f6000e100025f5f5f506000e1fff95f6000e1fff300",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_4" : {
+                "code" : "0xef0001010004020001001104000000008000055f6000e100025f5f5f60010180e1fff900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_5" : {
+                "code" : "0xef0001010004020001001204000000008000055f6000e100025f5f5f6001018080e1fff800",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_6" : {
+                "code" : "0xef0001010004020001001004000000008000055f6000e100025f5f5f5f5f50e1fffc00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_7" : {
+                "code" : "0xef0001010004020001001204000000008000045f6000e100025f5f5f506000e1fff9e0fff6",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjumpi_variable_stack_8" : {
+                "code" : "0xef0001010004020001001304000000008000045f6000e100025f5f5f506000e1fff95fe0fff5",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

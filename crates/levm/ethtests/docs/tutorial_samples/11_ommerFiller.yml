@@ -1,0 +1,59 @@
+11_ommer:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: 0x1111111111111111111111111111111111111111
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    gasLimit: 10240000
+    baseFeePerGas: 1000
+  sealEngine: NoProof
+
+
+  pre:
+    # Externally owned account (the result of entropy being all zeros)
+    0x9858EfFD232B4033E47d90003D41EC34EcaEda94:
+      balance: 0x10000000000
+      code: ''
+      nonce: 1
+      storage: {}
+
+
+
+
+  blocks:
+  - blocknumber: 1
+    transactions: []
+
+  - blocknumber: 2
+    transactions: []
+
+  - blocknumber: 3
+    transactions: []
+
+  - blocknumber: 4
+    transactions: []
+    uncleHeaders:
+      - populateFromBlock: 1
+        extraData: 0x43
+        coinbase: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      - populateFromBlock: 2
+        extraData: 0x43
+        coinbase: 0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+
+  expect:
+  - network:
+    - ">=London"
+    # No real result, this test is based on exceptions
+    # No transactions, so no need to check the nonces either
+    result: {}
+
+

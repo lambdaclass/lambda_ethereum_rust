@@ -1,0 +1,25 @@
+{
+    "callf_invalid_code_section_index" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "ccccf88408dfbb42e6163db1c5941ace444fb7f7eb4703de03a40313e824744b",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/callf_invalid_code_section_index_Copier.json",
+            "sourceHash" : "004a3be266f688134f599ecce6702a9198fd067f2ccfb1e4f754686e03942e91"
+        },
+        "vectors" : {
+            "callf_invalid_code_section_index_0" : {
+                "code" : "0xef000101000402000100040400000000800000e3000100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidCodeSectionIndex",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

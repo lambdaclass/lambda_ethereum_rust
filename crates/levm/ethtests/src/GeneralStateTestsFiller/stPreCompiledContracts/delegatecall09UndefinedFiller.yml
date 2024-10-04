@@ -1,0 +1,60 @@
+delegatecall09Undefined:
+  _info:
+    comment: |
+      This test invokes delegatecall to the Blake2b (09) precompile in the revision it has been
+      defined (Istanbul) and in the one before it (ConstantinopleFix). For the defined precompile
+      the call should result in a failure and the single gas unit provided should be consumed.
+      In case the precompile is undefined, the call should succeed and no gas should be consumed.
+  env:
+    currentCoinbase: a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    currentDifficulty: 1
+    currentGasLimit: 1000000
+    currentNumber: 1
+    currentTimestamp: 1000
+  expect:
+    - indexes:
+        data: !!int -1
+      network:
+        - ConstantinopleFix
+      result:
+        0000000000000000000000000000000000000009:
+          shouldnotexist: 1
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0: 1  # DELEGATECALL to empty account is successful
+    - indexes:
+        data: !!int -1
+      network:
+        - ">=Istanbul"
+      result:
+        0000000000000000000000000000000000000009:
+          shouldnotexist: 1
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage: {}  # DELEGATECALL to Blake2b fails
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      nonce: 0
+      balance: 100000000000000
+      storage: {}
+      code: ''
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      nonce: 0
+      balance: 0
+      storage:
+        0: 0xfe
+      code: |
+        :yul berlin
+        {
+          sstore(0, delegatecall(1, 9, 0, 0, 0, 0))
+        }
+  transaction:
+    data:
+      - ''
+    gasLimit:
+      - 90000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+      - 0

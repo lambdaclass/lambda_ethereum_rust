@@ -1,0 +1,65 @@
+{
+    "TRANSCT_to_TooShort" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "2514785fa203a5d57a8d8cb235b0a42d30d934c627ef2c9b73dc38bbca2e348d",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttWrongRLP/TRANSCT_to_TooShortCopier.json",
+            "sourceHash" : "fc52c966e1768814369e83cb786923a42087dde3a2dd227bd3a1367e46a029aa"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "AddressTooShort",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf85f03018207d0925374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+    }
+}

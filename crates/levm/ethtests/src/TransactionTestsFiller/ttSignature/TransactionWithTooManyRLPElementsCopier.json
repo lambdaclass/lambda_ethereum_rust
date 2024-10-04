@@ -1,0 +1,47 @@
+{
+    "TransactionWithTooManyRLPElements" : {
+        "result" : {
+            "Berlin" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "RLP_TooManyElements",
+				"intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf860800182520894000000000000000000000000000b9331677e6ebf0a801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa01887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a380"
+    }
+}

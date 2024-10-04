@@ -1,0 +1,21 @@
+{
+    "NotEnoughGasLimit" :
+    {
+	    "expectException" : 
+        {
+            ">=Frontier" : "TR_IntrinsicGas"
+        },
+        "transaction" :
+        {
+            "data" : "0x",
+            "gasLimit" : "20999",
+            "gasPrice" : "1",
+            "nonce" : "3",
+            "to" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : "10",
+            "v" : "27",
+            "r" : "0x98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a",
+            "s" : "0x7778cde41a8a37f6a087622b38bc201bd3e7df06dce067569d4def1b53dba98c"
+        }
+    }
+}

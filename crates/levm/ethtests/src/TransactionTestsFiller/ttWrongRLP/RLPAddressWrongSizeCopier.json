@@ -1,0 +1,55 @@
+{
+    "RLPAddressWrongSize": {
+        "result": {
+            "Shanghai": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Paris": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Berlin": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Byzantium": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Constantinople": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP150": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP158": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Frontier": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Homestead": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "Istanbul": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            },
+            "London": {
+                "exception": "AddressTooShort",
+				"intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes": "0xf866830ffdc50183adc05390fce5edbc8e2a8697c15331677e6ebf0b870ffdc5fffdc12c801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+    }
+}

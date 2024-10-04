@@ -1,0 +1,52 @@
+{
+    "EOF1_rjumpv_truncated" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "3ed0ca0baf50cf26b1d7360a33eb22367004bd1bcdb436d4fbe88fc5a14b1836",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_rjumpv_truncated_Copier.json",
+            "sourceHash" : "731cf7b457772f64ff2ea2b7fbe1825d8d0a005a43f313fd9d7a9b304b678c53"
+        },
+        "vectors" : {
+            "EOF1_rjumpv_truncated_0" : {
+                "code" : "0xef0001010004020001000504000000008000006000e20000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpv_truncated_1" : {
+                "code" : "0xef0001010004020001000704000000008000006000e201000000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpv_truncated_2" : {
+                "code" : "0xef0001010004020001000604000000008000006002e2010000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpv_truncated_3" : {
+                "code" : "0xef0001010004020001000904000000008000006002e20200000003ff",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

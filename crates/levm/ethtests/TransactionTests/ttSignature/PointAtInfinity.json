@@ -1,0 +1,69 @@
+{
+    "PointAtInfinity" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "a311004bb2bd451ca9410861e4b2f828d39efb27a797f4e3d2e8b06af35cd1fa",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/PointAtInfinityFiller.json",
+            "sourceHash" : "74ef2cd50bec0ce97f9b2b06de241f9dcb1152bc5c17e995f033bf1a5c1f4ce2"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "ECRecoveryFail",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf85f011082520894f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f001801ca06f0010ff4c31c2a6d0526c0d414e6cd01ad5d22e15bfff98af23867366b94d87a05413392d556119132da7056f8fb56a9138a36446a8a4ad7159c9d892d9f32284"
+    }
+}

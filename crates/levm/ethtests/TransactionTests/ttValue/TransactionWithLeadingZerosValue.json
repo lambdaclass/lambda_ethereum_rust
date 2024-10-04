@@ -1,0 +1,69 @@
+{
+    "TransactionWithLeadingZerosValue" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "25a8432854df4873478f36ffee8dd6c67da0dc5b037d3913cedab68b4b1db792",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttValue/TransactionWithLeadingZerosValueFiller.json",
+            "sourceHash" : "ecb7b880b6779196f1f4c399925f226f9b7fba4033560facda777a3bd7c09422"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "LeadingZerosValue",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf861800182520894095e7baea6a6c7c4c2dfeb977efac326af552d87820001801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

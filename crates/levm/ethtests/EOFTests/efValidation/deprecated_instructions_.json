@@ -1,0 +1,160 @@
+{
+    "deprecated_instructions" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "0d3ca73a69563828a38262b34264f2884e98fbb7d11fb66ee7998913d8c888b6",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/deprecated_instructions_Copier.json",
+            "sourceHash" : "63306288a5e21bd17d6907b0fadba748d02517f927d1b57fcdd8769596b248ca"
+        },
+        "vectors" : {
+            "deprecated_instructions_0" : {
+                "code" : "0xef000101000402000100010400000000800000f2",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_1" : {
+                "code" : "0xef000101000402000100010400000000800000ff",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_10" : {
+                "code" : "0xef00010100040200010001040000000080000038",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_11" : {
+                "code" : "0xef00010100040200010001040000000080000039",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_12" : {
+                "code" : "0xef0001010004020001000104000000008000003b",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_13" : {
+                "code" : "0xef0001010004020001000104000000008000003c",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_14" : {
+                "code" : "0xef0001010004020001000104000000008000003f",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_15" : {
+                "code" : "0xef0001010004020001000104000000008000005a",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_2" : {
+                "code" : "0xef00010100040200010001040000000080000056",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_3" : {
+                "code" : "0xef00010100040200010001040000000080000057",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_4" : {
+                "code" : "0xef00010100040200010001040000000080000058",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_5" : {
+                "code" : "0xef000101000402000100010400000000800000f1",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_6" : {
+                "code" : "0xef000101000402000100010400000000800000fa",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_7" : {
+                "code" : "0xef000101000402000100010400000000800000f4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_8" : {
+                "code" : "0xef000101000402000100010400000000800000f0",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            },
+            "deprecated_instructions_9" : {
+                "code" : "0xef000101000402000100010400000000800000f5",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UndefinedInstruction",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

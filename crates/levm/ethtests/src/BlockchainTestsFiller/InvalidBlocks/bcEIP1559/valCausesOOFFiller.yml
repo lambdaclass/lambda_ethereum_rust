@@ -1,0 +1,432 @@
+valCausesOOF:
+
+# Check:
+#
+# 1. Transactions are rejected if maxFeePerGas*gasLimit + value > balance
+# 2. Inside a transaction
+#         balance(caller()) = <old balance> - value - effectiveFeePerGas*gasLimit
+
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 10000000000
+    baseFeePerGas: 1142   # So the first block will have an even 1000
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000000000
+      code: ''
+      nonce: '0x00'
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Spend different amounts of gas depending on the calldata
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+          :yul london 
+          {
+              // This loop runs a number of times specified in the data,
+              // so the gas cost depends on the data
+              for { let i := calldataload(4) } gt(i,0) { i := sub(i,1) } {
+                 sstore(i, 0x60A7)
+              }     // for loop
+
+              // The balance of caller() should be 
+              // <pre transaction balance> - <value> - <gas limit>*<effective gas price>
+              sstore(caller(), balance(caller()))
+
+          }
+      storage: {}
+
+
+
+
+    0x12c76d0919D86f02524ec28c72236F1174162779:
+    # 2041d0de81d69b0ea2115d5140bc264ef62d5edc8c121711e8f2eece07b5bb86
+      balance: 100_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+    0x9B614ea711B30B3D54A1c45d2C6f9027EA696FE0:
+    # 0xef54b3fabb8c30f7eed1480fa28c920cac52573c1a94e887a4729fbe8c375558
+      balance: 100_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+    0x808338b1B333587960923cb3dEf6eC3069132eCD:
+    # 0xdc5681ab777b602285c2250c74573c9e781b7d97c625e7b1091175cd2d7f3d52
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+    0x0FaabbEc1CF7Bf8aE6369c53d56793aaf5421a85:
+    # 0xa5f078dd69f9cd640a11a9d4c5ca99519d83040c7908d116110a06bedd2aa129
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+    0x1355D451e77E62FBE82194DF153f28754AbD5172:
+    # 0x6cefbf94b7dc223b2aa2f99150e3595dd3905120ba0d709e12b27a2691290418
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+   
+
+    0x673585130E6dAbA3ce6ED8E33541835f95a7a5d9:
+    # 0x4d10203e84957f85d8c5fad5dffb067efbeddbd29925808bd8af666ba7f996e4
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+
+    0x1Fa60939bB376BF080e6C4F3e4544dAD8284331d:
+    # 0x19c65bb8f157cc692612835df10892781c52fef867459239dd3d78473451c863
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+    0x40Fe9DDfC9aE9EB172F88a137432CC04C01CA5e5:
+    # 0x10931975153e383cca79d427d6500a48fd4e033f9072626893af03699340ba9f
+      balance: 100_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+
+
+    0xe498FbCc6667a818CbE096c503E64Bbd6207EA18:
+    # 0x1fc4ce1dbf2401478a796d68cb9c5fd5660e0a7527112e15ad28aba9b67770ff
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+    0xbC6C9ab197Ffd3CE7421DdcC0721959814b50826:
+    # 0x9bcb80ad542efb6f202e1b79db56026be8a76ae5919b7223f6e352d7ea9f7a5c
+      balance: 200_000_000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+# To create more accounts:
+# 1. Load https://qbzzt.github.io/ethereum/paper_wallet.html
+# 2. Open console
+# 3. Run this Javascript: 
+#   (wallet => console.log('    ' + wallet.address+':\n    # ' + wallet.privateKey))
+#   (ethers.Wallet.createRandom())
+
+  blocks:
+  
+  - transactions:
+    # Max fee 1000, gas limit 100k, but fails because maxFeePerGas 2000
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: 1
+      secretKey: 2041d0de81d69b0ea2115d5140bc264ef62d5edc8c121711e8f2eece07b5bb86
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+      expectException:
+        '>=London': TR_NoFunds
+
+
+    # Max fee 1000, gas limit 100k, should work
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: 1
+      secretKey: 2041d0de81d69b0ea2115d5140bc264ef62d5edc8c121711e8f2eece07b5bb86
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+    # Max fee 1000, gas limit 100k, but the balance is lower (because we already
+    # had a transaction)
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: 2
+      secretKey: 2041d0de81d69b0ea2115d5140bc264ef62d5edc8c121711e8f2eece07b5bb86
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+      expectException:
+        '>=London': TR_NoFunds
+
+
+    # Max fee 1000, gas limit 100k, but value=1 so it fails
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: 1
+      secretKey: 0xef54b3fabb8c30f7eed1480fa28c920cac52573c1a94e887a4729fbe8c375558
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 1
+      expectException:
+        '>=London': TR_NoFunds
+
+
+
+    # Max fee 1500, gas limit 100k, value 50M, balance 200M
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 500
+      maxFeePerGas: 1500
+      nonce: 1
+      secretKey: 0xdc5681ab777b602285c2250c74573c9e781b7d97c625e7b1091175cd2d7f3d52
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 50_000_000
+
+
+    # Max fee 1500, gas limit 100k, value 50M+1, balance 200M, should fail
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 500
+      maxFeePerGas: 1500
+      nonce: 1
+      secretKey: 0xa5f078dd69f9cd640a11a9d4c5ca99519d83040c7908d116110a06bedd2aa129
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 50_000_001
+      expectException:
+        '>=London': TR_NoFunds
+
+
+    # Max fee 1400, gas limit 100k, value 50M+1, balance 200M, should work
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 500
+      maxFeePerGas: 1400
+      nonce: 1
+      secretKey: 0xa5f078dd69f9cd640a11a9d4c5ca99519d83040c7908d116110a06bedd2aa129
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 50_000_001
+
+
+    # Max fee 1100, gas limit 100k, value 90M+1, balance 200M, should fail
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 500
+      maxFeePerGas: 1100
+      nonce: 1
+      secretKey: 0x6cefbf94b7dc223b2aa2f99150e3595dd3905120ba0d709e12b27a2691290418
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 90_000_001
+      expectException:
+        '>=London': TR_NoFunds
+
+
+
+    # Max fee 1100, gas limit 100k, value 90M, balance 200M, should work
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      maxPriorityFeePerGas: 500
+      maxFeePerGas: 1100
+      nonce: 1
+      secretKey: 0x6cefbf94b7dc223b2aa2f99150e3595dd3905120ba0d709e12b27a2691290418
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 90_000_000
+
+
+
+    # Type 0 transaction
+    # Gas price 1900, gas limit 100k, value 10M+1, blanace 200M, should fail
+    - data: :abi f(uint) 2
+      gasLimit: 100_000	
+      gasPrice: 1900
+      nonce: 1
+      secretKey: 0x4d10203e84957f85d8c5fad5dffb067efbeddbd29925808bd8af666ba7f996e4
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 10_000_001
+      expectException:
+        '>=London': TR_NoFunds
+
+
+
+
+    # Type 0 transaction
+    # Gas price 1900, gas limit 100k, value 10M, blanace 200M, should work
+    - data: :abi f(uint) 2
+      gasLimit: 100_000	
+      gasPrice: 1900
+      nonce: 1
+      secretKey: 0x4d10203e84957f85d8c5fad5dffb067efbeddbd29925808bd8af666ba7f996e4
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 10_000_000
+
+
+
+    # Type 1 transaction
+    # Gas price 1900, gas limit 100k, value 10M+1, blanace 200M, should fail
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      gasPrice: 1900
+      nonce: 1
+      secretKey: 0x19c65bb8f157cc692612835df10892781c52fef867459239dd3d78473451c863
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 10_000_001
+      expectException:
+        '>=London': TR_NoFunds
+
+
+
+    # Type 1 transaction
+    # Gas price 1900, gas limit 100k, value 10M, blanace 200M, should work
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      gasPrice: 1900
+      nonce: 1
+      secretKey: 0x19c65bb8f157cc692612835df10892781c52fef867459239dd3d78473451c863
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 10_000_000
+
+
+    # Type 0 transaction
+    # Gas price 1000, gas limit 90k, value 10k, balance 100M, should work
+    # and have internal balance of 10M-10k
+    # 0x40fe9ddfc9ae9eb172f88a137432cc04c01ca5e5
+    - data: :abi f(uint) 2
+      gasLimit: 90_000	
+      gasPrice: 1000
+      nonce: 1
+      secretKey: 0x10931975153e383cca79d427d6500a48fd4e033f9072626893af03699340ba9f
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 10_000
+
+
+
+    # Type 1 transaction
+    # Gas price 1900, gas limit 100k, value 10k, balance 200M, should work
+    # and have internal balance of 10M-10k
+    # 0xe498FbCc6667a818CbE096c503E64Bbd6207EA18:
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 100_000	
+      gasPrice:    1900
+      nonce: 1
+      secretKey: 0x1fc4ce1dbf2401478a796d68cb9c5fd5660e0a7527112e15ad28aba9b67770ff
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 10_000
+
+
+    # Fail because value > balance, type 0
+    - data: :abi f(uint) 2
+      gasLimit: 1
+      gasPrice: 1000
+      nonce: 1
+      secretKey: 0x9bcb80ad542efb6f202e1b79db56026be8a76ae5919b7223f6e352d7ea9f7a5c
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 300_000_000
+      expectException:
+        '>=London': TR_NoFundsOrGas
+
+
+    # Fail because value > balance, type 1
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 1
+      gasPrice: 1000
+      nonce: 1
+      secretKey: 0x9bcb80ad542efb6f202e1b79db56026be8a76ae5919b7223f6e352d7ea9f7a5c
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 300_000_000
+      expectException:
+        '>=London': TR_NoFundsOrGas
+
+
+
+    # Fail because value > balance, type 2
+    - data: :abi f(uint) 2
+      accessList: []
+      gasLimit: 1
+      maxPriorityFeePerGas: 500
+      maxFeePerGas: 1100
+      nonce: 1
+      secretKey: 0x9bcb80ad542efb6f202e1b79db56026be8a76ae5919b7223f6e352d7ea9f7a5c
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 300_000_000
+      expectException:
+        '>=London': TR_NoFundsOrGas
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+         storage:
+           # Just gas wasters
+           1: 0x60A7
+           2: 0x60A7
+           
+           # In many cases when a transaction runs 
+           # it is with balance = effectiveGasPrice*gasLimit + value,
+           # in which case the balance inside the transaction is zero
+           # and doesn't appear to be written (because zero is the default value)
+
+           # Type 0 transaction
+           # Gas price 1000, gas limit 90k, value 10k, balance 100M
+           # have internal balance of 10M-10k
+           0x40fe9ddfc9ae9eb172f88a137432cc04c01ca5e5: 9_990_000
+
+           # Type 1 transaction
+           # Gas price 1900, gas limit 100k, value 10k, balance 200M
+           # have internal balance of 10M-10k
+           0xe498FbCc6667a818CbE096c503E64Bbd6207EA18: 9_990_000
+
+           # Type 2 transaction
+           # Max fee 1400, gas limit 100k, value 50M+1, balance 200M
+           # 200M - 140M (gas) - (50M+1) (value)
+           0x0faabbec1cf7bf8ae6369c53d56793aaf5421a85: 9_999_999
+

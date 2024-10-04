@@ -1,0 +1,627 @@
+# Test the blake2B precompile (#9)
+# Specified in https://eips.ethereum.org/EIPS/eip-152.
+
+
+blake2B:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:  
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      code: |
+        :yul berlin
+         {
+         // Selected test case / number of rounds
+         let param := calldataload(0x04)
+
+         // Message length (if specified)
+         let msgLen := calldataload(0x24)
+
+         // The default buffer length. Changed by some test cases
+         let bufLength := 213
+
+         // The test case we're checking
+         switch param
+           // 0-8 are test cases from the EIP
+           //
+           // Huge strings in the EIP cut into 0x20 chunks using:
+           // for(var i=0; i<(2*0xE0); i+=0x40) {
+           //     console.log(`mstore(0x${(i/2).toString(16)}, 0x${
+           //          x.slice(i, i+0x40).padEnd(0x40, "0")})`)
+           // }
+          
+           case 0 {
+             bufLength := 0
+           }
+           case 1 {
+             bufLength := 212
+             mstore(0x00, 0x00000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3a)
+             mstore(0x20, 0xf54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319)
+             mstore(0x40, 0xcde05b6162630000000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000300000000000000000000000000000001000000000000000000000000)
+           }
+           case 2 {
+             bufLength := 214
+             mstore(0x00, 0x000000000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d)
+             mstore(0x20, 0x5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e)
+             mstore(0x40, 0x1319cde05b616263000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000000030000000000000000000000000000000100000000000000000000)
+           }
+           case 3 {
+             mstore(0x00, 0x0000000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000003000000000000000000000000000000020000000000000000000000)
+           }
+           case 4 {
+             mstore(0x00, 0x0000000048c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xC0, 0x0000000003000000000000000000000000000000010000000000000000000000)
+           }
+           case 5 {
+             mstore(0x00,0x0000000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20,0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40,0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60,0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80,0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0,0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0,0x0000000003000000000000000000000000000000010000000000000000000000)
+           }
+           case 6 {
+             mstore(0x00, 0x0000000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000003000000000000000000000000000000000000000000000000000000)
+           }
+           case 7 {
+             mstore(0x00, 0x0000000148c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000003000000000000000000000000000000010000000000000000000000)
+           }
+           // Not used because it's 2^64-1 rounds which is too slow
+           case 8 {
+             mstore(0x00, 0xffffffff48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000003000000000000000000000000000000010000000000000000000000)
+           }
+
+
+           // This case is provided by jochem-brouwer in 
+           // https://github.com/ethereum/tests/pull/948#issuecomment-925964632  
+           case 9 {
+             mstore(0x00, 0x0000000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626364650000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000005000000000000000000000000000000010000000000000000000000)
+           }
+
+           // if param is over 0x0F then it's the number of rounds
+           if gt(param, 0x0F) {
+             mstore(0x00, 0x0000000048c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f)
+             mstore(0x20, 0x3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e13)
+             mstore(0x40, 0x19cde05b61626300000000000000000000000000000000000000000000000000)
+             mstore(0x60, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0x80, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xa0, 0x0000000000000000000000000000000000000000000000000000000000000000)
+             mstore(0xc0, 0x0000000003000000000000000000000000000000010000000000000000000000)
+
+             // The first four bytes are the number of rounds.
+             mstore8(0x00, shr(24, and(param, 0xFF000000)))
+             mstore8(0x01, shr(16, and(param, 0x00FF0000)))
+             mstore8(0x02, shr( 8, and(param, 0x0000FF00)))
+             mstore8(0x03,         and(param, 0x000000FF))
+           }  // if param is over 0x0F
+
+           // The message starts at byte 0x44
+           if gt(msgLen, 0) {
+               for { } gt(msgLen, 0) { } {
+                 // Write a byte
+                 mstore8(add(0x44, msgLen), add(0x60, msgLen))
+                 msgLen := sub(msgLen, 1)
+               }
+           }
+
+           // The input is bytes 0-bufLength
+           // The output is bytes 0x200-0x23F
+           let retVal := call(gas(), 9, 0, 0, bufLength, 0x200, 0x40)
+
+           // Return the results
+           sstore(0, retVal)   // Success? Failure?
+           // The output
+           sstore(1, mload(0x200))  
+           sstore(2, mload(0x220))
+        }  
+      nonce: '0'
+      storage: {}
+      balance: 0
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    - :label fail     :abi f(uint) 0
+    - :label fail     :abi f(uint) 1
+    - :label fail     :abi f(uint) 2
+    - :label fail     :abi f(uint) 3
+    - :label case-04  :abi f(uint) 4
+    - :label case-05  :abi f(uint) 5
+    - :label case-06  :abi f(uint) 6
+    - :label case-07  :abi f(uint) 7
+# Commented out because the huge number of rounds (2^64-1) makes the test
+# excessively slow
+#    - :label case-08 :abi f(uint) 8
+    - :label case-09  :abi f(uint) 9
+
+    # Tests with high round numbers (and the default data, 3 bytes)
+    - :label test-0016 :abi f(uint) 0x0010
+    - :label test-0032 :abi f(uint) 0x0020
+    - :label test-0064 :abi f(uint) 0x0040
+    - :label test-0128 :abi f(uint) 0x0080
+    - :label test-0256 :abi f(uint) 0x0100
+    - :label test-0512 :abi f(uint) 0x0200
+    - :label test-1024 :abi f(uint) 0x0400
+
+
+    # Tests with high round numbers, 16 bytes of data
+    - :label test-0016-16 :abi f(uint,uint) 0x0010 0x10
+    - :label test-0032-16 :abi f(uint,uint) 0x0020 0x10
+    - :label test-0064-16 :abi f(uint,uint) 0x0040 0x10
+    - :label test-0128-16 :abi f(uint,uint) 0x0080 0x10
+    - :label test-0256-16 :abi f(uint,uint) 0x0100 0x10
+    - :label test-0512-16 :abi f(uint,uint) 0x0200 0x10
+    - :label test-1024-16 :abi f(uint,uint) 0x0400 0x10
+
+    # Tests with 120 bytes of data
+    - :label test-0016-120 :abi f(uint,uint) 0x0010 120
+    - :label test-0032-120 :abi f(uint,uint) 0x0020 120
+    - :label test-0064-120 :abi f(uint,uint) 0x0040 120
+
+
+    gasLimit:
+    - 'F000000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+
+    value:
+    - '100000'
+
+
+
+  expect:
+
+  - indexes:
+      data: 
+      - :label fail
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x00
+
+          # No output, so still the default values 
+          0x01: 0x00
+          0x02: 0x00
+
+
+  - indexes:
+      data: 
+      - :label case-04
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x08c9bcf367e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5
+          0x02: 0xd282e6ad7f520e511f6c3e2b8c68059b9442be0454267ce079217e1319cde05b
+
+
+
+  - indexes:
+      data: 
+      - :label case-05
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d1
+          0x02: 0x7d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923
+
+
+
+
+  - indexes:
+      data: 
+      - :label case-06
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x75ab69d3190a562c51aef8d88f1c2775876944407270c42c9844252c26d28752
+          0x02: 0x98743e7f6d5ea2f2d3e8d226039cd31b4e426ac4f2d3d666a610c2116fde4735
+
+
+
+
+  - indexes:
+      data: 
+      - :label case-07
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xb63a380cb2897d521994a85234ee2c181b5f844d2c624c002677e9703449d2fb
+          0x02: 0xa551b3a8333bcdf5f2f7e08993d53923de3d64fcc68c034e717b9293fed7a421
+
+
+# Commented out because the number of rounds (2^64-1) causes the test to be
+# excessively ssslllooowww
+#
+#  - indexes:
+#      data: 
+#      - :label case-08
+#      gas: !!int -1
+#      value: !!int -1
+#    network: 
+#    - ">=Istanbul"
+#    result:
+#      cccccccccccccccccccccccccccccccccccccccc:
+#        storage:
+#          0x00: 0x01
+#          0x01: 0xfc59093aafa9ab43daae0e914c57635c5402d8e3d2130eb9b3cc181de7f0ecf9
+#          0x02: 0xb22bf99a7815ce16419e200e01846e6b5df8cc7703041bbceb571de6631d2615
+
+
+  - indexes:
+      data: 
+      - :label case-09
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xf3e89a60ec4b0b1854744984e421d22b82f181bd4601fb9b1726b2662da61c29
+          0x02: 0xdff09e75814acb2639fd79e56616e55fc135f8476f0302b3dc8d44e082eb83a8
+
+
+  # 16 rounds
+  - indexes:
+      data: 
+      - :label test-0016
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xa8ef8236e5f48a74af375df15681d128457891c1cc4706f30747b2d40300b2f4
+          0x02: 0x9d19f80fbd0945fd87736e1fc1ff10a80fd85a7aa5125154f3aaa3789ddff673
+
+
+  # 32 rounds
+  - indexes:
+      data: 
+      - :label test-0032
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xbc5e888ed71b546da7b1506179bdd6c184a6410c40de33f9c330207417797889
+          0x02: 0x5dbe74144468aefe5c2afce693c62dbca99e5e076dd467fe90a41278b16d691e
+
+
+  # 64 rounds
+  - indexes:
+      data: 
+      - :label test-0064
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x74097ae7b16ffd18c742aee5c55dc89d54b6f1a8a19e6139ccfb38afba56b6b0
+          0x02: 0x2cc35c441c19c21194fefb6841e72202f7c9d05eb9c3cfd8f94c67aa77d473c1
+
+
+  # 128 rounds
+  - indexes:
+      data: 
+      - :label test-0128
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xd82c6a670dc90af9d7f77644eacbeddfed91b760c65c927871784abceaab3f81
+          0x02: 0x3759733a1736254fb1cfc515dbfee467930955af56e27ee435f836fc3e65969f
+
+
+
+  # 256 rounds
+  - indexes:
+      data: 
+      - :label test-0256
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x5d6ff04d5ebaee5687d634613ab21e9a7d36f782033c74f91d562669aaf9d592
+          0x02: 0xc86346cb2df390243a952834306b389e656876a67934e2c023bce4918a016d4e
+
+
+  # 512 rounds
+  - indexes:
+      data: 
+      - :label test-0512
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xa2c1eb780a6e1249156fe0751e5d4687ea9357b0651c78df660ab004cb477363
+          0x02: 0x6298bbbc683e4a0261574b6d857a6a99e06b2eea50b16f86343d2625ff222b98
+
+
+  # 1024 rounds
+  - indexes:
+      data: 
+      - :label test-1024
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x689419d2bf32b5a9901a2c733b9946727026a60d8773117eabb35f04a52cdcf1
+          0x02: 0xb8fb4473454cf03d46c36a10b3f784aae4dc80a24424960e66a8ad5a8c2bfb30
+
+
+
+  # 16 rounds, 16 bytes of data
+  - indexes:
+      data: 
+      - :label test-0016-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x68790ca7594dd6fc28f0a86b7ddce0a225a8ea8fc2637f910eb71f6e54d9f8fa
+          0x02: 0x3e6302691015f11b15b755076d316823e6ce2ee4dd4aef60efc9189f6bd21bfd
+
+
+  # 32 rounds, 16 bytes of data
+  - indexes:
+      data: 
+      - :label test-0032-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xcf087b9b6ae026d358a13c577a04a4af4e65293be70b7cb2a7e00bd1317440af
+          0x02: 0x94b896bca7c282001aeb86cc307973096917897eadc97ed8eefb0d2b3c309a8b
+
+
+  # 64 rounds, 16 bytes of data
+  - indexes:
+      data: 
+      - :label test-0064-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xafd469613835ad3c75a54cd3087160eb308f5d6cd2151f1490f51b182dc5d130
+          0x02: 0x16428bf21e474e2921023bbeec971429210a51f0b63741583b0153fe8f6c27b6
+
+
+  # 128 rounds, 16 bytes of data
+  - indexes:
+      data: 
+      - :label test-0128-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x94e963dcaa85d33dad6c0043b6700f5e227a2d8bed804bd16970e64fa6f1e163
+          0x02: 0x07399239bcddf968612c8c9ba953d9b173575c31ef269c3a8721cb9bf1c02012
+
+
+
+  # 256 rounds, 16 bytes of data
+  - indexes:
+      data: 
+      - :label test-0256-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x7476f1f8e159b30b156b0e9fffbaee5badbb45abb488ea9cfa04f60d3a096408
+          0x02: 0x7535a649e438ba993f03cfc0d8d8676a792030a996b6a6fde5c29108b6bfb871
+
+
+  # 512 rounds, 16 bytes of data
+  - indexes:
+      data: 
+      - :label test-0512-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xa65aadbf393aad57c4b06d6471134c5c01002c23dfe8290e115e024e05bc1bf1
+          0x02: 0x084d1651de54a83902ed582cb8f2ba381c69687cceaecea0cd8fe5529f86686e
+
+
+  # 1024 rounds, 16 bytes of msg
+  - indexes:
+      data: 
+      - :label test-1024-16
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0xbc112be5618b20d24be64c9e1c6efd63fea38cc79d53692fad6568b16e953eb6
+          0x02: 0x128c1ec8ffaf9a2d69e3cb043d6e11e1c7afd48573311052b6e7ec0960371186
+
+
+  # 16 rounds, 120 bytes of data
+  - indexes:
+      data: 
+      - :label test-0016-120
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x7df6f69476a03ae29e944814846460b058d1762fffe77f938ea723d1033de0d5
+          0x02: 0xbb1f8234bd73afaf955622fa2cdde95594577a8d53191908eb69b316a53c985b
+
+
+  # 32 rounds, 120 bytes of data
+  - indexes:
+      data: 
+      - :label test-0032-120
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x38dfb111db6c59c39c9bea26c8c872620d89dec22fd7da93c47d0708a3973f52
+          0x02: 0x2858fd9c60fae53f366d7e2820040a8662b336de6d859764f20747acbb8999fe
+
+
+  # 64 rounds, 120 bytes of data
+  - indexes:
+      data: 
+      - :label test-0064-120
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - '>Istanbul'
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          0x00: 0x01
+          0x01: 0x59c7c9896cdc9fda0a77bd41adba14bdd6cb47cbbd7c338482f5382d7be16ac4
+          0x02: 0x4a2ddfe6833bf9a15737dd66469d2d0495d39a9cb3c8ed93152684d92a74f8bc

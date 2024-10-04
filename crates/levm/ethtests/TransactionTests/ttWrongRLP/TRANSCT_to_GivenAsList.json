@@ -1,0 +1,65 @@
+{
+    "TRANSCT_to_GivenAsList" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "fcb8678135f3feebd43fcc0e0b025a123087325879b361180044bc4d55a5ad98",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttWrongRLP/TRANSCT_to_GivenAsListCopier.json",
+            "sourceHash" : "5507515fbe6c20ef73a37c4939e8cd5ce2a9db0e7919f52518ceb0fdf3fbb5da"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "InvalidTo",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf86103018207d0d4b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+    }
+}

@@ -1,0 +1,2064 @@
+testOpcode_20:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000020':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x6005600020600660002014600F57005BFD
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 32 (call 10000000 0x7E57C0DE00000000000000000000000000000020 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x20': 1
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x20': 1
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x20': 1
+
+
+
+
+
+testOpcode_21:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000021':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012100
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 33 (call 10000000 0x7E57C0DE00000000000000000000000000000021 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x21': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x21': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x21': 0
+
+
+
+
+
+testOpcode_22:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000022':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012200
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 34 (call 10000000 0x7E57C0DE00000000000000000000000000000022 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x22': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x22': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x22': 0
+
+
+
+
+
+testOpcode_23:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000023':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012300
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 35 (call 10000000 0x7E57C0DE00000000000000000000000000000023 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x23': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x23': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x23': 0
+
+
+
+
+
+testOpcode_24:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000024':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012400
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 36 (call 10000000 0x7E57C0DE00000000000000000000000000000024 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x24': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x24': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x24': 0
+
+
+
+
+
+testOpcode_25:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000025':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012500
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 37 (call 10000000 0x7E57C0DE00000000000000000000000000000025 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x25': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x25': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x25': 0
+
+
+
+
+
+testOpcode_26:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000026':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012600
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 38 (call 10000000 0x7E57C0DE00000000000000000000000000000026 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x26': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x26': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x26': 0
+
+
+
+
+
+testOpcode_27:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000027':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012700
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 39 (call 10000000 0x7E57C0DE00000000000000000000000000000027 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x27': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x27': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x27': 0
+
+
+
+
+
+testOpcode_28:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000028':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012800
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 40 (call 10000000 0x7E57C0DE00000000000000000000000000000028 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x28': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x28': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x28': 0
+
+
+
+
+
+testOpcode_29:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE00000000000000000000000000000029':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012900
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 41 (call 10000000 0x7E57C0DE00000000000000000000000000000029 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x29': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x29': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x29': 0
+
+
+
+
+
+testOpcode_2a:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE0000000000000000000000000000002a':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012a00
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 42 (call 10000000 0x7E57C0DE0000000000000000000000000000002a 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2a': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2a': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2a': 0
+
+
+
+
+
+testOpcode_2b:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE0000000000000000000000000000002b':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012b00
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 43 (call 10000000 0x7E57C0DE0000000000000000000000000000002b 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2b': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2b': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2b': 0
+
+
+
+
+
+testOpcode_2c:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE0000000000000000000000000000002c':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012c00
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 44 (call 10000000 0x7E57C0DE0000000000000000000000000000002c 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2c': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2c': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2c': 0
+
+
+
+
+
+testOpcode_2d:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE0000000000000000000000000000002d':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012d00
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 45 (call 10000000 0x7E57C0DE0000000000000000000000000000002d 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2d': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2d': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2d': 0
+
+
+
+
+
+testOpcode_2e:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE0000000000000000000000000000002e':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012e00
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 46 (call 10000000 0x7E57C0DE0000000000000000000000000000002e 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2e': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2e': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2e': 0
+
+
+
+
+
+testOpcode_2f:
+
+
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: Generated from testOpcodesGen.js, do not edit directly
+
+  pre:
+
+    # The "user" account
+    '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b':
+      balance: F000000000000000
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    '0x0000000000000000000000000000000000000000':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: 0x
+
+
+    # A suicidal contract
+    #
+    # 0 PUSH1 0
+    # 2 SELFDESTRUCT
+    #
+    # It is not trivial to check SELFDESTRUCT because the actual destruction
+    # only happens after the transaction. However, the transfer of balance
+    # happens immediately, so it can be checked within the same transaction
+    '0x00000000000000000000000000000000000000FF':
+      balance: 153
+      nonce: 0
+      storage: {}
+      code: :raw 0x6000FF
+
+
+
+
+    '0x7E57C0DE0000000000000000000000000000002f':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60016001600160016001600160012f00
+  
+
+
+    '0xB1607E5700000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: |
+        {
+              (mstore8 30 0xBA)
+              (mstore8 31 0xD0) 
+              (sstore 47 (call 10000000 0x7E57C0DE0000000000000000000000000000002f 0 0 32 0 0))
+        }
+
+
+    '0xCA11ED0000000000000000000000000000000000':
+      balance: 0x0100000000000000
+      nonce: 0
+      storage: {}
+      code: :raw 0x60de60105360ad60115360be60125360ef601353610dad610dad5560046010F3
+
+
+
+
+  blocks:
+  - transactions:
+    - data: :raw 0xFF
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xB1607E5700000000000000000000000000000000
+      value: 0
+
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+
+
+  expect:
+
+  - network:
+    - Paris
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2f': 0
+  - network:
+    - Shanghai
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2f': 0
+  - network:
+    - Cancun
+    result:
+      '0xB1607E5700000000000000000000000000000000':
+        storage:
+          '0x2f': 0
+
+
+
+
+

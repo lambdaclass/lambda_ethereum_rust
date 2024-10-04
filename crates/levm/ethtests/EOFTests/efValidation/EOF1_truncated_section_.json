@@ -1,0 +1,59 @@
+{
+    "EOF1_truncated_section" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "9f276f072546e55332accf4b7f5a88f083d734331b5ac80d079993e1aa17854d",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_truncated_section_Copier.json",
+            "sourceHash" : "f0b591cf0c08ec7d8ca286db6ed83efa25e601392da30a9403257d994e36ab63"
+        },
+        "vectors" : {
+            "EOF1_truncated_section_0" : {
+                "code" : "0xef0001010004020001000204000000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidSectionBodiesSize",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_truncated_section_1" : {
+                "code" : "0xef0001010004020001000204000000008000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidSectionBodiesSize",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_truncated_section_2" : {
+                "code" : "0xef000101000402000100020400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidSectionBodiesSize",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_truncated_section_3" : {
+                "code" : "0xef000101000402000100010400020000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "EOF1_truncated_section_4" : {
+                "code" : "0xef000101000402000100010400020000800000feaa",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,75 @@
+ymlExample:
+  _info:
+     comment: EOF example test
+
+  forks:
+    - ">=Prague"
+
+  vectors:
+
+  # Not EOF1
+  - data: |
+     :raw 0x60016000F3
+    expectException:
+      ">=Prague" : "EOF_InvalidPrefix"
+
+  # EOF1 constructor returning an EOF1 contract
+  # TODO: rewrite to EOFCREATE, when it's ready
+  # - data: |
+  #     :raw 
+  #     0xEF0001  # Magic and version
+  #       010004  # One code segment
+  #       020001  # One code segment
+  #         000a  # Code segment zero length: 10 bytes
+  #       040016  # Data segment length (the code being deployed): 0x16=22 bytes
+  #       00      # End of header 
+
+  #       # Code segment zero (header)
+  #           00 # No inputs
+  #           80 # Non-Returning Function
+  #         0003 # Max stack height 3
+
+
+  #       # Code segment zero (actual code)
+  #       38    #  0   CODESIZE   <codesize>
+  #       6000  #  1   PUSH1 0    0,<codesize>
+  #       6000  #  3   PUSH1 0    0,0,<codesize>
+  #       39    #  5   CODECOPY (from the code to memory, copy everything)
+  #       38    #  6   CODESIZE  <codesize>
+  #       601D  #  7   PUSH1 0x1d (= 22)  <codesize>,0x1d 
+  #       F3    #  9   RETURN   (the deployed code is code size long, starting at byte 22)
+  #             # 10        
+
+  #       # Data segment (which happens to also be EOF1 code)
+  #       EF0001 # Magic and version
+  #       010004 # One code segment
+  #       020001 # One code segment
+  #         0003 # Code segment zero's length: 3 bytes 
+  #       04001d # Data segment length: 22 bytes 
+  #              # (not specified here, but part of the buffer returned by the init code)
+  #       00     # End of header
+  #       # Code segment 0 header         
+  #           00 # No inputs
+  #           80 # Non-Returning Function
+  #         0001 # Max stack height 1
+  #       # Code segment 0 code
+  #           38 # CODESIZE
+  #           50 # POP
+  #           00 # STOP
+
+    # Invalid init code
+  # Not EOF1
+  - data: |
+     :raw 0xEFFFFF
+    expectException:
+      ">=Prague" : "EOF_InvalidPrefix"
+
+
+
+    # Init code which doesn't create a contract
+  - data: |
+     :raw 0x610BADFE
+    expectException:
+      ">=Prague" : "EOF_InvalidPrefix"
+
+

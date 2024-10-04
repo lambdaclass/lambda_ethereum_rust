@@ -1,0 +1,41 @@
+{
+    "minimal_valid_EOF1_multiple_code_sections" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "8e25ebe81e78cb5145eb0e42b3b08031d568046a6c3071b94be640c15ba76c9f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/minimal_valid_EOF1_multiple_code_sections_Copier.json",
+            "sourceHash" : "642fe11d8233c8adb0bd327431a841d29c2d9ce167ca8d17ca25ae9f5073d260"
+        },
+        "vectors" : {
+            "no_data_section" : {
+                "code" : "0xef000101000802000200010001000080000000800000fefe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_DataSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "non_void_input_output" : {
+                "code" : "0xef0001010010020004000500060008000204000000008000010100000100010003020300035fe300010050e3000250e43080e300035050e480e4",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "with_data_section" : {
+                "code" : "0xef000101000802000200030001040001000080000000800000e50001feda",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

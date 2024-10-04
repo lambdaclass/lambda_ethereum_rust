@@ -1,0 +1,55 @@
+{
+    "RLP_04_maxFeePerGas32BytesValue" : {
+        "result" : {
+            "Shanghai": {
+                "exception": "TR_TypeNotSupported",
+				"intrinsicGas" : "0x00"
+            },
+            "Paris": {
+                "exception": "TR_TypeNotSupported",
+				"intrinsicGas" : "0x00"
+            },
+            "Berlin" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x5208"
+            }
+        },
+        "txbytes" : "0x04f88601808477359400a0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82520894095e7baea6a6c7c4c2dfeb977efac326af552d878080c080a05cbd172231fc0735e0fb994dd5b1a4939170a260b36f0427a8a80866b063b948a07c230f7f578dd61785c93361b9871c0706ebfa6d06e3f4491dc9558c5202ed36"
+    }
+}

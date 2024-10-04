@@ -1,0 +1,172 @@
+
+# Check that the refund counter does not get reset when CREATE runs out of gas
+# (in frontier)
+
+refundResetFrontier:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x1000000000000000
+    currentBaseFee: 10
+
+  pre:
+
+    # Contract with create that can go OOG (or not)
+    0x000000000000000000000000000000000000c0de:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul berlin 
+        {
+           /* Constructor to return a large buffer as code */
+           mstore8(0x00, 0x61)   /* PUSH2 0x1000 */
+           mstore8(0x01, 0x10)
+           mstore8(0x02, 0x00)
+           mstore8(0x03, 0x60)   /* PUSH1 0x00 */
+           mstore8(0x04, 0x00)
+           mstore8(0x05, 0xF3)   /* RETURN */
+
+           /* Create with that constructor */
+           let res := create(0, 0, 0x06)
+        }
+      storage: {}
+
+
+    # Contract that can receive a refund (or not)
+    0x000000000000000000000000000000000000ca11:
+      balance: 0
+      nonce: 1
+      code: | 
+        :yul berlin 
+        {
+           /* Avoid running into the different cost of zeros in a tx
+            * slt checks if the top bit is on
+            */
+           let data := slt(calldataload(0), 0) 
+           let enoughGas := slt(calldataload(1), 0)
+
+           /* Get a refund (or not) */
+           sstore(0x00, data)
+           sstore(0x01, data)
+           sstore(0x02, data)
+           sstore(0x03, data)
+           sstore(0x04, data)
+           sstore(0x05, data)
+           sstore(0x06, data)
+           sstore(0x07, data)
+           sstore(0x08, data)
+           sstore(0x09, data)
+           sstore(0x0a, data)
+           sstore(0x0b, data)
+           sstore(0x0c, data)
+           sstore(0x0d, data)
+           sstore(0x0e, data)
+           sstore(0x0f, data)
+ 
+           let gasAmt
+
+           /* Just enough gas */
+           if enoughGas { gasAmt := 32490 }
+
+           /* Fail at the end of the CREATE */
+           if eq(enoughGas, 0) { gasAmt := 32480 }
+       
+           let res := call(gasAmt, 0xc0de, 0, 0, 0, 0, 0)
+
+           let noOptimization := msize()
+        }
+      storage:
+        0x00: 0x60A7
+        0x01: 0x60A7
+        0x02: 0x60A7
+        0x03: 0x60A7
+        0x04: 0x60A7
+        0x05: 0x60A7
+        0x06: 0x60A7
+        0x07: 0x60A7
+        0x08: 0x60A7
+        0x09: 0x60A7
+        0x0a: 0x60A7
+        0x0b: 0x60A7
+        0x0c: 0x60A7
+        0x0d: 0x60A7
+        0x0e: 0x60A7
+        0x0f: 0x60A7
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # Note that all data have the same number of bytes, all non zero
+    # Transaction costs should be the same
+    - :raw 0xFFFF   # No refund, enough gas in CREATE
+    - :raw 0xFF01   # No refund, not enough gas in CREATE
+    - :raw 0x01FF   # Refund, enough gas in CREATE
+    - :raw 0x0101   # Refund, not enough gas in CREATE
+
+    gasLimit:
+    - 100000000
+    nonce: 1
+    to: 000000000000000000000000000000000000ca11
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    gasPrice: 1000
+
+
+  expect:
+    - indexes:
+        data: !!int 0   # No refund, enough gas
+      network:
+        - Frontier
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          balance: 999999999999866135000
+
+
+    - indexes:
+        data: !!int 1   # No refund, not enough gas
+      network:
+        - Frontier
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          balance: 999999999999866146000
+
+
+    - indexes:
+        data: !!int 2   # Refund, enough gas
+      network:
+        - Frontier
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          balance: 999999999999933067000
+
+
+    - indexes:
+        data: !!int 3   # Refund, not enough gas
+      network:
+        - Frontier
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          balance: 999999999999933073000
+
+
+# Refund
+#     Enough gas for CREATE:     66936 gas
+#     Not enough gas for CREATE: 66931 gas 
+
+
+# Savings (from CREATE failings OOG)
+#     No refund: 10 gas 
+#     Refund:     5 gas    

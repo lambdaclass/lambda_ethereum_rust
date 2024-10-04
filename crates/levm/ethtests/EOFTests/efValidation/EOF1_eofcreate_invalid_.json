@@ -1,0 +1,61 @@
+{
+    "EOF1_eofcreate_invalid" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "4f536fe4186a6f20e3d28f233899e8b78658ac21177bf4d1229512f40804f30b",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_eofcreate_invalid_Copier.json",
+            "sourceHash" : "0ddf17a02345702b48c11a85184e95944119b9feac6f5100822367cf740ffb39"
+        },
+        "vectors" : {
+            "EOF1_eofcreate_invalid_0" : {
+                "code" : "0xef0001010004020001000903000100140400000000800004600060ff60006000ecef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_eofcreate_invalid_1" : {
+                "code" : "0xef0001010004020001000a03000100140400000000800004600060ff60006000ec00ef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidCodeTermination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_eofcreate_invalid_2" : {
+                "code" : "0xef0001010004020001000c03000100140400000000800004600060ff60006000ec015000ef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidContainerSectionIndex",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_eofcreate_invalid_3" : {
+                "code" : "0xef0001010004020001000c03000100140400000000800004600060ff60006000ecff5000ef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidContainerSectionIndex",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_eofcreate_invalid_4" : {
+                "code" : "0xef0001010004020001000c03000100160400000000800004600060ff60006000ec005000ef000101000402000100010400030000800000feaabb",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_EofCreateWithTruncatedContainer",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

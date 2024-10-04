@@ -1,0 +1,834 @@
+# Check if various situations reset the refund counter
+# GAS affected by solcs forced optimisations. compatible version solc21
+refundReset:
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x8888f1f195afa192cfee860698584c030f4c9db1
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 500000000
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+#  sealEngine: NoProof
+
+
+  pre:
+    # User account
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Contract that either spends a lot of gas, or receives a large refund
+    0x0000000000000000000000000000000000000fee:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           let data := calldataload(0)
+           for { let i := 0} lt(i, 0x10) 
+               { i := add(i, 1) } 
+               { sstore(i, data) }
+        }
+      storage: {}
+
+
+
+    # Don't do anything, but be normal
+    0x000000000000000000000000000000000000600D:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+          return(0,0)
+        }
+      storage: {}
+
+
+    # Get a refund through calling a different contract
+    0x0000000000000000000000000000000000ca1102:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           mstore(0, calldataload(0))
+           pop(call(gas(), 0x0FEE, 0, 0, 0x20, 0, 0))
+           pop(call(22000, 0x600D, 0, 0, 0, 0, 0))
+        }
+      storage: {}
+
+
+    # A callable contract with a revert
+    0x000000000000000000000000000000000000BAD3:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           revert(0,0)
+        }
+      storage: {}
+
+    # Get a refund through calling a different contract
+    0x0000000000000000000000000000000000ca1103:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           mstore(0, calldataload(0))
+           pop(call(gas(), 0x0FEE, 0, 0, 0x20, 0, 0))
+           pop(call(22000, 0xBAD3, 0, 0, 0, 0, 0))
+        }
+      storage: {}
+
+
+
+    # A callable contract with invalid()
+    0x000000000000000000000000000000000000BAD4:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           invalid()
+        }
+      storage: {}
+
+    # Get a refund through calling a different contract, then call INVALID
+    0x0000000000000000000000000000000000ca1104:
+      balance: 0
+      nonce: 1
+      code: :yul berlin 
+        {
+           mstore(0, calldataload(0))
+           pop(call(gas(), 0x0FEE, 0, 0, 0x20, 0, 0))
+           pop(call(22000, 0xBAD4, 0, 0, 0, 0, 0))
+        }
+      storage: {}
+
+
+    # Get a refund through calling a different contract, then
+    # CREATE which reverts
+    0x0000000000000000000000000000000000ca1105:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           mstore(0, calldataload(0))
+           pop(call(gas(), 0x0FEE, 0, 0, 0x20, 0, 0))
+           mstore8(0, 0x60)
+           mstore8(1, 0x00)
+           mstore8(2, 0x60)
+           mstore8(3, 0x00)
+           mstore8(4, 0xFD)
+           pop(create(0, 0, 5))
+        }
+      storage: {}
+
+
+
+    # A callable contract with create() that goes OOG (because of an invalid opcode)
+    0x000000000000000000000000000000000000BAD6:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           mstore8(1, 0xFE)
+           pop(create(0, 0, 1))
+        }
+      storage: {}
+
+
+    # Get a refund through calling a different contract, then call a contract 
+    # where CREATE has an invalid opcode
+    0x0000000000000000000000000000000000ca1106:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           mstore(0, calldataload(0))
+           pop(call(gas(), 0x0FEE, 0, 0, 0x20, 0, 0))
+           pop(call(22000, 0xBAD6, 0, 0, 0, 0, 0))
+        }
+      storage: {}
+
+
+    # Contract that records the balance of the user account
+    0x000000000000000000000000000000000000DA7A:
+      balance: 0
+      nonce: 1
+      code: :yul berlin
+        {
+           let slot := sload(0)
+           sstore(slot, balance(0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b))
+           sstore(0, add(slot,1))
+
+           if gt(calldatasize(),0) {
+             for { let i := 1 } lt(i, slot) { i := add(i, 1) }
+             {
+                sstore(add(0x100, i), sub(sload(i),sload(add(i,1))))
+                sstore(sub(i,1), 0)
+             }
+             sstore(sub(slot,1), 0)
+             sstore(slot, 0)
+           }            
+        }
+      storage:
+        0: 1
+
+
+
+  blocks:
+  - transactions:
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Spend gas (modify currently empty slots)
+    - data: :raw 0x60a7
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+    # Spend less (modify already full slots)
+    - data: :raw 0x01
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+    # Get a refund
+    - data: :raw 0x00
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+  # Second block, call the refund through a different contract
+  - transactions:
+    - data: :raw 0x0BAD
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Overwrite values with other values (as control)
+    - data: :raw 0x60A7
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1102
+      value: 0
+
+
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Receive a refund through a contract call
+    - data: 0x
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1102
+      value: 0
+
+
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+  # Third block, call the refund and then a contract that REVERTs
+  - transactions:
+    - data: :raw 0x0BAD
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Control
+    - data: :raw 0x60A7
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1103
+      value: 0
+
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Receive a refund through a contract call and then call a contract that reverts
+    - data: 0x
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1103
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+  # Fourth block, call the refund and then a contract with INVALID
+  - transactions:
+    - data: :raw 0x0BAD
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Control
+    - data: :raw 0x60A7
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1104
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+
+    # Receive a refund through a contract call and then call a contract wih INVALID
+    - data: 0x
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1104
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+  # Fifth block, call the refund and then attempt to create a contract (constructor reverts)
+  - transactions:
+    - data: :raw 0x0BAD
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+    # Control
+    - data: :raw 0x60A7
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1105
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+
+    # Receive a refund through a contract call and then run CREATE with an reverting constructor
+    - data: 0x
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1105
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+  # Sixth block, call the refund and then a contract which runs create()
+  # with an invalid constructor
+  - transactions:
+    - data: :raw 0x0BAD
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000000fee
+      value: 0
+
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+    # Control
+    - data: :raw 0x60A7
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1106
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+
+    # Receive a refund through a contract call and then call a contract that has
+    # create() with an invalid constructor
+    - data: 0x
+      gasLimit: 50000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x0000000000000000000000000000000000ca1106
+      value: 0
+
+    # Record the balance
+    - data: 0x
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+
+
+  # Final block, calculate results
+  - transactions:
+    # Run various calculations
+    - data: :raw 0xBEEF
+      gasLimit: 10000000
+      gasPrice: 10
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DA7A
+      value: 0
+
+
+  expect:
+  - network:
+    - '>=Shanghai'
+    result:
+      0x000000000000000000000000000000000000DA7A:
+        storage:
+          # Block 1, just checking the algorithm
+          0x0101: 0x40a524    # Filling previously unfilled storage
+          0x0102: 0x16e504    # Modifying previously filled storage
+          0x0103: 0x13c95a    # Emptying previously filled storage
+
+          # Block 2, refund called through a different contract
+          0x0104: 0x40a524    # Filling previously unfilled storage
+          0x0105: 0x17b308    # Modifying (control), then calling 0x600D
+          0x0106: 0x146d88    # Emptying the storage in a call, then calling 0x600D
+                              # Refund: 214780 wei = 21478 gas
+
+          # Block 3, refund and then a REVERT
+          0x0107: 0x40a524    # Filling previously unfilled storage
+          0x0108: 0x17b344    # Modifying (control), then calling 0xBAD3
+          0x0109: 0x146dba    # Emptying the storage in a call, then calling 0xBAD3
+                              # Refund: 214780 wei = 21478 gas
+
+          # Block 4, refund and then an INVALID
+          0x010A: 0x40a524    # Filling previously unfilled storage
+          0x010B: 0x1b0e68    # Modifying (control), then calling 0xBAD4
+          0x010C: 0x171d08    # Emptying the storage in a call, then calling 0xBAD4
+                              # Refund: 258770 wei = 25877 gas
+
+          # Block 5, refund and then a CREATE that ends in a REVERT
+          0x010D: 0x40a524    # Filling previously unfilled storage
+          0x010E: 0x1c3112    # Modifying (control)
+          0x010F: 0x180592    # Emptying the storage in a call
+                              # Refund: 273650 wei = 27365 gas
+
+          # Block 6, refund and then call a CREATE with an invalid opcode in the constructor
+          0x0110: 0x40a524
+          0x0111: 0x1b0e68
+          0x0112: 0x171d08
+
+
+          # Final calculation
+          0x0113: 0x075c74
+
+  - network:
+    - 'London'
+    - 'Paris'
+    result:
+      0x000000000000000000000000000000000000DA7A:
+        storage:
+          # Block 1, just checking the algorithm
+          0x0101: 0x40a524    # Filling previously unfilled storage
+          0x0102: 0x16e504    # Modifying previously filled storage
+          0x0103: 0x13c95a    # Emptying previously filled storage
+
+          # Block 2, refund called through a different contract
+          0x0104: 0x40a524    # Filling previously unfilled storage
+          0x0105: 0x17b308    # Modifying (control), then calling 0x600D
+          0x0106: 0x146d88    # Emptying the storage in a call, then calling 0x600D
+                              # Refund: 214780 wei = 21478 gas
+
+          # Block 3, refund and then a REVERT
+          0x0107: 0x40a524    # Filling previously unfilled storage
+          0x0108: 0x17b344    # Modifying (control), then calling 0xBAD3
+          0x0109: 0x146dba    # Emptying the storage in a call, then calling 0xBAD3
+                              # Refund: 214780 wei = 21478 gas
+
+          # Block 4, refund and then an INVALID
+          0x010A: 0x40a524    # Filling previously unfilled storage
+          0x010B: 0x1b0e68    # Modifying (control), then calling 0xBAD4
+          0x010C: 0x171d08    # Emptying the storage in a call, then calling 0xBAD4
+                              # Refund: 258770 wei = 25877 gas
+
+          # Block 5, refund and then a CREATE that ends in a REVERT
+          0x010D: 0x40a524    # Filling previously unfilled storage
+          0x010E: 0x1c30fe    # Modifying (control)
+          0x010F: 0x18057e    # Emptying the storage in a call
+                              # Refund: 273650 wei = 27365 gas
+
+          # Block 6, refund and then call a CREATE with an invalid opcode in the constructor
+          0x0110: 0x40a524
+          0x0111: 0x1b0e68
+          0x0112: 0x171d08
+
+
+          # Final calculation
+          0x0113: 0x075c74
+
+
+
+  - network:
+    - Berlin
+    result:
+      0x000000000000000000000000000000000000DA7A:
+        storage:
+          # Block 1, just checking the algorithm
+          0x0101: 0x40a524    # Filling previously unfilled storage
+          0x0102: 0x16e504    # Modifying previously filled storage
+          0x0103: 0x0f2080    # Emptying previously filled storage
+
+          # Block 2, refund called through a different contract
+          0x0104: 0x40a524    # Filling previously unfilled storage
+          0x0105: 0x17b308    # Modifying (control), then calling 0x600D
+          0x0106: 0x0f871e    # Emptying the storage in a call, then calling 0x600D
+                              # Refund: 214780 wei = 21478 gas
+
+          # Block 3, refund and then a REVERT
+          0x0107: 0x40a524    # Filling previously unfilled storage
+          0x0108: 0x17b344    # Modifying (control), then calling 0xBAD3
+          0x0109: 0x0f873c    # Emptying the storage in a call, then calling 0xBAD3
+
+          # Block 4, refund and then an INVALID
+          0x010A: 0x40a524    # Filling previously unfilled storage
+          0x010B: 0x1b0e68    # Modifying (control), then calling 0xBAD4
+          0x010C: 0x1134ce    # Emptying the storage in a call, then calling 0xBAD4
+
+          # Block 5, refund and then a CREATE that ends in a REVERT
+          0x010D: 0x40a524    # Filling previously unfilled storage
+          0x010E: 0x1c30fe    # Modifying (control)
+          0x010F: 0x11c61e    # Emptying the storage in a call
+
+          # Block 6, refund and then call a CREATE with an invalid opcode in the constructor
+          0x0110: 0x40a524
+          0x0111: 0x1b0e68
+          0x0112: 0x1134ce
+
+          # Final calculation
+          0x0113: 0x075c74
+
+
+
+
+  - network:
+    - Byzantium
+    - Constantinople
+    - ConstantinopleFix
+    result:
+      0x000000000000000000000000000000000000DA7A:
+        storage:
+          # Block 1, just checking the algorithm
+          0x0101: 0x3b4a34    # Filling previously unfilled storage
+          0x0102: 0x16a88c    # Modifying previously filled storage
+          0x0103: 0x0ee200    # Emptying previously filled storage
+
+          # Block 2, refund called through a different contract
+          0x0104: 0x3b4a34    # Filling previously unfilled storage
+          0x0105: 0x16e428    # Modifying (control), then calling 0x600D
+          0x0106: 0x0efe66    # Emptying the storage in a call, then calling 0x600D
+
+          # Block 3, refund and then a REVERT
+          0x0107: 0x3b4a34    # Filling previously unfilled storage
+          0x0108: 0x16e464    # Modifying (control), then calling 0xBAD3
+          0x0109: 0x0efe84    # Emptying the storage in a call, then calling 0xBAD3
+
+          # Block 4, refund and then an INVALID
+          0x010A: 0x3b4a34    # Filling previously unfilled storage
+          0x010B: 0x1a3f88    # Modifying (control), then calling 0xBAD4
+          0x010C: 0x10ac16    # Emptying the storage in a call, then calling 0xBAD4
+
+          # Block 5, refund and then a CREATE that ends in a REVERT
+          0x010D: 0x3b4a34    # Filling previously unfilled storage
+          0x010E: 0x1bac56    # Modifying (control)
+          0x010F: 0x116282    # Emptying the storage in a call
+
+          # Block 6, refund and then call a CREATE with an invalid opcode in the constructor
+          0x0110: 0x3b4a34
+          0x0111: 0x1a3f88
+          0x0112: 0x10ac16
+
+          # Final calculation
+          0x0113: 0x071df4
+
+
+
+
+  - network:
+    - EIP150
+    - EIP158
+    result:
+      0x000000000000000000000000000000000000DA7A:
+        storage:
+          # Block 1, just checking the algorithm
+          0x0101: 0x3b4a34    # Filling previously unfilled storage
+          0x0102: 0x16a88c    # Modifying previously filled storage
+          0x0103: 0x0ee200    # Emptying previously filled storage
+
+          # Block 2, refund called through a different contract
+          0x0104: 0x3b4a34    # Filling previously unfilled storage
+          0x0105: 0x16e428    # Modifying (control), then calling 0x600D
+          0x0106: 0x0efe66    # Emptying the storage in a call, then calling 0x600D
+
+          # Block 3, refund and then a REVERT
+          0x0107: 0x3b4a34    # Filling previously unfilled storage
+          0x0108: 0x1a3f88    # Modifying (control), then calling 0xBAD3
+          0x0109: 0x10ac16    # Emptying the storage in a call, then calling 0xBAD3
+
+          # Block 4, refund and then an INVALID
+          0x010A: 0x3b4a34    # Filling previously unfilled storage
+          0x010B: 0x1a3f88    # Modifying (control), then calling 0xBAD4
+          0x010C: 0x10ac16    # Emptying the storage in a call, then calling 0xBAD4
+
+          # Block 5, refund and then a CREATE that ends in a REVERT
+          0x010D: 0x3b4a34    # Filling previously unfilled storage
+          0x010E: 0x1d5d9f9a  # Modifying (control)
+          0x010F: 0x1d390086  # Emptying the storage in a call
+
+          # Block 6, refund and then call a CREATE with an invalid opcode in the constructor
+          0x0110: 0x3b4a34
+          0x0111: 0x1a3f88
+          0x0112: 0x10ac16
+
+
+          # Final calculation
+          0x0113: 0x071df4
+
+
+
+  - network:
+    - <EIP150
+    result:
+      0x000000000000000000000000000000000000DA7A:
+        storage:
+          # Block 1, just checking the algorithm
+          0x0101: 0x3b3580    # Filling previously unfilled storage
+          0x0102: 0x1693d8    # Modifying previously filled storage
+          0x0103: 0x0ecd4c    # Emptying previously filled storage
+
+          # Block 2, refund called through a different contract
+          0x0104: 0x3b3580      # Filling previously unfilled storage
+          0x0105: 0x1dd46e40    # Modifying (control), then calling 0x600D
+          0x0106: 0x1dd46e40    # Emptying the storage in a call, then calling 0x600D
+
+          # Block 3, refund and then a REVERT
+          0x0107: 0x169680      # Filling previously unfilled storage
+          0x0108: 0x1dd46e40    # Modifying (control), then calling 0xBAD3
+          0x0109: 0x1dd46e40    # Emptying the storage in a call, then calling 0xBAD3
+
+          # Block 4, refund and then an INVALID
+          0x010A: 0x169680     # Filling previously unfilled storage
+          0x010B: 0x1dd46e40    # Modifying (control), then calling 0xBAD4
+          0x010C: 0x1dd46e40    # Emptying the storage in a call, then calling 0xBAD4
+
+          # Block 5, refund and then a CREATE that ends in a REVERT
+          0x010D: 0x169680      # Filling previously unfilled storage
+          0x010E: 0x1dd46e40    # Modifying (control)
+          0x010F: 0x1dd46e40    # Emptying the storage in a call
+
+          # Block 6, refund and then call a CREATE with an invalid opcode in the constructor
+          0x0110: 0x169680
+          0x0111: 0x1dd46e40
+          0x0112: 0x1dd46e40
+
+          # Final calculation
+          0x0113: 0x070940

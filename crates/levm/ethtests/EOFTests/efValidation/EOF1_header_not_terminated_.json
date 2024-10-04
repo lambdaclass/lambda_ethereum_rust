@@ -1,0 +1,88 @@
+{
+    "EOF1_header_not_terminated" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "560ea8c2b3ece92ed524398f4a84e1a04bd696551584a057c48fb9f60dccade8",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_header_not_terminated_Copier.json",
+            "sourceHash" : "1eaa7681a747fac27878a24fe39963106f4205d3070942244b14b82641849bfb"
+        },
+        "vectors" : {
+            "EOF1_header_not_terminated_0" : {
+                "code" : "0xef000101",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_SectionHeadersNotTerminated",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_1" : {
+                "code" : "0xef0001010004",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_SectionHeadersNotTerminated",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_2" : {
+                "code" : "0xef0001010004fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_CodeSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_3" : {
+                "code" : "0xef000101000402",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_IncompleteSectionNumber",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_4" : {
+                "code" : "0xef00010100040200",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_IncompleteSectionNumber",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_5" : {
+                "code" : "0xef0001010004020001",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_SectionHeadersNotTerminated",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_6" : {
+                "code" : "0xef00010100040200010001040001",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_SectionHeadersNotTerminated",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_header_not_terminated_7" : {
+                "code" : "0xef00010100040200010001040001feaa",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_HeaderTerminatorMissing",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

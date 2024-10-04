@@ -1,0 +1,55 @@
+{
+    "TRANSCT_to_GivenAsList": {
+        "result": {
+            "Shanghai": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Paris": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Berlin": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Byzantium": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Constantinople": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP150": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP158": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Frontier": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Homestead": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "Istanbul": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            },
+            "London": {
+                "exception": "InvalidTo",
+				"intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes": "0xf86103018207d0d4b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+    }
+}

@@ -1,0 +1,24 @@
+{
+    "minimal_valid_EOF1_code" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "fb9519f18717982b922edcb7b5cd5485107334e6d8f983812875026a812c15ee",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/minimal_valid_EOF1_code_Copier.json",
+            "sourceHash" : "7619f07e9b7d2db45ece538b3895626803ef013dbcc43c151b29baec0d7f2a26"
+        },
+        "vectors" : {
+            "minimal_valid_EOF1_code_0" : {
+                "code" : "0xef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

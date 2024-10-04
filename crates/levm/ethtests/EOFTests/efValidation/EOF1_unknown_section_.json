@@ -1,0 +1,70 @@
+{
+    "EOF1_unknown_section" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "f2747f4d7e59e440ef67d363e27991a364857a2f37dfdd1d04b3c47deaff237f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_unknown_section_Copier.json",
+            "sourceHash" : "141a7984ed9119fbf25dd8f544d543c8962aacc71eba754cd1b9f1d7a604a7f6"
+        },
+        "vectors" : {
+            "EOF1_unknown_section_0" : {
+                "code" : "0xef000105000100fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TypeSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_unknown_section_1" : {
+                "code" : "0xef0001ff000100fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TypeSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_unknown_section_2" : {
+                "code" : "0xef000101000402000100010500010000800000fe00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_DataSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_unknown_section_3" : {
+                "code" : "0xef00010100040200010001ff00010000800000fe00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_DataSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_unknown_section_4" : {
+                "code" : "0xef000101000402000100010400010500010000800000feaa00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_HeaderTerminatorMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_unknown_section_5" : {
+                "code" : "0xef00010100040200010001040001ff00010000800000feaa00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_HeaderTerminatorMissing",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

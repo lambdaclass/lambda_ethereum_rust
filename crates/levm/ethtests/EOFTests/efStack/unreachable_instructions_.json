@@ -1,0 +1,43 @@
+{
+    "unreachable_instructions" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "7004c652aaeba5d66a020fccdc3fbaac0181d4a17c757604a04842f3bb2ad131",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/unreachable_instructions_Copier.json",
+            "sourceHash" : "b007a35c99b98c1b996a89d7d3be1f8dc57324b7492d57104d3d57a3dff8b248"
+        },
+        "vectors" : {
+            "unreachable_instructions_0" : {
+                "code" : "0xef0001010004020001000204000000008000000000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UnreachableCode",
+                        "result" : false
+                    }
+                }
+            },
+            "unreachable_instructions_1" : {
+                "code" : "0xef000101000402000100050400000000800000e000010000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UnreachableCode",
+                        "result" : false
+                    }
+                }
+            },
+            "unreachable_instructions_2" : {
+                "code" : "0xef000101000402000100070400000000800000e0000100e0fffc",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_UnreachableCode",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

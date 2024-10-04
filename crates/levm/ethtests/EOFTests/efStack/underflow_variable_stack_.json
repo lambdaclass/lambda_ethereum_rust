@@ -1,0 +1,106 @@
+{
+    "underflow_variable_stack" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "0e4704d798b34441644b3e40704ae8a0b36820d5290d8f1e7ade1caf27472850",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json",
+            "sourceHash" : "9c48a009278e1581131a8820c1abc3c98bd55043efa3e3ea1f0d31362028e9b0"
+        },
+        "vectors" : {
+            "underflow_variable_stack_0" : {
+                "code" : "0xef0001010004020001000a04000000008000035f6000e100025f5fa200",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_1" : {
+                "code" : "0xef0001010004020001000a04000000008000035f6000e100025f5f0100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_2" : {
+                "code" : "0xef0001010008020002000c00020400000000800004040500055f6000e100025f5fe30001005fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_3" : {
+                "code" : "0xef0001010008020002000c00020400000000800004030400045f6000e100025f5fe30001005fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_4" : {
+                "code" : "0xef000101000c0200030004000b000304000000008000030003000305030003e30001005f6000e100025f5fe500025050e4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_5" : {
+                "code" : "0xef000101000c0200030004000b000104000000008000030003000303030003e30001005f6000e100025f5fe50002e4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_6" : {
+                "code" : "0xef0001010008020002000b00050400000000800000058000075f6000e100025f5fe5000160006000fd",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_7" : {
+                "code" : "0xef0001010008020002000b00050400000000800000038000055f6000e100025f5fe5000160006000fd",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_8" : {
+                "code" : "0xef000101000802000200040009040000000080000500050003e30001005f6000e100025f5fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_variable_stack_9" : {
+                "code" : "0xef000101000802000200040009040000000080000300030003e30001005f6000e100025f5fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

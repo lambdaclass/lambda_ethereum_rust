@@ -1,0 +1,82 @@
+{
+    "TransactionWithRSvalue1" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "fd5789df0624967fdd3ef2021dd19b2447d3e9fdba1d2bd51ee69643555644d0",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithRSvalue1Filler.json",
+            "sourceHash" : "54bd97c4b7375aeebce1b91df90006947329371774d0ccae9705ea6e8eb71e95"
+        },
+        "result" : {
+            "Berlin" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Byzantium" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Cancun" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Constantinople" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "ConstantinopleFix" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "EIP150" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "EIP158" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Frontier" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Homestead" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Istanbul" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "London" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Paris" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            },
+            "Shanghai" : {
+                "hash" : "0x7d442ef4740397ced8ba3f0de71405e8d0bd4c4b5b79b20c83374b9949904db4",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x98c188f183d4e93ff2bffadd145f39b4a792ed85"
+            }
+        },
+        "txbytes" : "0xdf800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801b0101"
+    }
+}

@@ -1,0 +1,48 @@
+{
+    "EOF1_valid_rjumpv" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "f47881f0b99fc39671300ec7beebe95e7a036493e5f97dbb9ac1ac18f4081cc5",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_valid_rjumpv_Copier.json",
+            "sourceHash" : "70a2824b51a9f35cb275de24bb75e1ea8211838c7775ac97859b12e4a7e7bc14"
+        },
+        "vectors" : {
+            "single_entry_case_0" : {
+                "code" : "0xef0001010004020001000904000000008000016000e2000000600100",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "three_entries_case_2" : {
+                "code" : "0xef0001010004020001001004000000008000016002e20200000003fff6600100600200",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "two_entries_case_0" : {
+                "code" : "0xef0001010004020001000e04000000008000016000e20100000003600100600200",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "two_entries_case_2" : {
+                "code" : "0xef0001010004020001000e04000000008000016002e20100000003600100600200",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

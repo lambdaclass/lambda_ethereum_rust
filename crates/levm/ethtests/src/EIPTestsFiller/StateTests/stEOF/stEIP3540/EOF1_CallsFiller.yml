@@ -1,0 +1,644 @@
+# Tests for all kinds of calls to/from EOF contracts
+# ---
+# Active EIPs: 3540, 3670, 4200, 4750, 5450
+EOF1_Calls:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 100000000
+      code: ''
+      nonce: 0
+      storage: {}
+    # Entry point contract for calling test cases
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: ':yul { sstore(0, call(2000000, shr(96, calldataload(0)), 0, 0, 0, 0, 0)) sstore(1, 1) }'
+      nonce: 0
+      storage: {}
+
+    # EOF destination contracts
+    c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # yul: { sstore(10, caller()) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0005 # Code section  0 , 5  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0002 # max stack: 2
+               # Code section 0
+            33 # [0] CALLER 
+          600a # [1] PUSH1(10) 
+            55 # [3] SSTORE 
+            00 # [4] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage: {}
+    d94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # yul: { mstore8(0, 0x42) return(0, 1) }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0008 # Code section  0 , 8  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0002 # max stack: 2
+               # Code section 0
+          6042 # [0] PUSH1(66) 
+            5f # [2] PUSH0 
+            53 # [3] MSTORE8 
+          6001 # [4] PUSH1(1) 
+            5f # [6] PUSH0 
+            f3 # [7] RETURN 
+               # Data section (empty)
+      nonce: 0
+      storage: {}
+    194f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # yul: { mstore8(0, 0x42) return(0, 32) }
+      # Same as above, RETURNDATALOAD friendly
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0008 # Code section  0 , 8  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0002 # max stack: 2
+               # Code section 0
+          6042 # [0] PUSH1(66) 
+            5f # [2] PUSH0 
+            53 # [3] MSTORE8 
+          6020 # [4] PUSH1(32) 
+            5f # [6] PUSH0 
+            f3 # [7] RETURN 
+               # Data section (empty)
+      nonce: 0
+      storage: {}
+
+    # Legacy destination contracts
+    e94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: ':yul { sstore(10, caller()) stop() }'
+      nonce: 0
+      storage: {}
+    f94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: ':yul { mstore8(0, 0x42) return(0, 1) }'
+      nonce: 0
+      storage: {}
+    094f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Same as above, RETURNDATALOAD friendly
+      code: ':yul { mstore8(0, 0x42) return(0, 32) }'
+      nonce: 0
+      storage: {}
+
+
+    # Legacy => EOF calls
+
+    104f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Legacy code CALLs EOF code
+      code: ':yul { sstore(0, call(100000, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, 0, 0, 0)) sstore(1, 1) }'
+      nonce: 0
+      storage: {}
+    124f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Legacy code DELEGATECALLs EOF code
+      code: ':yul { sstore(0, delegatecall(100000, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, 0, 0)) sstore(1, 1) }'
+      nonce: 0
+      storage: {}
+    134f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Legacy code STATICCALLs non-pure EOF code
+      code: ':yul { sstore(0, staticcall(100000, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, 0, 0)) sstore(1, 1) }'
+      nonce: 0
+      storage: {}
+    144f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Legacy code STATICCALLs EOF code
+      code: ':yul { sstore(0, staticcall(100000, 0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, 0, 1)) sstore(1, mload(0)) sstore(2, 2)}'
+      nonce: 0
+      storage: {}
+
+    # EOF => legacy calls
+
+    204f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code CALLs legacy code (EXTCALL)
+      # { sstore(0, extcall(0, 0, 0, 0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, 1) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0020 # Code section  0 , 32  bytes
+          040000 # Data section length ( 0 )
+              00 # Terminator (end of header)
+                 # Code 0 types
+              00 # 0 inputs
+              80 # 0 outputs (Non-returning function)
+            0004 # max stack: 4
+                 # Code section 0
+              5f # [0] PUSH0 
+              80 # [1] DUP1 
+              80 # [2] DUP1 
+        73e94f5374fce5edbc8e2a8697c15331677e6ebf0b # [3] PUSH20(0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+              f8 # [24] EXTCALL 
+              5f # [25] PUSH0 
+              55 # [26] SSTORE 
+            6001 # [27] PUSH1(1) 
+              80 # [29] DUP1 
+              55 # [30] SSTORE 
+              00 # [31] STOP 
+                 # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+    224f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code DELEGATECALLs legacy code (EXTDELEGATECALL)
+      # { sstore(0, EXTDELEGATECALL(0, 0, 0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, 1) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          001f # Code section  0 , 31  bytes
+          040000 # Data section length ( 0 )
+              00 # Terminator (end of header)
+                 # Code 0 types
+              00 # 0 inputs
+              80 # 0 outputs (Non-returning function)
+            0003 # max stack: 3
+                 # Code section 0
+              5f # [0] PUSH0 
+              80 # [1] DUP1 
+        73e94f5374fce5edbc8e2a8697c15331677e6ebf0b # [2] PUSH20(0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+              f9 # [23] EXTDELEGATECALL 
+              5f # [24] PUSH0 
+              55 # [25] SSTORE 
+            6001 # [26] PUSH1(1) 
+              80 # [28] DUP1 
+              55 # [29] SSTORE 
+              00 # [30] STOP 
+                 # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+    234f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code STATICCALLs non-pure legacy code (EXTSTATICCALL)
+      # { sstore(0, EXTSTATICCALL(0, 0, 0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, 1) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          001f # Code section  0 , 31  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0003 # max stack: 3
+               # Code section 0
+            5f # [0] PUSH0 
+            80 # [1] DUP1 
+        73e94f5374fce5edbc8e2a8697c15331677e6ebf0b # [2] PUSH20(0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+            fb # [23] EXTSTATICCALL 
+            5f # [24] PUSH0 
+            55 # [25] SSTORE 
+          6001 # [26] PUSH1(1) 
+            80 # [28] DUP1 
+            55 # [29] SSTORE 
+            00 # [30] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+    244f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code STATICCALLs legacy code (EXTSTATICCALL)
+      # { 
+      #   sstore(0, EXTSTATICCALL(0, 0, 0xf94f5374fce5edbc8e2a8697c15331677e6ebf0b)) 
+      #   sstore(1, returndataload(0)) sstore(2, 2) 
+      #   stop()
+      # }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0024 # Code section  0 , 36  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0003 # max stack: 3
+               # Code section 0
+            5f # [0] PUSH0 
+            80 # [1] DUP1 
+        73094f5374fce5edbc8e2a8697c15331677e6ebf0b # [2] PUSH20(0x094f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+            fb # [23] EXTSTATICCALL 
+            5f # [24] PUSH0 
+            55 # [25] SSTORE 
+            5f # [26] PUSH0 
+            f7 # [27] RETURNDATALOAD 
+          6001 # [28] PUSH1(1) 
+            55 # [30] SSTORE 
+          6002 # [31] PUSH1(2) 
+            80 # [33] DUP1 
+            55 # [34] SSTORE 
+            00 # [35] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+
+    # EOF => EOF calls
+
+    304f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code CALLs EOF code (EXTCALL)
+      # { sstore(0, extcall(0, 0, 0, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, 1) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0020 # Code section  0 , 32  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0004 # max stack: 4
+               # Code section 0
+            5f # [0] PUSH0 
+            80 # [1] DUP1 
+            80 # [2] DUP1 
+        73c94f5374fce5edbc8e2a8697c15331677e6ebf0b # [3] PUSH20(0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+            f8 # [24] EXTCALL 
+            5f # [25] PUSH0 
+            55 # [26] SSTORE 
+          6001 # [27] PUSH1(1) 
+            80 # [29] DUP1 
+            55 # [30] SSTORE 
+            00 # [31] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+    324f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code DELEGATECALLs EOF code (EXTDELEGATECALL)
+      # { sstore(0, EXTDELEGATECALL(0, 0, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, 1) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          001f # Code section  0 , 31  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0003 # max stack: 3
+               # Code section 0
+            5f # [0] PUSH0 
+            80 # [1] DUP1 
+        73c94f5374fce5edbc8e2a8697c15331677e6ebf0b # [2] PUSH20(0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+            f9 # [23] EXTDELEGATECALL 
+            5f # [24] PUSH0 
+            55 # [25] SSTORE 
+          6001 # [26] PUSH1(1) 
+            80 # [28] DUP1 
+            55 # [29] SSTORE 
+            00 # [30] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+    334f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code STATICCALLs non-pure EOF code (EXTSTATICCALL)
+      # { sstore(0, EXTSTATICCALL(0, 0, 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, 1) stop() }
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          001f # Code section  0 , 31  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0003 # max stack: 3
+               # Code section 0
+            5f # [0] PUSH0 
+            80 # [1] DUP1 
+        73c94f5374fce5edbc8e2a8697c15331677e6ebf0b # [2] PUSH20(0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+            fb # [23] EXTSTATICCALL  
+            5f # [24] PUSH0 
+            55 # [25] SSTORE 
+          6001 # [26] PUSH1(1) 
+            80 # [28] DUP1 
+            55 # [29] SSTORE 
+            00 # [30] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+    344f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EOF code STATICCALLs EOF code (EXTSTATICCALL)
+      # { sstore(0, EXTSTATICCALL(0, 0, 0x194f5374fce5edbc8e2a8697c15331677e6ebf0b)) sstore(1, returndataload(0)) sstore(2, 2) stop()}
+      code: |
+        :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0024 # Code section  0 , 36  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0003 # max stack: 3
+               # Code section 0
+            5f # [0] PUSH0 
+            80 # [1] DUP1 
+        73194f5374fce5edbc8e2a8697c15331677e6ebf0b # [2] PUSH20(0x194f5374fce5edbc8e2a8697c15331677e6ebf0b) 
+            fb # [23] EXTSTATICCALL 
+            5f # [24] PUSH0 
+            55 # [25] SSTORE 
+            5f # [26] PUSH0 
+            f7 # [27] RETURNDATALOAD 
+          6001 # [28] PUSH1(1) 
+            55 # [30] SSTORE 
+          6002 # [31] PUSH1(2) 
+            80 # [33] DUP1 
+            55 # [34] SSTORE 
+            00 # [35] STOP 
+               # Data section (empty)
+      nonce: 0
+      storage:
+            '0': 'dd'
+
+  transaction:
+    data:
+      - ':label legacy_call_eof                :raw 0x104f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label legacy_delegatecall_eof        :raw 0x124f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label legacy_staticcall_eof_failure  :raw 0x134f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label legacy_staticcall_eof          :raw 0x144f5374fce5edbc8e2a8697c15331677e6ebf0b'
+
+      - ':label eof_call_legacy                :raw 0x204f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label eof_delegatecall_legacy        :raw 0x224f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label eof_staticcall_legacy_failure  :raw 0x234f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label eof_staticcall_legacy          :raw 0x244f5374fce5edbc8e2a8697c15331677e6ebf0b'
+
+      - ':label eof_call_eof                   :raw 0x304f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label eof_delegatecall_eof           :raw 0x324f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label eof_staticcall_eof_failure     :raw 0x334f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label eof_staticcall_eof             :raw 0x344f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    gasLimit:
+      - 7000000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+     - 0
+
+  expect:
+    - indexes:
+       data: ':label legacy_call_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '10': '104f5374fce5edbc8e2a8697c15331677e6ebf0b'
+        104f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+    - indexes:
+       data: ':label legacy_delegatecall_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        124f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+            '10': 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    - indexes:
+       data: ':label legacy_staticcall_eof_failure'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        134f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '1': '1'
+    - indexes:
+       data: ':label legacy_staticcall_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        144f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '0x4200000000000000000000000000000000000000000000000000000000000000'
+            '2': '2'
+
+    - indexes:
+       data: ':label eof_call_legacy'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        e94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '10': '204f5374fce5edbc8e2a8697c15331677e6ebf0b'
+        204f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0'
+            '1': '1'
+
+    - indexes:
+       data: ':label eof_delegatecall_legacy'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        224f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'  # DELEGATECALL fails because disallowed.
+            '1': '1'
+            '10': '0'
+
+    - indexes:
+       data: ':label eof_staticcall_legacy_failure'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        234f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '2'
+            '1': '1'
+
+    - indexes:
+       data: ':label eof_staticcall_legacy'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        244f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0'
+            '1': '0x4200000000000000000000000000000000000000000000000000000000000000'
+            '2': '2'
+
+    - indexes:
+       data: ':label eof_call_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '10': '304f5374fce5edbc8e2a8697c15331677e6ebf0b'
+        304f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0'
+            '1': '1'
+
+    - indexes:
+       data: ':label eof_delegatecall_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        324f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0'
+            '1': '1'
+            '10': 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+
+    - indexes:
+       data: ':label eof_staticcall_eof_failure'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        334f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '2'
+            '1': '1'
+
+    - indexes:
+       data: ':label eof_staticcall_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        344f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0'
+            '1': '0x4200000000000000000000000000000000000000000000000000000000000000'
+            '2': '2'
+

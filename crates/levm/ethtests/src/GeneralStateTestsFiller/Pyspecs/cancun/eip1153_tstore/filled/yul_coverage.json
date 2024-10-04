@@ -1,0 +1,91 @@
+{
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_yul_coverage.py::test_yul_coverage[fork_Cancun-state_test]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cb35d14d.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "a8ec55007acb1da0707d0c692233016a88dc22872c4f8009d43ed0b1d17dda95",
+            "hash" : "0x6897bce838a0b585af817b69eb22789c3eb020440355ba7bbeedd25d0bdc86f1",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_yul_coverage.py",
+            "sourceHash" : "88318c4120f0dcdb917264d3fdb9d4202233170e72f741c6386d6a6530bcf5bb"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x0c56312272ad13761997c6fad2c458993f9e9cec998f28138ab0c6a20260fb1f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f8630180050a830186a094a00000000000000000000000000000000000000a8080c080a0fa8ab93208d706e50db2342b535d2d71834c393ead24ba6b2faa40649f5edbfaa05817fcf8a065501a98d1386a227aaf2dab60e6373693c004b1204cdd31472ad2"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x5f8080808073b00000000000000000000000000000000000000b5af15f5260205ff3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x600060011b600060011c600b600a9060026001815f60016001620000016004600360026300000001600150",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc00000000000000000000000000000000000000c" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x0186a0"
+            ],
+            "maxFeePerGas" : "0xa",
+            "maxPriorityFeePerGas" : "0x5",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

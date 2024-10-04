@@ -1,0 +1,65 @@
+{
+    "aMaliciousRLP" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "7db0a93ebf0545f29cd314ef7f9fafa7d979fe48fb66e754987ae3473a8ceee5",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttWrongRLP/aMaliciousRLPCopier.json",
+            "sourceHash" : "0f35cb38f7ac8d4d096b32e3bd82540de36fb5a890e50c39130878cd18201a7e"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "RLP_Error_EOF",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xb8"
+    }
+}

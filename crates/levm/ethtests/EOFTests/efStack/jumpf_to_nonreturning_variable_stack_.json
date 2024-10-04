@@ -1,0 +1,50 @@
+{
+    "jumpf_to_nonreturning_variable_stack" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "1546dc223995ddd801414a281b8b5f4a4694227dbac98b16e75dfa868a101b35",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json",
+            "sourceHash" : "65a56f34657d65a9a8d0d218e05e5b13facce58f4813d65ca61f5ce64fe40113"
+        },
+        "vectors" : {
+            "jumpf_to_nonreturning_variable_stack_0" : {
+                "code" : "0xef0001010008020002000b00010400000000800003058000055f6000e100025f5fe50001fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "jumpf_to_nonreturning_variable_stack_1" : {
+                "code" : "0xef0001010008020002000b00010400000000800003038000035f6000e100025f5fe50001fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "jumpf_to_nonreturning_variable_stack_2" : {
+                "code" : "0xef0001010008020002000b00010400000000800003018000015f6000e100025f5fe50001fe",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "jumpf_to_nonreturning_variable_stack_3" : {
+                "code" : "0xef0001010008020002000b00010400000000800003008000005f6000e100025f5fe50001fe",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

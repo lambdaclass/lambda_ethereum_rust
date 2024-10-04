@@ -1,0 +1,69 @@
+{
+    "TransactionWithGasLimitxPriceOverflow" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "8b4ff0d3d5f77eb81a4dd5d4c589c18f9004649e74ae1b4e24f5f592d161d551",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttGasLimit/TransactionWithGasLimitxPriceOverflowFiller.json",
+            "sourceHash" : "e62762517ddf917a7e963e0cd44383feff567d4819c0b9a9b960283b00478b27"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Byzantium" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Cancun" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Constantinople" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "EIP150" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "EIP158" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Frontier" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Homestead" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Istanbul" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "London" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Paris" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Shanghai" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            }
+        },
+        "txbytes" : "0xf87e80990100000000000000010000000000000001000000000000000288ffffffffffffffff94095e7baea6a6c7c4c2dfeb977efac326af552d8780801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

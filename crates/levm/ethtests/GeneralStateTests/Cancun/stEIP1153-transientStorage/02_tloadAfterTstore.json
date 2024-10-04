@@ -1,0 +1,75 @@
+{
+    "02_tloadAfterTstore" : {
+        "_info" : {
+            "comment" : "tload from same slot after tstore returns correct value",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.ea13235b.Linux.g++",
+            "generatedTestHash" : "f4e59eaa74cc9a4146ee1f5ed88e35a770a217cc018311b2f9d93d8894b706bc",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/02_tloadAfterTstoreFiller.yml",
+            "sourceHash" : "e2cafaab20945e76264c34b2f976ebc7046f014575ea3a5d218d1e5d0c95d7a9"
+        },
+        "env" : {
+            "currentBaseFee" : "0x0a",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x10000000000000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000020000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x2dbebb243ba557e9e72e8708f22ea439a413bf5239dd3752185addc279a59e31",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x02f869018080820fa0871000000000000094a00000000000000000000000000000000000000a8080c001a0e4a89c7b1a6be38d09addd42532dac2f629ace5c584717d5425d6f479f039ae0a01eb43f5559a982db645131807a740be4db1f877fa8bbc9648e1d15827d9c8a39"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60585f5d5f5c60015500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x3635c9adc5dea00000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x10000000000000"
+            ],
+            "maxFeePerGas" : "0x0fa0",
+            "maxPriorityFeePerGas" : "0x00",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

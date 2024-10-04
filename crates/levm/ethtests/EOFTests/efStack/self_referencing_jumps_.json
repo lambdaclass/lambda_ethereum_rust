@@ -1,0 +1,42 @@
+{
+    "self_referencing_jumps" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "fc7fcdf282b43e773c812cb212070da5fa8b81e1c5b414272e8ddcf7242381fe",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/self_referencing_jumps_Copier.json",
+            "sourceHash" : "315b8a64ae3d2f54316615a75758c985766eb57bc649ffa4edd5bd4f931ee737"
+        },
+        "vectors" : {
+            "rjump" : {
+                "code" : "0xef000101000402000100030400000000800000e0fffd",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "rjumpi" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1fffd00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            },
+            "rjumpv" : {
+                "code" : "0xef0001010004020001000704000000008000006000e200fffc00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

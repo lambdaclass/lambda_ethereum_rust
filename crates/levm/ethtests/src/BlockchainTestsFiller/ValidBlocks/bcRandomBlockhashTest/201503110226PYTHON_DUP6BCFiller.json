@@ -1,0 +1,110 @@
+{
+    "201503110226PYTHON_DUP6BC" : {
+        "_info" : {
+            "comment" : "This test used to be a VM test and it once failed in python client some day.  Since the test contains a BALANCE instruction (which must be mocked), it's moved to GeneralSateTest https://github.com/ethereum/tests/pull/445/files#r179426325"
+        },
+        "blocks" : [
+            {
+                "blockHeader" : {
+                    "Istanbul" : {
+                        "difficulty" : "0x020000",
+                        "gasLimit" : "1000000000000000",
+                        "timestamp" : "0x03e8"
+                    },
+                    "Berlin" : {
+                        "difficulty" : "0x020000",
+                        "gasLimit" : "1000000000000000",
+                        "timestamp" : "0x03e8"
+                    },
+                    "London" : {
+                        "difficulty" : "0x020000",
+                        "gasLimit" : "1000000000000000",
+                        "timestamp" : "0x03e8"
+                    },
+                    "Paris" : {
+                        "gasLimit" : "1000000000000000",
+                        "timestamp" : "0x03e8"
+                    },
+                    "Shanghai" : {
+                        "gasLimit" : "1000000000000000",
+                        "timestamp" : "0x03e8"
+                    },
+                    ">=Cancun" : {
+                        "gasLimit" : "1000000000000000",
+                        "timestamp" : "0x03e8"
+                    }
+                },
+                "transactions" : [
+                    {
+                        "data" : ":raw 0x",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "100000000000000",
+                        "nonce" : "0x00",
+                        "to" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "value" : "1000000000000000000"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            }
+        ],
+    	"sealEngine" : "NoProof",
+        "expect" : [
+	    {
+		    "network" : [">=Istanbul"],
+		    "result" : {
+                   "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                        "balance" : "2000000000000000000",
+                        "code" : "0x45414443434042405b85",
+                        "nonce" : "0",
+                        "storage" : {
+                        }
+                    }
+	 	   }
+	    }
+        ],
+        "genesisBlockHeader" : {
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "difficulty" : "131072",
+            "extraData" : "0x42",
+            "gasLimit" : "1000000000000000",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x03b6",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "pre" : {
+            "0x000f3df6d732807ef1319fb7b8bb8522d0beac02" : {
+                "code" : ":raw 0x3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff42064281555f359062001fff015500",
+                "nonce" : "0x01",
+                "balance" : "0x00",
+                "storage" : {
+                    "0x03b6" : "0x03b6",
+                    "0x03e8" : "0x03e8",
+                    "0x079e" : "0x079e"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+                "balance": "0x1038beec8feeca2598",
+                "code": "",
+                "nonce": "0x00",
+                "storage": {}
+            },
+            "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "1000000000000000000",
+                "code" : ":raw 0x45414443434042405b85",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "difficultyArrowGlacierTimeDiff1" : 
+    {
+        "_info" : {
+            "comment" : "Difficulty ArrowGlacier Timestamp Difference Combination Check 1: Timestamp differences of 8, 17, 26, ... 908"
+        },
+        "network" : [ "ArrowGlacier" ],
+        "blocknumber" : ["15_000_000"],
+        "timestampDiff" : "[8-910;9]",
+        "parentDifficutly" : ["0x223a2d17232652"],
+        "hasUncles" : [0, 1]
+    }
+}

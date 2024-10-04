@@ -1,0 +1,99 @@
+# Tload should not load the value stored in the previous transaction.
+#
+# Expect slot 0 to have value 90 from transaction 1.
+# Expect slot 1 to have value 0 from transaction 2. 
+
+tloadDoesNotPersistCrossTxn:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase:  0xBA5E000000000000000000000000000000000000
+    difficulty: '131073'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 100000000000000000
+    baseFeePerGas: 1000
+  sealEngine: NoProof
+
+  pre:
+    0xA00000000000000000000000000000000000000A:
+      balance: 0x1000000000000000000
+      code: |
+        :yul {
+          switch selector()
+
+          case 0x0accf739 { // doStoreAndLoad()
+            doStoreAndLoad()
+          }
+          
+          case 0x43ac1c39 { // doLoad()
+            doLoad()
+          }
+
+          function doStoreAndLoad() {
+            verbatim_2i_0o(hex"5D", 0, 90)
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(0, v)
+          }
+
+          function doLoad() {
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(1, v)
+          }
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+      nonce: '0x00'
+      storage: { 0x01: 0xffff }
+
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x1000000000000000000
+      nonce: 0
+      code: ''
+      storage: {}
+
+
+    
+  blocks:
+  # Block 1
+  - transactions:
+    - data: :abi doStoreAndLoad()
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 1
+      maxFeePerGas:      1000
+      nonce: 0
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: A00000000000000000000000000000000000000A
+      value: 0x0
+    - data: :abi doLoad()
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 1
+      maxFeePerGas:      1000
+      nonce: 1
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: A00000000000000000000000000000000000000A
+      value: 0x0
+
+
+
+  expect:
+  - network:
+    - ">=Cancun"
+    result:
+      A00000000000000000000000000000000000000A: 
+          storage:
+            0x00: 90
+            0x01: 0

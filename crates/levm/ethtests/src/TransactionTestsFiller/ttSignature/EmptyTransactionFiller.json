@@ -1,0 +1,21 @@
+{
+    "EmptyTransaction" :
+    {
+	    "expectException" : 
+        {
+            ">=Frontier": "InvalidVRS"
+        },
+        "transaction" :
+        {
+            "data" : "",
+            "gasLimit" : "",
+            "gasPrice" : "",
+            "nonce" : "",
+            "to" : "",
+            "value" : "",
+            "v" : "",
+            "r" : "",
+            "s" : ""
+        }
+    }
+}

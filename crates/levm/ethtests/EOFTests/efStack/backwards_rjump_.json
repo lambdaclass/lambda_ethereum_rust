@@ -1,0 +1,67 @@
+{
+    "backwards_rjump" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "fbb210281ae961588d1641354ad8d8a1fe6f35c07b2de84fa0e4d1df07609193",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/backwards_rjump_Copier.json",
+            "sourceHash" : "c8b16456c624939d37967a77848e9c289f5f7af948214fa998c8d24f93ae7842"
+        },
+        "vectors" : {
+            "backwards_rjump_0" : {
+                "code" : "0xef000101000402000100030400000000800000e0fffd",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjump_1" : {
+                "code" : "0xef0001010004020001000504000000008000015f50e0fffb",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjump_2" : {
+                "code" : "0xef0001010004020001000d04000000008000015f506001e10003e0fff8e0fff5",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "backwards_rjump_3" : {
+                "code" : "0xef0001010004020001000e04000000008000015f506001e10003e0fff85fe0fff4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            },
+            "backwards_rjump_4" : {
+                "code" : "0xef0001010004020001000404000000008000015fe0fffc",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            },
+            "backwards_rjump_5" : {
+                "code" : "0xef0001010004020001000504000000008000015f50e0fffc",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_ConflictingStackHeight",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

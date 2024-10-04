@@ -1,0 +1,69 @@
+{
+    "DataTestNotEnoughGAS" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "f87341c8eab16585000f93464c8a2adf80333cacc909c979f7fa13d4ea371148",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttData/DataTestNotEnoughGASFiller.json",
+            "sourceHash" : "d5262430035acf262c0c67786b152bcfb5c3260d10ae405ae8b0c20c624eb17b"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x52e8"
+            },
+            "Byzantium" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "Cancun" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x52e8"
+            },
+            "Constantinople" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "EIP150" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "EIP158" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "Frontier" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "Homestead" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x55c0"
+            },
+            "Istanbul" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x52e8"
+            },
+            "London" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x52e8"
+            },
+            "Paris" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x52e8"
+            },
+            "Shanghai" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x52e8"
+            }
+        },
+        "txbytes" : "0xf86d800182521c94095e7baea6a6c7c4c2dfeb977efac326af552d870a8e0358ac39584bc98a7c979f984b031ca048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a010002cef538bc0c8e21c46080634a93f4d752bc9fe4b546b60ac055e842d342b"
+    }
+}

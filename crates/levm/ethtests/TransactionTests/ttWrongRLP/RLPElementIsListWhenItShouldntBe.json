@@ -1,0 +1,65 @@
+{
+    "RLPElementIsListWhenItShouldntBe" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "422dcfbbe0c96b6d33d79513c6d1d7e68eafea4c920fb89e8cbf671bc8f1f2f0",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttWrongRLP/RLPElementIsListWhenItShouldntBeCopier.json",
+            "sourceHash" : "d0440b9cf84c7a0c8c911dc23d2338e1374cac49a2d449193671dcd33e95c9f9"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "InvalidGasLimit5",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf8698001cc83646f6783676f648363617494095e7baea6a6c7c4c2dfeb977efac326af552d870a801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

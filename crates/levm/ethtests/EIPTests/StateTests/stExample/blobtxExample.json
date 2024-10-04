@@ -1,0 +1,245 @@
+{
+    "blobtxExample" : {
+        "_info" : {
+            "comment" : "A test shows blob transaction example",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a76b07df.Linux.g++",
+            "generatedTestHash" : "a4dfef97cdb3bf12429259d30ce05d5b729abef16bcc9e4cfdc061006ca15a4e",
+            "labels" : {
+                "0" : "declaredKeyWrite"
+            },
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EIPTestsFiller/StateTests/stExample/blobtxExampleFiller.yml",
+            "sourceHash" : "f09c82c7e4ff35fbf91543c4852b942a03c228c417ad666cba519dc791e374cb"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x1000000000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000020000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Byzantium" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Cancun" : [
+                {
+                    "hash" : "0x3521ff34f1b931adf7d772f6f74c9824a6ee11fe346ac9c46baf53197152cbe7",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Constantinople" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "ConstantinopleFix" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "EIP150" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x740206e3f4afa0f935f843518fab1a388bdcfc66ae90df7a93ac87131d69707f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "EIP158" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Frontier" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x740206e3f4afa0f935f843518fab1a388bdcfc66ae90df7a93ac87131d69707f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Homestead" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x740206e3f4afa0f935f843518fab1a388bdcfc66ae90df7a93ac87131d69707f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "London" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Paris" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ],
+            "Shanghai" : [
+                {
+                    "expectException" : "TR_TypeNotSupportedBlob",
+                    "hash" : "0x668817abd521eb1401e0b8e52014bf6e36346dc786bf9084f3f03ac09b2ffaa2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f8ea01800285012a05f200833d090094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a000f85bf85994095e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000010ae1a001a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d880a00e19015cc1cd97ad78f818d10bd65f4fa164c8494a9203657b4a711b1b901922a02a2a338798f70bced90305c9d5111b9aeafdb132e396eb3ebe067288023d07f1"
+                }
+            ]
+        },
+        "pre" : {
+            "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60004960005500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000",
+                            "0x0000000000000000000000000000000000000000000000000000000000000001"
+                        ]
+                    }
+                ]
+            ],
+            "blobVersionedHashes" : [
+                "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+            ],
+            "data" : [
+                "0x00"
+            ],
+            "gasLimit" : [
+                "0x3d0900"
+            ],
+            "maxFeePerBlobGas" : "0x0a",
+            "maxFeePerGas" : "0x012a05f200",
+            "maxPriorityFeePerGas" : "0x02",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "0x0186a0"
+            ]
+        }
+    }
+}

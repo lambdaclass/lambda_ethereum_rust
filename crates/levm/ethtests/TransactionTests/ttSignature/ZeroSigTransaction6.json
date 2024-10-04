@@ -1,0 +1,69 @@
+{
+    "ZeroSigTransaction6" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "ddb03bac1d0ac87340c52cf1e53e28d8d957216ba54534090fe79987e5a44557",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/ZeroSigTransaction6Filler.json",
+            "sourceHash" : "6c630d1660471f3d63e8fc78c315b495e2e40db511669198d63f75909175f65d"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "InvalidVRS",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "InvalidVRS",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "InvalidVRS",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "InvalidChainID",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xdf030182c73894b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a80058080"
+    }
+}

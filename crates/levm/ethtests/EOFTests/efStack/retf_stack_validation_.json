@@ -1,0 +1,50 @@
+{
+    "retf_stack_validation" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "b5cf594c4b2c5a37b5857e580e74a8a479a7a198ee0285265a7006d51ce35a2c",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json",
+            "sourceHash" : "7094a04f64e9730de4644f1f13f16c1ac0c97f51693ef1326cd309aed9837946"
+        },
+        "vectors" : {
+            "retf_stack_validation_0" : {
+                "code" : "0xef000101000802000200040003040000000080000200020002e30001005f5fe4",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "retf_stack_validation_1" : {
+                "code" : "0xef000101000802000200040002040000000080000200020001e30001005fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "retf_stack_validation_2" : {
+                "code" : "0xef000101000802000200040004040000000080000200020003e30001005f5f5fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidNumberOfOutputs",
+                        "result" : false
+                    }
+                }
+            },
+            "retf_stack_validation_3" : {
+                "code" : "0xef00010100080200020005000d0400000000800002010200025fe3000100e1000760016001e000025f5fe4",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,25 @@
+{
+    "incomplete_section_size" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "68fa9815837aacad42775f68639a5067ec88725b4bfc343420875b3b43cf30d8",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/incomplete_section_size_Copier.json",
+            "sourceHash" : "5f05623d5feaba9d166d0ebed1a2fd2552be3198d662ff7f11ad7c0988a72c69"
+        },
+        "vectors" : {
+            "incomplete_section_size_0" : {
+                "code" : "0xef000101010002003f0100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_IncompleteSectionSize",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,55 @@
+{
+    "RLPElementIsListWhenItShouldntBe2": {
+        "result": {
+            "Shanghai": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Paris": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Berlin": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Byzantium": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Constantinople": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP150": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "EIP158": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Frontier": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Homestead": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "Istanbul": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            },
+            "London": {
+                "exception": "InvalidNonce",
+				"intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes": "0xf86bcc83646f6783676f64836361740182035294095e7baea6a6c7c4c2dfeb977efac326af552d870a801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

@@ -1,0 +1,57 @@
+{
+    "TransactionWithTooManyRLPElements" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "deab8fde7a99a84e9cb214fb2148587b795467f61d5c09e4564eef4c48957b38",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/TransactionWithTooManyRLPElementsCopier.json",
+            "sourceHash" : "449d43000cc70caf1de4f4d6d4cad5a76f95605ffc9ed5207d174bd155fa540d"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "RLP_TooManyElements",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf860800182520894000000000000000000000000000b9331677e6ebf0a801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa01887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a380"
+    }
+}

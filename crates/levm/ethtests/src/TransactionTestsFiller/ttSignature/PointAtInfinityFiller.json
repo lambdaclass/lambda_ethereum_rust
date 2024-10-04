@@ -1,0 +1,21 @@
+{
+    "PointAtInfinity" :
+    {
+	    "expectException" : 
+        {
+            ">=Frontier": "ECRecoveryFail"
+        },
+        "transaction" :
+        {
+            "data" : "",
+            "gasLimit" : "0x5208",
+            "gasPrice" : "0x10",
+            "nonce" : "0x01",
+            "to" : "0xf0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+            "value" : "0x01",
+            "v" : "28",
+            "r" : "0x6f0010ff4c31c2a6d0526c0d414e6cd01ad5d22e15bfff98af23867366b94d87",
+            "s" : "0x5413392d556119132da7056f8fb56a9138a36446a8a4ad7159c9d892d9f32284"
+        }
+    }
+}

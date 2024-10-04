@@ -1,0 +1,69 @@
+{
+    "maxPriorityFeePerGas00prefix" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "a956548ed6c73a1867fcd8ffa99bc448ca8dc1a68017147c1a5345b251253106",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttEIP1559/maxPriorityFeePerGas00prefixFiller.json",
+            "sourceHash" : "45976d340d13bc1033785f430a1819f9ea9d9073ee92936dca78e56034764052"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "1559LeadingZerosPriorityFee",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0x02f8870180a100ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff84b2d05e0082520894095e7baea6a6c7c4c2dfeb977efac326af552d878080c080a05cbd172231fc0735e0fb994dd5b1a4939170a260b36f0427a8a80866b063b948a07c230f7f578dd61785c93361b9871c0706ebfa6d06e3f4491dc9558c5202ed36"
+    }
+}

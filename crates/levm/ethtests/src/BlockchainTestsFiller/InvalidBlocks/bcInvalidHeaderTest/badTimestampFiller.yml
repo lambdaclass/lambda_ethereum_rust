@@ -1,0 +1,196 @@
+# This test looks for a few possible problem states with timestamps:
+#
+# 1. A block with the same timestamp as the parent is invalid
+# 2. A block with a timestamp prior to its parent is invalid
+# 3. A block with a timestamp one second after its parent is valid
+#
+# All three conditions come from inequality (49) of the yellow paper
+# (https://ethereum.github.io/yellowpaper/paper.pdf, p. 7)
+#
+# Note that as this test includes blocks that create exceptions, it cannot be
+# --filltests on besu currently.
+#
+# The timestamp is in seconds. p. 5 of the yellow paper 
+# (https://ethereum.github.io/yellowpaper/paper.pdf) specifies it is the output
+# of Unix's time(). According to https://linux.die.net/man/2/time that is seconds.
+
+badTimestamp:
+  genesisBlockHeader:
+    timestamp: 1620000000   # May 3rd, 2021
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 1073741824
+    baseFeePerGas: 1000
+  sealEngine: NoProof
+
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000
+      code: ''
+      nonce: 1
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x1000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+
+  blocks:
+
+  # One second after the previous block
+  - blockHeader:
+       'London': 
+          timestamp: 1620000001
+          # When the time difference < 9 seconds the difficulty is supposed to
+          # increase. However, because retesteth gets the block from geth and then
+          # changes the timestamp, the difficulty is not updated.
+          #
+          # Therefore if timediff < 9, we need to specify the difficulty manually
+          difficulty: 131136
+       'Paris':
+          timestamp: 1620000001
+       'Shanghai':
+          timestamp: 1620000001
+       '>=Cancun':
+          timestamp: 1620000001
+          stateRoot: 0x1cc65415f912aba5b76671cf503c1e4a922930c5c3a172c581a94e0e5d4972c6
+    blocknumber: 1
+    transactions: []
+
+  # One second after the previous block
+  - blockHeader:
+       'London':
+          timestamp: 1620000002
+          difficulty: 131200
+       'Paris':
+          timestamp: 1620000002
+       'Shanghai':
+          timestamp: 1620000002
+       '>=Cancun':
+          timestamp: 1620000002
+          stateRoot: 0x232f9e0f452f59dbd35cf876086896a8c246d6250c9a0c432ed893e97c00b77c
+
+    blocknumber: 2
+    transactions: []
+
+  # A minute after the beginning
+  - blockHeader:
+      '<Cancun':
+        timestamp: 1620000060
+      '>=Cancun':
+        timestamp: 1620000060
+        stateRoot: 0x10bc5084e2b8e9c073e7c3c56f6c8f8cb6dcca81feaa7ae36fb399efd296f74d
+    blocknumber: 3
+    transactions: []
+
+  # Same time as the previous block
+  - blockHeader:
+      timestamp: 1620000060
+    blocknumber: 4
+    transactions: []
+    expectException:
+      '>=London': InvalidTimestampOlderParent
+
+
+  # Another legitimate block
+  - blockHeader:
+      '<Cancun':
+        timestamp: 1620003600
+      '>=Cancun':
+        timestamp: 1620003600
+        stateRoot: 0xb9a804c932352c82278580f7be6a931df33592ffd33efc47462416cb8892309f
+    blocknumber: 4
+    transactions: []
+
+
+  # Time travel into the past
+  - blockHeader:
+      timestamp: 1620003599
+    blocknumber: 5
+    transactions: []
+    expectException:
+      '>=London': InvalidTimestampOlderParent
+
+  # Time stands still?
+  - blockHeader:
+      timestamp: 1620003600	
+    blocknumber: 5
+    transactions: []
+    expectException:
+      '>=London': InvalidTimestampOlderParent
+
+
+  # Finally a legitimate block
+  - blockHeader:
+       'London':
+          timestamp: 1620007200
+          difficulty: 131072
+       'Paris':
+          timestamp: 1620007200
+       'Shanghai':
+          timestamp: 1620007200
+       '>=Cancun':
+          timestamp: 1620007200
+          stateRoot: 0x4506a30e9c6d9c02327602f8d1a8e5c1a8644c4569145e75395261c208a2a72e
+    blocknumber: 5
+    transactions: []
+
+
+  # A day without blocks (24 hours from previous block)
+  - blockHeader:
+       '<Cancun':
+          timestamp: 1620093600
+       '>=Cancun':
+          timestamp: 1620093600
+          stateRoot: 0x5befe712f3c350458112f5debc78a9bfe3c194bedaa4028100f78de68d720614
+
+    blocknumber: 6
+    transactions: []
+
+
+  # A month without blocks (30 days from previous block)
+  - blockHeader:
+       '<Cancun':
+          timestamp: 1622685600
+       '>=Cancun':
+          timestamp: 1622685600
+          stateRoot: 0xdd56cde39f0277b920899ab1448a8685f57c8422dba020e317238d22f4fd3157
+    blocknumber: 7
+    transactions: []
+
+
+  # A year without blocks (366 days from previous block)
+  # Removed because it will be a problem in Besu, which doesn't like blocks too far
+  # out into the future
+#  - blockHeader:
+#      timestamp: 1654308000
+#    blocknumber: 8
+#    transactions: []
+
+
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    # No real result, this test is based on exceptions
+    # No transactions, so no need to check the nonces either
+    result: {}
+
+

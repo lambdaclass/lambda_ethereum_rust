@@ -1,0 +1,34 @@
+{
+    "EOF1_trailing_bytes" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "d01821ba2cc62d58c988813791ff950d948ecef07336cd478b87f641fa81412d",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_trailing_bytes_Copier.json",
+            "sourceHash" : "b9045b7cb453bfcf1aeb92b661c8469a1153e1c214ceddfbb40e8216e1c38d37"
+        },
+        "vectors" : {
+            "EOF1_trailing_bytes_0" : {
+                "code" : "0xef000101000402000100010400000000800000fedeadbeef",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidSectionBodiesSize",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_trailing_bytes_1" : {
+                "code" : "0xef000101000402000100010400020000800000feaabbdeadbeef",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidSectionBodiesSize",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

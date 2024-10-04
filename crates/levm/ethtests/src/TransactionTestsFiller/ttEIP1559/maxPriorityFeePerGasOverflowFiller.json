@@ -1,0 +1,24 @@
+{
+    "maxPriorityFeePerGasOverflow" :
+    {
+	    "expectException" :
+        {
+          "<=Berlin" : "TR_TypeNotSupported",
+          ">=London" : "InvalidMaxPriorityFeePerGas"
+        },
+        "transaction" :
+        {
+            "data" : "",
+            "gasLimit" : "21000",
+            "maxFeePerGas" : "3000000000",
+            "maxPriorityFeePerGas" : "0x:bigint 0x10000000000000000000000000000000000000000000000000000000000000000",
+            "accessList" : [],
+            "nonce" : "0",
+            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : "",
+            "v" : "0x00",
+            "r" : "0x5cbd172231fc0735e0fb994dd5b1a4939170a260b36f0427a8a80866b063b948",
+            "s" : "0x7c230f7f578dd61785c93361b9871c0706ebfa6d06e3f4491dc9558c5202ed36"
+        }
+    }
+}

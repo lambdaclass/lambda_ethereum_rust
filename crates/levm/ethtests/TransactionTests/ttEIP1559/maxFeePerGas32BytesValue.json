@@ -1,0 +1,69 @@
+{
+    "maxFeePerGas32BytesValue" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "e18f1d45103eb0ef05cc0e617dc807d5200cd17eab9282ebf76e40578d441a76",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttEIP1559/maxFeePerGas32BytesValueFiller.json",
+            "sourceHash" : "80c1648d2aafce1f8d316f44202ea78d1e302e65568b326008711252988e80b3"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Constantinople" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Paris" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            },
+            "Shanghai" : {
+                "exception" : "GasLimitPriceProductOverflow",
+                "intrinsicGas" : "0x5208"
+            }
+        },
+        "txbytes" : "0x02f88601808477359400a0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82520894095e7baea6a6c7c4c2dfeb977efac326af552d878080c080a05cbd172231fc0735e0fb994dd5b1a4939170a260b36f0427a8a80866b063b948a07c230f7f578dd61785c93361b9871c0706ebfa6d06e3f4491dc9558c5202ed36"
+    }
+}

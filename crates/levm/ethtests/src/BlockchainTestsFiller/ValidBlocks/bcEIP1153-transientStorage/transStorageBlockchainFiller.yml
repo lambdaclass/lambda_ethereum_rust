@@ -1,0 +1,314 @@
+# Test that TSTORE doesn't persist across transaction boundries or block boundries,
+# regardless of how you exit the transaction that sets trans storage.
+#
+# The way this test works is that a contract is called four times in each block,
+# with the transactiion number as data.
+#
+# The first call stores the results of a tload and then exist normally
+#    (block boundary)
+# The second call does a tstore and then exits (different type of exit depending on
+#    block number)
+# The third call stores the results of a tload and then exists normally 
+#    (transaction boundary)
+# The fourth call does a tstore and then exits (different type of exit depending on
+#    block number)
+#
+# Block 1 - stop
+# Block 2 - return
+# Block 3 - revert
+# Block 4 - invalid
+# Block 5 - out of gas
+# Block 6 - stop (to just the block boundary out of gas behavior)
+
+
+transStorageBlockchain:
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x8888f1f195afa192cfee860698584c030f4c9db1
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 3141592
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+
+
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '10000000000'
+      nonce: 1
+      code: ''
+      storage: {}
+
+    0xde570000de570000de570000de570000de570000:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+            // These two functions use transient storage.
+            // Once the relevant opcodes are added to Yul, simply remove
+            // them (from all contracts) and remove the _temp suffices.
+            function tload_temp(loc) -> val {
+              val := verbatim_1i_1o(hex"5C", loc)
+            }
+          
+            function tstore_temp(loc, val) {
+              verbatim_2i_0o(hex"5D", loc, val)
+            }
+
+            let txNum := byte(0x00, calldataload(0))
+            let block := number()
+
+            // Do a tload, store the result, and then exit normally
+            if or(eq(txNum, 1),eq(txNum, 3)) {
+              sstore(add(txNum,mul(block,0x10)), tload_temp(0))
+              stop()
+            }
+
+            // Otherwise, do a tstore, and then exit in the way
+            // we do in this block
+            tstore_temp(0, 0xBEEF)
+            switch block
+               // In block #1 stop
+               case 1 { stop() } 
+
+               // In block #2 return
+               case 2 { return(0, 0x20) } 
+
+               // In block #3 revert
+               case 3 { revert(0, 0x20) } 
+
+               // Once we have a version with the new selfdestruct() behavior, we
+               // should also test that
+               // In block #4, use an invalid opcode to revert
+               case 4 { invalid() }
+
+               // In block #5 we run out of gas
+               case 5 { mstore(0xB160B160, 0xBEEF) }
+
+               // Finally, in the last block we repeat our old behavior, to check
+               // The behavior on a block boundry of the last test
+               case 6 { stop() }
+
+               // Once we have a version with the new selfdestruct() behavior, we
+               // should also test that
+
+
+        }
+      # If these are not overwritten by zero, the tstore results survive when they
+      # Shouldn't
+      storage:
+        0x11: 0x60A7
+        0x13: 0x60A7
+        0x21: 0x60A7
+        0x23: 0x60A7
+        0x31: 0x60A7
+        0x33: 0x60A7
+        0x41: 0x60A7
+        0x43: 0x60A7
+        0x51: 0x60A7
+        0x53: 0x60A7
+        0x61: 0x60A7
+        0x63: 0x60A7
+
+
+  blocks:
+  # Block 1
+  - transactions:
+    - data: :raw 0x01
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x02
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x03
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x04
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+  # Block 2
+  - transactions:
+    - data: :raw 0x01
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x02
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x03
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x04
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+  # Block 3
+  - transactions:
+    - data: :raw 0x01
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x02
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x03
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x04
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+  # Block 4
+  - transactions:
+    - data: :raw 0x01
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x02
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x03
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x04
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+  # Block 5
+  - transactions:
+    - data: :raw 0x01
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x02
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x03
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x04
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+  # Block 6
+  - transactions:
+    - data: :raw 0x01
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x02
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x03
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+    - data: :raw 0x04
+      gasLimit: 1000000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xde570000de570000de570000de570000de570000
+      value: 0
+
+
+  expect:
+  - network:
+    - ">=Cancun"
+    result:
+      0xde570000de570000de570000de570000de570000:
+        storage: {}

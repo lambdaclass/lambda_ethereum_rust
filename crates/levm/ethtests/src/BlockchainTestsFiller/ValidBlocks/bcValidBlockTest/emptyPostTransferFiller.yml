@@ -1,0 +1,170 @@
+emptyPostTransfer:
+
+  # This test checks that transfering 0 wei to an address in various ways does not
+  # make it any less empty
+
+  # Ori Pomerantz qbzzt1@gmail.com
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x000000000000000000000000000000000000ba5e
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 3141592
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '10000000000'
+      nonce: '0'
+      code: ''
+      storage: {}
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: ''
+      storage: {}
+
+    # Write info about 0xBA5E (to make sure it is empty)
+    #         NUMBER - balance
+    # 0x100 + NUMBER - extcodehash
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: '0xba1a9ce'
+      nonce: 1
+      code: |
+         :yul berlin {             
+             sstore(number(), balance(0xBA5E))
+             sstore(add(0x100,number()), extcodehash(0xBA5E)) 
+         }
+      storage:
+        # Values that get overwritten
+        0x0001: 0x60A7
+        0x0002: 0x60A7
+        0x0003: 0x60A7
+        0x0004: 0x60A7
+        0x0101: 0x60A7
+        0x0102: 0x60A7
+        0x0103: 0x60A7
+        0x0104: 0x60A7
+
+
+
+    # Commit suicide, sending your (zero) balance to 0xBA5E
+    0x000000000000000000000000000000000000DEAD:
+      balance: 0
+      nonce: 1
+      code: |
+         :yul berlin {             
+             selfdestruct(0xBA5E)
+         }
+      storage: {}
+
+
+  blocks:
+  # BLOCK 1
+  - transactions:
+    # Write data
+    - data: 0x
+      gasLimit: 500000
+      maxFeePerGas: 1000
+      maxPriorityFeePerGas: 0   # So 0xBA5E won't get a tip
+      accessList: []
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+  # BLOCK 2
+  - transactions:
+    # Transfer 0 wei to 0xBA5E
+    - data: 0x
+      gasLimit: 500000
+      maxFeePerGas: 1000
+      maxPriorityFeePerGas: 0   # So 0xBA5E won't get a tip
+      accessList: []
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000BA5E
+      value: 0
+
+
+    # Write data
+    - data: 0x
+      gasLimit: 500000
+      maxFeePerGas: 1000
+      maxPriorityFeePerGas: 0   # So 0xBA5E won't get a tip
+      accessList: []
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+
+  # BLOCK 3
+  - transactions:
+    # Send 0 wei to 0xBA5E through SELFDESTRUCT
+    - data: 0x
+      gasLimit: 500000
+      maxFeePerGas: 1000
+      maxPriorityFeePerGas: 0   # So 0xBA5E won't get a tip
+      accessList: []
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000DEAD
+      value: 0
+
+  
+    # Write data
+    - data: 0x
+      gasLimit: 500000
+      maxFeePerGas: 1000
+      maxPriorityFeePerGas: 0   # So 0xBA5E won't get a tip
+      accessList: []
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+
+  # BLOCK 4
+  - transactions:
+    # Write data
+    - data: 0x
+      gasLimit: 500000
+      maxFeePerGas: 1000
+      maxPriorityFeePerGas: 0   # So 0xBA5E won't get a tip
+      accessList: []
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+
+
+  expect:
+  - network:
+    - ">=Paris"
+    result:
+      0xcccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # Balances
+          0x0001: 0   # Initial 0xBA5E balance
+          0x0002: 0   # After the first block (for which 0xBA5E would have been rewarded)
+          0x0003: 0   # After a 0 wei transfer
+          0x0004: 0   # After a 0 wei selfdestruct
+
+
+          # EXTCODEHASH
+          0x0101: 0   # Initial 0xBA5E EXTCODEHASH
+          0x0102: 0   # After the first block (for which 0xBA5E would have been rewarded)
+          0x0103: 0   # After a 0 wei transfer
+          0x0104: 0   # After a 0 wei selfdestruct

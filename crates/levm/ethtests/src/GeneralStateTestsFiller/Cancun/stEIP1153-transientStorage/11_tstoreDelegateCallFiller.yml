@@ -1,0 +1,90 @@
+# 11
+# Delegatecall manipulates transient storage in the context of the current address.
+# TSTORE(x, y), DELEGATECALL(a, ...), TSTORE(x, z), RETURN, TLOAD(x) returns z
+#
+# Expect storage slot 0 of address a to be 1. Delegatecall was successful.
+# Expect storage slot 1 of address a to be 2. The updated transient storage value from the delegatecall.
+# Expect storage slot 2 of address a to be 0. Delegatecall was unsuccessful.
+# Expect storage slot 3 of address a to be 2. Value from successful delegatecall.
+
+11_tstoreDelegateCall:
+  _info:
+    comment: delegatecall manipulates transient storage in the context of the current address.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          verbatim_2i_0o(hex"5D", 0, 1)
+
+          // transient storage at slot 0 successfully changes
+          let success := delegatecall(gas(), 0xB00000000000000000000000000000000000000B, 0, 32, 0, 0)
+          let v0 := verbatim_1i_1o(hex"5C", 0)
+          sstore(0, success)
+          sstore(1, v0)
+
+          // transient storage at slot 0 does not change
+          let fail := delegatecall(gas(), 0xC00000000000000000000000000000000000000C, 0, 32, 0, 0)
+          let v1 := verbatim_1i_1o(hex"5C", 0)
+          sstore(2, fail)
+          sstore(3, v1)
+        }
+
+      storage: { 0x02: 0xffff }
+    B00000000000000000000000000000000000000B:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          verbatim_2i_0o(hex"5D", 0, 2)
+        }
+      storage: {}
+    C00000000000000000000000000000000000000C:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          verbatim_2i_0o(hex"5D", 0, 3)
+          revert(0,0)
+        }
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: 0x
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x00: 1
+            0x01: 2
+            0x02: 0
+            0x03: 2

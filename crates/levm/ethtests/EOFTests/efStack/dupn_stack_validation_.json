@@ -1,0 +1,68 @@
+{
+    "dupn_stack_validation" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "2db934e1a75d79cb365a446b305e7243cac78b6d0c303aee9863d65e3e1d12ee",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/dupn_stack_validation_Copier.json",
+            "sourceHash" : "b7f76025b4cb16ed1ad9fc13dc9114fc55e8e3da4f8826d0d96c1050f5ca5327"
+        },
+        "vectors" : {
+            "dupn_stack_validation_0" : {
+                "code" : "0xef0001010004020001002b040000000080001560016001600160016001600160016001600160016001600160016001600160016001600160016001e60000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "dupn_stack_validation_1" : {
+                "code" : "0xef0001010004020001002b040000000080001560016001600160016001600160016001600160016001600160016001600160016001600160016001e61300",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "dupn_stack_validation_2" : {
+                "code" : "0xef0001010004020001002b040000000080001560016001600160016001600160016001600160016001600160016001600160016001600160016001e61400",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "dupn_stack_validation_3" : {
+                "code" : "0xef0001010004020001002b040000000080001560016001600160016001600160016001600160016001600160016001600160016001600160016001e6d000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "dupn_stack_validation_4" : {
+                "code" : "0xef0001010004020001002b040000000080001560016001600160016001600160016001600160016001600160016001600160016001600160016001e6fe00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "dupn_stack_validation_5" : {
+                "code" : "0xef0001010004020001002b040000000080001560016001600160016001600160016001600160016001600160016001600160016001600160016001e6ff00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,109 @@
+# 13
+# Transient storage cannot be manipulated in a static context but can be read.
+# TSTORE(x, y), STATICCALL(self, ...), TSTORE(x, z) reverts
+# TSTORE(a, b), STATICCALL(self, ...), TLOAD(a) returns b
+#
+# Expect storage slot 0 of address a to be 0. staticcall was unsuccessful.
+# Expect storage slot 1 of address a to be 2. The original tstore value before the staticcall.
+# Expect storage slot 2 of address a to be 1. staticcall was successful.
+# Expect storage slot 3 of address a to be 2. The tstored value before staticcall.
+
+13_tloadStaticCall:
+  _info:
+    comment: Transient storage cannot be manipulated in a static context, tstore reverts.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          switch selector()
+
+          case 0x3f371692 { // doReenter()
+            doReenter()
+          }
+
+          case 0x611e535a { // tstore3()
+            tstore3()
+          }
+
+          case 0x01729275 { // tload0()
+            tload0()
+          }
+
+          function tstore3() {
+            verbatim_2i_0o(hex"5D", 0, 3)
+          }
+
+          function tload0() {
+            let v := verbatim_1i_1o(hex"5C", 0)
+            mstore(0, v)
+            return(0, 32)
+          }
+
+          function doReenter() {
+            verbatim_2i_0o(hex"5D", 0, 2)
+
+            mstore(0, hex"611e535a") // tstore3()
+
+            // cap the gas to continue execution
+            let fail := staticcall(0xffff, address(), 0, 32, 0, 0)
+            sstore(0, fail)
+            
+            // should load prev value, 2
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(1, v)
+
+            mstore(0, hex"01729275") // tload0()
+            let success := staticcall(gas(), address(), 0, 32, 0, 32)
+            sstore(2, success)
+            
+            let v0 := mload(0)
+            sstore(3, v0)
+          }
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+      storage: { 0x00: 0xffff }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: :abi doReenter()
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            0x00: 0
+            0x01: 2
+            0x02: 1
+            0x03: 2

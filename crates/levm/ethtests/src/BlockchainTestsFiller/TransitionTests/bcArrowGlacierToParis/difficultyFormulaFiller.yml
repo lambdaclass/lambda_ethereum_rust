@@ -1,0 +1,222 @@
+difficultyFormula:
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x8888f1f195afa192cfee860698584c030f4c9db1
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 3141592
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+#    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '10000000000'
+      nonce: 1
+      code: ''
+      storage: {}
+    d02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: '0xba1a9ce'
+      nonce: 1
+      code: ''
+      storage: {}
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0xba1a9ce'
+      code: |
+          :yul london {
+             sstore(number(), difficulty())
+          }        
+      nonce: 1
+      storage:    # Make sure it's overwritten
+        1: 0x60A7
+        2: 0x60A7
+        3: 0x60A7
+        4: 0x60A7
+        5: 0x60A7
+        6: 0x60A7
+        7: 0x60A7
+        8: 0x60A7
+        9: 0x60A7
+
+  blocks:
+
+
+
+  - blockHeader:
+      number: 1
+      difficulty: 0x020000
+      timestamp: 1000
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+  - blockHeader:
+      number: 2
+      # Difficulty increased because the block time diff, 1 second, is too short
+      timestamp: 1001
+      difficulty: 0x020040
+      # This change affects the hash and therefore requires a new state root
+      stateRoot: 0x9e044f27460cb80392c54bd1b6b79cea1b8c1c2e25844bc1213471a75a881c2a
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+
+
+  - blockHeader:
+      number: 3
+      # Difficulty increased because the block time diff, 1 second, is too short
+      timestamp: 1002
+      difficulty: 0x020080
+      # This change affects the hash and therefore requires a new state root
+      stateRoot: 0xd1b8701160a12e15fe37aadb9d381623709b05a7f75083113de22b26903b6617
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+  - blockHeader:
+      number: 4
+      # Difficulty increased because the block time diff, 2 seconds, is too short
+      timestamp: 1004
+      difficulty: 0x0200C0
+      # This change affects the hash and therefore requires a new state root
+      stateRoot: 0xbd726240632437d66ea8828a6062727e65f1880e308793685eab1568d1dd9f2c
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+
+  - blockHeader:
+      number: 5
+      # Difficulty increased because the block time diff, 1 second, is too short
+      timestamp: 1005
+      difficulty: 0x020100
+      # This change affects the hash and therefore requires a new state root
+      stateRoot: 0xf546e005a508991f9c61e70385349f320b55d5da41755a746727ab28177b8dcd
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+  - blockHeader:
+      number: 6
+      timestamp: 1006
+      difficulty: 0x030140
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+    expectException:
+      ArrowGlacierToParisAtDiffC0000: InvalidDifficulty # 3675PoWBlockRejected
+
+
+
+  - blockHeader:
+      number: 6
+      difficulty: 0
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: 6
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+  - blockHeader:
+      number: 7
+      difficulty: 0
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: 7
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+  - blockHeader:
+      number: 8
+      difficulty: 0
+    transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 20
+      nonce: 8
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+
+
+
+
+
+  expect:
+
+
+  # Transition network, 1-5 are premerge, 6 and after are post merge
+  - network:
+    - ArrowGlacierToParisAtDiffC0000
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+         storage:
+            # Premerge blocks with an actual difficulty
+            1:  0x020000
+            2:  0x020040
+            3:  0x020080
+            4:  0x0200C0
+            5:  0x020100
+
+            # Postmerge blocks, difficulty is zero
+            6:  0
+            7:  0
+            8:  0
+            9:  0x60a7
+
+

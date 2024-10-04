@@ -1,0 +1,58 @@
+# 03
+# Loading from a different slot after storing to a slot returns 0: TSTORE(x, y), TLOAD(z) returns 0
+#
+# Expect storage slot 0 to have value 0
+# Ex 1) stores 30 at slot 0, loads from slot 1, expects storage slot 0 to have 0, expects storage slot 1 to have 0
+
+03_tloadAfterStoreIs0:
+  _info:
+    comment: Loading any other slot after storing to a slot returns 0.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          verbatim_2i_0o(hex"5D", 0, 30)
+          let val := verbatim_1i_1o(hex"5C", 1)
+          sstore(1, val)
+        }
+      storage: { 0x00: 0xffff, 0x01: 0xffff }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: 0x
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            # The result we expect
+            0x00: 0xffff # ensure tstore never wrote to storage
+            0x01: 0 # ensure loading from an unused key is 0

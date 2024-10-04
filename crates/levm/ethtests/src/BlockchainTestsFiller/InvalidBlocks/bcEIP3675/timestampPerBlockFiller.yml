@@ -1,0 +1,154 @@
+#Paris timestamp test between blocks.
+
+timestampPerBlock:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase:  0xBA5E000000000000000000000000000000000000
+    difficulty: '131073'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '950'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 10000000000
+    baseFeePerGas: 1000
+  sealEngine: NoProof
+
+  pre:
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+      balance: 0x10000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    #Store the timestamp for each block mined.
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         :yul berlin
+         { 
+            sstore(number(), timestamp() ) 
+         }
+      storage: {} #Storage slots all start at 0.
+
+  blocks:
+    #Genesis starts at timestamp 950. Timestamp increases 1000 per block. 950+1000=1950.
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: 1
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    #Increase the parent timestamp by 50. 1950+50=2000.
+  - blockHeader:
+      "<=Shanghai":
+          RelTimestamp: 50
+          stateRoot: 0x8d36e8e17da05467072716efb7bdf65ea2a5d66443c52e21fc43ebac92a6dba4
+      ">=Cancun":
+          RelTimestamp: 50
+          stateRoot: 0xb0b24e5f0f551cd483250571aeb458b7486efea3e37f42052299312034d1b51f
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: 2
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    #Force a custom timestamp value into the block header.
+  - blockHeader:
+      "<=Shanghai":
+          timestamp: 4000
+          stateRoot: 0x132f342df6f8c2c643414721f5f8bb36697852aeb25dfa90eee8b637de0f5a0c
+      ">=Cancun":
+          timestamp: 4000
+          stateRoot: 0xf2c823af9ae8afb26e24299ce5259da7e5e67d222ae5f50a94f5c8f42b63e498
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: 3
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    #Timestamp less than parent block timestamp, reject Tx.
+  - blockHeader:
+      timestamp: 3999
+      stateRoot: 0x37a848a1124fcde4fbef9dba66a39ab90d05f995ce897c15bc6fa38ea5595850
+    expectException:
+      '>=Frontier': InvalidTimestampOlderParent
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: 4
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    #Timestamp to parent block timestamp, reject Tx.
+  - blockHeader:
+      timestamp: 4000
+      stateRoot: 0x37a848a1124fcde4fbef9dba66a39ab90d05f995ce897c15bc6fa38ea5595850
+    expectException:
+      '>=Frontier': InvalidTimestampOlderParent
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: 4
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    #Mine a valid block from parent timestamp 4000. 4000+1000=5000.
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: 4
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+  expect:
+  - network:
+    - ">=Paris"
+    result:
+      # Timestamps for each block mined.
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          0x01:                 1950
+          0x02:                 2000
+          0x03:                 4000
+          0x04:                 5000

@@ -1,0 +1,43 @@
+{
+    "EOF1_type_section_missing" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "a7a55f768bd958059de97111a29e1a5ccfa20255bfb0c33b7853a2bf295873a4",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_type_section_missing_Copier.json",
+            "sourceHash" : "2eedbd4bf1b8a32cf9b0c7b1019a6c839862a3f2a98b039259a422256b93bfb0"
+        },
+        "vectors" : {
+            "EOF1_type_section_missing_0" : {
+                "code" : "0xef0001020001000100fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TypeSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_type_section_missing_1" : {
+                "code" : "0xef0001020001000103000100feda",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TypeSectionMissing",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_type_section_missing_2" : {
+                "code" : "0xef000100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TypeSectionMissing",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

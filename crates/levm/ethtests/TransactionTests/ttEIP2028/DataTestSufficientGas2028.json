@@ -1,0 +1,75 @@
+{
+    "DataTestSufficientGas2028" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "b7de2abab672584a4eba11b78bd7037441a4b09c3ec78f02cb410eefb4feab8f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttEIP2028/DataTestSufficientGas2028Filler.json",
+            "sourceHash" : "dde82e96a815b96b8eb3688de4eceec99dea8481f9cd7e75e3985721bda8d7aa"
+        },
+        "result" : {
+            "Berlin" : {
+                "hash" : "0x38e1de3a9f4deebd18c635848a9593e10e8cce5543277ddb985c4507694bec89",
+                "intrinsicGas" : "0x5408",
+                "sender" : "0xb42837109dfc0d8686bca0446112c8db63fdd40b"
+            },
+            "Byzantium" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "Cancun" : {
+                "hash" : "0x38e1de3a9f4deebd18c635848a9593e10e8cce5543277ddb985c4507694bec89",
+                "intrinsicGas" : "0x5408",
+                "sender" : "0xb42837109dfc0d8686bca0446112c8db63fdd40b"
+            },
+            "Constantinople" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "EIP150" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "EIP158" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "Frontier" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "Homestead" : {
+                "exception" : "TR_IntrinsicGas",
+                "intrinsicGas" : "0x5a54"
+            },
+            "Istanbul" : {
+                "hash" : "0x38e1de3a9f4deebd18c635848a9593e10e8cce5543277ddb985c4507694bec89",
+                "intrinsicGas" : "0x5408",
+                "sender" : "0xb42837109dfc0d8686bca0446112c8db63fdd40b"
+            },
+            "London" : {
+                "hash" : "0x38e1de3a9f4deebd18c635848a9593e10e8cce5543277ddb985c4507694bec89",
+                "intrinsicGas" : "0x5408",
+                "sender" : "0xb42837109dfc0d8686bca0446112c8db63fdd40b"
+            },
+            "Paris" : {
+                "hash" : "0x38e1de3a9f4deebd18c635848a9593e10e8cce5543277ddb985c4507694bec89",
+                "intrinsicGas" : "0x5408",
+                "sender" : "0xb42837109dfc0d8686bca0446112c8db63fdd40b"
+            },
+            "Shanghai" : {
+                "hash" : "0x38e1de3a9f4deebd18c635848a9593e10e8cce5543277ddb985c4507694bec89",
+                "intrinsicGas" : "0x5408",
+                "sender" : "0xb42837109dfc0d8686bca0446112c8db63fdd40b"
+            }
+        },
+        "txbytes" : "0xf882800182540894095e7baea6a6c7c4c2dfeb977efac326af552d8780a3deadbeef0000000101010010101010101010101010101aaabbbbbbcccccccddddddddd1ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

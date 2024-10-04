@@ -1,0 +1,21 @@
+{
+    "Vitalik_5" :
+    {
+	    "expectException" : 
+        {
+            "<=EIP150" : "InvalidVRS"
+        },
+        "transaction" :
+        {
+            "data" : "",
+            "gasLimit" : "0x019a28",
+            "gasPrice" : "0x04a817c804",
+            "nonce" : "0x04",
+            "to" : "3535353535353535353535353535353535353535",
+            "value" : "0x40",
+            "v" : "0x25",
+            "r" : "0x13600b294191fc92924bb3ce4b969c1e7e2bab8f4c93c3fc6d0a51733df3c063",
+            "s" : "0x13600b294191fc92924bb3ce4b969c1e7e2bab8f4c93c3fc6d0a51733df3c060"
+        }
+    }
+}

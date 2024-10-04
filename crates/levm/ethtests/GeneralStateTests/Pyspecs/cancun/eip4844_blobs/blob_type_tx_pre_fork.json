@@ -1,0 +1,145 @@
+{
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_blob_type_tx_pre_fork[fork_ShanghaiToCancunAtTime15k-state_test-no_blob_tx]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "c510c18bd8c4fa5a3c63d68e4db492c0fb8fa017b69f5d8f3bcd4016deb0955f",
+            "hash" : "0x0ddb503510fe5480ed970ee19bb7ad2c6ce0018774b3a2dc867a7de4bc0ba6df",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py",
+            "sourceHash" : "ac8e32f87d88712c31113be2cd23f56d5adf2b12381680ac1652db83fa7c80d5"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "expectException" : "TransactionException.TYPE_3_TX_PRE_FORK|TransactionException.TYPE_3_TX_ZERO_BLOBS",
+                    "hash" : "0x51f41d6ab2123b8c2bef303127d48c31e5b8ccee1bfde9f853f443fe9711c3fa",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f864018080078252089400000000000000000000000000000000000001000180c001c080a0de3ecf0321e2d26c34d6b9bd1ffb5a30167abafd5ecacd477049544c23d402cda06c56b464881a4af7bb8216d47c6c5e3286395027af44044b3d7d31a2d24901f2"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x023e39",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                ]
+            ],
+            "blobVersionedHashes" : [
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x5208"
+            ],
+            "maxFeePerBlobGas" : "0x01",
+            "maxFeePerGas" : "0x07",
+            "maxPriorityFeePerGas" : "0x00",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x01"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py::test_blob_type_tx_pre_fork[fork_ShanghaiToCancunAtTime15k-state_test-one_blob_tx]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "20e903e6452db193ebada7d107e1f02cab572c982b38273920a2dc0f80def607",
+            "hash" : "0x660a87b30f05502e8e1fabacc053211df1b97f1fef14ed84e561c1fab21b80c1",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/cancun/eip4844_blobs/test_blob_txs.py",
+            "sourceHash" : "ac8e32f87d88712c31113be2cd23f56d5adf2b12381680ac1652db83fa7c80d5"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "expectException" : "TransactionException.TYPE_3_TX_PRE_FORK",
+                    "hash" : "0x60801982e5816ed2f91320cea42769e76120d71d863d48bf8ec4d905455ae9cd",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x03f885018080078252089400000000000000000000000000000000000001000180c001e1a0010000000000000000000000000000000000000000000000000000000000000001a0a8f4757869fbb831ba4ed3a7c8f868b0e2e0c1eda97937aab035560fffdedf3ca019d9b041540e3d6f5f56dc29deb8834a08171e92037cf567b922357e70f8e54a"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x043e39",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                ]
+            ],
+            "blobVersionedHashes" : [
+                "0x0100000000000000000000000000000000000000000000000000000000000000"
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x5208"
+            ],
+            "maxFeePerBlobGas" : "0x01",
+            "maxFeePerGas" : "0x07",
+            "maxPriorityFeePerGas" : "0x00",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x0000000000000000000000000000000000000100",
+            "value" : [
+                "0x01"
+            ]
+        }
+    }
+}

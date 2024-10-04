@@ -1,0 +1,69 @@
+{
+    "TransactionWithGasLimitOverflow64" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "308dd2475df1fed41dedf2620d9ffcae393252cd96750a9b1021f17f01f42864",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttGasLimit/TransactionWithGasLimitOverflow64Filler.json",
+            "sourceHash" : "0ecb72ce263898d38c1d9641bc49c77a28e53c55273fbe153c306564ca8398a7"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "InvalidGasLimit4",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0xf86680018901000000000000000094095e7baea6a6c7c4c2dfeb977efac326af552d870b801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

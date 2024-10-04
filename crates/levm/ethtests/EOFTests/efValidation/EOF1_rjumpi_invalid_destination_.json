@@ -1,0 +1,88 @@
+{
+    "EOF1_rjumpi_invalid_destination" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "fdff7859979ea7494ea7c0b2cbf34f833c75195141ad20a24e7e3d1c8c3aaa6d",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_rjumpi_invalid_destination_Copier.json",
+            "sourceHash" : "841092a44276985df9c8c15add3fa85e252326654d6545e240af819fc9fcc803"
+        },
+        "vectors" : {
+            "EOF1_rjumpi_invalid_destination_0" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1fff900",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_1" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1fff100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_2" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1000200",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_3" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1000100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_4" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1ffff00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_5" : {
+                "code" : "0xef0001010004020001000604000000008000006000e1fffc00",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_6" : {
+                "code" : "0xef00010100040200010011030001001404000000008000046000e10009600060ff60006000ec005000ef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_rjumpi_invalid_destination_7" : {
+                "code" : "0xef0001010004020001000b030001001404000000008000026000e1000560006000ee00ef000101000402000100010400000000800000fe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidJumpDestination",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

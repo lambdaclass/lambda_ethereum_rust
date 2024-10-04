@@ -1,0 +1,89 @@
+# 05
+# Reentrant calls access the same transient storage: TSTORE(x, y), CALL(self, ...), TLOAD(x) returns y.
+#
+# Expect slot 0 to have 44 from the first tstore & tload.
+# Expect slot 1 to have 44 from the re-entered call.
+# Expect slot 2 to have 1 (for successful call to doLoad()).
+
+05_tloadReentrancy:
+  _info:
+    comment: Reentrant calls access the same transient storage.
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x10000000000000
+    currentBaseFee: 10
+
+  pre:
+    A00000000000000000000000000000000000000A:
+      balance: 1000000000000000000
+      nonce: 0
+      code: |
+        :yul {
+          switch selector()
+
+          case 0x43ac1c39 { // doLoad()
+            doLoad()
+          }
+
+          case 0x3f371692 { // doReenter()
+            doReenter()
+          }
+
+          function doLoad() {
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(1, v)
+          }
+
+          function doReenter() {
+
+            verbatim_2i_0o(hex"5D", 0, 44)
+
+            mstore(0, hex"43ac1c39") // doLoad()
+            let successLoad := call(gas(), address(), 0, 0, 32, 0, 0)
+
+            let v := verbatim_1i_1o(hex"5C", 0)
+            sstore(0, v)
+
+            sstore(2, successLoad)
+          } 
+
+          function selector() -> s {
+            let value := calldataload(0)
+            s := shr(224, value)
+          }
+        }
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000000
+      code: "0x"
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - data: :abi doReenter()
+        accessList: []
+    gasLimit:
+      - "400000"
+    nonce: 0
+    to: A00000000000000000000000000000000000000A
+    value:
+      - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    maxPriorityFeePerGas: 0
+    maxFeePerGas: 2000
+
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        A00000000000000000000000000000000000000A:
+          storage:
+            # expect 1 (successful call) at slot 1
+            0x00: 44
+            0x01: 44
+            0x02: 1

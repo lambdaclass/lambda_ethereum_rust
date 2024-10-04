@@ -1,0 +1,196 @@
+{
+     "shanghaiBeforeTransition" : {
+        "verify" : {
+            "ParisToShanghaiAtTime15k" : {
+                        "blocks" : [
+                            {},{},{},
+                            {
+                               "//comment" : "Check that block 4 has withdrawals list attached to the body",
+                               "rlp" : "0xf9021bf90215a00af8d517db86ab9290e9f9078c7505c9755b64dbdb03f8e4310ef9ab9d8714a6a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347948888f1f195afa192cfee860698584c030f4c9db1a019fc38351a22fc05c8add29df0767dc26ab2635d0b4ed11caf7d7cb6fed2ea4da056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080048401df5e70808236b042a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218800000000000000000da056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421c0c0c0"
+                            },
+                            {
+                               "//comment" : "Check that block 4a has withdrawals body and list attached to the body and correct state has as if Shanghai",
+                               "rlp" : "0xf90236f90215a00af8d517db86ab9290e9f9078c7505c9755b64dbdb03f8e4310ef9ab9d8714a6a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347948888f1f195afa192cfee860698584c030f4c9db1a001fccfc7a5eb8da9b3baa3b70de7923527eb21cf39209544474e64626c4c17b3a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080048401df5e70808236b042a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218800000000000000000da027f166f1d7c789251299535cb176ba34116e44894476a7886fe5d73d9be5c973c0c0dbda808094c94f5374fce5edbc8e2a8697c15331677e6ebf0b822710"
+                            },
+                            {},{},
+                            {
+                               "//comment" : "Check that block 6a is Paris style and has no withdrawals list attached to the body",
+                               "rlp" : "0xf901f9f901f4a08bd4f104eb3516c8ea30ee39e0900a8cac66b5e86bb175098de2e91c5c63caa3a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347948888f1f195afa192cfee860698584c030f4c9db1a019fc38351a22fc05c8add29df0767dc26ab2635d0b4ed11caf7d7cb6fed2ea4da056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080068401df5e7080823e8042a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218800000000000000000bc0c0"
+                            },
+                            {
+                               "//comment" : "Check that block 6b is Paris style but has withdrawals list attached to the body",
+                               "rlp" : "0xf90215f901f4a08bd4f104eb3516c8ea30ee39e0900a8cac66b5e86bb175098de2e91c5c63caa3a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347948888f1f195afa192cfee860698584c030f4c9db1a019fc38351a22fc05c8add29df0767dc26ab2635d0b4ed11caf7d7cb6fed2ea4da056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080068401df5e7080823e8042a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218800000000000000000bc0c0dbda808094c94f5374fce5edbc8e2a8697c15331677e6ebf0b822710"
+                            }
+                        ]
+            }
+        },
+        "_info" : {
+            "comment" : "test vectors: BSHA0001, BSHA0002, BSHA0003"
+        },
+        "genesisBlockHeader" : {
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "0x8888f1f195afa192cfee860698584c030f4c9db1",
+            "difficulty" : "0",
+            "extraData" : "0x42",
+            "gasLimit" : "31415920",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "10000",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            "baseFeePerGas" : "20"
+        },
+        "expect" : [
+            {
+                "network" : "ParisToShanghaiAtTime15k",
+                "result" : {
+                    "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "balance" : "10003000000000"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "100000000000",
+                "nonce" : "0",
+                "code" : "",
+                "storage": {}
+            }
+        },
+        "blocks" : [
+            {
+                "blocknumber" : "1",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+    	    {
+                "blocknumber" : "2",
+                "transactions" : [
+                 ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "4",
+                "blockHeader" : {
+                    "withdrawalsRoot" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+                },
+                "expectException" : {
+                    "//comment" : "TEST ID BSHA0001",
+                    "ParisToShanghaiAtTime15k" : "ShanghaiBlockImportImpossible"
+                },
+                "transactions" : [
+                ],
+        		"uncleHeaders" : [
+                ]
+            },
+            {
+                "//comment" : "4a",
+                "blocknumber" : "4",
+                "blockHeader" : {
+                    "stateRoot" : "0x01fccfc7a5eb8da9b3baa3b70de7923527eb21cf39209544474e64626c4c17b3",
+                    "withdrawalsRoot" : "0x27f166f1d7c789251299535cb176ba34116e44894476a7886fe5d73d9be5c973"
+                },
+                "expectException" : {
+                    "//comment" : "TEST ID BSHA0001",
+                    "ParisToShanghaiAtTime15k" : "ShanghaiBlockImportImpossible"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                        "amount": "10000"
+                    }
+                ]
+            },
+    	    {
+		        "blocknumber" : "4",
+        		"transactions" : [
+                ],
+        		"uncleHeaders" : [
+                ]
+            },
+    	    {
+                "//comment" : "Shanghai rules are applied",
+		        "blocknumber" : "5",
+        		"transactions" : [
+                ],
+        		"uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "6",
+                "blockHeader" : {
+                    "number" : "6",
+                    "remove" : [ "withdrawalsRoot" ]
+                },
+                "expectException" : {
+                    "//comment" : "TEST ID: BSHA0002",
+                    "ParisToShanghaiAtTime15k" : "ParisBlockImportImpossible"
+                },
+                "transactions" : [
+                ],
+        		"uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "6",
+                "blockHeader" : {
+                    "number" : "6",
+                    "remove" : [ "withdrawalsRoot" ] 
+                },
+                "expectException" : {
+                    "//comment" : "TEST ID: BSHA0003",
+                    "ParisToShanghaiAtTime15k" : "ParisBlockImportImpossible"
+                },
+                "transactions" : [
+                ],
+        		"uncleHeaders" : [
+                ],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                        "amount": "10000"
+                    }
+                ]
+            },
+            {
+                "blocknumber" : "6",
+                "transactions" : [
+                ],
+        		"uncleHeaders" : [
+                ],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                        "amount": "10003"
+                    }
+                ]
+            }
+        ]
+    }
+}

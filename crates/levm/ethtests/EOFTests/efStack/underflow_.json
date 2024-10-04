@@ -1,0 +1,61 @@
+{
+    "underflow" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "0fbf2a78110bb40f8b2bcdad8d4917ec3704e08b4b730d12561671e67aeadcfd",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/underflow_Copier.json",
+            "sourceHash" : "df306f82ee5a714d7b85fdab62e96f75429392f14fdf30364633a57a06be5c96"
+        },
+        "vectors" : {
+            "underflow_0" : {
+                "code" : "0xef0001010004020001000204000000008000000100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_1" : {
+                "code" : "0xef000101000802000200040002040000000080000101020002e30001005fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_2" : {
+                "code" : "0xef000101000c02000300040003000204000000008000020002000001020002e3000100e500025fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_3" : {
+                "code" : "0xef000101000802000200030005040000000080000001800003e5000160006000fd",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            },
+            "underflow_4" : {
+                "code" : "0xef000101000802000200040002040000000080000200020001e30001005fe4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,42 @@
+{
+    "callf_stack_validation" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "cb882118fb9efaf17ed3ed138302d638b2375f100a1189218bfcffd598a00e5f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/callf_stack_validation_Copier.json",
+            "sourceHash" : "96e89c61dfcafc27256c83c367717571a33565ac149b938b6193020d506315d5"
+        },
+        "vectors" : {
+            "callf_stack_validation_0" : {
+                "code" : "0xef000101000c02000300040006000204000000008000010001000202010002e30001005f5fe30002e450e4",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "callf_stack_validation_1" : {
+                "code" : "0xef000101000c02000300040007000204000000008000010001000302010002e30001005f5f5fe30002e450e4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidNumberOfOutputs",
+                        "result" : false
+                    }
+                }
+            },
+            "callf_stack_validation_2" : {
+                "code" : "0xef000101000c02000300040005000204000000008000010001000102010002e30001005fe30002e450e4",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

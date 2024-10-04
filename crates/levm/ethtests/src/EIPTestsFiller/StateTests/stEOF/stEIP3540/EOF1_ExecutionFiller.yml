@@ -1,0 +1,194 @@
+# Calls to various EOF-formatted contracts, tests EOF execution rules
+# ---
+# Active EIPs: 3540, 3670, 4200, 4750, 5450
+EOF1_Execution:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 10000000
+      code: ''
+      nonce: 0
+      storage: {}
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: ':yul { sstore(0, call(100000, shr(96, calldataload(0)), 0, 0, 0, 0, 0)) sstore(1, 1) }'
+      nonce: 0
+      storage: {}
+
+    c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Basic valid EOF code
+      # code section: ':yul { sstore(0, 1) stop() }'
+      code: ':raw 0xef000101000402000100060400000000800002600160005500'
+      nonce: 0
+      storage: {}
+
+    d94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # Basic valid EOF code with data section
+      # code section: ':yul { sstore(0, 1) stop() }'
+      # data section: 'aabbccdd'
+      code: ':raw 0xef000101000402000100060400040000800002600160005500aabbccdd'
+      nonce: 0
+      storage: {}
+
+    024f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # PUSH with complete pushdata
+      # code: ':yul { sstore(0, 0xaabbccdd) stop() }'
+      code: ':raw 0xef00010100040200010009040000000080000263aabbccdd60005500'
+      nonce: 0
+      storage: {}
+
+    604f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EXTCODESIZE of EOF contract
+      code: ':yul { sstore(0, extcodesize(0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b)) }'
+      nonce: 0
+      storage: {}
+
+    624f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EXTCODEHASH of EOF contract
+      code: ':yul { sstore(0, extcodehash(0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b)) }'
+      nonce: 0
+      storage: {}
+
+    644f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EXTCODECOPY copying part of header + code section + part of data section
+      code: ':yul { extcodecopy(0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 0, 40) sstore(0, mload(0)) }'
+      nonce: 0
+      storage: {}
+
+    664f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      # EXTCODECOPY with len out of bounds
+      code: ':yul { mstore(0, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) extcodecopy(0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b, 0, 25, 8) sstore(0, mload(0)) }'
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - ':label basic_valid_eof                 :raw 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label basic_valid_eof_with_data       :raw 0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label push_complete                   :raw 0x024f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label extcodesize                     :raw 0x604f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label extcodehash                     :raw 0x624f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label extcodecopy                     :raw 0x644f5374fce5edbc8e2a8697c15331677e6ebf0b'
+      - ':label extcodecopy_out_of_bounds       :raw 0x664f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    gasLimit:
+      - 700000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+       data: ':label basic_valid_eof'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        c94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+    - indexes:
+       data: ':label basic_valid_eof_with_data'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        d94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+    - indexes:
+       data: ':label push_complete'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        024f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': 'aabbccdd'
+    - indexes:
+       data: ':label extcodesize'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        604f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '2'
+    - indexes:
+       data: ':label extcodehash'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        624f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0x9dbf3648db8210552e9c4f75c6a1c3057c0ca432043bd648be15fe7be05646f5'
+    - indexes:
+       data: ':label extcodecopy'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        644f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0xef00000000000000000000000000000000000000000000000000000000000000'
+    - indexes:
+       data: ':label extcodecopy_out_of_bounds'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        664f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '0xffffffffffffffffffffffffffffffffffffffffffffffff'

@@ -1,0 +1,43 @@
+{
+    "ymlExample" : {
+        "_info" : {
+            "comment" : "EOF example test",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.808cc18c.dirty",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.0abe77bb.Linux.g++",
+            "generatedTestHash" : "04e7659cd33c11d48c8421f7a3342d4840b288d21694f37e0b01c841857c60ef",
+            "lllcversion" : "Error getting LLLC Version",
+            "solidity" : "Version: 0.8.24+commit.e11b9ed9.Linux.g++",
+            "source" : "src/EOFTestsFiller/efExample/ymlExampleFiller.yml",
+            "sourceHash" : "324654e1783340f8279f7e7b7c8dbe2b71497c28e2a25eef16e4429266f62c02"
+        },
+        "vectors" : {
+            "ymlExample_0" : {
+                "code" : "0x60016000f3",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidPrefix",
+                        "result" : false
+                    }
+                }
+            },
+            "ymlExample_1" : {
+                "code" : "0xefffff",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidPrefix",
+                        "result" : false
+                    }
+                }
+            },
+            "ymlExample_2" : {
+                "code" : "0x610badfe",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_InvalidPrefix",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

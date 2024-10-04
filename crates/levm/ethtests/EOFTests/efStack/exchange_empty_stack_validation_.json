@@ -1,0 +1,25 @@
+{
+    "exchange_empty_stack_validation" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "454a4d2da093cf92eceb01b7f52aa4efe643ad807f28fac1f4fc3f9fa9ef9dbc",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/exchange_empty_stack_validation_Copier.json",
+            "sourceHash" : "b1b74afe874b19e80dfec8a2a31da3ebb29a820a6edab05e2d00ea38c34d8958"
+        },
+        "vectors" : {
+            "exchange_empty_stack_validation_0" : {
+                "code" : "0xef000101000402000100030400000000800000e80000",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_StackUnderflow",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+{
+    "difficultyGrayGlacierMinus1" : 
+    {
+        "_info" : {
+            "comment" : "Difficulty Gray Glacier Combination Check: 100k steps, starting from block pushback number minus 1 (11,399,999) for Gray Glacier"
+        },
+        "network" : [ "GrayGlacier" ],
+        "blocknumber" : "[11_399_999-15_699_999;100_000]",
+        "timestampDiff" : "[1-90;9]",
+        "parentDifficutly" : ["0x223a2d17232652"],
+        "hasUncles" : [0, 1]
+    }
+}

@@ -1,0 +1,56 @@
+{
+    "forwards_rjump" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "a4d63f053a6d92891892912b6a0bade29059f5775cf5c93d70f77b58e74cf832",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/forwards_rjump_Copier.json",
+            "sourceHash" : "dce1c486829102740051609c9d8b86c638dbffe35638ef803b6a7726459d9e24"
+        },
+        "vectors" : {
+            "forwards_rjump_0" : {
+                "code" : "0xef000101000402000100040400000000800000e0000000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjump_1" : {
+                "code" : "0xef0001010004020001000b04000000008000025f6000e10003e000011900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjump_2" : {
+                "code" : "0xef0001010004020001001304000000008000025f6000e100086000e10006e00004e000011900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjump_3" : {
+                "code" : "0xef0001010004020001000b04000000008000025f6000e10003e000015f00",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjump_4" : {
+                "code" : "0xef0001010004020001001404000000008000025f6000e100086000e10007e000055fe000011900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

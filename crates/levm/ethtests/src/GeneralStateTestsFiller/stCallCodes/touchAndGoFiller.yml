@@ -1,0 +1,93 @@
+touchAndGo:
+  _info:
+    comment: |
+      The empty account 0xe4971 is being called (with gas 0). 
+      The test checks if the touched
+      empty account is removed in the end and enabling point of this feature.
+
+
+  env:
+    currentCoinbase: a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    currentDifficulty: 1
+    currentGasLimit: 1000000
+    currentNumber: 1
+    currentTimestamp: 1000
+
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      nonce: 0
+      balance: 100000000000000
+      storage: {}
+      code: ''
+
+    000000000000000000000000000000000000c0de:
+      nonce: 1
+      balance: 0
+      storage: {}
+      code: |
+        :yul berlin
+        {
+          let useless := call(0, 0xe4971, 0, 0, 0, 0, 0)
+          let useless2 := call(0, 0xe4972, 0, 0, 0, 0, 0)
+        }
+
+
+    00000000000000000000000000000000000e4971:
+      nonce: 0
+      balance: 0
+      storage: {}
+      code: ''
+
+    00000000000000000000000000000000000e4972:
+      nonce: 0
+      balance: 0
+      storage: {
+          "0x01" : "0x02"
+      }
+      code: ''
+
+
+  transaction:
+    data:
+      - ''
+    gasLimit:
+      - 90000
+    gasPrice: 100
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 000000000000000000000000000000000000c0de
+    value:
+      - 0
+
+  expect:
+    - indexes:
+        data: !!int -1
+      network:
+        - EIP150
+      result:
+        00000000000000000000000000000000000e4971:
+          balance: 0
+          nonce: 0
+        00000000000000000000000000000000000e4972:
+          balance: 0
+          nonce: 0
+          storage: { "0x01" : "0x02" }
+
+
+    - indexes:
+        data: !!int -1
+      network:
+        - "EIP158"
+        - "Byzantium"
+        - "Constantinople"
+        - "ConstantinopleFix"
+        - "Istanbul"
+        - "Berlin"
+        - "London"
+        # The pre-existed empty account is not allowed after Paris(Merge)
+      result:
+        00000000000000000000000000000000000e4971:
+          shouldnotexist: 1  # The pre-existed empty account should be deleted by a touch.
+        00000000000000000000000000000000000e4972:
+          shouldnotexist: 1  # The pre-existed empty account should be deleted by a touch.

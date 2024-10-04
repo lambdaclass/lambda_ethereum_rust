@@ -1,0 +1,40 @@
+{
+    "EOF1_valid_rjump" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "637b4a3ec7b0b6eabdd761579017dd8c6bb4b9389c05614b65617d44fb9047d8",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_valid_rjump_Copier.json",
+            "sourceHash" : "57817148213333ad4cbc57dcb132727c205b19be2fad27577cc535531e69c868"
+        },
+        "vectors" : {
+            "offset_negative" : {
+                "code" : "0xef0001010004020001000404000000008000005be0fffc",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "offset_positive" : {
+                "code" : "0xef0001010004020001000d04000000008000025fe100055f5fe000035f600100",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "offset_zero" : {
+                "code" : "0xef000101000402000100040400000000800000e0000000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

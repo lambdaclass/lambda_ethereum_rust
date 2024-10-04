@@ -1,0 +1,65 @@
+{
+    "aCrashingRLP" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "e9eb46209566e7dd635c21dc4f1f16a76f5194e404874fda31f1ca2fb7201212",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttWrongRLP/aCrashingRLPCopier.json",
+            "sourceHash" : "7c10fdcaf10b6bbe09f25480b70107d4cd687c6944948a7930ec5e06593b6f01"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "TR_TypeNotSupported",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0x96dc24d6874a9b01e4a7b7e5b74db504db3731f764293769caef100f551efadf7d378a015faca6ae62ae30a9bf5e3c6aa94f58597edc381d0ec167fa0c84635e12a2d13ab965866ebf7c7aae458afedef1c17e08eb641135f592774e18401e0104f8e7f8e0d98e3230332e3133322e39342e31333784787beded84556c094cf8528c39342e3133372e342e31333982765fb840621168019b7491921722649cd1aa9608f23f8857d782e7495fb6765b821002c4aac6ba5da28a5c91b432e5fcc078931f802ffb5a3ababa42adee7a0c927ff49ef8528c3136322e3234332e34362e39829dd4b840e437a4836b77ad9d9ffe73ee782ef2614e6d8370fcf62191a6e488276e23717147073a7ce0b444d485fff5a0c34c4577251a7a990cf80d8542e21b95aa8c5e6cdd8e3230332e3133322e39342e31333788ffffffffa5aadb3a84556c095384556c0919"
+    }
+}

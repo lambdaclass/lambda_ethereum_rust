@@ -1,0 +1,115 @@
+{
+    "codeCopyZero" : {
+        "_info" : {
+            "comment" : "https://github.com/ethereum/tests/issues/493,  CODECOPY and EXTCODECOPY where codesize = 0",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.021b8dfd.Linux.g++",
+            "generatedTestHash" : "727bd94ce0a35b5fcccc86e08b29fd1832d6967c08eede64278c0923a41cb378",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stExtCodeHash/codeCopyZeroFiller.yml",
+            "sourceHash" : "9cfac5ab98ecbde8539b9f29cca9bce68b64ab20e06d47539dc3c3825eca4751"
+        },
+        "env" : {
+            "currentBaseFee" : "0x0a",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x989680",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000020000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "hash" : "0x478dd8ab28a484a82748ec5cf9633ece45bea9a167db1f739ddab82410795116",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a83155cc094a00000000000000000000000000000000000000001801ca0c4779e01b0c76f529fb497f3b6e15762f89ddb906091a91fe9f6b005e205ee17a0736cfe95bf57a25f44159f28fd34a058669e42f293161491cde3a49d501da93c"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "hash" : "0x3fa364b17cb44de936bea07971db118d3129d94d40d969ef6c4b0eb9edbd37fa",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a83155cc094a00000000000000000000000000000000000000001801ca0c4779e01b0c76f529fb497f3b6e15762f89ddb906091a91fe9f6b005e205ee17a0736cfe95bf57a25f44159f28fd34a058669e42f293161491cde3a49d501da93c"
+                }
+            ],
+            "London" : [
+                {
+                    "hash" : "0xa3c87ebb0a2f1bf2ad800bc1e0da9d6c0edc868a599cf81a4300e47f352cb8fc",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf860800a83155cc094a00000000000000000000000000000000000000001801ca0c4779e01b0c76f529fb497f3b6e15762f89ddb906091a91fe9f6b005e205ee17a0736cfe95bf57a25f44159f28fd34a058669e42f293161491cde3a49d501da93c"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa000000000000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60206000600073a2220000000000000000000000000000000000003c60005160105573a2220000000000000000000000000000000000003b60115573a2220000000000000000000000000000000000003f6012556000600060006000600073a22200000000000000000000000000000000000061c350f260135560206000600073a2000000000000000000000000000000000000003c60005160205573a2000000000000000000000000000000000000003b60215573a2000000000000000000000000000000000000003f6022556000600060006000600073a20000000000000000000000000000000000000061c350f260235560206000600073a3000000000000000000000000000000000000003c60005160305573a3000000000000000000000000000000000000003b60315573a3000000000000000000000000000000000000003f6032556000600060006000600073a30000000000000000000000000000000000000061c350f26033556020600060006000600073a10000000000000000000000000000000000000062086470f15060005160405500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa100000000000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6000603980601a60003960006000f560005260206000f30000fe60206000600039600051605055303b605155303f605255600060006000600060003061c350f23b605355602060006000303c60005160545500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa200000000000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa300000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x155cc0"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa000000000000000000000000000000000000000",
+            "value" : [
+                "0x01"
+            ]
+        }
+    }
+}

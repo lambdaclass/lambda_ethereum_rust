@@ -1,0 +1,418 @@
+{
+    "accountInteractions" : {
+        "_info" : {
+            "comment" : "Test vectors BSHB0019, BSHB0020, BSHB0021"
+        },
+        "genesisBlockHeader" : {
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "difficulty" : "0x00",
+            "extraData" : "0x42",
+            "gasLimit" : "0x7fffffffffffffff",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x03b6",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            "baseFeePerGas" : "10",
+            "withdrawalsRoot" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+        },
+        "sealEngine" : "NoProof",
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "100000000000000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc000000000000000000000000000000000000001" : {
+                "balance" : "10",
+                "code" : "{ (SELFDESTRUCT 65536) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xd000000000000000000000000000000000000002" : {
+                "balance" : "10",
+                "code" : "{ [[0]](BALANCE 0xc000000000000000000000000000000000000002) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc000000000000000000000000000000000000003" : {
+                "balance" : "10",
+                "code" : "{ [[0]] 1 (CALL 1000 0xd000000000000000000000000000000000000003 11 0 0 0 0) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc000000000000000000000000000000000000004" : {
+                "balance" : "10",
+                "code" : "{ (SELFDESTRUCT 65537) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xd000000000000000000000000000000000000005" : {
+                "balance" : "1000",
+                "code" : "{ (CALL 50000 0xc000000000000000000000000000000000000005 0 0 0 0 0) (CALL 50000 0xc000000000000000000000000000000000000005 1000 0 0 0 0 ) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc000000000000000000000000000000000000005" : {
+                "balance" : "10",
+                "code" : "{ (SELFDESTRUCT 65538) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xd000000000000000000000000000000000000006" : {
+                "balance" : "1000",
+                "code" : "{(CREATE 0 0      (lll { (MSTORE 0 0x6000600055) (RETURN 27 5)  } 0)    )}",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xd000000000000000000000000000000000000007" : {
+                "balance" : "1000",
+                "code" : "{ (MSTORE 0 0x60006000fd) (CREATE 0 27 5) }",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "blocks" : [
+            {
+                "//comment" : "BSHB0019",
+                "blocknumber" : "1",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xc000000000000000000000000000000000000001",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc000000000000000000000000000000000000001",
+                        "amount": "100000"
+                    }
+                ]
+            },
+            {
+                "//comment" : "BSHB0020",
+                "blocknumber" : "2",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xc000000000000000000000000000000000000002",
+                        "value" : "15"
+                    },
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xd000000000000000000000000000000000000002",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc000000000000000000000000000000000000002",
+                        "amount": "100000"
+                    }
+                ]
+            },
+            {
+                "//comment" : "BSHB0022",
+                "blocknumber" : "3",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xc000000000000000000000000000000000000003",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc000000000000000000000000000000000000003",
+                        "amount": "100000"
+                    }
+                ]
+            },
+            {
+                "//comment" : "BSHB0023",
+                "blocknumber" : "4",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xc000000000000000000000000000000000000004",
+                        "value" : "0"
+                    },
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xc000000000000000000000000000000000000004",
+                        "value" : "100"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc000000000000000000000000000000000000004",
+                        "amount": "100000"
+                    }
+                ]
+            },
+            {
+                "//comment" : "BSHB0023b",
+                "blocknumber" : "5",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "100000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xd000000000000000000000000000000000000005",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0xc000000000000000000000000000000000000005",
+                        "amount": "100000"
+                    }
+                ]
+            },
+            {
+                "//comment" : "BSHB0024",
+                "blocknumber" : "6",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "1000000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xd000000000000000000000000000000000000006",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0x10fb6e0812178b547b4781f2a84456b36dc3ec05",
+                        "amount": "100000"
+                    }
+                ]
+            },
+            {
+                "//comment" : "BSHB0024b",
+                "blocknumber" : "7",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "1000000",
+                        "gasPrice" : "1000",
+                        "nonce" : "auto",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xd000000000000000000000000000000000000007",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [],
+                "withdrawals" : [
+                    {
+                        "index": "0",
+                        "validatorIndex": "0",
+                        "address": "0x2af4594dcbf603a12b3a16175de99e9b1cf7f1e3",
+                        "amount": "100000"
+                    }
+                ]
+            }
+        ],
+        "expect" : [
+            {
+                "network" : ["Shanghai"],
+                "result" : {
+                    "//comment" : "BSHB0019 Suicided account received withdrawals",
+                    "0xc000000000000000000000000000000000000001" : {
+                        "balance" : "100000000000000",
+                        "code" : "0x",
+                        "nonce" : "0"
+                    },
+                    "0x0000000000000000000000000000000000010000" : {
+                        "balance" : "10"
+                    },
+
+
+                    "//comment" : "BSHB0020,BSHB0021 Withdrawal receiver got also value transfer",
+                    "0xc000000000000000000000000000000000000002" : {
+                        "balance" : "100000000000015",
+                        "code" : "0x",
+                        "nonce" : "0"
+                    },
+                   "0xd000000000000000000000000000000000000002" : {
+                        "storage" : {
+                            "0x00" : "15"
+                        }
+                    },
+
+                    "//comment" : "BSHB0022 Withdrawal receiver tries to spend before block fin",
+                    "0xc000000000000000000000000000000000000003" : {
+                        "balance" : "100000000000010",
+                        "storage" : {
+                            "0x00" : "1"
+                        },
+                        "nonce" : "0"
+                    },
+
+                   "//comment" : "BSHB0023 suicide, receive funds, receive withdrawals",
+                    "0xc000000000000000000000000000000000000004" : {
+                        "balance" : "100000000000100",
+                        "nonce" : "0"
+                     },
+                   "0x0000000000000000000000000000000000010001" : {
+                        "balance" : "10"
+                    },
+
+                   "//comment" : "BSHB0023b suicide, receive funds, receive withdrawals",
+                    "0xc000000000000000000000000000000000000005" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "0"
+                     },
+                  "0x0000000000000000000000000000000000010002" : {
+                        "balance" : "1010"
+                    },
+
+                   "//comment" : "BSHB0024 account created, receive withdrawals",
+                    "0x10fb6e0812178b547b4781f2a84456b36dc3ec05" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "1"
+                     },
+
+                   "//comment" : "BSHB0024b account created, reverted, receive withdrawals",
+                    "0x2af4594dcbf603a12b3a16175de99e9b1cf7f1e3" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "0"
+                     }
+
+
+                }
+            },
+            {
+                "network" : [">=Cancun"],
+                "result" : {
+                    "//comment" : "BSHB0019 Suicided account received withdrawals",
+                    "0xc000000000000000000000000000000000000001" : {
+                        "balance" : "100000000000000",
+                        "code" : "0x62010000ff00",
+                        "nonce" : "0"
+                    },
+                    "0x0000000000000000000000000000000000010000" : {
+                        "balance" : "10"
+                    },
+
+
+                    "//comment" : "BSHB0020,BSHB0021 Withdrawal receiver got also value transfer",
+                    "0xc000000000000000000000000000000000000002" : {
+                        "balance" : "100000000000015",
+                        "code" : "0x",
+                        "nonce" : "0"
+                    },
+                   "0xd000000000000000000000000000000000000002" : {
+                        "storage" : {
+                            "0x00" : "15"
+                        }
+                    },
+
+                    "//comment" : "BSHB0022 Withdrawal receiver tries to spend before block fin",
+                    "0xc000000000000000000000000000000000000003" : {
+                        "balance" : "100000000000010",
+                        "storage" : {
+                            "0x00" : "1"
+                        },
+                        "nonce" : "0"
+                    },
+
+                   "//comment" : "BSHB0023 suicide, receive funds, receive withdrawals",
+                    "0xc000000000000000000000000000000000000004" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "0"
+                     },
+                   "0x0000000000000000000000000000000000010001" : {
+                        "balance" : "110"
+                    },
+
+                   "//comment" : "BSHB0023b suicide, receive funds, receive withdrawals",
+                    "0xc000000000000000000000000000000000000005" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "0"
+                     },
+                   "0x0000000000000000000000000000000000010002" : {
+                        "balance" : "1010"
+                    },
+
+                   "//comment" : "BSHB0024 account created, receive withdrawals",
+                    "0x10fb6e0812178b547b4781f2a84456b36dc3ec05" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "1"
+                     },
+
+                   "//comment" : "BSHB0024b account created, reverted, receive withdrawals",
+                    "0x2af4594dcbf603a12b3a16175de99e9b1cf7f1e3" : {
+                        "balance" : "100000000000000",
+                        "nonce" : "0"
+                     }
+
+
+                }
+            }
+        ]
+    }
+}

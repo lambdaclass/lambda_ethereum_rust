@@ -1,0 +1,260 @@
+{
+    "londonUncles" : {
+        "_info" : {
+            "comment" : "uncles in london after Berlin transition"
+        },
+        "genesisBlockHeader" : {
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "0x8888f1f195afa192cfee860698584c030f4c9db1",
+            "difficulty" : "231072",
+            "extraData" : "0x42",
+            "gasLimit" : "3141592",
+            "gasUsed" : "0",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x54c98c81",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "sealEngine" : "NoProof",
+        "expect" : [
+	    {
+		    "network" : ["BerlinToLondonAt5"],
+		    "result" : {
+			    "0x0000000000000000000000000000000000000001" : {
+                    "//comment" : "legacy uncle block#4 reward at 5",
+                    "balance" : "1750000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000002" : {
+                    "//comment" : "legacy uncle block#4 reward at 6",
+                    "balance" : "1500000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000003" : {
+                    "//comment" : "legacy uncle block#4 reward at 7",
+                    "balance" : "1250000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000004" : {
+                    "//comment" : "legacy uncle block#4 reward at 8",
+                    "balance" : "1000000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000005" : {
+                    "//comment" : "legacy uncle block#4 reward at 9",
+                    "balance" : "750000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000006" : {
+                    "//comment" : "legacy uncle block#4 reward at 10",
+                    "balance" : "500000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000007" : {
+                    "//comment" : "legacy uncle block#4 reward at 11.  old uncle block is rejected",
+                    "shouldnotexist" : "1"
+			    },
+			    "0x0000000000000000000000000000000000000008" : {
+                    "//comment" : "uncle block#5 reward at 11",
+                    "balance" : "500000000000000000"
+			    },
+			    "0x0000000000000000000000000000000000000009" : {
+                    "//comment" : "legacy uncle block#6 reward at 12. legacy uncle rejected",
+                    "shouldnotexist" : "1"
+			    }
+		    }
+	    }
+        ],
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "10000000000000",
+                "nonce" : "0",
+                "code" : "",
+                "storage": {}
+            }
+        },
+        "blocks" : [
+            {
+                "//number" : "1",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "//number" : "2",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "//number" : "3",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "//number" : "4",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "//number" : "5",
+                "blockHeader" : {
+                    "stateRoot" : "0xbd2130f43a12bd9d69bb1e6b77535a37ac5efc6098c56cb141f753038a59bd4b"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000001",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "5b",
+                "expectException" : {
+                    "BerlinToLondonAt5" : "1559BlockImportImpossible_HeaderIsLegacy"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000105",
+                        "baseFeePerGas" : "0x1ac012b7",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "6",
+                "blocknumber" : "6",
+                "blockHeader" : {
+                    "stateRoot" : "0x9638f37cd8a5d0d786495b8fd08b37a53ada8da90d5b549ef47ce775c7069541"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000002",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "7",
+                "blockHeader" : {
+                    "stateRoot" : "0x27eba0910b82e917d4e573a431e834a8c70633371c97f27bcdb6f259be1783a2"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000003",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "8",
+                "blockHeader" : {
+                    "stateRoot" : "0x5d3c5e4cadbb8d4f0af6665468c775454ffbcfabbd2bbc878de2c52ba8dd9032"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000004",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "9",
+                "blockHeader" : {
+                    "stateRoot" : "0xe0639175c50a4e2a301eeaadd27cb06a794b2b523bb8432cd34b40aa89b0c25c"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000005",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "10",
+                "blockHeader" : {
+                    "stateRoot" : "0x3d959ea80eab493de0d6a728ebcf03c1a82a8565ccfca9173b9fb9098afd6dc3"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000006",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "11a",
+                "expectException" : {
+                    "BerlinToLondonAt5" : "UncleParentIsNotAncestor"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000007",
+                        "populateFromBlock" : "3"
+                    }
+                ]
+            },
+            {
+                "//number" : "11b",
+                "blocknumber" : "11",
+                "blockHeader" : {
+                    "stateRoot" : "0x840cdae7ee7f2e6b0445f11ae3844b0cd7f1e9c5d1078efc4d12edc39f4bc384"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000008",
+                        "populateFromBlock" : "4"
+                    }
+                ]
+            },
+            {
+                "//number" : "12b",
+                "expectException" : {
+                    "BerlinToLondonAt5" : "LegacyBlockImportImpossible2"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "//comment" : "Legacy uncle header in london block accepted",
+                        "coinbase" : "0x0000000000000000000000000000000000000009",
+                        "populateFromBlock" : "5",
+                        "remove" : [ "baseFeePerGas" ]
+                    }
+                ]
+            }
+        ]
+    }
+}

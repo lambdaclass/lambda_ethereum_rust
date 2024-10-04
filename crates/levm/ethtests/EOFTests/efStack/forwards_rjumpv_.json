@@ -1,0 +1,96 @@
+{
+    "forwards_rjumpv" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "48ad65e3f5b3c776079a0165416370d71d387def3b626e922af15b1e6942f8cb",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json",
+            "sourceHash" : "6daaef6b0d8d4c9777910f595e3de689632316f38e3434e88bfba994f3e95861"
+        },
+        "vectors" : {
+            "forwards_rjumpv_0" : {
+                "code" : "0xef0001010004020001000704000000008000016001e200000000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_1" : {
+                "code" : "0xef0001010004020001000904000000008000025f6000e20000011900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_2" : {
+                "code" : "0xef0001010004020001000d04000000008000025f6000e201000200035f501900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_3" : {
+                "code" : "0xef0001010004020001000904000000008000025f6000e20000015f00",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_4" : {
+                "code" : "0xef0001010004020001000d04000000008000035f6000e201000100025f5f1900",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_5" : {
+                "code" : "0xef0001010004020001001604000000008000025f6000e2010005000a6001e000076002e00002600300",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_6" : {
+                "code" : "0xef0001010004020001001604000000008000045f6000e201000400095fe000085f5fe000035f5f5f00",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_7" : {
+                "code" : "0xef0001010004020001001904000000008000055f5f5f5f6000e2010004000950e000085050e0000350505000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_8" : {
+                "code" : "0xef0001010004020001000b04000000008000025f6000e2000003e0000000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            },
+            "forwards_rjumpv_9" : {
+                "code" : "0xef0001010004020001000c04000000008000025f6000e20000045fe0000000",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}

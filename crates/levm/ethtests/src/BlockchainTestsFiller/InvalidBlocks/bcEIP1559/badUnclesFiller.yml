@@ -1,0 +1,173 @@
+# Check for uncle blocks that don't obey EIP 1559
+#
+# 1. Incorrect baseFee after a block
+# 2. gasLimit decreased by more than 1/1024
+# 3. gasLimit increased by more than 1/1024
+
+
+badUncles:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    gasLimit: 10240000
+    baseFeePerGas: 1000
+  sealEngine: NoProof
+
+
+  pre:
+    # Externally owned account (the result of entropy being all zeros)
+    0x9858EfFD232B4033E47d90003D41EC34EcaEda94:
+      balance: 0x10000000000
+      code: ''
+      nonce: 1
+      storage: {}
+
+
+    # Spend all the gas you can
+    # (that is the result of a call with an illegal opcode)
+    0x1111111111111111111111111111111111111111:
+      balance: 0x10000000000
+      nonce: 1
+      code: :raw 0xfe
+      storage: {}
+
+
+  blocks:
+  - blockHeader:
+      baseFeePerGas: 0x36b
+    blocknumber: 1
+    transactions: []
+
+  - blocknumber: 2
+    transactions: []
+
+  # Excessively low gasLimit in uncle
+  - transactions: []
+    uncleHeaders:
+      - populateFromBlock: 1
+        gasLimit: 10230000
+    expectException:
+      'London': InvalidGasLimit2
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+  # Excessively high gasLimit in uncle
+  - transactions: []
+    blocknumber: 3
+    uncleHeaders:
+      - populateFromBlock: 1
+        gasLimit: 10250000
+    expectException:
+      'London': InvalidGasLimit2
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+
+  # Acceptable gasLimit (same as the previous one)
+  - transactions: []
+    blocknumber: 3
+    blockHeader:
+      stateRoot: 0x9a6b813c5f5f42a22c519625ccb6d369bb500fbbaeb999a4acf5fa584bd041de
+    uncleHeaders:
+      - populateFromBlock: 1
+        gasLimit: 10240000
+    expectException:
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+
+  # Acceptable gasLimit (almost too low)
+  - transactions: []
+    //blocknumber: 4
+    blockHeader:
+      stateRoot: 0xd826e9bd0c4f924eaea9428d63fd199bfbc05f9521a466b37febf4027e99a48c
+    uncleHeaders:
+      - populateFromBlock: 1
+        gasLimit: 10230001
+    expectException:
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+
+  # Acceptable gasLimit (almost too high)
+  - transactions: []
+    //blocknumber: 5
+    blockHeader:
+      stateRoot: 0xe18cb70de5d4a2e7f4cd80ee2be02baf4c31cd07f00b6cf2e03eb39ca4f271a1
+    uncleHeaders:
+      - populateFromBlock: 1
+        gasLimit: 10249999
+    expectException:
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+  # Wrong baseFee
+  - transactions: []
+    //blocknumber: 6
+    uncleHeaders:
+      - populateFromBlock: 2
+        baseFeePerGas: 670
+    expectException:
+      'London': 1559BlockImportImpossible_BaseFeeWrong
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+  # Wrong baseFee
+  - transactions: []
+    //blocknumber: 6
+    uncleHeaders:
+      - populateFromBlock: 2
+        baseFeePerGas: 672
+    expectException:
+      'London': 1559BlockImportImpossible_BaseFeeWrong
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+
+  # Correct baseFee
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000   
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 6710
+      nonce: auto
+      secretKey: 0x1ab42cc412b618bdea3a599e3c9bae199ebf030895b039e9db1e30dafb12b727
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    //blocknumber: 6
+    blockHeader:
+      stateRoot: 0xd2b1ef17def4cd9e772f940a118629d743b0bcec2bd6c019dd29a37e86a1167c
+    uncleHeaders:
+      - populateFromBlock: 2
+        baseFeePerGas: 671
+    expectException:
+      'Paris': 3675PreParis1559BlockRejected
+      '>=Shanghai': PostParisUncleHashIsNotEmpty
+
+
+
+
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    # No real result, this test is based on exceptions
+    # No transactions, so no need to check the nonces either
+    result: {}
+
+

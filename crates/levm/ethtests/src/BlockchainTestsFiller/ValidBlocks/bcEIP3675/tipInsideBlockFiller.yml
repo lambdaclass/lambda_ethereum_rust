@@ -1,0 +1,132 @@
+# Test miner balance before and after a tip with gas fee inside the same block.
+
+tipInsideBlock:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase:  0xBA5E000000000000000000000000000000000000
+    difficulty: '131073'
+    extraData: '0x42'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 10000000000
+    gasUsed: '0'
+    baseFeePerGas: 1000
+  sealEngine: NoProof
+
+  pre:
+  # Extremely simple (and cheap in gas) contract. Just a push, 3 gas
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+      balance: 0x10000000000
+      nonce: 1
+      code: :raw 0x60FF00
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    #Contract records miner balance in block before miner tip for 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         {
+            (sstore (number) (balance(coinbase)) )
+         }
+      storage: #States to change during tests.
+          0x01:                 1
+          0x02:                 1
+
+    #Contract records miner balance in block before miner tip for 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.
+    0xdddddddddddddddddddddddddddddddddddddddd:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         {
+            (sstore (number) (balance(coinbase)) )
+         }
+      storage: #States to change during tests.
+          0x01:                 1
+          0x02:                 1
+
+  blocks:
+
+  # Block 1, tip = 1 (gas limit 21000) with PUSH opcode (3 gas), (21000*1) + 3 = 21003.
+  - transactions:
+    #Record the miner balance before the tip and gas update.
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # This transaction gives the miner 21003 wei because it uses 21003 gas
+    # 21k for the transaction, and 3 for the push that AA..AA does
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+    #Record the miner balance after the tip and gas update.
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+      value: 0x0
+
+  # Block 2, will set storage for prevoius block.
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+      value: 0x0
+
+  expect:
+  - network:
+    - ">=Paris"
+    result:
+      #After tip and gas cost is paid, miner balance should be (21000*1)+3=21003.
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        balance: 0x10000000000
+        storage:
+          0x01:                 0 #Before miner tip in the same block.
+          0X02:             21003 #Balance seen in next block.
+      0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD:
+        balance: 0x10000000000
+        storage:
+          0x01:             21003 #After miner tip in the same block.
+          0X02:             21003 #Balance seen in next block.

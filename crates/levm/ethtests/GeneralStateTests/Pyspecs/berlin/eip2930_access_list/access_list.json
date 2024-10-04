@@ -1,0 +1,395 @@
+{
+    "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py::test_access_list[fork_Berlin-state_test]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "844512dd4b86f0234ea1084331071ab281966f512bfca8e1ccda9e4718bc964e",
+            "hash" : "0x9598f34712952fbb272fe3f5f6db288ff9525df274a109a662379a1140a10fac",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py",
+            "sourceHash" : "55e116bf3b0ad0788bb88dae9b213f1c47e28512d97426c1ad224b729436aa52"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "hash" : "0x3b5a29b53c6bf546f4b3aed2ba974404c86064263a17fa60865070764071a8b5",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x01f89b0180078304ef0094000000000000000000000000000000000000aaaa0180f838f7940000000000000000000000000000000000000000e1a0000000000000000000000000000000000000000000000000000000000000000001a02e16eb72206c93c471b5894800495ee9c64ae2d9823bcc4d6adeb5d9d9af0dd4a03be6691e933a0816c59d059a556c27c6753e6ce76d1e357b9201865c80b28df3"
+                }
+            ]
+        },
+        "pre" : {
+            "0x000000000000000000000000000000000000aaaa" : {
+                "balance" : "0x03",
+                "code" : "0x5854505854",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x300000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x0000000000000000000000000000000000000000",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        ]
+                    }
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x04ef00"
+            ],
+            "gasPrice" : "0x07",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x000000000000000000000000000000000000aaaa",
+            "value" : [
+                "0x01"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py::test_access_list[fork_Cancun-state_test]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "fddf6e3e1e44e7f1bf4da2c8ce79dbfea5dc517051bc5a0a88e63fbb3fca5f9c",
+            "hash" : "0x3e233472094afd276e99c8ee333e3b28db977195cc1cf1406bbaf789e6161c15",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py",
+            "sourceHash" : "55e116bf3b0ad0788bb88dae9b213f1c47e28512d97426c1ad224b729436aa52"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x43d337713ee24a500d16b08e4bf331597d3a42b23965420963f5515ad8f67504",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x01f89b0180078304ef0094000000000000000000000000000000000000aaaa0180f838f7940000000000000000000000000000000000000000e1a0000000000000000000000000000000000000000000000000000000000000000001a02e16eb72206c93c471b5894800495ee9c64ae2d9823bcc4d6adeb5d9d9af0dd4a03be6691e933a0816c59d059a556c27c6753e6ce76d1e357b9201865c80b28df3"
+                }
+            ]
+        },
+        "pre" : {
+            "0x000000000000000000000000000000000000aaaa" : {
+                "balance" : "0x03",
+                "code" : "0x5854505854",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x300000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x0000000000000000000000000000000000000000",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        ]
+                    }
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x04ef00"
+            ],
+            "gasPrice" : "0x07",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x000000000000000000000000000000000000aaaa",
+            "value" : [
+                "0x01"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py::test_access_list[fork_London-state_test]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "ed049a9d22cf1afb82b3e7b79aa1c782fb70a10637ac8083d14f66aff0b659f5",
+            "hash" : "0x9ec9cefb606eaab19fbeab79fc4dffca55318ef8717b1c1b667c1011c303c83e",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py",
+            "sourceHash" : "55e116bf3b0ad0788bb88dae9b213f1c47e28512d97426c1ad224b729436aa52"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "London" : [
+                {
+                    "hash" : "0x43d337713ee24a500d16b08e4bf331597d3a42b23965420963f5515ad8f67504",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x01f89b0180078304ef0094000000000000000000000000000000000000aaaa0180f838f7940000000000000000000000000000000000000000e1a0000000000000000000000000000000000000000000000000000000000000000001a02e16eb72206c93c471b5894800495ee9c64ae2d9823bcc4d6adeb5d9d9af0dd4a03be6691e933a0816c59d059a556c27c6753e6ce76d1e357b9201865c80b28df3"
+                }
+            ]
+        },
+        "pre" : {
+            "0x000000000000000000000000000000000000aaaa" : {
+                "balance" : "0x03",
+                "code" : "0x5854505854",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x300000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x0000000000000000000000000000000000000000",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        ]
+                    }
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x04ef00"
+            ],
+            "gasPrice" : "0x07",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x000000000000000000000000000000000000aaaa",
+            "value" : [
+                "0x01"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py::test_access_list[fork_Paris-state_test]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "8612e37cbd455927e91c2c4ffd6f1788e2416733fb24b6e5f2f79ac910b53d55",
+            "hash" : "0xd7456052cd1663ffb074fceaa73cdac1c8b48c47818fb77b7f3c72a477d28d0c",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py",
+            "sourceHash" : "55e116bf3b0ad0788bb88dae9b213f1c47e28512d97426c1ad224b729436aa52"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Paris" : [
+                {
+                    "hash" : "0x43d337713ee24a500d16b08e4bf331597d3a42b23965420963f5515ad8f67504",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x01f89b0180078304ef0094000000000000000000000000000000000000aaaa0180f838f7940000000000000000000000000000000000000000e1a0000000000000000000000000000000000000000000000000000000000000000001a02e16eb72206c93c471b5894800495ee9c64ae2d9823bcc4d6adeb5d9d9af0dd4a03be6691e933a0816c59d059a556c27c6753e6ce76d1e357b9201865c80b28df3"
+                }
+            ]
+        },
+        "pre" : {
+            "0x000000000000000000000000000000000000aaaa" : {
+                "balance" : "0x03",
+                "code" : "0x5854505854",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x300000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x0000000000000000000000000000000000000000",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        ]
+                    }
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x04ef00"
+            ],
+            "gasPrice" : "0x07",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x000000000000000000000000000000000000aaaa",
+            "value" : [
+                "0x01"
+            ]
+        }
+    },
+    "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py::test_access_list[fork_Shanghai-state_test]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a2aedace.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-7aafad22-20240406",
+            "generatedTestHash" : "1b845755b6155ab1fbb6b265c07c301b1eb0658a7a7d11343075654c11f33109",
+            "hash" : "0xd749958e5c9697074910116950567ff4ecf882a7ec0362ce179261f57279b7ab",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/Pyspecs/berlin/eip2930_access_list/test_acl.py",
+            "sourceHash" : "55e116bf3b0ad0788bb88dae9b213f1c47e28512d97426c1ad224b729436aa52"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Shanghai" : [
+                {
+                    "hash" : "0x43d337713ee24a500d16b08e4bf331597d3a42b23965420963f5515ad8f67504",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0x01f89b0180078304ef0094000000000000000000000000000000000000aaaa0180f838f7940000000000000000000000000000000000000000e1a0000000000000000000000000000000000000000000000000000000000000000001a02e16eb72206c93c471b5894800495ee9c64ae2d9823bcc4d6adeb5d9d9af0dd4a03be6691e933a0816c59d059a556c27c6753e6ce76d1e357b9201865c80b28df3"
+                }
+            ]
+        },
+        "pre" : {
+            "0x000000000000000000000000000000000000aaaa" : {
+                "balance" : "0x03",
+                "code" : "0x5854505854",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x300000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "accessLists" : [
+                [
+                    {
+                        "address" : "0x0000000000000000000000000000000000000000",
+                        "storageKeys" : [
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        ]
+                    }
+                ]
+            ],
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x04ef00"
+            ],
+            "gasPrice" : "0x07",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0x000000000000000000000000000000000000aaaa",
+            "value" : [
+                "0x01"
+            ]
+        }
+    }
+}

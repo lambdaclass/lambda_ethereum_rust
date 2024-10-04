@@ -1,0 +1,82 @@
+{
+    "TransactionWithSvalueEqual_c_secp256k1n_x05" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "d614c9aa7405b14412d22a7c02baad31fd06b1c9c45b8c9df8ca6e116bbfeba4",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithSvalueEqual_c_secp256k1n_x05Filler.json",
+            "sourceHash" : "ed5ddbe74b60e88530404867322f22b79e24ca803c6e0658aab19c670f13de97"
+        },
+        "result" : {
+            "Berlin" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Byzantium" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Cancun" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Constantinople" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "ConstantinopleFix" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "EIP150" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "EIP158" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Frontier" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Homestead" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Istanbul" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "London" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Paris" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            },
+            "Shanghai" : {
+                "hash" : "0x598c2fd732a2a602924a91a5108c1b690c5dee2ecd0b1d3733f0faae92cee470",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xb284109d8e781949638d995c19f8feba0268191c"
+            }
+        },
+        "txbytes" : "0xf85f800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a07fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0"
+    }
+}

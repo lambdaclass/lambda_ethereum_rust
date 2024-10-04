@@ -1,0 +1,1946 @@
+{
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_OOG-call_type_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "62ee209adce29a3a8c5bd65c9b66db45fe0bfc94b1208e763f3c23e7aa8f8e03",
+            "hash" : "0x50d7d9e6d7516d1adb117e49dfad16228959ebe27a9716e4c96ca51e31d92b83",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x0fae262d57dc73cf19120620f9dd1127c4a5ebb294e3d174dd00fedee361e7cd",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605d580157600260003514600858015760625801565b602c60005d600160005260ff6020526020602060206000600073b00000000000000000000000000000000000000b5af260035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_OOG-call_type_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "231d2250bf569ea278c8793bbfe106049be2f9a8faacaf4fddddfacbdf352ea2",
+            "hash" : "0xd2606e3b658e4a025d4ea529dde20b592a86df348b20c59a834cd309b8b6ab9d",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xe90106a04c1e47bf48489768a74039f8f38d9e70989c57e178aff778ebcbda83",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605d580157600260003514600858015760625801565b602c60005d600160005260ff6020526020602060206000600073b00000000000000000000000000000000000000b5af160035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_OOG-call_type_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "5ce88ecf35aeedabd0818cbee8572068c1aba83244d3ec3481748d332c78497f",
+            "hash" : "0xe7b1534607c6e1141798b32cb9ed0c861377ea54ceb6570848de165b64042287",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xe945e53d47973c939357e12b448fc9c7a3fb92d771475eea3573049f879705d8",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605b580157600260003514600858015760605801565b602c60005d600160005260ff602052602060206020600073b00000000000000000000000000000000000000b5af460035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_OOG-call_type_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "31f8533b9ad2a27b3cd3c2aeb1ef7ea7faf5c948c62b9d7eeca792357db910ed",
+            "hash" : "0xb131dc42d03f20b7c493d1188b54c14859d214a19791c09cf831bb79619da3b4",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x74df3293debf6932011cd9e20a4a8ddbcd5ffdc5a2fbcb1b35cc0bf55d68c2c3",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605b580157600260003514600858015760605801565b602c60005d600160005260ff602052602060206020600073b00000000000000000000000000000000000000b5afa60035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_RETURN-call_type_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "b48c9df81bc1fa85ce368bbabbf553cb1e8a3dba28ae3ab8f294daa4e864ef50",
+            "hash" : "0x188445624913acf1defb1f58e7842865be53fe0a533c1d9c8d5b5ee6674a669f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x55dbcbfb9d09fb60e9d62fe0c75690d39e1a291e2e8d6d7d13da448b684aa4d4",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605d5801576002600035146008580157605e5801565b602c60005d600160005260ff6020526020602060206000600073b00000000000000000000000000000000000000b5af260035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_RETURN-call_type_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "2e27d44d765722cba5b69d286a1eeb3e9544ba7f18a65d6b6f62a965accafc8a",
+            "hash" : "0xa0f9b46de200a2d9861a6448e9318c6d4bfb3c401517ba909039083fdb385ca2",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x465ac35e9f9d568ae27782b9ff88b035845e0fc6de4b25ac774b54c5cf1ac166",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605d5801576002600035146008580157605e5801565b602c60005d600160005260ff6020526020602060206000600073b00000000000000000000000000000000000000b5af160035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_RETURN-call_type_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "5a65ae6606106ee8c4c0c093da066f9deaa2537a39c03ec72dd514e3f9ecb91a",
+            "hash" : "0x3fc021dd7ee533d8a03b2fbe0b3d93825f19b282df5605c74dbfc09d7d2dd955",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x5c8689e916fad5b85a1e909c7870c732627a4b4243a6634e581d83c2b926c95f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605b5801576002600035146008580157605c5801565b602c60005d600160005260ff602052602060206020600073b00000000000000000000000000000000000000b5af460035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_RETURN-call_type_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "fb79b896c86fa056a47462eb9575e1054c4e572115ca4ffe5097d30f19bdaac6",
+            "hash" : "0x3f4967c287e98be2b0fcac472f3566f47fbe88c6fbe7ddb28da77a2d89233361",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x44297596bc90ecfcec1d1652f798ac9b23b426341e5d402ef7e23f221030df0f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605b5801576002600035146008580157605c5801565b602c60005d600160005260ff602052602060206020600073b00000000000000000000000000000000000000b5afa60035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_REVERT-call_type_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "07e3880989578e75d2fbf4d1b148443b05da786fb492f0f6136f873b2abf691f",
+            "hash" : "0xa0b28f6955d8d424a281b8f2d2c4a998109ab24e2c39e9f42dc857a608bc7a7c",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x5a0eacf8c0294427361ff0b0a194d4589001ea21596ea333f17b7f4a33ba2e8f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605d5801576002600035146008580157605e5801565b602c60005d600160005260ff6020526020602060206000600073b00000000000000000000000000000000000000b5af260035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_REVERT-call_type_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "65695d556d04568c98110f65a1c89ebbbfd921f93894093d353a1b9ebdf0a3de",
+            "hash" : "0x92fc573734c67fb220f79eeb7ad93882a9ee3d498995a08443175836f7537af7",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xb47b370b11508f773e8e28308852229ebc7b8b7c4005ed36402d48c258fb4584",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605d5801576002600035146008580157605e5801565b602c60005d600160005260ff6020526020602060206000600073b00000000000000000000000000000000000000b5af160035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_REVERT-call_type_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "e9c0f4c81421e5e817a80ee9ca188fdae5c037aed80b4b21381f81b417332c1b",
+            "hash" : "0xd38fd9ee3bdc196ee520d2930e9b4871ea2c547191fa4d0a95281b6c8369debf",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x367e47aa3c6b66cef3e257f62038b2d6de3c635eb583f3616003b61405c4d590",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605b5801576002600035146008580157605c5801565b602c60005d600160005260ff602052602060206020600073b00000000000000000000000000000000000000b5af460035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_0xb00000000000000000000000000000000000000b-call_return_REVERT-call_type_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "d693b2ddc12df670c60e8630050fedc33b2b2b9e567c9a48d976746caf8f2174",
+            "hash" : "0xbbb06b677e8f0ba375e885828c7484065ad6460f9fbcfc024b3e96fb9f7eb14c",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x9077f158652c4391436144817b1b153e9d59bf8d6a92e80bcf1973f499455f03",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x600160003514605b5801576002600035146008580157605c5801565b602c60005d600160005260ff602052602060206020600073b00000000000000000000000000000000000000b5afa60035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_OOG-call_type_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "13e02a96e301839361237be0a688b9e20205b17514d2a04a3c9c4b65ba30e872",
+            "hash" : "0x847039967a9b4d2db624d867e6c67bb2e9179b20b2bdc9c94cb2fd8bd91f82c5",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xf0982dceb32fc0e45369463c6204397f0058d6f1c33a3c6d3b2f3343f9397b42",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460495801576002600035146008580157604e5801565b602c60005d600160005260ff60205260206020602060006000305af260035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_OOG-call_type_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "d2cc15441745c76800a9e7a2b5084e8420cfe9a65f8ca205a1761092677d2560",
+            "hash" : "0xd6b96666a570a5047d8cab7d98b8fa931fddeeccab2ede257c145c6c8f01bd8a",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x29ff56645859ca4190620e630d2e2b1b28c069bcb62077af07cdddcad0c17d79",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460495801576002600035146008580157604e5801565b602c60005d600160005260ff60205260206020602060006000305af160035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_OOG-call_type_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "a313d6bca3f00894a2eab27ac19633a8abe66222124247eea6a81384a2937401",
+            "hash" : "0x7369e23ff719aa11213d2cbe9065f72b5aeb3293869ae6c4ada74fd4d569ecc1",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xdf603e9308f1f2fff962f510d6553373ae836e934bde6234d8541aa4131cd07d",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460475801576002600035146008580157604c5801565b602c60005d600160005260ff6020526020602060206000305af460035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_OOG-call_type_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "ebedf7b03255d60d8beb47e17a3faacddaec5d3b7544c9d1a181d550cb0d0a6e",
+            "hash" : "0x399a5c284a69250010fb47abcc3b16f4eafde4a1500d2162f5601d45dc523124",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xd5e17141d84f88e4bd1f82aef579d42cffa54bc4186256ab9f0c41d359b90ead",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460475801576002600035146008580157604c5801565b602c60005d600160005260ff6020526020602060206000305afa60035560205160015560005c600255600160045560185801565b60005c60005264174876e80060002060035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005264174876e800600020",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_RETURN-call_type_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "c2b55b01e6bd0a15f642a39070c0bbf6b46f718a27e2174b3b61cb3295708c03",
+            "hash" : "0xe3ae4bb579db1e0bc4fbca3a0e188c719a1dca9c0b5904dc36db3db052d8b29f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x3d12734658d4bdf255064ea139207f2736903fdb6f69ffb0eb02726be41a3dd2",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460495801576002600035146008580157604a5801565b602c60005d600160005260ff60205260206020602060006000305af260035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_RETURN-call_type_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "5a5e35b4e9dfebd8b40f1bbc2c3e9558a654e42f5159614ef061aa55f66be1a9",
+            "hash" : "0x2ec3af67cc026a8e3801c832895467c22202f26a65032318fb9bb9ccb5a3f2ec",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x52660fcd368cf71808d114004b9e2ecb639564175b267f3d32a01c8a8ccb218f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460495801576002600035146008580157604a5801565b602c60005d600160005260ff60205260206020602060006000305af160035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_RETURN-call_type_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "a511366a9e9f57794c4785b774cfc6086635392b97e114b5d9b7092a9c9aca1a",
+            "hash" : "0x139c4ccdb08ef1bb49da1131b4d63d957e4acaf1bdb109930306b38e1f238813",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x5907b389c825199ce326b5336a821962b81d4bf20bdc51db0b39fa51e4e477b3",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6001600035146047580157600260003514600858015760485801565b602c60005d600160005260ff6020526020602060206000305af460035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_RETURN-call_type_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "202ed0386fcaf22106914fe86d7d3f1051d9c5afa71c8d9734f10175576e73c0",
+            "hash" : "0x7422cb5258e2a99c7a9a50b967aed13c7a20f0e328ddcf9ac86acba34ad0a5b6",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xd1af55d4fea13a53650577afc678e75665c91fa9f5cb9f81a4ea5227ac43895c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6001600035146047580157600260003514600858015760485801565b602c60005d600160005260ff6020526020602060206000305afa60035560205160015560005c600255600160045560145801565b60005c60005260206000f360035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_REVERT-call_type_CALLCODE]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "330bcb4e4121a3d9c40fc56488a26303364a4b440c4d9f0706d3b05d669af34f",
+            "hash" : "0x5ed0624b1ab97f27b2530c14c4a2163729868789eba771b82807c1d971df876f",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x83c92383c2d0a0ef7c6273f77627126bbb6d9a0672947c327ee73ce5b927917b",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460495801576002600035146008580157604a5801565b602c60005d600160005260ff60205260206020602060006000305af260035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_REVERT-call_type_CALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "70b3f8f870a7eae7d74545ad4285c53314fc8abee5e82ea0dfd40bd133c7b61d",
+            "hash" : "0x47ff0cfa4ec08eba4fc3d4382458f02e2d1dfdcb1c8cc89b218a29402dbd76a7",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0xa51942ab671199120e6bc8aeab0a57862da4f03ace2619ed633f2ac2614a03af",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60016000351460495801576002600035146008580157604a5801565b602c60005d600160005260ff60205260206020602060006000305af160035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_REVERT-call_type_DELEGATECALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "6aeb707f1a815dc3e334f09461242e91a88046d9a73f6468faf9334858b7e489",
+            "hash" : "0x212575589ce961bc91a4f9af08a0d5b1239850a692b837833af0f2fe49467111",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x148c37fa5ef97dec2bdb13b9a3e91e4384d5653cd20b0752a642e513c79a1754",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6001600035146047580157600260003514600858015760485801565b602c60005d600160005260ff6020526020602060206000305af460035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    },
+    "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py::test_tload_reentrancy[fork_Cancun-state_test-call_dest_b'0'-call_return_REVERT-call_type_STATICCALL]" : {
+        "_info" : {
+            "comment" : "`execution-spec-tests` generated test",
+            "filling-rpc-server" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.91d8584c.Linux.g++",
+            "filling-transition-tool" : "evm version 1.14.0-unstable-d8e0807d-20240306",
+            "generatedTestHash" : "33aaca96d051c5ee055b2b4a565293f5b2c51129721f7b9c2331674affd5191e",
+            "hash" : "0x99fd132488c5a32795c50e276e94af5cb0e195dcb73c3f298c6778f2d978d584",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "/home/wins/Ethereum/execution-spec-tests/tests/cancun/eip1153_tstore/test_tload_reentrancy.py",
+            "sourceHash" : "15859dd7c5a225169062f7bcecc466f931f7e5582be25e9398f43c3dc17d0365"
+        },
+        "env" : {
+            "currentBaseFee" : "0x07",
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x00",
+            "currentExcessBlobGas" : "0x00",
+            "currentGasLimit" : "0x016345785d8a0000",
+            "currentNumber" : "0x01",
+            "currentRandom" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "currentTimestamp" : "0x03e8"
+        },
+        "post" : {
+            "Cancun" : [
+                {
+                    "hash" : "0x5ba817002586159fd7757608e25c261c365e94d205db522c79b0123d858c59e4",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                    "txbytes" : "0xf880800a834c4b4094a00000000000000000000000000000000000000a80a0000000000000000000000000000000000000000000000000000000000000000226a05c6ffe20eb7b11b4acfbc796d6885691afce01dd9bdf412cc5223caa6071e133a00d410b4a6d07e95c9b6e6169bc637ce3819edf9dd6bbe02a158503fa478a6140"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa00000000000000000000000000000000000000a" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6001600035146047580157600260003514600858015760485801565b602c60005d600160005260ff6020526020602060206000305afa60035560205160015560005c600255600160045560145801565b60005c60005260206000fd60035801565b",
+                "nonce" : "0x00",
+                "storage" : {
+                    "0x01" : "0xff",
+                    "0x02" : "0xff",
+                    "0x03" : "0xff",
+                    "0x04" : "0xff"
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x6124fee993bc0000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb00000000000000000000000000000000000000b" : {
+                "balance" : "0x00",
+                "code" : "0x60005c60005260206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "gasLimit" : [
+                "0x4c4b40"
+            ],
+            "gasPrice" : "0x0a",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "to" : "0xa00000000000000000000000000000000000000a",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

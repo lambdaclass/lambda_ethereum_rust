@@ -1,0 +1,462 @@
+validInvalid:
+  _info:
+     comment: |
+       Test various examples to see if they are valid or invalid.
+       Implements
+         EOF1V3540_0001 (Valid) Deployed code without data section - Data index: 0
+         EOF1V3540_0002 (Valid) Deployed code with data section - Data index: 1
+         EOF1V3540_0003 (Valid) No data section contents (valid according to relaxed stack validation) - Data index: 2
+         EOF1V3540_0004 (Valid) Data section contents incomplete (valid according to relaxed stack validation) - Data index: 3
+         EOF1I3540_0001 (Invalid) No magic - Data index: 4
+         EOF1I3540_0002 (Invalid) Invalid magic - Data index: 5
+         EOF1I3540_0003  - Data index: 6
+         EOF1I3540_0004  - Data index: 7
+         EOF1I3540_0005 (Invalid) No version - Data index: 8
+         EOF1I3540_0006 (Invalid) Invalid version - Data index: 9
+         EOF1I3540_0007  - Data index: 10
+         EOF1I3540_0008  - Data index: 11
+         EOF1I3540_0009 (Invalid) No header - Data index: 12
+         EOF1I3540_0010 (Invalid) No type section size - Data index: 13
+         EOF1I3540_0011 (Invalid) Type section size incomplete - Data index: 14
+         EOF1I3540_0012 (Invalid) Empty code section with non-empty data section - Data index: 15
+         EOF1I3540_0013 (Invalid) No total of code sections - Data index: 16
+         EOF1I3540_0014 (Invalid) Total of code sections incomplete - Data index: 17
+         EOF1I3540_0015 (Invalid) No code section size - Data index: 18
+         EOF1I3540_0016 (Invalid) Code section size incomplete - Data index: 19
+         EOF1I3540_0017 (Invalid) No data section after code section size - Data index: 20
+         EOF1I3540_0018 (Invalid) No data size - Data index: 21
+         EOF1I3540_0019 (Invalid) Data size incomplete - Data index: 22
+         EOF1I3540_0020 (Invalid) No section terminator after data section size - Data index: 23
+         EOF1I3540_0021 (Invalid) No type section contents - Data index: 24
+         EOF1I3540_0022 (Invalid) Type section contents (no outputs and max stack) - Data index: 25
+         EOF1I3540_0023 (Invalid) Type section contents (no max stack) - Data index: 26
+         EOF1I3540_0024 (Invalid) Type section contents (max stack incomplete) - Data index: 27
+         EOF1I3540_0025 (Invalid) No code section contents - Data index: 28
+         EOF1I3540_0026 (Invalid) Code section contents incomplete - Data index: 29
+         EOF1I3540_0027 (Invalid) Trailing bytes after code section - Data index: 30
+         EOF1I3540_0028 (Invalid) Empty code section - Data index: 31
+         EOF1I3540_0029 (Invalid) Empty code section with non-empty data section - Data index: 32
+         EOF1I3540_0030 (Invalid) Code section preceding type section - Data index: 33
+         EOF1I3540_0031 (Invalid) Data section preceding type section - Data index: 34
+         EOF1I3540_0032 (Invalid) Data section preceding code section - Data index: 35
+         EOF1I3540_0033 (Invalid) Data section without code section - Data index: 36
+         EOF1I3540_0034 (Invalid) No data section - Data index: 37
+         EOF1I3540_0035 (Invalid) Trailing bytes after data section - Data index: 38
+         EOF1I3540_0036 (Invalid) Multiple data sections - Data index: 39
+         EOF1I3540_0037 (Invalid) Multiple code and data sections - Data index: 40
+         EOF1I3540_0038 (Invalid) Unknown section IDs (at the beginning) - Data index: 41
+         EOF1I3540_0039  - Data index: 42
+         EOF1I3540_0040  - Data index: 43
+         EOF1I3540_0041 (Invalid)  Unknown section IDs (after types section) - Data index: 44
+         EOF1I3540_0042  - Data index: 45
+         EOF1I3540_0043  - Data index: 46
+         EOF1I3540_0044 (Invalid)  Unknown section IDs (after code section) - Data index: 47
+         EOF1I3540_0045  - Data index: 48
+         EOF1I3540_0046  - Data index: 49
+         EOF1I3540_0047 (Invalid)  Unknown section IDs (after data section) - Data index: 50
+         EOF1I3540_0048  - Data index: 51
+         EOF1I3540_0049  - Data index: 52
+  forks:
+    - ">=Prague"
+
+  vectors:
+    # EOF1V3540_0001 (Valid) Deployed code without data section - Data index: 0
+    # Code: PUSH1(0) POP STOP
+    - data: |
+       :label EOF1V3540_0001 :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0004 # Code section  0 , 4  bytes
+        040000 # Data section length ( 0 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0001 # max stack: 1
+               # Code section 0
+          6000 # [0] PUSH1(0) 
+            50 # [2] POP 
+            00 # [3] STOP 
+               # Data section (empty)
+      # "Prague" : "ok."
+
+    # EOF1V3540_0002 (Valid) Deployed code with data section - Data index: 1
+    # Code: PUSH1(0) POP STOP
+    # Data: AABBCCDD
+    - data: |
+       :label EOF1V3540_0002 :raw 0x
+        EF0001 # Magic and Version ( 1 )
+        010004 # Types length ( 4 )
+        020001 # Total code sections ( 1 )
+          0004 # Code section  0 , 4  bytes
+        040004 # Data section length ( 4 )
+            00 # Terminator (end of header)
+               # Code 0 types
+            00 # 0 inputs
+            80 # 0 outputs (Non-returning function)
+          0001 # max stack: 1
+               # Code section 0
+          6000 # [0] PUSH1(0) 
+            50 # [2] POP 
+            00 # [3] STOP 
+               # Data section 
+        aabbccdd
+      # "Prague" : "ok."
+
+    # EOF1V3540_0003 (Valid) No data section contents (valid according to relaxed stack validation) - Data index: 2
+    # Code: ef000101000402000100010400020000800000fe
+    - data: |
+       :label EOF1V3540_0003 :raw 0xef000101000402000100010400020000800000fe
+      # "Prague" : "ok."
+
+    # EOF1V3540_0004 (Valid) Data section contents incomplete (valid according to relaxed stack validation) - Data index: 3
+    # Code: ef000101000402000100010400020000800000feaa
+    - data: |
+       :label EOF1V3540_0004 :raw 0xef000101000402000100010400020000800000feaa
+      # "Prague" : "ok."
+
+    # EOF1I3540_0001 (Invalid) No magic - Data index: 4
+    # Code: ef
+    - data: |
+       :label EOF1I3540_0001 :raw 0xef
+      expectException:
+        ">=Prague" : "EOF_InvalidPrefix"
+
+    # EOF1I3540_0002 (Invalid) Invalid magic - Data index: 5
+    # Code: ef010101000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0002 :raw 0xef010101000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_InvalidPrefix"
+
+    # EOF1I3540_0003  - Data index: 6
+    # Code: ef020101000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0003 :raw 0xef020101000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_InvalidPrefix"
+
+    # EOF1I3540_0004  - Data index: 7
+    # Code: efff0101000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0004 :raw 0xefff0101000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_InvalidPrefix"
+
+    # EOF1I3540_0005 (Invalid) No version - Data index: 8
+    # Code: ef00
+    - data: |
+       :label EOF1I3540_0005 :raw 0xef00
+      expectException:
+        ">=Prague" : "EOF_UnknownVersion"
+
+    # EOF1I3540_0006 (Invalid) Invalid version - Data index: 9
+    # Code: ef000001000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0006 :raw 0xef000001000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_UnknownVersion"
+
+    # EOF1I3540_0007  - Data index: 10
+    # Code: ef000201000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0007 :raw 0xef000201000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_UnknownVersion"
+
+    # EOF1I3540_0008  - Data index: 11
+    # Code: ef00ff01000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0008 :raw 0xef00ff01000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_UnknownVersion"
+
+    # EOF1I3540_0009 (Invalid) No header - Data index: 12
+    # Code: ef0001
+    - data: |
+       :label EOF1I3540_0009 :raw 0xef0001
+      expectException:
+        ">=Prague" : "EOF_SectionHeadersNotTerminated"
+
+    # EOF1I3540_0010 (Invalid) No type section size - Data index: 13
+    # Code: ef000101
+    - data: |
+       :label EOF1I3540_0010 :raw 0xef000101
+      expectException:
+        ">=Prague" : "EOF_SectionHeadersNotTerminated"
+
+    # EOF1I3540_0011 (Invalid) Type section size incomplete - Data index: 14
+    # Code: ef00010100
+    - data: |
+       :label EOF1I3540_0011 :raw 0xef00010100
+      expectException:
+        ">=Prague" : "EOF_IncompleteSectionSize"
+
+    # EOF1I3540_0012 (Invalid) Empty code section with non-empty data section - Data index: 15
+    # Code: ef000101000402000100000400020000000000aabb
+    - data: |
+       :label EOF1I3540_0012 :raw 0xef000101000402000100000400020000000000aabb
+      expectException:
+        ">=Prague" : "EOF_ZeroSectionSize"
+
+    # EOF1I3540_0013 (Invalid) No total of code sections - Data index: 16
+    # Code: ef000101000402
+    - data: |
+       :label EOF1I3540_0013 :raw 0xef000101000402
+      expectException:
+        ">=Prague" : "EOF_IncompleteSectionNumber"
+
+    # EOF1I3540_0014 (Invalid) Total of code sections incomplete - Data index: 17
+    # Code: ef00010100040200
+    - data: |
+       :label EOF1I3540_0014 :raw 0xef00010100040200
+      expectException:
+        ">=Prague" : "EOF_IncompleteSectionNumber"
+
+    # EOF1I3540_0015 (Invalid) No code section size - Data index: 18
+    # Code: ef0001010004020001
+    - data: |
+       :label EOF1I3540_0015 :raw 0xef0001010004020001
+      expectException:
+        ">=Prague" : "EOF_SectionHeadersNotTerminated"
+
+    # EOF1I3540_0016 (Invalid) Code section size incomplete - Data index: 19
+    # Code: ef000101000402000100
+    - data: |
+       :label EOF1I3540_0016 :raw 0xef000101000402000100
+      expectException:
+        ">=Prague" : "EOF_IncompleteSectionSize"
+
+    # EOF1I3540_0017 (Invalid) No data section after code section size - Data index: 20
+    # Code: ef00010100040200010001
+    - data: |
+       :label EOF1I3540_0017 :raw 0xef00010100040200010001
+      expectException:
+        ">=Prague" : "EOF_SectionHeadersNotTerminated"
+
+    # EOF1I3540_0018 (Invalid) No data size - Data index: 21
+    # Code: ef0001010004020001000104
+    - data: |
+       :label EOF1I3540_0018 :raw 0xef0001010004020001000104
+      expectException:
+        ">=Prague" : "EOF_SectionHeadersNotTerminated"
+
+    # EOF1I3540_0019 (Invalid) Data size incomplete - Data index: 22
+    # Code: ef000101000402000100010400
+    - data: |
+       :label EOF1I3540_0019 :raw 0xef000101000402000100010400
+      expectException:
+        ">=Prague" : "EOF_IncompleteSectionSize"
+
+    # EOF1I3540_0020 (Invalid) No section terminator after data section size - Data index: 23
+    # Code: ef00010100040200010001040002
+    - data: |
+       :label EOF1I3540_0020 :raw 0xef00010100040200010001040002
+      expectException:
+        ">=Prague" : "EOF_SectionHeadersNotTerminated"
+
+    # EOF1I3540_0021 (Invalid) No type section contents - Data index: 24
+    # Code: ef0001010004020001000104000200
+    - data: |
+       :label EOF1I3540_0021 :raw 0xef0001010004020001000104000200
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0022 (Invalid) Type section contents (no outputs and max stack) - Data index: 25
+    # Code: ef000101000402000100010400020000
+    - data: |
+       :label EOF1I3540_0022 :raw 0xef000101000402000100010400020000
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0023 (Invalid) Type section contents (no max stack) - Data index: 26
+    # Code: ef00010100040200010001040002000000
+    - data: |
+       :label EOF1I3540_0023 :raw 0xef00010100040200010001040002000000
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0024 (Invalid) Type section contents (max stack incomplete) - Data index: 27
+    # Code: ef0001010004020001000104000200000000
+    - data: |
+       :label EOF1I3540_0024 :raw 0xef0001010004020001000104000200000000
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0025 (Invalid) No code section contents - Data index: 28
+    # Code: ef000101000402000100010400020000000000
+    - data: |
+       :label EOF1I3540_0025 :raw 0xef000101000402000100010400020000000000
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0026 (Invalid) Code section contents incomplete - Data index: 29
+    # Code: ef0001010004020001002904000000000000027f
+    - data: |
+       :label EOF1I3540_0026 :raw 0xef0001010004020001002904000000000000027f
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0027 (Invalid) Trailing bytes after code section - Data index: 30
+    # Code: ef000101000402000100010400000000000000feaabbcc
+    - data: |
+       :label EOF1I3540_0027 :raw 0xef000101000402000100010400000000000000feaabbcc
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0028 (Invalid) Empty code section - Data index: 31
+    # Code: ef000101000402000100000400000000000000
+    - data: |
+       :label EOF1I3540_0028 :raw 0xef000101000402000100000400000000000000
+      expectException:
+        ">=Prague" : "EOF_ZeroSectionSize"
+
+    # EOF1I3540_0029 (Invalid) Empty code section with non-empty data section - Data index: 32
+    # Code: ef000101000402000100000400020000000000aabb
+    - data: |
+       :label EOF1I3540_0029 :raw 0xef000101000402000100000400020000000000aabb
+      expectException:
+        ">=Prague" : "EOF_ZeroSectionSize"
+
+    # EOF1I3540_0030 (Invalid) Code section preceding type section - Data index: 33
+    # Code: ef000102000100010100040400020000000000feaabb
+    - data: |
+       :label EOF1I3540_0030 :raw 0xef000102000100010100040400020000000000feaabb
+      expectException:
+        ">=Prague" : "EOF_TypeSectionMissing"
+
+    # EOF1I3540_0031 (Invalid) Data section preceding type section - Data index: 34
+    # Code: ef000104000201000402000100010000000000feaabb
+    - data: |
+       :label EOF1I3540_0031 :raw 0xef000104000201000402000100010000000000feaabb
+      expectException:
+        ">=Prague" : "EOF_TypeSectionMissing"
+
+    # EOF1I3540_0032 (Invalid) Data section preceding code section - Data index: 35
+    # Code: ef000101000404000202000100010000000000feaabb
+    - data: |
+       :label EOF1I3540_0032 :raw 0xef000101000404000202000100010000000000feaabb
+      expectException:
+        ">=Prague" : "EOF_CodeSectionMissing"
+
+    # EOF1I3540_0033 (Invalid) Data section without code section - Data index: 36
+    # Code: ef00010100040400020000000000aabb
+    - data: |
+       :label EOF1I3540_0033 :raw 0xef00010100040400020000000000aabb
+      expectException:
+        ">=Prague" : "EOF_CodeSectionMissing"
+
+    # EOF1I3540_0034 (Invalid) No data section - Data index: 37
+    # Code: ef000101000402000100010000000000fe
+    - data: |
+       :label EOF1I3540_0034 :raw 0xef000101000402000100010000000000fe
+      expectException:
+        ">=Prague" : "EOF_DataSectionMissing"
+
+    # EOF1I3540_0035 (Invalid) Trailing bytes after data section - Data index: 38
+    # Code: ef000101000402000100010400020000000000feaabbccdd
+    - data: |
+       :label EOF1I3540_0035 :raw 0xef000101000402000100010400020000000000feaabbccdd
+      expectException:
+        ">=Prague" : "EOF_InvalidSectionBodiesSize"
+
+    # EOF1I3540_0036 (Invalid) Multiple data sections - Data index: 39
+    # Code: ef000101000402000100010400020400020000000000feaabbaabb
+    - data: |
+       :label EOF1I3540_0036 :raw 0xef000101000402000100010400020400020000000000feaabbaabb
+      expectException:
+        ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+    # EOF1I3540_0037 (Invalid) Multiple code and data sections - Data index: 40
+    # Code: ef000101000802000200010001040002040002000000000000000000fefeaabbaabb
+    - data: |
+       :label EOF1I3540_0037 :raw 0xef000101000802000200010001040002040002000000000000000000fefeaabbaabb
+      expectException:
+        ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+    # EOF1I3540_0038 (Invalid) Unknown section IDs (at the beginning) - Data index: 41
+    # Code: ef000105000101000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0038 :raw 0xef000105000101000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_TypeSectionMissing"
+
+    # EOF1I3540_0039  - Data index: 42
+    # Code: ef000106000101000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0039 :raw 0xef000106000101000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_TypeSectionMissing"
+
+    # EOF1I3540_0040  - Data index: 43
+    # Code: ef0001ff000101000402000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0040 :raw 0xef0001ff000101000402000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_TypeSectionMissing"
+
+    # EOF1I3540_0041 (Invalid)  Unknown section IDs (after types section) - Data index: 44
+    # Code: ef000101000405000102000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0041 :raw 0xef000101000405000102000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_CodeSectionMissing"
+
+    # EOF1I3540_0042  - Data index: 45
+    # Code: ef000101000406000102000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0042 :raw 0xef000101000406000102000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_CodeSectionMissing"
+
+    # EOF1I3540_0043  - Data index: 46
+    # Code: ef0001010004ff000102000100010400000000000000fe
+    - data: |
+       :label EOF1I3540_0043 :raw 0xef0001010004ff000102000100010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_CodeSectionMissing"
+
+    # EOF1I3540_0044 (Invalid)  Unknown section IDs (after code section) - Data index: 47
+    # Code: ef000101000402000100010500010400000000000000fe
+    - data: |
+       :label EOF1I3540_0044 :raw 0xef000101000402000100010500010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_DataSectionMissing"
+
+    # EOF1I3540_0045  - Data index: 48
+    # Code: ef000101000402000100010600010400000000000000fe
+    - data: |
+       :label EOF1I3540_0045 :raw 0xef000101000402000100010600010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_DataSectionMissing"
+
+    # EOF1I3540_0046  - Data index: 49
+    # Code: ef00010100040200010001ff00010400000000000000fe
+    - data: |
+       :label EOF1I3540_0046 :raw 0xef00010100040200010001ff00010400000000000000fe
+      expectException:
+        ">=Prague" : "EOF_DataSectionMissing"
+
+    # EOF1I3540_0047 (Invalid)  Unknown section IDs (after data section) - Data index: 50
+    # Code: ef000101000402000100010400000500010000000000fe
+    - data: |
+       :label EOF1I3540_0047 :raw 0xef000101000402000100010400000500010000000000fe
+      expectException:
+        ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+    # EOF1I3540_0048  - Data index: 51
+    # Code: ef000101000402000100010400000600010000000000fe
+    - data: |
+       :label EOF1I3540_0048 :raw 0xef000101000402000100010400000600010000000000fe
+      expectException:
+        ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+    # EOF1I3540_0049  - Data index: 52
+    # Code: ef00010100040200010001040000ff00010000000000fe
+    - data: |
+       :label EOF1I3540_0049 :raw 0xef00010100040200010001040000ff00010000000000fe
+      expectException:
+        ">=Prague" : "EOF_HeaderTerminatorMissing"
+
+

@@ -1,0 +1,32 @@
+{
+    "name" : "Hyperledger Besu on TCP",
+    "socketType" : "tcp",
+    "socketAddress" : [
+        "10.128.0.63:8545"
+    ],
+    "initializeTime" : "5",
+    "forks" : [
+        "Frontier",
+        "Homestead",
+        "EIP150",
+        "EIP158",
+        "Byzantium",
+        "Constantinople",
+        "ConstantinopleFix",
+        "Istanbul",
+        "Berlin",
+        "London"
+    ],
+    "additionalForks" : [
+        "FrontierToHomesteadAt5",
+        "HomesteadToEIP150At5",
+        "EIP158ToByzantiumAt5",
+        "HomesteadToDaoAt5",
+        "ByzantiumToConstantinopleFixAt5",
+        "BerlinToLondonAt5"
+    ],
+    "exceptions" : {
+        "ExtraDataTooBig" : "extra-data too long",
+        "InvalidDifficulty" : "invalid difficulty"
+    }
+}

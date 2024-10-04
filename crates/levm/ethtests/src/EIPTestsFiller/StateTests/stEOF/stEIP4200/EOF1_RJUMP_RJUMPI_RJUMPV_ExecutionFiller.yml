@@ -1,0 +1,449 @@
+EOF1_RJUMP_RJUMPI_RJUMPV_Execution:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 10000000
+      code: ''
+      nonce: 0
+      storage: {}
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 10000000
+      # Input data: <address>[20 byte] calls <address> using [32 byte] as calldata
+      code: |
+        :yul 
+        {
+          let ret_offset := calldatasize() 
+          calldatacopy(0, 0, ret_offset) 
+          sstore(0, call(100000, shr(96, mload(0)), 0, 20, 32, ret_offset, 1)) 
+          sstore(1, shr(248, mload(ret_offset)))
+        }
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000001: 
+      balance: 0
+      # PUSH1(1) RJUMPI(4) PUSH1(1) PUSH0 RETURN PUSH1(1) PUSH1(0) MSTORE8 RJUMP(-12) 
+      code: ':raw 0xef0001010004020001001104000000008000026001e1000460015ff36001600053e0fff4'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000002: 
+      balance: 0
+      # PUSH1(1) RJUMPI(4) PUSH1(1) PUSH0 RETURN PUSH1(1) PUSH1(0) MSTORE8 RJUMP(-12) 
+      code: ':raw 0xef0001010004020001001104000400008000026001e1000460015ff36001600053e0fff4deadbeef'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000005: 
+      balance: 0
+      # RJUMP(0) PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN 
+      code: ':raw 0xef0001010004020001000d0400000000800002e00000600160005360016000f3'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000006: 
+      balance: 0
+      # PUSH1(0) CALLDATALOAD RJUMPI(10) PUSH1(2) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN 
+      code: ':raw 0xef0001010004020001001a0400000000800002600035e1000a600260005360016000f3600160005360016000f3'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000007: 
+      balance: 0
+      # PUSH1(1) RJUMPI(10) PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(0) CALLDATALOAD RJUMPI(-16) PUSH1(2) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN 
+      code: ':raw 0xef0001010004020001001f04000000008000026001e1000a600160005360016000f3600035e1fff0600260005360016000f3'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000008: 
+      balance: 0
+      # PUSH1(0) CALLDATALOAD RJUMPI(0) PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN 
+      code: ':raw 0xef000101000402000100100400000000800002600035e10000600160005360016000f3'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000009: 
+      balance: 0
+      # PUSH1(0) CALLDATALOAD RJUMPV(10) PUSH1(2) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN 
+      code: ':raw 0xef0001010004020001001b0400000000800002600035e200000a600260005360016000f3600160005360016000f3'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000010: 
+      balance: 0
+      # PUSH1(1) RJUMPI(10) PUSH1(3) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(0) CALLDATALOAD RJUMPV(-21,0,10) PUSH1(2) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN
+      code: ':raw 0xef0001010004020001002e04000000008000026001e1000a600360005360016000f3600035e202ffeb0000000a600260005360016000f3600160005360016000f3'
+      nonce: 0
+      storage: {}
+    1000000000000000000000000000000000000011: 
+      balance: 0
+      # PUSH1(1) RJUMPI(10) PUSH1(3) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(0) CALLDATALOAD 
+      # RJUMPV(255 offsets, all 0s except:
+      #   offset3: -525
+      #   offset120: 10)
+      # PUSH1(2) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN PUSH1(1) PUSH1(0) MSTORE8 PUSH1(1) PUSH1(0) RETURN
+      code: ':raw 0xef0001010004020001022604000000008000026001e1000a600360005360016000f3600035e2fe000000000000fdf300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600260005360016000f3600160005360016000f3'
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - ':label rjump           :raw 0x1000000000000000000000000000000000000001'
+      - ':label rjump_with_data :raw 0x1000000000000000000000000000000000000002'
+      - ':label rjump_zero_offset  :raw 0x1000000000000000000000000000000000000005'
+      - ':label rjumpi_condition_true  :raw 0x10000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001'
+      - ':label rjumpi_condition_false  :raw 0x10000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000'
+      - ':label rjumpi_backward_condition_true  :raw 0x10000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000001'
+      - ':label rjumpi_backward_condition_false  :raw 0x10000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000000'
+      - ':label rjumpi_zero_condition_true  :raw 0x10000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000001'
+      - ':label rjumpi_zero_condition_false  :raw 0x10000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000'
+      - ':label rjumpv_count_1_case_0  :raw 0x10000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000000'
+      - ':label rjumpv_count_1_case_1  :raw 0x10000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000001'
+      - ':label rjumpv_count_1_case_2  :raw 0x10000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000002'
+      - ':label rjumpv_count_1_case_255 :raw 0x100000000000000000000000000000000000000900000000000000000000000000000000000000000000000000000000000000FF'
+      - ':label rjumpv_count_1_case_max :raw 0x1000000000000000000000000000000000000009FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+      - ':label rjumpv_count_3_case_0  :raw 0x10000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000'
+      - ':label rjumpv_count_3_case_1  :raw 0x10000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000001'
+      - ':label rjumpv_count_3_case_2  :raw 0x10000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000002'
+      - ':label rjumpv_count_3_case_3  :raw 0x10000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000003'
+      - ':label rjumpv_count_3_case_max :raw 0x1000000000000000000000000000000000000010FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+      - ':label rjumpv_count_255_case_0  :raw 0x10000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000'
+      - ':label rjumpv_count_255_case_3  :raw 0x10000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000003'
+      - ':label rjumpv_count_255_case_120  :raw 0x10000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000078'
+      - ':label rjumpv_count_255_case_254  :raw 0x100000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000FE'
+      - ':label rjumpv_count_255_case_255  :raw 0x100000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000FF'
+      - ':label rjumpv_count_255_case_max  :raw 0x1000000000000000000000000000000000000011FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'      
+    gasLimit:
+      - 700000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+       data: ':label rjump'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000001:
+          storage: {}
+    - indexes:
+       data: ':label rjump_with_data'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000002:
+          storage: {}
+    - indexes:
+       data: ':label rjump_zero_offset'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000005:
+          storage: {}
+    - indexes:
+       data: ':label rjumpi_condition_true'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000006:
+          storage: {}
+    - indexes:
+       data: ':label rjumpi_condition_false'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000006:
+          storage: {}
+    - indexes:
+       data: ':label rjumpi_backward_condition_true'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000007:
+          storage: {}
+    - indexes:
+       data: ':label rjumpi_backward_condition_false'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000007:
+          storage: {}
+    - indexes:
+       data: ':label rjumpi_zero_condition_true'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000008:
+          storage: {}
+    - indexes:
+       data: ':label rjumpi_zero_condition_false'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000008:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_1_case_0'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000009:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_1_case_1'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000009:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_1_case_2'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000009:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_1_case_255'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000009:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_1_case_max'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000009:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_3_case_0'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '3'
+        1000000000000000000000000000000000000010:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_3_case_1'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000010:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_3_case_2'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000010:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_3_case_3'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000010:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_3_case_max'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000010:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_255_case_0'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000011:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_255_case_3'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '3'
+        1000000000000000000000000000000000000011:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_255_case_120'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '1'
+        1000000000000000000000000000000000000011:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_255_case_254'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000011:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_255_case_255'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000011:
+          storage: {}
+    - indexes:
+       data: ':label rjumpv_count_255_case_max'
+      network:
+        - '>=Prague'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            '0': '1'
+            '1': '2'
+        1000000000000000000000000000000000000011:
+          storage: {}

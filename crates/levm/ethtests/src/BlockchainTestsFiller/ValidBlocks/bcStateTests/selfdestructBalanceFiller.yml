@@ -1,0 +1,259 @@
+# Check the effects of selfDestruct on balance.
+# It should zero the balance twice:
+# 1. When it happens
+# 2. End of transaction
+
+selfdestructBalance:
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    difficulty: 0
+    extraData: 0x42
+    gasLimit: F00000000000
+    gasUsed: 0
+    mixHash: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+    baseFeePerGas: 10
+
+
+  _info:
+    comment: |
+       Ori Pomerantz     qbzzt1@gmail.com
+       Implements: SUC000, SUC002, SUC006
+
+  pre:
+
+    # The "user" account
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: F000000000000000
+      code: 0x
+      nonce: 1
+      storage: {}
+
+    # Suicidal contract
+    000000000000000000000000000000000000dead:
+      balance: 10
+      code: |
+        :yul berlin
+        {
+          selfdestruct(0x1000)
+        }
+      nonce: 1
+      storage: {}
+    
+
+    ccccccccccccccccccccccccccccccccccccccc0:
+      balance: 10
+      code: |
+       :yul berlin
+       {
+          // Store initial balance
+          sstore(0, balance(0xDEAD))
+
+          // Call 0xDEAD. It will commit suicide
+          let delme := call(gas(), 0xDEAD, 1, 0,0, 0,0)
+
+          // Call result
+          sstore(1, delme)
+
+          // Test case: SUC000
+          // Balance of 0xDEAD, should be zero
+          sstore(2, balance(0xDEAD))
+          
+          // Balance 0f 0x1000, should be eleven
+          sstore(3, balance(0x1000))
+
+
+          // Our balance
+          sstore(4, balance(0xccccccccccccccccccccccccccccccccccccccc0))
+
+          // Call 0xDEAD and give it 1 wei
+          delme := call(gas(), 0xDEAD, 1, 0,0, 0,0)
+
+          // Call result
+          sstore(5, delme)
+
+          // Balance of 0xDEAD, should be zero
+          // SUC002
+          sstore(6, balance(0xDEAD))
+
+          // Our balance, should be lower
+          sstore(7, balance(0xccccccccccccccccccccccccccccccccccccccc0))
+
+          // The code should still be there
+          sstore(8,extcodesize(0xDEAD))
+
+          // SUC002
+          // The balance goes to 0x1000
+          sstore(9,balance(0x1000))
+       }        
+      nonce: 1
+      storage:
+        0: 0x60A7
+        1: 0x60A7
+        2: 0x60A7
+        3: 0x60A7
+        4: 0x60A7
+        5: 0x60A7
+        6: 0x60A7
+        7: 0x60A7
+        8: 0x60A7
+        9: 0x60A7
+
+
+    ccccccccccccccccccccccccccccccccccccccc1:
+      balance: 10
+      code: |
+       :yul berlin
+       {
+          // SUC006
+          // Should be zero
+          sstore(0, balance(0xdead))
+          // 0xDEAD is already dead, but this call will give it 1 wei and
+          // "resurrect" it
+          let delme := call(gas(), 0xDEAD, 1, 0,0, 0,0)
+
+          // Call result
+          sstore(1, delme)
+
+          // Balance of 0xDEAD, should be one
+          sstore(2, balance(0xDEAD))
+
+          // Code size of 0xDEAD, should be zero
+          sstore(3, extcodesize(0xDEAD))
+       }        
+      nonce: 1
+      storage:
+        0: 0x60A7
+        1: 0x60A7
+        2: 0x60A7
+        3: 0x60A7
+
+
+  blocks:
+
+# Block 1
+  - transactions:
+    - data: 0x
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F00000000000
+      to: 0xccccccccccccccccccccccccccccccccccccccc0
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+      value: 0
+
+    - data: 0x
+      gasPrice: 20
+      nonce: auto
+      gasLimit: F0000
+      to: 0xccccccccccccccccccccccccccccccccccccccc1
+      secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+      value: 1
+
+
+  expect:
+  - network:
+    - '>=Cancun'
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0:
+        storage:
+          0: 10
+
+          # After first call (0xDEAD self destructs with selfdestruct disabled by cancun)
+          1: 1    # call return value
+          2: 0    # 0xDEAD balance
+          3: 11   # 0x1000 balance   # SUC000
+
+          # After second call (0xDEAD gets WEI), sends it to 0x1000
+          4: 9    # 0xcc...c0 balance before call
+          5: 1    # call return value
+          6: 0    # 0xDEAD balance
+          7: 8    # 0xcc...c0 balance after call
+          8: 4    # EXTCODESIZE(0xDEAD)
+          9: 12   # BALANCE(0x1000)    # SUC002
+
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC1:
+        storage:
+          # Send 1 WEI to 0xDEAD           
+          0: 0    # Initial 0xDEAD balance
+          1: 1    # call return value
+          2: 0    # Final 0xDEAD balance
+          3: 4    # EXTCODESIZE(0xDEAD)
+
+
+
+
+      # At this point 0xDEAD exists because it has been sent 1 WEI
+      # post suicide. But there is nearly nothing there
+      # SUC006
+      0x000000000000000000000000000000000000dead:
+         balance: 0
+         nonce: 1
+         code: 0x611000ff
+         storage: {}
+
+      # 0x1000 isn't getting anything more, because 0xDEAD is not going
+      # do SELFDESTRUCT after it has no more code
+      0x0000000000000000000000000000000000001000:
+         balance: 13
+         nonce: 0
+         code: 0x
+         storage: {}
+
+  - network:
+    - 'Paris'
+    - 'Shanghai'
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0:
+        storage:
+          0: 10
+
+          # After first call (0xDEAD self destructs)
+          1: 1    # call return value
+          2: 0    # 0xDEAD balance
+          3: 11   # 0x1000 balance   # SUC000
+
+          # After second call (0xDEAD gets WEI), sends it to 0x1000
+          4: 9    # 0xcc...c0 balance before call
+          5: 1    # call return value
+          6: 0    # 0xDEAD balance
+          7: 8    # 0xcc...c0 balance after call
+          8: 4    # EXTCODESIZE(0xDEAD)
+          9: 12   # BALANCE(0x1000)    # SUC002
+
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC1:
+        storage:
+          # Send 1 WEI to 0xDEAD           
+          0: 0    # Initial 0xDEAD balance
+          1: 1    # call return value
+          2: 1    # Final 0xDEAD balance
+          3: 0    # EXTCODESIZE(0xDEAD)
+
+
+
+
+      # At this point 0xDEAD exists because it has been sent 1 WEI
+      # post suicide. But there is nearly nothing there
+      # SUC006
+      0x000000000000000000000000000000000000dead:
+         balance: 1
+         nonce: 0
+         code: 0x
+         storage: {}
+
+      # 0x1000 isn't getting anything more, because 0xDEAD is not going
+      # do SELFDESTRUCT after it has no more code
+      0x0000000000000000000000000000000000001000:
+         balance: 12
+         nonce: 0
+         code: 0x
+         storage: {}
+

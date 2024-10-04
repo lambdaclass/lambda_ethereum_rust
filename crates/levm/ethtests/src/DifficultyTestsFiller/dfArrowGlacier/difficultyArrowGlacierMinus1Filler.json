@@ -1,0 +1,13 @@
+{
+    "difficultyArrowGlacierMinus1" : 
+    {
+        "_info" : {
+            "comment" : "Difficulty ArrowGlacier Combination Check: 100k steps, starting from block pushback number minus 1 (10,699,699) for ArrowGlacier"
+        },
+        "network" : [ "ArrowGlacier" ],
+        "blocknumber" : "[10_699_999-14_999_999;100_000]",
+        "timestampDiff" : "[1-90;9]",
+        "parentDifficutly" : ["0x223a2d17232652"],
+        "hasUncles" : [0, 1]
+    }
+}

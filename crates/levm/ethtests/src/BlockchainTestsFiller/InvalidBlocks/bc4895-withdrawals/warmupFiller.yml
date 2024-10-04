@@ -1,0 +1,251 @@
+warmup:
+  _info:
+    comment: "Test vectors BSHB0026"
+
+  genesisBlockHeader:
+    bloom : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    coinbase : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"
+    difficulty : 0
+    extraData : "0x42"
+    gasLimit : "0x7fffffffffffffff"
+    gasUsed : 0
+    mixHash : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    nonce : "0x0102030405060708"
+    number : 0
+    parentHash : "0x0000000000000000000000000000000000000000000000000000000000000000"
+    receiptTrie : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    stateRoot : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a"
+    timestamp : "0x03b6"
+    transactionsTrie : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    uncleHash : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    baseFeePerGas : 10
+    withdrawalsRoot : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 100000000000000000
+      code: ''
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000001:
+      balance: 150
+      code: ''
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000002:
+      balance: 0
+      code: ':raw 0x1122334455667788'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000003:
+      balance: 0
+      code: ':raw 0x1122334455667788'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000004:
+      balance: 0
+      code: ':raw 0x1122334455667788'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000005:
+      balance: 0
+      code: ':raw 0x600161100555'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000006:
+      balance: 0
+      code: ':raw 0x600161100655'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000007:
+      balance: 0
+      code: ':raw 0x600161100752'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000008:
+      balance: 0
+      code: ':raw 0x600161100855'
+      nonce: 0
+      storage: {}
+    0xc000000000000000000000000000000000000009:
+      balance: 0
+      code: "{ [[1009]] (SLOAD 0) }"
+      nonce: 0
+      storage:
+        0x00: "1000"
+        1009: "1000"
+    0xc000000000000000000000000000000000000010:
+      balance: 111
+      code: '{ (CREATE 11 0 (lll { (SELFDESTRUCT 0) } 0)) }'
+      nonce: 0
+      storage: {}
+    0xd000000000000000000000000000000000000001:
+      balance: 10
+      #https://eips.ethereum.org/EIPS/eip-2929
+      code: |
+        { 
+            [0] (GAS)  (BALANCE 0xc000000000000000000000000000000000000001)                     [[1]]  (SUB @0 (GAS))
+            [0] (GAS)  (EXTCODESIZE 0xc000000000000000000000000000000000000002)                 [[2]]  (SUB @0 (GAS))
+            [0] (GAS)  (EXTCODECOPY 0xc000000000000000000000000000000000000003 100 0 6)         [[3]]  (SUB @0 (GAS))
+            [0] (GAS)  (EXTCODEHASH 0xc000000000000000000000000000000000000004)                 [[4]]  (SUB @0 (GAS))
+            [0] (GAS)  (CALL 50000 0xc000000000000000000000000000000000000005 0 0 0 0 0)        [[5]]  (SUB @0 (GAS))
+            [0] (GAS)  (CALLCODE 50000 0xc000000000000000000000000000000000000006 0 0 0 0 0)    [[6]]  (SUB @0 (GAS))
+            [0] (GAS)  (STATICCALL 50000 0xc000000000000000000000000000000000000007 0 0 0 0)    [[7]]  (SUB @0 (GAS))
+            [0] (GAS)  (DELEGATECALL 50000 0xc000000000000000000000000000000000000008 0 0 0 0)  [[8]]  (SUB @0 (GAS))
+            [0] (GAS)  (CALL 50000 0xc000000000000000000000000000000000000009 0 0 0 0 0)        [[9]]  (SUB @0 (GAS))
+            [0] (GAS)  (CALL 50000 0xc000000000000000000000000000000000000010 0 0 0 0 0)        [[10]] (SUB @0 (GAS))
+        }
+      nonce: 0
+      storage:
+        0x00: "0"
+    0xd000000000000000000000000000000000000002:
+      balance: 10
+      code: "{  (DELEGATECALL (GAS) 0xd000000000000000000000000000000000000001 0 0 0 0) }"
+      nonce: 0
+      storage:
+        0x00: "0"
+    0xd000000000000000000000000000000000000003:
+      balance: 10
+      code: |
+        {
+            (DELEGATECALL (GAS) 0xd000000000000000000000000000000000000001 0 0 0 0)
+            (DELEGATECALL (GAS) 0xd000000000000000000000000000000000000001 0 0 0 0)
+        }
+      nonce: 0
+      storage:
+        0x00: "0"
+
+  blocks:
+  - blocknumber: 1
+    transactions:
+    - data: ''
+#      accessList:
+#        - address: 0xc000000000000000000000000000000000000001
+#          storageKeys: []
+      gasLimit: 2000000
+      gasPrice: 1000
+      nonce: "auto"
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xd000000000000000000000000000000000000001
+      value: 0x0
+    - data: ''
+      gasLimit: 2000000
+      gasPrice: 1000
+      nonce: "auto"
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xd000000000000000000000000000000000000002
+      value: 0x0
+    - data: ''
+      gasLimit: 2000000
+      gasPrice: 1000
+      nonce: "auto"
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xd000000000000000000000000000000000000003
+      value: 0x0
+    uncleHeaders: []
+    withdrawals:
+    - index: 0
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000001
+      amount: 100000
+    - index: 1
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000002
+      amount: 100000
+    - index: 2
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000003
+      amount: 100000
+    - index: 3
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000004
+      amount: 100000
+    - index: 4
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000005
+      amount: 100000
+    - index: 5
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000006
+      amount: 100000
+    - index: 6
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000007
+      amount: 100000
+    - index: 7
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000008
+      amount: 100000
+    - index: 8
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000009
+      amount: 100000
+    - index: 9
+      validatorIndex: 0
+      address: 0xc000000000000000000000000000000000000010
+      amount: 100000
+
+
+  expect:
+  - network:
+    - ">=Shanghai"
+    result:
+      0xc000000000000000000000000000000000000001:
+        balance: 100000000000150
+      0xd000000000000000000000000000000000000001:
+        storage:
+          0x01:     2616    #BALANCE on withdrawals is not hot
+          0x02:     2613    #EXTCODESIZE on withdrawals is not hot
+          0x03:     2632    #EXTCODECOPY on withdrawals is not hot
+          0x04:     2613    #EXTCODEHASH on withdrawals is not hot
+          0x05:    24737    #CALL on withdrawals is not hot      (storage in code)
+          0x06:    24737    #CALLCODE on withdrawals is not hot  (storage in code)
+          0x1006:      1
+          0x07:     3060    #STATICCALL on withdrawals is not hot
+          0x08:    24734    #DELEGATECALL on withdrawals is not hot (storage in code)
+          0x1008:      1
+          0x09:     6937    #SLOAD SSTORE on withdrawals is not hot
+          0x0a:    52351    #SELFDESTRUCT INSTRUCTION COST
+
+
+       # if second transaction call in the same block to the same addreses, they are again cold
+      0xd000000000000000000000000000000000000002:
+        storage:
+          0x01:     2616    #BALANCE on withdrawals is not hot
+          0x02:     2613    #EXTCODESIZE on withdrawals is not hot
+          0x03:     2632    #EXTCODECOPY on withdrawals is not hot
+          0x04:     2613    #EXTCODEHASH on withdrawals is not hot
+          0x05:     4837    #CALL on withdrawals is not hot (through delegate)
+          0x06:    24737    #CALLCODE on withdrawals is not hot
+          0x1006:      1
+          0x07:     3060    #STATICCALL on withdrawals is not hot
+          0x08:    24734    #DELEGATECALL on withdrawals is not hot (storage in code)
+          0x1008:      1
+          0x09:     6937    #SLOAD SSTORE on withdrawals is not hot
+          0x0a:    52351    #SELFDESTRUCT INSTRUCTION COST
+
+
+       # double delegatecall from the same transaction (second time override storages with hot values)
+      0xd000000000000000000000000000000000000003:
+        storage:
+          0x01:     116    #BALANCE on withdrawals is HOT
+          0x02:     113    #EXTCODESIZE on withdrawals is HOT
+          0x03:     132    #EXTCODECOPY on withdrawals is HOT
+          0x04:     113    #EXTCODEHASH on withdrawals is HOT
+          0x05:     237    #CALL on withdrawals is HOT (through delegate)
+          0x06:     237    #CALLCODE on withdrawals is HOT
+          0x1006:     1
+          0x07:     560    #STATICCALL on withdrawals is not hot
+          0x08:     234    #DELEGATECALL on withdrawals is HOT
+          0x1008:     1
+          0x09:     337    #SLOAD SSTORE on withdrawals is not hot
+          0x0a:   49851    #SELFDESTRUCT INSTRUCTION COST
+
+      0xcd7f18b753c36ea55fc09e3e33052585eec4c46c:
+        shouldnotexist: 1
+
+       # Selfdestruct dest didn't get any funds because it selfdestructed in init code?
+      0x0000000000000000000000000000000000000000:
+        shouldnotexist: 1
+

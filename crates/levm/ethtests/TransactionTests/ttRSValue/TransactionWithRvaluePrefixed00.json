@@ -1,0 +1,82 @@
+{
+    "TransactionWithRvaluePrefixed00" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "54cfef1fb2786c6df7fad8a1ac707d43cee8dde8a0495371616006cd8b96fe50",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithRvaluePrefixed00Filler.json",
+            "sourceHash" : "9f32cf412d7266d9c6c9e3db90680c797b06cba95fea7bf2e67154ade2576cf5"
+        },
+        "result" : {
+            "Berlin" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Byzantium" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Cancun" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Constantinople" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "ConstantinopleFix" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "EIP150" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "EIP158" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Frontier" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Homestead" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Istanbul" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "London" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Paris" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            },
+            "Shanghai" : {
+                "hash" : "0x9f8de48be7398c8fa787bef9c201c0dc73fb8b3764f9ecfaaa5c88e30f267941",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0x59805be0fb22cec65ee107f39f51d2a54cf8c522"
+            }
+        },
+        "txbytes" : "0xf850800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801b910ebaaedce6af48a03bbfd25e8cd0364141a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

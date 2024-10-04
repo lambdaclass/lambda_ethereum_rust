@@ -1,0 +1,13 @@
+{
+    "difficultyGrayGlacierTimeDiff1" : 
+    {
+        "_info" : {
+            "comment" : "Difficulty Gray Glacier Timestamp Difference Combination Check 1: Timestamp differences of 8, 17, 26, ... 908"
+        },
+        "network" : [ "GrayGlacier" ],
+        "blocknumber" : ["15_700_000"],
+        "timestampDiff" : "[8-910;9]",
+        "parentDifficutly" : ["0x223a2d17232652"],
+        "hasUncles" : [0, 1]
+    }
+}

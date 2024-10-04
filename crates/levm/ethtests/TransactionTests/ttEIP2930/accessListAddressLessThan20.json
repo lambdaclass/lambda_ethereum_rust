@@ -1,0 +1,69 @@
+{
+    "accessListAddressLessThan20" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.13.11-unstable-765f2904-20240124",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.a95c757e.Linux.g++",
+            "generatedTestHash" : "76897b3054531f25cfe6c7e6d35ee7d34840ffabcc1924bc472565c88d775839",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttEIP2930/accessListAddressLessThan20Filler.json",
+            "sourceHash" : "13583ee8224c52a4257a50d02dfe8e2831d5955a270891d527fb25bf9ba305cf"
+        },
+        "result" : {
+            "Berlin" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Byzantium" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Cancun" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Constantinople" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "ConstantinopleFix" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP150" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "EIP158" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Frontier" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Homestead" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Istanbul" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "London" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Paris" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            },
+            "Shanghai" : {
+                "exception" : "2930AccessListAddressTooShort",
+                "intrinsicGas" : "0x00"
+            }
+        },
+        "txbytes" : "0x01f8bc018001826a4094095e7baea6a6c7c4c2dfeb977efac326af552d878080f85af858939e7baea6a6c7c4c2dfeb977efac326af552d87f842a00000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000180a05cbd172231fc0735e0fb994dd5b1a4939170a260b36f0427a8a80866b063b948a07c230f7f578dd61785c93361b9871c0706ebfa6d06e3f4491dc9558c5202ed36"
+    }
+}

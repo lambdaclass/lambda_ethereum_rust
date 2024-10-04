@@ -1,0 +1,34 @@
+{
+    "EOF1_dataloadn_truncated" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "04cb8e2ce82d37d052270773c9e6062ab2768ebd3b9d601e60bab4f6a434ce53",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/EOF1_dataloadn_truncated_Copier.json",
+            "sourceHash" : "6ae5478f4652d1e0f3beac8b9f237d1880ef38c6b933132112dd67f592970a2d"
+        },
+        "vectors" : {
+            "EOF1_dataloadn_truncated_0" : {
+                "code" : "0xef000101000402000100010400000000800000d1",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            },
+            "EOF1_dataloadn_truncated_1" : {
+                "code" : "0xef000101000402000100020400000000800000d100",
+                "results" : {
+                    "Prague" : {
+                        "exception" : "EOF_TruncatedImmediate",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

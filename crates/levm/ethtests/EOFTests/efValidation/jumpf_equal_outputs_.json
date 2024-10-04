@@ -1,0 +1,24 @@
+{
+    "jumpf_equal_outputs" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.12.0-dev+commit.d935077c",
+            "filling-tool-version" : "retesteth-0.3.2-cancun+commit.cf90baf3.Linux.g++",
+            "generatedTestHash" : "f283edc702a6bf462d3882b8a2985734e0d2077ab66acce5b11fb9dde096f7ea",
+            "lllcversion" : "Version: 0.5.14-develop.2023.7.11+commit.c58ab2c6.mod.Linux.g++",
+            "solidity" : "Version: 0.8.21+commit.d9974bed.Linux.g++",
+            "source" : "src/EOFTestsFiller/efValidation/jumpf_equal_outputs_Copier.json",
+            "sourceHash" : "037263037f2692b0b27d17cd3777cf94270221002b66e8e55a10a63eed5e34f9"
+        },
+        "vectors" : {
+            "jumpf_equal_outputs_0" : {
+                "code" : "0xef000101000c02000300040003000404000000008000030003000000030003e3000100e500025f5f5fe4",
+                "results" : {
+                    "Prague" : {
+                        "result" : true
+                    }
+                }
+            }
+        }
+    }
+}
