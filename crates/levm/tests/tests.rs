@@ -7,16 +7,10 @@ use levm::{
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
-    vm::{Account, Db, Storage, StorageSlot, VM},
+    vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
 };
 
 // cargo test -p 'levm'
-
-fn word_to_address(word: U256) -> Address {
-    let mut bytes = [0u8; 32];
-    word.to_big_endian(&mut bytes);
-    Address::from_slice(&bytes[12..])
-}
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     new_vm_with_ops_addr_bal(operations, Address::from_low_u64_be(100), U256::MAX)
@@ -3329,4 +3323,28 @@ fn origin_op() {
         U256::from(msg_sender.as_bytes())
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ORIGIN);
+}
+
+#[test]
+fn balance_op() {
+    let address = 0x999;
+
+    let operations = [
+        Operation::Push32(U256::from(address)),
+        Operation::Balance,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        &operations,
+        Address::from_low_u64_be(address),
+        U256::from(1234),
+    );
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(1234)
+    )
 }

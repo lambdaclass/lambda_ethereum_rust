@@ -165,6 +165,12 @@ fn address_to_word(address: Address) -> U256 {
     U256::from_str(&format!("{address:?}")).unwrap()
 }
 
+pub fn word_to_address(word: U256) -> Address {
+    let mut bytes = [0u8; 32];
+    word.to_big_endian(&mut bytes);
+    Address::from_slice(&bytes[12..])
+}
+
 // The execution model specifies how the system state is
 // altered given a series of bytecode instructions and a small
 // tuple of environmental data.
@@ -769,7 +775,19 @@ impl VM {
                     self.env.consumed_gas += gas_cost::ORIGIN;
                 }
                 Opcode::BALANCE => {
-                    todo!()
+                    if self.env.consumed_gas + gas_cost::BALANCE > self.env.gas_limit {
+                        break; // should revert the tx
+                    }
+
+                    let addr = current_call_frame
+                        .stack
+                        .pop()
+                        .expect("stack underflow: missing address");
+
+                    let balance = self.db.balance(&word_to_address(addr));
+                    current_call_frame.stack.push(balance);
+
+                    self.env.consumed_gas += gas_cost::BALANCE;
                 }
                 Opcode::ADDRESS => {
                     todo!()
