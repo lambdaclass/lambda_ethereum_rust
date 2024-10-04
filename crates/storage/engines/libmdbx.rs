@@ -237,22 +237,19 @@ impl StoreEngine for Store {
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
     ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
-        let cursor = self
-            .db
-            .begin_read()
-            .map_err(StoreError::LibmdbxError)?
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn
             .cursor::<TransactionPool>()
             .map_err(StoreError::LibmdbxError)?;
-        let mut tx_iter = cursor.walk(None);
+        let tx_iter = cursor
+            .walk(None)
+            .map_while(|res| res.ok().map(|(_, tx)| tx.to()));
         let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
-        while let Some(Ok((_, tx))) = tx_iter.next() {
-            let tx = tx.to();
+        for tx in tx_iter {
+            tx.compute_hash();
             if filter(&tx) {
                 // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
-                txs_by_sender
-                    .entry(tx.sender())
-                    .or_default()
-                    .push(tx.clone())
+                txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
         }
         Ok(txs_by_sender)
