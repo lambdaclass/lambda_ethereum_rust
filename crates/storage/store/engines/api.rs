@@ -3,7 +3,7 @@ use ethereum_rust_core::types::{
     Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
 };
 use ethereum_types::{Address, H256, U256};
-use std::{fmt::Debug, panic::RefUnwindSafe};
+use std::{collections::HashMap, fmt::Debug, panic::RefUnwindSafe};
 
 use crate::error::StoreError;
 use ethereum_rust_trie::Trie;
@@ -81,15 +81,25 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         transaction_hash: H256,
     ) -> Result<Option<(BlockNumber, BlockHash, Index)>, StoreError>;
 
-    /// Store transaction into pool table
+    /// Add transaction to the pool
     fn add_transaction_to_pool(
         &self,
         hash: H256,
         transaction: Transaction,
     ) -> Result<(), StoreError>;
 
-    // Get a transaction from pool table
+    /// Get a transaction from the pool
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError>;
+
+    /// Remove a transaction from the pool
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError>;
+
+    /// Applies the filter and returns a set of suitable transactions from the mempool.
+    /// These transactions will be grouped by sender and sorted by nonce
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError>;
 
     /// Add receipt
     fn add_receipt(
@@ -205,17 +215,15 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Obtain pending block number
     fn get_pending_block_number(&self) -> Result<Option<BlockNumber>, StoreError>;
 
-    // Obtain the world state trie for the given block
-    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError>;
-
-    // Obtain a world state from an empty root
-    // This method should be used when creating the genesis world state
-    fn new_state_trie(&self) -> Result<Trie, StoreError>;
-
     // Obtain a storage trie from the given address and storage_root
     // Doesn't check if the account is stored
     // Used for internal store operations
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie;
+
+    // Obtain a state trie from the given state root
+    // Doesn't check if the state root is valid
+    // Used for internal store operations
+    fn open_state_trie(&self, state_root: H256) -> Trie;
 
     // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
