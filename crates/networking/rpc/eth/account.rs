@@ -36,9 +36,11 @@ pub struct GetProofRequest {
 
 impl RpcHandler for GetBalanceRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<GetBalanceRequest, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 2 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
         };
         Ok(GetBalanceRequest {
             address: serde_json::from_value(params[0].clone())?,
@@ -64,9 +66,11 @@ impl RpcHandler for GetBalanceRequest {
 
 impl RpcHandler for GetCodeRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<GetCodeRequest, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 2 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
         };
         Ok(GetCodeRequest {
             address: serde_json::from_value(params[0].clone())?,
@@ -93,9 +97,11 @@ impl RpcHandler for GetCodeRequest {
 
 impl RpcHandler for GetStorageAtRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<GetStorageAtRequest, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 3 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 3 params".to_owned()));
         };
         Ok(GetStorageAtRequest {
             address: serde_json::from_value(params[0].clone())?,
@@ -123,9 +129,11 @@ impl RpcHandler for GetStorageAtRequest {
 
 impl RpcHandler for GetTransactionCountRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<GetTransactionCountRequest, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 2 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
         };
         Ok(GetTransactionCountRequest {
             address: serde_json::from_value(params[0].clone())?,
@@ -152,9 +160,11 @@ impl RpcHandler for GetTransactionCountRequest {
 
 impl RpcHandler for GetProofRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 3 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 3 params".to_owned()));
         };
         let storage_keys: Vec<U256> = serde_json::from_value(params[1].clone())?;
         let storage_keys = storage_keys.iter().map(H256::from_uint).collect();

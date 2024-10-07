@@ -24,9 +24,11 @@ pub struct ForkChoiceUpdatedV3 {
 
 impl RpcHandler for ForkChoiceUpdatedV3 {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 2 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
         }
         Ok(ForkChoiceUpdatedV3 {
             fork_choice_state: serde_json::from_value(params[0].clone())?,

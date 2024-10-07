@@ -39,7 +39,9 @@ impl RpcHandler for LogsFilter {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsFilter, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let param = param.as_object().ok_or(RpcErr::BadParams)?;
+                let param = param
+                    .as_object()
+                    .ok_or(RpcErr::BadParams("Param is not a object".to_owned()))?;
                 let from_block = param
                     .get("fromBlock")
                     .ok_or_else(|| RpcErr::MissingParam("fromBlock".to_string()))
@@ -73,7 +75,9 @@ impl RpcHandler for LogsFilter {
                     topics: topics_filters.unwrap_or_else(Vec::new),
                 })
             }
-            _ => Err(RpcErr::BadParams),
+            _ => Err(RpcErr::BadParams(
+                "Params are not an array of one element".to_owned(),
+            )),
         }
     }
     // TODO: This is longer than it has the right to be, maybe we should refactor it.
@@ -95,7 +99,7 @@ impl RpcHandler for LogsFilter {
             .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
         if (from..=to).is_empty() {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Empty range".to_string()));
         }
 
         let address_filter: HashSet<_> = match &self.address_filters {

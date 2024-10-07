@@ -10,7 +10,7 @@ use ethereum_rust_blockchain::error::MempoolError;
 pub enum RpcErr {
     MethodNotFound(String),
     WrongParam(String),
-    BadParams,
+    BadParams(String),
     MissingParam(String),
     BadHexFormat(u64),
     UnsuportedFork,
@@ -36,10 +36,10 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: format!("Field '{}' is incorrect or has an unknown format", field),
             },
-            RpcErr::BadParams => RpcErrorMetadata {
+            RpcErr::BadParams(context) => RpcErrorMetadata {
                 code: -32000,
                 data: None,
-                message: "Invalid params".to_string(),
+                message: format!("Invalid params: {context}"),
             },
             RpcErr::MissingParam(parameter_name) => RpcErrorMetadata {
                 code: -32000,
@@ -115,16 +115,16 @@ impl From<RpcErr> for RpcErrorMetadata {
 }
 
 impl From<serde_json::Error> for RpcErr {
-    fn from(_: serde_json::Error) -> Self {
-        Self::BadParams
+    fn from(error: serde_json::Error) -> Self {
+        Self::BadParams(error.to_string())
     }
 }
 
 // TODO: Actually return different errors for each case
 // here we are returning a BadParams error
 impl From<MempoolError> for RpcErr {
-    fn from(_: MempoolError) -> Self {
-        Self::BadParams
+    fn from(error: MempoolError) -> Self {
+        Self::BadParams(error.to_string())
     }
 }
 

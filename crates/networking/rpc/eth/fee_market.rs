@@ -28,9 +28,14 @@ pub struct FeeHistoryResponse {
 
 impl RpcHandler for FeeHistoryRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<FeeHistoryRequest, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() < 2 || params.len() > 3 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams(format!(
+                "Expected 2 or 3 params, got {}",
+                params.len()
+            )));
         };
 
         let reward_percentiles = match params.get(2).cloned() {
@@ -40,18 +45,23 @@ impl RpcHandler for FeeHistoryRequest {
                     .windows(2)
                     .all(|w| w[0] <= w[1] || w[0] >= 0.0 && w[0] <= 100.0);
                 // We want to return None if any value is wrong
-                Some(all_ok.then_some(rp).ok_or(RpcErr::BadParams)?)
+                Some(
+                    all_ok
+                        .then_some(rp)
+                        .ok_or(RpcErr::BadParams("Some of the params are wrong".to_owned()))?,
+                )
             }
             None => None,
         };
 
         let block_count_str: String = serde_json::from_value(params[0].clone())?;
-        let block_count_str = block_count_str
-            .strip_prefix("0x")
-            .ok_or(RpcErr::BadParams)?;
+        let block_count_str = block_count_str.strip_prefix("0x").ok_or(RpcErr::BadParams(
+            "Expected param to be 0x prefixed".to_owned(),
+        ))?;
 
         Ok(FeeHistoryRequest {
-            block_count: u64::from_str_radix(block_count_str, 16).map_err(|_| RpcErr::BadParams)?,
+            block_count: u64::from_str_radix(block_count_str, 16)
+                .map_err(|error| RpcErr::BadParams(error.to_string()))?,
             newest_block: BlockIdentifier::parse(params[0].clone(), 0)?,
             reward_percentiles,
         })

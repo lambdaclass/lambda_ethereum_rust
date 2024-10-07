@@ -25,9 +25,11 @@ pub struct GetPayloadV3Request {
 
 impl RpcHandler for NewPayloadV3Request {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 3 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 3 params".to_owned()));
         }
         Ok(NewPayloadV3Request {
             payload: serde_json::from_value(params[0].clone())?,
@@ -132,12 +134,16 @@ impl RpcHandler for NewPayloadV3Request {
 
 impl RpcHandler for GetPayloadV3Request {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 1 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 1 param".to_owned()));
         };
         let Ok(hex_str) = serde_json::from_value::<String>(params[0].clone()) else {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams(
+                "Expected param to be a string".to_owned(),
+            ));
         };
         // Check that the hex string is 0x prefixed
         let Some(hex_str) = hex_str.strip_prefix("0x") else {

@@ -39,7 +39,7 @@ impl FilterRequest {
             .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
         if (from..=to).is_empty() {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Invalid block range".to_string()));
         }
 
         let id: u64 = random();
