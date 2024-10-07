@@ -115,7 +115,7 @@ impl VM {
     }
 
     // SELFBALANCE operation
-    pub fn op_selfbalance(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_selfbalance(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -124,7 +124,7 @@ impl VM {
 
         unimplemented!("when we have accounts implemented");
 
-        Ok(OpcodeSuccess::Continue)
+        // Ok(OpcodeSuccess::Continue)
     }
 
     // BASEFEE operation
@@ -141,7 +141,7 @@ impl VM {
     }
 
     // BLOBHASH operation
-    pub fn op_blobhash(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_blobhash(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -151,7 +151,7 @@ impl VM {
         
         unimplemented!("when we have tx implemented");
 
-        Ok(OpcodeSuccess::Continue)
+        // Ok(OpcodeSuccess::Continue)
     }
 
     // BLOBBASEFEE operation
@@ -168,57 +168,57 @@ impl VM {
     }
 
     // ADDRESS operation
-    pub fn op_address(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_address(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // BALANCE operation
-    pub fn op_balance(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_balance(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // ORIGIN operation
-    pub fn op_origin(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_origin(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // CALLER operation
-    pub fn op_caller(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_caller(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // CALLVALUE operation
-    pub fn op_callvalue(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_callvalue(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // CODESIZE operation
-    pub fn op_codesize(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_codesize(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // CODECOPY operation
-    pub fn op_codecopy(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_codecopy(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // GASPRICE operation
-    pub fn op_gasprice(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_gasprice(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // EXTCODESIZE operation
-    pub fn op_extcodesize(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_extcodesize(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // EXTCODECOPY operation
-    pub fn op_extcodecopy(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_extcodecopy(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 
     // EXTCODEHASH operation
-    pub fn op_extcodehash(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_extcodehash(&mut self, _current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         unimplemented!();
     }
 }
