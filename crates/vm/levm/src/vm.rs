@@ -235,7 +235,6 @@ impl VM {
 
 
     pub fn execute(&mut self) -> ExecutionResult {
-        let block_env = self.env.block.clone();
         let mut current_call_frame = self.call_frames.pop().expect("Fatal Error. This shouldn't happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
