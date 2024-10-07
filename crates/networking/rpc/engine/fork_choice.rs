@@ -38,9 +38,11 @@ impl Into<RpcRequest> for ForkChoiceUpdatedV3 {
 
 impl RpcHandler for ForkChoiceUpdatedV3 {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 2 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
         }
         Ok(ForkChoiceUpdatedV3 {
             fork_choice_state: serde_json::from_value(params[0].clone())?,
@@ -53,7 +55,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             serde_json::to_value(ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
                 err_msg,
             )))
-            .map_err(|_| RpcErr::Internal)
+            .map_err(|error| RpcErr::Internal(error.to_string()))
         };
 
         if self.fork_choice_state.head_block_hash.is_zero() {
@@ -64,8 +66,8 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             storage.get_block_header_by_hash(self.fork_choice_state.head_block_hash)?
         else {
             // TODO: We don't yet support syncing
-            warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {:#x}).", self.fork_choice_state.head_block_hash);
-            return Err(RpcErr::Internal);
+            warn!("[Engine - ForkChoiceUpdatedV3] Fork choice head block not found in store (hash {}).", self.fork_choice_state.head_block_hash);
+            return Err(RpcErr::Internal("We don't yet support syncing".to_owned()));
         };
         // Check that we are not being pushed pre-merge
         if let Some(error) = total_difficulty_check(
@@ -77,8 +79,9 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         }
         let canonical_block = storage.get_canonical_block_hash(head_block.number)?;
         let current_block_hash = {
-            let current_block_number =
-                storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
+            let current_block_number = storage.get_latest_block_number()?.ok_or(
+                RpcErr::Internal("Could not get latest block number".to_owned()),
+            )?;
             storage.get_canonical_block_hash(current_block_number)?
         };
         if canonical_block.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
@@ -97,7 +100,8 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         } else if current_block_hash.is_some_and(|h| h != self.fork_choice_state.head_block_hash) {
             // If the head block is already in our canonical chain, the beacon client is
             // probably resyncing. Ignore the update.
-            return serde_json::to_value(PayloadStatus::valid()).map_err(|_| RpcErr::Internal);
+            return serde_json::to_value(PayloadStatus::valid())
+                .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
         // Set finalized & safe blocks
@@ -126,12 +130,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 Err(ChainError::EvmError(error)) => return Err(error.into()),
                 // Parent block is guaranteed to be present at this point,
                 // so the only errors that may be returned are internal storage errors
-                _ => return Err(RpcErr::Internal),
+                Err(error) => return Err(RpcErr::Internal(error.to_string())),
             };
             storage.add_payload(payload_id, payload)?;
         }
 
-        serde_json::to_value(response).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
