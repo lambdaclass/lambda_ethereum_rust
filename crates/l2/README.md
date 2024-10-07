@@ -48,6 +48,10 @@ cargo install --path ../../cmd/ethereum_rust_l2
 > [!TIP]
 > You can create multiple configurations and switch between them.
 
+```
+ethereum_rust_l2 config create <config_name>
+```
+
 ![](../../cmd/ethereum_rust_l2/assets/config_create.cast.gif)
 
 ### Initialize the stack
@@ -55,12 +59,20 @@ cargo install --path ../../cmd/ethereum_rust_l2
 > [!IMPORTANT]
 > Add the SPI_PROVER=mock env variable to the command (to run the prover you need ).
 
+```
+ethereum_rust_l2 stack init
+```
+
 ![](../../cmd/ethereum_rust_l2/assets/stack_init.cast.gif)
 
 ### Restarting the stack
 
 > [!WARNING]
 > This command will cleanup your running L1 and L2 nodes.
+
+```
+ethereum_rust_l2 stack restart
+```
 
 ![](../../cmd/ethereum_rust_l2/assets/stack_restart.cast.gif)
 
@@ -79,3 +91,10 @@ Most of them are [here](https://github.com/ethpandaops/ethereum-package/blob/mai
 
 - [Ethereum Rust L2 Docs](./docs/README.md)
 - [Ethereum Rust L2 CLI Docs](../../cmd/ethereum_rust_l2/README.md)
+
+## 📚 References and acknowledgements
+
+The following links, repos, companies and projects have been important in the development of this library and we want to thank and acknowledge them.
+
+- [Matter Labs](https://matter-labs.io/)
+- [Optimism](https://www.optimism.io/)
