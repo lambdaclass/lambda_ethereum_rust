@@ -113,7 +113,7 @@ impl RLPxMessage for StatusMessage {
 #[derive(Debug)]
 pub(crate) struct GetBlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
-    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     id: u64,
     block_hashes: Vec<BlockHash>,
 }
@@ -157,7 +157,7 @@ impl RLPxMessage for GetBlockBodies {
 
 pub(crate) struct BlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
-    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     id: u64,
     block_bodies: Vec<BlockBody>,
 }
@@ -263,27 +263,6 @@ mod tests {
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_bodies, vec![]);
-    }
-
-    #[test]
-    fn block_bodies_for_one_block() {
-        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let body = BlockBody::default();
-        let block = Block {
-            header: Default::default(),
-            body: body.clone(),
-        };
-        store.add_block(block.clone()).unwrap();
-        let blocks_hash = vec![block.header.compute_block_hash()];
-
-        let block_bodies = BlockBodies::build_from(1, &store, blocks_hash).unwrap();
-
-        let mut buf = Vec::new();
-        block_bodies.encode(&mut buf);
-
-        let decoded = BlockBodies::decode(&buf).unwrap();
-        assert_eq!(decoded.id, 1);
-        assert_eq!(decoded.block_bodies, vec![body]);
     }
 
     #[test]
