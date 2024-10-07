@@ -159,7 +159,7 @@ pub(crate) struct BlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md
     id: u64,
-    blocks_bodies: Vec<BlockBody>,
+    block_bodies: Vec<BlockBody>,
 }
 
 impl BlockBodies {
@@ -168,15 +168,15 @@ impl BlockBodies {
         storage: &Store,
         blocks_hash: Vec<BlockHash>,
     ) -> Result<Self, StoreError> {
-        let mut blocks_bodies = vec![];
+        let mut block_bodies = vec![];
 
         for block_hash in blocks_hash {
             // TODO: Couldn't find what to do if we receive a block_hash of a block we don't have
             let block_body = storage.get_block_body_by_hash(block_hash)?.unwrap();
-            blocks_bodies.push(block_body);
+            block_bodies.push(block_body);
         }
 
-        Ok(Self { blocks_bodies, id })
+        Ok(Self { block_bodies, id })
     }
 }
 
@@ -185,7 +185,7 @@ impl RLPxMessage for BlockBodies {
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
-            .encode_field(&self.blocks_bodies)
+            .encode_field(&self.block_bodies)
             .finish();
 
         let mut snappy_encoder = SnappyEncoder::new();
@@ -205,9 +205,9 @@ impl RLPxMessage for BlockBodies {
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
-        let (blocks_bodies, _): (Vec<BlockBody>, _) = decoder.decode_field("blockBodies").unwrap();
+        let (block_bodies, _): (Vec<BlockBody>, _) = decoder.decode_field("blockBodies").unwrap();
 
-        Ok(Self { blocks_bodies, id })
+        Ok(Self { block_bodies, id })
     }
 }
 
@@ -262,7 +262,7 @@ mod tests {
 
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
-        assert_eq!(decoded.blocks_bodies, vec![]);
+        assert_eq!(decoded.block_bodies, vec![]);
     }
 
     #[test]
@@ -282,8 +282,8 @@ mod tests {
         block_bodies.encode(&mut buf);
 
         let decoded = BlockBodies::decode(&buf).unwrap();
-        assert_eq!(decoded.id, 0x06);
-        assert_eq!(decoded.blocks_bodies, vec![body]);
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_bodies, vec![body]);
     }
 
     #[test]
@@ -326,10 +326,7 @@ mod tests {
 
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
-        assert_eq!(
-            decoded.blocks_bodies,
-            vec![body.clone(), body.clone(), body]
-        );
+        assert_eq!(decoded.block_bodies, vec![body.clone(), body.clone(), body]);
     }
 
     #[test]
@@ -391,9 +388,6 @@ mod tests {
         // decode the received block bodies
 
         assert_eq!(received_block_bodies.id, sender_chosen_id);
-        assert_eq!(
-            received_block_bodies.blocks_bodies,
-            vec![body.clone(), body]
-        );
+        assert_eq!(received_block_bodies.block_bodies, vec![body.clone(), body]);
     }
 }
