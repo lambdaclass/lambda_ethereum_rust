@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use levm::{
     block::BlockEnv,
-    primitives::{Bytes, H160, U256},
+    primitives::{Bytes, H160},
     transaction::{TransactTo, TxEnv},
     vm::{Account, Db, StorageSlot, VM},
     vm_result::{ExecutionResult, StateAccount},
@@ -226,20 +226,19 @@ fn setup_txenv(transaction: &TransactionParts, test: &Test) -> TxEnv {
 }
 
 fn setup_block_env(env: &Env) -> BlockEnv {
-    let mut block_env = BlockEnv::default();
-    block_env.number = env.current_number;
-    block_env.coinbase = env.current_coinbase;
-    block_env.timestamp = env.current_timestamp;
-    block_env.base_fee_per_gas = env.current_base_fee.unwrap_or_default();
-    block_env.gas_limit = env.current_gas_limit.as_u64() as usize;
-    block_env.chain_id = 0;
-    block_env.prev_randao = env.current_random;
-    block_env.excess_blob_gas = if let Some(excess_blob_gas) = env.current_excess_blob_gas {
-        Some(excess_blob_gas.as_u64())
-    } else {
-        None
-    };
-    block_env
+    BlockEnv {
+        number: env.current_number,
+        coinbase: env.current_coinbase,
+        timestamp: env.current_timestamp,
+        base_fee_per_gas: env.current_base_fee.unwrap_or_default(),
+        gas_limit: env.current_gas_limit.as_u64() as usize,
+        chain_id: 0,
+        prev_randao: env.current_random,
+        excess_blob_gas: env
+            .current_excess_blob_gas
+            .map(|excess_blob_gas| excess_blob_gas.as_u64()),
+        ..Default::default()
+    }
 }
 
 fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
@@ -265,10 +264,10 @@ fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
             .iter()
             .map(|(key, value)| {
                 (
-                    U256::from(key.clone()),
+                    *key,
                     StorageSlot {
-                        original_value: value.clone(),
-                        current_value: value.clone(),
+                        original_value: *value,
+                        current_value: *value,
                         is_cold: false,
                     },
                 )
@@ -276,14 +275,14 @@ fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
             .collect();
 
         let account = Account::new(
-            address.clone(),
+            *address,
             account_info.balance,
             opcodes,
             account_info.nonce,
             storage,
         );
 
-        db.accounts.insert(address.clone(), account.clone());
+        db.accounts.insert(*address, account.clone());
     }
 
     VM::new(tx_env, block_env, db)
@@ -299,6 +298,8 @@ fn verify_result(
             // We need to do the .zip as some tests of the ef returns "None" as expected when the results are big
             if let Some((expected_output, output)) = expected_result.zip(execution_result.output())
             {
+                println!("Expected output: {:?}", expected_output);
+                println!("Real output: {:?}", output);
                 if expected_output != output {
                     return Err("Wrong output".into());
                 }
@@ -306,6 +307,7 @@ fn verify_result(
             Ok(())
         }
         (Some(_), ExecutionResult::Halt { .. } | ExecutionResult::Revert { .. }) => {
+            println!("GOT A REVERT OR A HALT");
             Ok(()) //Halt/Revert and want an error
         }
         _ => Err("Expected exception but got none".into()),
@@ -348,6 +350,8 @@ pub fn run_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
 
         for test in tests {
             let mut vm = setup_vm(test, &unit);
+            println!("Running test: {:?}", test);
+            println!("With VM: {:?}", vm);
             let res = vm.transact().unwrap();
 
             verify_result(test, unit.out.as_ref(), &res.result)?;
