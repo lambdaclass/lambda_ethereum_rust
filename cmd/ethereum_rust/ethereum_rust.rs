@@ -9,8 +9,8 @@ use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::future::IntoFuture;
-use std::str::FromStr as _;
 use std::path::Path;
+use std::str::FromStr as _;
 use std::time::Duration;
 use std::{
     fs::File,

@@ -1,9 +1,22 @@
-use super::{frame, message as rlpx};
+use std::net::SocketAddr;
+
+use crate::{
+    rlpx::{handshake::RLPxClient, message::Message, p2p, utils::id2pubkey},
+    MAX_DISC_PACKET_SIZE,
+};
+
+use super::{
+    frame,
+    handshake::{decode_auth_message, AuthMessage},
+    message as rlpx,
+};
 use aes::cipher::KeyIvInit;
 use ethereum_rust_core::H256;
 use ethereum_rust_rlp::decode::RLPDecode;
+use k256::{ecdsa::SigningKey, PublicKey, SecretKey};
 use sha3::{Digest, Keccak256};
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tracing::info;
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
@@ -12,27 +25,112 @@ pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
 /// Fully working RLPx connection.
 pub(crate) struct RLPxConnection<S> {
-    state: RLPxState,
+    signer: SigningKey,
+    state: RLPxConnectionState,
     stream: S,
     established: bool,
     // ...capabilities information
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
-    pub fn new(state: RLPxState, stream: S) -> Self {
+    pub fn receiver(signer: SigningKey, stream: S, peer_address: SocketAddr) -> Self {
+        let mut rng = rand::thread_rng();
         Self {
-            state,
+            signer,
+            state: RLPxConnectionState::Receiver(Receiver::new(
+                H256::random_using(&mut rng),
+                SecretKey::random(&mut rng),
+            )),
             stream,
             established: false,
         }
     }
 
+    pub async fn handshake(&mut self) {
+        match &self.state {
+            RLPxConnectionState::Receiver(receiver_state) => {
+                self.receive_auth(receiver_state.clone()).await
+            }
+            RLPxConnectionState::Initiator(_) => todo!(),
+            // TODO proper error
+            _ => panic!(),
+        };
+
+        // self.exchange_hello();
+
+        // info!("Completed Hello roundtrip!");
+    }
+
+    pub async fn receive_auth(&mut self, receiver_state: Receiver) {
+        let secret_key: SecretKey = self.signer.clone().into();
+        let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
+
+        // Read the auth message's size
+        self.stream.read_exact(&mut buf[..2]).await.unwrap();
+        let auth_data = buf[..2].try_into().unwrap();
+        let msg_size = u16::from_be_bytes(auth_data) as usize;
+
+        // Read the rest of the auth message
+        self.stream
+            .read_exact(&mut buf[2..msg_size + 2])
+            .await
+            .unwrap();
+
+        let auth_bytes = &buf[..msg_size + 2];
+
+        let msg = &buf[2..msg_size + 2];
+
+        let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
+
+        self.state = RLPxConnectionState::HandshakeAuth(HandshakeAuth::receiver(
+            receiver_state,
+            auth_bytes.to_owned(),
+            auth.nonce,
+            remote_ephemeral_key,
+        ));
+    }
+
+    // TODO fix this to build next state
+    pub async fn send_ack(&mut self, auth_message: AuthMessage) {
+        let peer_pk = id2pubkey(auth_message.node_id).unwrap();
+
+        let mut ack_message = vec![];
+        let state = client.encode_ack_message(
+            &secret_key,
+            &peer_pk,
+            auth_message.nonce,
+            auth_message.signature,
+            &mut ack_message,
+        );
+        self.stream.write_all(&ack_message).await.unwrap();
+        info!("Sent ack message correctly!");
+
+        info!("Completed handshake!");
+
+        let hello_msg = Message::Hello(p2p::HelloMessage::new(
+            SUPPORTED_CAPABILITIES
+                .into_iter()
+                .map(|(name, version)| (name.to_string(), version))
+                .collect(),
+            PublicKey::from(self.signer.verifying_key()),
+        ));
+
+        self.send(hello_msg).await;
+
+        // Receive Hello message
+        self.receive().await;
+
+        info!("Completed Hello roundtrip!");
+    }
+
+    // TODO Fix this
     pub async fn send(&mut self, message: rlpx::Message) {
         let mut frame_buffer = vec![];
         message.encode(&mut frame_buffer);
         frame::write(frame_buffer, &mut self.state, &mut self.stream).await;
     }
 
+    // TODO Fix this
     pub async fn receive(&mut self) -> rlpx::Message {
         let frame_data = frame::read(&mut self.state, &mut self.stream).await;
         let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
@@ -56,6 +154,77 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     }
 }
 
+enum RLPxConnectionState {
+    Initiator(Initiator),
+    Receiver(Receiver),
+    HandshakeAuth(HandshakeAuth),
+    PreHello(),
+    Live(),
+}
+
+// TODO See if we can remove the need of clonning
+#[derive(Clone)]
+struct Receiver {
+    pub(crate) nonce: H256,
+    pub(crate) ephemeral_key: SecretKey,
+}
+
+impl Receiver {
+    pub fn new(nonce: H256, ephemeral_key: SecretKey) -> Self {
+        Self {
+            nonce,
+            ephemeral_key,
+        }
+    }
+}
+
+struct Initiator {
+    pub(crate) nonce: H256,
+    pub(crate) ephemeral_key: SecretKey,
+}
+
+impl Initiator {
+    pub fn new(nonce: H256, ephemeral_key: SecretKey) -> Self {
+        Self {
+            nonce,
+            ephemeral_key,
+        }
+    }
+}
+
+struct HandshakeAuth {
+    pub(crate) local_initiator: bool,
+
+    pub(crate) local_nonce: H256,
+    pub(crate) local_ephemeral_key: SecretKey,
+    pub(crate) local_init_message: Option<Vec<u8>>,
+
+    pub(crate) remote_nonce: H256,
+    pub(crate) remote_ephemeral_key: PublicKey,
+    pub(crate) remote_init_message: Vec<u8>,
+}
+
+impl HandshakeAuth {
+    pub fn receiver(
+        local: Receiver,
+        remote_init_message: Vec<u8>,
+        remote_nonce: H256,
+        remote_ephemeral_key: PublicKey,
+    ) -> Self {
+        Self {
+            local_initiator: false,
+            local_nonce: local.nonce,
+            local_ephemeral_key: local.ephemeral_key.clone(),
+            local_init_message: None,
+            remote_nonce,
+            remote_ephemeral_key,
+            remote_init_message,
+        }
+    }
+}
+
+// TODO: this state will be replaced by RLPxConnectionState
+//       Sould remove this: leaving by now for reference
 /// The current state of an RLPx connection
 #[derive(Clone)]
 pub(crate) struct RLPxState {
