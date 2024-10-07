@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use crate::{
     rlpx::{
-        handshake::{encode_ack_message, RLPxClient},
+        handshake::encode_ack_message,
         message::Message,
         p2p,
         utils::id2pubkey,
@@ -12,7 +12,7 @@ use crate::{
 
 use super::{
     frame,
-    handshake::{decode_auth_message, AuthMessage},
+    handshake::decode_auth_message,
     message as rlpx,
     utils::ecdh_xchng,
 };
@@ -40,7 +40,7 @@ pub(crate) struct RLPxConnection<S> {
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
-    pub fn receiver(signer: SigningKey, stream: S, peer_address: SocketAddr) -> Self {
+    pub fn receiver(signer: SigningKey, stream: S, _peer_address: SocketAddr) -> Self {
         let mut rng = rand::thread_rng();
         Self {
             signer,
@@ -133,33 +133,27 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     }
 
     pub async fn exchange_hello_messages(&mut self) {
-        match &self.state {
-            RLPxConnectionState::PostHandshake(post_handshake) => {
-                let hello_msg = Message::Hello(p2p::HelloMessage::new(
-                    SUPPORTED_CAPABILITIES
-                        .into_iter()
-                        .map(|(name, version)| (name.to_string(), version))
-                        .collect(),
-                    PublicKey::from(self.signer.verifying_key()),
-                ));
+        let hello_msg = Message::Hello(p2p::HelloMessage::new(
+            SUPPORTED_CAPABILITIES
+                .into_iter()
+                .map(|(name, version)| (name.to_string(), version))
+                .collect(),
+            PublicKey::from(self.signer.verifying_key()),
+        ));
 
-                self.send(hello_msg).await;
+        self.send(hello_msg).await;
 
-                // Receive Hello message
-                self.receive().await;
+        // Receive Hello message
+        self.receive().await;
 
-                info!("Completed Hello roundtrip!");
+        info!("Completed Hello roundtrip!");
 
-                // self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
-                //     handshake_auth,
-                //     ack_message,
-                //     aes_key,
-                //     mac_key,
-                // ))
-            }
-            // TODO proper error
-            _ => panic!(),
-        };
+        // self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
+        //     handshake_auth,
+        //     ack_message,
+        //     aes_key,
+        //     mac_key,
+        // ))
     }
 
     fn derive_secrets(auth_state: &HandshakeAuth) -> (H256, H256) {
