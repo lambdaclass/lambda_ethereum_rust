@@ -1861,29 +1861,10 @@ impl VM {
         gas -= gas / 64; // 63/64 of the gas to the call
         current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
 
-        // let new_call_frame = CallFrame::new(
-        //     current_call_frame.msg_sender,
-        //     new_address,
-        //     new_address,
-        //     None,
-        //     code,
-        //     value_in_wei_to_send,
-        //     Bytes::new(),
-        //     false,
-        //     gas,
-        //     0,
-        // );
-
-        // current_call_frame.return_data_offset = Some(code_offset_in_memory);
-        // current_call_frame.return_data_size = Some(code_size_in_memory);
-
         current_call_frame
             .stack
             .push(address_to_word(new_address))?;
 
-        // self.call_frames.push(current_call_frame.clone());
-        // *current_call_frame = new_call_frame;
-        // Ok(())
         self.generic_call(
             current_call_frame,
             gas,
