@@ -1,9 +1,10 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    types::{BlockHash, ForkId},
+    types::{BlockHash, BlockHeader, ForkId},
     U256,
 };
 use ethereum_rust_rlp::{
+    decode::RLPDecode,
     encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
@@ -107,5 +108,174 @@ impl RLPxMessage for StatusMessage {
             genesis,
             fork_id,
         })
+    }
+}
+
+#[derive(Debug)]
+pub enum HashOrNumber {
+    Hash(BlockHash),
+    Number(u64),
+}
+
+impl RLPEncode for HashOrNumber {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        match self {
+            HashOrNumber::Hash(hash) => hash.encode(buf),
+            HashOrNumber::Number(number) => number.encode(buf),
+        }
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            HashOrNumber::Hash(hash) => hash.length(),
+            HashOrNumber::Number(number) => number.length(),
+        }
+    }
+}
+
+impl RLPDecode for HashOrNumber {
+    #[inline(always)]
+    fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        // as a start, we are only accepting u64
+        let (number, rest) = u64::decode_unfinished(buf)?;
+        Ok((Self::Number(number), rest))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct GetBlockHeaders {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#getblockheaders-0x03
+    startblock: HashOrNumber,
+    limit: u64,
+    skip: u64,
+    reverse: bool,
+}
+
+impl GetBlockHeaders {
+    pub fn build_from(
+        id: u64,
+        startblock: HashOrNumber,
+        limit: u64,
+        skip: u64,
+        reverse: bool,
+    ) -> Result<Self, StoreError> {
+        Ok(Self {
+            id,
+            startblock,
+            limit,
+            skip,
+            reverse,
+        })
+    }
+}
+
+impl RLPxMessage for GetBlockHeaders {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.startblock)
+            .encode_field(&self.limit)
+            .encode_field(&self.skip)
+            .encode_field(&self.reverse)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
+        let (startblock, decoder): (HashOrNumber, _) = decoder.decode_field("startblock").unwrap();
+        let (limit, decoder): (u64, _) = decoder.decode_field("limit").unwrap();
+        let (skip, decoder): (u64, _) = decoder.decode_field("skip").unwrap();
+        let (reverse, _): (bool, _) = decoder.decode_field("reverse").unwrap();
+
+        Ok(Self {
+            id,
+            startblock,
+            limit,
+            skip,
+            reverse,
+        })
+    }
+}
+
+pub(crate) struct BlockHeaders {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    block_headers: Vec<BlockHeader>,
+}
+
+impl BlockHeaders {
+    pub fn build_from(
+        id: u64,
+        storage: &Store,
+        startblock: HashOrNumber,
+        limit: u64,
+        skip: u64,
+        reverse: bool,
+    ) -> Result<Self, StoreError> {
+        let mut block_headers = vec![];
+
+        // how should we get the next block starting from here?
+        let first_block = match startblock {
+            HashOrNumber::Hash(hash) => storage.get_block_header_by_hash(hash)?.unwrap(),
+            HashOrNumber::Number(number) => storage.get_block_header(number)?.unwrap(),
+        };
+
+        block_headers.push(first_block);
+
+        if reverse {
+            block_headers.reverse();
+        }
+
+        Ok(Self { block_headers, id })
+    }
+}
+
+impl RLPxMessage for BlockHeaders {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.block_headers)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
+        let (block_headers, _): (Vec<BlockHeader>, _) = decoder.decode_field("headers").unwrap();
+
+        Ok(Self { block_headers, id })
     }
 }
