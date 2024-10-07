@@ -10,7 +10,7 @@ use crate::{
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, H32, U256, U512},
     transaction::{TransactTo, TxEnv},
-    vm_result::{ExecutionResult, ResultReason, VMError},
+    vm_result::{ExecutionResult, OpcodeSuccess, ResultReason, VMError},
 };
 extern crate ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -142,7 +142,7 @@ pub struct Environment {
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
     // gas_price: u64,
-    gas_limit: u64,
+    pub gas_limit: u64,
     pub consumed_gas: u64,
     /// The block header of the present block.
     pub block: BlockEnv,
@@ -233,275 +233,48 @@ impl VM {
         }
     }
 
-    pub fn execute(&mut self) -> Result<ExecutionResult, VMError> {
+
+    pub fn execute(&mut self) -> ExecutionResult {
         let block_env = self.env.block.clone();
-        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
+        let mut current_call_frame = self.call_frames.pop().expect("Fatal Error. This shouldn't happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
-            match opcode {
+            let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => {
-                    self.call_frames.push(current_call_frame.clone());
-                    return Ok(Self::write_success_result(
-                        current_call_frame,
-                        ResultReason::Stop,
-                    ));
+                    self.op_stop(&mut current_call_frame)
                 }
                 Opcode::ADD => {
-                    if self.env.consumed_gas + gas_cost::ADD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let augend = current_call_frame.stack.pop()?;
-                    let addend = current_call_frame.stack.pop()?;
-                    let sum = augend.overflowing_add(addend).0;
-                    current_call_frame.stack.push(sum)?;
-                    self.env.consumed_gas += gas_cost::ADD
+                    self.op_add(&mut current_call_frame)
                 }
                 Opcode::MUL => {
-                    if self.env.consumed_gas + gas_cost::MUL > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let multiplicand = current_call_frame.stack.pop()?;
-                    let multiplier = current_call_frame.stack.pop()?;
-                    let product = multiplicand.overflowing_mul(multiplier).0;
-                    current_call_frame.stack.push(product)?;
-                    self.env.consumed_gas += gas_cost::MUL
+                    self.op_mul(&mut current_call_frame)
                 }
                 Opcode::SUB => {
-                    if self.env.consumed_gas + gas_cost::SUB > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let minuend = current_call_frame.stack.pop()?;
-                    let subtrahend = current_call_frame.stack.pop()?;
-                    let difference = minuend.overflowing_sub(subtrahend).0;
-                    current_call_frame.stack.push(difference)?;
-                    self.env.consumed_gas += gas_cost::SUB
+                    self.op_sub(&mut current_call_frame)
                 }
                 Opcode::DIV => {
-                    if self.env.consumed_gas + gas_cost::DIV > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-                    let quotient = dividend / divisor;
-                    current_call_frame.stack.push(quotient)?;
-                    self.env.consumed_gas += gas_cost::DIV
+                    self.op_div(&mut current_call_frame)
                 }
                 Opcode::SDIV => {
-                    if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    let dividend_is_negative = is_negative(dividend);
-                    let divisor_is_negative = is_negative(divisor);
-                    let dividend = if dividend_is_negative {
-                        negate(dividend)
-                    } else {
-                        dividend
-                    };
-                    let divisor = if divisor_is_negative {
-                        negate(divisor)
-                    } else {
-                        divisor
-                    };
-                    let quotient = dividend / divisor;
-                    let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
-                    let quotient = if quotient_is_negative {
-                        negate(quotient)
-                    } else {
-                        quotient
-                    };
-
-                    current_call_frame.stack.push(quotient)?;
-                    self.env.consumed_gas += gas_cost::SDIV
+                    self.op_sdiv(&mut current_call_frame)
                 }
                 Opcode::MOD => {
-                    if self.env.consumed_gas + gas_cost::MOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-                    let remainder = dividend % divisor;
-                    current_call_frame.stack.push(remainder)?;
-                    self.env.consumed_gas += gas_cost::MOD
+                    self.op_mod(&mut current_call_frame)
                 }
                 Opcode::SMOD => {
-                    if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let dividend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    let dividend_is_negative = is_negative(dividend);
-                    let divisor_is_negative = is_negative(divisor);
-                    let dividend = if dividend_is_negative {
-                        negate(dividend)
-                    } else {
-                        dividend
-                    };
-                    let divisor = if divisor_is_negative {
-                        negate(divisor)
-                    } else {
-                        divisor
-                    };
-                    let remainder = dividend % divisor;
-                    let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
-                    let remainder = if remainder_is_negative {
-                        negate(remainder)
-                    } else {
-                        remainder
-                    };
-
-                    current_call_frame.stack.push(remainder)?;
-                    self.env.consumed_gas += gas_cost::SMOD
+                    self.op_smod(&mut current_call_frame)
                 }
                 Opcode::ADDMOD => {
-                    if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let augend = current_call_frame.stack.pop()?;
-                    let addend = current_call_frame.stack.pop()?;
-                    let divisor = current_call_frame.stack.pop()?;
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-                    let (sum, overflow) = augend.overflowing_add(addend);
-                    let mut remainder = sum % divisor;
-                    if overflow || remainder > divisor {
-                        remainder = remainder.overflowing_sub(divisor).0;
-                    }
-
-                    current_call_frame.stack.push(remainder)?;
-                    self.env.consumed_gas += gas_cost::ADDMOD
+                    self.op_addmod(&mut current_call_frame)
                 }
                 Opcode::MULMOD => {
-                    if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let multiplicand = U512::from(current_call_frame.stack.pop()?);
-                    let multiplier = U512::from(current_call_frame.stack.pop()?);
-                    let divisor = U512::from(current_call_frame.stack.pop()?);
-                    if divisor.is_zero() {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    let (product, overflow) = multiplicand.overflowing_mul(multiplier);
-                    let mut remainder = product % divisor;
-                    if overflow || remainder > divisor {
-                        remainder = remainder.overflowing_sub(divisor).0;
-                    }
-                    let mut result = Vec::new();
-                    for byte in remainder.0.iter().take(4) {
-                        let bytes = byte.to_le_bytes();
-                        result.extend_from_slice(&bytes);
-                    }
-                    // before reverse we have something like [120, 255, 0, 0....]
-                    // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
-                    result.reverse();
-                    let remainder = U256::from(result.as_slice());
-                    current_call_frame.stack.push(remainder)?;
-                    self.env.consumed_gas += gas_cost::MULMOD
+                    self.op_mulmod(&mut current_call_frame)
                 }
                 Opcode::EXP => {
-                    let base = current_call_frame.stack.pop()?;
-                    let exponent = current_call_frame.stack.pop()?;
-
-                    let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
-                    let gas_cost =
-                        gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    let power = base.overflowing_pow(exponent).0;
-                    current_call_frame.stack.push(power)?;
-                    self.env.consumed_gas += gas_cost
+                    self.op_exp(&mut current_call_frame)
                 }
                 Opcode::SIGNEXTEND => {
-                    if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let byte_size = current_call_frame.stack.pop()?;
-                    let value_to_extend = current_call_frame.stack.pop()?;
-
-                    let bits_per_byte = U256::from(8);
-                    let sign_bit_position_on_byte = 7;
-                    let max_byte_size = 31;
-
-                    let byte_size = byte_size.min(U256::from(max_byte_size));
-                    let sign_bit_index = bits_per_byte * byte_size + sign_bit_position_on_byte;
-                    let is_negative = value_to_extend.bit(sign_bit_index.as_usize());
-                    let sign_bit_mask = (U256::one() << sign_bit_index) - U256::one();
-                    let result = if is_negative {
-                        value_to_extend | !sign_bit_mask
-                    } else {
-                        value_to_extend & sign_bit_mask
-                    };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::SIGNEXTEND
+                    self.op_signextend(&mut current_call_frame)
                 }
                 Opcode::LT => {
                     if self.env.consumed_gas + gas_cost::LT > self.env.gas_limit {
@@ -1705,6 +1478,19 @@ impl VM {
                     self.env.consumed_gas += gas_cost::TSTORE
                 }
                 _ => return Err(VMError::OpcodeNotFound),
+            };
+
+            match op_result {
+                Ok(OpcodeSuccess::Continue) => {},
+                Ok(OpcodeSuccess::Result(r)) => {
+                    return Ok(Self::write_success_result(
+                        current_call_frame.clone(),
+                        r,
+                    ))
+                },
+                Err(_) => {
+                    todo!("Return appropriate ExecutionResult (Halt or Revert)");
+                }
             }
         }
     }

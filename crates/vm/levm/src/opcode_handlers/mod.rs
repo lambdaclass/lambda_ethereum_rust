@@ -14,7 +14,9 @@ use crate::{
     call_frame::{CallFrame, Log},
     opcodes::Opcode,
     vm::VM,
-    vm_result::VMError,
+    vm_result::*,
+    constants::gas_cost
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H32, U256, U512};
+

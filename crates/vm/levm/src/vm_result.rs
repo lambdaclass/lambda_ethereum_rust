@@ -15,6 +15,11 @@ pub enum VMError {
     FatalError, // this should never really happen
 }
 
+pub enum OpcodeSuccess {
+    Continue,
+    Result(ResultReason)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResultReason {
     Stop,

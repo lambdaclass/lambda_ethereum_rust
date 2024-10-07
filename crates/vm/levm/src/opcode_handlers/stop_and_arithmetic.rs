@@ -9,103 +9,131 @@ impl VM {
     pub fn op_stop(
         &mut self,
         current_call_frame: &mut CallFrame,
-    ) -> Result<ExecutionResult, VMError> {
+    ) -> Result<OpcodeSuccess, VMError> {
         self.call_frames.push(current_call_frame.clone());
-        Ok(Self::write_success_result(
-            current_call_frame.clone(),
-            ResultReason::Stop,
-        ))
+        Ok(OpcodeSuccess::Result(ResultReason::Stop))
     }
     // ADD operation
-    pub fn op_add(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_add(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::ADD > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
         let sum = augend.overflowing_add(addend).0;
         current_call_frame.stack.push(sum)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::ADD;
+        
+        Ok(OpcodeSuccess::Continue)
     }
 
     // SUB operation
-    pub fn op_sub(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_sub(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::SUB > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let minuend = current_call_frame.stack.pop()?;
         let subtrahend = current_call_frame.stack.pop()?;
         let difference = minuend.overflowing_sub(subtrahend).0;
         current_call_frame.stack.push(difference)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::SUB;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // MUL operation
-    pub fn op_mul(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mul(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::MUL > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let multiplicand = current_call_frame.stack.pop()?;
         let multiplier = current_call_frame.stack.pop()?;
         let product = multiplicand.overflowing_mul(multiplier).0;
         current_call_frame.stack.push(product)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::MUL;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // DIV operation
-    pub fn op_div(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        let dividend = current_call_frame.stack.pop()?;
-        let divisor = current_call_frame.stack.pop()?;
-        let quotient = if divisor.is_zero() {
-            U256::zero()
-        } else {
-            dividend / divisor
-        };
-        current_call_frame.stack.push(quotient)?;
-        Ok(())
-    }
-
-    // SDIV operation
-    pub fn op_sdiv(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_div(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::DIV > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
-        } else {
-            let dividend_is_negative = is_negative(dividend);
-            let divisor_is_negative = is_negative(divisor);
-
-            let dividend = if dividend_is_negative {
-                negate(dividend)
-            } else {
-                dividend
-            };
-            let divisor = if divisor_is_negative {
-                negate(divisor)
-            } else {
-                divisor
-            };
-
-            let quotient = dividend / divisor;
-            let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
-
-            let quotient = if quotient_is_negative {
-                negate(quotient)
-            } else {
-                quotient
-            };
-
-            current_call_frame.stack.push(quotient)?;
+            return Ok(OpcodeSuccess::Continue);
         }
-        Ok(())
+        let quotient = dividend / divisor;
+        current_call_frame.stack.push(quotient)?;
+        self.env.consumed_gas += gas_cost::DIV;
+
+        Ok(OpcodeSuccess::Continue)
+    }
+
+    // SDIV operation
+    pub fn op_sdiv(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+        let dividend = current_call_frame.stack.pop()?;
+        let divisor = current_call_frame.stack.pop()?;
+        if divisor.is_zero() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+
+        let dividend_is_negative = is_negative(dividend);
+        let divisor_is_negative = is_negative(divisor);
+        let dividend = if dividend_is_negative {
+            negate(dividend)
+        } else {
+            dividend
+        };
+        let divisor = if divisor_is_negative {
+            negate(divisor)
+        } else {
+            divisor
+        };
+        let quotient = dividend / divisor;
+        let quotient_is_negative = dividend_is_negative ^ divisor_is_negative;
+        let quotient = if quotient_is_negative {
+            negate(quotient)
+        } else {
+            quotient
+        };
+
+        current_call_frame.stack.push(quotient)?;
+        self.env.consumed_gas += gas_cost::SDIV;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // MOD operation
-    pub fn op_modulus(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::MOD > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
-        let remainder = if divisor.is_zero() {
-            U256::zero()
-        } else {
-            dividend % divisor
-        };
+        if divisor.is_zero() {
+            current_call_frame.stack.push(U256::zero())?;
+            return Ok(OpcodeSuccess::Continue);
+        }
+        let remainder = dividend % divisor;
         current_call_frame.stack.push(remainder)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::MOD;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // SMOD operation
-    pub fn op_smod(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_smod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
@@ -136,17 +164,22 @@ impl VM {
 
             current_call_frame.stack.push(remainder)?;
         }
-        Ok(())
+        self.env.consumed_gas += gas_cost::SMOD;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // ADDMOD operation
-    pub fn op_addmod(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_addmod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let augend = current_call_frame.stack.pop()?;
         let addend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Continue);
         }
         let (sum, overflow) = augend.overflowing_add(addend);
         let mut remainder = sum % divisor;
@@ -155,17 +188,22 @@ impl VM {
         }
 
         current_call_frame.stack.push(remainder)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::ADDMOD;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // MULMOD operation
-    pub fn op_mulmod(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_mulmod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let multiplicand = U512::from(current_call_frame.stack.pop()?);
         let multiplier = U512::from(current_call_frame.stack.pop()?);
         let divisor = U512::from(current_call_frame.stack.pop()?);
         if divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Continue);
         }
 
         let (product, overflow) = multiplicand.overflowing_mul(multiplier);
@@ -178,23 +216,40 @@ impl VM {
             let bytes = byte.to_le_bytes();
             result.extend_from_slice(&bytes);
         }
+        // before reverse we have something like [120, 255, 0, 0....]
+        // after reverse we get the [0, 0, ...., 255, 120] which is the correct order for the little endian u256
         result.reverse();
         let remainder = U256::from(result.as_slice());
         current_call_frame.stack.push(remainder)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::MULMOD;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // EXP operation
-    pub fn op_exp(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_exp(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         let base = current_call_frame.stack.pop()?;
         let exponent = current_call_frame.stack.pop()?;
+
+        let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
+        let gas_cost =
+            gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
         let power = base.overflowing_pow(exponent).0;
         current_call_frame.stack.push(power)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // SIGNEXTEND operation
-    pub fn op_signextend(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    pub fn op_signextend(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         let byte_size = current_call_frame.stack.pop()?;
         let value_to_extend = current_call_frame.stack.pop()?;
 
@@ -212,7 +267,9 @@ impl VM {
             value_to_extend & sign_bit_mask
         };
         current_call_frame.stack.push(result)?;
-        Ok(())
+        self.env.consumed_gas += gas_cost::SIGNEXTEND;
+
+        Ok(OpcodeSuccess::Continue)
     }
 }
 
