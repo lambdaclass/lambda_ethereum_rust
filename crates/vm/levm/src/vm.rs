@@ -277,163 +277,25 @@ impl VM {
                     self.op_signextend(&mut current_call_frame)
                 }
                 Opcode::LT => {
-                    if self.env.consumed_gas + gas_cost::LT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let result = if lho < rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::LT
+                    self.op_lt(&mut current_call_frame)
                 }
                 Opcode::GT => {
-                    if self.env.consumed_gas + gas_cost::GT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let result = if lho > rho { U256::one() } else { U256::zero() };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::GT
+                    self.op_gt(&mut current_call_frame)
                 }
                 Opcode::SLT => {
-                    if self.env.consumed_gas + gas_cost::SLT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let lho_is_negative = lho.bit(255);
-                    let rho_is_negative = rho.bit(255);
-                    let result = if lho_is_negative == rho_is_negative {
-                        // if both have the same sign, compare their magnitudes
-                        if lho < rho {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    } else {
-                        // if they have different signs, the negative number is smaller
-                        if lho_is_negative {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::SLT
+                    self.op_slt(&mut current_call_frame)
                 }
                 Opcode::SGT => {
-                    if self.env.consumed_gas + gas_cost::SGT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let lho_is_negative = lho.bit(255);
-                    let rho_is_negative = rho.bit(255);
-                    let result = if lho_is_negative == rho_is_negative {
-                        // if both have the same sign, compare their magnitudes
-                        if lho > rho {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    } else {
-                        // if they have different signs, the positive number is bigger
-                        if rho_is_negative {
-                            U256::one()
-                        } else {
-                            U256::zero()
-                        }
-                    };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::SGT
+                    self.op_sgt(&mut current_call_frame)
                 }
                 Opcode::EQ => {
-                    if self.env.consumed_gas + gas_cost::EQ > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let lho = current_call_frame.stack.pop()?;
-                    let rho = current_call_frame.stack.pop()?;
-                    let result = if lho == rho {
-                        U256::one()
-                    } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::EQ
+                    self.op_eq(&mut current_call_frame)
                 }
                 Opcode::ISZERO => {
-                    if self.env.consumed_gas + gas_cost::ISZERO > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let operand = current_call_frame.stack.pop()?;
-                    let result = if operand == U256::zero() {
-                        U256::one()
-                    } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(result)?;
-                    self.env.consumed_gas += gas_cost::ISZERO
+                    self.op_iszero(&mut current_call_frame)
                 }
                 Opcode::KECCAK256 => {
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-
-                    let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(offset + size);
-                    let gas_cost = gas_cost::KECCAK25_STATIC
-                        + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
-                        + memory_expansion_cost as u64;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    let value_bytes = current_call_frame.memory.load_range(offset, size);
-
-                    let mut hasher = Keccak256::new();
-                    hasher.update(value_bytes);
-                    let result = hasher.finalize();
-                    current_call_frame
-                        .stack
-                        .push(U256::from_big_endian(&result))?;
-                    self.env.consumed_gas += gas_cost
+                    self.op_keccak256(&mut current_call_frame)
                 }
                 Opcode::CALLDATALOAD => {
                     if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.gas_limit {
@@ -814,131 +676,28 @@ impl VM {
                     self.env.consumed_gas += gas_cost::PUSHN
                 }
                 Opcode::AND => {
-                    if self.env.consumed_gas + gas_cost::AND > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let a = current_call_frame.stack.pop()?;
-                    let b = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(a & b)?;
-                    self.env.consumed_gas += gas_cost::AND
+                    self.op_and(&mut current_call_frame)
                 }
                 Opcode::OR => {
-                    if self.env.consumed_gas + gas_cost::OR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let a = current_call_frame.stack.pop()?;
-                    let b = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(a | b)?;
-                    self.env.consumed_gas += gas_cost::OR
+                    self.op_or(&mut current_call_frame)
                 }
                 Opcode::XOR => {
-                    if self.env.consumed_gas + gas_cost::XOR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let a = current_call_frame.stack.pop()?;
-                    let b = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(a ^ b)?;
-                    self.env.consumed_gas += gas_cost::XOR
+                    self.op_xor(&mut current_call_frame)
                 }
                 Opcode::NOT => {
-                    if self.env.consumed_gas + gas_cost::NOT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let a = current_call_frame.stack.pop()?;
-                    current_call_frame.stack.push(!a)?;
-                    self.env.consumed_gas += gas_cost::NOT
+                    self.op_not(&mut current_call_frame)
                 }
                 Opcode::BYTE => {
-                    if self.env.consumed_gas + gas_cost::BYTE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let op1 = current_call_frame.stack.pop()?;
-                    let op2 = current_call_frame.stack.pop()?;
-
-                    let byte_index = op1.try_into().unwrap_or(usize::MAX);
-
-                    if byte_index < WORD_SIZE {
-                        current_call_frame
-                            .stack
-                            .push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)))?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    }
-                    self.env.consumed_gas += gas_cost::BYTE
+                    self.op_byte(&mut current_call_frame)
                 }
                 Opcode::SHL => {
-                    if self.env.consumed_gas + gas_cost::SHL > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let shift = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    if shift < U256::from(256) {
-                        current_call_frame.stack.push(value << shift)?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    }
-                    self.env.consumed_gas += gas_cost::SHL
+                    self.op_shl(&mut current_call_frame)
                 }
                 Opcode::SHR => {
-                    if self.env.consumed_gas + gas_cost::SHR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let shift = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    if shift < U256::from(256) {
-                        current_call_frame.stack.push(value >> shift)?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    }
-                    self.env.consumed_gas += gas_cost::SHR
+                    self.op_shr(&mut current_call_frame)
                 }
                 Opcode::SAR => {
-                    if self.env.consumed_gas + gas_cost::SAR > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let shift = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    let res = if shift < U256::from(256) {
-                        arithmetic_shift_right(value, shift)
-                    } else if value.bit(255) {
-                        U256::MAX
-                    } else {
-                        U256::zero()
-                    };
-                    current_call_frame.stack.push(res)?;
-                    self.env.consumed_gas += gas_cost::SAR
+                    self.op_sar(&mut current_call_frame)
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
@@ -1734,15 +1493,4 @@ impl VM {
     }
 }
 
-pub fn arithmetic_shift_right(value: U256, shift: U256) -> U256 {
-    let shift_usize: usize = shift.try_into().unwrap(); // we know its not bigger than 256
 
-    if value.bit(255) {
-        // if negative fill with 1s
-        let shifted = value >> shift_usize;
-        let mask = U256::MAX << (256 - shift_usize);
-        shifted | mask
-    } else {
-        value >> shift_usize
-    }
-}
