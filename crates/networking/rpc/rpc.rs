@@ -164,7 +164,7 @@ pub fn map_http_requests(
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage, filters),
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
         Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
-        _ => Err(RpcErr::MethodNotFound),
+        _ => Err(RpcErr::MethodNotFound(req.method.clone())),
     }
 }
 
@@ -177,7 +177,7 @@ pub fn map_authrpc_requests(
     match req.namespace() {
         Ok(RpcNamespace::Engine) => map_engine_requests(req, storage),
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage, active_filters),
-        _ => Err(RpcErr::MethodNotFound),
+        _ => Err(RpcErr::MethodNotFound(req.method.clone())),
     }
 }
 
@@ -218,7 +218,7 @@ pub fn map_eth_requests(
         "eth_newFilter" => FilterRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
-        _ => Err(RpcErr::MethodNotFound),
+        unknown_eth_method => Err(RpcErr::MethodNotFound(unknown_eth_method.to_owned())),
     }
 }
 
@@ -228,7 +228,7 @@ pub fn map_debug_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rpc
         "debug_getRawBlock" => GetRawBlockRequest::call(req, storage),
         "debug_getRawTransaction" => GetRawTransaction::call(req, storage),
         "debug_getRawReceipts" => GetRawReceipts::call(req, storage),
-        _ => Err(RpcErr::MethodNotFound),
+        unknown_debug_method => Err(RpcErr::MethodNotFound(unknown_debug_method.to_owned())),
     }
 }
 
@@ -241,7 +241,7 @@ pub fn map_engine_requests(req: &RpcRequest, storage: Store) -> Result<Value, Rp
             ExchangeTransitionConfigV1Req::call(req, storage)
         }
         "engine_getPayloadV3" => GetPayloadV3Request::call(req, storage),
-        _ => Err(RpcErr::MethodNotFound),
+        unknown_engine_method => Err(RpcErr::MethodNotFound(unknown_engine_method.to_owned())),
     }
 }
 
@@ -252,7 +252,7 @@ pub fn map_admin_requests(
 ) -> Result<Value, RpcErr> {
     match req.method.as_str() {
         "admin_nodeInfo" => admin::node_info(storage, local_p2p_node),
-        _ => Err(RpcErr::MethodNotFound),
+        unknown_admin_method => Err(RpcErr::MethodNotFound(unknown_admin_method.to_owned())),
     }
 }
 

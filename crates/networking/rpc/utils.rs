@@ -8,7 +8,7 @@ use ethereum_rust_blockchain::error::MempoolError;
 
 #[derive(Debug, Deserialize)]
 pub enum RpcErr {
-    MethodNotFound,
+    MethodNotFound(String),
     WrongParam(String),
     BadParams,
     MissingParam(String),
@@ -26,10 +26,10 @@ pub enum RpcErr {
 impl From<RpcErr> for RpcErrorMetadata {
     fn from(value: RpcErr) -> Self {
         match value {
-            RpcErr::MethodNotFound => RpcErrorMetadata {
+            RpcErr::MethodNotFound(bad_method) => RpcErrorMetadata {
                 code: -32601,
                 data: None,
-                message: "Method not found".to_string(),
+                message: format!("Method not found: {bad_method}"),
             },
             RpcErr::WrongParam(field) => RpcErrorMetadata {
                 code: -32602,
@@ -159,10 +159,10 @@ impl RpcRequest {
                 "eth" => Ok(RpcNamespace::Eth),
                 "admin" => Ok(RpcNamespace::Admin),
                 "debug" => Ok(RpcNamespace::Debug),
-                _ => Err(RpcErr::MethodNotFound),
+                _ => Err(RpcErr::MethodNotFound(self.method.clone())),
             }
         } else {
-            Err(RpcErr::MethodNotFound)
+            Err(RpcErr::MethodNotFound(self.method.clone()))
         }
     }
 }
