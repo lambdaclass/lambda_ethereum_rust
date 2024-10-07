@@ -77,12 +77,15 @@ impl RpcHandler for CallRequest {
         let params = params
             .as_ref()
             .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        if params.len() != 1 {
+        if params.is_empty() {
+            return Err(RpcErr::BadParams("No params provided".to_owned()));
+        }
+        if params.len() > 2 {
             return Err(RpcErr::BadParams(format!(
-                "Expected one param and {} were provided",
+                "Expected one or two params and {} were provided",
                 params.len()
             )));
-        };
+        }
         let block = match params.get(1) {
             // Differentiate between missing and bad block param
             Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
@@ -279,12 +282,15 @@ impl RpcHandler for CreateAccessListRequest {
         let params = params
             .as_ref()
             .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        if params.len() != 1 {
+        if params.is_empty() {
+            return Err(RpcErr::BadParams("No params provided".to_owned()));
+        }
+        if params.len() > 2 {
             return Err(RpcErr::BadParams(format!(
-                "Expected one param and {} were provided",
+                "Expected one or two params and {} were provided",
                 params.len()
             )));
-        };
+        }
         let block = match params.get(1) {
             // Differentiate between missing and bad block param
             Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
@@ -395,12 +401,15 @@ impl RpcHandler for EstimateGasRequest {
         let params = params
             .as_ref()
             .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
-        if params.len() != 1 {
+        if params.is_empty() {
+            return Err(RpcErr::BadParams("No params provided".to_owned()));
+        }
+        if params.len() > 2 {
             return Err(RpcErr::BadParams(format!(
-                "Expected one param and {} were provided",
+                "Expected one or two params and {} were provided",
                 params.len()
             )));
-        };
+        }
         let block = match params.get(1) {
             // Differentiate between missing and bad block param
             Some(value) => Some(BlockIdentifier::parse(value.clone(), 1)?),
