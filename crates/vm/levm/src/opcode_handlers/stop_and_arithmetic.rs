@@ -23,7 +23,7 @@ impl VM {
         let sum = augend.overflowing_add(addend).0;
         current_call_frame.stack.push(sum)?;
         self.env.consumed_gas += gas_cost::ADD;
-        
+
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -74,7 +74,10 @@ impl VM {
     }
 
     // SDIV operation
-    pub fn op_sdiv(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_sdiv(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -130,7 +133,10 @@ impl VM {
     }
 
     // SMOD operation
-    pub fn op_smod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_smod(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -170,7 +176,10 @@ impl VM {
     }
 
     // ADDMOD operation
-    pub fn op_addmod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_addmod(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -194,7 +203,10 @@ impl VM {
     }
 
     // MULMOD operation
-    pub fn op_mulmod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_mulmod(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -232,8 +244,7 @@ impl VM {
         let exponent = current_call_frame.stack.pop()?;
 
         let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
-        let gas_cost =
-            gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
+        let gas_cost = gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
         if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -246,7 +257,10 @@ impl VM {
     }
 
     // SIGNEXTEND operation
-    pub fn op_signextend(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_signextend(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }

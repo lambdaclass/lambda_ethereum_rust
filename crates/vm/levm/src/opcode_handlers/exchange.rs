@@ -4,7 +4,11 @@ use super::*;
 
 impl VM {
     // SWAP operation
-    pub fn op_swap(&mut self, current_call_frame: &mut CallFrame, op: Opcode) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_swap(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        op: Opcode,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::SWAPN > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }

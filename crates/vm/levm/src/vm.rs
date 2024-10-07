@@ -224,239 +224,104 @@ impl VM {
         }
     }
 
-
     pub fn execute(&mut self) -> ExecutionResult {
-        let mut current_call_frame = self.call_frames.pop().expect("Fatal Error. This shouldn't happen"); // if this happens during execution, we are cooked 💀
+        let mut current_call_frame = self
+            .call_frames
+            .pop()
+            .expect("Fatal Error. This shouldn't happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
-                Opcode::STOP => {
-                    self.op_stop(&mut current_call_frame)
-                }
-                Opcode::ADD => {
-                    self.op_add(&mut current_call_frame)
-                }
-                Opcode::MUL => {
-                    self.op_mul(&mut current_call_frame)
-                }
-                Opcode::SUB => {
-                    self.op_sub(&mut current_call_frame)
-                }
-                Opcode::DIV => {
-                    self.op_div(&mut current_call_frame)
-                }
-                Opcode::SDIV => {
-                    self.op_sdiv(&mut current_call_frame)
-                }
-                Opcode::MOD => {
-                    self.op_mod(&mut current_call_frame)
-                }
-                Opcode::SMOD => {
-                    self.op_smod(&mut current_call_frame)
-                }
-                Opcode::ADDMOD => {
-                    self.op_addmod(&mut current_call_frame)
-                }
-                Opcode::MULMOD => {
-                    self.op_mulmod(&mut current_call_frame)
-                }
-                Opcode::EXP => {
-                    self.op_exp(&mut current_call_frame)
-                }
-                Opcode::SIGNEXTEND => {
-                    self.op_signextend(&mut current_call_frame)
-                }
-                Opcode::LT => {
-                    self.op_lt(&mut current_call_frame)
-                }
-                Opcode::GT => {
-                    self.op_gt(&mut current_call_frame)
-                }
-                Opcode::SLT => {
-                    self.op_slt(&mut current_call_frame)
-                }
-                Opcode::SGT => {
-                    self.op_sgt(&mut current_call_frame)
-                }
-                Opcode::EQ => {
-                    self.op_eq(&mut current_call_frame)
-                }
-                Opcode::ISZERO => {
-                    self.op_iszero(&mut current_call_frame)
-                }
-                Opcode::KECCAK256 => {
-                    self.op_keccak256(&mut current_call_frame)
-                }
-                Opcode::CALLDATALOAD => {
-                    self.op_calldataload(&mut current_call_frame)
-                }
-                Opcode::CALLDATASIZE => {
-                    self.op_calldatasize(&mut current_call_frame)
-                }
-                Opcode::CALLDATACOPY => {
-                    self.op_calldatacopy(&mut current_call_frame)
-                }
-                Opcode::RETURNDATASIZE => {
-                    self.op_returndatasize(&mut current_call_frame)
-                }
-                Opcode::RETURNDATACOPY => {
-                    self.op_returndatacopy(&mut current_call_frame)
-                }
-                Opcode::JUMP => {
-                    self.op_jump(&mut current_call_frame)
-                }
-                Opcode::JUMPI => {
-                    self.op_jumpi(&mut current_call_frame)
-                }
-                Opcode::JUMPDEST => {
-                    self.op_jumpdest()
-                }
-                Opcode::PC => {
-                    self.op_pc(&mut current_call_frame)
-                }
-                Opcode::BLOCKHASH => {
-                    self.op_blockhash(&mut current_call_frame)
-                }
-                Opcode::COINBASE => {
-                    self.op_coinbase(&mut current_call_frame)
-                }
-                Opcode::TIMESTAMP => {
-                    self.op_timestamp(&mut current_call_frame)
-                }
-                Opcode::NUMBER => {
-                    self.op_number(&mut current_call_frame)
-                }
-                Opcode::PREVRANDAO => {
-                    self.op_prevrandao(&mut current_call_frame)
-                }
-                Opcode::GASLIMIT => {
-                    self.op_gaslimit(&mut current_call_frame)
-                }
-                Opcode::CHAINID => {
-                    self.op_chainid(&mut current_call_frame)
-                }
-                Opcode::SELFBALANCE => {
-                    self.op_selfbalance(&mut current_call_frame)
-                }
-                Opcode::BASEFEE => {
-                    self.op_basefee(&mut current_call_frame)
-                }
-                Opcode::BLOBHASH => {
-                    self.op_blobhash(&mut current_call_frame)
-                }
-                Opcode::BLOBBASEFEE => {
-                    self.op_blobbasefee(&mut current_call_frame)
-                }
-                Opcode::PUSH0 => {
-                    self.op_push0(&mut current_call_frame)
-                }
+                Opcode::STOP => self.op_stop(&mut current_call_frame),
+                Opcode::ADD => self.op_add(&mut current_call_frame),
+                Opcode::MUL => self.op_mul(&mut current_call_frame),
+                Opcode::SUB => self.op_sub(&mut current_call_frame),
+                Opcode::DIV => self.op_div(&mut current_call_frame),
+                Opcode::SDIV => self.op_sdiv(&mut current_call_frame),
+                Opcode::MOD => self.op_mod(&mut current_call_frame),
+                Opcode::SMOD => self.op_smod(&mut current_call_frame),
+                Opcode::ADDMOD => self.op_addmod(&mut current_call_frame),
+                Opcode::MULMOD => self.op_mulmod(&mut current_call_frame),
+                Opcode::EXP => self.op_exp(&mut current_call_frame),
+                Opcode::SIGNEXTEND => self.op_signextend(&mut current_call_frame),
+                Opcode::LT => self.op_lt(&mut current_call_frame),
+                Opcode::GT => self.op_gt(&mut current_call_frame),
+                Opcode::SLT => self.op_slt(&mut current_call_frame),
+                Opcode::SGT => self.op_sgt(&mut current_call_frame),
+                Opcode::EQ => self.op_eq(&mut current_call_frame),
+                Opcode::ISZERO => self.op_iszero(&mut current_call_frame),
+                Opcode::KECCAK256 => self.op_keccak256(&mut current_call_frame),
+                Opcode::CALLDATALOAD => self.op_calldataload(&mut current_call_frame),
+                Opcode::CALLDATASIZE => self.op_calldatasize(&mut current_call_frame),
+                Opcode::CALLDATACOPY => self.op_calldatacopy(&mut current_call_frame),
+                Opcode::RETURNDATASIZE => self.op_returndatasize(&mut current_call_frame),
+                Opcode::RETURNDATACOPY => self.op_returndatacopy(&mut current_call_frame),
+                Opcode::JUMP => self.op_jump(&mut current_call_frame),
+                Opcode::JUMPI => self.op_jumpi(&mut current_call_frame),
+                Opcode::JUMPDEST => self.op_jumpdest(),
+                Opcode::PC => self.op_pc(&mut current_call_frame),
+                Opcode::BLOCKHASH => self.op_blockhash(&mut current_call_frame),
+                Opcode::COINBASE => self.op_coinbase(&mut current_call_frame),
+                Opcode::TIMESTAMP => self.op_timestamp(&mut current_call_frame),
+                Opcode::NUMBER => self.op_number(&mut current_call_frame),
+                Opcode::PREVRANDAO => self.op_prevrandao(&mut current_call_frame),
+                Opcode::GASLIMIT => self.op_gaslimit(&mut current_call_frame),
+                Opcode::CHAINID => self.op_chainid(&mut current_call_frame),
+                Opcode::SELFBALANCE => self.op_selfbalance(&mut current_call_frame),
+                Opcode::BASEFEE => self.op_basefee(&mut current_call_frame),
+                Opcode::BLOBHASH => self.op_blobhash(&mut current_call_frame),
+                Opcode::BLOBBASEFEE => self.op_blobbasefee(&mut current_call_frame),
+                Opcode::PUSH0 => self.op_push0(&mut current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
                     self.op_push(&mut current_call_frame, op)
                 }
-                Opcode::PUSH32 => {
-                    self.op_push(&mut current_call_frame, Opcode::PUSH32)
-                }
-                Opcode::AND => {
-                    self.op_and(&mut current_call_frame)
-                }
-                Opcode::OR => {
-                    self.op_or(&mut current_call_frame)
-                }
-                Opcode::XOR => {
-                    self.op_xor(&mut current_call_frame)
-                }
-                Opcode::NOT => {
-                    self.op_not(&mut current_call_frame)
-                }
-                Opcode::BYTE => {
-                    self.op_byte(&mut current_call_frame)
-                }
-                Opcode::SHL => {
-                    self.op_shl(&mut current_call_frame)
-                }
-                Opcode::SHR => {
-                    self.op_shr(&mut current_call_frame)
-                }
-                Opcode::SAR => {
-                    self.op_sar(&mut current_call_frame)
-                }
+                Opcode::PUSH32 => self.op_push(&mut current_call_frame, Opcode::PUSH32),
+                Opcode::AND => self.op_and(&mut current_call_frame),
+                Opcode::OR => self.op_or(&mut current_call_frame),
+                Opcode::XOR => self.op_xor(&mut current_call_frame),
+                Opcode::NOT => self.op_not(&mut current_call_frame),
+                Opcode::BYTE => self.op_byte(&mut current_call_frame),
+                Opcode::SHL => self.op_shl(&mut current_call_frame),
+                Opcode::SHR => self.op_shr(&mut current_call_frame),
+                Opcode::SAR => self.op_sar(&mut current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
                     self.op_dup(&mut current_call_frame, op)
                 }
                 // SWAPn
-                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) =>{                    
+                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
                     self.op_swap(&mut current_call_frame, op)
                 }
-                Opcode::POP => {
-                    self.op_pop(&mut current_call_frame)
-                }
+                Opcode::POP => self.op_pop(&mut current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
                     self.op_log(&mut current_call_frame, op)
                 }
-                Opcode::MLOAD => {
-                    self.op_mload(&mut current_call_frame)
-                }
-                Opcode::MSTORE => {
-                    self.op_mstore(&mut current_call_frame)
-                }
-                Opcode::MSTORE8 => {
-                    self.op_mstore8(&mut current_call_frame)
-                }
-                Opcode::SLOAD => {
-                    self.op_sload(&mut current_call_frame)
-                }
-                Opcode::SSTORE => {
-                    self.op_sstore(&mut current_call_frame)
-                }
-                Opcode::MSIZE => {
-                    self.op_msize(&mut current_call_frame)
-                }
-                Opcode::GAS => {
-                    self.op_gas(&mut current_call_frame)
-                }
-                Opcode::MCOPY => {
-                    self.op_mcopy(&mut current_call_frame)
-                }
-                Opcode::CALL => {
-                    self.op_call(&mut current_call_frame)
-                }
-                Opcode::CALLCODE => {
-                    self.op_callcode(&mut current_call_frame)
-                }
-                Opcode::RETURN => {
-                    self.op_return(&mut current_call_frame)
-                }
-                Opcode::DELEGATECALL => {
-                    self.op_delegatecall(&mut current_call_frame)
-                }
-                Opcode::STATICCALL => {
-                    self.op_staticcall(&mut current_call_frame)
-                }
-                Opcode::CREATE => {
-                    self.op_create(&mut current_call_frame)
-                }
-                Opcode::CREATE2 => {
-                    self.op_create2(&mut current_call_frame)
-                }
-                Opcode::TLOAD => {
-                    self.op_tload(&mut current_call_frame)
-                }
-                Opcode::TSTORE => {
-                    self.op_tstore(&mut current_call_frame)
-                }
+                Opcode::MLOAD => self.op_mload(&mut current_call_frame),
+                Opcode::MSTORE => self.op_mstore(&mut current_call_frame),
+                Opcode::MSTORE8 => self.op_mstore8(&mut current_call_frame),
+                Opcode::SLOAD => self.op_sload(&mut current_call_frame),
+                Opcode::SSTORE => self.op_sstore(&mut current_call_frame),
+                Opcode::MSIZE => self.op_msize(&mut current_call_frame),
+                Opcode::GAS => self.op_gas(&mut current_call_frame),
+                Opcode::MCOPY => self.op_mcopy(&mut current_call_frame),
+                Opcode::CALL => self.op_call(&mut current_call_frame),
+                Opcode::CALLCODE => self.op_callcode(&mut current_call_frame),
+                Opcode::RETURN => self.op_return(&mut current_call_frame),
+                Opcode::DELEGATECALL => self.op_delegatecall(&mut current_call_frame),
+                Opcode::STATICCALL => self.op_staticcall(&mut current_call_frame),
+                Opcode::CREATE => self.op_create(&mut current_call_frame),
+                Opcode::CREATE2 => self.op_create2(&mut current_call_frame),
+                Opcode::TLOAD => self.op_tload(&mut current_call_frame),
+                Opcode::TSTORE => self.op_tstore(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
             match op_result {
-                Ok(OpcodeSuccess::Continue) => {},
+                Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(r)) => {
-                    return Self::write_success_result(
-                        current_call_frame.clone(),
-                        r,
-                    )
-                },
+                    return Self::write_success_result(current_call_frame.clone(), r)
+                }
                 Err(e) => {
                     return ExecutionResult::Halt {
                         reason: e,
@@ -561,11 +426,10 @@ impl VM {
             ExecutionResult::Halt { reason, gas_used } => {
                 current_call_frame.stack.push(U256::from(reason as u8))?;
                 current_call_frame.gas -= U256::from(gas_used);
-            }
-            // WARNING: I commented this because I don't know when this should be executed.
-            // Err(_) => {
-            //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-            // }
+            } // WARNING: I commented this because I don't know when this should be executed.
+              // Err(_) => {
+              //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
+              // }
         };
         Ok(())
     }
@@ -706,5 +570,3 @@ impl VM {
         )
     }
 }
-
-

@@ -16,7 +16,7 @@ pub enum VMError {
 
 pub enum OpcodeSuccess {
     Continue,
-    Result(ResultReason)
+    Result(ResultReason),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -4,7 +4,11 @@ use super::*;
 
 impl VM {
     // LOG operation
-    pub fn op_log(&mut self, current_call_frame: &mut CallFrame, op: Opcode) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_log(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        op: Opcode,
+    ) -> Result<OpcodeSuccess, VMError> {
         if current_call_frame.is_static {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
@@ -26,8 +30,7 @@ impl VM {
             topics.push(H32::from_slice(topic.to_be_bytes().as_ref()));
         }
 
-        let memory_expansion_cost =
-            current_call_frame.memory.expansion_cost(offset + size) as u64;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
         let gas_cost = gas_cost::LOGN_STATIC
             + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics as u64
             + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64

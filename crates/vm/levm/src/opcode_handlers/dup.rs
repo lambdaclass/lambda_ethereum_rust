@@ -4,7 +4,11 @@ use super::*;
 
 impl VM {
     // DUP operation
-    pub fn op_dup(&mut self, current_call_frame: &mut CallFrame, op: Opcode) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_dup(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        op: Opcode,
+    ) -> Result<OpcodeSuccess, VMError> {
         // Calculate the depth based on the opcode
         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
 
@@ -25,7 +29,7 @@ impl VM {
 
         // Push the duplicated value onto the stack
         current_call_frame.stack.push(*value_at_depth)?;
-        
+
         // Update the consumed gas
         self.env.consumed_gas += gas_cost::DUPN;
 

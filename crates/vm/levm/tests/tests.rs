@@ -1520,7 +1520,13 @@ fn pop_on_empty_stack() {
 
     // result should be ExecutionResult::Halt with error VMError::StackUnderflow
 
-    assert_eq!(result, ExecutionResult::Halt{ reason: VMError::StackUnderflow, gas_used: vm.env.consumed_gas }); // I don't know if this is right
+    assert_eq!(
+        result,
+        ExecutionResult::Halt {
+            reason: VMError::StackUnderflow,
+            gas_used: vm.env.consumed_gas
+        }
+    ); // I don't know if this is right
 }
 
 #[test]
@@ -2695,9 +2701,12 @@ fn cant_create_log_in_static_context() {
     let result = vm.execute();
 
     match result {
-        ExecutionResult::Halt { reason: VMError::OpcodeNotAllowedInStaticContext, gas_used: _ } => {
+        ExecutionResult::Halt {
+            reason: VMError::OpcodeNotAllowedInStaticContext,
+            gas_used: _,
+        } => {
             // Test passes
-        },
+        }
         _ => panic!("Expected ExecutionResult::Halt with OpcodeNotAllowedInStaticContext"),
     }
 }
@@ -2981,9 +2990,12 @@ fn dup_halts_if_stack_underflow() {
     let result = vm.execute();
 
     match result {
-        ExecutionResult::Halt { reason: VMError::StackUnderflow, gas_used: _ } => {
+        ExecutionResult::Halt {
+            reason: VMError::StackUnderflow,
+            gas_used: _,
+        } => {
             // Test passes
-        },
+        }
         _ => panic!("Expected ExecutionResult::Halt with StackUnderflow"),
     }
 }
@@ -3041,9 +3053,12 @@ fn swap_halts_if_stack_underflow() {
     let result = vm.execute();
 
     match result {
-        ExecutionResult::Halt { reason: VMError::StackUnderflow, gas_used: _ } => {
+        ExecutionResult::Halt {
+            reason: VMError::StackUnderflow,
+            gas_used: _,
+        } => {
             // Test passes
-        },
+        }
         _ => panic!("Expected ExecutionResult::Halt with StackUnderflow"),
     }
 }

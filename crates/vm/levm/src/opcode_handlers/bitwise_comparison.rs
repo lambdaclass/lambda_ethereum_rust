@@ -4,7 +4,6 @@ use crate::constants::WORD_SIZE;
 // Opcodes: LT, GT, SLT, SGT, EQ, ISZERO, AND, OR, XOR, NOT, BYTE, SHL, SHR, SAR
 use super::*;
 
-
 impl VM {
     // LT operation
     pub fn op_lt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
@@ -16,7 +15,7 @@ impl VM {
         let result = if lho < rho { U256::one() } else { U256::zero() };
         current_call_frame.stack.push(result)?;
         self.env.consumed_gas += gas_cost::LT;
-        
+
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -45,10 +44,18 @@ impl VM {
         let rho_is_negative = rho.bit(255);
         let result = if lho_is_negative == rho_is_negative {
             // Compare magnitudes if signs are the same
-            if lho < rho { U256::one() } else { U256::zero() }
+            if lho < rho {
+                U256::one()
+            } else {
+                U256::zero()
+            }
         } else {
             // Negative is smaller if signs differ
-            if lho_is_negative { U256::one() } else { U256::zero() }
+            if lho_is_negative {
+                U256::one()
+            } else {
+                U256::zero()
+            }
         };
         current_call_frame.stack.push(result)?;
         self.env.consumed_gas += gas_cost::SLT;
@@ -67,10 +74,18 @@ impl VM {
         let rho_is_negative = rho.bit(255);
         let result = if lho_is_negative == rho_is_negative {
             // Compare magnitudes if signs are the same
-            if lho > rho { U256::one() } else { U256::zero() }
+            if lho > rho {
+                U256::one()
+            } else {
+                U256::zero()
+            }
         } else {
             // Positive is bigger if signs differ
-            if rho_is_negative { U256::one() } else { U256::zero() }
+            if rho_is_negative {
+                U256::one()
+            } else {
+                U256::zero()
+            }
         };
         current_call_frame.stack.push(result)?;
         self.env.consumed_gas += gas_cost::SGT;
@@ -85,7 +100,11 @@ impl VM {
         }
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
-        let result = if lho == rho { U256::one() } else { U256::zero() };
+        let result = if lho == rho {
+            U256::one()
+        } else {
+            U256::zero()
+        };
         current_call_frame.stack.push(result)?;
         self.env.consumed_gas += gas_cost::EQ;
 
@@ -93,7 +112,10 @@ impl VM {
     }
 
     // ISZERO operation (check if zero)
-    pub fn op_iszero(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_iszero(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::ISZERO > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -161,7 +183,10 @@ impl VM {
     }
 
     // BYTE operation
-    pub fn op_byte(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_byte(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::BYTE > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
@@ -170,7 +195,9 @@ impl VM {
         let byte_index = op1.try_into().unwrap_or(usize::MAX);
 
         if byte_index < WORD_SIZE {
-            current_call_frame.stack.push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)))?;
+            current_call_frame
+                .stack
+                .push(U256::from(op2.byte(WORD_SIZE - 1 - byte_index)))?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }

@@ -10,14 +10,33 @@ use super::*;
 
 impl VM {
     // CALL operation
-    pub fn op_call(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_call(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
         let value = current_call_frame.stack.pop()?;
-        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let args_size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+        let args_offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let args_size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let ret_offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let ret_size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
 
         let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size);
@@ -27,7 +46,7 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        
+
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
         } else {
@@ -77,7 +96,10 @@ impl VM {
     }
 
     // CALLCODE operation
-    pub fn op_callcode(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_callcode(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
         let value = current_call_frame.stack.pop()?;
@@ -110,9 +132,20 @@ impl VM {
     }
 
     // RETURN operation
-    pub fn op_return(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        let offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
-        let size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+    pub fn op_return(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        let offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
+        let size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .unwrap_or(usize::MAX);
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
         if self.env.consumed_gas + gas_cost > self.env.gas_limit {
@@ -122,13 +155,18 @@ impl VM {
         self.env.consumed_gas += gas_cost;
         let return_data = current_call_frame.memory.load_range(offset, size).into();
         current_call_frame.returndata = return_data;
-        current_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN))?;
+        current_call_frame
+            .stack
+            .push(U256::from(SUCCESS_FOR_RETURN))?;
 
         Ok(OpcodeSuccess::Result(ResultReason::Return))
     }
 
     // DELEGATECALL operation
-    pub fn op_delegatecall(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_delegatecall(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
         let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -161,7 +199,10 @@ impl VM {
     }
 
     // STATICCALL operation
-    pub fn op_staticcall(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_staticcall(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
         let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -192,7 +233,10 @@ impl VM {
     }
 
     // CREATE operation
-    pub fn op_create(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_create(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
         let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
         let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -209,7 +253,10 @@ impl VM {
     }
 
     // CREATE2 operation
-    pub fn op_create2(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_create2(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
         let value_in_wei_to_send = current_call_frame.stack.pop()?;
         let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
         let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
