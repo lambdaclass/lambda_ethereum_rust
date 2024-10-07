@@ -467,8 +467,11 @@ impl VM {
                         r,
                     )
                 },
-                Err(_) => {
-                    todo!("Return appropriate ExecutionResult (Halt or Revert)");
+                Err(e) => {
+                    return ExecutionResult::Halt {
+                        reason: e,
+                        gas_used: self.env.consumed_gas,
+                    }
                 }
             }
         }
