@@ -170,7 +170,10 @@ impl RpcHandler for GetPayloadV3Request {
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested payload with id: {:#018x}", self.payload_id);
         let Some(mut payload) = storage.get_payload(self.payload_id)? else {
-            return Err(RpcErr::UnknownPayload);
+            return Err(RpcErr::UnknownPayload(format!(
+                "Payload with id {:#018x} not found",
+                self.payload_id
+            )));
         };
         let block_value = build_payload(&mut payload, &storage)
             .map_err(|error| RpcErr::Internal(error.to_string()))?;

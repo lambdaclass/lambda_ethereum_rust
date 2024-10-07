@@ -20,7 +20,7 @@ pub enum RpcErr {
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
     InvalidForkChoiceState(String),
-    UnknownPayload,
+    UnknownPayload(String),
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
@@ -105,10 +105,10 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: Some(data),
                 message: "Invalid forkchoice state".to_string(),
             },
-            RpcErr::UnknownPayload => RpcErrorMetadata {
+            RpcErr::UnknownPayload(context) => RpcErrorMetadata {
                 code: -38001,
                 data: None,
-                message: "Unknown payload".to_string(),
+                message: format!("Unknown payload: {context}"),
             },
         }
     }
