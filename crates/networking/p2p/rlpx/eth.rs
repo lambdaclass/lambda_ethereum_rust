@@ -136,7 +136,13 @@ impl RLPEncode for HashOrNumber {
 impl RLPDecode for HashOrNumber {
     #[inline(always)]
     fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        // as a start, we are only accepting u64
+        let first_byte = *buf.get(0).ok_or(RLPDecodeError::InvalidLength)?;
+        // after some tests, seems that the first byte is always 160 for hashes
+        if first_byte == 160 {
+            let (hash, rest) = BlockHash::decode_unfinished(buf)?;
+            return Ok((Self::Hash(hash), rest));
+        }
+
         let (number, rest) = u64::decode_unfinished(buf)?;
         Ok((Self::Number(number), rest))
     }
@@ -283,7 +289,7 @@ impl RLPxMessage for BlockHeaders {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::{Block, BlockHeader};
+    use ethereum_rust_core::types::{Block, BlockHash, BlockHeader};
     use ethereum_rust_storage::Store;
 
     use crate::rlpx::{
@@ -303,8 +309,8 @@ mod tests {
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.startblock, HashOrNumber::Number(1));
     }
-    // TODO: first testing with numbers, then we will see this (?
-    /*#[test]
+
+    #[test]
     fn get_block_headers_startblock_hash_message() {
         let get_block_bodies = GetBlockHeaders::build_from(
             1,
@@ -324,7 +330,7 @@ mod tests {
             decoded.startblock,
             HashOrNumber::Hash(BlockHash::from([1; 32]))
         );
-    }*/
+    }
 
     #[test]
     fn block_headers_startblock_number_message() {
