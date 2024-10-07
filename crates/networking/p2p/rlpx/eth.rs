@@ -242,9 +242,14 @@ impl BlockHeaders {
 
         // how should we get the next block starting from here?
         let first_block = match startblock {
-            // TODO: couldn't find what to do if the block is not found
-            HashOrNumber::Hash(hash) => storage.get_block_header_by_hash(hash)?.unwrap(),
-            HashOrNumber::Number(number) => storage.get_block_header(number)?.unwrap(),
+            HashOrNumber::Hash(hash) => match storage.get_block_header_by_hash(hash)? {
+                Some(header) => header,
+                None => return Ok(Self { block_headers, id }),
+            },
+            HashOrNumber::Number(number) => match storage.get_block_header(number)? {
+                Some(header) => header,
+                None => return Ok(Self { block_headers, id }),
+            },
         };
 
         let number = first_block.number;
@@ -446,5 +451,30 @@ mod tests {
         let decoded = BlockHeaders::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_headers, vec![header1, header2, header3]);
+    }
+
+    #[test]
+    fn block_headers_request_not_existing_block() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let mut header1 = BlockHeader::default();
+        header1.number = 1;
+        let block1 = Block {
+            header: header1.clone(),
+            body: Default::default(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store
+            .set_canonical_block(1, header1.compute_block_hash())
+            .unwrap();
+
+        let block_bodies =
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(404), 0, 0, false).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockHeaders::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_headers, vec![]);
     }
 }
