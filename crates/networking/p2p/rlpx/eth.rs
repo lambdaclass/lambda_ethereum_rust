@@ -154,8 +154,7 @@ impl RLPxMessage for GetBlockBodies {
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder): (u8, _) = decoder.decode_field("request-id").unwrap();
-        let (blocks_hash, decoder): (Vec<BlockHash>, _) =
-            decoder.decode_field("blockHashes").unwrap();
+        let (blocks_hash, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes").unwrap();
 
         if id != 0x05 {
             return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
@@ -213,8 +212,7 @@ impl RLPxMessage for BlockBodies {
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder): (u8, _) = decoder.decode_field("request-id").unwrap();
-        let (blocks_bodies, decoder): (Vec<BlockBody>, _) =
-            decoder.decode_field("blockBodies").unwrap();
+        let (blocks_bodies, _): (Vec<BlockBody>, _) = decoder.decode_field("blockBodies").unwrap();
 
         if id != 0x06 {
             return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
@@ -343,5 +341,49 @@ mod tests {
             decoded.blocks_bodies,
             vec![body.clone(), body.clone(), body]
         );
+    }
+
+    #[test]
+    fn get_block_bodies_receive_block_bodies() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody::default();
+        let block = Block {
+            header: Default::default(),
+            body: body.clone(),
+        };
+        store.add_block(block.clone()).unwrap();
+        let blocks_hash = vec![block.header.compute_block_hash()];
+        let get_block_bodies = GetBlockBodies::build_from(blocks_hash.clone()).unwrap();
+
+        let mut send_data_of_blocks_hash = Vec::new();
+        get_block_bodies.encode(&mut send_data_of_blocks_hash);
+
+        let sender = std::net::UdpSocket::bind("127.0.0.1:3000").unwrap();
+        let receiver = std::net::UdpSocket::bind("127.0.0.1:4000").unwrap();
+
+        sender
+            .send_to(&send_data_of_blocks_hash, "127.0.0.1:4000")
+            .unwrap(); // sends the blocks_hash
+        let mut receiver_data = [0; 1024];
+        let len = receiver.recv(&mut receiver_data).unwrap(); // receives the blocks_hash
+
+        let received_block_hashes = GetBlockBodies::decode(&receiver_data[..len]).unwrap(); // transform the encoded received data to blockhashes
+        let block_bodies =
+            BlockBodies::build_from(&store, received_block_hashes.blocks_hash).unwrap();
+
+        let mut block_bodies_to_send = Vec::new();
+        block_bodies.encode(&mut block_bodies_to_send); // encode the block bodies that we got
+
+        receiver
+            .send_to(&block_bodies_to_send, "127.0.0.1:3000")
+            .unwrap(); // send the block bodies to the sender that requested them
+
+        let mut received_block_bodies = [0; 1024];
+        let len = sender.recv(&mut received_block_bodies).unwrap(); // receive the block bodies
+        let received_block_bodies = BlockBodies::decode(&received_block_bodies[..len]).unwrap();
+        // decode the received block bodies
+
+        assert_eq!(received_block_bodies.id, 0x06);
+        assert_eq!(received_block_bodies.blocks_bodies, vec![body]);
     }
 }
