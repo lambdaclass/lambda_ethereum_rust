@@ -59,8 +59,9 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Check timestamp does not fall within the time frame of the Cancun fork
         let chain_config = storage.get_chain_config()?;
-        if chain_config.get_fork(block.header.timestamp) < Fork::Cancun {
-            return Err(RpcErr::UnsuportedFork);
+        let current_fork = chain_config.get_fork(block.header.timestamp);
+        if current_fork < Fork::Cancun {
+            return Err(RpcErr::UnsuportedFork(format!("{current_fork:?}")));
         }
 
         // Check that block_hash is valid

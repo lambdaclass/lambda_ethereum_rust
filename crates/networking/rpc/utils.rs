@@ -13,7 +13,7 @@ pub enum RpcErr {
     BadParams(String),
     MissingParam(String),
     BadHexFormat(u64),
-    UnsuportedFork,
+    UnsuportedFork(String),
     Internal(String),
     Vm(String),
     Revert { data: String },
@@ -46,10 +46,10 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: format!("Expected parameter: {parameter_name} is missing"),
             },
-            RpcErr::UnsuportedFork => RpcErrorMetadata {
+            RpcErr::UnsuportedFork(context) => RpcErrorMetadata {
                 code: -38005,
                 data: None,
-                message: "Unsupported fork".to_string(),
+                message: format!("Unsupported fork: {context}"),
             },
             RpcErr::BadHexFormat(arg_number) => RpcErrorMetadata {
                 code: -32602,
