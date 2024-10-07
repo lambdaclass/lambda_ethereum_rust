@@ -261,8 +261,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             break;
         };
         if !blob_txs.is_empty()
-            && context.blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB
-                >= MAX_BLOB_GAS_PER_BLOCK
+            && context.blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB >= MAX_BLOB_GAS_PER_BLOCK
         {
             debug!("No more blob gas to run blob transactions");
             blob_txs.clear();
@@ -351,9 +350,7 @@ fn apply_blob_transaction(
             StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
         );
     };
-    if context.blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB
-        > MAX_BLOB_GAS_PER_BLOCK
-    {
+    if context.blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB > MAX_BLOB_GAS_PER_BLOCK {
         // This error will only be used for debug tracing
         return Err(EvmError::Custom("max data blobs reached".to_string()).into());
     };
