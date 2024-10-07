@@ -1,9 +1,11 @@
 use std::{collections::HashMap, path::Path};
 
 use levm::{
-    block::BlockEnv, 
-    primitives::{Bytes, H160, U256}, 
-    transaction::{TransactTo, TxEnv}, vm::{Account, Db, StorageSlot, VM}, vm_result::{ExecutionResult, StateAccount},
+    block::BlockEnv,
+    primitives::{Bytes, H160, U256},
+    transaction::{TransactTo, TxEnv},
+    vm::{Account, Db, StorageSlot, VM},
+    vm_result::{ExecutionResult, StateAccount},
 };
 
 use crate::ef_tests_executor::models::AccountInfo;
@@ -16,7 +18,7 @@ use crate::ef_tests_executor::models::AccountInfo;
 //     vm_result::ExecutionResult,
 // };
 
-use super::models::{ Env, Test, TestSuite, TestUnit, TransactionParts};
+use super::models::{Env, Test, TestSuite, TestUnit, TransactionParts};
 
 /// Receives a Bytes object with the hex representation
 /// And returns a Bytes object with the decimal representation
@@ -281,9 +283,7 @@ fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
             storage,
         );
 
-        db
-            .accounts
-            .insert(address.clone(), account.clone());
+        db.accounts.insert(address.clone(), account.clone());
     }
 
     VM::new(tx_env, block_env, db)
@@ -313,10 +313,7 @@ fn verify_result(
 }
 
 /// Test the resulting storage is the same as the expected storage
-fn verify_storage(
-    post_state: &HashMap<H160, AccountInfo>,
-    res_state: HashMap<H160, StateAccount>,
-) {
+fn verify_storage(post_state: &HashMap<H160, AccountInfo>, res_state: HashMap<H160, StateAccount>) {
     let mut result_state = HashMap::new();
     for address in post_state.keys() {
         let account = res_state.get(address).unwrap();

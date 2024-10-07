@@ -12,7 +12,10 @@ use crate::{
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, H32, U256, U512},
     transaction::{TransactTo, TxEnv},
-    vm_result::{AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, Output, ResultAndState, ResultReason, StateAccount, SuccessReason, VMError},
+    vm_result::{
+        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, Output, ResultAndState,
+        ResultReason, StateAccount, SuccessReason, VMError,
+    },
 };
 extern crate ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -282,7 +285,12 @@ impl VM {
         }
     }
 
-    pub fn write_success_result(call_frame: CallFrame, reason: ResultReason, gas_used: u64, gas_refunded: u64) -> ExecutionResult {
+    pub fn write_success_result(
+        call_frame: CallFrame,
+        reason: ResultReason,
+        gas_used: u64,
+        gas_refunded: u64,
+    ) -> ExecutionResult {
         let reason = match reason {
             ResultReason::Stop => SuccessReason::Stop,
             ResultReason::Return => SuccessReason::Return,
@@ -293,22 +301,19 @@ impl VM {
             logs: call_frame.logs.clone(),
             return_data: call_frame.returndata.clone(),
             gas_used,
-            output: Output::Call(call_frame.returndata.clone().into()),
-            gas_refunded
+            output: Output::Call(call_frame.returndata.clone()),
+            gas_refunded,
         }
     }
 
     pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
-        let initial_gas = self.env.gas_limit;
+        // let initial_gas = self.env.gas_limit;
         let gas_used = self.env.consumed_gas;
 
-        let gas_remaining = initial_gas - gas_used;
-        
+        // let gas_remaining = initial_gas - gas_used;
+
         // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
-        let gas_refunded = self
-            .env
-            .refunded_gas
-            .min(gas_used / GAS_REFUND_DENOMINATOR);
+        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
 
         // let exit_status = res
         //     .inner_context
@@ -334,7 +339,7 @@ impl VM {
 
         let result = match exis_status_code {
             ExitStatusCode::Return => ExecutionResult::Success {
-                reason:  SuccessReason::Return,
+                reason: SuccessReason::Return,
                 gas_used,
                 gas_refunded,
                 output: Output::Call(return_values.clone()), // TODO: add case Output::Create
@@ -350,7 +355,7 @@ impl VM {
                 return_data: return_values.clone(),
             },
             ExitStatusCode::Revert => ExecutionResult::Revert {
-                output: return_values.into(),
+                output: return_values,
                 gas_used,
                 reason: res.reason(),
             },
@@ -366,7 +371,7 @@ impl VM {
         Ok(ResultAndState { result, state })
     }
 
-    pub fn execute(&mut self, initial_gas_consumed: u64) -> Result<ExecutionResult, VMError> {
+    pub fn execute(&mut self, _initial_gas_consumed: u64) -> Result<ExecutionResult, VMError> {
         let block_env = self.env.block.clone();
         let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
         loop {

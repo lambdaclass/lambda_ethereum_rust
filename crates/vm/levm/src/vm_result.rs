@@ -2,7 +2,11 @@ use std::{collections::HashMap, fmt};
 
 use serde::{de, Deserialize};
 
-use crate::{call_frame::Log, primitives::{Address, Bytes, U256, H256}, vm::{Account, StorageSlot, VM}};
+use crate::{
+    call_frame::Log,
+    primitives::{Address, Bytes, H256, U256},
+    vm::StorageSlot,
+};
 
 /// Errors that halt the program
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -22,7 +26,6 @@ pub enum ResultReason {
     Stop,
     Return,
 }
-
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResultAndState {
@@ -133,8 +136,8 @@ impl ExecutionResult {
 
     pub fn reason(&self) -> VMError {
         match self {
-            Self::Revert { reason,  .. } => reason.clone(),
-            Self::Halt { reason,  .. } => reason.clone(),
+            Self::Revert { reason, .. } => reason.clone(),
+            Self::Halt { reason, .. } => reason.clone(),
             _ => VMError::FatalError,
         }
     }
@@ -215,7 +218,7 @@ impl From<InvalidHeader> for EVMError {
 
 /// Transaction validation error.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InvalidTransaction {
     /// When using the EIP-1559 fee model introduced in the London upgrade, transactions specify two primary fee fields:
     /// - `gas_max_fee`: The maximum total fee a user is willing to pay, inclusive of both base fee and priority fee.
@@ -340,7 +343,7 @@ impl fmt::Display for InvalidTransaction {
 
 /// Errors related to misconfiguration of a [`crate::env::BlockEnv`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InvalidHeader {
     /// `prevrandao` is not set for Merge and above.
     PrevrandaoNotSet,

@@ -81,29 +81,28 @@ fn get_ignored_groups() -> HashSet<String> {
     ])
 }
 
-// Cancun					
-// Pyspecs					
-// Shanghai				
-// 					
-// stArgsZeroOneBalance			
-// 				
+// Cancun
+// Pyspecs
+// Shanghai
+//
+// stArgsZeroOneBalance
+//
 // 				stRandom
 // 					stRandom2
 // 				stRecursiveCreate
 // 		stRefundTest
-// stCallDelegateCodesCallCodeHomestead	
-// stCallDelegateCodesHomestead		
+// stCallDelegateCodesCallCodeHomestead
+// stCallDelegateCodesHomestead
 // stChainId				stSLoadTest
 // 				stSStoreTest
-// stCodeSizeLimit				
+// stCodeSizeLimit
 // stCreate2				stShift
-// stCreateTest				
+// stCreateTest
 // 				stStaticFlagEnabled
-// stEIP158Specific			
-// stEIP2930				
-// 				
+// stEIP158Specific
+// stEIP2930
+//
 // 			stZeroCallsRevert
-
 
 fn get_ignored_suites() -> HashSet<String> {
     HashSet::from([
