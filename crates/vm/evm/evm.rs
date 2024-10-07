@@ -18,7 +18,6 @@ use revm::{
     db::{states::bundle_state::BundleRetention, AccountStatus},
     inspector_handle_register,
     inspectors::TracerEip3155,
-    interpreter::instructions::system::address,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, U256 as RevmU256},
     Database, DatabaseCommit, Evm,
@@ -467,10 +466,11 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
+            .clone()
             .into_iter()
             .map(|list| {
                 let (address, storage_keys) = (
-                    Address::from_slice(list.address.as_bytes()),
+                    RevmAddress::from_slice(list.address.as_bytes()),
                     list.storage_keys
                         .iter()
                         .map(|a| FixedBytes::from_slice(a.as_bytes()))
