@@ -1,4 +1,4 @@
-use crate::vm_result::{ExecutionResult, ResultReason};
+use crate::vm_result::ResultReason;
 
 // Stop and Arithmetic Operations (12)
 // Opcodes: STOP, ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND

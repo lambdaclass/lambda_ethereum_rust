@@ -4,11 +4,11 @@ use std::{
 };
 
 use crate::{
-    block::{BlockEnv, LAST_AVAILABLE_BLOCK_LIMIT},
-    call_frame::{CallFrame, Log},
+    block::BlockEnv,
+    call_frame::CallFrame,
     constants::*,
     opcodes::Opcode,
-    primitives::{Address, Bytes, H256, H32, U256, U512},
+    primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
     vm_result::{ExecutionResult, OpcodeSuccess, ResultReason, VMError},
 };
@@ -158,15 +158,6 @@ pub struct VM {
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
     pub db: Db,
-}
-
-/// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
-fn is_negative(value: U256) -> bool {
-    value.bit(255)
-}
-/// negates a number in two's complement
-fn negate(value: U256) -> U256 {
-    !value + U256::one()
 }
 
 fn address_to_word(address: Address) -> U256 {

@@ -1,5 +1,5 @@
 use crate::{
-    constants::{call_opcode, HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    constants::{call_opcode, SUCCESS_FOR_RETURN},
     vm_result::ResultReason,
 };
 
