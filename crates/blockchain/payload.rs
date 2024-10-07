@@ -292,10 +292,6 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             continue;
         }
 
-        let acc_state = context
-            .store()
-            .get_account_state(context.payload.header.number - 1, head_tx.tx.sender());
-        dbg!(acc_state);
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here (we can do this in the same refactor as adding timestamp)
         let tx_hash = head_tx.tx.compute_hash();
 
