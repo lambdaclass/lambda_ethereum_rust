@@ -226,7 +226,7 @@ impl RLPxMessage for BlockBodies {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::BlockHash;
+    use ethereum_rust_core::types::{Block, BlockBody, BlockHash};
     use ethereum_rust_storage::Store;
 
     use crate::rlpx::{
@@ -276,5 +276,26 @@ mod tests {
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 0x06);
         assert_eq!(decoded.blocks_bodies, vec![]);
+    }
+
+    #[test]
+    fn block_bodies_for_one_block() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody::default();
+        let block = Block {
+            header: Default::default(),
+            body: body.clone(),
+        };
+        store.add_block(block.clone()).unwrap();
+        let blocks_hash = vec![block.header.compute_block_hash()];
+
+        let block_bodies = BlockBodies::build_from(&store, blocks_hash).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 0x06);
+        assert_eq!(decoded.blocks_bodies, vec![body]);
     }
 }
