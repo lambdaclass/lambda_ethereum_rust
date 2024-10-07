@@ -1,6 +1,6 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    types::{BlockHash, BlockHeader, ForkId},
+    types::{BlockHash, BlockHeader, BlockNumber, ForkId},
     U256,
 };
 use ethereum_rust_rlp::{
@@ -111,10 +111,10 @@ impl RLPxMessage for StatusMessage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum HashOrNumber {
     Hash(BlockHash),
-    Number(u64),
+    Number(BlockNumber),
 }
 
 impl RLPEncode for HashOrNumber {
@@ -235,6 +235,7 @@ impl BlockHeaders {
 
         // how should we get the next block starting from here?
         let first_block = match startblock {
+            // TODO: couldn't find what to do if the block is not found
             HashOrNumber::Hash(hash) => storage.get_block_header_by_hash(hash)?.unwrap(),
             HashOrNumber::Number(number) => storage.get_block_header(number)?.unwrap(),
         };
@@ -277,5 +278,76 @@ impl RLPxMessage for BlockHeaders {
         let (block_headers, _): (Vec<BlockHeader>, _) = decoder.decode_field("headers").unwrap();
 
         Ok(Self { block_headers, id })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ethereum_rust_core::types::{Block, BlockHeader};
+    use ethereum_rust_storage::Store;
+
+    use crate::rlpx::{
+        eth::{BlockHeaders, GetBlockHeaders, HashOrNumber},
+        message::RLPxMessage,
+    };
+
+    #[test]
+    fn get_block_headers_startblock_number_message() {
+        let get_block_bodies =
+            GetBlockHeaders::build_from(1, HashOrNumber::Number(1), 0, 0, false).unwrap();
+
+        let mut buf = Vec::new();
+        get_block_bodies.encode(&mut buf);
+
+        let decoded = GetBlockHeaders::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.startblock, HashOrNumber::Number(1));
+    }
+    // TODO: first testing with numbers, then we will see this (?
+    /*#[test]
+    fn get_block_headers_startblock_hash_message() {
+        let get_block_bodies = GetBlockHeaders::build_from(
+            1,
+            HashOrNumber::Hash(BlockHash::from([1; 32])),
+            0,
+            0,
+            false,
+        )
+        .unwrap();
+
+        let mut buf = Vec::new();
+        get_block_bodies.encode(&mut buf);
+
+        let decoded = GetBlockHeaders::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(
+            decoded.startblock,
+            HashOrNumber::Hash(BlockHash::from([1; 32]))
+        );
+    }*/
+
+    #[test]
+    fn block_headers_startblock_number_message() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let header1 = BlockHeader::default();
+        let number = 1;
+        let block1 = Block {
+            header: header1.clone(),
+            body: Default::default(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store
+            .set_canonical_block(number, header1.compute_block_hash())
+            .unwrap();
+
+        let block_bodies =
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(number), 0, 0, false).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockHeaders::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_headers, vec![header1]);
     }
 }
