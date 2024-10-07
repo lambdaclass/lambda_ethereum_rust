@@ -152,8 +152,9 @@ impl RLPxMessage for GetBlockBodies {
         let mut snappy_decoder = SnappyDecoder::new();
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
-        let blocks_hash = vec![];
         let (id, decoder): (u8, _) = decoder.decode_field("request-id").unwrap();
+        let (blocks_hash, decoder): (Vec<BlockHash>, _) =
+            decoder.decode_field("blockHashes").unwrap();
 
         if id != 0x05 {
             return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
@@ -172,6 +173,23 @@ mod tests {
     #[test]
     fn get_block_bodies_empty_message() {
         let blocks_hash = vec![];
+        let get_block_bodies = GetBlockBodies::build_from(blocks_hash.clone()).unwrap();
+
+        let mut buf = Vec::new();
+        get_block_bodies.encode(&mut buf);
+
+        let decoded = GetBlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 0x05);
+        assert_eq!(decoded.blocks_hash, blocks_hash);
+    }
+
+    #[test]
+    fn get_block_bodies_not_empty_message() {
+        let blocks_hash = vec![
+            BlockHash::from([0; 32]),
+            BlockHash::from([1; 32]),
+            BlockHash::from([2; 32]),
+        ];
         let get_block_bodies = GetBlockBodies::build_from(blocks_hash.clone()).unwrap();
 
         let mut buf = Vec::new();
