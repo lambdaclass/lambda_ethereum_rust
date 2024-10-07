@@ -1722,7 +1722,18 @@ impl VM {
                     todo!()
                 }
                 Opcode::CODESIZE => {
-                    todo!()
+                    if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
+                        return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        });
+                    }
+
+                    current_call_frame
+                        .stack
+                        .push(U256::from(current_call_frame.bytecode.len()))?;
+                    self.env.consumed_gas += gas_cost::CODESIZE;
                 }
                 Opcode::GASPRICE => {
                     todo!()
