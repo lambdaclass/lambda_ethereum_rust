@@ -179,6 +179,19 @@ impl StoreEngine for Store {
         Ok(self.inner().transaction_pool.get(&hash).cloned())
     }
 
+    fn add_blobs_bundle_to_pool(
+        &self,
+        tx_hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.inner().blobs_bundle_pool.insert(tx_hash, blobs_bundle);
+        Ok(())
+    }
+
+    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
+        Ok(self.inner().blobs_bundle_pool.get(&tx_hash).cloned())
+    }
+
     fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
         self.inner().transaction_pool.remove(&hash);
         Ok(())
@@ -202,19 +215,6 @@ impl StoreEngine for Store {
             txs.sort_by_key(|tx| tx.nonce());
         }
         Ok(txs_by_sender)
-    }
-
-    fn add_blobs_bundle_to_pool(
-        &self,
-        tx_hash: H256,
-        blobs_bundle: BlobsBundle,
-    ) -> Result<(), StoreError> {
-        self.inner().blobs_bundle_pool.insert(tx_hash, blobs_bundle);
-        Ok(())
-    }
-
-    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
-        Ok(self.inner().blobs_bundle_pool.get(&tx_hash).cloned())
     }
 
     fn add_receipt(

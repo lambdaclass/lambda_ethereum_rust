@@ -219,21 +219,7 @@ impl Store {
         self.engine.get_transaction_from_pool(hash)
     }
 
-    /// Remove a transaction from the pool
-    pub fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
-        self.engine.remove_transaction_from_pool(hash)
-    }
-
-    /// Applies the filter and returns a set of suitable transactions from the mempool.
-    /// These transactions will be grouped by sender and sorted by nonce
-    pub fn filter_pool_transactions(
-        &self,
-        filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
-        self.engine.filter_pool_transactions(filter)
-    }
-
-    /// Add a blobs bundle from the pool by the blob transaction's hash
+    /// Add a blobs bundle to the pool by its blob transaction hash
     pub fn add_blobs_bundle_to_pool(
         &self,
         tx_hash: H256,
@@ -248,6 +234,20 @@ impl Store {
         tx_hash: H256,
     ) -> Result<Option<BlobsBundle>, StoreError> {
         self.engine.get_blobs_bundle_from_pool(tx_hash)
+    }
+
+    /// Remove a transaction from the pool
+    pub fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.engine.remove_transaction_from_pool(hash)
+    }
+
+    /// Applies the filter and returns a set of suitable transactions from the mempool.
+    /// These transactions will be grouped by sender and sorted by nonce
+    pub fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+        self.engine.filter_pool_transactions(filter)
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {

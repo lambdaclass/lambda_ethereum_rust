@@ -5,7 +5,7 @@ mod constants;
 mod fork_id;
 mod genesis;
 mod receipt;
-mod transaction;
+pub mod transaction;
 
 pub use account::*;
 pub use blobs_bundle::*;
