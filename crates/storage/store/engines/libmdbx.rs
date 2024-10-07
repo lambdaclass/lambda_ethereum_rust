@@ -252,6 +252,9 @@ impl StoreEngine for Store {
                 txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
         }
+        for (_, txs) in txs_by_sender.iter_mut() {
+            txs.reverse();
+        }
         Ok(txs_by_sender)
     }
 

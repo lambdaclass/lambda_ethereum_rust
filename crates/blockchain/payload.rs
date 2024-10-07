@@ -484,18 +484,14 @@ impl TransactionQueue {
                     sender: tx.sender,
                 };
                 // Insert head into heads list while maintaing order
-                let mut index = 0;
-                loop {
-                    if self
-                        .heads
-                        .get(index)
-                        .is_some_and(|current_head| compare_heads(current_head, &head).is_gt())
-                    {
-                        index += 1;
-                    } else {
-                        self.heads.insert(index, head.clone());
-                    }
-                }
+                let index = match self
+                    .heads
+                    .binary_search_by(|current_head| compare_heads(current_head, &head))
+                {
+                    Ok(index) => index, // Same ordering shouldn't be possible when adding timestamps
+                    Err(index) => index,
+                };
+                self.heads.insert(index, head);
             }
         }
     }
