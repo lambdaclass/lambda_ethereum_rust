@@ -508,12 +508,15 @@ impl RpcHandler for SendRawTransactionRequest {
         Ok(transaction)
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        //TODO: Here we are discarding the Blob Transaction's sidecard.
-        // but in the future we will have to add it to the mempool, maybe handling it differently
-        // from any other transaction
-        let tx = self.to_transaction();
-
-        let hash = mempool::add_transaction(tx, storage)?;
+        let hash = if let SendRawTransactionRequest::EIP4844(wrapped_blob_tx) = self {
+            mempool::add_blob_transaction(
+                wrapped_blob_tx.tx.clone(),
+                wrapped_blob_tx.blobs_bundle.clone(),
+                storage,
+            )
+        } else {
+            mempool::add_transaction(self.to_transaction(), storage)
+        }?;
         serde_json::to_value(format!("{:#x}", hash)).map_err(|_| RpcErr::Internal)
     }
 }
