@@ -249,6 +249,7 @@ impl VM {
                 Opcode::ADD => {
                     if self.env.consumed_gas + gas_cost::ADD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -262,6 +263,7 @@ impl VM {
                 Opcode::MUL => {
                     if self.env.consumed_gas + gas_cost::MUL > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -275,6 +277,7 @@ impl VM {
                 Opcode::SUB => {
                     if self.env.consumed_gas + gas_cost::SUB > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -288,6 +291,7 @@ impl VM {
                 Opcode::DIV => {
                     if self.env.consumed_gas + gas_cost::DIV > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -305,6 +309,7 @@ impl VM {
                 Opcode::SDIV => {
                     if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -342,6 +347,7 @@ impl VM {
                 Opcode::MOD => {
                     if self.env.consumed_gas + gas_cost::MOD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -359,6 +365,7 @@ impl VM {
                 Opcode::SMOD => {
                     if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -396,6 +403,7 @@ impl VM {
                 Opcode::ADDMOD => {
                     if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -419,6 +427,7 @@ impl VM {
                 Opcode::MULMOD => {
                     if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -457,6 +466,7 @@ impl VM {
                         gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -469,6 +479,7 @@ impl VM {
                 Opcode::SIGNEXTEND => {
                     if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -495,6 +506,7 @@ impl VM {
                 Opcode::LT => {
                     if self.env.consumed_gas + gas_cost::LT > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -508,6 +520,7 @@ impl VM {
                 Opcode::GT => {
                     if self.env.consumed_gas + gas_cost::GT > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -521,6 +534,7 @@ impl VM {
                 Opcode::SLT => {
                     if self.env.consumed_gas + gas_cost::SLT > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -550,6 +564,7 @@ impl VM {
                 Opcode::SGT => {
                     if self.env.consumed_gas + gas_cost::SGT > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -579,6 +594,7 @@ impl VM {
                 Opcode::EQ => {
                     if self.env.consumed_gas + gas_cost::EQ > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -596,6 +612,7 @@ impl VM {
                 Opcode::ISZERO => {
                     if self.env.consumed_gas + gas_cost::ISZERO > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -629,6 +646,7 @@ impl VM {
                         + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -647,6 +665,7 @@ impl VM {
                 Opcode::CALLDATALOAD => {
                     if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -665,6 +684,7 @@ impl VM {
                 Opcode::CALLDATASIZE => {
                     if self.env.consumed_gas + gas_cost::CALLDATASIZE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -699,6 +719,7 @@ impl VM {
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -716,6 +737,7 @@ impl VM {
                 Opcode::RETURNDATASIZE => {
                     if self.env.consumed_gas + gas_cost::RETURNDATASIZE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -750,6 +772,7 @@ impl VM {
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -766,6 +789,7 @@ impl VM {
                 Opcode::JUMP => {
                     if self.env.consumed_gas + gas_cost::JUMP > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -797,6 +821,7 @@ impl VM {
                     // just consume some gas, jumptable written at the start
                     if self.env.consumed_gas + gas_cost::JUMPDEST > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -806,6 +831,7 @@ impl VM {
                 Opcode::PC => {
                     if self.env.consumed_gas + gas_cost::PC > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -818,6 +844,7 @@ impl VM {
                 Opcode::BLOCKHASH => {
                     if self.env.consumed_gas + gas_cost::BLOCKHASH > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -849,6 +876,7 @@ impl VM {
                 Opcode::COINBASE => {
                     if self.env.consumed_gas + gas_cost::COINBASE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -860,6 +888,7 @@ impl VM {
                 Opcode::TIMESTAMP => {
                     if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -871,6 +900,7 @@ impl VM {
                 Opcode::NUMBER => {
                     if self.env.consumed_gas + gas_cost::NUMBER > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -882,6 +912,7 @@ impl VM {
                 Opcode::PREVRANDAO => {
                     if self.env.consumed_gas + gas_cost::PREVRANDAO > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -895,6 +926,7 @@ impl VM {
                 Opcode::GASLIMIT => {
                     if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -906,6 +938,7 @@ impl VM {
                 Opcode::CHAINID => {
                     if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -917,6 +950,7 @@ impl VM {
                 Opcode::SELFBALANCE => {
                     if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -927,6 +961,7 @@ impl VM {
                 Opcode::BASEFEE => {
                     if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -938,6 +973,7 @@ impl VM {
                 Opcode::BLOBHASH => {
                     if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -948,6 +984,7 @@ impl VM {
                 Opcode::BLOBBASEFEE => {
                     if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -959,6 +996,7 @@ impl VM {
                 Opcode::PUSH0 => {
                     if self.env.consumed_gas + gas_cost::PUSH0 > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -970,6 +1008,7 @@ impl VM {
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -987,6 +1026,7 @@ impl VM {
                 Opcode::PUSH32 => {
                     if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1003,6 +1043,7 @@ impl VM {
                 Opcode::AND => {
                     if self.env.consumed_gas + gas_cost::AND > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1015,6 +1056,7 @@ impl VM {
                 Opcode::OR => {
                     if self.env.consumed_gas + gas_cost::OR > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1027,6 +1069,7 @@ impl VM {
                 Opcode::XOR => {
                     if self.env.consumed_gas + gas_cost::XOR > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1039,6 +1082,7 @@ impl VM {
                 Opcode::NOT => {
                     if self.env.consumed_gas + gas_cost::NOT > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1050,6 +1094,7 @@ impl VM {
                 Opcode::BYTE => {
                     if self.env.consumed_gas + gas_cost::BYTE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1071,6 +1116,7 @@ impl VM {
                 Opcode::SHL => {
                     if self.env.consumed_gas + gas_cost::SHL > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1087,6 +1133,7 @@ impl VM {
                 Opcode::SHR => {
                     if self.env.consumed_gas + gas_cost::SHR > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1103,6 +1150,7 @@ impl VM {
                 Opcode::SAR => {
                     if self.env.consumed_gas + gas_cost::SAR > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1123,6 +1171,7 @@ impl VM {
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::DUPN > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1143,6 +1192,7 @@ impl VM {
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
                     if self.env.consumed_gas + gas_cost::SWAPN > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1164,6 +1214,7 @@ impl VM {
                 Opcode::POP => {
                     if self.env.consumed_gas + gas_cost::POP > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1201,6 +1252,7 @@ impl VM {
                         + memory_expansion_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1226,6 +1278,7 @@ impl VM {
                     let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1242,6 +1295,7 @@ impl VM {
                     let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1261,6 +1315,7 @@ impl VM {
                     let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1324,6 +1379,7 @@ impl VM {
                 Opcode::MSIZE => {
                     if self.env.consumed_gas + gas_cost::MSIZE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1336,6 +1392,7 @@ impl VM {
                 Opcode::GAS => {
                     if self.env.consumed_gas + gas_cost::GAS > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1433,6 +1490,7 @@ impl VM {
                         + value_to_empty_account_cost;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1506,6 +1564,7 @@ impl VM {
                     let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
                     if self.env.consumed_gas + gas_cost > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1614,6 +1673,7 @@ impl VM {
                 Opcode::TLOAD => {
                     if self.env.consumed_gas + gas_cost::TLOAD > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1631,6 +1691,7 @@ impl VM {
                 Opcode::TSTORE => {
                     if self.env.consumed_gas + gas_cost::TSTORE > self.env.gas_limit {
                         return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
                             gas_used: self.env.consumed_gas,
                             output: current_call_frame.returndata,
                         }); // should revert the tx
@@ -1729,7 +1790,11 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            Ok(ExecutionResult::Revert { gas_used, output }) => {
+            Ok(ExecutionResult::Revert {
+                reason: _,
+                gas_used,
+                output,
+            }) => {
                 current_call_frame.memory.store_bytes(ret_offset, &output);
                 current_call_frame.returndata = output;
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;

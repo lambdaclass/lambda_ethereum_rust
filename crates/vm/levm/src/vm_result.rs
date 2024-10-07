@@ -11,6 +11,7 @@ pub enum VMError {
     OpcodeNotAllowedInStaticContext,
     OpcodeNotFound,
     InvalidBytecode,
+    OutOfGas,
     FatalError, // this should never really happen
 }
 
@@ -29,7 +30,11 @@ pub enum ExecutionResult {
         return_data: Bytes,
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas.
-    Revert { gas_used: u64, output: Bytes },
+    Revert {
+        reason: VMError,
+        gas_used: u64,
+        output: Bytes,
+    },
     /// Reverted for various reasons and spend all gas.
     Halt {
         reason: VMError,
