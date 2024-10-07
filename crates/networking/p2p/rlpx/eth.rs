@@ -9,9 +9,7 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 use ethereum_rust_storage::{error::StoreError, Store};
-use k256::elliptic_curve::rand_core::block;
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
-use tracing::info;
 
 pub const ETH_VERSION: u32 = 68;
 
@@ -129,8 +127,6 @@ impl GetBlockBodies {
 
 impl RLPxMessage for GetBlockBodies {
     fn encode(&self, buf: &mut dyn BufMut) {
-        //0x05_u8.encode(buf); // msg_id
-
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
@@ -174,7 +170,8 @@ impl BlockBodies {
         let mut blocks_bodies = vec![];
 
         for block_hash in blocks_hash {
-            let block_body = storage.get_block_by_hash(block_hash)?.unwrap().body;
+            // TODO: Couldn't find what to do if we receive a block_hash of a block we don't have
+            let block_body = storage.get_block_body_by_hash(block_hash)?.unwrap();
             blocks_bodies.push(block_body);
         }
 
@@ -187,8 +184,6 @@ impl BlockBodies {
 
 impl RLPxMessage for BlockBodies {
     fn encode(&self, buf: &mut dyn BufMut) {
-        //0x05_u8.encode(buf); // msg_id
-
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
@@ -347,12 +342,20 @@ mod tests {
     fn get_block_bodies_receive_block_bodies() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let body = BlockBody::default();
-        let block = Block {
+        let block1 = Block {
             header: Default::default(),
             body: body.clone(),
         };
-        store.add_block(block.clone()).unwrap();
-        let blocks_hash = vec![block.header.compute_block_hash()];
+        let block2 = Block {
+            header: Default::default(),
+            body: body.clone(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store.add_block(block2.clone()).unwrap();
+        let blocks_hash = vec![
+            block1.header.compute_block_hash(),
+            block2.header.compute_block_hash(),
+        ];
         let get_block_bodies = GetBlockBodies::build_from(blocks_hash.clone()).unwrap();
 
         let mut send_data_of_blocks_hash = Vec::new();
@@ -364,10 +367,14 @@ mod tests {
         sender
             .send_to(&send_data_of_blocks_hash, "127.0.0.1:4000")
             .unwrap(); // sends the blocks_hash
-        let mut receiver_data = [0; 1024];
-        let len = receiver.recv(&mut receiver_data).unwrap(); // receives the blocks_hash
+        let mut receiver_data_of_blocks_hash = [0; 1024];
+        let len = receiver.recv(&mut receiver_data_of_blocks_hash).unwrap(); // receives the blocks_hash
 
-        let received_block_hashes = GetBlockBodies::decode(&receiver_data[..len]).unwrap(); // transform the encoded received data to blockhashes
+        let received_block_hashes =
+            GetBlockBodies::decode(&receiver_data_of_blocks_hash[..len]).unwrap(); // transform the encoded received data to blockhashes
+
+        assert_eq!(received_block_hashes.id, 0x05);
+        assert_eq!(received_block_hashes.blocks_hash, blocks_hash);
         let block_bodies =
             BlockBodies::build_from(&store, received_block_hashes.blocks_hash).unwrap();
 
@@ -384,6 +391,9 @@ mod tests {
         // decode the received block bodies
 
         assert_eq!(received_block_bodies.id, 0x06);
-        assert_eq!(received_block_bodies.blocks_bodies, vec![body]);
+        assert_eq!(
+            received_block_bodies.blocks_bodies,
+            vec![body.clone(), body]
+        );
     }
 }
