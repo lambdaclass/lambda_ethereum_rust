@@ -1720,7 +1720,32 @@ impl VM {
                     self.env.consumed_gas += gas_cost::CALLVALUE;
                 }
                 Opcode::CODECOPY => {
-                    todo!()
+                    let dest_offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+                    let size: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+
+                    let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
+
+                    let memory_expansion_cost =
+                        current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+
+                    let gas_cost = gas_cost::CODECOPY_STATIC
+                        + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size as u64
+                        + memory_expansion_cost;
+
+                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+                        return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        });
+                    }
+
+                    let code = current_call_frame.bytecode.slice(offset..offset + size);
+
+                    current_call_frame.memory.store_bytes(dest_offset, &code);
+
+                    self.env.consumed_gas += gas_cost;
                 }
                 Opcode::CODESIZE => {
                     if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {

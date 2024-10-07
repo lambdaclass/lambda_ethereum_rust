@@ -78,6 +78,7 @@ pub mod gas_cost {
     pub const LOGN_DYNAMIC_BYTE_BASE: u64 = 8;
     pub const CALLVALUE: u64 = 2;
     pub const CODESIZE: u64 = 2;
+    pub const CODECOPY_STATIC: u64 = 3;
     pub const CODECOPY_DYNAMIC_BASE: u64 = 3;
     pub const GASPRICE: u64 = 2;
 }

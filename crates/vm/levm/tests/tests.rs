@@ -3492,3 +3492,48 @@ fn gasprice_op() {
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::GASPRICE);
 }
+
+#[test]
+fn codecopy_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    // https://www.evm.codes/playground?unit=Wei&callData=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF&codeType=Mnemonic&code=%27z1~32~0ywwz2~8~31y%27~wPUSH1%20z%2F%2F%20Example%20y~0wCALLDATACOPYw%5Cn%01wyz~_
+    let operations = [
+        Operation::Push((1, 0x02.into())), // size
+        Operation::Push((1, 0x02.into())), // calldata offset
+        Operation::Push((1, 0x03.into())), // destination offset
+        Operation::Codecopy,
+        Operation::Stop,
+    ];
+
+    let expected_memory_bytes = [
+        [0x00; 3].to_vec(),
+        [[0x60], [0x02]].concat(),
+        [0x00; 27].to_vec(),
+    ]
+    .concat();
+
+    let expected_memory = U256::from_big_endian(&expected_memory_bytes);
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default()
+            .with_bytecode(ops_to_bytecde(&operations))
+            .with_balance(U256::MAX),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9 + 3 * gas_cost::PUSHN);
+}

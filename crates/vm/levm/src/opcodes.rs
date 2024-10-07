@@ -207,6 +207,7 @@ impl From<u8> for Opcode {
             0x36 => Opcode::CALLDATASIZE,
             0x37 => Opcode::CALLDATACOPY,
             0x38 => Opcode::CODESIZE,
+            0x39 => Opcode::CODECOPY,
             0x3A => Opcode::GASPRICE,
             0x3D => Opcode::RETURNDATASIZE,
             0x3E => Opcode::RETURNDATACOPY,
