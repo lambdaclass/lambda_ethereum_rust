@@ -384,7 +384,7 @@ pub fn beacon_root_contract_call(
     Ok(transaction_result.result.into())
 }
 
-fn block_env(header: &BlockHeader) -> BlockEnv {
+pub fn block_env(header: &BlockHeader) -> BlockEnv {
     BlockEnv {
         number: RevmU256::from(header.number),
         coinbase: RevmAddress(header.coinbase.0.into()),
@@ -399,7 +399,7 @@ fn block_env(header: &BlockHeader) -> BlockEnv {
     }
 }
 
-fn tx_env(tx: &Transaction) -> TxEnv {
+pub fn tx_env(tx: &Transaction) -> TxEnv {
     let mut max_fee_per_blob_gas_bytes: [u8; 32] = [0; 32];
     let max_fee_per_blob_gas = match tx.max_fee_per_blob_gas() {
         Some(x) => {
