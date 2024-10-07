@@ -309,7 +309,7 @@ impl VM {
                     self.op_jumpi(&mut current_call_frame)
                 }
                 Opcode::JUMPDEST => {
-                    self.op_jumpdest(&mut current_call_frame)
+                    self.op_jumpdest()
                 }
                 Opcode::PC => {
                     self.op_pc(&mut current_call_frame)

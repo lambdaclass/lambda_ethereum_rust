@@ -246,7 +246,7 @@ impl VM {
     }
 
     // JUMPDEST operation
-    pub fn op_jumpdest(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+    pub fn op_jumpdest(&mut self) -> Result<OpcodeSuccess, VMError> {
         if self.env.consumed_gas + gas_cost::JUMPDEST > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
