@@ -1,7 +1,11 @@
 use ethereum_types::H32;
 
 use crate::{
-    constants::STACK_LIMIT, memory::Memory, opcodes::Opcode, primitives::{Address, Bytes, U256}, vm::Message, vm_result::VMError
+    constants::STACK_LIMIT,
+    memory::Memory,
+    opcodes::Opcode,
+    primitives::{Address, Bytes, U256},
+    vm_result::VMError,
 };
 use std::collections::HashMap;
 
@@ -16,8 +20,7 @@ pub struct Log {
     pub data: Bytes,
 }
 
-
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Stack {
     pub stack: Vec<U256>,
 }
@@ -53,6 +56,8 @@ impl Stack {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
+/// A call frame, or execution environment, is the context in which
+/// the EVM is currently executing.
 pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
@@ -69,15 +74,35 @@ pub struct CallFrame {
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
+    pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
-    pub is_static: bool,
-    pub depth: u16,
+    pub depth: usize,
 }
 
 impl CallFrame {
-    pub fn new(msg_sender: Address, to: Address, code_address: Address, delegate: Option<Address>, bytecode: Bytes, msg_value: U256, calldata: Bytes, gas: U256, is_static: bool, depth: u16) -> Self {
+    pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         Self {
+            bytecode,
+            ..Default::default()
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        msg_sender: Address,
+        to: Address,
+        code_address: Address,
+        delegate: Option<Address>,
+        bytecode: Bytes,
+        msg_value: U256,
+        calldata: Bytes,
+        is_static: bool,
+        gas: U256,
+        depth: usize,
+    ) -> Self {
+        Self {
+            gas,
             msg_sender,
             to,
             code_address,
@@ -85,29 +110,12 @@ impl CallFrame {
             bytecode,
             msg_value,
             calldata,
-            gas,
             is_static,
             depth,
             ..Default::default()
         }
     }
 
-    pub fn new_from_message(msg: Message) -> Self {
-        Self {
-            msg_sender: msg.msg_sender,
-            to: msg.to,
-            code_address: msg.code_address,
-            delegate: msg.delegate,
-            bytecode: msg.code,
-            msg_value: msg.value,
-            calldata: msg.data,
-            gas: msg.gas,
-            is_static: msg.is_static,
-            depth: msg.depth,
-            ..Default::default()
-        }
-    }
-    
     pub fn next_opcode(&mut self) -> Option<Opcode> {
         let opcode = self.opcode_at(self.pc);
         self.increment_pc();
@@ -126,12 +134,13 @@ impl CallFrame {
         self.pc
     }
 
-    pub fn jump(&mut self, jump_address: U256) {
+    /// Jump to the given address, returns false if the jump position wasn't a JUMPDEST
+    pub fn jump(&mut self, jump_address: U256) -> bool {
         if !self.valid_jump(jump_address) {
-            // Should be a halt when we implement it
-            panic!("Invalid jump");
+            return false;
         }
-        self.pc = jump_address.as_usize() + 1;
+        self.pc = jump_address.as_usize();
+        true
     }
 
     fn valid_jump(&self, jump_address: U256) -> bool {

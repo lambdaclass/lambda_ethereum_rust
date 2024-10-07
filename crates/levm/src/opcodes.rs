@@ -33,7 +33,7 @@ pub enum Opcode {
     // KECCAK256
     KECCAK256 = 0x20,
 
-    // // Environmental Information
+    // Environmental Information
     // ADDRESS = 0x30,
     // BALANCE = 0x31,
     // ORIGIN = 0x32,
@@ -51,7 +51,7 @@ pub enum Opcode {
     RETURNDATACOPY = 0x3E,
     // EXTCODEHASH = 0x3F,
 
-    // // Block Information
+    // Block Information
     BLOCKHASH = 0x40,
     COINBASE = 0x41,
     TIMESTAMP = 0x42,
@@ -64,24 +64,24 @@ pub enum Opcode {
     BLOBHASH = 0x49,
     BLOBBASEFEE = 0x4A,
 
-    // // Stack, Memory, Storage, and Flow Operations
+    // Stack, Memory, Storage, and Flow Operations
     POP = 0x50,
     MLOAD = 0x51,
     MSTORE = 0x52,
     MSTORE8 = 0x53,
-    // SLOAD = 0x54,
-    // SSTORE = 0x55,
+    SLOAD = 0x54,
+    SSTORE = 0x55,
     JUMP = 0x56,
     JUMPI = 0x57,
     PC = 0x58,
     MSIZE = 0x59,
-    // GAS = 0x5A,
+    GAS = 0x5A,
     JUMPDEST = 0x5B,
     TLOAD = 0x5C,
     TSTORE = 0x5D,
     MCOPY = 0x5E,
 
-    // // Push Operations
+    // Push Operations
     PUSH0 = 0x5F,
     PUSH1 = 0x60,
     PUSH2 = 0x61,
@@ -115,7 +115,8 @@ pub enum Opcode {
     PUSH30 = 0x7D,
     PUSH31 = 0x7E,
     PUSH32 = 0x7F,
-    // // Duplication Operations
+
+    // Duplication Operations
     DUP1 = 0x80,
     DUP2 = 0x81,
     DUP3 = 0x82,
@@ -132,7 +133,8 @@ pub enum Opcode {
     DUP14 = 0x8D,
     DUP15 = 0x8E,
     DUP16 = 0x8F,
-    // // Swap Operations
+
+    // Swap Operations
     SWAP1 = 0x90,
     SWAP2 = 0x91,
     SWAP3 = 0x92,
@@ -149,20 +151,20 @@ pub enum Opcode {
     SWAP14 = 0x9D,
     SWAP15 = 0x9E,
     SWAP16 = 0x9F,
-    // // Logging Operations
+    // Logging Operations
     LOG0 = 0xA0,
     LOG1 = 0xA1,
     LOG2 = 0xA2,
     LOG3 = 0xA3,
     LOG4 = 0xA4,
     // // System Operations
-    // CREATE = 0xF0,
+    CREATE = 0xF0,
     CALL = 0xF1,
-    // CALLCODE = 0xF2,
+    CALLCODE = 0xF2,
     RETURN = 0xF3,
-    // DELEGATECALL = 0xF4,
-    // CREATE2 = 0xF5,
-    // STATICCALL = 0xFA,
+    DELEGATECALL = 0xF4,
+    CREATE2 = 0xF5,
+    STATICCALL = 0xFA,
     // REVERT = 0xFD,
     // INVALID = 0xFE,
     // SELFDESTRUCT = 0xFF,
@@ -294,12 +296,20 @@ impl From<u8> for Opcode {
             0x51 => Opcode::MLOAD,
             0x52 => Opcode::MSTORE,
             0x53 => Opcode::MSTORE8,
+            0x54 => Opcode::SLOAD,
+            0x55 => Opcode::SSTORE,
             0x59 => Opcode::MSIZE,
+            0x5A => Opcode::GAS,
             0x5E => Opcode::MCOPY,
             x if x == Opcode::TLOAD as u8 => Opcode::TLOAD,
             x if x == Opcode::TSTORE as u8 => Opcode::TSTORE,
+            0xF0 => Opcode::CREATE,
             0xF1 => Opcode::CALL,
+            0xF2 => Opcode::CALLCODE,
             0xF3 => Opcode::RETURN,
+            0xF5 => Opcode::CREATE2,
+            0xF4 => Opcode::DELEGATECALL,
+            0xFA => Opcode::STATICCALL,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }

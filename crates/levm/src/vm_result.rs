@@ -1,8 +1,10 @@
 use std::{collections::HashMap, fmt};
 
-use crate::{call_frame::Log, primitives::{Address, Bytes, U256}, vm::Account};
+use serde::{de, Deserialize};
 
-/// Errors that halts the program
+use crate::{call_frame::Log, primitives::{Address, Bytes, U256, H256}, vm::{Account, StorageSlot, VM}};
+
+/// Errors that halt the program
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VMError {
     StackUnderflow,
@@ -11,6 +13,7 @@ pub enum VMError {
     OpcodeNotAllowedInStaticContext,
     OpcodeNotFound,
     InvalidBytecode,
+    OutOfGas,
     FatalError, // this should never really happen
 }
 
@@ -26,7 +29,7 @@ pub struct ResultAndState {
     /// Status of execution
     pub result: ExecutionResult,
     /// State that got updated
-    pub state: HashMap<Address, Account>,
+    pub state: HashMap<Address, StateAccount>,
 }
 
 /// Result of a transaction execution.
@@ -42,10 +45,14 @@ pub enum ExecutionResult {
         return_data: Bytes,
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas.
-    Revert { gas_used: u64, output: Bytes },
+    Revert {
+        reason: VMError,
+        gas_used: u64,
+        output: Bytes,
+    },
     /// Reverted for various reasons and spend all gas.
     Halt {
-        reason: HaltReason,
+        reason: VMError,
         /// Halting will spend all the gas, and will be equal to gas_limit.
         gas_used: u64,
     },
@@ -121,6 +128,14 @@ impl ExecutionResult {
         match *self {
             Self::Success { gas_refunded, .. } => gas_refunded,
             _ => 0,
+        }
+    }
+
+    pub fn reason(&self) -> VMError {
+        match self {
+            Self::Revert { reason,  .. } => reason.clone(),
+            Self::Halt { reason,  .. } => reason.clone(),
+            _ => VMError::FatalError,
         }
     }
 }
@@ -402,4 +417,76 @@ pub enum PrecompileError {
     NotEnoughGas,
     Secp256k1Error,
     InvalidEcPoint,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExitStatusCode {
+    Return = 0,
+    Stop,
+    Revert,
+    Error,
+    Default,
+}
+impl ExitStatusCode {
+    #[inline(always)]
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            x if x == Self::Return.to_u8() => Self::Return,
+            x if x == Self::Stop.to_u8() => Self::Stop,
+            x if x == Self::Revert.to_u8() => Self::Revert,
+            x if x == Self::Error.to_u8() => Self::Error,
+            _ => Self::Default,
+        }
+    }
+}
+
+pub fn deserialize_str_as_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    let string = String::deserialize(deserializer)?;
+
+    if let Some(stripped) = string.strip_prefix("0x") {
+        u64::from_str_radix(stripped, 16)
+    } else {
+        string.parse()
+    }
+    .map_err(serde::de::Error::custom)
+}
+
+#[derive(Clone, Default, PartialEq, Eq, Debug, Deserialize)]
+pub struct AccountInfo {
+    pub balance: U256,
+    pub nonce: u64,
+    pub code_hash: H256,
+    pub code: Bytes,
+}
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct StateAccount {
+    pub info: AccountInfo,
+    pub storage: HashMap<U256, StorageSlot>,
+    pub status: AccountStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub enum AccountStatus {
+    /// When account is loaded but not touched or interacted with.
+    /// This is the default state.
+    #[default]
+    Loaded = 0b00000000,
+    /// When account is newly created we will not access database
+    /// to fetch storage values
+    Created = 0b00000001,
+    /// If account is marked for self destruction.
+    SelfDestructed = 0b00000010,
+    /// Only when account is marked as touched we will save it to database.
+    Touched = 0b00000100,
+    /// used only for pre spurious dragon hardforks where existing and empty were two separate states.
+    /// it became same state after EIP-161: State trie clearing
+    LoadedAsNotExisting = 0b0001000,
+    /// used to mark account as cold
+    Cold = 0b0010000,
 }
