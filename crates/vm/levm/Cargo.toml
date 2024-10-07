@@ -16,3 +16,8 @@ ethers = "2.0.14"
 
 [dev-dependencies]
 hex = "0.4.3"
+
+[[test]]
+name = "normal"
+path = "tests/ef_tests.rs"
+harness = false

@@ -77,8 +77,33 @@ fn get_ignored_groups() -> HashSet<String> {
         "stEIP3855-push0".into(),
         "stWalletTest".into(),
         "vmLogTest".into(),
+        "stTransitionTest".into(),
     ])
 }
+
+// Cancun					
+// Pyspecs					
+// Shanghai				
+// 					
+// stArgsZeroOneBalance			
+// 				
+// 				stRandom
+// 					stRandom2
+// 				stRecursiveCreate
+// 		stRefundTest
+// stCallDelegateCodesCallCodeHomestead	
+// stCallDelegateCodesHomestead		
+// stChainId				stSLoadTest
+// 				stSStoreTest
+// stCodeSizeLimit				
+// stCreate2				stShift
+// stCreateTest				
+// 				stStaticFlagEnabled
+// stEIP158Specific			
+// stEIP2930				
+// 				
+// 			stZeroCallsRevert
+
 
 fn get_ignored_suites() -> HashSet<String> {
     HashSet::from([
