@@ -103,7 +103,8 @@ impl RpcHandler for CallRequest {
         };
         // Run transaction
         let result = simulate_tx(&self.transaction, &header, storage, SpecId::CANCUN)?;
-        serde_json::to_value(format!("0x{:#x}", result.output())).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("0x{:#x}", result.output()))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -155,7 +156,7 @@ impl RpcHandler for GetTransactionByBlockNumberAndIndexRequest {
             block_header.compute_block_hash(),
             self.transaction_index,
         );
-        serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(tx).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -198,7 +199,7 @@ impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
         };
         let tx =
             RpcTransaction::build(tx.clone(), block_number, self.block, self.transaction_index);
-        serde_json::to_value(tx).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(tx).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -233,7 +234,7 @@ impl RpcHandler for GetTransactionByHashRequest {
 
         let transaction =
             RpcTransaction::build(transaction, block_number, block_hash, index as usize);
-        serde_json::to_value(transaction).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(transaction).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -268,7 +269,8 @@ impl RpcHandler for GetTransactionReceiptRequest {
         };
         let receipts =
             block::get_all_block_rpc_receipts(block_number, block.header, block.body, &storage)?;
-        serde_json::to_value(receipts.get(index as usize)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(receipts.get(index as usize))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -349,7 +351,7 @@ impl RpcHandler for CreateAccessListRequest {
             gas_used,
         };
 
-        serde_json::to_value(result).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(result).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -384,7 +386,7 @@ impl RpcHandler for GetRawTransaction {
         };
 
         serde_json::to_value(format!("0x{}", &hex::encode(tx.encode_to_vec())))
-            .map_err(|_| RpcErr::Internal)
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -434,7 +436,7 @@ impl RpcHandler for EstimateGasRequest {
                 );
                 if let Ok(ExecutionResult::Success { .. }) = result {
                     return serde_json::to_value(format!("{:#x}", TRANSACTION_GAS))
-                        .map_err(|_| RpcErr::Internal);
+                        .map_err(|error| RpcErr::Internal(error.to_string()));
                 }
             }
         }
@@ -489,7 +491,8 @@ impl RpcHandler for EstimateGasRequest {
             middle_gas_limit = (highest_gas_limit + lowest_gas_limit) / 2;
         }
 
-        serde_json::to_value(format!("{:#x}", highest_gas_limit)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("{:#x}", highest_gas_limit))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -561,6 +564,7 @@ impl RpcHandler for SendRawTransactionRequest {
         let tx = self.to_transaction();
 
         let hash = mempool::add_transaction(tx, storage)?;
-        serde_json::to_value(format!("{:#x}", hash)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("{:#x}", hash))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }

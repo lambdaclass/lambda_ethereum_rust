@@ -14,7 +14,7 @@ pub enum RpcErr {
     MissingParam(String),
     BadHexFormat(u64),
     UnsuportedFork,
-    Internal,
+    Internal(String),
     Vm,
     Revert { data: String },
     Halt { reason: String, gas_used: u64 },
@@ -56,10 +56,10 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: format!("invalid argument {arg_number} : hex string without 0x prefix"),
             },
-            RpcErr::Internal => RpcErrorMetadata {
+            RpcErr::Internal(context) => RpcErrorMetadata {
                 code: -32603,
                 data: None,
-                message: "Internal Error".to_string(),
+                message: format!("Internal Error: {context}"),
             },
             RpcErr::Vm => RpcErrorMetadata {
                 code: -32015,
@@ -191,8 +191,8 @@ pub struct RpcErrorResponse {
 
 /// Failure to read from DB will always constitute an internal error
 impl From<StoreError> for RpcErr {
-    fn from(_value: StoreError) -> Self {
-        RpcErr::Internal
+    fn from(value: StoreError) -> Self {
+        RpcErr::Internal(value.to_string())
     }
 }
 

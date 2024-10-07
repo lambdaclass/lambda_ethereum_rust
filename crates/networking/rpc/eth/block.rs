@@ -92,7 +92,7 @@ impl RpcHandler for GetBlockByNumberRequest {
             total_difficulty.unwrap_or(U256::zero()),
         );
 
-        serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(&block).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -132,7 +132,7 @@ impl RpcHandler for GetBlockByHashRequest {
             self.hydrated,
             total_difficulty.unwrap_or(U256::zero()),
         );
-        serde_json::to_value(&block).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(&block).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -164,7 +164,8 @@ impl RpcHandler for GetBlockTransactionCountRequest {
         };
         let transaction_count = block_body.transactions.len();
 
-        serde_json::to_value(format!("{:#x}", transaction_count)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("{:#x}", transaction_count))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -196,7 +197,7 @@ impl RpcHandler for GetBlockReceiptsRequest {
         };
         let receipts = get_all_block_rpc_receipts(block_number, header, body, &storage)?;
 
-        serde_json::to_value(&receipts).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(&receipts).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -259,7 +260,8 @@ impl RpcHandler for GetRawBlockRequest {
         };
         let block = Block { header, body }.encode_to_vec();
 
-        serde_json::to_value(format!("0x{}", &hex::encode(block))).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("0x{}", &hex::encode(block)))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -292,7 +294,7 @@ impl RpcHandler for GetRawReceipts {
             .iter()
             .map(|receipt| format!("0x{}", hex::encode(receipt.encode_to_vec())))
             .collect();
-        serde_json::to_value(receipts).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(receipts).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -304,10 +306,10 @@ impl RpcHandler for BlockNumberRequest {
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested latest block number");
         match storage.get_latest_block_number() {
-            Ok(Some(block_number)) => {
-                serde_json::to_value(format!("{:#x}", block_number)).map_err(|_| RpcErr::Internal)
-            }
-            _ => Err(RpcErr::Internal),
+            Ok(Some(block_number)) => serde_json::to_value(format!("{:#x}", block_number))
+                .map_err(|error| RpcErr::Internal(error.to_string())),
+            Ok(None) => Err(RpcErr::Internal("No blocks found".to_owned())),
+            Err(error) => Err(RpcErr::Internal(error.to_string())),
         }
     }
 }
@@ -323,18 +325,20 @@ impl RpcHandler for GetBlobBaseFee {
             Ok(Some(block_number)) => {
                 let header = match storage.get_block_header(block_number)? {
                     Some(header) => header,
-                    _ => return Err(RpcErr::Internal),
+                    _ => return Err(RpcErr::Internal("Could not get block header".to_owned())),
                 };
                 let parent_header = match find_parent_header(&header, &storage) {
                     Ok(header) => header,
-                    _ => return Err(RpcErr::Internal),
+                    Err(error) => return Err(RpcErr::Internal(error.to_string())),
                 };
                 let blob_base_fee = calculate_base_fee_per_blob_gas(
                     parent_header.excess_blob_gas.unwrap_or_default(),
                 );
-                serde_json::to_value(format!("{:#x}", blob_base_fee)).map_err(|_| RpcErr::Internal)
+                serde_json::to_value(format!("{:#x}", blob_base_fee))
+                    .map_err(|error| RpcErr::Internal(error.to_string()))
             }
-            _ => Err(RpcErr::Internal),
+            Ok(None) => Err(RpcErr::Internal("No blocks found".to_owned())),
+            Err(error) => Err(RpcErr::Internal(error.to_string())),
         }
     }
 }
@@ -352,7 +356,7 @@ pub fn get_all_block_rpc_receipts(
     }
     let parent_header = match find_parent_header(&header, storage) {
         Ok(header) => header,
-        _ => return Err(RpcErr::Internal),
+        Err(error) => return Err(RpcErr::Internal(error.to_string())),
     };
     let blob_gas_price =
         calculate_base_fee_per_blob_gas(parent_header.excess_blob_gas.unwrap_or_default());
@@ -365,7 +369,7 @@ pub fn get_all_block_rpc_receipts(
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
             Some(receipt) => receipt,
-            _ => return Err(RpcErr::Internal),
+            _ => return Err(RpcErr::Internal("Could not get receipt".to_owned())),
         };
         let gas_used = receipt.cumulative_gas_used - last_cumulative_gas_used;
         let tx_info =
@@ -398,7 +402,7 @@ pub fn get_all_block_receipts(
         let index = index as u64;
         let receipt = match storage.get_receipt(block_number, index)? {
             Some(receipt) => receipt,
-            _ => return Err(RpcErr::Internal),
+            _ => return Err(RpcErr::Internal("Could not get receipt".to_owned())),
         };
         receipts.push(receipt);
     }

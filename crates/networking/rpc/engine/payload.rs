@@ -50,7 +50,8 @@ impl RpcHandler for NewPayloadV3Request {
             Ok(block) => block,
             Err(error) => {
                 let result = PayloadStatus::invalid_with_err(&error.to_string());
-                return serde_json::to_value(result).map_err(|_| RpcErr::Internal);
+                return serde_json::to_value(result)
+                    .map_err(|error| RpcErr::Internal(error.to_string()));
             }
         };
 
@@ -66,7 +67,8 @@ impl RpcHandler for NewPayloadV3Request {
         let actual_block_hash = block.header.compute_block_hash();
         if block_hash != actual_block_hash {
             let result = PayloadStatus::invalid_with_err("Invalid block hash");
-            return serde_json::to_value(result).map_err(|_| RpcErr::Internal);
+            return serde_json::to_value(result)
+                .map_err(|error| RpcErr::Internal(error.to_string()));
         }
         info!("Block hash {block_hash} is valid");
         // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
@@ -79,28 +81,36 @@ impl RpcHandler for NewPayloadV3Request {
             .collect();
         if self.expected_blob_versioned_hashes != blob_versioned_hashes {
             let result = PayloadStatus::invalid_with_err("Invalid blob_versioned_hashes");
-            return serde_json::to_value(result).map_err(|_| RpcErr::Internal);
+            return serde_json::to_value(result)
+                .map_err(|error| RpcErr::Internal(error.to_string()));
         }
         // Check that the incoming block extends the current chain
-        let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
+        let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal(
+            "Could not get latest block number".to_owned(),
+        ))?;
         if block.header.number <= last_block_number {
             // Check if we already have this block stored
             if storage
                 .get_block_number(block_hash)
-                .map_err(|_| RpcErr::Internal)?
+                .map_err(|error| RpcErr::Internal(error.to_string()))?
                 .is_some_and(|num| num == block.header.number)
             {
                 let result = PayloadStatus::valid_with_hash(block_hash);
-                return serde_json::to_value(result).map_err(|_| RpcErr::Internal);
+                return serde_json::to_value(result)
+                    .map_err(|error| RpcErr::Internal(error.to_string()));
             }
             warn!("Should start reorg but it is not supported yet");
-            return Err(RpcErr::Internal);
+            return Err(RpcErr::Internal(
+                "Block reorg is not supported yet".to_owned(),
+            ));
         } else if block.header.number != last_block_number + 1 {
             let result = PayloadStatus::syncing();
-            return serde_json::to_value(result).map_err(|_| RpcErr::Internal);
+            return serde_json::to_value(result)
+                .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
-        let latest_valid_hash = latest_valid_hash(&storage).map_err(|_| RpcErr::Internal)?;
+        let latest_valid_hash =
+            latest_valid_hash(&storage).map_err(|error| RpcErr::Internal(error.to_string()))?;
 
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash}");
@@ -115,7 +125,7 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::EvmError(error)) => {
                 Ok(PayloadStatus::invalid_with_err(&error.to_string()))
             }
-            Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
+            Err(ChainError::StoreError(error)) => Err(RpcErr::Internal(error.to_string())),
             Ok(()) => {
                 info!("Block with hash {block_hash} executed succesfully");
                 // TODO: We don't have a way to fetch blocks by number if they are not canonical
@@ -128,7 +138,7 @@ impl RpcHandler for NewPayloadV3Request {
             }
         }?;
 
-        serde_json::to_value(payload_status).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(payload_status).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -161,11 +171,12 @@ impl RpcHandler for GetPayloadV3Request {
         let Some(mut payload) = storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload);
         };
-        let block_value = build_payload(&mut payload, &storage).map_err(|_| RpcErr::Internal)?;
+        let block_value = build_payload(&mut payload, &storage)
+            .map_err(|error| RpcErr::Internal(error.to_string()))?;
         serde_json::to_value(ExecutionPayloadResponse::new(
             ExecutionPayloadV3::from_block(payload),
             block_value,
         ))
-        .map_err(|_| RpcErr::Internal)
+        .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }

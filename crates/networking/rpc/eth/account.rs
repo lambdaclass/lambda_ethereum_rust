@@ -54,13 +54,16 @@ impl RpcHandler for GetBalanceRequest {
         );
 
         let Some(block_number) = self.block.resolve_block_number(&storage)? else {
-            return Err(RpcErr::Internal); // Should we return Null here?
+            return Err(RpcErr::Internal(
+                "Could not resolve block number".to_owned(),
+            )); // Should we return Null here?
         };
 
         let account = storage.get_account_info(block_number, self.address)?;
         let balance = account.map(|acc| acc.balance).unwrap_or_default();
 
-        serde_json::to_value(format!("{:#x}", balance)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("{:#x}", balance))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -84,14 +87,17 @@ impl RpcHandler for GetCodeRequest {
         );
 
         let Some(block_number) = self.block.resolve_block_number(&storage)? else {
-            return Err(RpcErr::Internal); // Should we return Null here?
+            return Err(RpcErr::Internal(
+                "Could not resolve block number".to_owned(),
+            )); // Should we return Null here?
         };
 
         let code = storage
             .get_code_by_account_address(block_number, self.address)?
             .unwrap_or_default();
 
-        serde_json::to_value(format!("0x{:x}", code)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("0x{:x}", code))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -116,14 +122,17 @@ impl RpcHandler for GetStorageAtRequest {
         );
 
         let Some(block_number) = self.block.resolve_block_number(&storage)? else {
-            return Err(RpcErr::Internal); // Should we return Null here?
+            return Err(RpcErr::Internal(
+                "Could not resolve block number".to_owned(),
+            )); // Should we return Null here?
         };
 
         let storage_value = storage
             .get_storage_at(block_number, self.address, self.storage_slot)?
             .unwrap_or_default();
         let storage_value = H256::from_uint(&storage_value);
-        serde_json::to_value(format!("{:#x}", storage_value)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("{:#x}", storage_value))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -147,14 +156,17 @@ impl RpcHandler for GetTransactionCountRequest {
         );
 
         let Some(block_number) = self.block.resolve_block_number(&storage)? else {
-            return Err(RpcErr::Internal); // Should we return Null here?
+            return Err(RpcErr::Internal(
+                "Could not resolve block number".to_owned(),
+            )); // Should we return Null here?
         };
 
         let nonce = storage
             .get_nonce_by_account_address(block_number, self.address)?
             .unwrap_or_default();
 
-        serde_json::to_value(format!("0x{:x}", nonce)).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(format!("0x{:x}", nonce))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -188,7 +200,7 @@ impl RpcHandler for GetProofRequest {
             return Ok(Value::Null);
         };
         let Some(account_proof) = storage.get_account_proof(block_number, &self.address)? else {
-            return Err(RpcErr::Internal);
+            return Err(RpcErr::Internal("Could not get account proof".to_owned()));
         };
         // Create storage proofs for all provided storage keys
         let mut storage_proofs = Vec::new();
@@ -214,6 +226,6 @@ impl RpcHandler for GetProofRequest {
             storage_hash: account.storage_root,
             storage_proof: storage_proofs,
         };
-        serde_json::to_value(account_proof).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(account_proof).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }

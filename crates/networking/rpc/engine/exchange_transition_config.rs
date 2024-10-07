@@ -67,6 +67,6 @@ impl RpcHandler for ExchangeTransitionConfigV1Req {
             terminal_block_number: payload.terminal_block_number,
             terminal_total_difficulty: terminal_total_difficulty.unwrap_or_default(),
         })
-        .map_err(|_| RpcErr::Internal)
+        .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }

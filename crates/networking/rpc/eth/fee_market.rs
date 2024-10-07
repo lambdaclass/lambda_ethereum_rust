@@ -75,7 +75,7 @@ impl RpcHandler for FeeHistoryRequest {
 
         if self.block_count == 0 {
             return serde_json::to_value(FeeHistoryResponse::default())
-                .map_err(|_| RpcErr::Internal);
+                .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
         let (start_block, end_block) =
@@ -91,10 +91,14 @@ impl RpcHandler for FeeHistoryRequest {
         for block_number in start_block..end_block {
             let header = storage
                 .get_block_header(block_number)?
-                .ok_or(RpcErr::Internal)?;
+                .ok_or(RpcErr::Internal(format!(
+                    "Could not get header for block {block_number}"
+                )))?;
             let body = storage
                 .get_block_body(block_number)?
-                .ok_or(RpcErr::Internal)?;
+                .ok_or(RpcErr::Internal(format!(
+                    "Could not get body for block {block_number}"
+                )))?;
             let blob_base_fee =
                 calculate_base_fee_per_blob_gas(header.excess_blob_gas.unwrap_or_default());
 
@@ -114,7 +118,9 @@ impl RpcHandler for FeeHistoryRequest {
         // Now we project base_fee_per_gas and base_fee_per_blob_gas from last block
         let header = storage
             .get_block_header(end_block)?
-            .ok_or(RpcErr::Internal)?;
+            .ok_or(RpcErr::Internal(format!(
+                "Could not get header for block {end_block}"
+            )))?;
 
         let blob_base_fee =
             calculate_base_fee_per_blob_gas(header.excess_blob_gas.unwrap_or_default());
@@ -137,7 +143,7 @@ impl RpcHandler for FeeHistoryRequest {
                 .collect(),
         };
 
-        serde_json::to_value(response).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 
@@ -152,15 +158,21 @@ impl FeeHistoryRequest {
         // Get earliest block
         let earliest_block_num = storage
             .get_earliest_block_number()?
-            .ok_or(RpcErr::Internal)?;
+            .ok_or(RpcErr::Internal(
+                "Could not get earliest block number".to_owned(),
+            ))?;
 
         // Get latest block
-        let latest_block_num = storage.get_latest_block_number()?.ok_or(RpcErr::Internal)?;
+        let latest_block_num = storage.get_latest_block_number()?.ok_or(RpcErr::Internal(
+            "Could not get latest block number".to_owned(),
+        ))?;
 
         // Get finish_block number
         let finish_block = finish_block
             .resolve_block_number(storage)?
-            .ok_or(RpcErr::Internal)?;
+            .ok_or(RpcErr::Internal(
+                "Could not resolve block number".to_owned(),
+            ))?;
 
         // finish block has to be included in the range
         let finish_block = finish_block + 1;
