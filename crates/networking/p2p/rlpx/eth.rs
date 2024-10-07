@@ -226,7 +226,7 @@ impl RLPxMessage for BlockBodies {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::{Block, BlockBody, BlockHash};
+    use ethereum_rust_core::types::{Block, BlockBody, BlockHash, BlockHeader};
     use ethereum_rust_storage::Store;
 
     use crate::rlpx::{
@@ -297,5 +297,51 @@ mod tests {
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 0x06);
         assert_eq!(decoded.blocks_bodies, vec![body]);
+    }
+
+    #[test]
+    fn block_bodies_for_multiple_block() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody::default();
+        let mut header1 = BlockHeader::default();
+        let mut header2 = BlockHeader::default();
+        let mut header3 = BlockHeader::default();
+
+        header1.parent_hash = BlockHash::from([0; 32]);
+        header2.parent_hash = BlockHash::from([1; 32]);
+        header3.parent_hash = BlockHash::from([2; 32]);
+        let block1 = Block {
+            header: header1,
+            body: body.clone(),
+        };
+        let block2 = Block {
+            header: header2,
+            body: body.clone(),
+        };
+        let block3 = Block {
+            header: header3,
+            body: body.clone(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store.add_block(block2.clone()).unwrap();
+        store.add_block(block3.clone()).unwrap();
+
+        let blocks_hash = vec![
+            block1.header.compute_block_hash(),
+            block2.header.compute_block_hash(),
+            block3.header.compute_block_hash(),
+        ];
+
+        let block_bodies = BlockBodies::build_from(&store, blocks_hash).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 0x06);
+        assert_eq!(
+            decoded.blocks_bodies,
+            vec![body.clone(), body.clone(), body]
+        );
     }
 }
