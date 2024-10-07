@@ -7,7 +7,7 @@ use std::{
 use ethereum_rust_storage::Store;
 use tracing::error;
 
-use crate::utils::{RpcErr, RpcRequest};
+use crate::utils::{parse_json_hex, RpcErr, RpcRequest};
 use crate::RpcHandler;
 use rand::prelude::*;
 use serde_json::{json, Value};
@@ -15,13 +15,43 @@ use serde_json::{json, Value};
 use super::logs::LogsFilter;
 
 #[derive(Debug, Clone)]
-pub struct FilterRequest {
+pub struct NewFilterRequest {
     pub request_data: LogsFilter,
 }
 
+/// Used by the tokio runtime to clean outdated filters
+/// Takes 2 arguments:
+/// - filters: the filters to clean up.
+/// - filter_duration: represents how many *seconds* filter can last,
+///   if any filter is older than this, it will be removed.
+pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: u64) {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|unix_time| unix_time.as_secs())
+        .unwrap();
+
+    let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
+        error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
+        **poisoned_guard.get_mut() = HashMap::new();
+        filters.clear_poison();
+        poisoned_guard.into_inner()
+    });
+
+    // Keep only filters that have not expired.
+    active_filters_guard
+        .retain(|_, (filter_timestamp, _)| filter_timestamp.abs_diff(now) <= filter_duration);
+}
 /// Maps IDs to active log filters and their timestamps.
 pub type ActiveFilters = Arc<Mutex<HashMap<u64, (u64, LogsFilter)>>>;
-impl FilterRequest {
+
+impl NewFilterRequest {
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
+        let filter = LogsFilter::parse(params)?;
+        Ok(NewFilterRequest {
+            request_data: filter,
+        })
+    }
+
     pub fn handle(
         &self,
         storage: ethereum_rust_storage::Store,
@@ -59,13 +89,6 @@ impl FilterRequest {
         Ok(as_hex)
     }
 
-    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
-        let filter = LogsFilter::parse(params)?;
-        Ok(FilterRequest {
-            request_data: filter,
-        })
-    }
-
     pub fn stateful_call(
         req: &RpcRequest,
         storage: Store,
@@ -76,10 +99,67 @@ impl FilterRequest {
     }
 }
 
+pub struct DeleteFilterRequest {
+    pub id: u64,
+}
+
+impl DeleteFilterRequest {
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
+        match params.as_deref() {
+            Some([param]) => {
+                let param = param.as_object().ok_or(RpcErr::BadParams)?;
+
+                let id_raw_param = param
+                    .get("id")
+                    .ok_or_else(|| RpcErr::MissingParam("id".to_string()))?;
+
+                let id = parse_json_hex(id_raw_param)
+                    .map_err(|_err| RpcErr::WrongParam("id".to_string()))?;
+
+                return Ok(DeleteFilterRequest { id });
+            }
+            Some(_) => {
+                return Err(RpcErr::BadParams);
+            }
+            None => {
+                return Err(RpcErr::MissingParam("id".to_string()));
+            }
+        }
+    }
+
+    pub fn handle(
+        &self,
+        _storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
+    ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
+            error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
+            **poisoned_guard.get_mut() = HashMap::new();
+            filters.clear_poison();
+            poisoned_guard.into_inner()
+        });
+        match active_filters_guard.get_mut(&self.id) {
+            Some(_) => Ok(true.into()),
+            None => Ok(false.into()),
+        }
+    }
+
+    pub fn stateful_call(
+        req: &RpcRequest,
+        storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
+    ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        let request = Self::parse(&req.params)?;
+        request.handle(storage, filters)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
         collections::HashMap,
+        io::Bytes,
+        net::SocketAddr,
         sync::{Arc, Mutex},
     };
 
@@ -91,6 +171,7 @@ mod tests {
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
+    use ethereum_rust_net::types::Node;
     use ethereum_rust_storage::{EngineType, Store};
     use serde_json::json;
 

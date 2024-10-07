@@ -224,10 +224,11 @@ pub fn parse_json_hex(hex: &serde_json::Value) -> Result<u64, String> {
 
 #[cfg(test)]
 pub mod test_utils {
-    use std::str::FromStr;
+    use std::{net::SocketAddr, str::FromStr};
 
     use ethereum_rust_core::H512;
     use ethereum_rust_net::types::Node;
+    use ethereum_rust_storage::Store;
 
     pub fn example_p2p_node() -> Node {
         let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
@@ -238,4 +239,7 @@ pub mod test_utils {
             node_id: node_id_1,
         }
     }
+    // async pub fn start_test_api() {
+    //    let http_socket = TcpListener::bind("127.0.0.1:0");
+    // }
 }

@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     future::IntoFuture,
     net::SocketAddr,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, time::Duration,
 };
 use types::transaction::SendRawTransactionRequest;
 
@@ -31,7 +31,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::{ActiveFilters, FilterRequest},
+    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
     logs::LogsFilter,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -82,13 +82,34 @@ pub async fn start_api(
     storage: Store,
     jwt_secret: Bytes,
     local_p2p_node: Node,
+    // TODO: This should be some kind of config.
+    filter_duration: Duration
 ) {
+    // TODO: Refactor how filters are handled
+    // Filters used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
+    let active_filters = Arc::new(Mutex::new(HashMap::new()));
     let service_context = RpcApiContext {
         storage: storage.clone(),
         jwt_secret,
         local_p2p_node,
-        active_filters: Arc::new(Mutex::new(HashMap::new())),
+        active_filters: active_filters.clone(),
     };
+
+    // Periodically clean up the active filters for the filters endpoints.
+    tokio::task::spawn(
+        async move {
+            let filter_duration = filter_duration.clone();
+            let mut interval = tokio::time::interval(filter_duration.clone());
+            let filters = active_filters.clone();
+            loop {
+                interval.tick().await;
+                tracing::info!("Running filter clean task");
+                filter::clean_outdated_filters(filters.clone(), filter_duration.as_secs());
+                tracing::info!("Filter clean task complete");
+            }
+        }
+    );
+
     let http_router = Router::new()
         .route("/", post(handle_http_request))
         .with_state(service_context.clone());
@@ -215,7 +236,8 @@ pub fn map_eth_requests(
         "eth_feeHistory" => FeeHistoryRequest::call(req, storage),
         "eth_estimateGas" => EstimateGasRequest::call(req, storage),
         "eth_getLogs" => LogsFilter::call(req, storage),
-        "eth_newFilter" => FilterRequest::stateful_call(req, storage, filters),
+        "eth_newFilter" => NewFilterRequest::stateful_call(req, storage, filters),
+        "eth_uninstallFilter" => DeleteFilterRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
         _ => Err(RpcErr::MethodNotFound),
