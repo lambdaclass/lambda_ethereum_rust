@@ -1,6 +1,6 @@
 use crate::{
-    constants::{HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
-    vm_result::{ExecutionResult, ResultReason},
+    constants::{call_opcode, HALT_FOR_CALL, REVERT_FOR_CALL, SUCCESS_FOR_CALL, SUCCESS_FOR_RETURN},
+    vm_result::ResultReason,
 };
 
 use super::*;
@@ -9,155 +9,220 @@ use super::*;
 // Opcodes: CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, CREATE2, STATICCALL, REVERT, INVALID, SELFDESTRUCT
 
 impl VM {
-    pub fn op_create(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
-    }
-
-    pub fn op_call(&mut self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
+    // CALL operation
+    pub fn op_call(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
-        let address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
         let value = current_call_frame.stack.pop()?;
-        let args_offset = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .unwrap_or(usize::MAX);
-        let args_size = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .unwrap_or(usize::MAX);
-        let ret_offset = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .unwrap_or(usize::MAX);
-        let ret_size = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .unwrap_or(usize::MAX);
+        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+        let args_size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
 
-        // check balance
-        if self.balance(&current_call_frame.msg_sender) < value {
-            current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            return Ok(());
+        let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size);
+
+        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&code_address) {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        };
+        
+        let positive_value_cost = if !value.is_zero() {
+            call_opcode::NON_ZERO_VALUE_COST + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
+        } else {
+            0
+        };
+
+        let account = self.db.accounts.get(&code_address).unwrap(); // if the account doesn't exist, it should be created
+        let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
+            call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
+        } else {
+            0
+        };
+
+        let gas_cost = memory_expansion_cost as u64
+            + address_access_cost
+            + positive_value_cost
+            + value_to_empty_account_cost;
+
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
         }
 
-        // transfer value
-        // transfer(&current_call_frame.msg_sender, &address, value);
-        let callee_bytecode = self.get_account_bytecode(&address);
-        if callee_bytecode.is_empty() {
-            current_call_frame
-                .stack
-                .push(U256::from(SUCCESS_FOR_CALL))?;
-            return Ok(());
-        }
+        self.env.consumed_gas += gas_cost;
+        self.accrued_substate.warm_addresses.insert(code_address);
 
-        let calldata = current_call_frame
-            .memory
-            .load_range(args_offset, args_size)
-            .into();
+        let msg_sender = current_call_frame.msg_sender;
+        let to = current_call_frame.to;
+        let is_static = current_call_frame.is_static;
 
-        let new_call_frame = CallFrame {
+        self.generic_call(
+            current_call_frame,
             gas,
-            msg_sender: current_call_frame.msg_sender, // caller remains the msg_sender
-            callee: address,
-            bytecode: callee_bytecode,
-            msg_value: value,
-            calldata,
-            ..Default::default()
-        };
+            value,
+            msg_sender,
+            to,
+            code_address,
+            None,
+            false,
+            is_static,
+            args_offset,
+            args_size,
+            ret_offset,
+            ret_size,
+        )?;
 
-        current_call_frame.return_data_offset = Some(ret_offset);
-        current_call_frame.return_data_size = Some(ret_size);
-        self.call_frames.push(new_call_frame.clone());
-        let result = self.execute();
-
-        match result {
-            Ok(ExecutionResult::Success {
-                logs, return_data, ..
-            }) => {
-                current_call_frame.logs.extend(logs);
-                current_call_frame
-                    .memory
-                    .store_bytes(ret_offset, &return_data);
-                current_call_frame.returndata = return_data;
-                current_call_frame
-                    .stack
-                    .push(U256::from(SUCCESS_FOR_CALL))?;
-            }
-            Err(_) => {
-                current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-            }
-        };
-
-        Ok(())
+        Ok(OpcodeSuccess::Continue)
     }
 
-    pub fn op_callcode(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
+    // CALLCODE operation
+    pub fn op_callcode(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        let gas = current_call_frame.stack.pop()?;
+        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let value = current_call_frame.stack.pop()?;
+        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
+
+        let msg_sender = current_call_frame.msg_sender;
+        let to = current_call_frame.to;
+        let is_static = current_call_frame.is_static;
+
+        self.generic_call(
+            current_call_frame,
+            gas,
+            value,
+            code_address,
+            to,
+            code_address,
+            Some(msg_sender),
+            false,
+            is_static,
+            args_offset,
+            args_size,
+            ret_offset,
+            ret_size,
+        )?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
-    pub fn op_return(
-        &self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<ExecutionResult, VMError> {
-        let offset = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .unwrap_or(usize::MAX);
-        let size = current_call_frame
-            .stack
-            .pop()?
-            .try_into()
-            .unwrap_or(usize::MAX);
+    // RETURN operation
+    pub fn op_return(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        let offset = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+        let size = current_call_frame.stack.pop()?.try_into().unwrap_or(usize::MAX);
+
+        let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        self.env.consumed_gas += gas_cost;
         let return_data = current_call_frame.memory.load_range(offset, size).into();
-
         current_call_frame.returndata = return_data;
-        current_call_frame
-            .stack
-            .push(U256::from(SUCCESS_FOR_RETURN))?;
-        Ok(Self::write_success_result(
-            current_call_frame.clone(),
-            ResultReason::Return,
-        ))
+        current_call_frame.stack.push(U256::from(SUCCESS_FOR_RETURN))?;
+
+        Ok(OpcodeSuccess::Result(ResultReason::Return))
     }
 
-    pub fn op_delegatecall(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
+    // DELEGATECALL operation
+    pub fn op_delegatecall(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        let gas = current_call_frame.stack.pop()?;
+        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
+
+        let value = current_call_frame.msg_value;
+        let msg_sender = current_call_frame.msg_sender;
+        let to = current_call_frame.to;
+        let is_static = current_call_frame.is_static;
+
+        self.generic_call(
+            current_call_frame,
+            gas,
+            value,
+            msg_sender,
+            to,
+            code_address,
+            Some(msg_sender),
+            false,
+            is_static,
+            args_offset,
+            args_size,
+            ret_offset,
+            ret_size,
+        )?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
-    pub fn op_create2(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
+    // STATICCALL operation
+    pub fn op_staticcall(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        let gas = current_call_frame.stack.pop()?;
+        let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
+        let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
+        let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
+
+        let msg_sender = current_call_frame.msg_sender;
+        let value = current_call_frame.msg_value;
+
+        self.generic_call(
+            current_call_frame,
+            gas,
+            value,
+            msg_sender,
+            code_address,
+            code_address,
+            None,
+            false,
+            true,
+            args_offset,
+            args_size,
+            ret_offset,
+            ret_size,
+        )?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
-    pub fn op_staticcall(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
+    // CREATE operation
+    pub fn op_create(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        let value_in_wei_to_send = current_call_frame.stack.pop()?;
+        let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+        let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+
+        self.create(
+            value_in_wei_to_send,
+            code_offset_in_memory,
+            code_size_in_memory,
+            None,
+            current_call_frame,
+        )?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
-    pub fn op_revert(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
-    }
+    // CREATE2 operation
+    pub fn op_create2(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
+        let value_in_wei_to_send = current_call_frame.stack.pop()?;
+        let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+        let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
+        let salt = current_call_frame.stack.pop()?;
 
-    pub fn op_invalid(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
-    }
+        self.create(
+            value_in_wei_to_send,
+            code_offset_in_memory,
+            code_size_in_memory,
+            Some(salt),
+            current_call_frame,
+        )?;
 
-    pub fn op_selfdestruct(&self, current_call_frame: &mut CallFrame) -> Result<(), VMError> {
-        Ok(())
-    }
-
-    fn get_account_bytecode(&mut self, address: &Address) -> Bytes {
-        self.accounts
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
+        Ok(OpcodeSuccess::Continue)
     }
 }

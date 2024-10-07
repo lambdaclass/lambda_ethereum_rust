@@ -129,7 +129,7 @@ impl Db {
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
-    warm_addresses: HashSet<Address>,
+    pub warm_addresses: HashSet<Address>,
 }
 
 /// Transaction environment shared by all the call frames
@@ -298,382 +298,74 @@ impl VM {
                     self.op_keccak256(&mut current_call_frame)
                 }
                 Opcode::CALLDATALOAD => {
-                    if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let value = U256::from_big_endian(
-                        &current_call_frame.calldata.slice(offset..offset + 32),
-                    );
-                    current_call_frame.stack.push(value)?;
-                    self.env.consumed_gas += gas_cost::CALLDATALOAD
+                    self.op_calldataload(&mut current_call_frame)
                 }
                 Opcode::CALLDATASIZE => {
-                    if self.env.consumed_gas + gas_cost::CALLDATASIZE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.calldata.len()))?;
-                    self.env.consumed_gas += gas_cost::CALLDATASIZE
+                    self.op_calldatasize(&mut current_call_frame)
                 }
                 Opcode::CALLDATACOPY => {
-                    let dest_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let calldata_offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-
-                    let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
-                    let gas_cost = gas_cost::CALLDATACOPY_STATIC
-                        + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
-                        + memory_expansion_cost;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    self.env.consumed_gas += gas_cost;
-                    if size == 0 {
-                        continue;
-                    }
-                    let data = current_call_frame
-                        .calldata
-                        .slice(calldata_offset..calldata_offset + size);
-
-                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                    self.op_calldatacopy(&mut current_call_frame)
                 }
                 Opcode::RETURNDATASIZE => {
-                    if self.env.consumed_gas + gas_cost::RETURNDATASIZE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.returndata.len()))?;
-                    self.env.consumed_gas += gas_cost::RETURNDATASIZE
+                    self.op_returndatasize(&mut current_call_frame)
                 }
                 Opcode::RETURNDATACOPY => {
-                    let dest_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let returndata_offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-
-                    let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
-                    let gas_cost = gas_cost::RETURNDATACOPY_STATIC
-                        + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
-                        + memory_expansion_cost;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    self.env.consumed_gas += gas_cost;
-                    if size == 0 {
-                        continue;
-                    }
-                    let data = current_call_frame
-                        .returndata
-                        .slice(returndata_offset..returndata_offset + size);
-                    current_call_frame.memory.store_bytes(dest_offset, &data);
+                    self.op_returndatacopy(&mut current_call_frame)
                 }
                 Opcode::JUMP => {
-                    if self.env.consumed_gas + gas_cost::JUMP > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let jump_address = current_call_frame.stack.pop()?;
-
-                    if !current_call_frame.jump(jump_address) {
-                        self.env.consumed_gas = self.env.gas_limit;
-                        return Ok(ExecutionResult::Halt {
-                            reason: VMError::InvalidJump,
-                            gas_used: self.env.consumed_gas,
-                        }); // halt
-                    }
-                    self.env.consumed_gas += gas_cost::JUMP;
+                    self.op_jump(&mut current_call_frame)
                 }
                 Opcode::JUMPI => {
-                    let jump_address = current_call_frame.stack.pop()?;
-                    let condition = current_call_frame.stack.pop()?;
-                    if condition != U256::zero() && !current_call_frame.jump(jump_address) {
-                        self.env.consumed_gas = self.env.gas_limit;
-                        return Ok(ExecutionResult::Halt {
-                            reason: VMError::InvalidJump,
-                            gas_used: self.env.consumed_gas,
-                        }); // halt
-                    }
-                    self.env.consumed_gas += gas_cost::JUMPI
+                    self.op_jumpi(&mut current_call_frame)
                 }
                 Opcode::JUMPDEST => {
-                    // just consume some gas, jumptable written at the start
-                    if self.env.consumed_gas + gas_cost::JUMPDEST > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    self.env.consumed_gas += gas_cost::JUMPDEST
+                    self.op_jumpdest(&mut current_call_frame)
                 }
                 Opcode::PC => {
-                    if self.env.consumed_gas + gas_cost::PC > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    current_call_frame
-                        .stack
-                        .push(U256::from(current_call_frame.pc - 1))?;
-                    self.env.consumed_gas += gas_cost::PC
+                    self.op_pc(&mut current_call_frame)
                 }
                 Opcode::BLOCKHASH => {
-                    if self.env.consumed_gas + gas_cost::BLOCKHASH > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let block_number = current_call_frame.stack.pop()?;
-
-                    self.env.consumed_gas += gas_cost::BLOCKHASH;
-                    // If number is not in the valid range (last 256 blocks), return zero.
-                    if block_number
-                        < self
-                            .env
-                            .block
-                            .number
-                            .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
-                        || block_number >= self.env.block.number
-                    {
-                        current_call_frame.stack.push(U256::zero())?;
-                        continue;
-                    }
-
-                    if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
-                        current_call_frame
-                            .stack
-                            .push(U256::from_big_endian(&block_hash.0))?;
-                    } else {
-                        current_call_frame.stack.push(U256::zero())?;
-                    };
+                    self.op_blockhash(&mut current_call_frame)
                 }
                 Opcode::COINBASE => {
-                    if self.env.consumed_gas + gas_cost::COINBASE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let coinbase = block_env.coinbase;
-                    current_call_frame.stack.push(address_to_word(coinbase))?;
-                    self.env.consumed_gas += gas_cost::COINBASE
+                    self.op_coinbase(&mut current_call_frame)
                 }
                 Opcode::TIMESTAMP => {
-                    if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let timestamp = block_env.timestamp;
-                    current_call_frame.stack.push(timestamp)?;
-                    self.env.consumed_gas += gas_cost::TIMESTAMP
+                    self.op_timestamp(&mut current_call_frame)
                 }
                 Opcode::NUMBER => {
-                    if self.env.consumed_gas + gas_cost::NUMBER > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let block_number = block_env.number;
-                    current_call_frame.stack.push(block_number)?;
-                    self.env.consumed_gas += gas_cost::NUMBER
+                    self.op_number(&mut current_call_frame)
                 }
                 Opcode::PREVRANDAO => {
-                    if self.env.consumed_gas + gas_cost::PREVRANDAO > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let randao = block_env.prev_randao.unwrap_or_default();
-                    current_call_frame
-                        .stack
-                        .push(U256::from_big_endian(randao.0.as_slice()))?;
-                    self.env.consumed_gas += gas_cost::PREVRANDAO
+                    self.op_prevrandao(&mut current_call_frame)
                 }
                 Opcode::GASLIMIT => {
-                    if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let gas_limit = block_env.gas_limit;
-                    current_call_frame.stack.push(U256::from(gas_limit))?;
-                    self.env.consumed_gas += gas_cost::GASLIMIT
+                    self.op_gaslimit(&mut current_call_frame)
                 }
                 Opcode::CHAINID => {
-                    if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let chain_id = block_env.chain_id;
-                    current_call_frame.stack.push(U256::from(chain_id))?;
-                    self.env.consumed_gas += gas_cost::CHAINID
+                    self.op_chainid(&mut current_call_frame)
                 }
                 Opcode::SELFBALANCE => {
-                    if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    self.env.consumed_gas += gas_cost::SELFBALANCE;
-                    todo!("when we have accounts implemented");
+                    self.op_selfbalance(&mut current_call_frame)
                 }
                 Opcode::BASEFEE => {
-                    if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let base_fee = block_env.base_fee_per_gas;
-                    current_call_frame.stack.push(base_fee)?;
-                    self.env.consumed_gas += gas_cost::BASEFEE
+                    self.op_basefee(&mut current_call_frame)
                 }
                 Opcode::BLOBHASH => {
-                    if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    self.env.consumed_gas += gas_cost::BLOBHASH;
-                    todo!("when we have tx implemented");
+                    self.op_blobhash(&mut current_call_frame)
                 }
                 Opcode::BLOBBASEFEE => {
-                    if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let blob_base_fee = block_env.calculate_blob_gas_price();
-                    current_call_frame.stack.push(blob_base_fee)?;
-                    self.env.consumed_gas += gas_cost::BLOBBASEFEE
+                    self.op_blobbasefee(&mut current_call_frame)
                 }
                 Opcode::PUSH0 => {
-                    if self.env.consumed_gas + gas_cost::PUSH0 > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    current_call_frame.stack.push(U256::zero())?;
-                    self.env.consumed_gas += gas_cost::PUSH0
+                    self.op_push0(&mut current_call_frame)
                 }
                 // PUSHn
                 op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
-                    if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
-                    let next_n_bytes = current_call_frame
-                        .bytecode
-                        .get(current_call_frame.pc()..current_call_frame.pc() + n_bytes as usize)
-                        .ok_or(VMError::InvalidBytecode)?; // this shouldn't really happen during execution
-                    let value_to_push = U256::from(next_n_bytes);
-                    current_call_frame.stack.push(value_to_push)?;
-                    current_call_frame.increment_pc_by(n_bytes as usize);
-                    self.env.consumed_gas += gas_cost::PUSHN
+                    self.op_push(&mut current_call_frame, op)
                 }
                 Opcode::PUSH32 => {
-                    if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let next_32_bytes = current_call_frame
-                        .bytecode
-                        .get(current_call_frame.pc()..current_call_frame.pc() + WORD_SIZE)
-                        .ok_or(VMError::InvalidBytecode)?;
-                    let value_to_push = U256::from(next_32_bytes);
-                    current_call_frame.stack.push(value_to_push)?;
-                    current_call_frame.increment_pc_by(WORD_SIZE);
-                    self.env.consumed_gas += gas_cost::PUSHN
+                    self.op_push(&mut current_call_frame, Opcode::PUSH32)
                 }
                 Opcode::AND => {
                     self.op_and(&mut current_call_frame)
@@ -701,551 +393,79 @@ impl VM {
                 }
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    if self.env.consumed_gas + gas_cost::DUPN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
-
-                    if current_call_frame.stack.len() < depth as usize {
-                        return Err(VMError::StackUnderflow);
-                    }
-
-                    let value_at_depth = current_call_frame
-                        .stack
-                        .get(current_call_frame.stack.len() - depth as usize)?;
-                    current_call_frame.stack.push(*value_at_depth)?;
-                    self.env.consumed_gas += gas_cost::DUPN
+                    self.op_dup(&mut current_call_frame, op)
                 }
                 // SWAPn
-                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    if self.env.consumed_gas + gas_cost::SWAPN > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
-
-                    if current_call_frame.stack.len() < depth as usize {
-                        return Err(VMError::StackUnderflow);
-                    }
-                    let stack_top_index = current_call_frame.stack.len();
-                    let to_swap_index = stack_top_index
-                        .checked_sub(depth as usize)
-                        .ok_or(VMError::StackUnderflow)?;
-                    current_call_frame
-                        .stack
-                        .swap(stack_top_index - 1, to_swap_index - 1);
-                    self.env.consumed_gas += gas_cost::SWAPN
+                op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) =>{                    
+                    self.op_swap(&mut current_call_frame, op)
                 }
                 Opcode::POP => {
-                    if self.env.consumed_gas + gas_cost::POP > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    current_call_frame.stack.pop()?;
-                    self.env.consumed_gas += gas_cost::POP
+                    self.op_pop(&mut current_call_frame)
                 }
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    if current_call_frame.is_static {
-                        return Err(VMError::OpcodeNotAllowedInStaticContext);
-                    }
-
-                    let number_of_topics = (op as u8) - (Opcode::LOG0 as u8);
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let mut topics = Vec::new();
-                    for _ in 0..number_of_topics {
-                        let topic = current_call_frame.stack.pop()?.as_u32();
-                        topics.push(H32::from_slice(topic.to_be_bytes().as_ref()));
-                    }
-
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(offset + size) as u64;
-                    let gas_cost = gas_cost::LOGN_STATIC
-                        + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics as u64
-                        + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64
-                        + memory_expansion_cost;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    let data = current_call_frame.memory.load_range(offset, size);
-                    let log = Log {
-                        address: current_call_frame.msg_sender, // Should change the addr if we are on a Call/Create transaction (Call should be the contract we are calling, Create should be the original caller)
-                        topics,
-                        data: Bytes::from(data),
-                    };
-                    current_call_frame.logs.push(log);
-                    self.env.consumed_gas += gas_cost
+                    self.op_log(&mut current_call_frame, op)
                 }
                 Opcode::MLOAD => {
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
-                    let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost as u64;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    let value = current_call_frame.memory.load(offset);
-                    current_call_frame.stack.push(value)?;
-                    self.env.consumed_gas += gas_cost
+                    self.op_mload(&mut current_call_frame)
                 }
                 Opcode::MSTORE => {
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
-                    let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost as u64;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    let value = current_call_frame.stack.pop()?;
-                    let mut value_bytes = [0u8; WORD_SIZE];
-                    value.to_big_endian(&mut value_bytes);
-
-                    current_call_frame.memory.store_bytes(offset, &value_bytes);
-                    self.env.consumed_gas += gas_cost
+                    self.op_mstore(&mut current_call_frame)
                 }
                 Opcode::MSTORE8 => {
-                    let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(offset + 1);
-                    let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost as u64;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    let value = current_call_frame.stack.pop()?;
-                    let mut value_bytes = [0u8; WORD_SIZE];
-                    value.to_big_endian(&mut value_bytes);
-
-                    current_call_frame
-                        .memory
-                        .store_bytes(offset, value_bytes[WORD_SIZE - 1..WORD_SIZE].as_ref());
-                    self.env.consumed_gas += gas_cost
+                    self.op_mstore8(&mut current_call_frame)
                 }
                 Opcode::SLOAD => {
-                    let key = current_call_frame.stack.pop()?;
-                    let address = if let Some(delegate) = current_call_frame.delegate {
-                        delegate
-                    } else {
-                        current_call_frame.code_address
-                    };
-
-                    let current_value = self
-                        .db
-                        .read_account_storage(&address, &key)
-                        .unwrap_or_default()
-                        .current_value;
-                    current_call_frame.stack.push(current_value)?;
+                    self.op_sload(&mut current_call_frame)
                 }
                 Opcode::SSTORE => {
-                    if current_call_frame.is_static {
-                        panic!("Cannot write to storage in a static context");
-                    }
-
-                    let key = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-                    // maybe we need the journal struct as accessing the Db could be slow, with the journal
-                    // we can have prefetched values directly in memory and only commits the values to the db once everything is done
-
-                    let address = if let Some(delegate) = current_call_frame.delegate {
-                        delegate
-                    } else {
-                        current_call_frame.code_address
-                    };
-
-                    let slot = self.db.read_account_storage(&address, &key);
-                    let (original_value, _) = match slot {
-                        Some(slot) => (slot.original_value, slot.current_value),
-                        None => (value, value),
-                    };
-
-                    self.db.write_account_storage(
-                        &address,
-                        key,
-                        StorageSlot {
-                            original_value,
-                            current_value: value,
-                        },
-                    );
+                    self.op_sstore(&mut current_call_frame)
                 }
                 Opcode::MSIZE => {
-                    if self.env.consumed_gas + gas_cost::MSIZE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    current_call_frame
-                        .stack
-                        .push(current_call_frame.memory.size())?;
-                    self.env.consumed_gas += gas_cost::MSIZE
+                    self.op_msize(&mut current_call_frame)
                 }
                 Opcode::GAS => {
-                    if self.env.consumed_gas + gas_cost::GAS > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let remaining_gas = self.env.gas_limit - self.env.consumed_gas - gas_cost::GAS;
-                    current_call_frame.stack.push(remaining_gas.into())?;
-                    self.env.consumed_gas += gas_cost::GAS
+                    self.op_gas(&mut current_call_frame)
                 }
                 Opcode::MCOPY => {
-                    let dest_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let src_offset: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size: usize = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-
-                    let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
-                    let memory_byte_size = (src_offset + size).max(dest_offset + size);
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(memory_byte_size);
-                    let gas_cost = gas_cost::MCOPY_STATIC
-                        + gas_cost::MCOPY_DYNAMIC_BASE * words_copied as u64
-                        + memory_expansion_cost as u64;
-
-                    self.env.consumed_gas += gas_cost;
-                    if size == 0 {
-                        continue;
-                    }
-                    current_call_frame
-                        .memory
-                        .copy(src_offset, dest_offset, size);
+                    self.op_mcopy(&mut current_call_frame)
                 }
                 Opcode::CALL => {
-                    let gas = current_call_frame.stack.pop()?;
-                    let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
-                    let value = current_call_frame.stack.pop()?;
-                    let args_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let args_size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let ret_offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let ret_size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-
-                    let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
-                    let memory_expansion_cost =
-                        current_call_frame.memory.expansion_cost(memory_byte_size);
-                    let code_execution_cost = 0; // TODO
-                    let address_access_cost =
-                        if self.accrued_substate.warm_addresses.contains(&code_address) {
-                            call_opcode::WARM_ADDRESS_ACCESS_COST
-                        } else {
-                            call_opcode::COLD_ADDRESS_ACCESS_COST
-                        };
-                    let positive_value_cost = if !value.is_zero() {
-                        call_opcode::NON_ZERO_VALUE_COST
-                            + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
-                    } else {
-                        0
-                    };
-                    let account = self.db.accounts.get(&code_address).unwrap(); // if the account doesn't exist, it should be created
-                    let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
-                        call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
-                    } else {
-                        0
-                    };
-                    // has to be returned to the caller
-                    let gas_cost = memory_expansion_cost as u64
-                        + code_execution_cost
-                        + address_access_cost
-                        + positive_value_cost
-                        + value_to_empty_account_cost;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-
-                    self.accrued_substate.warm_addresses.insert(code_address);
-
-                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
-                    let to = current_call_frame.to; // to remains the same
-                    let is_static = current_call_frame.is_static;
-
-                    self.generic_call(
-                        &mut current_call_frame,
-                        gas,
-                        value,
-                        msg_sender,
-                        to,
-                        code_address,
-                        None,
-                        false,
-                        is_static,
-                        args_offset,
-                        args_size,
-                        ret_offset,
-                        ret_size,
-                    )?;
+                    self.op_call(&mut current_call_frame)
                 }
                 Opcode::CALLCODE => {
-                    // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage remains the same. Note that an account with no code will return success as true.
-                    let gas = current_call_frame.stack.pop()?;
-                    let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
-                    let value = current_call_frame.stack.pop()?;
-                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
-
-                    let msg_sender = current_call_frame.msg_sender; // msg_sender is changed to the proxy's address
-                    let to = current_call_frame.to; // to remains the same
-                    let is_static = current_call_frame.is_static;
-
-                    self.generic_call(
-                        &mut current_call_frame,
-                        gas,
-                        value,
-                        code_address,
-                        to,
-                        code_address,
-                        Some(msg_sender),
-                        false,
-                        is_static,
-                        args_offset,
-                        args_size,
-                        ret_offset,
-                        ret_size,
-                    )?;
+                    self.op_callcode(&mut current_call_frame)
                 }
                 Opcode::RETURN => {
-                    let offset = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-                    let size = current_call_frame
-                        .stack
-                        .pop()?
-                        .try_into()
-                        .unwrap_or(usize::MAX);
-
-                    let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
-                    if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    self.env.consumed_gas += gas_cost;
-                    let return_data = current_call_frame.memory.load_range(offset, size).into();
-
-                    current_call_frame.returndata = return_data;
-                    current_call_frame
-                        .stack
-                        .push(U256::from(SUCCESS_FOR_RETURN))?;
-
-                    return Ok(Self::write_success_result(
-                        current_call_frame,
-                        ResultReason::Return,
-                    ));
+                    self.op_return(&mut current_call_frame)
                 }
                 Opcode::DELEGATECALL => {
-                    // The delegatecall executes the setVars(uint256) code from Contract B but updates Contract A’s storage. The execution has the same storage, msg.sender & msg.value as its parent call setVarsDelegateCall.
-                    // Creates a new sub context as if calling itself, but with the code of the given account. In particular the storage, the current sender and the current value remain the same. Note that an account with no code will return success as true.
-                    let gas = current_call_frame.stack.pop()?;
-                    let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
-                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
-
-                    let value = current_call_frame.msg_value; // value remains the same
-                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
-                    let to = current_call_frame.to; // to remains the same
-                    let is_static = current_call_frame.is_static;
-
-                    self.generic_call(
-                        &mut current_call_frame,
-                        gas,
-                        value,
-                        msg_sender,
-                        to,
-                        code_address,
-                        Some(msg_sender),
-                        false,
-                        is_static,
-                        args_offset,
-                        args_size,
-                        ret_offset,
-                        ret_size,
-                    )?;
+                    self.op_delegatecall(&mut current_call_frame)
                 }
                 Opcode::STATICCALL => {
-                    // it cannot be used to transfer Ether
-                    let gas = current_call_frame.stack.pop()?;
-                    let code_address =
-                        Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
-                    let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
-
-                    let msg_sender = current_call_frame.msg_sender; // caller remains the msg_sender
-                    let value = current_call_frame.msg_value;
-
-                    self.generic_call(
-                        &mut current_call_frame,
-                        gas,
-                        value, // check
-                        msg_sender,
-                        code_address,
-                        code_address,
-                        None,
-                        false,
-                        true,
-                        args_offset,
-                        args_size,
-                        ret_offset,
-                        ret_size,
-                    )?;
+                    self.op_staticcall(&mut current_call_frame)
                 }
                 Opcode::CREATE => {
-                    let value_in_wei_to_send = current_call_frame.stack.pop()?;
-                    let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
-
-                    self.create(
-                        value_in_wei_to_send,
-                        code_offset_in_memory,
-                        code_size_in_memory,
-                        None,
-                        &mut current_call_frame,
-                    )?;
+                    self.op_create(&mut current_call_frame)
                 }
                 Opcode::CREATE2 => {
-                    let value_in_wei_to_send = current_call_frame.stack.pop()?;
-                    let code_offset_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let code_size_in_memory = current_call_frame.stack.pop()?.try_into().unwrap();
-                    let salt = current_call_frame.stack.pop()?;
-
-                    self.create(
-                        value_in_wei_to_send,
-                        code_offset_in_memory,
-                        code_size_in_memory,
-                        Some(salt),
-                        &mut current_call_frame,
-                    )?;
+                    self.op_create2(&mut current_call_frame)
                 }
                 Opcode::TLOAD => {
-                    if self.env.consumed_gas + gas_cost::TLOAD > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let key = current_call_frame.stack.pop()?;
-                    let value = current_call_frame
-                        .transient_storage
-                        .get(&(current_call_frame.msg_sender, key))
-                        .cloned()
-                        .unwrap_or(U256::zero());
-
-                    current_call_frame.stack.push(value)?;
-                    self.env.consumed_gas += gas_cost::TLOAD
+                    self.op_tload(&mut current_call_frame)
                 }
                 Opcode::TSTORE => {
-                    if self.env.consumed_gas + gas_cost::TSTORE > self.env.gas_limit {
-                        return Ok(ExecutionResult::Revert {
-                            reason: VMError::OutOfGas,
-                            gas_used: self.env.consumed_gas,
-                            output: current_call_frame.returndata,
-                        }); // should revert the tx
-                    }
-                    let key = current_call_frame.stack.pop()?;
-                    let value = current_call_frame.stack.pop()?;
-
-                    current_call_frame
-                        .transient_storage
-                        .insert((current_call_frame.msg_sender, key), value);
-                    self.env.consumed_gas += gas_cost::TSTORE
+                    self.op_tstore(&mut current_call_frame)
                 }
-                _ => return Err(VMError::OpcodeNotFound),
+                _ => Err(VMError::OpcodeNotFound),
             };
 
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {},
                 Ok(OpcodeSuccess::Result(r)) => {
-                    return Ok(Self::write_success_result(
+                    return Self::write_success_result(
                         current_call_frame.clone(),
                         r,
-                    ))
+                    )
                 },
                 Err(_) => {
                     todo!("Return appropriate ExecutionResult (Halt or Revert)");
@@ -1323,9 +543,9 @@ impl VM {
         let result = self.execute();
 
         match result {
-            Ok(ExecutionResult::Success {
+            ExecutionResult::Success {
                 logs, return_data, ..
-            }) => {
+            } => {
                 current_call_frame.logs.extend(logs);
                 current_call_frame
                     .memory
@@ -1335,23 +555,24 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            Ok(ExecutionResult::Revert {
+            ExecutionResult::Revert {
                 reason: _,
                 gas_used,
                 output,
-            }) => {
+            } => {
                 current_call_frame.memory.store_bytes(ret_offset, &output);
                 current_call_frame.returndata = output;
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 current_call_frame.gas -= U256::from(gas_used);
             }
-            Ok(ExecutionResult::Halt { reason, gas_used }) => {
+            ExecutionResult::Halt { reason, gas_used } => {
                 current_call_frame.stack.push(U256::from(reason as u8))?;
                 current_call_frame.gas -= U256::from(gas_used);
             }
-            Err(_) => {
-                current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-            }
+            // WARNING: I commented this because I don't know when this should be executed.
+            // Err(_) => {
+            //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
+            // }
         };
         Ok(())
     }
