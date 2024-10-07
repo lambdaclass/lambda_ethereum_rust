@@ -1,5 +1,5 @@
 use ethereum_rust_blockchain::error::ChainError;
-use ethereum_rust_blockchain::payload::payload_block_value;
+use ethereum_rust_blockchain::payload::build_payload;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::H256;
@@ -107,13 +107,21 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
             )),
-            Err(ChainError::InvalidBlock(_)) => {
-                Ok(PayloadStatus::invalid_with_hash(latest_valid_hash))
+            Err(ChainError::InvalidBlock(error)) => {
+                warn!("Error adding block: {error}");
+                Ok(PayloadStatus::invalid_with(
+                    latest_valid_hash,
+                    error.to_string(),
+                ))
             }
             Err(ChainError::EvmError(error)) => {
+                warn!("Error executing block: {error}");
                 Ok(PayloadStatus::invalid_with_err(&error.to_string()))
             }
-            Err(ChainError::StoreError(_)) => Err(RpcErr::Internal),
+            Err(ChainError::StoreError(error)) => {
+                warn!("Error storing block: {error}");
+                Err(RpcErr::Internal)
+            }
             Ok(()) => {
                 info!("Block with hash {block_hash} executed succesfully");
                 // TODO: We don't have a way to fetch blocks by number if they are not canonical
@@ -152,10 +160,10 @@ impl RpcHandler for GetPayloadV3Request {
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested payload with id: {:#018x}", self.payload_id);
-        let Some(payload) = storage.get_payload(self.payload_id)? else {
+        let Some(mut payload) = storage.get_payload(self.payload_id)? else {
             return Err(RpcErr::UnknownPayload);
         };
-        let block_value = payload_block_value(&payload, &storage).ok_or(RpcErr::Internal)?;
+        let block_value = build_payload(&mut payload, &storage).map_err(|_| RpcErr::Internal)?;
         serde_json::to_value(ExecutionPayloadResponse::new(
             ExecutionPayloadV3::from_block(payload),
             block_value,

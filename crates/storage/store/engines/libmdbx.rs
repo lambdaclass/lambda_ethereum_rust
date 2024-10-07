@@ -1,13 +1,15 @@
 use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
-    AccountCodeHashRLP, AccountCodeRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP, BlockRLP,
-    BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP, TupleRLP,
+    AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
+    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP,
+    TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
-    Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index, Receipt, Transaction,
+    BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
+    Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -20,6 +22,7 @@ use libmdbx::{
     table_info,
 };
 use serde_json;
+use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::Path;
 use std::sync::Arc;
@@ -49,6 +52,17 @@ impl Store {
     fn read<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         txn.get::<T>(key).map_err(StoreError::LibmdbxError)
+    }
+
+    // Helper method to remove from a libmdbx table
+    fn remove<T: Table>(&self, key: T::Key) -> Result<(), StoreError> {
+        let txn = self
+            .db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?;
+        txn.delete::<T>(key, None)
+            .map_err(StoreError::LibmdbxError)?;
+        txn.commit().map_err(StoreError::LibmdbxError)
     }
 
     fn get_block_hash_by_block_number(
@@ -215,6 +229,50 @@ impl StoreEngine for Store {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
+    fn add_blobs_bundle_to_pool(
+        &self,
+        tx_hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.write::<BlobsBundlePool>(tx_hash.into(), blobs_bundle.into())?;
+        Ok(())
+    }
+
+    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
+        Ok(self
+            .read::<BlobsBundlePool>(tx_hash.into())?
+            .map(|bb| bb.to()))
+    }
+
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.remove::<TransactionPool>(hash.into())
+    }
+
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+        let cursor = self
+            .db
+            .begin_read()
+            .map_err(StoreError::LibmdbxError)?
+            .cursor::<TransactionPool>()
+            .map_err(StoreError::LibmdbxError)?;
+        let mut tx_iter = cursor.walk(None);
+        let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        while let Some(Ok((_, tx))) = tx_iter.next() {
+            let tx = tx.to();
+            if filter(&tx) {
+                // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
+                txs_by_sender
+                    .entry(tx.sender())
+                    .or_default()
+                    .push(tx.clone())
+            }
+        }
+        Ok(txs_by_sender)
+    }
+
     /// Stores the chain config serialized as json
     fn set_chain_config(&self, chain_config: &ChainConfig) -> Result<(), StoreError> {
         self.write::<ChainData>(
@@ -336,30 +394,17 @@ impl StoreEngine for Store {
         }
     }
 
-    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
-        let Some(state_root) = self
-            .get_block_header_by_hash(block_hash)?
-            .map(|h| h.state_root)
-        else {
-            return Ok(None);
-        };
-        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
-        let trie = Trie::open(db, state_root);
-        Ok(Some(trie))
-    }
-
-    fn new_state_trie(&self) -> Result<Trie, StoreError> {
-        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
-        let trie = Trie::new(db);
-        Ok(trie)
-    }
-
     fn open_storage_trie(&self, address: Address, storage_root: H256) -> Trie {
         let db = Box::new(LibmdbxDupsortTrieDB::<StorageTriesNodes, [u8; 20]>::new(
             self.db.clone(),
             address.0,
         ));
         Trie::open(db, storage_root)
+    }
+
+    fn open_state_trie(&self, state_root: H256) -> Trie {
+        let db = Box::new(LibmdbxTrieDB::<StateTrieNodes>::new(self.db.clone()));
+        Trie::open(db, state_root)
     }
 
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError> {
@@ -437,8 +482,13 @@ dupsort!(
 );
 
 table!(
-    /// Transaction pool trable.
+    /// Transaction pool table.
     ( TransactionPool ) TransactionHashRLP => TransactionRLP
+);
+
+table!(
+    /// BlobsBundle pool table, contains the corresponding blobs bundle for each blob transaction in the TransactionPool table
+    ( BlobsBundlePool ) TransactionHashRLP => BlobsBubdleRLP
 );
 
 table!(
@@ -554,6 +604,7 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
         table_info!(Receipts),
         table_info!(TransactionLocations),
         table_info!(TransactionPool),
+        table_info!(BlobsBundlePool),
         table_info!(ChainData),
         table_info!(StateTrieNodes),
         table_info!(StorageTriesNodes),
