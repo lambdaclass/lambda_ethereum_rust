@@ -13,6 +13,7 @@ use ethereum_rust_storage::{error::StoreError, Store};
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
 pub const ETH_VERSION: u32 = 68;
+pub const MAX_NUMBER_OF_HEADERS_TO_SEND: u64 = 20;
 
 use super::message::RLPxMessage;
 
@@ -246,7 +247,16 @@ impl BlockHeaders {
             HashOrNumber::Number(number) => storage.get_block_header(number)?.unwrap(),
         };
 
-        block_headers.push(first_block);
+        let number = first_block.number;
+        for i in number..number + MAX_NUMBER_OF_HEADERS_TO_SEND {
+            let header = storage.get_block_header(i)?;
+            match header {
+                Some(header) => {
+                    block_headers.push(header);
+                }
+                None => break,
+            }
+        }
 
         if reverse {
             block_headers.reverse();
@@ -335,8 +345,9 @@ mod tests {
     #[test]
     fn block_headers_startblock_number_message() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let header1 = BlockHeader::default();
+        let mut header1 = BlockHeader::default();
         let number = 1;
+        header1.number = number;
         let block1 = Block {
             header: header1.clone(),
             body: Default::default(),
@@ -355,5 +366,51 @@ mod tests {
         let decoded = BlockHeaders::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_headers, vec![header1]);
+    }
+
+    #[test]
+    fn block_headers_get_multiple_blocks() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let mut header1 = BlockHeader::default();
+        header1.number = 1;
+        let mut header2 = BlockHeader::default();
+        header2.number = 2;
+        let mut header3 = BlockHeader::default();
+        header3.number = 3;
+        let block1 = Block {
+            header: header1.clone(),
+            body: Default::default(),
+        };
+        let block2 = Block {
+            header: header2.clone(),
+            body: Default::default(),
+        };
+        let block3 = Block {
+            header: header3.clone(),
+            body: Default::default(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store.add_block(block2.clone()).unwrap();
+        store.add_block(block3.clone()).unwrap();
+
+        store
+            .set_canonical_block(1, header1.compute_block_hash())
+            .unwrap();
+        store
+            .set_canonical_block(2, header2.compute_block_hash())
+            .unwrap();
+        store
+            .set_canonical_block(3, header3.compute_block_hash())
+            .unwrap();
+
+        let block_bodies =
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 0, 0, false).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockHeaders::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_headers, vec![header1, header2, header3]);
     }
 }
