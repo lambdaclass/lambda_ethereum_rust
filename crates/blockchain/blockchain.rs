@@ -31,7 +31,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
-    let mut state = evm_state(storage.clone(), parent_header.number);
+    let mut state = evm_state(storage.clone(), block.header.parent_hash);
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
@@ -45,7 +45,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
-        .apply_account_updates(parent_header.number, &account_updates)?
+        .apply_account_updates(block.header.parent_hash, &account_updates)?
         .unwrap_or_default();
 
     // Check state root matches the one in block header after execution
@@ -143,17 +143,15 @@ pub fn validate_block(
     let spec = spec_id(state.database(), block.header.timestamp).unwrap();
 
     // Verify initial header validity against parent
-    let mut valid_header = validate_block_header(&block.header, parent_header);
+    validate_block_header(&block.header, parent_header).map_err(InvalidBlockError::from)?;
 
-    valid_header = match spec {
-        SpecId::CANCUN => {
-            valid_header && validate_cancun_header_fields(&block.header, parent_header)
+    match spec {
+        SpecId::CANCUN => validate_cancun_header_fields(&block.header, parent_header)
+            .map_err(InvalidBlockError::from)?,
+        _other_specs => {
+            validate_no_cancun_header_fields(&block.header).map_err(InvalidBlockError::from)?
         }
-        _ => valid_header && validate_no_cancun_header_fields(&block.header),
     };
-    if !valid_header {
-        return Err(ChainError::InvalidBlock(InvalidBlockError::InvalidHeader));
-    }
 
     if spec == SpecId::CANCUN {
         verify_blob_gas_usage(block)?

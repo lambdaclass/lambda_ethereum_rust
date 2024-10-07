@@ -1,5 +1,6 @@
 use clap::{Arg, ArgAction, Command};
 use ethereum_rust_net::bootnode::BootNode;
+use tracing::Level;
 
 pub fn cli() -> Command {
     Command::new("ethereum_rust")
@@ -17,6 +18,14 @@ pub fn cli() -> Command {
                 .long("http.port")
                 .default_value("8545")
                 .value_name("PORT")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("log-level")
+                .long("log-level")
+                .default_value(Level::INFO.as_str())
+                .value_name("LOG_LEVEL")
+                .required(false)
                 .action(ArgAction::Set),
         )
         .arg(
@@ -72,7 +81,6 @@ pub fn cli() -> Command {
             Arg::new("network")
                 .long("network")
                 .value_name("GENESIS_FILE_PATH")
-                .required(true)
                 .action(ArgAction::Set),
         )
         .arg(
@@ -87,7 +95,6 @@ pub fn cli() -> Command {
         .arg(
             Arg::new("datadir")
                 .long("datadir")
-                .default_value("")
                 .value_name("DATABASE_DIRECTORY")
                 .action(ArgAction::Set),
         )
@@ -96,5 +103,13 @@ pub fn cli() -> Command {
                 .long("import")
                 .required(false)
                 .value_name("CHAIN_RLP_PATH"),
+        )
+        .subcommand(
+            Command::new("removedb").about("Remove the database").arg(
+                Arg::new("datadir")
+                    .long("datadir")
+                    .value_name("DATABASE_DIRECTORY")
+                    .action(ArgAction::Set),
+            ),
         )
 }
