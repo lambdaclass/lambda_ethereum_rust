@@ -109,3 +109,73 @@ impl RLPxMessage for StatusMessage {
         })
     }
 }
+
+#[derive(Debug)]
+pub(crate) struct GetBlockBodies {
+    blocks_hash: Vec<BlockHash>,
+}
+
+impl GetBlockBodies {
+    pub fn build_from(blocks_hash: Vec<BlockHash>) -> Result<Self, StoreError> {
+        Ok(Self { blocks_hash })
+    }
+}
+
+impl RLPxMessage for GetBlockBodies {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        0x05_u8.encode(buf); // msg_id
+
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.blocks_hash)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let blocks_hash = vec![];
+        let (request_id, decoder): (u32, _) = decoder.decode_field("request-id").unwrap();
+
+        if request_id != 0x05 {
+            return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
+        }
+
+        Ok(Self { blocks_hash })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ethereum_rust_core::types::BlockHash;
+
+    use crate::rlpx::{eth::GetBlockBodies, message::RLPxMessage};
+
+    #[test]
+    fn get_block_bodies_message() {
+        let blocks_hash = vec![
+            BlockHash::from([0; 32]),
+            BlockHash::from([1; 32]),
+            BlockHash::from([2; 32]),
+        ];
+        let get_block_bodies = GetBlockBodies::build_from(blocks_hash.clone()).unwrap();
+
+        let mut buf = Vec::new();
+        get_block_bodies.encode(&mut buf);
+
+        let decoded = GetBlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.blocks_hash, blocks_hash);
+    }
+}
