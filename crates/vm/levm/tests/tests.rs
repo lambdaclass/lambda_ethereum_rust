@@ -3394,3 +3394,36 @@ fn create_on_create() {
     vm.execute().unwrap();
     assert_eq!(vm.db.accounts.len(), 4);
 }
+
+#[test]
+fn callvalue_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let value = U256::from(0x1234);
+
+    let operations = [Operation::Callvalue, Operation::Stop];
+
+    // let mut vm = new_vm_with_ops_addr_bal(&operations, address, balance);
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        value,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default()
+            .with_bytecode(ops_to_bytecde(&operations))
+            .with_balance(U256::MAX),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute().unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), value);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLVALUE);
+}

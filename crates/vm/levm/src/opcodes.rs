@@ -202,6 +202,7 @@ impl From<u8> for Opcode {
             0x14 => Opcode::EQ,
             0x15 => Opcode::ISZERO,
             0x20 => Opcode::KECCAK256,
+            0x34 => Opcode::CALLVALUE,
             0x35 => Opcode::CALLDATALOAD,
             0x36 => Opcode::CALLDATASIZE,
             0x37 => Opcode::CALLDATACOPY,

@@ -1705,7 +1705,18 @@ impl VM {
                     self.env.consumed_gas += gas_cost::TSTORE
                 }
                 Opcode::CALLVALUE => {
-                    todo!()
+                    if self.env.consumed_gas + gas_cost::CALLVALUE > self.env.gas_limit {
+                        return Ok(ExecutionResult::Revert {
+                            reason: VMError::OutOfGas,
+                            gas_used: self.env.consumed_gas,
+                            output: current_call_frame.returndata,
+                        });
+                    }
+
+                    let callvalue = current_call_frame.msg_value;
+
+                    current_call_frame.stack.push(callvalue)?;
+                    self.env.consumed_gas += gas_cost::CALLVALUE;
                 }
                 Opcode::CODECOPY => {
                     todo!()
