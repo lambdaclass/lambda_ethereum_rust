@@ -1704,6 +1704,18 @@ impl VM {
                         .insert((current_call_frame.msg_sender, key), value);
                     self.env.consumed_gas += gas_cost::TSTORE
                 }
+                Opcode::CALLVALUE => {
+                    todo!()
+                }
+                Opcode::CODECOPY => {
+                    todo!()
+                }
+                Opcode::CODESIZE => {
+                    todo!()
+                }
+                Opcode::GASPRICE => {
+                    todo!()
+                }
                 _ => return Err(VMError::OpcodeNotFound),
             }
         }
