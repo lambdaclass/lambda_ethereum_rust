@@ -1,11 +1,10 @@
 #![no_main]
+#![allow(unused_imports)]
+#![allow(dead_code)]
 
-use ethereum_rust_blockchain::{
-    error::{ChainError, InvalidBlockError},
-    verify_blob_gas_usage,
-};
+use ethereum_rust_blockchain::{validate_gas_used, verify_blob_gas_usage};
 use ethereum_rust_core::types::{
-    validate_block_header, validate_cancun_header_fields, BlockHeader, Receipt, Transaction,
+    validate_block_header, validate_cancun_header_fields, Receipt, Transaction,
 };
 use ethereum_rust_evm::{block_env, tx_env};
 use prover_lib::{db_memorydb::MemoryDB, inputs::ProverInput};
@@ -18,23 +17,39 @@ use revm::{
 sp1_zkvm::entrypoint!(main);
 
 pub fn main() {
-    let input = sp1_zkvm::io::read::<ProverInput>();
-    sp1_zkvm::io::commit(&input);
-    let block = input.block;
-    let parent_block_header = input.parent_block_header;
-    let db = input.db;
+    let head_block_bytes = sp1_zkvm::io::read::<Vec<u8>>();
+    let parent_block_header_bytes = sp1_zkvm::io::read::<Vec<u8>>();
 
-    let mut cache_db = CacheDB::new(db);
+    // Make Inputs public.
+    sp1_zkvm::io::commit(&head_block_bytes);
+    sp1_zkvm::io::commit(&parent_block_header_bytes);
+
+    let block = <ethereum_rust_core::types::Block as ethereum_rust_rlp::decode::RLPDecode>::decode(
+        &head_block_bytes,
+    )
+    .unwrap();
+    let parent_block_header =
+        <ethereum_rust_core::types::BlockHeader as ethereum_rust_rlp::decode::RLPDecode>::decode(
+            &parent_block_header_bytes,
+        )
+        .unwrap();
+
+    // TODO: For execution.
+    // let db = input.db;
+    // let mut cache_db = CacheDB::new(db);
 
     let block_header_is_valid = validate_block(&block, &parent_block_header);
-    let block_receipts = execute_block(&block, &mut cache_db).unwrap();
+
+    // TODO: For execution.
+    // let block_receipts = execute_block(&block, &mut cache_db).unwrap();
     // TODO
     // Handle the case in which the gas used differs and throws an error.
     // Should the zkVM panic? Should it generate a dummy proof?
-    let _ = validate_gas_used(&block_receipts, &block.header);
+    // let _ = validate_gas_used(&block_receipts, &block.header);
 
-    // Write the output of the program.
-    sp1_zkvm::io::commit(&block_receipts);
+    // Make Output public.
+    // TODO: For execution.
+    // sp1_zkvm::io::commit(&block_receipts);
     sp1_zkvm::io::commit(&block_header_is_valid);
 }
 
@@ -42,9 +57,9 @@ fn validate_block(
     block: &ethereum_rust_core::types::Block,
     parent_block_header: &ethereum_rust_core::types::BlockHeader,
 ) -> bool {
-    validate_block_header(&block.header, parent_block_header)
-        && validate_cancun_header_fields(&block.header, parent_block_header)
-        && verify_blob_gas_usage(block).is_ok()
+    validate_block_header(&block.header, parent_block_header).unwrap();
+    validate_cancun_header_fields(&block.header, parent_block_header).unwrap();
+    verify_blob_gas_usage(block).is_ok()
 }
 
 fn execute_block(
@@ -100,15 +115,4 @@ fn run_evm(
         .build();
     let RevmResultAndState { result, state: _ } = evm.transact().unwrap();
     Ok(result)
-}
-
-// This fn can be made public in ethereum_rust:
-// https://github.com/lambdaclass/ethereum_rust/blob/f02bea4e01cfc9f3ebcbd67a5c8c460beacb67f5/crates/blockchain/blockchain.rs#L164
-fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result<(), ChainError> {
-    if let Some(last) = receipts.last() {
-        if last.cumulative_gas_used != block_header.gas_used {
-            return Err(ChainError::InvalidBlock(InvalidBlockError::GasUsedMismatch));
-        }
-    }
-    Ok(())
 }

@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, TcpListener, TcpStream},
@@ -7,13 +10,18 @@ use std::{
 use ethereum_rust_core::types::{Block, BlockBody, BlockHeader};
 use ethereum_rust_storage::Store;
 use ethereum_types::{Bloom, H160, H256, U256};
-use prover_lib::db_memorydb::MemoryDB;
+use prover_lib::{
+    db_memorydb::MemoryDB,
+    inputs::{read_chain_file, ProverInput, ProverInputNoExecution},
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::SP1ProofWithPublicValues;
 use tracing::{debug, info, warn};
 
 use crate::rpc::l1_rpc::RpcResponse;
+
+use revm::{db::CacheDB, InMemoryDB};
 
 pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
     let proof_data_provider = ProofDataProvider::new(store, ip, port);
@@ -24,10 +32,8 @@ pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
 pub enum ProofData {
     Request {},
     Response {
-        block: Option<Block>,
-        parent_block_header: Option<BlockHeader>,
-        state: Option<MemoryDB>,
         id: Option<u64>,
+        prover_inputs: Option<ProverInputNoExecution>,
     },
     Submit {
         id: u64,
@@ -311,7 +317,7 @@ impl ProofDataProvider {
             }}"#,
             hex_string_block, full
         );
-        warn!("JSON body: {json_body}");
+
         let response = Client::new()
             .post("http://localhost:8551")
             .header("content-type", "application/json")
@@ -322,19 +328,12 @@ impl ProofDataProvider {
             .json::<RpcResponse>()
             .await
             .map_err(|e| e.to_string())?;
-        warn!("JSON body sent");
+
         if let RpcResponse::Success(r) = response {
             // Attempt to deserialize the response into a Block struct
-            warn!("JSON response: {:?}", r.result.as_object());
             match Self::convert_value_to_block(&r.result) {
-                Ok(block) => {
-                    info!("Parsed Block: {:?}", block);
-                    Ok(block)
-                }
-                Err(e) => {
-                    warn!("Failed to parse block from JSON value: {}", e);
-                    Err(e)
-                }
+                Ok(block) => Ok(block),
+                Err(e) => Err(e),
             }
         } else {
             Err("Failed to get block by number".to_string())
@@ -349,46 +348,50 @@ impl ProofDataProvider {
         debug!("Request received");
 
         let last_block_number = Self::get_last_block_number().await?;
-        let block = Self::get_block_by_number(last_block_number, false).await?;
+        //let block = Self::get_block_by_number(last_block_number, false).await?;
+        //
+        //let parent_block_header = {
+        //    if last_block_number > 0 {
+        //        let parent_block = Self::get_block_by_number(last_block_number - 1, false).await?;
+        //        parent_block.header
+        //    } else {
+        //        BlockHeader::default()
+        //    }
+        //};
 
-        let parent_block_header = {
-            if last_block_number > 0 {
-                let parent_block = Self::get_block_by_number(last_block_number - 1, false).await?;
-                parent_block.header
-            } else {
-                BlockHeader::default()
-            }
-        };
+        // Crate Mismatch
+        //let parent_block_header = self
+        //    .store
+        //    .get_block_header(last_block_number - 1)
+        //    .unwrap()
+        //    .unwrap();
 
-        let block_body = self
-            .store
-            .get_block_body(last_block_number)
-            .unwrap()
-            .unwrap();
-        let block_header = self
-            .store
-            .get_block_header(last_block_number)
-            .unwrap()
-            .unwrap();
-        println!("BlockHeader: {block_header:#?}");
         //let block = Block{header, body}
         //let state = MemoryDB::new(accounts, storage, block_hashes);
 
-        info!("get block by number result: {block:?}");
+        //info!("get block by number result: {block:?}");
+        //let state = MemoryDB::default();
+
+        // Build Inputs
+        let mut blocks = read_chain_file("./test_data/chain.rlp");
+        let head_block = blocks.pop().unwrap();
+        let parent_block_header = blocks.pop().unwrap().header;
+
+        let prover_inputs_no_execution = ProverInputNoExecution {
+            head_block,
+            parent_block_header,
+            block_is_valid: false,
+        };
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
                 id: Some(last_proved_block + 1),
-                block: Some(block),
-                parent_block_header: Some(parent_block_header),
-                state: Some(MemoryDB::default()),
+                prover_inputs: Some(prover_inputs_no_execution),
             }
         } else {
             ProofData::Response {
                 id: None,
-                block: None,
-                parent_block_header: None,
-                state: None,
+                prover_inputs: None,
             }
         };
         let writer = BufWriter::new(stream);
@@ -401,7 +404,7 @@ impl ProofDataProvider {
         id: u64,
         proof: Box<SP1ProofWithPublicValues>,
     ) -> Result<(), String> {
-        debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
+        info!("Submit received. ID: {id}, proof: {:?}", proof.proof);
 
         let response = ProofData::SubmitAck { id };
         let writer = BufWriter::new(stream);

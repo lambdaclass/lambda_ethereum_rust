@@ -1,7 +1,10 @@
 use tracing::info;
 
-use prover_lib::inputs::ProverInput;
+#[allow(unused_imports)]
+use prover_lib::inputs::{ProverInput, ProverInputNoExecution};
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
+
+use ethereum_rust_rlp::encode::RLPEncode;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/program/elf/riscv32im-succinct-zkvm-elf");
@@ -28,14 +31,19 @@ impl Prover {
         Self { client, pk, vk }
     }
 
-    pub fn prove(&self, input: ProverInput) -> Result<SP1ProofWithPublicValues, String> {
+    pub fn prove(&self, input: ProverInputNoExecution) -> Result<SP1ProofWithPublicValues, String> {
+        let head_block_rlp = input.head_block.encode_to_vec();
+        let parent_block_header_rlp = input.parent_block_header.encode_to_vec();
+
         // Setup the inputs.
         let mut stdin = SP1Stdin::new();
-        stdin.write(&input);
+
+        stdin.write(&head_block_rlp);
+        stdin.write(&parent_block_header_rlp);
 
         info!(
-            "Starting block execution proof for block = {}",
-            input.block.header.number
+            "Starting block execution proof for block = {:?}",
+            input.head_block
         );
 
         // Generate the proof
