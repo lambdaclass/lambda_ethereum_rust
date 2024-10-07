@@ -15,7 +15,7 @@ pub enum RpcErr {
     BadHexFormat(u64),
     UnsuportedFork,
     Internal(String),
-    Vm,
+    Vm(String),
     Revert { data: String },
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
@@ -61,10 +61,10 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: None,
                 message: format!("Internal Error: {context}"),
             },
-            RpcErr::Vm => RpcErrorMetadata {
+            RpcErr::Vm(context) => RpcErrorMetadata {
                 code: -32015,
                 data: None,
-                message: "Vm execution error".to_string(),
+                message: format!("Vm execution error: {context}"),
             },
             RpcErr::Revert { data } => RpcErrorMetadata {
                 // This code (3) was hand-picked to match hive tests.
@@ -197,8 +197,8 @@ impl From<StoreError> for RpcErr {
 }
 
 impl From<EvmError> for RpcErr {
-    fn from(_value: EvmError) -> Self {
-        RpcErr::Vm
+    fn from(value: EvmError) -> Self {
+        RpcErr::Vm(value.to_string())
     }
 }
 
