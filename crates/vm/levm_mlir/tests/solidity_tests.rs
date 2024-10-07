@@ -1,7 +1,7 @@
 use std::io::Read;
 
 use bytes::Bytes;
-use ethereum_rust_evm_mlir::{db::Db, env::TransactTo, Env, Evm};
+use ethereum_rust_levm_mlir::{db::Db, env::TransactTo, Env, Evm};
 use ethereum_types::Address;
 
 fn read_compiled_file(file_path: &str) -> Result<Bytes, std::io::Error> {

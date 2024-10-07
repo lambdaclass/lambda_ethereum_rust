@@ -1,6 +1,6 @@
 mod evm;
 
-use ethereum_rust_evm_mlir::{
+use ethereum_rust_levm_mlir::{
     constants::precompiles::{
         BLAKE2F_ADDRESS, ECADD_ADDRESS, ECMUL_ADDRESS, ECPAIRING_ADDRESS, ECRECOVER_ADDRESS,
         IDENTITY_ADDRESS, MODEXP_ADDRESS, RIPEMD_160_ADDRESS, SHA2_256_ADDRESS,

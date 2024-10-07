@@ -2,7 +2,7 @@ use rstest::rstest;
 use sha3::{Digest, Keccak256};
 use std::{collections::HashMap, str::FromStr};
 
-use ethereum_rust_evm_mlir::{
+use ethereum_rust_levm_mlir::{
     constants::{
         call_opcode,
         gas_cost::{self, exp_dynamic_cost, init_code_cost, MAX_CODE_SIZE, TX_BASE_COST},
