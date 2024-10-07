@@ -161,6 +161,7 @@ impl RpcHandler for GetPayloadV3Request {
             execution_payload: ExecutionPayloadV3::from_block(payload),
             block_value,
             blobs_bundle,
+            should_override_builder: false,
         })
         .map_err(|_| RpcErr::Internal)
     }
