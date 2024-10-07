@@ -15,7 +15,7 @@ These are the obtained results:
 |        |    Mean [s]   | Min [s] | Max [s] |  Relative   |
 |--------|---------------|---------|---------|-------------|
 | `revm` | 6.719 ± 0.047 |  6.677  |  6.843  |    1.00     |
-| `levm` | 9.497 ± 0.019 |  9.469  |  9.530  | 1.41 ± 0.01 |
+| `levm` | 8.283 ± 0.031 |  8.244  |  8.349  | 1.23 ± 0.01 |
 
 ## Fibonacci
 This program computed the nth Fibonacci number, with n passed via calldata. Again, we chose 1000 as n and ran the program on a loop 100,000 times.
@@ -26,4 +26,4 @@ These are the obtained results:
 |        |    Mean [s]   | Min [s] | Max [s] |  Relative   |
 |--------|---------------|---------|---------|-------------|
 | `revm` | 6.213 ± 0.029 |  6.169  |  6.253  |    1.00     |
-| `levm` | 9.297 ± 0.088 |  9.214  |  9.521  | 1.50 ± 0.02 |
+| `levm` | 8.303 ± 0.094 |  8.204  |  8.498  | 1.33 ± 0.02 |
