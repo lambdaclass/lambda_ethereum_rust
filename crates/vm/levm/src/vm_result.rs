@@ -12,7 +12,6 @@ pub enum VMError {
     OpcodeNotFound,
     InvalidBytecode,
     OutOfGas,
-    FatalError, // this should never really happen
 }
 
 pub enum OpcodeSuccess {
