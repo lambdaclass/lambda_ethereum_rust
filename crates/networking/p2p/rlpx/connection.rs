@@ -1,7 +1,12 @@
 use std::net::SocketAddr;
 
 use crate::{
-    rlpx::{handshake::RLPxClient, message::Message, p2p, utils::id2pubkey},
+    rlpx::{
+        handshake::{encode_ack_message, RLPxClient},
+        message::Message,
+        p2p,
+        utils::id2pubkey,
+    },
     MAX_DISC_PACKET_SIZE,
 };
 
@@ -9,9 +14,11 @@ use super::{
     frame,
     handshake::{decode_auth_message, AuthMessage},
     message as rlpx,
+    utils::ecdh_xchng,
 };
 use aes::cipher::KeyIvInit;
-use ethereum_rust_core::H256;
+use bytes::BufMut as _;
+use ethereum_rust_core::{H256, H512};
 use ethereum_rust_rlp::decode::RLPDecode;
 use k256::{ecdsa::SigningKey, PublicKey, SecretKey};
 use sha3::{Digest, Keccak256};
@@ -47,87 +54,150 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     }
 
     pub async fn handshake(&mut self) {
-        match &self.state {
-            RLPxConnectionState::Receiver(receiver_state) => {
-                self.receive_auth(receiver_state.clone()).await
-            }
-            RLPxConnectionState::Initiator(_) => todo!(),
-            // TODO proper error
-            _ => panic!(),
-        };
-
-        // self.exchange_hello();
-
-        // info!("Completed Hello roundtrip!");
-    }
-
-    pub async fn receive_auth(&mut self, receiver_state: Receiver) {
-        let secret_key: SecretKey = self.signer.clone().into();
-        let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-
-        // Read the auth message's size
-        self.stream.read_exact(&mut buf[..2]).await.unwrap();
-        let auth_data = buf[..2].try_into().unwrap();
-        let msg_size = u16::from_be_bytes(auth_data) as usize;
-
-        // Read the rest of the auth message
-        self.stream
-            .read_exact(&mut buf[2..msg_size + 2])
-            .await
-            .unwrap();
-
-        let auth_bytes = &buf[..msg_size + 2];
-
-        let msg = &buf[2..msg_size + 2];
-
-        let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
-
-        self.state = RLPxConnectionState::HandshakeAuth(HandshakeAuth::receiver(
-            receiver_state,
-            auth_bytes.to_owned(),
-            auth.nonce,
-            remote_ephemeral_key,
-        ));
-    }
-
-    // TODO fix this to build next state
-    pub async fn send_ack(&mut self, auth_message: AuthMessage) {
-        let peer_pk = id2pubkey(auth_message.node_id).unwrap();
-
-        let mut ack_message = vec![];
-        let state = client.encode_ack_message(
-            &secret_key,
-            &peer_pk,
-            auth_message.nonce,
-            auth_message.signature,
-            &mut ack_message,
-        );
-        self.stream.write_all(&ack_message).await.unwrap();
-        info!("Sent ack message correctly!");
-
+        self.receive_auth().await;
+        self.send_ack().await;
         info!("Completed handshake!");
 
-        let hello_msg = Message::Hello(p2p::HelloMessage::new(
-            SUPPORTED_CAPABILITIES
-                .into_iter()
-                .map(|(name, version)| (name.to_string(), version))
-                .collect(),
-            PublicKey::from(self.signer.verifying_key()),
-        ));
-
-        self.send(hello_msg).await;
-
-        // Receive Hello message
-        self.receive().await;
-
+        self.exchange_hello_messages().await;
         info!("Completed Hello roundtrip!");
     }
 
-    // TODO Fix this
+    pub async fn receive_auth(&mut self) {
+        match &self.state {
+            RLPxConnectionState::Receiver(receiver_state) => {
+                let secret_key: SecretKey = self.signer.clone().into();
+                let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
+
+                // Read the auth message's size
+                self.stream.read_exact(&mut buf[..2]).await.unwrap();
+                let auth_data = buf[..2].try_into().unwrap();
+                let msg_size = u16::from_be_bytes(auth_data) as usize;
+
+                // Read the rest of the auth message
+                self.stream
+                    .read_exact(&mut buf[2..msg_size + 2])
+                    .await
+                    .unwrap();
+
+                let auth_bytes = &buf[..msg_size + 2];
+
+                let msg = &buf[2..msg_size + 2];
+
+                let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
+
+                self.state = RLPxConnectionState::HandshakeAuth(HandshakeAuth::receiver(
+                    receiver_state,
+                    auth.node_id,
+                    auth_bytes.to_owned(),
+                    auth.nonce,
+                    remote_ephemeral_key,
+                ))
+            }
+            // TODO proper error
+            _ => panic!(),
+        };
+    }
+
+    pub async fn send_ack(&mut self) {
+        match &self.state {
+            RLPxConnectionState::HandshakeAuth(handshake_auth) => {
+                let secret_key: SecretKey = self.signer.clone().into();
+                let peer_pk = id2pubkey(handshake_auth.remote_node_id).unwrap();
+
+                let mut ack_message = vec![];
+                let msg = encode_ack_message(
+                    &secret_key,
+                    &handshake_auth.local_ephemeral_key,
+                    handshake_auth.local_nonce,
+                    &peer_pk,
+                    &handshake_auth.remote_ephemeral_key,
+                    &mut ack_message,
+                );
+
+                ack_message.put_slice(&msg);
+                self.stream.write_all(&ack_message).await.unwrap();
+                info!("Sent ack message correctly!");
+
+                let (aes_key, mac_key) = Self::derive_secrets(handshake_auth);
+
+                self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
+                    handshake_auth,
+                    ack_message,
+                    aes_key,
+                    mac_key,
+                ))
+            }
+            // TODO proper error
+            _ => panic!(),
+        };
+    }
+
+    pub async fn exchange_hello_messages(&mut self) {
+        match &self.state {
+            RLPxConnectionState::PostHandshake(post_handshake) => {
+                let hello_msg = Message::Hello(p2p::HelloMessage::new(
+                    SUPPORTED_CAPABILITIES
+                        .into_iter()
+                        .map(|(name, version)| (name.to_string(), version))
+                        .collect(),
+                    PublicKey::from(self.signer.verifying_key()),
+                ));
+
+                self.send(hello_msg).await;
+
+                // Receive Hello message
+                self.receive().await;
+
+                info!("Completed Hello roundtrip!");
+
+                // self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
+                //     handshake_auth,
+                //     ack_message,
+                //     aes_key,
+                //     mac_key,
+                // ))
+            }
+            // TODO proper error
+            _ => panic!(),
+        };
+    }
+
+    fn derive_secrets(auth_state: &HandshakeAuth) -> (H256, H256) {
+        // TODO: don't panic
+        let ephemeral_key_secret = ecdh_xchng(
+            &auth_state.local_ephemeral_key,
+            &auth_state.remote_ephemeral_key,
+        );
+
+        // Get proper receiver/initiator nonces
+        let (receiver_nonce, initiator_nonce) = if auth_state.local_initiator {
+            (auth_state.remote_nonce.0, auth_state.local_nonce.0)
+        } else {
+            (auth_state.local_nonce.0, auth_state.remote_nonce.0)
+        };
+        // keccak256(nonce || initiator-nonce)
+        let hashed_nonces = Keccak256::digest([receiver_nonce, initiator_nonce].concat()).into();
+        // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
+        let shared_secret =
+            Keccak256::digest([ephemeral_key_secret, hashed_nonces].concat()).into();
+        // aes-secret = keccak256(ephemeral-key || shared-secret)
+        let aes_key = Keccak256::digest([ephemeral_key_secret, shared_secret].concat()).into();
+        // mac-secret = keccak256(ephemeral-key || aes-secret)
+        let mac_key = Keccak256::digest([ephemeral_key_secret, aes_key].concat());
+
+        (H256(aes_key), H256(mac_key.into()))
+    }
+
     pub async fn send(&mut self, message: rlpx::Message) {
-        let mut frame_buffer = vec![];
-        message.encode(&mut frame_buffer);
-        frame::write(frame_buffer, &mut self.state, &mut self.stream).await;
+        match &mut self.state {
+            RLPxConnectionState::PostHandshake(post_handshake) => {
+                let mut frame_buffer = vec![];
+                message.encode(&mut frame_buffer);
+                frame::write(frame_buffer, post_handshake, &mut self.stream).await;
+            }
+            // TODO proper error
+            _ => panic!(),
+        }
     }
 
     // TODO Fix this
@@ -158,12 +228,10 @@ enum RLPxConnectionState {
     Initiator(Initiator),
     Receiver(Receiver),
     HandshakeAuth(HandshakeAuth),
-    PreHello(),
+    PostHandshake(PostHandshake),
     Live(),
 }
 
-// TODO See if we can remove the need of clonning
-#[derive(Clone)]
 struct Receiver {
     pub(crate) nonce: H256,
     pub(crate) ephemeral_key: SecretKey,
@@ -194,11 +262,9 @@ impl Initiator {
 
 struct HandshakeAuth {
     pub(crate) local_initiator: bool,
-
     pub(crate) local_nonce: H256,
     pub(crate) local_ephemeral_key: SecretKey,
-    pub(crate) local_init_message: Option<Vec<u8>>,
-
+    pub(crate) remote_node_id: H512,
     pub(crate) remote_nonce: H256,
     pub(crate) remote_ephemeral_key: PublicKey,
     pub(crate) remote_init_message: Vec<u8>,
@@ -206,19 +272,77 @@ struct HandshakeAuth {
 
 impl HandshakeAuth {
     pub fn receiver(
-        local: Receiver,
+        previous_state: &Receiver,
+        remote_node_id: H512,
         remote_init_message: Vec<u8>,
         remote_nonce: H256,
         remote_ephemeral_key: PublicKey,
     ) -> Self {
         Self {
             local_initiator: false,
-            local_nonce: local.nonce,
-            local_ephemeral_key: local.ephemeral_key.clone(),
-            local_init_message: None,
+            local_nonce: previous_state.nonce,
+            local_ephemeral_key: previous_state.ephemeral_key.clone(),
+            remote_node_id,
             remote_nonce,
             remote_ephemeral_key,
             remote_init_message,
+        }
+    }
+}
+
+pub struct PostHandshake {
+    pub(crate) local_initiator: bool,
+
+    pub(crate) local_nonce: H256,
+    pub(crate) local_ephemeral_key: SecretKey,
+    pub(crate) local_init_message: Vec<u8>,
+    pub(crate) remote_node_id: H512,
+    pub(crate) remote_nonce: H256,
+    pub(crate) remote_ephemeral_key: PublicKey,
+    pub(crate) remote_init_message: Vec<u8>,
+
+    pub(crate) aes_key: H256,
+    pub(crate) mac_key: H256,
+    pub ingress_mac: Keccak256,
+    pub egress_mac: Keccak256,
+    pub ingress_aes: Aes256Ctr64BE,
+    pub egress_aes: Aes256Ctr64BE,
+}
+
+impl PostHandshake {
+    pub fn receiver(
+        previous_state: &HandshakeAuth,
+        init_message: Vec<u8>,
+        aes_key: H256,
+        mac_key: H256,
+    ) -> Self {
+        // egress-mac = keccak256.init((mac-secret ^ remote-nonce) || auth)
+        let egress_mac = Keccak256::default()
+            .chain_update(mac_key ^ previous_state.remote_nonce)
+            .chain_update(&init_message);
+
+        // ingress-mac = keccak256.init((mac-secret ^ initiator-nonce) || ack)
+        let ingress_mac = Keccak256::default()
+            .chain_update(mac_key ^ previous_state.local_nonce)
+            .chain_update(&previous_state.remote_init_message);
+
+        let ingress_aes = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key.0.into(), &[0; 16].into());
+        let egress_aes = ingress_aes.clone();
+        Self {
+            local_initiator: previous_state.local_initiator,
+            local_nonce: previous_state.local_nonce,
+            local_ephemeral_key: previous_state.local_ephemeral_key.clone(),
+            local_init_message: init_message,
+            remote_node_id: previous_state.remote_node_id,
+            remote_nonce: previous_state.remote_nonce,
+            remote_ephemeral_key: previous_state.remote_ephemeral_key,
+            remote_init_message: previous_state.remote_init_message.clone(),
+            aes_key,
+            mac_key,
+            ingress_mac,
+            egress_mac,
+            ingress_aes,
+            egress_aes,
         }
     }
 }

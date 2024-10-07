@@ -13,28 +13,22 @@ use discv4::{
 use ethereum_rust_core::{H256, H512};
 use ethereum_rust_storage::Store;
 use k256::{
-    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
+    ecdsa::SigningKey,
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
-    SecretKey,
 };
 use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
 use rlpx::{
     connection::{RLPxConnection, SUPPORTED_CAPABILITIES},
-    eth::StatusMessage,
-    handshake::RLPxClient,
     message::Message as RLPxMessage,
     p2p,
-    utils::id2pubkey,
 };
-use sha3::{Digest, Keccak256};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::Mutex,
     try_join,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use types::{Endpoint, Node};
 
 pub mod bootnode;

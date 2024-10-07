@@ -231,6 +231,42 @@ pub fn decode_auth_message(
     (auth, remote_ephemeral_key)
 }
 
+pub fn encode_ack_message(
+    static_key: &SecretKey,
+    local_ephemeral_key: &SecretKey,
+    local_nonce: H256,
+    remote_static_pubkey: &PublicKey,
+    remote_ephemeral_key: &PublicKey,
+    buf: &mut dyn BufMut,
+) -> Vec<u8> {
+    // Derive a shared secret from the static keys.
+    let static_shared_secret = ecdh_xchng(static_key, remote_static_pubkey);
+    info!("token {static_shared_secret:?}");
+
+    info!("remote pub key {remote_ephemeral_key:?}");
+
+    // Compose the ack message.
+    let ack_msg = AckMessage::new(pubkey2id(&local_ephemeral_key.public_key()), local_nonce);
+
+    // RLP-encode the message.
+    let encoded_ack_msg = ack_msg.encode_to_vec();
+
+    encrypt_message(remote_static_pubkey, encoded_ack_msg)
+}
+
+pub fn encode_ack_messagex() {
+    let (aes_key, mac_key) = self.derive_secrets();
+
+    RLPxState::new(
+        aes_key,
+        mac_key,
+        self.local_nonce,
+        &msg,
+        remote_nonce,
+        self.remote_init_message.as_ref().unwrap(),
+    )
+}
+
 fn decrypt_message(static_key: &SecretKey, msg: &[u8], auth_data: [u8; 2]) -> Vec<u8> {
     info!("msg {msg:?}");
 
