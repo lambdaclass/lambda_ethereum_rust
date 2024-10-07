@@ -1,4 +1,5 @@
 mod account;
+mod blobs_bundle;
 mod block;
 mod constants;
 mod fork_id;
@@ -7,6 +8,7 @@ mod receipt;
 mod transaction;
 
 pub use account::*;
+pub use blobs_bundle::*;
 pub use block::*;
 pub use constants::*;
 pub use fork_id::*;

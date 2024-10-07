@@ -123,8 +123,11 @@ impl From<serde_json::Error> for RpcErr {
 // TODO: Actually return different errors for each case
 // here we are returning a BadParams error
 impl From<MempoolError> for RpcErr {
-    fn from(error: MempoolError) -> Self {
-        Self::BadParams(error.to_string())
+    fn from(err: MempoolError) -> Self {
+        match err {
+            MempoolError::StoreError(err) => Self::Internal(err.to_string()),
+            other_err => Self::BadParams(other_err.to_string()),
+        }
     }
 }
 
