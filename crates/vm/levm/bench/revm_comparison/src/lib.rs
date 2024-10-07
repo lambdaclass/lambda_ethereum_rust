@@ -1,4 +1,7 @@
-use ethereum_rust_levm::{call_frame::CallFrame, primitives::Bytes, utils::new_vm_with_bytecode};
+use ethereum_rust_levm::{
+    call_frame::CallFrame, primitives::Bytes, utils::new_vm_with_bytecode,
+    vm_result::ExecutionResult,
+};
 use revm::{
     db::BenchmarkDB,
     primitives::{address, Bytecode, TransactTo},
@@ -18,10 +21,29 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
     calldata[28..32].copy_from_slice(&number_of_iterations.to_be_bytes());
     call_frame.calldata = Bytes::from(calldata);
 
-    let mut vm = new_vm_with_bytecode(Bytes::new());
     for _ in 0..runs - 1 {
+        let mut vm = new_vm_with_bytecode(Bytes::new());
         *vm.current_call_frame_mut() = call_frame.clone();
-        vm.execute();
+        let result = black_box(vm.execute());
+        assert!(matches!(result.unwrap(), ExecutionResult::Success { .. }));
+    }
+    let mut vm = new_vm_with_bytecode(Bytes::new());
+    *vm.current_call_frame_mut() = call_frame.clone();
+    let result = black_box(vm.execute());
+    assert!(matches!(
+        result.as_ref().unwrap(),
+        ExecutionResult::Success { .. }
+    ));
+
+    if let ExecutionResult::Success {
+        reason: _,
+        logs: _,
+        return_data,
+    } = result.unwrap()
+    {
+        println!("\t\t0x{}", hex::encode(return_data));
+    } else {
+        panic!("Execution did not return Success");
     }
 }
 

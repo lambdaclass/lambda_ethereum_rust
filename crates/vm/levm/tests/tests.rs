@@ -2727,7 +2727,7 @@ fn logs_from_multiple_callers() {
     caller_ops.append(&mut operations);
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -2771,7 +2771,7 @@ fn call_return_success_but_caller_halts() {
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );

@@ -56,6 +56,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         (
             Address::from_low_u64_be(42),
             Account {
+                address: Address::from_low_u64_be(42),
                 balance: U256::MAX,
                 bytecode,
                 storage: HashMap::new(),
@@ -65,6 +66,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         (
             address,
             Account {
+                address,
                 balance,
                 bytecode: Bytes::default(),
                 storage: HashMap::new(),
