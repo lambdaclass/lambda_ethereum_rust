@@ -12,10 +12,10 @@ This program computes the nth factorial number, with n passed via calldata. We c
 These are the obtained results:
 
 ### MacBook Air M1 (16 GB RAM)
-|        |     Mean [s]    | Min [s] | Max [s] |  Relative   |
-|--------|-----------------|---------|---------|-------------|
-| `revm` | 6.726 s ± 0.052 |  6.661  |  6.807  |    1.00     |
-| `levm` | 7.508 s ± 0.087 |  7.441  |  7.744  | 1.12 ± 0.02 |
+|        |    Mean [s]   | Min [s] | Max [s] |  Relative   |
+|--------|---------------|---------|---------|-------------|
+| `revm` | 6.719 ± 0.047 |  6.677  |  6.843  |    1.00     |
+| `levm` | 9.497 ± 0.019 |  9.469  |  9.530  | 1.41 ± 0.01 |
 
 ## Fibonacci
 This program computed the nth Fibonacci number, with n passed via calldata. Again, we chose 1000 as n and ran the program on a loop 100,000 times.
@@ -23,7 +23,7 @@ This program computed the nth Fibonacci number, with n passed via calldata. Agai
 These are the obtained results:
 
 ### MacBook Air M1 (16 GB RAM)
-|        |     Mean [s]    | Min [s] | Max [s] |  Relative   |
-|--------|-----------------|---------|---------|-------------|
-| `revm` | 6.271 s ± 0.026 |  6.234  |  6.312  |    1.00     |
-| `levm` | 7.329 s ± 0.078 |  7.274  |  7.532  | 1.17 ± 0.01 |
+|        |    Mean [s]   | Min [s] | Max [s] |  Relative   |
+|--------|---------------|---------|---------|-------------|
+| `revm` | 6.213 ± 0.029 |  6.169  |  6.253  |    1.00     |
+| `levm` | 9.297 ± 0.088 |  9.214  |  9.521  | 1.50 ± 0.02 |
