@@ -3444,7 +3444,7 @@ fn origin_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3469,7 +3469,7 @@ fn balance_op() {
         U256::from(1234),
     );
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3498,7 +3498,7 @@ fn address_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute();
+    vm.execute().unwrap();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
