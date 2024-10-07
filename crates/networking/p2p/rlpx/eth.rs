@@ -1,6 +1,6 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    types::{BlockHash, ForkId},
+    types::{BlockBody, BlockHash, ForkId},
     U256,
 };
 use ethereum_rust_rlp::{
@@ -9,6 +9,7 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 use ethereum_rust_storage::{error::StoreError, Store};
+use k256::elliptic_curve::rand_core::block;
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 use tracing::info;
 
@@ -164,11 +165,74 @@ impl RLPxMessage for GetBlockBodies {
     }
 }
 
+pub(crate) struct BlockBodies {
+    id: u8,
+    blocks_bodies: Vec<BlockBody>,
+}
+
+impl BlockBodies {
+    pub fn build_from(storage: &Store, blocks_hash: Vec<BlockHash>) -> Result<Self, StoreError> {
+        let mut blocks_bodies = vec![];
+
+        for block_hash in blocks_hash {
+            let block_body = storage.get_block_by_hash(block_hash)?.unwrap().body;
+            blocks_bodies.push(block_body);
+        }
+
+        Ok(Self {
+            blocks_bodies,
+            id: 0x06_u8,
+        })
+    }
+}
+
+impl RLPxMessage for BlockBodies {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        //0x05_u8.encode(buf); // msg_id
+
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.blocks_bodies)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u8, _) = decoder.decode_field("request-id").unwrap();
+        let (blocks_bodies, decoder): (Vec<BlockBody>, _) =
+            decoder.decode_field("blockBodies").unwrap();
+
+        if id != 0x06 {
+            return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
+        }
+
+        Ok(Self { blocks_bodies, id })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ethereum_rust_core::types::BlockHash;
+    use ethereum_rust_storage::Store;
 
-    use crate::rlpx::{eth::GetBlockBodies, message::RLPxMessage};
+    use crate::rlpx::{
+        eth::{BlockBodies, GetBlockBodies},
+        message::RLPxMessage,
+    };
 
     #[test]
     fn get_block_bodies_empty_message() {
@@ -198,5 +262,19 @@ mod tests {
         let decoded = GetBlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 0x05);
         assert_eq!(decoded.blocks_hash, blocks_hash);
+    }
+
+    #[test]
+    fn block_bodies_empty_message() {
+        let blocks_hash = vec![];
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let block_bodies = BlockBodies::build_from(&store, blocks_hash).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 0x06);
+        assert_eq!(decoded.blocks_bodies, vec![]);
     }
 }
