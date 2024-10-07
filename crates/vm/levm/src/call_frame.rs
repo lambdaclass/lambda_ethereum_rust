@@ -139,7 +139,7 @@ impl CallFrame {
         if !self.valid_jump(jump_address) {
             return false;
         }
-        self.pc = jump_address.as_usize() + 1;
+        self.pc = jump_address.as_usize();
         true
     }
 

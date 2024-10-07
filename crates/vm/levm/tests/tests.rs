@@ -1821,7 +1821,7 @@ fn jumpi_not_zero() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(10)
     );
-    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 19);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 20);
 }
 
 #[test]
@@ -2349,7 +2349,7 @@ fn jump_op() {
         U256::from(10)
     );
     assert_eq!(vm.current_call_frame_mut().pc(), 70);
-    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 14);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 15);
 }
 
 #[test]
