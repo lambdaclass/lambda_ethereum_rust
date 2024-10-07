@@ -803,8 +803,11 @@ impl VM {
                     if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
                         break; // should revert the tx
                     }
+
+                    let balance = self.db.balance(&current_call_frame.code_address);
+                    current_call_frame.stack.push(balance);
+
                     self.env.consumed_gas += gas_cost::SELFBALANCE;
-                    todo!("when we have accounts implemented");
                 }
                 Opcode::BASEFEE => {
                     if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {

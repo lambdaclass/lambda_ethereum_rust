@@ -3378,3 +3378,33 @@ fn address_op() {
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ADDRESS);
 }
+
+#[test]
+fn selfbalance_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let balance = U256::from(999);
+
+    let operations = [Operation::SelfBalance, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default()
+            .with_bytecode(ops_to_bytecde(&operations))
+            .with_balance(balance),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), balance);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::SELFBALANCE);
+}
