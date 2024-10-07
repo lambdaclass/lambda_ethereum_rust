@@ -333,12 +333,16 @@ mod tests {
     fn get_block_bodies_receive_block_bodies() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let body = BlockBody::default();
+        let mut header1 = BlockHeader::default();
+        let mut header2 = BlockHeader::default();
+        header1.parent_hash = BlockHash::from([0; 32]);
+        header2.parent_hash = BlockHash::from([1; 32]);
         let block1 = Block {
-            header: Default::default(),
+            header: header1,
             body: body.clone(),
         };
         let block2 = Block {
-            header: Default::default(),
+            header: header2,
             body: body.clone(),
         };
         store.add_block(block1.clone()).unwrap();
@@ -348,17 +352,19 @@ mod tests {
             block2.header.compute_block_hash(),
         ];
         let sender_chosen_id = 1;
+        let sender_address = "127.0.0.1:3000";
+        let receiver_address = "127.0.0.1:4000";
         let get_block_bodies =
             GetBlockBodies::build_from(sender_chosen_id, blocks_hash.clone()).unwrap();
 
         let mut send_data_of_blocks_hash = Vec::new();
         get_block_bodies.encode(&mut send_data_of_blocks_hash);
 
-        let sender = std::net::UdpSocket::bind("127.0.0.1:3000").unwrap();
-        let receiver = std::net::UdpSocket::bind("127.0.0.1:4000").unwrap();
+        let sender = std::net::UdpSocket::bind(sender_address).unwrap();
+        let receiver = std::net::UdpSocket::bind(receiver_address).unwrap();
 
         sender
-            .send_to(&send_data_of_blocks_hash, "127.0.0.1:4000")
+            .send_to(&send_data_of_blocks_hash, receiver_address)
             .unwrap(); // sends the blocks_hash
         let mut receiver_data_of_blocks_hash = [0; 1024];
         let len = receiver.recv(&mut receiver_data_of_blocks_hash).unwrap(); // receives the blocks_hash
@@ -379,7 +385,7 @@ mod tests {
         block_bodies.encode(&mut block_bodies_to_send); // encode the block bodies that we got
 
         receiver
-            .send_to(&block_bodies_to_send, "127.0.0.1:3000")
+            .send_to(&block_bodies_to_send, sender_address)
             .unwrap(); // send the block bodies to the sender that requested them
 
         let mut received_block_bodies = [0; 1024];
