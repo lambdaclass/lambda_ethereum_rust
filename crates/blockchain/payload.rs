@@ -111,17 +111,7 @@ pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block,
             withdrawals: Some(args.withdrawals.clone()),
         },
     };
-    // Apply withdrawals & call beacon root contract, and obtain the new state root
-    let spec_id = spec_id(storage, args.timestamp)?;
-    let mut evm_state = evm_state(storage.clone(), args.parent);
-    if args.beacon_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
-    }
-    process_withdrawals(&mut evm_state, &args.withdrawals)?;
-    let account_updates = get_state_transitions(&mut evm_state);
-    payload.header.state_root = storage
-        .apply_account_updates(args.parent, &account_updates)?
-        .unwrap_or_default();
+    // Delay applying withdrawals until the payload is requested and built
     Ok(payload)
 }
 
@@ -181,8 +171,8 @@ impl<'a> PayloadBuildContext<'a> {
 }
 
 impl<'a> PayloadBuildContext<'a> {
-    fn parent_number(&self) -> BlockNumber {
-        self.payload.header.number - 1
+    fn parent_hash(&self) -> BlockHash {
+        self.payload.header.parent_hash
     }
 
     fn block_number(&self) -> BlockNumber {
@@ -361,7 +351,7 @@ fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError>
     let account_updates = get_state_transitions(context.evm_state);
     context.payload.header.state_root = context
         .store()
-        .apply_account_updates(context.parent_number(), &account_updates)?
+        .apply_account_updates(context.parent_hash(), &account_updates)?
         .unwrap_or_default();
     context.payload.header.transactions_root =
         compute_transactions_root(&context.payload.body.transactions);
