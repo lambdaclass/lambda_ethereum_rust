@@ -113,13 +113,13 @@ impl RLPxMessage for StatusMessage {
 #[derive(Debug)]
 pub(crate) struct GetBlockBodies {
     id: u8,
-    blocks_hash: Vec<BlockHash>,
+    block_hashes: Vec<BlockHash>,
 }
 
 impl GetBlockBodies {
-    pub fn build_from(blocks_hash: Vec<BlockHash>) -> Result<Self, StoreError> {
+    pub fn build_from(block_hashes: Vec<BlockHash>) -> Result<Self, StoreError> {
         Ok(Self {
-            blocks_hash,
+            block_hashes,
             id: 0x05_u8,
         })
     }
@@ -130,7 +130,7 @@ impl RLPxMessage for GetBlockBodies {
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
-            .encode_field(&self.blocks_hash)
+            .encode_field(&self.block_hashes)
             .finish();
 
         let mut snappy_encoder = SnappyEncoder::new();
@@ -150,13 +150,13 @@ impl RLPxMessage for GetBlockBodies {
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder): (u8, _) = decoder.decode_field("request-id").unwrap();
-        let (blocks_hash, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes").unwrap();
+        let (block_hashes, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes").unwrap();
 
         if id != 0x05 {
             return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
         }
 
-        Ok(Self { blocks_hash, id })
+        Ok(Self { block_hashes, id })
     }
 }
 
@@ -237,7 +237,7 @@ mod tests {
 
         let decoded = GetBlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 0x05);
-        assert_eq!(decoded.blocks_hash, blocks_hash);
+        assert_eq!(decoded.block_hashes, blocks_hash);
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod tests {
 
         let decoded = GetBlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 0x05);
-        assert_eq!(decoded.blocks_hash, blocks_hash);
+        assert_eq!(decoded.block_hashes, blocks_hash);
     }
 
     #[test]
@@ -374,9 +374,9 @@ mod tests {
             GetBlockBodies::decode(&receiver_data_of_blocks_hash[..len]).unwrap(); // transform the encoded received data to blockhashes
 
         assert_eq!(received_block_hashes.id, 0x05);
-        assert_eq!(received_block_hashes.blocks_hash, blocks_hash);
+        assert_eq!(received_block_hashes.block_hashes, blocks_hash);
         let block_bodies =
-            BlockBodies::build_from(&store, received_block_hashes.blocks_hash).unwrap();
+            BlockBodies::build_from(&store, received_block_hashes.block_hashes).unwrap();
 
         let mut block_bodies_to_send = Vec::new();
         block_bodies.encode(&mut block_bodies_to_send); // encode the block bodies that we got
