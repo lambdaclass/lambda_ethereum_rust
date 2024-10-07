@@ -1770,9 +1770,7 @@ impl VM {
                         });
                     }
 
-                    current_call_frame
-                        .stack
-                        .push(U256::from(self.env.gas_price))?;
+                    current_call_frame.stack.push(self.env.gas_price)?;
                     self.env.consumed_gas += gas_cost::GASPRICE;
                 }
                 _ => return Err(VMError::OpcodeNotFound),
