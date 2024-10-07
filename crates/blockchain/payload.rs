@@ -292,27 +292,30 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             txs.pop();
             continue;
         }
-        // Pull transaction from the mempool
+
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here (we can do this in the same refactor as adding timestamp)
         let tx_hash = head_tx.tx.compute_hash();
-        mempool::remove_transaction(tx_hash, context.store())?;
 
         // Check wether the tx is replay-protected
         if head_tx.tx.protected() && !chain_config.is_eip155_activated(context.block_number()) {
             // Ignore replay protected tx & all txs from the sender
+            // Pull transaction from the mempool
             debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
+            mempool::remove_transaction(tx_hash, context.store())?;
             continue;
         }
         // Execute tx
         let receipt = match apply_transaction(&head_tx, context) {
             Ok(receipt) => {
                 txs.shift();
+                // Pull transaction from the mempool
+                mempool::remove_transaction(tx_hash, context.store())?;
                 receipt
             }
             // Ignore following txs from sender
-            Err(_) => {
-                debug!("Failed to execute transaction: {}", tx_hash);
+            Err(e) => {
+                debug!("Failed to execute transaction: {}, {e}", tx_hash);
                 txs.pop();
                 continue;
             }
@@ -351,7 +354,7 @@ fn apply_blob_transaction(
             StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
         );
     };
-    if context.blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB
+    if (context.blobs_bundle.blobs.len() + blobs_bundle.blobs.len()) as u64 * GAS_PER_BLOB
         > MAX_BLOB_GAS_PER_BLOCK
     {
         // This error will only be used for debug tracing
