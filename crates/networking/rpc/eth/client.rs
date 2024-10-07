@@ -13,8 +13,11 @@ impl RpcHandler for ChainId {
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!("Requested chain id");
-        let chain_spec = storage.get_chain_config().map_err(|_| RpcErr::Internal)?;
-        serde_json::to_value(format!("{:#x}", chain_spec.chain_id)).map_err(|_| RpcErr::Internal)
+        let chain_spec = storage
+            .get_chain_config()
+            .map_err(|error| RpcErr::Internal(error.to_string()))?;
+        serde_json::to_value(format!("{:#x}", chain_spec.chain_id))
+            .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
 

@@ -1,8 +1,8 @@
 use ethereum_rust_core::{
     serde_utils,
     types::{
-        BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction, EIP4844Transaction,
-        LegacyTransaction, Transaction, BYTES_PER_BLOB,
+        BlobsBundle, BlockHash, BlockNumber, EIP1559Transaction, EIP2930Transaction,
+        EIP4844Transaction, LegacyTransaction, Transaction,
     },
     Address, H256,
 };
@@ -53,17 +53,11 @@ pub enum SendRawTransactionRequest {
 }
 
 // NOTE: We might move this transaction definitions to `core/types/transactions.rs` later on.
-pub type Bytes48 = [u8; 48];
-pub type Blob = [u8; BYTES_PER_BLOB];
-pub type Commitment = Bytes48;
-pub type Proof = Bytes48;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WrappedEIP4844Transaction {
     pub tx: EIP4844Transaction,
-    pub blobs: Vec<Blob>,
-    pub commitments: Vec<Commitment>,
-    pub proofs: Vec<Proof>,
+    pub blobs_bundle: BlobsBundle,
 }
 
 impl RLPDecode for WrappedEIP4844Transaction {
@@ -76,9 +70,11 @@ impl RLPDecode for WrappedEIP4844Transaction {
 
         let wrapped = WrappedEIP4844Transaction {
             tx,
-            blobs,
-            commitments,
-            proofs,
+            blobs_bundle: BlobsBundle {
+                blobs,
+                commitments,
+                proofs,
+            },
         };
         Ok((wrapped, decoder.finish()?))
     }
