@@ -24,7 +24,6 @@ pub enum Transaction {
     EIP4844Transaction(EIP4844Transaction),
 }
 
-// FIXME: We must implement a custom Deserialize
 #[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct LegacyTransaction {
     pub nonce: u64,
@@ -40,7 +39,6 @@ pub struct LegacyTransaction {
     pub s: U256,
 }
 
-// FIXME: We must implement a custom Deserialize
 #[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct EIP2930Transaction {
     pub chain_id: u64,
@@ -56,7 +54,6 @@ pub struct EIP2930Transaction {
     pub signature_s: U256,
 }
 
-// FIXME: We must implement a custom Deserialize
 #[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
@@ -73,7 +70,7 @@ pub struct EIP1559Transaction {
     pub signature_s: U256,
 }
 
-// FIXME: We must implement a custom Deserialize
+// TODO/FIXME: We must implement a custom Deserialize
 #[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
 pub struct EIP4844Transaction {
     pub chain_id: u64,
