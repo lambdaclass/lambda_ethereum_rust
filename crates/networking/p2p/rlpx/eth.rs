@@ -172,7 +172,10 @@ impl BlockBodies {
 
         for block_hash in blocks_hash {
             // TODO: Couldn't find what to do if we receive a block_hash of a block we don't have
-            let block_body = storage.get_block_body_by_hash(block_hash)?.unwrap();
+            let block_body = match storage.get_block_body_by_hash(block_hash)? {
+                Some(body) => body,
+                None => continue,
+            };
             block_bodies.push(block_body);
         }
 
@@ -306,6 +309,31 @@ mod tests {
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_bodies, vec![body.clone(), body.clone(), body]);
+    }
+
+    #[test]
+    fn block_bodies_not_existing_block() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody::default();
+        let mut header1 = BlockHeader::default();
+
+        header1.parent_hash = BlockHash::from([0; 32]);
+        let block1 = Block {
+            header: header1,
+            body: body.clone(),
+        };
+        store.add_block(block1.clone()).unwrap();
+
+        let blocks_hash = vec![BlockHash::from([1; 32])];
+
+        let block_bodies = BlockBodies::build_from(1, &store, blocks_hash).unwrap();
+
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_bodies, vec![]);
     }
 
     #[test]
