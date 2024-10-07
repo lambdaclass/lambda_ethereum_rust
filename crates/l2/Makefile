@@ -62,8 +62,11 @@ restart-l2: down-l2 init-l2
 
 # Prover
 
-SP1_PROGRAM_PATH=$(shell pwd)/prover/sp1/program
+SP1_PROGRAM_VERIFICATION_PATH=$(shell pwd)/prover/sp1/verification_program
+SP1_PROGRAM_EXECUTION_PATH=$(shell pwd)/prover/sp1/execution_program
 
 setup-prover:
-	cd ${SP1_PROGRAM_PATH} && \
+	cd ${SP1_PROGRAM_VERIFICATION_PATH} && \
+	cargo prove build && \
+	cd ${SP1_PROGRAM_EXECUTION_PATH} && \
 	cargo prove build
