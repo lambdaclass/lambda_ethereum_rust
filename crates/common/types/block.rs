@@ -68,9 +68,9 @@ impl RLPDecode for Block {
 #[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
-    #[serde(rename(serialize = "sha3Uncles"))]
+    #[serde(rename(serialize = "sha3Uncles", deserialize = "sha3Uncles"))]
     pub ommers_hash: H256, // ommer = uncle
-    #[serde(rename(serialize = "miner"))]
+    #[serde(rename(serialize = "miner", deserialize = "miner"))]
     pub coinbase: Address,
     pub state_root: H256,
     pub transactions_root: H256,
@@ -88,7 +88,7 @@ pub struct BlockHeader {
     pub timestamp: u64,
     #[serde(with = "crate::serde_utils::bytes")]
     pub extra_data: Bytes,
-    #[serde(rename(serialize = "mixHash"))]
+    #[serde(rename(serialize = "mixHash", deserialize = "mixHash"))]
     pub prev_randao: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str_padding")]
     pub nonce: u64,
@@ -187,7 +187,7 @@ impl RLPDecode for BlockHeader {
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
-    #[serde(rename(serialize = "uncles"))]
+    #[serde(rename(serialize = "uncles", deserialize = "uncles"))]
     pub ommers: Vec<BlockHeader>,
     pub withdrawals: Option<Vec<Withdrawal>>,
 }
