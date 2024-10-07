@@ -10,6 +10,7 @@ use ethereum_rust_rlp::{
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
+use tracing::info;
 
 pub const ETH_VERSION: u32 = 68;
 
@@ -112,21 +113,26 @@ impl RLPxMessage for StatusMessage {
 
 #[derive(Debug)]
 pub(crate) struct GetBlockBodies {
+    id: u8,
     blocks_hash: Vec<BlockHash>,
 }
 
 impl GetBlockBodies {
     pub fn build_from(blocks_hash: Vec<BlockHash>) -> Result<Self, StoreError> {
-        Ok(Self { blocks_hash })
+        Ok(Self {
+            blocks_hash,
+            id: 0x05_u8,
+        })
     }
 }
 
 impl RLPxMessage for GetBlockBodies {
     fn encode(&self, buf: &mut dyn BufMut) {
-        0x05_u8.encode(buf); // msg_id
+        //0x05_u8.encode(buf); // msg_id
 
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
             .encode_field(&self.blocks_hash)
             .finish();
 
@@ -147,13 +153,13 @@ impl RLPxMessage for GetBlockBodies {
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
         let blocks_hash = vec![];
-        let (request_id, decoder): (u32, _) = decoder.decode_field("request-id").unwrap();
+        let (id, decoder): (u8, _) = decoder.decode_field("request-id").unwrap();
 
-        if request_id != 0x05 {
+        if id != 0x05 {
             return Err(RLPDecodeError::Custom("Wrong request id".to_string()));
         }
 
-        Ok(Self { blocks_hash })
+        Ok(Self { blocks_hash, id })
     }
 }
 
@@ -164,18 +170,15 @@ mod tests {
     use crate::rlpx::{eth::GetBlockBodies, message::RLPxMessage};
 
     #[test]
-    fn get_block_bodies_message() {
-        let blocks_hash = vec![
-            BlockHash::from([0; 32]),
-            BlockHash::from([1; 32]),
-            BlockHash::from([2; 32]),
-        ];
+    fn get_block_bodies_empty_message() {
+        let blocks_hash = vec![];
         let get_block_bodies = GetBlockBodies::build_from(blocks_hash.clone()).unwrap();
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
 
         let decoded = GetBlockBodies::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 0x05);
         assert_eq!(decoded.blocks_hash, blocks_hash);
     }
 }
