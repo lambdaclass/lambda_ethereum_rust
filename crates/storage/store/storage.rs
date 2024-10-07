@@ -669,7 +669,6 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "in_memory")]
     #[test]
     fn test_in_memory_store() {
         test_store_suite(EngineType::InMemory);
