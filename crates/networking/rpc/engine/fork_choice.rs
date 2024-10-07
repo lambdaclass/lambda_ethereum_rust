@@ -23,13 +23,13 @@ pub struct ForkChoiceUpdatedV3 {
     pub payload_attributes: Option<PayloadAttributesV3>,
 }
 
-impl Into<RpcRequest> for ForkChoiceUpdatedV3 {
-    fn into(self) -> RpcRequest {
+impl From<ForkChoiceUpdatedV3> for RpcRequest {
+    fn from(val: ForkChoiceUpdatedV3) -> Self {
         RpcRequest {
             method: "engine_forkchoiceUpdatedV3".to_string(),
             params: Some(vec![
-                serde_json::json!(self.fork_choice_state),
-                serde_json::json!(self.payload_attributes),
+                serde_json::json!(val.fork_choice_state),
+                serde_json::json!(val.payload_attributes),
             ]),
             ..Default::default()
         }

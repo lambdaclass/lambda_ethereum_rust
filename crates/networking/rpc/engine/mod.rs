@@ -7,11 +7,11 @@ use serde_json::{json, Value};
 
 pub type ExchangeCapabilitiesRequest = Vec<String>;
 
-impl Into<RpcRequest> for ExchangeCapabilitiesRequest {
-    fn into(self) -> RpcRequest {
+impl From<ExchangeCapabilitiesRequest> for RpcRequest {
+    fn from(val: ExchangeCapabilitiesRequest) -> Self {
         RpcRequest {
             method: "engine_exchangeCapabilities".to_string(),
-            params: Some(vec![serde_json::json!(self)]),
+            params: Some(vec![serde_json::json!(val)]),
             ..Default::default()
         }
     }

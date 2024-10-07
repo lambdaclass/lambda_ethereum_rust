@@ -24,14 +24,14 @@ pub struct GetPayloadV3Request {
     pub payload_id: u64,
 }
 
-impl Into<RpcRequest> for NewPayloadV3Request {
-    fn into(self) -> RpcRequest {
+impl From<NewPayloadV3Request> for RpcRequest {
+    fn from(val: NewPayloadV3Request) -> Self {
         RpcRequest {
             method: "engine_newPayloadV3".to_string(),
             params: Some(vec![
-                serde_json::json!(self.payload),
-                serde_json::json!(self.expected_blob_versioned_hashes),
-                serde_json::json!(self.parent_beacon_block_root),
+                serde_json::json!(val.payload),
+                serde_json::json!(val.expected_blob_versioned_hashes),
+                serde_json::json!(val.parent_beacon_block_root),
             ]),
             ..Default::default()
         }
@@ -166,11 +166,11 @@ impl RpcHandler for NewPayloadV3Request {
     }
 }
 
-impl Into<RpcRequest> for GetPayloadV3Request {
-    fn into(self) -> RpcRequest {
+impl From<GetPayloadV3Request> for RpcRequest {
+    fn from(val: GetPayloadV3Request) -> Self {
         RpcRequest {
             method: "engine_getPayloadV3".to_string(),
-            params: Some(vec![serde_json::json!(U256::from(self.payload_id))]),
+            params: Some(vec![serde_json::json!(U256::from(val.payload_id))]),
             ..Default::default()
         }
     }
