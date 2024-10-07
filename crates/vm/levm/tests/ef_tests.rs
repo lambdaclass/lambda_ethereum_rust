@@ -25,8 +25,27 @@ fn get_suite_name_from_path(path: &Path) -> String {
 
 fn get_ignored_groups() -> HashSet<String> {
     HashSet::from([
+        "stEIP1153-transientStorage".into(),
+        "eip3651_warm_coinbase".into(),
+        "stEIP3651-warmcoinbase".into(),
+        "stEIP3860-limitmeterinitcode".into(),
+        "vmPerformance".into(),
+        "stArgsZeroOneBalance".into(),
+        "stCallDelegateCodesHomestead".into(),
+        "stCodeSizeLimit".into(),
+        "stCreate2".into(),
+        "stCreateTest".into(),
+        "stEIP158Specific".into(),
         "stEIP4844-blobtransactions".into(),
-        // "stEIP5656-MCOPY".into(),
+        "stEIP5656-MCOPY".into(),
+        "stEIP2930".into(),
+        "stRandom".into(),
+        "stRandom2".into(),
+        "stRecursiveCreate".into(),
+        "stRefundTest".into(),
+        "stSStoreTest".into(),
+        "stStaticFlagEnabled".into(),
+        "stZeroCallsRevert".into(),
         "stTimeConsuming".into(), // this will be tested with the time_consuming_test binary
         "stRevertTest".into(),
         "eip3855_push0".into(),
@@ -81,28 +100,28 @@ fn get_ignored_groups() -> HashSet<String> {
     ])
 }
 
-// Cancun
-// Pyspecs
-// Shanghai
-//
-// stArgsZeroOneBalance
-//
-// 				stRandom
-// 					stRandom2
-// 				stRecursiveCreate
-// 		stRefundTest
-// stCallDelegateCodesCallCodeHomestead
-// stCallDelegateCodesHomestead
-// stChainId				stSLoadTest
-// 				stSStoreTest
-// stCodeSizeLimit
-// stCreate2				stShift
-// stCreateTest
-// 				stStaticFlagEnabled
-// stEIP158Specific
-// stEIP2930
-//
-// 			stZeroCallsRevert
+// ls -1 | wc -l -> count number of files in dir
+
+// Current not ignored groups:
+// - stShift
+// 41 tests
+// - eip7516_blobgasfee
+// 3 tests
+// - Pyspecs/frontier/opcodes
+// 2 tests
+// - eip2930_access_list
+// 1 test
+// - eip1344_chainid
+// 1 test
+// - stChainId
+// 2 tests
+// - vmBitwiseLogicOperation
+// 11 tests
+// - stCallDelegateCodesCallCodeHomestead
+// 58 tests
+// - stSLoadTest
+// 1 test
+// Total: 120 tests
 
 fn get_ignored_suites() -> HashSet<String> {
     HashSet::from([
@@ -113,6 +132,7 @@ fn get_ignored_suites() -> HashSet<String> {
 
 fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     let group_name = get_group_name_from_path(path);
+
     if get_ignored_groups().contains(&group_name) {
         return Ok(());
     }
