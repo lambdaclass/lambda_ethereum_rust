@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
-use levm::{
+use ethereum_rust_levm::{
     block::BlockEnv,
     primitives::{Bytes, H160},
     transaction::{TransactTo, TxEnv},

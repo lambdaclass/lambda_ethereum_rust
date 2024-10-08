@@ -18,7 +18,12 @@ pub enum VMError {
     OpcodeNotFound,
     InvalidBytecode,
     OutOfGas,
-    FatalError, // this should never really happen
+    FatalError,
+}
+
+pub enum OpcodeSuccess {
+    Continue,
+    Result(ResultReason),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
