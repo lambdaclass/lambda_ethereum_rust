@@ -729,6 +729,7 @@ mod tests {
         run_test(&test_chain_config_storage, engine_type);
         run_test(&test_genesis_block, engine_type);
         run_test(&test_filter_mempool_transactions, engine_type);
+        run_test(&blobs_bundle_loadtest, engine_type);
     }
 
     fn test_genesis_block(store: Store) {
@@ -992,5 +993,20 @@ mod tests {
             .unwrap();
         let txs = store.filter_pool_transactions(&filter).unwrap();
         assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
+    }
+
+    fn blobs_bundle_loadtest(store: Store) {
+        // Write a bundle of 6 blobs 10 times
+        for i in 0..3 {
+            let blobs = [[i as u8;BYTES_PER_BLOB];6];
+            let commitments = [[i as u8;48];6];
+            let proofs = [[i as u8;48];6];
+            let bundle = BlobsBundle {
+                blobs: blobs.to_vec(),
+                commitments: commitments.to_vec(),
+                proofs: proofs.to_vec()
+            };
+            store.add_blobs_bundle_to_pool(H256::random(), bundle).unwrap();
+        }
     }
 }
