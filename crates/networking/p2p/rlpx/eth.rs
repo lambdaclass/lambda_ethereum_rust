@@ -13,7 +13,6 @@ use ethereum_rust_storage::{error::StoreError, Store};
 use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
 
 pub const ETH_VERSION: u32 = 68;
-pub const MAX_NUMBER_OF_HEADERS_TO_SEND: u64 = 20;
 pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
 
 use super::message::RLPxMessage;
