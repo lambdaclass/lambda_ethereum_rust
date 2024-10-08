@@ -228,15 +228,10 @@ impl RLPxMessage for PooledTransactions {
 
 #[cfg(test)]
 mod tests {
-    use bytes::Bytes;
     use ethereum_rust_core::{
-        types::{
-            Block, BlockBody, BlockHash, BlockHeader, EIP1559Transaction, EIP2930Transaction,
-            EIP4844Transaction, Transaction, TxKind,
-        },
+        types::{EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, Transaction, TxKind},
         Address, H256, U256,
     };
-    use ethereum_rust_rlp::encode::RLPEncode;
     use ethereum_rust_storage::Store;
 
     use crate::rlpx::{
@@ -292,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn pooled_transactions_not_existing_block() {
+    fn pooled_transactions_not_existing_transaction() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
 
         store
@@ -329,7 +324,6 @@ mod tests {
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
-        dbg!(&buf);
         let decoded = PooledTransactions::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.pooled_transactions, vec![transaction1]);
@@ -384,6 +378,96 @@ mod tests {
         assert_eq!(decoded.id, 1);
         assert_eq!(
             decoded.pooled_transactions,
+            vec![transaction1, transaction2, transaction3, transaction4]
+        );
+    }
+
+    #[test]
+    fn get_pooled_transactions_receive_pooled_transactions() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let transaction1 = Transaction::LegacyTransaction(Default::default());
+        let transaction2 = EIP1559Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: TxKind::Call(Address::zero()),
+            ..Default::default()
+        };
+        let transaction3 = EIP2930Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: TxKind::Call(Address::zero()),
+            ..Default::default()
+        };
+        let transaction4 = EIP4844Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: Address::zero(),
+            ..Default::default()
+        };
+        let transaction2 = Transaction::EIP1559Transaction(transaction2.clone());
+        let transaction3 = Transaction::EIP2930Transaction(transaction3.clone());
+        let transaction4 = Transaction::EIP4844Transaction(transaction4.clone());
+        let transaction_hashes: Vec<H256> = (0..4).map(|x| H256::from_low_u64_be(x)).collect();
+        store
+            .add_transaction_to_pool(transaction_hashes[0], transaction1.clone())
+            .unwrap();
+        store
+            .add_transaction_to_pool(transaction_hashes[1], transaction2.clone())
+            .unwrap();
+        store
+            .add_transaction_to_pool(transaction_hashes[2], transaction3.clone())
+            .unwrap();
+        store
+            .add_transaction_to_pool(transaction_hashes[3], transaction4.clone())
+            .unwrap();
+
+        let sender_chosen_id = 1;
+        let sender_address = "127.0.0.1:3000";
+        let receiver_address = "127.0.0.1:4000";
+        let sender = std::net::UdpSocket::bind(sender_address).unwrap();
+        let receiver = std::net::UdpSocket::bind(receiver_address).unwrap();
+
+        let get_pooled_transactions =
+            GetPooledTransactions::build_from(sender_chosen_id, transaction_hashes.clone())
+                .unwrap();
+        let mut send_data_of_transaction_hashes = Vec::new();
+        get_pooled_transactions.encode(&mut send_data_of_transaction_hashes);
+        sender
+            .send_to(&send_data_of_transaction_hashes, receiver_address)
+            .unwrap(); // sends the transaction_hashes
+
+        let mut receiver_data_of_transaction_hashes = [0; 1024];
+        let len = receiver
+            .recv(&mut receiver_data_of_transaction_hashes)
+            .unwrap(); // receives the transaction_hashes
+        let received_transaction_hashes =
+            GetPooledTransactions::decode(&receiver_data_of_transaction_hashes[..len]).unwrap(); // transform the encoded received data to our struct
+        assert_eq!(received_transaction_hashes.id, sender_chosen_id);
+        assert_eq!(
+            received_transaction_hashes.transaction_hashes,
+            transaction_hashes
+        );
+
+        let pooled_transactions = PooledTransactions::build_from(
+            received_transaction_hashes.id,
+            &store,
+            received_transaction_hashes.transaction_hashes,
+        )
+        .unwrap();
+        let mut pooled_transactions_to_send = Vec::new();
+        pooled_transactions.encode(&mut pooled_transactions_to_send); // encode the pooled transactions that we got
+        receiver
+            .send_to(&pooled_transactions_to_send, sender_address)
+            .unwrap(); // sends to the requester
+
+        let mut received_pooled_transactions = [0; 1024];
+        let len = sender.recv(&mut received_pooled_transactions).unwrap(); // receive the pooled transactions
+        let received_pooled_transactions =
+            PooledTransactions::decode(&received_pooled_transactions[..len]).unwrap();
+
+        assert_eq!(received_pooled_transactions.id, sender_chosen_id);
+        assert_eq!(
+            received_pooled_transactions.pooled_transactions,
             vec![transaction1, transaction2, transaction3, transaction4]
         );
     }
