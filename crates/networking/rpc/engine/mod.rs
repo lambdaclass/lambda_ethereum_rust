@@ -2,10 +2,20 @@ pub mod exchange_transition_config;
 pub mod fork_choice;
 pub mod payload;
 
-use crate::{RpcErr, RpcHandler, Store};
+use crate::{utils::RpcRequest, RpcErr, RpcHandler, Store};
 use serde_json::{json, Value};
 
 pub type ExchangeCapabilitiesRequest = Vec<String>;
+
+impl From<ExchangeCapabilitiesRequest> for RpcRequest {
+    fn from(val: ExchangeCapabilitiesRequest) -> Self {
+        RpcRequest {
+            method: "engine_exchangeCapabilities".to_string(),
+            params: Some(vec![serde_json::json!(val)]),
+            ..Default::default()
+        }
+    }
+}
 
 impl RpcHandler for ExchangeCapabilitiesRequest {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
