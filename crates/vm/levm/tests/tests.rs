@@ -1222,13 +1222,13 @@ fn call_returns_if_bytecode_empty() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32,U256::from(32))),      // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,U256::zero())),        // value
-        Operation::Push((32,callee_address_u256)), // address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
         Operation::Stop,
     ];
@@ -1394,8 +1394,8 @@ fn nested_calls() {
 fn staticcall_changes_callframe_is_static() {
     let callee_return_value = U256::from(0xAAAAAAA);
     let callee_ops = [
-        Operation::Push((32,callee_return_value)), // value
-        Operation::Push((32,U256::zero())),        // offset
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // offset
         Operation::Mstore,
         Operation::Stop,
     ];
@@ -1412,13 +1412,13 @@ fn staticcall_changes_callframe_is_static() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32,U256::from(32))),      // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,U256::zero())),        // value
-        Operation::Push((32,callee_address_u256)), // address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::StaticCall,
     ];
 
@@ -1499,8 +1499,8 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     // --- DELEGATECALL --- changes account 1 storage
     let callee_return_value = U256::from(0xBBBBBBB);
     let callee_ops = [
-        Operation::Push((32,callee_return_value)), // value
-        Operation::Push((32,U256::zero())),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1517,12 +1517,12 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32,U256::from(32))),      // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,callee_address_u256)), // code address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, callee_address_u256)), // code address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::DelegateCall,
     ];
 
@@ -1555,8 +1555,8 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let callee_return_value = U256::from(0xAAAAAAA);
     let callee_ops = [
-        Operation::Push((32,callee_return_value)), // value
-        Operation::Push((32,U256::zero())),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1573,13 +1573,13 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32,U256::from(32))),      // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,U256::zero())),        // value
-        Operation::Push((32,callee_address_u256)), // address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
     ];
 
@@ -1611,8 +1611,8 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
     // --- DELEGATECALL
     let callee_return_value = U256::from(0xBBBBBBB);
     let callee_ops = [
-        Operation::Push((32,callee_return_value)), // value
-        Operation::Push((32,U256::zero())),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1629,12 +1629,12 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32,U256::from(32))),      // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,callee_address_u256)), // code address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, callee_address_u256)), // code address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::DelegateCall,
     ];
 
@@ -1664,8 +1664,8 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 
     let callee_return_value = U256::from(0xAAAAAAA);
     let callee_ops = [
-        Operation::Push((32,callee_return_value)), // value
-        Operation::Push((32,U256::zero())),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1682,13 +1682,13 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push((32,U256::from(0))),       // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,U256::from(100))),     // value
-        Operation::Push((32,callee_address_u256)), // address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(0))),       // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::from(100))),     // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::CallCode,
     ];
 
@@ -2254,8 +2254,8 @@ fn blobbasefee_minimum_cost() {
 #[test]
 fn pop_op() {
     let operations = [
-        Operation::Push((32,U256::one())),
-        Operation::Push((32,U256::from(100))),
+        Operation::Push((32, U256::one())),
+        Operation::Push((32, U256::from(100))),
         Operation::Pop,
         Operation::Stop,
     ];
@@ -2274,11 +2274,11 @@ fn pop_op() {
 #[test]
 fn jump_op() {
     let operations = [
-        Operation::Push((32,U256::from(35))),
+        Operation::Push((32, U256::from(35))),
         Operation::Jump,
         Operation::Stop, // should skip this one
         Operation::Jumpdest,
-        Operation::Push((32,U256::from(10))),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
 
@@ -2297,10 +2297,10 @@ fn jump_op() {
 #[test]
 fn jump_not_jumpdest_position() {
     let operations = [
-        Operation::Push((32,U256::from(36))),
+        Operation::Push((32, U256::from(36))),
         Operation::Jump,
         Operation::Stop,
-        Operation::Push((32,U256::from(10))),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
 
@@ -2735,13 +2735,13 @@ fn logs_from_multiple_callers() {
     );
 
     let mut caller_ops = vec![
-        Operation::Push((32,U256::from(32))),      // ret_size
-        Operation::Push((32,U256::from(0))),       // ret_offset
-        Operation::Push((32,U256::from(0))),       // args_size
-        Operation::Push((32,U256::from(0))),       // args_offset
-        Operation::Push((32,U256::zero())),        // value
-        Operation::Push((32,callee_address_u256)), // address
-        Operation::Push((32,U256::from(100_000))), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
     ];
 
@@ -2856,7 +2856,7 @@ fn push31_ok() {
 #[test]
 fn push32_ok() {
     let to_push = U256::from_big_endian(&[0xff; 32]);
-    let operations = [Operation::Push((32,to_push)), Operation::Stop];
+    let operations = [Operation::Push((32, to_push)), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
@@ -3003,8 +3003,8 @@ fn transient_store() {
     let key = U256::from_big_endian(&[0xff; 2]);
 
     let operations = [
-        Operation::Push((32,value)),
-        Operation::Push((32,key)),
+        Operation::Push((32, value)),
+        Operation::Push((32, key)),
         Operation::Tstore,
         Operation::Stop,
     ];
@@ -3045,7 +3045,11 @@ fn transient_load() {
     let value = U256::from_big_endian(&[0xaa; 3]);
     let key = U256::from_big_endian(&[0xff; 2]);
 
-    let operations = [Operation::Push((32,key)), Operation::Tload, Operation::Stop];
+    let operations = [
+        Operation::Push((32, key)),
+        Operation::Tload,
+        Operation::Stop,
+    ];
 
     let mut vm = new_vm_with_ops(&operations);
 
