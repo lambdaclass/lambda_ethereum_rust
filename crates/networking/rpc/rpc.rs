@@ -48,7 +48,7 @@ use utils::{
 };
 mod admin;
 mod authentication;
-mod engine;
+pub mod engine;
 mod eth;
 pub mod types;
 pub mod utils;
