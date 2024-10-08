@@ -170,6 +170,17 @@ impl RpcRequest {
     }
 }
 
+impl Default for RpcRequest {
+    fn default() -> Self {
+        RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "".to_string(),
+            params: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RpcErrorMetadata {
     pub code: i32,
