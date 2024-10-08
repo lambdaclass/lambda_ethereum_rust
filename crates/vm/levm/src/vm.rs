@@ -23,7 +23,6 @@ use ethereum_types::H160;
 use sha3::{Digest, Keccak256};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-// TODO: complete account abstraction
 pub struct Account {
     pub address: Address,
     pub balance: U256,
@@ -146,11 +145,6 @@ impl Db {
         self.accounts
             .iter()
             .map(|(address, acc)| {
-                // let code = acc
-                //     .has_code()
-                //     .then_some(&acc.bytecode_hash())
-                //     .into_iter().flatten()
-                //     .cloned();
                 let code_hash = if acc.has_code() {
                     acc.bytecode_hash()
                 } else {
@@ -228,7 +222,6 @@ fn address_to_word(address: Address) -> U256 {
 }
 
 impl VM {
-    // TODO: block and transaction, not this
     pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
         let bytecode = match tx_env.transact_to {
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
@@ -298,19 +291,11 @@ impl VM {
     }
 
     pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
-        // let initial_gas = self.env.gas_limit;
         let gas_used = self.env.consumed_gas;
-
-        // let gas_remaining = initial_gas - gas_used;
 
         // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
         let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
 
-        // let exit_status = res
-        //     .inner_context
-        //     .exit_status
-        //     .clone()
-        //     .unwrap_or(ExitStatusCode::Default);
         let exis_status_code = match res {
             ExecutionResult::Success { reason, .. } => match reason {
                 SuccessReason::Stop => ExitStatusCode::Stop,
@@ -325,8 +310,6 @@ impl VM {
         let current_call_frame = self.current_call_frame_mut();
 
         let return_values = current_call_frame.returndata.clone();
-
-        // let halt_reason = self.halt_reason.unwrap_or(HaltReason::OpcodeNotFound);
 
         let result = match exis_status_code {
             ExitStatusCode::Return => ExecutionResult::Success {
