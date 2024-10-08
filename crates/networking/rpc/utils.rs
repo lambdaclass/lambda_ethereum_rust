@@ -8,63 +8,63 @@ use ethereum_rust_blockchain::error::MempoolError;
 
 #[derive(Debug, Deserialize)]
 pub enum RpcErr {
-    MethodNotFound,
+    MethodNotFound(String),
     WrongParam(String),
-    BadParams,
+    BadParams(String),
     MissingParam(String),
     BadHexFormat(u64),
-    UnsuportedFork,
-    Internal,
-    Vm,
+    UnsuportedFork(String),
+    Internal(String),
+    Vm(String),
     Revert { data: String },
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
     InvalidForkChoiceState(String),
-    UnknownPayload,
+    UnknownPayload(String),
 }
 
 impl From<RpcErr> for RpcErrorMetadata {
     fn from(value: RpcErr) -> Self {
         match value {
-            RpcErr::MethodNotFound => RpcErrorMetadata {
+            RpcErr::MethodNotFound(bad_method) => RpcErrorMetadata {
                 code: -32601,
                 data: None,
-                message: "Method not found".to_string(),
+                message: format!("Method not found: {bad_method}"),
             },
             RpcErr::WrongParam(field) => RpcErrorMetadata {
                 code: -32602,
                 data: None,
                 message: format!("Field '{}' is incorrect or has an unknown format", field),
             },
-            RpcErr::BadParams => RpcErrorMetadata {
+            RpcErr::BadParams(context) => RpcErrorMetadata {
                 code: -32000,
                 data: None,
-                message: "Invalid params".to_string(),
+                message: format!("Invalid params: {context}"),
             },
             RpcErr::MissingParam(parameter_name) => RpcErrorMetadata {
                 code: -32000,
                 data: None,
                 message: format!("Expected parameter: {parameter_name} is missing"),
             },
-            RpcErr::UnsuportedFork => RpcErrorMetadata {
+            RpcErr::UnsuportedFork(context) => RpcErrorMetadata {
                 code: -38005,
                 data: None,
-                message: "Unsupported fork".to_string(),
+                message: format!("Unsupported fork: {context}"),
             },
             RpcErr::BadHexFormat(arg_number) => RpcErrorMetadata {
                 code: -32602,
                 data: None,
                 message: format!("invalid argument {arg_number} : hex string without 0x prefix"),
             },
-            RpcErr::Internal => RpcErrorMetadata {
+            RpcErr::Internal(context) => RpcErrorMetadata {
                 code: -32603,
                 data: None,
-                message: "Internal Error".to_string(),
+                message: format!("Internal Error: {context}"),
             },
-            RpcErr::Vm => RpcErrorMetadata {
+            RpcErr::Vm(context) => RpcErrorMetadata {
                 code: -32015,
                 data: None,
-                message: "Vm execution error".to_string(),
+                message: format!("Vm execution error: {context}"),
             },
             RpcErr::Revert { data } => RpcErrorMetadata {
                 // This code (3) was hand-picked to match hive tests.
@@ -105,18 +105,18 @@ impl From<RpcErr> for RpcErrorMetadata {
                 data: Some(data),
                 message: "Invalid forkchoice state".to_string(),
             },
-            RpcErr::UnknownPayload => RpcErrorMetadata {
+            RpcErr::UnknownPayload(context) => RpcErrorMetadata {
                 code: -38001,
                 data: None,
-                message: "Unknown payload".to_string(),
+                message: format!("Unknown payload: {context}"),
             },
         }
     }
 }
 
 impl From<serde_json::Error> for RpcErr {
-    fn from(_: serde_json::Error) -> Self {
-        Self::BadParams
+    fn from(error: serde_json::Error) -> Self {
+        Self::BadParams(error.to_string())
     }
 }
 
@@ -125,8 +125,8 @@ impl From<serde_json::Error> for RpcErr {
 impl From<MempoolError> for RpcErr {
     fn from(err: MempoolError) -> Self {
         match err {
-            MempoolError::StoreError(_) => Self::Internal,
-            _ => Self::BadParams,
+            MempoolError::StoreError(err) => Self::Internal(err.to_string()),
+            other_err => Self::BadParams(other_err.to_string()),
         }
     }
 }
@@ -162,10 +162,10 @@ impl RpcRequest {
                 "eth" => Ok(RpcNamespace::Eth),
                 "admin" => Ok(RpcNamespace::Admin),
                 "debug" => Ok(RpcNamespace::Debug),
-                _ => Err(RpcErr::MethodNotFound),
+                _ => Err(RpcErr::MethodNotFound(self.method.clone())),
             }
         } else {
-            Err(RpcErr::MethodNotFound)
+            Err(RpcErr::MethodNotFound(self.method.clone()))
         }
     }
 }
@@ -194,14 +194,14 @@ pub struct RpcErrorResponse {
 
 /// Failure to read from DB will always constitute an internal error
 impl From<StoreError> for RpcErr {
-    fn from(_value: StoreError) -> Self {
-        RpcErr::Internal
+    fn from(value: StoreError) -> Self {
+        RpcErr::Internal(value.to_string())
     }
 }
 
 impl From<EvmError> for RpcErr {
-    fn from(_value: EvmError) -> Self {
-        RpcErr::Vm
+    fn from(value: EvmError) -> Self {
+        RpcErr::Vm(value.to_string())
     }
 }
 

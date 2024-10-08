@@ -92,16 +92,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     /// Get a transaction from the pool
     fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError>;
 
-    /// Remove a transaction from the pool
-    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError>;
-
-    /// Applies the filter and returns a set of suitable transactions from the mempool.
-    /// These transactions will be grouped by sender and sorted by nonce
-    fn filter_pool_transactions(
-        &self,
-        filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError>;
-
     /// Store blobs bundle into the pool table by its blob transaction's hash
     fn add_blobs_bundle_to_pool(
         &self,
@@ -111,6 +101,16 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
 
     /// Get a blobs bundle from pool table given its blob transaction's hash
     fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError>;
+
+    /// Remove a transaction from the pool
+    fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError>;
+
+    /// Applies the filter and returns a set of suitable transactions from the mempool.
+    /// These transactions will be grouped by sender and sorted by nonce
+    fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError>;
 
     /// Add receipt
     fn add_receipt(

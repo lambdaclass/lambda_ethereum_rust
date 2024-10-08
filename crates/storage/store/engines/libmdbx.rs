@@ -229,6 +229,21 @@ impl StoreEngine for Store {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
+    fn add_blobs_bundle_to_pool(
+        &self,
+        tx_hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.write::<BlobsBundlePool>(tx_hash.into(), blobs_bundle.into())?;
+        Ok(())
+    }
+
+    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
+        Ok(self
+            .read::<BlobsBundlePool>(tx_hash.into())?
+            .map(|bb| bb.to()))
+    }
+
     fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
         self.remove::<TransactionPool>(hash.into())
     }
@@ -256,21 +271,6 @@ impl StoreEngine for Store {
             txs.reverse();
         }
         Ok(txs_by_sender)
-    }
-
-    fn add_blobs_bundle_to_pool(
-        &self,
-        tx_hash: H256,
-        blobs_bundle: BlobsBundle,
-    ) -> Result<(), StoreError> {
-        self.write::<BlobsBundlePool>(tx_hash.into(), blobs_bundle.into())?;
-        Ok(())
-    }
-
-    fn get_blobs_bundle_from_pool(&self, tx_hash: H256) -> Result<Option<BlobsBundle>, StoreError> {
-        Ok(self
-            .read::<BlobsBundlePool>(tx_hash.into())?
-            .map(|bb| bb.to()))
     }
 
     /// Stores the chain config serialized as json
