@@ -7,7 +7,7 @@ use tokio::time::sleep;
 pub async fn start_block_producer(current_block_hash: H256) {
     let mut current_block_hash = current_block_hash;
     loop {
-        let secret = std::fs::read("../../../jwt.hex").unwrap();
+        let secret = std::fs::read("./jwt.hex").expect("Unable to read JWT secret file");
         let engine = Engine::new("http://localhost:8551", secret.into());
 
         let fork_choice_state = ForkChoiceState {
