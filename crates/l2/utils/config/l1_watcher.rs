@@ -1,4 +1,4 @@
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -6,6 +6,7 @@ pub struct L1WatcherConfig {
     pub bridge_address: Address,
     pub topics: Vec<H256>,
     pub check_interval_ms: u64,
+    pub max_block_step: U256,
 }
 
 impl L1WatcherConfig {

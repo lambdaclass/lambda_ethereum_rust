@@ -19,6 +19,7 @@ pub struct L1Watcher {
     address: Address,
     topics: Vec<H256>,
     check_interval: Duration,
+    max_block_step: U256,
 }
 
 impl L1Watcher {
@@ -28,12 +29,11 @@ impl L1Watcher {
             address: watcher_config.bridge_address,
             topics: watcher_config.topics,
             check_interval: Duration::from_millis(watcher_config.check_interval_ms),
+            max_block_step: watcher_config.max_block_step,
         }
     }
 
     pub async fn get_logs(&self) {
-        let step = U256::from(5000);
-
         let mut last_block: U256 = U256::zero();
 
         let l1_rpc = EthClient::new(&self.rpc_url);
@@ -44,7 +44,7 @@ impl L1Watcher {
                 "Current block number: {} ({:#x})",
                 current_block, current_block
             );
-            let new_last_block = min(last_block + step, current_block);
+            let new_last_block = min(last_block + self.max_block_step, current_block);
             debug!(
                 "Looking logs from block {:#x} to {:#x}",
                 last_block, new_last_block
