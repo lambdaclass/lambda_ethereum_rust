@@ -228,9 +228,13 @@ impl RLPxMessage for PooledTransactions {
 
 #[cfg(test)]
 mod tests {
+    use bytes::Bytes;
     use ethereum_rust_core::{
-        types::{Block, BlockBody, BlockHash, BlockHeader, Transaction},
-        H256,
+        types::{
+            Block, BlockBody, BlockHash, BlockHeader, EIP1559Transaction, EIP2930Transaction,
+            EIP4844Transaction, Transaction, TxKind,
+        },
+        Address, H256, U256,
     };
     use ethereum_rust_rlp::encode::RLPEncode;
     use ethereum_rust_storage::Store;
@@ -315,9 +319,7 @@ mod tests {
     fn pooled_transactions_of_one_type() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let transaction1 = Transaction::LegacyTransaction(Default::default());
-        let mut buf_re_loco = Vec::new();
-        transaction1.encode(&mut buf_re_loco);
-        dbg!(buf_re_loco);
+
         store
             .add_transaction_to_pool(H256::from_low_u64_be(1), transaction1.clone())
             .unwrap();
@@ -337,9 +339,27 @@ mod tests {
     fn multiple_pooled_transactions_of_different_types() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let transaction1 = Transaction::LegacyTransaction(Default::default());
-        let transaction2 = Transaction::EIP1559Transaction(Default::default());
-        let transaction3 = Transaction::EIP2930Transaction(Default::default());
-        let transaction4 = Transaction::EIP4844Transaction(Default::default());
+        let transaction2 = EIP1559Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: TxKind::Call(Address::zero()),
+            ..Default::default()
+        };
+        let transaction3 = EIP2930Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: TxKind::Call(Address::zero()),
+            ..Default::default()
+        };
+        let transaction4 = EIP4844Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: Address::zero(),
+            ..Default::default()
+        };
+        let transaction2 = Transaction::EIP1559Transaction(transaction2.clone());
+        let transaction3 = Transaction::EIP2930Transaction(transaction3.clone());
+        let transaction4 = Transaction::EIP4844Transaction(transaction4.clone());
         let transaction_hashes: Vec<H256> = (0..4).map(|x| H256::from_low_u64_be(x)).collect();
 
         store
