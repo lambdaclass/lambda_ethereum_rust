@@ -10,8 +10,9 @@ use libsecp256k1::{sign, Message, SecretKey};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
+use transaction::PayloadRLPEncode;
 
-use super::transaction::PayloadRLPEncode;
+pub mod transaction;
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -20,14 +21,14 @@ pub enum RpcResponse {
     Error(RpcErrorResponse),
 }
 
-pub struct L1Rpc {
+pub struct EthClient {
     client: Client,
     url: String,
 }
 
 const EIP1559_TX_TYPE: u8 = 2;
 
-impl L1Rpc {
+impl EthClient {
     pub fn new(url: &str) -> Self {
         Self {
             client: Client::new(),
