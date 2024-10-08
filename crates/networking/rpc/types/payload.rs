@@ -221,7 +221,7 @@ impl PayloadStatus {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadResponse {
     pub execution_payload: ExecutionPayloadV3, // We only handle v3 payloads
