@@ -1,27 +1,30 @@
+#![allow(clippy::module_inception)]
 use tracing::info;
 
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
-/// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_bytes!("./sp1/program/elf/riscv32im-succinct-zkvm-elf");
+use crate::utils::config::prover::ProverConfig;
 
-pub struct SP1Prover {
+pub struct Prover {
     client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
 }
 
-impl Default for SP1Prover {
+impl Default for Prover {
     fn default() -> Self {
-        Self::new()
+        let config = ProverConfig::from_env().unwrap();
+        Self::new_from_config(config)
     }
 }
 
-impl SP1Prover {
-    pub fn new() -> Self {
+impl Prover {
+    pub fn new_from_config(config: ProverConfig) -> Self {
+        let elf = std::fs::read(config.elf_path).unwrap();
+
         info!("Setting up prover...");
         let client = ProverClient::new();
-        let (pk, vk) = client.setup(FIBONACCI_ELF);
+        let (pk, vk) = client.setup(elf.as_slice());
         info!("Prover setup complete!");
 
         Self { client, pk, vk }
