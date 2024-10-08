@@ -309,30 +309,49 @@ fn total_difficulty_check<'a>(
     head_block: &'a BlockHeader,
     storage: &'a Store,
 ) -> Result<(), InvalidForkChoice> {
-    if !head_block.difficulty.is_zero() || head_block.number == 0 {
-        let total_difficulty = storage.get_block_total_difficulty(*head_block_hash)?;
-        let parent_total_difficulty = storage.get_block_total_difficulty(head_block.parent_hash)?;
-        let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
-        if terminal_total_difficulty.is_none()
-            || total_difficulty.is_none()
-            || head_block.number > 0 && parent_total_difficulty.is_none()
-        {
-            return Err(InvalidForkChoice::StoreError(StoreError::Custom(
-                "Total difficulties unavailable for terminal total difficulty check".to_string(),
-            )));
-        }
-        if total_difficulty.unwrap() < terminal_total_difficulty.unwrap().into() {
-            return Err(InvalidForkChoice::PreMergeBlock);
-        }
-        if head_block.number > 0
-            && parent_total_difficulty.unwrap() >= terminal_total_difficulty.unwrap().into()
-        {
-            return Err(InvalidForkChoice::StoreError(StoreError::Custom(
-                "Parent block is already post terminal total difficulty".to_string(),
-            )));
-        }
+    // This check is performed only for genesis or for blocks with difficulty.
+    if head_block.difficulty.is_zero() && head_block.number != 0 {
+        return Ok(());
     }
-    Ok(())
+
+    let total_difficulty = storage
+        .get_block_total_difficulty(*head_block_hash)?
+        .ok_or(StoreError::Custom(
+            "Block difficulty not found for head block".to_string(),
+        ))?;
+
+    let terminal_total_difficulty = storage
+        .get_chain_config()?
+        .terminal_total_difficulty
+        .ok_or(StoreError::Custom(
+            "Terminal total difficulty not found in chain config".to_string(),
+        ))?;
+
+    // Check that the header is post-merge.
+    if total_difficulty < terminal_total_difficulty.into() {
+        return Err(InvalidForkChoice::PreMergeBlock);
+    }
+
+    if head_block.number == 0 {
+        return Ok(());
+    }
+
+    // Non genesis checks
+
+    let parent_total_difficulty = storage
+        .get_block_total_difficulty(head_block.parent_hash)?
+        .ok_or(StoreError::Custom(
+            "Block difficulty not found for parent block".to_string(),
+        ))?;
+
+    if parent_total_difficulty >= terminal_total_difficulty.into() {
+        Err((StoreError::Custom(
+            "Parent block is already post terminal total difficulty".to_string(),
+        ))
+        .into())
+    } else {
+        Ok(())
+    }
 }
 
 // Find branch of the blockchain connecting a block with the canonical chain. Returns the
