@@ -535,7 +535,7 @@ mod tests {
         header1.number = 1;
         header2.parent_hash = BlockHash::from([1; 32]);
         header2.number = 2;
-        header3.parent_hash = BlockHash::from([1; 32]);
+        header3.parent_hash = BlockHash::from([2; 32]);
         header3.number = 3;
         let block1 = Block {
             header: header1.clone(),
