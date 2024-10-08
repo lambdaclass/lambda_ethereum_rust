@@ -135,10 +135,11 @@ impl RLPEncode for HashOrNumber {
 }
 
 impl RLPDecode for HashOrNumber {
-    #[inline(always)]
     fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
         let first_byte = buf.first().ok_or(RLPDecodeError::InvalidLength)?;
-        // after some tests, seems that the first byte is always 160 for hashes
+        // https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/
+        // hashes are 32 bytes long, so they enter in the 0-55 bytes range for rlp. This means the first byte
+        // is the value 0x80 + len, where len = 32 (0x20). so we get the result of 0xa0 which is 160 in decimal
         if *first_byte == HASH_FIRST_BYTE_DECODER {
             let (hash, rest) = BlockHash::decode_unfinished(buf)?;
             return Ok((Self::Hash(hash), rest));
