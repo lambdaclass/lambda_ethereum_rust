@@ -110,7 +110,7 @@ impl RpcHandler for GetBlockByHashRequest {
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        info!("Requested block with hash: {}", self.block);
+        info!("Requested block with hash: {:#x}", self.block);
         let block_number = match storage.get_block_number(self.block)? {
             Some(number) => number,
             _ => return Ok(Value::Null),
