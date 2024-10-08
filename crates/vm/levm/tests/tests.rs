@@ -3383,14 +3383,12 @@ fn callvalue_op() {
 
     db.add_account(
         address_that_has_the_code,
-        Account::default()
-            .with_bytecode(ops_to_bytecde(&operations))
-            .with_balance(U256::MAX),
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute();
+    assert!(vm.execute().is_success());
 
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), value);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLVALUE);
@@ -3413,14 +3411,12 @@ fn codesize_op() {
 
     db.add_account(
         address_that_has_the_code,
-        Account::default()
-            .with_bytecode(ops_to_bytecde(&operations))
-            .with_balance(U256::MAX),
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute();
+    assert!(vm.execute().is_success());
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3446,14 +3442,12 @@ fn gasprice_op() {
 
     db.add_account(
         address_that_has_the_code,
-        Account::default()
-            .with_bytecode(ops_to_bytecde(&operations))
-            .with_balance(U256::MAX),
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute();
+    assert!(vm.execute().is_success());
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3494,14 +3488,12 @@ fn codecopy_op() {
 
     db.add_account(
         address_that_has_the_code,
-        Account::default()
-            .with_bytecode(ops_to_bytecde(&operations))
-            .with_balance(U256::MAX),
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute();
+    assert!(vm.execute().is_success());
 
     assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9 + 3 * gas_cost::PUSHN);

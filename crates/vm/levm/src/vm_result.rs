@@ -55,4 +55,11 @@ impl ExecutionResult {
             ExecutionResult::Halt { .. } => &[],
         }
     }
+
+    pub fn is_success(&self) -> bool {
+        match self {
+            ExecutionResult::Success { .. } => true,
+            _ => false,
+        }
+    }
 }
