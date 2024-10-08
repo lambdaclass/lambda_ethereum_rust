@@ -50,8 +50,9 @@ impl BlockIdentifier {
             return Ok(BlockIdentifier::Tag(tag));
         };
         // Parse BlockNumber
-        let Ok(hex_str) = serde_json::from_value::<String>(serde_value) else {
-            return Err(RpcErr::BadParams);
+        let hex_str = match serde_json::from_value::<String>(serde_value) {
+            Ok(hex_str) => hex_str,
+            Err(error) => return Err(RpcErr::BadParams(error.to_string())),
         };
         // Check that the BlockNumber is 0x prefixed
         let Some(hex_str) = hex_str.strip_prefix("0x") else {
