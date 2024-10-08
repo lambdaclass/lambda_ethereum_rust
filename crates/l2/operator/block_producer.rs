@@ -3,6 +3,7 @@ use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3
 use ethereum_types::H256;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
+use tracing::error;
 
 pub async fn start_block_producer(current_block_hash: H256) {
     let mut current_block_hash = current_block_hash;
@@ -30,10 +31,7 @@ pub async fn start_block_producer(current_block_hash: H256) {
 
         let payload_id = fork_choice_response.payload_id.unwrap();
 
-        let execution_payload_response = match consensus_mock_client
-            .engine_get_payload_v3(payload_id)
-            .await
-        {
+        let execution_payload_response = match engine.engine_get_payload_v3(payload_id).await {
             Ok(response) => response,
             Err(e) => {
                 error!("Error sending getPayload: {e}");

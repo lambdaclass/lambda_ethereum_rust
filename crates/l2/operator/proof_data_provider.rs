@@ -1,14 +1,12 @@
+use crate::utils::eth_client::RpcResponse;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use sp1_sdk::SP1ProofWithPublicValues;
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, TcpListener, TcpStream},
 };
-
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use sp1_sdk::SP1ProofWithPublicValues;
 use tracing::{debug, info, warn};
-
-use crate::rpc::l1_rpc::RpcResponse;
 
 pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
     let proof_data_provider = ProofDataProvider::new(ip, port);
