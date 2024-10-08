@@ -19,8 +19,5 @@ hex = "0.4.3"
 
 [[test]]
 name = "ef_tests"
-path = "tests/ef_tests.rs"
+path = "ef_tests/mod.rs"
 harness = false
-
-[features]
-skip_ef_tests = []

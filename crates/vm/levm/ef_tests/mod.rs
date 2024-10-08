@@ -148,5 +148,4 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
-#[cfg(not(feature = "skip_ef_tests"))]
 datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/", r"^.*/*.json",);
