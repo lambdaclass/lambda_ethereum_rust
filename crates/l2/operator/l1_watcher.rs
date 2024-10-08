@@ -1,12 +1,16 @@
-use crate::utils::{config::l1_watcher::L1WatcherConfig, eth_client::EthClient};
+use crate::utils::{
+    config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
+    eth_client::EthClient,
+};
 use ethereum_types::{Address, H256, U256};
 use std::{cmp::min, time::Duration};
 use tokio::time::sleep;
 use tracing::debug;
 
 pub async fn start_l1_watcher() {
-    let config = L1WatcherConfig::from_env().unwrap();
-    let l1_watcher = L1Watcher::new_from_config(config);
+    let eth_config = EthConfig::from_env().unwrap();
+    let watcher_config = L1WatcherConfig::from_env().unwrap();
+    let l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     l1_watcher.get_logs().await;
 }
 
@@ -18,12 +22,12 @@ pub struct L1Watcher {
 }
 
 impl L1Watcher {
-    pub fn new_from_config(config: L1WatcherConfig) -> Self {
+    pub fn new_from_config(watcher_config: L1WatcherConfig, eth_config: EthConfig) -> Self {
         Self {
-            rpc_url: config.rpc_url,
-            address: config.bridge_address,
-            topics: config.topics,
-            check_interval: Duration::from_millis(config.check_interval_ms),
+            rpc_url: eth_config.rpc_url,
+            address: watcher_config.bridge_address,
+            topics: watcher_config.topics,
+            check_interval: Duration::from_millis(watcher_config.check_interval_ms),
         }
     }
 

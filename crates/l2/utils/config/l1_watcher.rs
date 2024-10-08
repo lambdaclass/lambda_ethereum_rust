@@ -3,7 +3,6 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct L1WatcherConfig {
-    pub rpc_url: String,
     pub bridge_address: Address,
     pub topics: Vec<H256>,
     pub check_interval_ms: u64,
