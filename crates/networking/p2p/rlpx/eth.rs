@@ -351,11 +351,16 @@ mod tests {
     fn block_headers_startblock_number_message() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let mut header1 = BlockHeader::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let number = 1;
         header1.number = number;
         let block1 = Block {
             header: header1.clone(),
-            body: Default::default(),
+            body,
         };
         store.add_block(block1.clone()).unwrap();
         store
@@ -377,11 +382,16 @@ mod tests {
     fn block_headers_startblock_hash_message() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let mut header1 = BlockHeader::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let number = 1;
         header1.number = number;
         let block1 = Block {
             header: header1.clone(),
-            body: Default::default(),
+            body,
         };
         store.add_block(block1.clone()).unwrap();
         store
@@ -409,6 +419,11 @@ mod tests {
     #[test]
     fn block_headers_get_multiple_blocks() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let mut header1 = BlockHeader::default();
         header1.number = 1;
         let mut header2 = BlockHeader::default();
@@ -417,15 +432,15 @@ mod tests {
         header3.number = 3;
         let block1 = Block {
             header: header1.clone(),
-            body: Default::default(),
+            body: body.clone(),
         };
         let block2 = Block {
             header: header2.clone(),
-            body: Default::default(),
+            body: body.clone(),
         };
         let block3 = Block {
             header: header3.clone(),
-            body: Default::default(),
+            body: body.clone(),
         };
         store.add_block(block1.clone()).unwrap();
         store.add_block(block2.clone()).unwrap();
@@ -456,10 +471,15 @@ mod tests {
     fn block_headers_request_not_existing_block() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
         let mut header1 = BlockHeader::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         header1.number = 1;
         let block1 = Block {
             header: header1.clone(),
-            body: Default::default(),
+            body: body,
         };
         store.add_block(block1.clone()).unwrap();
         store
@@ -480,6 +500,11 @@ mod tests {
     #[test]
     fn block_headers_multiple_blocks_skip_and_reverse() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let mut header1 = BlockHeader::default();
         header1.number = 1;
         let mut header2 = BlockHeader::default();
@@ -488,15 +513,15 @@ mod tests {
         header3.number = 3;
         let block1 = Block {
             header: header1.clone(),
-            body: Default::default(),
+            body: body.clone(),
         };
         let block2 = Block {
             header: header2.clone(),
-            body: Default::default(),
+            body: body.clone(),
         };
         let block3 = Block {
             header: header3.clone(),
-            body: Default::default(),
+            body: body.clone(),
         };
         store.add_block(block1.clone()).unwrap();
         store.add_block(block2.clone()).unwrap();
@@ -526,7 +551,11 @@ mod tests {
     #[test]
     fn get_block_headers_receive_block_headers() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let body = BlockBody::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let mut header1 = BlockHeader::default();
         let mut header2 = BlockHeader::default();
         let mut header3 = BlockHeader::default();
