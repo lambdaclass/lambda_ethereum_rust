@@ -1,7 +1,7 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    types::{BlockHash, ForkId},
-    U256,
+    types::{BlockHash, ForkId, Transaction},
+    H256, U256,
 };
 use ethereum_rust_rlp::{
     encode::RLPEncode,
@@ -106,6 +106,123 @@ impl RLPxMessage for StatusMessage {
             block_hash,
             genesis,
             fork_id,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct GetPooledTransactions {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    transaction_hashes: Vec<H256>,
+}
+
+impl GetPooledTransactions {
+    pub fn build_from(id: u64, transaction_hashes: Vec<H256>) -> Result<Self, StoreError> {
+        Ok(Self {
+            transaction_hashes,
+            id,
+        })
+    }
+}
+
+impl RLPxMessage for GetPooledTransactions {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.transaction_hashes)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
+        let (transaction_hashes, _): (Vec<H256>, _) =
+            decoder.decode_field("transactionHashes").unwrap();
+
+        Ok(Self {
+            transaction_hashes,
+            id,
+        })
+    }
+}
+
+pub(crate) struct PooledTransactions {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    pooled_transactions: Vec<Transaction>,
+}
+
+impl PooledTransactions {
+    pub fn build_from(
+        id: u64,
+        storage: &Store,
+        transaction_hashes: Vec<H256>,
+    ) -> Result<Self, StoreError> {
+        let mut pooled_transactions = vec![];
+
+        for transaction_hash in transaction_hashes {
+            let pooled_transaction = match storage.get_transaction_from_pool(transaction_hash)? {
+                Some(body) => body,
+                None => continue,
+            };
+            pooled_transactions.push(pooled_transaction);
+        }
+
+        Ok(Self {
+            pooled_transactions,
+            id,
+        })
+    }
+}
+
+impl RLPxMessage for PooledTransactions {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.pooled_transactions)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
+        let (pooled_transactions, _): (Vec<Transaction>, _) =
+            decoder.decode_field("pooledTransactions").unwrap();
+
+        Ok(Self {
+            pooled_transactions,
+            id,
         })
     }
 }
