@@ -171,7 +171,6 @@ impl BlockBodies {
         let mut block_bodies = vec![];
 
         for block_hash in blocks_hash {
-            // TODO: Couldn't find what to do if we receive a block_hash of a block we don't have
             let block_body = match storage.get_block_body_by_hash(block_hash)? {
                 Some(body) => body,
                 None => continue,
