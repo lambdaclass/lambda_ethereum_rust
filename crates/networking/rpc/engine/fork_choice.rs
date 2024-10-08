@@ -101,6 +101,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
 
         // Build block from received payload
         if let Some(attributes) = &self.payload_attributes {
+            let chain_config = storage.get_chain_config()?;
+            if !chain_config.is_cancun_activated(attributes.timestamp) {
+                return Err(RpcErr::UnsuportedFork(
+                    "forkChoiceV3 used to build pre-Cancun payload".to_string(),
+                ));
+            }
             let args = BuildPayloadArgs {
                 parent: self.fork_choice_state.head_block_hash,
                 timestamp: attributes.timestamp,
