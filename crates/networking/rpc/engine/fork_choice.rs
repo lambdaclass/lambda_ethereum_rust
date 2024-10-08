@@ -32,7 +32,8 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         }
         Ok(ForkChoiceUpdatedV3 {
             fork_choice_state: serde_json::from_value(params[0].clone())?,
-            payload_attributes: serde_json::from_value(params[1].clone())?,
+            payload_attributes: serde_json::from_value(params[1].clone())
+                .map_err(|e| RpcErr::InvalidPayloadAttributes(e.to_string()))?,
         })
     }
 
