@@ -10,13 +10,37 @@ use crate::{
     error::MempoolError,
 };
 use ethereum_rust_core::{
-    types::{BlockHeader, ChainConfig, Transaction},
+    types::{BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, Transaction},
     Address, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 
+/// Add a blob transaction and its blobs bundle to the mempool
+pub fn add_blob_transaction(
+    transaction: EIP4844Transaction,
+    blobs_bundle: BlobsBundle,
+    store: Store,
+) -> Result<H256, MempoolError> {
+    // Validate blobs bundle
+    validate_blobs_bundle(&transaction, &blobs_bundle)?;
+
+    // Validate transaction
+    let transaction = Transaction::EIP4844Transaction(transaction);
+    validate_transaction(&transaction, store.clone())?;
+
+    // Add transaction and blobs bundle to storage
+    let hash = transaction.compute_hash();
+    store.add_transaction_to_pool(hash, transaction)?;
+    store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
+    Ok(hash)
+}
+
 /// Add a transaction to the mempool
 pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, MempoolError> {
+    // Blob transactions should be submitted via add_blob_transaction along with the corresponding blobs bundle
+    if matches!(transaction, Transaction::EIP4844Transaction(_)) {
+        return Err(MempoolError::BlobTxNoBlobsBundle);
+    }
     // Validate transaction
     validate_transaction(&transaction, store.clone())?;
 
@@ -31,6 +55,11 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
 /// Fetch a transaction from the mempool
 pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
     Ok(store.get_transaction_from_pool(hash)?)
+}
+
+/// Fetch a blobs bundle from the mempool given its blob transaction hash
+pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundle>, MempoolError> {
+    Ok(store.get_blobs_bundle_from_pool(tx_hash)?)
 }
 
 /// Applies the filter and returns a set of suitable transactions from the mempool.
@@ -89,14 +118,14 @@ Stateless validations
 3. Transaction's encoded size is smaller than maximum allowed
     -> I think that this is not in the spec, but it may be a good idea
 4. Make sure the transaction is signed properly
-5. Ensure a Blob Transaction comes with its sidecar:
+5. Ensure a Blob Transaction comes with its sidecar (Done!):
   1. Validate number of BlobHashes is positive
   2. Validate number of BlobHashes is less than the maximum allowed per block,
      which may be computed as `maxBlobGasPerBlock / blobTxBlobGasPerBlob`
   3. Ensure number of BlobHashes is equal to:
-    - The number of blobs
-    - The number of commitments
-    - The number of proofs
+    - The number of blobs (Done!)
+    - The number of commitments (Done!)
+    - The number of proofs (Done!)
   4. Validate that the hashes matches with the commitments, performing a `kzg4844` hash.
   5. Verify the blob proofs with the `kzg4844`
 Stateful validations
@@ -154,6 +183,20 @@ fn validate_transaction(tx: &Transaction, store: Store) -> Result<(), MempoolErr
         }
     }
 
+    Ok(())
+}
+
+fn validate_blobs_bundle(
+    tx: &EIP4844Transaction,
+    blobs_bundle: &BlobsBundle,
+) -> Result<(), MempoolError> {
+    let tx_blob_count = tx.blob_versioned_hashes.len();
+    if tx_blob_count != blobs_bundle.blobs.len()
+        || tx_blob_count != blobs_bundle.commitments.len()
+        || tx_blob_count != blobs_bundle.proofs.len()
+    {
+        return Err(MempoolError::BlobsBundleWrongLen);
+    };
     Ok(())
 }
 

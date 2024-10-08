@@ -116,15 +116,18 @@ async fn main() {
         let size = blocks.len();
         for block in blocks {
             let hash = block.header.compute_block_hash();
-            info!("Adding block {} with hash {}.", block.header.number, hash);
+            info!(
+                "Adding block {} with hash {:#x}.",
+                block.header.number, hash
+            );
             match add_block(&block, &store) {
                 Ok(()) => store
                     .set_canonical_block(block.header.number, hash)
                     .unwrap(),
-                _ => {
+                Err(error) => {
                     warn!(
-                        "Failed to add block {} with hash {}.",
-                        block.header.number, hash
+                        "Failed to add block {} with hash {:#x}: {}",
+                        block.header.number, hash, error
                     );
                 }
             }
@@ -159,7 +162,7 @@ async fn main() {
     // We do not want to start the networking module if the l2 feature is enabled.
     cfg_if::cfg_if! {
         if #[cfg(feature = "l2")] {
-            let l2_operator = ethereum_rust_l2::start_operator().into_future();
+            let l2_operator = ethereum_rust_l2::start_operator(store.clone()).into_future();
             tracker.spawn(l2_operator);
             let l2_prover = ethereum_rust_l2::start_prover().into_future();
             tracker.spawn(l2_prover);
