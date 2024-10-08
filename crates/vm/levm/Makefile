@@ -32,6 +32,3 @@ ethtests: ${ETHTEST_TAR}  # 📥 Downloads Ethereum Foundation tests.
 
 test-eth:  # 💎 Runs Ethereum Foundation tests.
 	cargo nextest run --workspace --all-features --no-capture --test normal
-
-test-eth-slow: check-ethtests
-	cargo nextest run --workspace --all-features --no-capture --test time_consuming
