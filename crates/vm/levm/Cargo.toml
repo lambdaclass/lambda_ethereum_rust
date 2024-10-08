@@ -1,5 +1,5 @@
 [package]
-name = "levm"
+name = "ethereum_rust-levm"
 version.workspace = true
 edition.workspace = true
 
