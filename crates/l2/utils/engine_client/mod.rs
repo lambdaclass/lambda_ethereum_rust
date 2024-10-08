@@ -9,33 +9,37 @@ use ethereum_rust_rpc::{
         fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
         payload::{ExecutionPayloadResponse, ExecutionPayloadV3, PayloadStatus},
     },
-    utils::{RpcErrorResponse, RpcRequest, RpcSuccessResponse},
+    utils::RpcRequest,
 };
 use ethereum_types::H256;
 use reqwest::Client;
-use serde::Deserialize;
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum RpcResponse {
-    Success(RpcSuccessResponse),
-    Error(RpcErrorResponse),
-}
+use crate::utils::config::engine_api::EngineApiConfig;
 
-pub struct Engine {
+use super::eth_client::RpcResponse;
+
+pub struct EngineClient {
     client: Client,
     secret: Bytes,
     execution_client_url: String,
 }
 
-impl Engine {
+impl EngineClient {
     pub fn new(execution_client_url: &str, secret: Bytes) -> Self {
         Self {
             client: Client::new(),
             secret,
             execution_client_url: execution_client_url.to_string(),
+        }
+    }
+
+    pub fn new_from_config(config: EngineApiConfig) -> Self {
+        Self {
+            client: Client::new(),
+            secret: std::fs::read(config.jwt_path).unwrap().into(),
+            execution_client_url: config.rpc_url,
         }
     }
 
