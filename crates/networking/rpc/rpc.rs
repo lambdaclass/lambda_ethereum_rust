@@ -143,18 +143,14 @@ pub async fn handle_authrpc_request(
     let storage = service_context.storage;
     let secret = service_context.jwt_secret;
     let req: RpcRequest = serde_json::from_str(&body).unwrap();
-    // FIXME: UNCOMMENT BEFORE MERGING
-    // match authenticate(secret, auth_header) {
-    //     Err(error) => rpc_response(req.id, Err(error)),
-    //     Ok(()) => {
-    //         // Proceed with the request
-    //         let res = map_authrpc_requests(&req, storage);
-    //         rpc_response(req.id, res)
-    //     }
-    // }
-    // Proceed with the request
-    let res = map_authrpc_requests(&req, storage, service_context.active_filters);
-    rpc_response(req.id, res)
+    match authenticate(secret, auth_header) {
+        Err(error) => rpc_response(req.id, Err(error)),
+        Ok(()) => {
+            // Proceed with the request
+            let res = map_authrpc_requests(&req, storage, service_context.active_filters);
+            rpc_response(req.id, res)
+        }
+    }
 }
 
 /// Handle requests that can come from either clients or other users
