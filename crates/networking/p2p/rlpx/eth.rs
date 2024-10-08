@@ -14,6 +14,7 @@ use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEnc
 
 pub const ETH_VERSION: u32 = 68;
 pub const MAX_NUMBER_OF_HEADERS_TO_SEND: u64 = 20;
+pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
 
 use super::message::RLPxMessage;
 
@@ -137,9 +138,9 @@ impl RLPEncode for HashOrNumber {
 impl RLPDecode for HashOrNumber {
     #[inline(always)]
     fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let first_byte = *buf.get(0).ok_or(RLPDecodeError::InvalidLength)?;
+        let first_byte = buf.get(0).ok_or(RLPDecodeError::InvalidLength)?;
         // after some tests, seems that the first byte is always 160 for hashes
-        if first_byte == 160 {
+        if *first_byte == HASH_FIRST_BYTE_DECODER {
             let (hash, rest) = BlockHash::decode_unfinished(buf)?;
             return Ok((Self::Hash(hash), rest));
         }
@@ -251,10 +252,10 @@ impl BlockHeaders {
                 None => return Ok(Self { block_headers, id }),
             },
         };
-
-        let number = first_block.number;
-        for i in number..number + MAX_NUMBER_OF_HEADERS_TO_SEND {
-            dbg!(i);
+        // skip +1 because skip can be 0
+        let first_block_number = first_block.number;
+        let headers_range = first_block_number..first_block_number + limit * (skip + 1);
+        for i in headers_range.step_by((skip + 1) as usize) {
             let header = storage.get_block_header(i)?;
             match header {
                 Some(header) => {
@@ -364,7 +365,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(number), 0, 0, false).unwrap();
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(number), 1, 0, false).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -393,7 +394,7 @@ mod tests {
             1,
             &store,
             HashOrNumber::Hash(header1.compute_block_hash()),
-            0,
+            1,
             0,
             false,
         )
@@ -443,7 +444,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 0, 0, false).unwrap();
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 3, 0, false).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -468,7 +469,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(404), 0, 0, false).unwrap();
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(404), 1, 0, false).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -476,5 +477,51 @@ mod tests {
         let decoded = BlockHeaders::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_headers, vec![]);
+    }
+
+    #[test]
+    fn block_headers_multiple_blocks_skip_and_reverse() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let mut header1 = BlockHeader::default();
+        header1.number = 1;
+        let mut header2 = BlockHeader::default();
+        header2.number = 2;
+        let mut header3 = BlockHeader::default();
+        header3.number = 3;
+        let block1 = Block {
+            header: header1.clone(),
+            body: Default::default(),
+        };
+        let block2 = Block {
+            header: header2.clone(),
+            body: Default::default(),
+        };
+        let block3 = Block {
+            header: header3.clone(),
+            body: Default::default(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store.add_block(block2.clone()).unwrap();
+        store.add_block(block3.clone()).unwrap();
+
+        store
+            .set_canonical_block(1, header1.compute_block_hash())
+            .unwrap();
+        store
+            .set_canonical_block(2, header2.compute_block_hash())
+            .unwrap();
+        store
+            .set_canonical_block(3, header3.compute_block_hash())
+            .unwrap();
+
+        let block_bodies =
+            BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 3, 1, true).unwrap();
+        // we should get 1, skip 2 and get 3
+        let mut buf = Vec::new();
+        block_bodies.encode(&mut buf);
+
+        let decoded = BlockHeaders::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_headers, vec![header3, header1]);
     }
 }
