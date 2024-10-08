@@ -1,19 +1,11 @@
 use crate::operator::engine::Engine;
-use std::{
-    str::FromStr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 
-pub async fn start_block_producer() {
-    // This is the genesis block hash
-    let mut current_block_hash =
-        H256::from_str("0x676fb5bffb4b4962edb2e1e03ac733597d5ba6ac290b230a2bf01448decae584")
-            .unwrap();
-
+pub async fn start_block_producer(current_block_hash: H256) {
+    let mut current_block_hash = current_block_hash;
     loop {
         let secret = std::fs::read("../../../jwt.hex").unwrap();
         let engine = Engine::new("http://localhost:8551", secret.into());
