@@ -1,33 +1,30 @@
-use crate::utils::eth_client::EthClient;
+use crate::utils::{config::l1_watcher::L1WatcherConfig, eth_client::EthClient};
 use ethereum_types::{Address, H256, U256};
 use std::{cmp::min, time::Duration};
 use tokio::time::sleep;
 use tracing::debug;
 
 pub async fn start_l1_watcher() {
-    // This address and topic were used for testing purposes only.
-    // TODO: Receive them as parameters from config.
-    let l1_watcher = L1Watcher::new(
-        "0xe441CF0795aF14DdB9f7984Da85CD36DB1B8790d"
-            .parse()
-            .unwrap(),
-        vec![
-            "0xe2ea736f80f92a510d75d1a96b5c1d5e5544283362b7acd97390d60ea1c7d149"
-                .parse()
-                .unwrap(),
-        ],
-    );
+    let config = L1WatcherConfig::from_env().unwrap();
+    let l1_watcher = L1Watcher::new_from_config(config);
     l1_watcher.get_logs().await;
 }
 
 pub struct L1Watcher {
+    rpc_url: String,
     address: Address,
     topics: Vec<H256>,
+    check_interval: Duration,
 }
 
 impl L1Watcher {
-    pub fn new(address: Address, topics: Vec<H256>) -> Self {
-        Self { address, topics }
+    pub fn new_from_config(config: L1WatcherConfig) -> Self {
+        Self {
+            rpc_url: config.rpc_url,
+            address: config.bridge_address,
+            topics: config.topics,
+            check_interval: Duration::from_millis(config.check_interval_ms),
+        }
     }
 
     pub async fn get_logs(&self) {
@@ -35,7 +32,7 @@ impl L1Watcher {
 
         let mut last_block: U256 = U256::zero();
 
-        let l1_rpc = EthClient::new("http://localhost:8545");
+        let l1_rpc = EthClient::new(&self.rpc_url);
 
         loop {
             let current_block = l1_rpc.get_block_number().await.unwrap();
@@ -56,7 +53,7 @@ impl L1Watcher {
             debug!("Logs: {:#?}", logs);
 
             last_block = new_last_block + 1;
-            sleep(Duration::from_secs(5)).await;
+            sleep(self.check_interval).await;
         }
     }
 }
