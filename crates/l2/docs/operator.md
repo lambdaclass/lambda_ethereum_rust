@@ -7,6 +7,7 @@
     - [L1 Transaction Sender](#l1-transaction-sender)
     - [Block Producer](#block-producer)
     - [Proof Data Provider](#proof-data-provider)
+- [Configuration](#configuration)
 
 ## Components
 

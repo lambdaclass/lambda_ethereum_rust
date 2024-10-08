@@ -4,6 +4,7 @@
 
 - [Prover](#prover)
 - [Workflow](#workflow)
+- [Configuration](#configuration)
 
 ## Prover
 
