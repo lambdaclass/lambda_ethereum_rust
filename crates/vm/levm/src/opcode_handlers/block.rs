@@ -213,7 +213,11 @@ impl VM {
             return Err(VMError::OutOfGas);
         }
 
-        let addr = current_call_frame.code_address;
+        let addr = if current_call_frame.delegate.is_some() {
+            current_call_frame.msg_sender
+        } else {
+            current_call_frame.code_address
+        };
 
         current_call_frame.stack.push(U256::from(addr.as_bytes()))?;
         self.env.consumed_gas += gas_cost::ADDRESS;
