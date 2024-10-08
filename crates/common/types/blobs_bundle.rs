@@ -7,7 +7,7 @@ use ethereum_rust_rlp::{
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::BYTES_PER_BLOB;
 
@@ -16,7 +16,7 @@ pub type Blob = [u8; BYTES_PER_BLOB];
 pub type Commitment = Bytes48;
 pub type Proof = Bytes48;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 /// Struct containing all the blobs for a blob transaction, along with the corresponding commitments and proofs
 pub struct BlobsBundle {
