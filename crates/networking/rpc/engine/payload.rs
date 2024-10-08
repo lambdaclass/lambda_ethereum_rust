@@ -2,12 +2,13 @@ use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::build_payload;
 use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::Fork;
-use ethereum_rust_core::H256;
+use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::Store;
 use serde_json::Value;
 use tracing::{info, warn};
 
 use crate::types::payload::ExecutionPayloadResponse;
+use crate::utils::RpcRequest;
 use crate::{
     types::payload::{ExecutionPayloadV3, PayloadStatus},
     RpcErr, RpcHandler,
@@ -21,6 +22,20 @@ pub struct NewPayloadV3Request {
 
 pub struct GetPayloadV3Request {
     pub payload_id: u64,
+}
+
+impl From<NewPayloadV3Request> for RpcRequest {
+    fn from(val: NewPayloadV3Request) -> Self {
+        RpcRequest {
+            method: "engine_newPayloadV3".to_string(),
+            params: Some(vec![
+                serde_json::json!(val.payload),
+                serde_json::json!(val.expected_blob_versioned_hashes),
+                serde_json::json!(val.parent_beacon_block_root),
+            ]),
+            ..Default::default()
+        }
+    }
 }
 
 impl RpcHandler for NewPayloadV3Request {
@@ -40,7 +55,7 @@ impl RpcHandler for NewPayloadV3Request {
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let block_hash = self.payload.block_hash;
-        info!("Received new payload with block hash: {block_hash}");
+        info!("Received new payload with block hash: {block_hash:#x}");
 
         let block = match self
             .payload
@@ -114,7 +129,7 @@ impl RpcHandler for NewPayloadV3Request {
             latest_valid_hash(&storage).map_err(|error| RpcErr::Internal(error.to_string()))?;
 
         // Execute and store the block
-        info!("Executing payload with block hash: {block_hash}");
+        info!("Executing payload with block hash: {block_hash:#x}");
         let payload_status = match add_block(&block, &storage) {
             Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
@@ -148,6 +163,16 @@ impl RpcHandler for NewPayloadV3Request {
         }?;
 
         serde_json::to_value(payload_status).map_err(|error| RpcErr::Internal(error.to_string()))
+    }
+}
+
+impl From<GetPayloadV3Request> for RpcRequest {
+    fn from(val: GetPayloadV3Request) -> Self {
+        RpcRequest {
+            method: "engine_getPayloadV3".to_string(),
+            params: Some(vec![serde_json::json!(U256::from(val.payload_id))]),
+            ..Default::default()
+        }
     }
 }
 
