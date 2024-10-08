@@ -384,7 +384,7 @@ impl ProofDataProvider {
             block_is_valid: false,
         };
 
-        // This condition has to be true 
+        // This condition has to be true.
         //let response = if last_block_number > last_proved_block {
         let response = if true {
             ProofData::Response {

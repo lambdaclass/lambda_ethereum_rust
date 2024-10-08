@@ -4,7 +4,7 @@
 
 use ethereum_rust_blockchain::{validate_gas_used, verify_blob_gas_usage};
 use ethereum_rust_core::types::{
-    validate_block_header, validate_cancun_header_fields, Receipt, Transaction, Block
+    validate_block_header, validate_cancun_header_fields, Block, Receipt, Transaction,
 };
 use ethereum_rust_evm::{block_env, tx_env};
 use prover_lib::{db_memorydb::MemoryDB, inputs::ProverInput};
@@ -18,18 +18,18 @@ sp1_zkvm::entrypoint!(main);
 
 pub fn main() {
     let head_block_bytes = sp1_zkvm::io::read::<Vec<u8>>();
-    let memory_db_bytes = sp1_zkvm::io::read::<Vec<u8>>();
+    let memory_db = sp1_zkvm::io::read::<MemoryDB>();
 
     // Make Inputs public.
     sp1_zkvm::io::commit(&head_block_bytes);
-    sp1_zkvm::io::commit(&memory_db_bytes);
-
-    // TODO parse input
+    sp1_zkvm::io::commit(&memory_db);
 
     // TODO: For execution.
-    //let db = input.db;
-    let mut cache_db = CacheDB::default();
-    let block = Block::default();
+    let mut cache_db = CacheDB::new(memory_db);
+    let block = <ethereum_rust_core::types::Block as ethereum_rust_rlp::decode::RLPDecode>::decode(
+        &head_block_bytes,
+    )
+    .unwrap();
 
     let block_receipts = execute_block(&block, &mut cache_db).unwrap();
     // TODO
@@ -37,7 +37,6 @@ pub fn main() {
     // Should the zkVM panic? Should it generate a dummy proof?
     let _ = validate_gas_used(&block_receipts, &block.header);
 
-    // Make Output public.
     sp1_zkvm::io::commit(&block_receipts);
 }
 
