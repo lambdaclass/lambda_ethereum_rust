@@ -24,7 +24,89 @@ Read more about our engineering philosophy [here](https://blog.lambdaclass.com/l
 - Prioritize code readability and maintainability over premature optimizations.
 - Avoid concurrency split all over the codebase. Concurrency adds complexity. Only use where strictly necessary.
 
-## Quick Start (localnet)
+## Lambda Ethereum Rust L1 Roadmap
+
+TABLE OF CONTENTS HERE
+
+An Ethereum execution client consists roughly of the following parts:
+
+- A storage component, in charge of persisting the chain's  data. This requires, at the very least, storing it in a Merkle Patricia Tree data structure to calculate state roots. It also requires some on-disk database; we currently use [libmdbx](https://github.com/erthink/libmdbx) but intend to change that in the future.
+- A JSON RPC API. A set of HTTP endpoints meant to provide access to the data above and also interact with the network by sending transactions. Also included here is the `Engine API`, used for communication between the execution and consensus layers.
+- A Networking layer implementing the peer to peer protocols used by the Ethereum Network. The most important ones are:
+    - The `disc` protocol for peer discovery, using a Kademlia DHT for efficient searches.
+    - The `RLPx` transport protocol used for communication between nodes; used by other protocols that build on top to exchange information, sync state, etc.
+    - The Ethereum Wire Protocol (`ETH`), used for state synchronization and block/transaction propagation, among other things. This runs on top of `RLPx`.
+    - The `SNAP` protocol, used for exchanging state snapshots. Mainly needed for **snap sync**, a more optimized way of doing state sync than the old fast sync (you can read more about it [here](https://blog.ethereum.org/2021/03/03/geth-v1-10-0)).
+- Block building and Fork choice management (i.e. logic to both build blocks so a validator can propose them and set where the head of the chain is currently at, according to what the consensus layer determines). This is essentially what our `blockchain` crate contains.
+- The block execution logic itself, i.e., an EVM implementation. We currently rely on [revm](https://github.com/bluealloy/revm) but are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethereum_rust/tree/main/crates/vm/levm) (Lambda EVM).
+
+
+### Milestone 1: Read-only RPC Node Support
+
+Implement the bare minimum required to:
+
+- Execute incoming blocks and store the resulting state on an on-disk database (`libmdbx`). No support for reorgs/forks, every block has to be the child of the current head.
+- Serve state through a JSON RPC API. No networking yet otherwise (i.e. no p2p).
+
+In more detail:
+
+|        | Task Description                                                                 | Status |
+| --------- |  --------------------------------------------------------------------------- | ------ |
+|  |  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅     |
+|  |  Revm (for now) wrapper for block execution                                                       | ✅     |
+|  |  JSON RPC API server setup                                                      | ✅     |
+|  |  RPC State-serving endpoints                                                     | 🏗️  (almost done)   |
+|  |  Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅   |
+
+See detailed issues and progress for the milestone here: <https://github.com/lambdaclass/ethereum_rust/milestone/1>
+
+### Milestone 2: History & Reorgs
+
+Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches. It also involves a real implementation of the `engine_forkchoiceUpdated` Engine API when we do not have to build the block ourselves (i.e. when `payloadAttributes` is null).
+
+|        | Task Description                                                                 | Status |
+| --------- |  --------------------------------------------------------------------------- | ------ |
+|  | Persist the Merkle Patricia Tree on-disk using `libmdbx`                                       | ✅     |
+|  | Basic Engine API `forkchoiceUpdated` implementation (without `payloadAttributes`)                                                     | ✅     |
+|  |  JSON RPC API server setup                                                      | ✅     |
+|  |  Support for RPC historical queries, i.e. queries (`eth_call`, `eth_getBalance`, etc) at any block                                       | ✅   |
+
+Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/4).
+
+### Milestone 3: Block building
+Add the ability to build new payloads, so that the consensus client can propose new blocks based on transactions received from the RPC endpoints.
+
+RPC endpoints
+- `engine_forkchoiceUpdated` (with `payloadAttributes`)
+- `engine_getPayload`
+- `eth_sendRawTransaction` ✅
+
+### Milestone 4: P2P Network
+Implement DevP2P protocol, including RLPx `p2p` and `eth` features. This will let us get and send blocks and transactions from other nodes. We'll add the transactions we receive to the mempool. We'll also download blocks from other nodes when we get payloads where the parent isn't in our local chain.
+
+RPC endpoints
+
+- `admin_nodeInfo` ✅
+
+See issues and progress: <https://github.com/lambdaclass/ethereum_rust/milestone/2>
+
+### Milestone 5: Syncing
+Add snap sync protocol, which lets us get a recent copy of the blockchain state instead of going through all blocks from genesis. Since we don't support older versions of the spec by design, this is a prerequisite to being able to sync the node with public networks, including mainnet.
+
+RPC endpoints
+- `eth_syncing`
+
+See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
+
+# Lambda Ethereum Rust L2
+
+Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. The node has the same interface as regular Ethereum Rust, with the addition that block execution is proven and the proof is sent to an L1 network for verification, thus inheriting the L1's security.
+
+DEPOSIT DEMO HERE.
+
+[Full Roadmap](./crates/l2/README.md)
+
+## Quick Start (L1 localnet)
 
 ![Demo](https://raw.githubusercontent.com/lambdaclass/ethereum_rust/8e3b69d727225686eec30b2c2b79cecdf7eac2d9/Demo.png)
 
@@ -153,94 +235,6 @@ Ethereum Rust supports the following command line arguments:
 - `--discovery.port <PORT>`: UDP port for P2P discovery. Default value: 30303.
 - `--bootnodes <BOOTNODE_LIST>`: Comma separated enode URLs for P2P discovery bootstrap.
 - `--log-level <LOG_LEVEL>`: The verbosity level used for logs. Default value: info. possible values: info, debug, trace, warn, error
-
-## Roadmap
-
-### Milestone 1: RPC Node
-
-Add support to follow a post-Merge localnet as a read-only RPC Node. This first milestone will only support a canonical chain (every incoming block has to be the child of the current head).
-
-RPC endpoints
-
-- `debug_getRawBlock` ✅
-- `debug_getRawHeader` ✅
-- `debug_getRawReceipts` ✅
-- `debug_getRawTransaction` ✅
-- `engine_exchangeCapabilities`
-- `engine_exchangeTransitionConfiguration` ✅
-- `engine_newPayload` ✅
-- `eth_blobBaseFee` ✅
-- `eth_blockNumber` ✅
-- `eth_call` (at head block) ✅
-- `eth_chainId` ✅
-- `eth_createAccessList` (at head block) ✅
-- `eth_estimateGas` ✅
-- `eth_feeHistory`
-- `eth_getBalance` (at head block) ✅
-- `eth_getBlockByHash` ✅
-- `eth_getBlockByNumber` ✅
-- `eth_getBlockReceipts` ✅
-- `eth_getBlockTransactionCountByNumber` ✅
-- `eth_getCode` (at head block) ✅
-- `eth_getFilterChanges`
-- `eth_getFilterLogs`
-- `eth_getLogs`
-- `eth_getStorageAt` (at head block) ✅
-- `eth_getTransactionByBlockHashAndIndex` ✅
-- `eth_getTransactionByBlockNumberAndIndex` ✅
-- `eth_getTransactionByHash` ✅
-- `eth_getTransactionCount` ✅
-- `eth_newBlockFilter`
-- `eth_newFilter`
-- `eth_newPendingTransactionFilter`
-- `eth_uninstallFilter`
-
-See issues and progress: <https://github.com/lambdaclass/ethereum_rust/milestone/1>
-
-### Milestone 2: History & Reorgs
-Implement support for block reorganizations and historical state queries. This milestone involves persisting the state trie to enable efficient access to historical states and implementing a tree structure for the blockchain to manage multiple chain branches.
-
-RPC endpoints
-- `engine_forkchoiceUpdated` (without `payloadAttributes`)
-- `eth_call` (at any block) ✅
-- `eth_createAccessList` (at any block) ✅
-- `eth_getBalance` (at any block) ✅
-- `eth_getCode` (at any block) ✅
-- `eth_getProof` ✅
-- `eth_getStorageAt` (at any block) ✅
-
-See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/4
-
-### Milestone 3: Block building
-Add the ability to build new payloads, so that the consensus client can propose new blocks based on transactions received from the RPC endpoints.
-
-RPC endpoints
-- `engine_forkchoiceUpdated` (with `payloadAttributes`)
-- `engine_getPayload`
-- `eth_sendRawTransaction` ✅
-
-### Milestone 4: P2P Network
-Implement DevP2P protocol, including RLPx `p2p` and `eth` features. This will let us get and send blocks and transactions from other nodes. We'll add the transactions we receive to the mempool. We'll also download blocks from other nodes when we get payloads where the parent isn't in our local chain.
-
-RPC endpoints
-
-- `admin_nodeInfo` ✅
-
-See issues and progress: <https://github.com/lambdaclass/ethereum_rust/milestone/2>
-
-### Milestone 5: Syncing
-Add snap sync protocol, which lets us get a recent copy of the blockchain state instead of going through all blocks from genesis. Since we don't support older versions of the spec by design, this is a prerequisite to being able to sync the node with public networks, including mainnet.
-
-RPC endpoints
-- `eth_syncing`
-
-See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/3
-
-# Lambda Ethereum Rust L2
-
-Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. The node has the same interface as regular Ethereum Rust, with the addition that blocks execution is proven and the proof is sent to an L1 network for verification, thus inheriting the L1's security.
-
-[Full Roadmap](./crates/l2/README.md)
 
 # Crates documentation
 
