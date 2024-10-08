@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use tracing::info;
 
 #[allow(unused_imports)]
@@ -16,9 +17,10 @@ pub struct Prover {
     client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
-    mode: ProverMode,
+    pub mode: ProverMode,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum ProverMode {
     Verification,
     Execution,

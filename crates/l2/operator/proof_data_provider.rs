@@ -16,10 +16,13 @@ use prover_lib::{
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::SP1ProofWithPublicValues;
+use sp1_sdk::{network::prover, SP1ProofWithPublicValues};
 use tracing::{debug, info, warn};
 
-use crate::rpc::l1_rpc::RpcResponse;
+use crate::{
+    prover::zk_prover::{Prover, ProverMode},
+    rpc::l1_rpc::RpcResponse,
+};
 
 use revm::{db::CacheDB, InMemoryDB};
 
@@ -30,10 +33,14 @@ pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ProofData {
-    Request {},
+    Request {
+        mode: ProverMode,
+    },
     Response {
         id: Option<u64>,
-        prover_inputs: Option<ProverInputNoExecution>,
+        prover_inputs_verification: Option<ProverInputNoExecution>,
+        prover_inputs_execution: Option<ProverInput>,
+        mode: ProverMode,
     },
     Submit {
         id: u64,
@@ -74,9 +81,12 @@ impl ProofDataProvider {
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
-            Ok(ProofData::Request {}) => {
+            Ok(ProofData::Request { mode }) => {
                 info!("HANDLING proof_data_client REQUEST");
-                if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
+                if let Err(e) = self
+                    .handle_request(&mut stream, mode, *last_proved_block)
+                    .await
+                {
                     warn!("Failed to handle request: {e}");
                 }
             }
@@ -344,6 +354,7 @@ impl ProofDataProvider {
     async fn handle_request(
         &self,
         stream: &mut TcpStream,
+        prover_mode: ProverMode,
         last_proved_block: u64,
     ) -> Result<(), String> {
         debug!("Request received");
@@ -378,25 +389,59 @@ impl ProofDataProvider {
         let head_block = blocks.pop().unwrap();
         let parent_block_header = blocks.pop().unwrap().header;
 
-        let prover_inputs_no_execution = ProverInputNoExecution {
-            head_block,
-            parent_block_header,
+        let prover_inputs_verification = ProverInputNoExecution {
+            head_block: head_block.clone(),
+            parent_block_header: parent_block_header.clone(),
             block_is_valid: false,
         };
 
-        // This condition has to be true.
-        //let response = if last_block_number > last_proved_block {
-        let response = if true {
-            ProofData::Response {
-                id: Some(last_proved_block + 1),
-                prover_inputs: Some(prover_inputs_no_execution),
+        let prover_inputs_execution = ProverInput {
+            block: head_block,
+            parent_block_header,
+            db: MemoryDB::default(),
+        };
+
+        let response = match prover_mode {
+            ProverMode::Execution => {
+                // This condition has to be true.
+                //let response = if last_block_number > last_proved_block {
+                if true {
+                    ProofData::Response {
+                        id: Some(last_proved_block + 1),
+                        prover_inputs_verification: None,
+                        prover_inputs_execution: Some(prover_inputs_execution),
+                        mode: prover_mode,
+                    }
+                } else {
+                    ProofData::Response {
+                        id: None,
+                        prover_inputs_verification: None,
+                        prover_inputs_execution: None,
+                        mode: prover_mode,
+                    }
+                }
             }
-        } else {
-            ProofData::Response {
-                id: None,
-                prover_inputs: None,
+            ProverMode::Verification => {
+                // This condition has to be true.
+                //let response = if last_block_number > last_proved_block {
+                if true {
+                    ProofData::Response {
+                        id: Some(last_proved_block + 1),
+                        prover_inputs_verification: Some(prover_inputs_verification),
+                        prover_inputs_execution: None,
+                        mode: prover_mode,
+                    }
+                } else {
+                    ProofData::Response {
+                        id: None,
+                        prover_inputs_verification: None,
+                        prover_inputs_execution: None,
+                        mode: prover_mode,
+                    }
+                }
             }
         };
+
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
