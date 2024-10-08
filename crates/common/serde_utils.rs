@@ -290,6 +290,28 @@ pub mod bytes48 {
         {
             serialize_vec_of_hex_encodables(value, serializer)
         }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Vec<[u8; 48]>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Vec::<String>::deserialize(d)?;
+            let mut output = Vec::new();
+            for str in value {
+                let bytes = hex::decode(str.trim_start_matches("0x"))
+                    .map_err(|e| D::Error::custom(e.to_string()))?;
+                if bytes.len() != 48 {
+                    return Err(D::Error::custom(format!(
+                        "Expected 48 bytes, got {}",
+                        bytes.len()
+                    )));
+                }
+                let mut blob = [0u8; 48];
+                blob.copy_from_slice(&bytes);
+                output.push(blob);
+            }
+            Ok(output)
+        }
     }
 }
 
@@ -309,6 +331,29 @@ pub mod blob {
             S: Serializer,
         {
             serialize_vec_of_hex_encodables(value, serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<[u8; BYTES_PER_BLOB]>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Vec::<String>::deserialize(deserializer)?;
+            let mut output = Vec::new();
+            for str in value {
+                let bytes = hex::decode(str.trim_start_matches("0x"))
+                    .map_err(|e| D::Error::custom(e.to_string()))?;
+                if bytes.len() != BYTES_PER_BLOB {
+                    return Err(D::Error::custom(format!(
+                        "Expected {} bytes, got {}",
+                        BYTES_PER_BLOB,
+                        bytes.len()
+                    )));
+                }
+                let mut blob = [0u8; BYTES_PER_BLOB];
+                blob.copy_from_slice(&bytes);
+                output.push(blob);
+            }
+            Ok(output)
         }
     }
 }
