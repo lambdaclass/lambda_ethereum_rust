@@ -1,8 +1,6 @@
 use ethereum_rust_storage::Store;
-use std::net::{IpAddr, Ipv4Addr};
 
 pub mod block_producer;
-pub mod engine;
 pub mod l1_tx_sender;
 pub mod l1_watcher;
 pub mod proof_data_provider;
@@ -18,10 +16,7 @@ pub async fn start_operator(store: Store) {
             .unwrap()
     };
     let block_producer = tokio::spawn(block_producer::start_block_producer(current_block_hash));
-    let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider(
-        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        3000,
-    ));
+    let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
 
     tokio::try_join!(
         l1_tx_sender,

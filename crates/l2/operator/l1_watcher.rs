@@ -1,4 +1,7 @@
-use crate::utils::eth_client::{transaction::PayloadRLPEncode, EthClient};
+use crate::utils::{
+    config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
+    eth_client::{transaction::PayloadRLPEncode, EthClient},
+};
 use bytes::Bytes;
 use ethereum_rust_blockchain::{constants::TX_GAS_COST, mempool};
 use ethereum_rust_core::types::{EIP1559Transaction, Transaction, TxKind, TxType};
@@ -13,18 +16,9 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 pub async fn start_l1_watcher(store: Store) {
-    // This address and topic were used for testing purposes only.
-    // TODO: Receive them as parameters from config.
-    let mut l1_watcher = L1Watcher::new(
-        "0x90cD151b6e9500F13240dF68673f3B81245D57d4"
-            .parse()
-            .unwrap(),
-        vec![
-            "0x6f65d68a35457dd88c1f8641be5da191aa122bc76de22ab0789dcc71929d7d37"
-                .parse()
-                .unwrap(),
-        ],
-    );
+    let eth_config = EthConfig::from_env().unwrap();
+    let watcher_config = L1WatcherConfig::from_env().unwrap();
+    let mut l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     loop {
         let logs = l1_watcher.get_logs().await;
         l1_watcher.process_logs(logs, &store).await;
@@ -35,23 +29,24 @@ pub struct L1Watcher {
     eth_client: EthClient,
     address: Address,
     topics: Vec<H256>,
+    check_interval: Duration,
+    max_block_step: U256,
     last_block_fetched: U256,
 }
 
 impl L1Watcher {
-    pub fn new(address: Address, topics: Vec<H256>) -> Self {
-        let l1_rpc = EthClient::new("http://localhost:8545");
+    pub fn new_from_config(watcher_config: L1WatcherConfig, eth_config: EthConfig) -> Self {
         Self {
-            eth_client: l1_rpc,
-            address,
-            topics,
+            eth_client: EthClient::new_from_config(eth_config),
+            address: watcher_config.bridge_address,
+            topics: watcher_config.topics,
+            check_interval: Duration::from_millis(watcher_config.check_interval_ms),
+            max_block_step: watcher_config.max_block_step,
             last_block_fetched: U256::zero(),
         }
     }
 
     pub async fn get_logs(&mut self) -> Vec<RpcLog> {
-        let step = U256::from(5000);
-
         let current_block = self.eth_client.get_block_number().await.unwrap();
 
         debug!(
@@ -59,7 +54,7 @@ impl L1Watcher {
             current_block, current_block
         );
 
-        let new_last_block = min(self.last_block_fetched + step, current_block);
+        let new_last_block = min(self.last_block_fetched + self.max_block_step, current_block);
 
         debug!(
             "Looking logs from block {:#x} to {:#x}",
@@ -81,7 +76,7 @@ impl L1Watcher {
 
         self.last_block_fetched = new_last_block;
 
-        sleep(Duration::from_secs(5)).await;
+        sleep(self.check_interval).await;
 
         logs
     }

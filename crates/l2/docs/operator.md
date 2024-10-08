@@ -7,6 +7,7 @@
     - [L1 Transaction Sender](#l1-transaction-sender)
     - [Block Producer](#block-producer)
     - [Proof Data Provider](#proof-data-provider)
+- [Configuration](#configuration)
 
 ## Components
 
@@ -33,3 +34,18 @@ This component is responsible for producing new blocks ready to be committed. Fo
 ### Proof Data Provider
 
 TODO
+
+## Configuration
+
+The following environment variables are available to configure the operator:
+
+- `BLOCK_PRODUCER_INTERVAL_MS`: Interval in milliseconds to produce new blocks.
+- `ETH_RPC_URL`: URL of the L1 RPC.
+- `L1_WATCHER_BRIDGE_ADDRESS`: Address of the bridge contract on L1.
+- `L1_WATCHER_TOPICS`: Topics to filter the L1 events.
+- `L1_WATCHER_CHECK_INTERVAL_MS`: Interval in milliseconds to check for new events.
+- `L1_WATCHER_MAX_BLOCK_STEP`: Maximum number of blocks to look for when checking for new events.
+- `ENGINE_API_RPC_URL`: URL of the EngineAPI.
+- `ENGINE_API_JWT_PATH`: Path to the JWT authentication file, required to connect to the EngineAPI.
+- `PROOF_DATA_PROVIDER_LISTEN_IP`: IP to listen for proof data requests.
+- `PROOF_DATA_PROVIDER_LISTEN_PORT`: Port to listen for proof data requests.

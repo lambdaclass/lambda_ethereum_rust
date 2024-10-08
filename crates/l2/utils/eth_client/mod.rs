@@ -12,6 +12,8 @@ use serde::Deserialize;
 use serde_json::json;
 use transaction::PayloadRLPEncode;
 
+use super::config::eth::EthConfig;
+
 pub mod transaction;
 
 #[derive(Deserialize)]
@@ -33,6 +35,13 @@ impl EthClient {
         Self {
             client: Client::new(),
             url: url.to_string(),
+        }
+    }
+
+    pub fn new_from_config(config: EthConfig) -> Self {
+        Self {
+            client: Client::new(),
+            url: config.rpc_url,
         }
     }
 

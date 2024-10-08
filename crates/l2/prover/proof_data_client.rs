@@ -1,6 +1,6 @@
 use std::{
     io::{BufReader, BufWriter},
-    net::{IpAddr, TcpStream},
+    net::TcpStream,
     time::Duration,
 };
 
@@ -8,27 +8,29 @@ use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, warn};
 
-use crate::operator::proof_data_provider::ProofData;
+use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
 
-use super::sp1_prover::SP1Prover;
+use super::prover::Prover;
 
-pub async fn start_proof_data_client(ip: IpAddr, port: u16) {
-    let proof_data_client = ProofDataClient::new(ip, port);
-    proof_data_client.start().await;
+pub async fn start_proof_data_client() {
+    let config = ProverConfig::from_env().unwrap();
+    let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
+    proof_data_client.start(config).await;
 }
 
 struct ProofDataClient {
-    ip: IpAddr,
-    port: u16,
+    proof_data_provider_endpoint: String,
 }
 
 impl ProofDataClient {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        Self { ip, port }
+    pub fn new(proof_data_provider_endpoint: String) -> Self {
+        Self {
+            proof_data_provider_endpoint,
+        }
     }
 
-    pub async fn start(&self) {
-        let prover = SP1Prover::new();
+    pub async fn start(&self, config: ProverConfig) {
+        let prover = Prover::new_from_config(config);
 
         loop {
             let id = self.request_new_data().unwrap();
@@ -42,7 +44,7 @@ impl ProofDataClient {
     }
 
     fn request_new_data(&self) -> Result<u32, String> {
-        let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
+        let stream = TcpStream::connect(&self.proof_data_provider_endpoint).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
         debug!("Connection established!");
@@ -67,7 +69,7 @@ impl ProofDataClient {
     }
 
     fn submit_proof(&self, id: u32, proof: SP1ProofWithPublicValues) -> Result<(), String> {
-        let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port)).unwrap();
+        let stream = TcpStream::connect(&self.proof_data_provider_endpoint).unwrap();
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {
