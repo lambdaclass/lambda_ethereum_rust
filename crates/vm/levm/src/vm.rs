@@ -119,11 +119,6 @@ impl Db {
         self.accounts.insert(address, account);
     }
 
-    pub fn with_account(mut self, address: Address, account: Account) -> Self {
-        self.add_account(address, account);
-        self
-    }
-
     pub fn increment_account_nonce(&mut self, address: &Address) {
         if let Some(acc) = self.accounts.get_mut(address) {
             acc.increment_nonce()
