@@ -391,10 +391,9 @@ impl VM {
                 Opcode::BLOBBASEFEE => self.op_blobbasefee(&mut current_call_frame),
                 Opcode::PUSH0 => self.op_push0(&mut current_call_frame),
                 // PUSHn
-                op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
+                op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
                     self.op_push(&mut current_call_frame, op)
                 }
-                Opcode::PUSH32 => self.op_push(&mut current_call_frame, Opcode::PUSH32),
                 Opcode::AND => self.op_and(&mut current_call_frame),
                 Opcode::OR => self.op_or(&mut current_call_frame),
                 Opcode::XOR => self.op_xor(&mut current_call_frame),
