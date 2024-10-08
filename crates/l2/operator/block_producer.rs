@@ -1,24 +1,14 @@
-use std::{
-    str::FromStr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-use tracing::error;
-
+use crate::operator::engine::Engine;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 
-use super::consensus_mock::ConsensusMock;
-
-pub async fn start_block_producer() {
-    // This is the genesis block hash
-    let mut current_block_hash =
-        H256::from_str("0x493dba6364c3e0b575b81efe8b255eb76d8fcd302517557beac9ead7816ea7a3")
-            .unwrap();
-
+pub async fn start_block_producer(current_block_hash: H256) {
+    let mut current_block_hash = current_block_hash;
     loop {
-        let secret = std::fs::read("../../../jwt.hex").unwrap();
-        let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret.into());
+        let secret = std::fs::read("./jwt.hex").unwrap();
+        let engine = Engine::new("http://localhost:8551", secret.into());
 
         let fork_choice_state = ForkChoiceState {
             head_block_hash: current_block_hash,
@@ -33,16 +23,10 @@ pub async fn start_block_producer() {
             ..Default::default()
         };
 
-        let fork_choice_response = match consensus_mock_client
+        let fork_choice_response = engine
             .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
             .await
-        {
-            Ok(response) => response,
-            Err(e) => {
-                error!("Error sending forkChoice: {e}");
-                continue;
-            }
-        };
+            .unwrap();
 
         let payload_id = fork_choice_response.payload_id.unwrap();
 
@@ -57,7 +41,7 @@ pub async fn start_block_producer() {
             }
         };
 
-        let payload_status = match consensus_mock_client
+        let payload_status = match engine
             .engine_new_payload_v3(
                 execution_payload_response.execution_payload,
                 Default::default(),
@@ -74,6 +58,6 @@ pub async fn start_block_producer() {
 
         current_block_hash = payload_status.latest_valid_hash.unwrap();
 
-        sleep(Duration::from_secs(9)).await;
+        sleep(Duration::from_secs(5)).await;
     }
 }
