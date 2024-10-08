@@ -1,3 +1,4 @@
+use crate::operator::engine::Engine;
 use std::{
     str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -7,8 +8,6 @@ use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3
 use ethereum_types::H256;
 use tokio::time::sleep;
 
-use super::consensus_mock::ConsensusMock;
-
 pub async fn start_block_producer() {
     // This is the genesis block hash
     let mut current_block_hash =
@@ -17,7 +16,7 @@ pub async fn start_block_producer() {
 
     loop {
         let secret = std::fs::read("../../../jwt.hex").unwrap();
-        let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret.into());
+        let engine = Engine::new("http://localhost:8551", secret.into());
 
         let fork_choice_state = ForkChoiceState {
             head_block_hash: current_block_hash,
@@ -32,19 +31,16 @@ pub async fn start_block_producer() {
             ..Default::default()
         };
 
-        let fork_choice_response = consensus_mock_client
+        let fork_choice_response = engine
             .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
             .await
             .unwrap();
 
         let payload_id = fork_choice_response.payload_id.unwrap();
 
-        let execution_payload_response = consensus_mock_client
-            .engine_get_payload_v3(payload_id)
-            .await
-            .unwrap();
+        let execution_payload_response = engine.engine_get_payload_v3(payload_id).await.unwrap();
 
-        let payload_status = consensus_mock_client
+        let payload_status = engine
             .engine_new_payload_v3(
                 execution_payload_response.execution_payload,
                 Default::default(),

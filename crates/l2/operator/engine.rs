@@ -24,15 +24,13 @@ pub enum RpcResponse {
     Error(RpcErrorResponse),
 }
 
-pub struct ConsensusMock {
+pub struct Engine {
     client: Client,
     secret: Bytes,
     execution_client_url: String,
 }
 
-// TODO: Implement `Serializer` in Engine API request structs to avoid manual
-// serialization.
-impl ConsensusMock {
+impl Engine {
     pub fn new(execution_client_url: &str, secret: Bytes) -> Self {
         Self {
             client: Client::new(),
