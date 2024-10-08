@@ -1,5 +1,6 @@
 pub const SUCCESS_FOR_CALL: i32 = 1;
 pub const REVERT_FOR_CALL: i32 = 0;
+pub const HALT_FOR_CALL: i32 = 2;
 pub const SUCCESS_FOR_RETURN: i32 = 1;
 pub const REVERT_FOR_CREATE: i32 = 0;
 pub const MAX_CODE_SIZE: usize = 0x6000;
@@ -84,3 +85,9 @@ pub mod call_opcode {
     pub const BASIC_FALLBACK_FUNCTION_STIPEND: u64 = 2_300;
     pub const VALUE_TO_EMPTY_ACCOUNT_COST: u64 = 25_000;
 }
+pub const STACK_LIMIT: usize = 1024;
+
+pub const GAS_REFUND_DENOMINATOR: u64 = 5;
+
+pub const EMPTY_CODE_HASH_STR: &str =
+    "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";

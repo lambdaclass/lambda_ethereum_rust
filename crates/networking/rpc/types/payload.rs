@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use ethereum_rust_core::{
     serde_utils,
     types::{
-        compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
-        BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
+        BlockHash, BlockHeader, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, H256, U256,
 };
@@ -168,6 +168,14 @@ pub enum PayloadValidationStatus {
 impl PayloadStatus {
     // Convenience methods to create payload status
 
+    pub fn invalid_with(latest_valid_hash: H256, error: String) -> Self {
+        PayloadStatus {
+            status: PayloadValidationStatus::Invalid,
+            latest_valid_hash: Some(latest_valid_hash),
+            validation_error: Some(error),
+        }
+    }
+
     /// Creates a PayloadStatus with invalid status and error message
     pub fn invalid_with_err(error: &str) -> Self {
         PayloadStatus {
@@ -213,24 +221,13 @@ impl PayloadStatus {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionPayloadResponse {
     pub execution_payload: ExecutionPayloadV3, // We only handle v3 payloads
     // Total fees consumed by the block (fees paid)
     pub block_value: U256,
     pub blobs_bundle: BlobsBundle,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BlobsBundle {
-    #[serde(with = "serde_utils::bytes::vec")]
-    commitments: Vec<Bytes>,
-    #[serde(serialize_with = "super::account_proof::serialize_proofs")]
-    pub proofs: Vec<Vec<u8>>,
-    #[serde(with = "serde_utils::bytes::vec")]
-    pub blobs: Vec<Bytes>,
 }
 
 // TODO: Fill BlobsBundle
