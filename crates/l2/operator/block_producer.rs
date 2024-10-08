@@ -3,14 +3,18 @@ use ethereum_types::H256;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 
-use crate::utils::{config::engine_api::EngineApiConfig, eth_client::engine::EngineClient};
+use crate::utils::{
+    config::{block_producer::BlockProducerConfig, engine_api::EngineApiConfig},
+    eth_client::engine::EngineClient,
+};
 
 pub async fn start_block_producer(current_block_hash: H256) {
+    let config = BlockProducerConfig::from_env().unwrap();
+    let engine_config = EngineApiConfig::from_env().unwrap();
+    let engine = EngineClient::new_from_config(engine_config);
+
     let mut current_block_hash = current_block_hash;
     loop {
-        let engine_config = EngineApiConfig::from_env().unwrap();
-        let engine = EngineClient::new_from_config(engine_config);
-
         let fork_choice_state = ForkChoiceState {
             head_block_hash: current_block_hash,
             safe_block_hash: current_block_hash,
@@ -44,6 +48,6 @@ pub async fn start_block_producer(current_block_hash: H256) {
 
         current_block_hash = payload_status.latest_valid_hash.unwrap();
 
-        sleep(Duration::from_secs(5)).await;
+        sleep(Duration::from_millis(config.interval_ms)).await;
     }
 }
