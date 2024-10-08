@@ -173,9 +173,9 @@ pub fn apply_fork_choice(
 
     // We get the block bodies even if we only use headers them so we check that they are
     // stored too.
-    let finalized_header_res = store.get_block_by_hash(finalized_hash).map_err(wrap)?;
-    let safe_header_res = store.get_block_by_hash(safe_hash).map_err(wrap)?;
-    let head_header_res = store.get_block_by_hash(head_hash).map_err(wrap)?;
+    let finalized_header_res = store.get_block_by_hash(finalized_hash)?;
+    let safe_header_res = store.get_block_by_hash(safe_hash)?;
+    let head_header_res = store.get_block_by_hash(head_hash)?;
 
     // Check that we already have all the needed blocks stored and that we have the ancestors
     // if we have the descendants, as we are working on the assumption that we only add block
@@ -197,13 +197,12 @@ pub fn apply_fork_choice(
 
     // If the head block is already in our canonical chain, the beacon client is
     // probably resyncing. Ignore the update.
-    if is_canonical(store, head.number, head_hash).map_err(wrap)? {
+    if is_canonical(store, head.number, head_hash)? {
         return Ok(());
     }
 
     // Find out if blocks are correctly connected.
-    let Some(new_canonical_blocks) = find_link_with_canonical_chain(store, &head).map_err(wrap)?
-    else {
+    let Some(new_canonical_blocks) = find_link_with_canonical_chain(store, &head)? else {
         return Err(InvalidForkChoice::Disconnected(
             error::ForkChoiceElement::Head,
             error::ForkChoiceElement::Safe,
@@ -219,7 +218,7 @@ pub fn apply_fork_choice(
     // but prior to the canonical link to the new head. This is a relatively quick way of making
     // sure that head, safe and finalized are connected.
 
-    if !(is_canonical(store, finalized.number, finalized_hash).map_err(wrap)?
+    if !(is_canonical(store, finalized.number, finalized_hash)?
         && finalized.number <= link_block_number
         || new_canonical_blocks.contains(&(finalized.number, finalized_hash))
         || (finalized.number == head.number && finalized_hash == head_hash))
@@ -230,8 +229,7 @@ pub fn apply_fork_choice(
         ));
     };
 
-    if !(is_canonical(store, safe.number, safe_hash).map_err(wrap)?
-        && safe.number <= link_block_number
+    if !((is_canonical(store, safe.number, safe_hash)? && safe.number <= link_block_number)
         || new_canonical_blocks.contains(&(safe.number, safe_hash))
         || (safe.number == head.number && safe_hash == head_hash))
     {
@@ -243,17 +241,21 @@ pub fn apply_fork_choice(
 
     // Finished all validations.
     for (number, hash) in new_canonical_blocks {
-        store.set_canonical_block(number, hash).map_err(wrap)?;
+        store.set_canonical_block(number, hash)?;
     }
 
-    store
-        .set_canonical_block(head.number, head_hash)
-        .map_err(wrap)?;
+    // Note: should we panic here? We should never not have a latest block number.
+    let Some(latest) = store.get_latest_block_number()? else {
+        return Err(StoreError::Custom("Latest block number not found".to_string()).into());
+    };
 
-    store
-        .update_finalized_block_number(finalized.number)
-        .map_err(wrap)?;
-    store.update_safe_block_number(safe.number).map_err(wrap)?;
+    for number in head.number..(latest + 1) {
+        store.unset_canonical_block(number)?;
+    }
+
+    store.set_canonical_block(head.number, head_hash)?;
+    store.update_finalized_block_number(finalized.number)?;
+    store.update_safe_block_number(safe.number)?;
     Ok(())
 }
 
@@ -264,11 +266,6 @@ fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result
         }
     }
     Ok(())
-}
-
-// Wrap store errors inside invalid fork choice errors.
-fn wrap(se: StoreError) -> InvalidForkChoice {
-    InvalidForkChoice::StoreError(se)
 }
 
 fn verify_blob_gas_usage(block: &Block) -> Result<(), ChainError> {
@@ -313,16 +310,9 @@ fn total_difficulty_check<'a>(
     storage: &'a Store,
 ) -> Result<(), InvalidForkChoice> {
     if !head_block.difficulty.is_zero() || head_block.number == 0 {
-        let total_difficulty = storage
-            .get_block_total_difficulty(*head_block_hash)
-            .map_err(wrap)?;
-        let parent_total_difficulty = storage
-            .get_block_total_difficulty(head_block.parent_hash)
-            .map_err(wrap)?;
-        let terminal_total_difficulty = storage
-            .get_chain_config()
-            .map_err(wrap)?
-            .terminal_total_difficulty;
+        let total_difficulty = storage.get_block_total_difficulty(*head_block_hash)?;
+        let parent_total_difficulty = storage.get_block_total_difficulty(head_block.parent_hash)?;
+        let terminal_total_difficulty = storage.get_chain_config()?.terminal_total_difficulty;
         if terminal_total_difficulty.is_none()
             || total_difficulty.is_none()
             || head_block.number > 0 && parent_total_difficulty.is_none()

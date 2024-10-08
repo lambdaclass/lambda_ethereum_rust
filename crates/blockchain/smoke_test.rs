@@ -14,7 +14,7 @@ mod test {
     };
 
     #[test]
-    fn test_add_block() {
+    fn test_small_to_long_reorg() {
         // Goal: Start from genesis, create new block, check balances in the new state.
         let store = test_store();
         let genesis_header = store.get_block_header(0).unwrap().unwrap();
@@ -62,6 +62,59 @@ mod test {
         assert!(is_canonical(&store, 1, hash_1b).unwrap());
         assert!(is_canonical(&store, 2, hash_2).unwrap());
         assert!(!is_canonical(&store, 1, hash_1a).unwrap());
+    }
+
+    #[test]
+    fn test_reorg_from_long_to_short_chain() {
+        // Goal: Start from genesis, create new block, check balances in the new state.
+        let store = test_store();
+        let genesis_header = store.get_block_header(0).unwrap().unwrap();
+        let genesis_hash = genesis_header.compute_block_hash();
+
+        // Add first block. Not canonical.
+        let block_1a = new_block(&store, &genesis_header);
+        let hash_1a = block_1a.header.compute_block_hash();
+        import_block(&block_1a, &store).unwrap();
+        let retrieved_1a = store.get_block_header_by_hash(hash_1a).unwrap().unwrap();
+
+        assert!(!is_canonical(&store, 1, hash_1a).unwrap());
+
+        // Add second block at height 1. Canonical.
+        let block_1b = new_block(&store, &genesis_header);
+        let hash_1b = block_1b.header.compute_block_hash();
+        import_block(&block_1b, &store).expect("Could not add block 1b.");
+        store.set_canonical_block(1, hash_1b).unwrap();
+        let retrieved_1b = store.get_block_header(1).unwrap().unwrap();
+
+        assert_ne!(retrieved_1a, retrieved_1b);
+        assert_eq!(retrieved_1b, block_1b.header);
+        assert!(is_canonical(&store, 1, hash_1b).unwrap());
+
+        // Add a third block at height 2, child to the canonical one.
+        let block_2 = new_block(&store, &block_1b.header);
+        let hash_2 = block_2.header.compute_block_hash();
+        import_block(&block_2, &store).expect("Could not add block 2.");
+        let retrieved_2 = store.get_block_header_by_hash(hash_2).unwrap();
+        store.set_canonical_block(2, hash_2).unwrap();
+
+        assert!(retrieved_2.is_some());
+        assert!(is_canonical(&store, 2, hash_2).unwrap());
+        assert_eq!(store.get_canonical_block_hash(2).unwrap().unwrap(), hash_2);
+
+        // Receive block 1a as new head.
+        apply_fork_choice(
+            &store,
+            block_1a.header.compute_block_hash(),
+            genesis_header.compute_block_hash(),
+            genesis_header.compute_block_hash(),
+        )
+        .unwrap();
+
+        // Check that canonical blocks changed to the new branch.
+        assert!(is_canonical(&store, 0, genesis_hash).unwrap());
+        assert!(is_canonical(&store, 1, hash_1a).unwrap());
+        assert!(!is_canonical(&store, 2, hash_2).unwrap());
+        assert!(!is_canonical(&store, 1, hash_1b).unwrap());
     }
 
     fn new_block(store: &Store, parent: &BlockHeader) -> Block {

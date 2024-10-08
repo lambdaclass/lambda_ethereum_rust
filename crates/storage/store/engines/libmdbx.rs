@@ -381,6 +381,15 @@ impl StoreEngine for Store {
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
     }
+
+    fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError> {
+        self.db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?
+            .delete::<CanonicalBlockHashes>(number, None)
+            .map(|_| ())
+            .map_err(StoreError::LibmdbxError)
+    }
 }
 
 impl Debug for Store {

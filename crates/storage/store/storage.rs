@@ -513,7 +513,17 @@ impl Store {
     }
 
     pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        self.engine.update_latest_block_number(block_number)
+        // NOTE: this is prone to race conditions.
+        match self.get_latest_block_number()? {
+            Some(current_number) => {
+                if current_number < block_number {
+                    self.engine.update_latest_block_number(block_number)
+                } else {
+                    Ok(())
+                }
+            }
+            None => self.engine.update_latest_block_number(block_number),
+        }
     }
     pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
         self.engine.update_latest_total_difficulty(block_difficulty)
@@ -548,6 +558,12 @@ impl Store {
         block_number: BlockNumber,
     ) -> Result<Option<BlockHash>, StoreError> {
         self.engine.get_canonical_block_hash(block_number)
+    }
+
+    /// Marks a block number as not having any canonical blocks associated with it.
+    /// Used for reorgs.
+    pub fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError> {
+        self.engine.unset_canonical_block(number)
     }
 
     // Obtain the storage trie for the given account on the given block
