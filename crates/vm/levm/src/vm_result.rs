@@ -58,9 +58,6 @@ impl ExecutionResult {
     }
 
     pub fn is_success(&self) -> bool {
-        match self {
-            ExecutionResult::Success { .. } => true,
-            _ => false,
-        }
+        matches!(self, ExecutionResult::Success { .. })
     }
 }
