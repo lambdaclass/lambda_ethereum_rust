@@ -1,21 +1,11 @@
 use std::net::SocketAddr;
 
 use crate::{
-    rlpx::{
-        handshake::encode_ack_message,
-        message::Message,
-        p2p,
-        utils::id2pubkey,
-    },
+    rlpx::{handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
     MAX_DISC_PACKET_SIZE,
 };
 
-use super::{
-    frame,
-    handshake::decode_auth_message,
-    message as rlpx,
-    utils::ecdh_xchng,
-};
+use super::{frame, handshake::decode_auth_message, message as rlpx, utils::ecdh_xchng};
 use aes::cipher::KeyIvInit;
 use bytes::BufMut as _;
 use ethereum_rust_core::{H256, H512};
@@ -196,24 +186,31 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     // TODO Fix this
     pub async fn receive(&mut self) -> rlpx::Message {
-        let frame_data = frame::read(&mut self.state, &mut self.stream).await;
-        let (msg_id, msg_data): (u8, _) = RLPDecode::decode_unfinished(&frame_data).unwrap();
-        if !self.established {
-            if msg_id == 0 {
-                let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
-                assert!(
-                    matches!(message, rlpx::Message::Hello(_)),
-                    "Expected Hello message"
-                );
-                self.established = true;
-                // TODO, register shared capabilities
-                message
-            } else {
-                // if it is not a hello message panic
-                panic!("Expected Hello message")
+        match &mut self.state {
+            RLPxConnectionState::PostHandshake(post_handshake) => {
+                let frame_data = frame::read(post_handshake, &mut self.stream).await;
+                let (msg_id, msg_data): (u8, _) =
+                    RLPDecode::decode_unfinished(&frame_data).unwrap();
+                if !self.established {
+                    if msg_id == 0 {
+                        let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
+                        assert!(
+                            matches!(message, rlpx::Message::Hello(_)),
+                            "Expected Hello message"
+                        );
+                        self.established = true;
+                        // TODO, register shared capabilities
+                        message
+                    } else {
+                        // if it is not a hello message panic
+                        panic!("Expected Hello message")
+                    }
+                } else {
+                    rlpx::Message::decode(msg_id, msg_data).unwrap()
+                }
             }
-        } else {
-            rlpx::Message::decode(msg_id, msg_data).unwrap()
+            // TODO proper error
+            _ => panic!(),
         }
     }
 }

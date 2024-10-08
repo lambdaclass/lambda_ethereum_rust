@@ -821,7 +821,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
 async fn handle_peer(signer: SigningKey, stream: TcpStream, peer_addr: SocketAddr) {
     let mut conn = RLPxConnection::receiver(signer, stream, peer_addr);
 
-    conn.handshake();
+    conn.handshake().await;
 
     loop {
         //conn.await_messages();

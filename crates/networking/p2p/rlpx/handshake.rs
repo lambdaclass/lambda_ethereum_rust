@@ -254,19 +254,6 @@ pub fn encode_ack_message(
     encrypt_message(remote_static_pubkey, encoded_ack_msg)
 }
 
-pub fn encode_ack_messagex() {
-    let (aes_key, mac_key) = self.derive_secrets();
-
-    RLPxState::new(
-        aes_key,
-        mac_key,
-        self.local_nonce,
-        &msg,
-        remote_nonce,
-        self.remote_init_message.as_ref().unwrap(),
-    )
-}
-
 fn decrypt_message(static_key: &SecretKey, msg: &[u8], auth_data: [u8; 2]) -> Vec<u8> {
     info!("msg {msg:?}");
 
