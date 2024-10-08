@@ -216,6 +216,7 @@ impl RLPxMessage for PooledTransactions {
         let mut snappy_decoder = SnappyDecoder::new();
         let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
         let decoder = Decoder::new(&decompressed_data)?;
+        dbg!(msg_data);
         let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
         let (pooled_transactions, _): (Vec<Transaction>, _) =
             decoder.decode_field("pooledTransactions").unwrap();
@@ -224,5 +225,90 @@ impl RLPxMessage for PooledTransactions {
             pooled_transactions,
             id,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ethereum_rust_core::{
+        types::{Block, BlockBody, BlockHash, BlockHeader, Transaction},
+        H256,
+    };
+    use ethereum_rust_storage::Store;
+
+    use crate::rlpx::{
+        eth::{GetPooledTransactions, PooledTransactions},
+        message::RLPxMessage,
+    };
+
+    #[test]
+    fn get_pooled_transactions_empty_message() {
+        let transaction_hashes = vec![];
+        let get_pooled_transactions =
+            GetPooledTransactions::build_from(1, transaction_hashes.clone()).unwrap();
+
+        let mut buf = Vec::new();
+        get_pooled_transactions.encode(&mut buf);
+
+        let decoded = GetPooledTransactions::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.transaction_hashes, transaction_hashes);
+    }
+
+    #[test]
+    fn get_pooled_transactions_not_empty_message() {
+        let transaction_hashes = vec![
+            H256::from_low_u64_be(1),
+            H256::from_low_u64_be(2),
+            H256::from_low_u64_be(3),
+        ];
+        let get_pooled_transactions =
+            GetPooledTransactions::build_from(1, transaction_hashes.clone()).unwrap();
+
+        let mut buf = Vec::new();
+        get_pooled_transactions.encode(&mut buf);
+
+        let decoded = GetPooledTransactions::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.transaction_hashes, transaction_hashes);
+    }
+
+    #[test]
+    fn pooled_transactions_empty_message() {
+        let transaction_hashes = vec![];
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let pooled_transactions =
+            PooledTransactions::build_from(1, &store, transaction_hashes).unwrap();
+
+        let mut buf = Vec::new();
+        pooled_transactions.encode(&mut buf);
+
+        let decoded = PooledTransactions::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.pooled_transactions, vec![]);
+    }
+
+    #[test]
+    fn pooled_transactions_not_existing_block() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+
+        store
+            .add_transaction_to_pool(
+                H256::from_low_u64_be(1),
+                Transaction::EIP2930Transaction(Default::default()),
+            )
+            .unwrap();
+
+        let transaction_hashes = vec![H256::from_low_u64_be(404)];
+
+        let pooled_transactions =
+            PooledTransactions::build_from(1, &store, transaction_hashes).unwrap();
+
+        let mut buf = Vec::new();
+        pooled_transactions.encode(&mut buf);
+
+        let decoded = PooledTransactions::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.pooled_transactions, vec![]);
     }
 }
