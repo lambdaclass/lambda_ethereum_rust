@@ -7,7 +7,7 @@ The main differences between this mode and regular Ethereum Rust are:
 - A set of Solidity contracts to be deployed to the L1 are included as part of network initialization.
 - Two new types of transactions are included: deposits (native token mints) and withdrawals.
 
-## ToC
+## Table of Contents
 
 - [Roadmap](#roadmap)
     - [Milestone 0](#milestone-0)
