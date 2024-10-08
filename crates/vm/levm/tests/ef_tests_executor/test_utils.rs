@@ -119,8 +119,6 @@ fn verify_result(
             // We need to do the .zip as some tests of the ef returns "None" as expected when the results are big
             if let Some((expected_output, output)) = expected_result.zip(execution_result.output())
             {
-                println!("Expected output: {:?}", expected_output);
-                println!("Real output: {:?}", output);
                 if expected_output != output {
                     return Err("Wrong output".into());
                 }
@@ -170,8 +168,6 @@ pub fn run_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
 
         for test in tests {
             let mut vm = setup_vm(test, &unit);
-            println!("Running test: {:?}", test);
-            println!("With VM: {:?}", vm);
             let res = vm.transact().unwrap();
 
             verify_result(test, unit.out.as_ref(), &res.result)?;

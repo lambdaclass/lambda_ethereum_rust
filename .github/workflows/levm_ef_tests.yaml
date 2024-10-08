@@ -46,7 +46,7 @@ jobs:
                 cd crates/vm/levm
                 make ethtests
 
-            - name: Run fast ethereum tests
+            - name: Run Ethereum Foundation tests
               run: | 
                 cd crates/vm/levm
                 make test-eth
