@@ -33,12 +33,12 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self) {
-        let prover = Prover::new();
+        let prover_verification = Prover::new_verification();
 
         loop {
-            match self.request_new_data() {
+            match self.request_new_verification_data() {
                 Ok((Some(id), prover_input)) => {
-                    match prover.prove(prover_input) {
+                    match prover_verification.prove(Box::new(prover_input)) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry
@@ -54,10 +54,13 @@ impl ProofDataClient {
                     sleep(Duration::from_secs(10)).await;
                 }
             }
+            info!("The Prover has finished the last round.");
         }
     }
 
-    fn request_new_data(&self) -> Result<(Option<u64>, ProverInputNoExecution), String> {
+    fn request_new_verification_data(
+        &self,
+    ) -> Result<(Option<u64>, ProverInputNoExecution), String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
@@ -71,21 +74,18 @@ impl ProofDataClient {
             .map_err(|e| e.to_string())?;
 
         let buf_reader = BufReader::new(&stream);
-        //let mut res = String::new();
-        //buf_reader.read_to_string(&mut res).unwrap();
-        //warn!("RETURN {:?}", res);
         let response: ProofData = serde_json::de::from_reader(buf_reader)
             .map_err(|e| format!("Invalid response format: {e}"))?;
 
-        info!("REQUESTING NEW DATA");
-
         match response {
-            ProofData::Response { id, prover_inputs } => {
+            ProofData::Response {
+                id: Some(id),
+                prover_inputs: Some(prover_inputs),
+            } => {
                 debug!("Received response ID: {id:?}");
-                let inputs = prover_inputs.clone().unwrap();
-                debug!("Received response block: {:?}", inputs.head_block);
+                debug!("Received response block: {:?}", prover_inputs.head_block);
 
-                Ok((id, inputs))
+                Ok((Some(id), prover_inputs))
             }
             _ => Err(format!("Unexpected response {response:?}")),
         }

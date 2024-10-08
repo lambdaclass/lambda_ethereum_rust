@@ -26,18 +26,23 @@ pub enum ProverMode {
 
 impl Default for Prover {
     fn default() -> Self {
-        Self::new_verify()
+        Self::new_verification()
     }
 }
 
 impl Prover {
-    pub fn new_verify() -> Self {
+    pub fn new_verification() -> Self {
         info!("Setting up Verification Prover...");
         let client = ProverClient::new();
         let (pk, vk) = client.setup(VERIFICATION_ELF);
         info!("Verification Prover setup complete!");
 
-        Self { client, pk, vk, ProverMode::Verification}
+        Self {
+            client,
+            pk,
+            vk,
+            mode: ProverMode::Verification,
+        }
     }
 
     pub fn new_execution() -> Self {
@@ -46,12 +51,36 @@ impl Prover {
         let (pk, vk) = client.setup(VERIFICATION_ELF);
         info!("Verification Prover setup complete!");
 
-        Self { client, pk, vk, ProverMode::Execution }
+        Self {
+            client,
+            pk,
+            vk,
+            mode: ProverMode::Execution,
+        }
+    }
+
+    pub fn prove(&self, input: Box<dyn std::any::Any>) -> Result<SP1ProofWithPublicValues, String> {
+        match self.mode {
+            ProverMode::Verification => {
+                if let Some(verification_input) = input.downcast_ref::<ProverInputNoExecution>() {
+                    self.prove_verification(verification_input)
+                } else {
+                    Err("Invalid input type for Verification".to_string())
+                }
+            }
+            ProverMode::Execution => {
+                if let Some(execution_input) = input.downcast_ref::<ProverInput>() {
+                    self.prove_execution(execution_input)
+                } else {
+                    Err("Invalid input type for Execution".to_string())
+                }
+            }
+        }
     }
 
     pub fn prove_verification(
         &self,
-        input: ProverInputNoExecution,
+        input: &ProverInputNoExecution,
     ) -> Result<SP1ProofWithPublicValues, String> {
         let head_block_rlp = input.head_block.encode_to_vec();
         let parent_block_header_rlp = input.parent_block_header.encode_to_vec();
@@ -85,22 +114,20 @@ impl Prover {
 
         Ok(proof)
     }
-    pub fn prove_execution(
-        &self,
-        input: ProverInputNoExecution,
-    ) -> Result<SP1ProofWithPublicValues, String> {
-        let head_block_rlp = input.head_block.encode_to_vec();
-        let parent_block_header_rlp = input.parent_block_header.encode_to_vec();
+
+    pub fn prove_execution(&self, input: &ProverInput) -> Result<SP1ProofWithPublicValues, String> {
+        let head_block_rlp = input.block.clone().encode_to_vec();
+        //let memory_db = input.db;
 
         // Setup the inputs.
         let mut stdin = SP1Stdin::new();
 
         stdin.write(&head_block_rlp);
-        stdin.write(&parent_block_header_rlp);
+        // TODO write db
 
         info!(
             "Starting block execution proof for block = {:?}",
-            input.head_block
+            input.block
         );
 
         // Generate the proof

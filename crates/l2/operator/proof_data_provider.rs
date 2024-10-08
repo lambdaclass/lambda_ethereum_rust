@@ -75,6 +75,7 @@ impl ProofDataProvider {
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
             Ok(ProofData::Request {}) => {
+                info!("HANDLING proof_data_client REQUEST");
                 if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
                     warn!("Failed to handle request: {e}");
                 }
@@ -347,7 +348,7 @@ impl ProofDataProvider {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        let last_block_number = Self::get_last_block_number().await?;
+        let _last_block_number = Self::get_last_block_number().await?;
         //let block = Self::get_block_by_number(last_block_number, false).await?;
         //
         //let parent_block_header = {
@@ -383,7 +384,9 @@ impl ProofDataProvider {
             block_is_valid: false,
         };
 
-        let response = if last_block_number > last_proved_block {
+        // This condition has to be true 
+        //let response = if last_block_number > last_proved_block {
+        let response = if true {
             ProofData::Response {
                 id: Some(last_proved_block + 1),
                 prover_inputs: Some(prover_inputs_no_execution),

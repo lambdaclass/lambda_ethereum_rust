@@ -102,7 +102,8 @@ async fn main() {
     let data_dir = matches
         .get_one::<String>("datadir")
         .unwrap_or(&default_datadir);
-    let store = Store::new(data_dir, EngineType::Libmdbx).expect("Failed to create Store");
+    // Change it back to Libmdbx
+    let store = Store::new(data_dir, EngineType::InMemory).expect("Failed to create Store");
 
     let genesis = read_genesis_file(genesis_file_path);
     store
@@ -160,7 +161,7 @@ async fn main() {
     // We do not want to start the networking module if the l2 feature is enabled.
     cfg_if::cfg_if! {
         if #[cfg(feature = "l2")] {
-            let l2_operator = ethereum_rust_l2::start_operator().into_future();
+            let l2_operator = ethereum_rust_l2::start_operator(store).into_future();
             tracker.spawn(l2_operator);
             let l2_prover = ethereum_rust_l2::start_prover().into_future();
             tracker.spawn(l2_prover);
