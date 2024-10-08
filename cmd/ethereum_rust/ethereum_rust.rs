@@ -149,7 +149,6 @@ async fn main() {
         store.clone(),
         jwt_secret,
         local_p2p_node,
-        Duration::from_secs(5*60)
     )
     .into_future();
 

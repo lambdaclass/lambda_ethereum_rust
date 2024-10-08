@@ -31,7 +31,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
+    filter::{self, clean_outdated_filters, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
     logs::LogsFilter,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -76,6 +76,12 @@ trait RpcHandler: Sized {
     fn handle(&self, storage: Store) -> Result<Value, RpcErr>;
 }
 
+#[cfg(test)]
+const FILTER_DURATION: Duration = Duration::from_secs(1);
+
+#[cfg(not(test))]
+const FILTER_DURATION: Duration = Duration::from_secs(5*60);
+
 pub async fn start_api(
     http_addr: SocketAddr,
     authrpc_addr: SocketAddr,
@@ -83,7 +89,6 @@ pub async fn start_api(
     jwt_secret: Bytes,
     local_p2p_node: Node,
     // TODO: This should be some kind of config.
-    filter_duration: Duration
 ) {
     // TODO: Refactor how filters are handled
     // Filters used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
@@ -98,13 +103,12 @@ pub async fn start_api(
     // Periodically clean up the active filters for the filters endpoints.
     tokio::task::spawn(
         async move {
-            let filter_duration = filter_duration.clone();
-            let mut interval = tokio::time::interval(filter_duration.clone());
+            let mut interval = tokio::time::interval(FILTER_DURATION);
             let filters = active_filters.clone();
             loop {
                 interval.tick().await;
                 tracing::info!("Running filter clean task");
-                filter::clean_outdated_filters(filters.clone(), filter_duration.as_secs());
+                filter::clean_outdated_filters(filters.clone(), FILTER_DURATION.as_secs());
                 tracing::info!("Filter clean task complete");
             }
         }
