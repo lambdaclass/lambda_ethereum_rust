@@ -51,9 +51,10 @@ pub async fn start_network(
 
     //tokio::spawn(discover_peers(udp_addr, signer, bootnodes));
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
-    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer, storage));
+    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer.clone(), storage.clone()));
+    let server_handlex = tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
 
-    try_join!(discovery_handle, server_handle).unwrap();
+    try_join!(discovery_handle, server_handle, server_handlex).unwrap();
 }
 
 async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
@@ -188,9 +189,9 @@ async fn discover_peers_server(
                         let mut sig_bytes = vec![0; 65];
                         buf[32..32 + 65].clone_into(&mut sig_bytes);
                         let signer_clone = signer.clone();
-                        tokio::spawn(async move {
-                            start_rplx_connection(&msg_buf, &sig_bytes, &node, signer_clone).await;
-                        });
+                        // tokio::spawn(async move {
+                        //     start_rplx_connection(&msg_buf, &sig_bytes, &node, signer_clone).await;
+                        // });
                     } else {
                         debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -712,19 +713,126 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let _ = socket.send_to(&buf, to_addr).await;
 }
 
-async fn start_rplx_connection(msg: &[u8], sig_bytes: &[u8], node: &Node, signer: SigningKey) {
-    info!("Trying RLPx connection with {node:?}");
+async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
+    let tcp_socket = TcpSocket::new_v4().unwrap();
+    tcp_socket.bind(tcp_addr).unwrap();
 
-    // let conn = perform_handshake(msg, sig_bytes, node, &signer).await;
+    let mut udp_addr = tcp_addr;
+    udp_addr.set_port(tcp_addr.port() + 1);
+    let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
 
-    // exchange_hello_messages(conn, &signer).await;
+    // Try contacting a known peer
+    // TODO: this is just an example, and we should do this dynamically
+    let str_udp_addr = "127.0.0.1:30307";
 
-    // TODO react on handshale or capabilities exchange result
+    let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
-    loop {
-        break;
-    }
+    let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
+
+    let (msg, endpoint, node_id) = loop {
+        ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
+
+        let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
+        info!("RLPx: Received {read} bytes from {from}");
+        let packet = Packet::decode(&buf[..read]).unwrap();
+        info!("RLPx: Message: {:?}", packet);
+
+        match packet.get_message() {
+            Message::Pong(pong) => {
+                break (&buf[32..read], pong.to, packet.get_node_id());
+            }
+            Message::Ping(ping) => {
+                break (&buf[32..read], ping.from, packet.get_node_id());
+            }
+            _ => {
+                tracing::warn!("Unexpected message type");
+            }
+        };
+    };
+
+    let node = Node {
+        ip: endpoint.ip,
+        udp_port: 30304u16, //endpoint.udp_port,
+        tcp_port: 30304u16, //endpoint.tcp_port,
+        node_id,
+    };
+    start_rplx_connection(msg, &node, signer).await;
 }
+
+// TODO: remove this function, it was left here only as reference
+// async fn serve_requestsx(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
+
+//     let digest = sha3::Keccak256::digest(msg);
+//     let signature = &ethereum_rust_core::Signature::from_bytes(sig_bytes[..64].into()).unwrap();
+//     let rid = k256::ecdsa::RecoveryId::from_byte(sig_bytes[64]).unwrap();
+
+//     let peer_pk = k256::ecdsa::VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
+
+//     let mut client = rlpx::handshake::RLPxClient::random(false);
+//     let mut auth_message = vec![];
+//     client.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
+
+//     // NOTE: for some reason kurtosis peers don't publish their active TCP port
+//     let tcp_addr = endpoint
+//         .tcp_address()
+//         .unwrap_or(str_tcp_addr.parse().unwrap());
+
+//     let mut stream = TcpSocket::new_v4()
+//         .unwrap()
+//         .connect(tcp_addr)
+//         .await
+//         .unwrap();
+
+//     tokio::io::AsyncWriteExt::write_all(&mut stream, &auth_message).await.unwrap();
+//     info!("Sent auth message correctly!");
+//     // Read the ack message's size
+//     tokio::io::AsyncReadExt::read_exact(&mut stream, &mut buf[..2]).await.unwrap();
+//     let auth_data = buf[..2].try_into().unwrap();
+//     let msg_size = u16::from_be_bytes(auth_data) as usize;
+
+//     // Read the rest of the ack message
+//     tokio::io::AsyncReadExt::read_exact(&mut stream, &mut buf[2..msg_size + 2]).await.unwrap();
+
+//     let msg = &mut buf[2..msg_size + 2];
+//     let state = client.decode_ack_message(&secret_key, msg, auth_data);
+//     let mut conn = RLPxConnection::new(state, stream, tcp_addr);
+//     info!("Completed handshake!");
+
+//     let hello_msg = RLPxMessage::Hello(p2p::HelloMessage::new(
+//         SUPPORTED_CAPABILITIES
+//             .into_iter()
+//             .map(|(name, version)| (name.to_string(), version))
+//             .collect(),
+//         PublicKey::from(signer.verifying_key()),
+//     ));
+
+//     conn.send(hello_msg).await;
+
+//     // Receive Hello message
+//     conn.receive().await;
+
+//     info!("Completed Hello roundtrip!");
+
+//     let received_status = conn.receive().await;
+//     debug!("Received RLPxMessage: {:?}", received_status);
+//     if let RLPxMessage::Status(_received) = received_status {
+//         if let Ok(response_status) = rlpx::eth::StatusMessage::build_from(&storage) {
+//             let response_status = RLPxMessage::Status(response_status);
+//             conn.send(response_status).await;
+//         }
+//     }
+
+//     // TODO: implement listen loop instead
+//     debug!("Sending Ping RLPxMessage");
+//     // Send Ping
+//     conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
+
+//     debug!("Awaiting Pong RLPxMessage");
+//     let pong = conn.receive().await;
+//     debug!("Received RLPxMessage: {:?}", pong);
+
+//     conn.receive().await;
+// }
 
 // async fn incomming_rplx_connection(stream: TcpStream, signer: SigningKey) {
 //     info!("Trying RLPx connection with {node:?}");
@@ -812,133 +920,45 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
     tcp_socket.bind(tcp_addr).unwrap();
     let listener = tcp_socket.listen(50).unwrap();
     loop {
-        let (stream, peer_addr) = listener.accept().await.unwrap();
+        let (stream, _peer_addr) = listener.accept().await.unwrap();
 
-        tokio::spawn(handle_peer(signer.clone(), stream, peer_addr));
+        tokio::spawn(handle_peer(signer.clone(), stream));
     }
 }
 
-async fn handle_peer(signer: SigningKey, stream: TcpStream, peer_addr: SocketAddr) {
-    let mut conn = RLPxConnection::receiver(signer, stream, peer_addr);
+async fn handle_peer(signer: SigningKey, stream: TcpStream) {
+    let mut conn = RLPxConnection::receiver(signer, stream);
 
     conn.handshake().await;
+
+    // exchange_hello_messages(conn, &signer).await;
+
+    // TODO react on handshale or capabilities exchange result
 
     loop {
         //conn.await_messages();
     }
 }
 
-// TODO: remove this function, it was left here only as reference
-// async fn serve_requestsx(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
-//     let secret_key: SecretKey = signer.clone().into();
-//     let tcp_socket = TcpSocket::new_v4().unwrap();
-//     tcp_socket.bind(tcp_addr).unwrap();
+async fn start_rplx_connection(msg: &[u8], node: &Node, signer: SigningKey) {
+    info!("Trying RLPx connection with {node:?}");
+    let stream = TcpSocket::new_v4()
+        .unwrap()
+        .connect(SocketAddr::new(node.ip, node.tcp_port))
+        .await
+        .unwrap();
+    let mut conn = RLPxConnection::initiator(signer, msg, stream).await;
 
-//     let mut udp_addr = tcp_addr;
-//     udp_addr.set_port(tcp_addr.port() + 1);
-//     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
+    conn.handshake().await;
 
-//     // Try contacting a known peer
-//     // TODO: this is just an example, and we should do this dynamically
-//     let str_tcp_addr = "127.0.0.1:30307";
-//     let str_udp_addr = "127.0.0.1:30307";
+    loop {
+        //conn.await_messages();
+    }
 
-//     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
+    // exchange_hello_messages(conn, &signer).await;
 
-//     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-
-//     let (msg, sig_bytes, endpoint) = loop {
-//         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
-
-//         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-//         info!("RLPx: Received {read} bytes from {from}");
-//         let packet = Packet::decode(&buf[..read]).unwrap();
-//         info!("RLPx: Message: {:?}", packet);
-
-//         match packet.get_message() {
-//             Message::Pong(pong) => {
-//                 break (&buf[32 + 65..read], &buf[32..32 + 65], pong.to);
-//             }
-//             Message::Ping(ping) => {
-//                 break (&buf[32 + 65..read], &buf[32..32 + 65], ping.from);
-//             }
-//             _ => {
-//                 warn!("Unexpected message type");
-//             }
-//         };
-//     };
-
-//     let digest = Keccak256::digest(msg);
-//     let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
-//     let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
-
-//     let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
-
-//     let mut client = RLPxClient::random(false);
-//     let mut auth_message = vec![];
-//     client.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
-
-//     // NOTE: for some reason kurtosis peers don't publish their active TCP port
-//     let tcp_addr = endpoint
-//         .tcp_address()
-//         .unwrap_or(str_tcp_addr.parse().unwrap());
-
-//     let mut stream = TcpSocket::new_v4()
-//         .unwrap()
-//         .connect(tcp_addr)
-//         .await
-//         .unwrap();
-
-//     stream.write_all(&auth_message).await.unwrap();
-//     info!("Sent auth message correctly!");
-//     // Read the ack message's size
-//     stream.read_exact(&mut buf[..2]).await.unwrap();
-//     let auth_data = buf[..2].try_into().unwrap();
-//     let msg_size = u16::from_be_bytes(auth_data) as usize;
-
-//     // Read the rest of the ack message
-//     stream.read_exact(&mut buf[2..msg_size + 2]).await.unwrap();
-
-//     let msg = &mut buf[2..msg_size + 2];
-//     let state = client.decode_ack_message(&secret_key, msg, auth_data);
-//     let mut conn = RLPxConnection::new(state, stream, tcp_addr);
-//     info!("Completed handshake!");
-
-//     let hello_msg = RLPxMessage::Hello(p2p::HelloMessage::new(
-//         SUPPORTED_CAPABILITIES
-//             .into_iter()
-//             .map(|(name, version)| (name.to_string(), version))
-//             .collect(),
-//         PublicKey::from(signer.verifying_key()),
-//     ));
-
-//     conn.send(hello_msg).await;
-
-//     // Receive Hello message
-//     conn.receive().await;
-
-//     info!("Completed Hello roundtrip!");
-
-//     let received_status = conn.receive().await;
-//     debug!("Received RLPxMessage: {:?}", received_status);
-//     if let RLPxMessage::Status(_received) = received_status {
-//         if let Ok(response_status) = StatusMessage::build_from(&storage) {
-//             let response_status = RLPxMessage::Status(response_status);
-//             conn.send(response_status).await;
-//         }
-//     }
-
-//     // TODO: implement listen loop instead
-//     debug!("Sending Ping RLPxMessage");
-//     // Send Ping
-//     conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
-
-//     debug!("Awaiting Pong RLPxMessage");
-//     let pong = conn.receive().await;
-//     debug!("Received RLPxMessage: {:?}", pong);
-
-//     conn.receive().await;
-// }
+    // TODO react on handshale or capabilities exchange result
+}
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {
     let public_key = PublicKey::from(signer.verifying_key());

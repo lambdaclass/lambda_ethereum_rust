@@ -5,14 +5,25 @@ use crate::{
     MAX_DISC_PACKET_SIZE,
 };
 
-use super::{frame, handshake::decode_auth_message, message as rlpx, utils::ecdh_xchng};
+use super::{
+    frame,
+    handshake::decode_auth_message,
+    message as rlpx,
+    utils::{ecdh_xchng, pubkey2id},
+};
 use aes::cipher::KeyIvInit;
 use bytes::BufMut as _;
 use ethereum_rust_core::{H256, H512};
 use ethereum_rust_rlp::decode::RLPDecode;
-use k256::{ecdsa::SigningKey, PublicKey, SecretKey};
+use k256::{
+    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
+    PublicKey, SecretKey,
+};
 use sha3::{Digest, Keccak256};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    net::{TcpSocket, TcpStream},
+};
 use tracing::info;
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
@@ -30,22 +41,53 @@ pub(crate) struct RLPxConnection<S> {
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
-    pub fn receiver(signer: SigningKey, stream: S, _peer_address: SocketAddr) -> Self {
-        let mut rng = rand::thread_rng();
+    fn new(signer: SigningKey, stream: S, state: RLPxConnectionState) -> Self {
         Self {
             signer,
-            state: RLPxConnectionState::Receiver(Receiver::new(
-                H256::random_using(&mut rng),
-                SecretKey::random(&mut rng),
-            )),
+            state,
             stream,
             established: false,
         }
     }
 
+    pub fn receiver(signer: SigningKey, stream: S) -> Self {
+        let mut rng = rand::thread_rng();
+        Self::new(
+            signer,
+            stream,
+            RLPxConnectionState::Receiver(Receiver::new(
+                H256::random_using(&mut rng),
+                SecretKey::random(&mut rng),
+            )),
+        )
+    }
+
+    pub async fn initiator(signer: SigningKey, msg: &[u8], stream: S) -> Self {
+        let mut rng = rand::thread_rng();
+        let digest = Keccak256::digest(&msg[65..]);
+        let signature = &Signature::from_bytes(msg[..64].into()).unwrap();
+        let rid = RecoveryId::from_byte(msg[64]).unwrap();
+        let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
+        let state = RLPxConnectionState::Initiator(Initiator::new(
+            H256::random_using(&mut rng),
+            SecretKey::random(&mut rng),
+            pubkey2id(&peer_pk.into()),
+        ));
+        RLPxConnection::new(signer, stream, state)
+    }
+
     pub async fn handshake(&mut self) {
-        self.receive_auth().await;
-        self.send_ack().await;
+        match &self.state {
+            RLPxConnectionState::Receiver(_) => {
+                self.receive_auth().await;
+                self.send_ack().await;
+            }
+            RLPxConnectionState::Initiator(_) => {
+                self.send_auth().await;
+                self.receive_ack().await;
+            }
+            _ => panic!("Invalid state for handshake"),
+        }
         info!("Completed handshake!");
 
         self.exchange_hello_messages().await;
@@ -131,12 +173,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             PublicKey::from(self.signer.verifying_key()),
         ));
 
-        self.send(hello_msg).await;
-
         // Receive Hello message
-        self.receive().await;
+        let msg = self.receive().await;
 
-        info!("Completed Hello roundtrip!");
+        info!("{msg:?}");
+
+        self.send(hello_msg).await;
 
         // self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
         //     handshake_auth,
@@ -184,7 +226,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    // TODO Fix this
     pub async fn receive(&mut self) -> rlpx::Message {
         match &mut self.state {
             RLPxConnectionState::PostHandshake(post_handshake) => {
@@ -240,13 +281,15 @@ impl Receiver {
 struct Initiator {
     pub(crate) nonce: H256,
     pub(crate) ephemeral_key: SecretKey,
+    pub(crate) remote_node_id: H512,
 }
 
 impl Initiator {
-    pub fn new(nonce: H256, ephemeral_key: SecretKey) -> Self {
+    pub fn new(nonce: H256, ephemeral_key: SecretKey, remote_node_id: H512) -> Self {
         Self {
             nonce,
             ephemeral_key,
+            remote_node_id,
         }
     }
 }
