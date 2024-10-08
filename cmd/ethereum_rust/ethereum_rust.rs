@@ -164,8 +164,8 @@ async fn main() {
         if #[cfg(feature = "l2")] {
             let l2_operator = ethereum_rust_l2::start_operator(store.clone()).into_future();
             tracker.spawn(l2_operator);
-            let l2_prover = ethereum_rust_l2::start_prover().into_future();
-            tracker.spawn(l2_prover);
+            // let l2_prover = ethereum_rust_l2::start_prover().into_future();
+            // tracker.spawn(l2_prover);
         } else {
             let networking = ethereum_rust_net::start_network(
                 udp_socket_addr,
