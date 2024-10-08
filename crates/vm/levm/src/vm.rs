@@ -141,7 +141,7 @@ pub struct Environment {
     // origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    gas_price: U256,
+    pub gas_price: U256,
     pub gas_limit: u64,
     pub consumed_gas: u64,
     /// The block header of the present block.
@@ -315,6 +315,10 @@ impl VM {
                 Opcode::CREATE2 => self.op_create2(&mut current_call_frame),
                 Opcode::TLOAD => self.op_tload(&mut current_call_frame),
                 Opcode::TSTORE => self.op_tstore(&mut current_call_frame),
+                Opcode::CALLVALUE => self.op_callvalue(&mut current_call_frame),
+                Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
+                Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
+                Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 

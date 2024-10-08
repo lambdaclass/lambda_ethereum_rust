@@ -1,4 +1,4 @@
-use crate::block::LAST_AVAILABLE_BLOCK_LIMIT;
+use crate::{block::LAST_AVAILABLE_BLOCK_LIMIT, constants::WORD_SIZE};
 
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
@@ -238,33 +238,84 @@ impl VM {
     // CALLVALUE operation
     pub fn op_callvalue(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        if self.env.consumed_gas + gas_cost::CALLVALUE > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        let callvalue = current_call_frame.msg_value;
+
+        current_call_frame.stack.push(callvalue)?;
+
+        self.env.consumed_gas += gas_cost::CALLVALUE;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // CODESIZE operation
     pub fn op_codesize(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        current_call_frame
+            .stack
+            .push(U256::from(current_call_frame.bytecode.len()))?;
+
+        self.env.consumed_gas += gas_cost::CODESIZE;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // CODECOPY operation
     pub fn op_codecopy(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        let dest_offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+        let offset: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+        let size: usize = current_call_frame.stack.pop()?.try_into().unwrap();
+
+        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
+
+        let memory_expansion_cost =
+            current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+
+        let gas_cost = gas_cost::CODECOPY_STATIC
+            + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size as u64
+            + memory_expansion_cost;
+
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        let code = current_call_frame.bytecode.slice(offset..offset + size);
+
+        current_call_frame.memory.store_bytes(dest_offset, &code);
+
+        self.env.consumed_gas += gas_cost;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // GASPRICE operation
     pub fn op_gasprice(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        if self.env.consumed_gas + gas_cost::GASPRICE > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        current_call_frame.stack.push(self.env.gas_price)?;
+
+        self.env.consumed_gas += gas_cost::GASPRICE;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     // EXTCODESIZE operation

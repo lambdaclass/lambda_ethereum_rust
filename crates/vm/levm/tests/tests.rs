@@ -1,10 +1,11 @@
 use ethereum_rust_levm::{
-    block::TARGET_BLOB_GAS_PER_BLOCK,
+    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     constants::*,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
+    transaction::{TransactTo, TxEnv},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
-    vm::{Account, Storage, StorageSlot, VM},
+    vm::{Account, Db, Storage, StorageSlot, VM},
     vm_result::{ExecutionResult, VMError},
 };
 use ethereum_types::H32;
@@ -3389,7 +3390,7 @@ fn callvalue_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), value);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLVALUE);
@@ -3419,7 +3420,7 @@ fn codesize_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3452,7 +3453,7 @@ fn gasprice_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3500,7 +3501,7 @@ fn codecopy_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9 + 3 * gas_cost::PUSHN);
