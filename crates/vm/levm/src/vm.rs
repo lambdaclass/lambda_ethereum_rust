@@ -345,8 +345,8 @@ impl VM {
         Ok(ResultAndState { result, state })
     }
 
-    pub fn execute(&mut self, _initial_gas_consumed: u64) -> Result<ExecutionResult, VMError> {
-        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
+    pub fn execute(&mut self, _initial_gas_consumed: u64) -> ExecutionResult{
+        let mut current_call_frame = self.call_frames.pop().expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -437,18 +437,18 @@ impl VM {
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(r)) => {
-                    return Ok(Self::write_success_result(
+                    return Self::write_success_result(
                         current_call_frame.clone(),
                         r,
                         self.env.consumed_gas,
                         self.env.refunded_gas,
-                    ));
+                    );
                 }
                 Err(e) => {
-                    return Ok(ExecutionResult::Halt {
+                    return ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
-                    })
+                    }
                 }
             }
         }
@@ -457,7 +457,7 @@ impl VM {
     pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
         // let initial_gas_consumed = self.validate_transaction()?;
         let initial_gas_consumed = 0;
-        let res = self.execute(initial_gas_consumed)?;
+        let res = self.execute(initial_gas_consumed);
         self.get_result(res)
     }
 
@@ -527,7 +527,7 @@ impl VM {
         current_call_frame.return_data_size = Some(ret_size);
 
         self.call_frames.push(new_call_frame.clone());
-        let result = self.execute(self.env.consumed_gas)?;
+        let result = self.execute(self.env.consumed_gas);
 
         match result {
             ExecutionResult::Success {
