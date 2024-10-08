@@ -107,13 +107,7 @@ impl DeleteFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let param = param.as_object().ok_or(RpcErr::BadParams)?;
-
-                let id_raw_param = param
-                    .get("id")
-                    .ok_or_else(|| RpcErr::MissingParam("id".to_string()))?;
-
-                let id = parse_json_hex(id_raw_param)
+                let id = parse_json_hex(&param)
                     .map_err(|_err| RpcErr::WrongParam("id".to_string()))?;
 
                 return Ok(DeleteFilterRequest { id });
