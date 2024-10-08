@@ -96,7 +96,6 @@ fn sub_op() {
 
     vm.execute(0).unwrap();
 
-    // println!("{:?}", vm.current_call_frame_mut().stack);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
 }
 
