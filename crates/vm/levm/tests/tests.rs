@@ -1,83 +1,18 @@
+use std::collections::HashMap;
+
 use ethereum_rust_levm::{
-    block::TARGET_BLOB_GAS_PER_BLOCK,
+    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     constants::*,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
+    transaction::{TransactTo, TxEnv},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
-    vm::{word_to_address, Account, Storage, StorageSlot, VM},
+    vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
     vm_result::{ExecutionResult, VMError},
 };
+use ethereum_types::H32;
 
 // cargo test -p 'levm'
-
-pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
-    new_vm_with_ops_addr_bal(operations, Address::from_low_u64_be(100), U256::MAX)
-}
-
-pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
-    let bytecode = ops_to_bytecde(operations);
-
-    let tx_env = TxEnv {
-        msg_sender: address,
-        chain_id: Some(1),
-        transact_to: TransactTo::Call(Address::from_low_u64_be(0x42)),
-        gas_limit: Default::default(),
-        gas_price: Default::default(),
-        value: Default::default(),
-        data: Default::default(),
-        nonce: Default::default(),
-        access_list: Default::default(),
-        max_priority_fee_per_gas: Default::default(),
-        blob_hashes: Default::default(),
-        max_fee_per_blob_gas: Default::default(),
-    };
-
-    let block_env = BlockEnv {
-        number: Default::default(),
-        coinbase: Default::default(),
-        timestamp: Default::default(),
-        base_fee_per_gas: Default::default(),
-        gas_limit: Default::default(),
-        chain_id: Default::default(),
-        prev_randao: Default::default(),
-        excess_blob_gas: Default::default(),
-        blob_gas_used: Default::default(),
-    };
-
-    let accounts = [
-        (
-            Address::from_low_u64_be(0x42),
-            Account {
-                address: Address::from_low_u64_be(42),
-                balance: U256::MAX,
-                bytecode,
-                storage: HashMap::new(),
-                nonce: 0,
-            },
-        ),
-        (
-            address,
-            Account {
-                address,
-                balance,
-                bytecode: Bytes::default(),
-                storage: HashMap::new(),
-                nonce: 0,
-            },
-        ),
-    ];
-
-    let state = Db {
-        accounts: accounts.into(),
-        block_hashes: Default::default(),
-    };
-
-    // add the account with code to call
-
-    // add the account passed by parameter
-
-    VM::new(tx_env, block_env, state)
-}
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -3449,7 +3384,7 @@ fn caller_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3481,7 +3416,7 @@ fn origin_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3501,12 +3436,14 @@ fn balance_op() {
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &operations,
+        ops_to_bytecde(&operations),
         Address::from_low_u64_be(address),
         U256::from(1234),
     );
 
-    vm.execute().unwrap();
+    vm.execute();
+
+    dbg!(&vm);
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3535,7 +3472,7 @@ fn address_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -3568,7 +3505,7 @@ fn selfbalance_op() {
 
     let mut vm = VM::new(tx_env, block_env, db);
 
-    vm.execute().unwrap();
+    vm.execute();
 
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), balance);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::SELFBALANCE);
