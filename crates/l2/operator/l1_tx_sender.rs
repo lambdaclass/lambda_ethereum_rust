@@ -1,23 +1,35 @@
-use crate::utils::eth_client::EthClient;
+use crate::utils::{
+    config::{eth::EthConfig, l1_tx_sender::L1TxSenderConfig},
+    eth_client::EthClient,
+};
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_types::{Address, H256};
 use libsecp256k1::SecretKey;
-use std::str::FromStr;
 use tracing::{debug, warn};
 
-const RICH_WALLET_PK: &str = "0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924";
-const RICH_WALLET_ADDR: &str = "0x3D1e15a1a55578f7c920884a9943b3B35D0D885b";
-const BLOCK_EXECUTOR_ADDR: &str = "0x31e68fE377E509c8324b6206ADC7f11003Bd9130";
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [227, 206, 9, 77];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
 
-pub struct L1TxSender;
+pub struct L1TxSender {
+    rpc_url: String,
+    contract_address: Address,
+    operator_address: Address,
+    operator_private_key: SecretKey,
+}
 
 impl L1TxSender {
-    async fn send_transaction(mut tx: EIP1559Transaction) -> Result<H256, String> {
-        let client = EthClient::new("http://localhost:8545");
-        let private_key = SecretKey::parse(&H256::from_str(RICH_WALLET_PK).unwrap().0).unwrap();
+    pub fn new_from_config(sender_config: L1TxSenderConfig, eth_config: EthConfig) -> Self {
+        Self {
+            rpc_url: eth_config.rpc_url,
+            contract_address: sender_config.block_executor_address,
+            operator_address: sender_config.operator_address,
+            operator_private_key: sender_config.operator_private_key,
+        }
+    }
+
+    async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, String> {
+        let client = EthClient::new(&self.rpc_url);
 
         tx.gas_limit = client
             .estimate_gas(tx.clone())
@@ -26,14 +38,15 @@ impl L1TxSender {
 
         tx.max_fee_per_gas = client.get_gas_price().await?;
 
-        tx.nonce = client
-            .get_nonce(Address::from_str(&RICH_WALLET_ADDR[2..]).unwrap())
-            .await?;
+        tx.nonce = client.get_nonce(self.operator_address).await?;
 
-        client.send_eip1559_transaction(tx, private_key).await
+        client
+            .send_eip1559_transaction(tx, self.operator_private_key)
+            .await
     }
 
     pub async fn send_commitment(
+        &self,
         previous_commitment: H256,
         current_commitment: H256,
     ) -> Result<H256, String> {
@@ -43,13 +56,13 @@ impl L1TxSender {
         calldata.extend(current_commitment.0);
 
         let tx = EIP1559Transaction {
-            to: TxKind::Call(Address::from_str(BLOCK_EXECUTOR_ADDR).unwrap()),
+            to: TxKind::Call(self.contract_address),
             data: calldata.into(),
             chain_id: 3151908,
             ..Default::default()
         };
 
-        match Self::send_transaction(tx).await {
+        match self.send_transaction(tx).await {
             Ok(hash) => {
                 debug!("Commitment sent: {:#?}", hash);
                 Ok(hash)
@@ -61,7 +74,7 @@ impl L1TxSender {
         }
     }
 
-    pub async fn send_verification(block_proof: &[u8]) -> Result<H256, String> {
+    pub async fn send_verification(&self, block_proof: &[u8]) -> Result<H256, String> {
         let mut calldata = Vec::new();
         calldata.extend(VERIFY_FUNCTION_SELECTOR);
         calldata.extend(H256::from_low_u64_be(32).as_bytes());
@@ -71,13 +84,13 @@ impl L1TxSender {
         calldata.extend(vec![0; leading_zeros]);
 
         let tx = EIP1559Transaction {
-            to: TxKind::Call(Address::from_str(BLOCK_EXECUTOR_ADDR).unwrap()),
+            to: TxKind::Call(self.contract_address),
             data: calldata.into(),
             chain_id: 3151908,
             ..Default::default()
         };
 
-        match Self::send_transaction(tx).await {
+        match self.send_transaction(tx).await {
             Ok(hash) => {
                 debug!("Verification sent: {:#?}", hash);
                 Ok(hash)
