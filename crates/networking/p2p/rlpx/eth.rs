@@ -138,7 +138,7 @@ impl RLPEncode for HashOrNumber {
 impl RLPDecode for HashOrNumber {
     #[inline(always)]
     fn decode_unfinished(buf: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
-        let first_byte = buf.get(0).ok_or(RLPDecodeError::InvalidLength)?;
+        let first_byte = buf.first().ok_or(RLPDecodeError::InvalidLength)?;
         // after some tests, seems that the first byte is always 160 for hashes
         if *first_byte == HASH_FIRST_BYTE_DECODER {
             let (hash, rest) = BlockHash::decode_unfinished(buf)?;
