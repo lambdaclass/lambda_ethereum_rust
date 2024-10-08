@@ -1,3 +1,4 @@
+#![allow(clippy::module_inception)]
 use tracing::info;
 
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
