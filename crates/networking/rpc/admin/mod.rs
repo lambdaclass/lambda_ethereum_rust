@@ -33,7 +33,9 @@ pub fn node_info(storage: Store, local_node: Node) -> Result<Value, RpcErr> {
     let enode_url = local_node.enode_url();
     let mut protocols = HashMap::new();
 
-    let chain_config = storage.get_chain_config().map_err(|_| RpcErr::Internal)?;
+    let chain_config = storage
+        .get_chain_config()
+        .map_err(|error| RpcErr::Internal(error.to_string()))?;
     protocols.insert("eth".to_string(), Protocol::Eth(chain_config));
 
     let node_info = NodeInfo {
@@ -47,5 +49,5 @@ pub fn node_info(storage: Store, local_node: Node) -> Result<Value, RpcErr> {
         },
         protocols,
     };
-    serde_json::to_value(node_info).map_err(|_| RpcErr::Internal)
+    serde_json::to_value(node_info).map_err(|error| RpcErr::Internal(error.to_string()))
 }
