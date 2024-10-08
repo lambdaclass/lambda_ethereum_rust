@@ -5,7 +5,7 @@ use tokio::time::sleep;
 
 use crate::utils::{
     config::{block_producer::BlockProducerConfig, engine_api::EngineApiConfig},
-    eth_client::engine::EngineClient,
+    engine_client::EngineClient,
 };
 
 pub async fn start_block_producer(current_block_hash: H256) {

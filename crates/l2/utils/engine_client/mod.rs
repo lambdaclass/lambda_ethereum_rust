@@ -18,7 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::utils::config::engine_api::EngineApiConfig;
 
-use super::RpcResponse;
+use super::eth_client::RpcResponse;
 
 pub struct EngineClient {
     client: Client,

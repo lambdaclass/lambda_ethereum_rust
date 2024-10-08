@@ -14,7 +14,6 @@ use transaction::PayloadRLPEncode;
 
 use super::config::eth::EthConfig;
 
-pub mod engine;
 pub mod transaction;
 
 #[derive(Deserialize)]
