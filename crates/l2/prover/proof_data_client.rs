@@ -34,12 +34,12 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self) {
-        let prover_verification = Prover::new_verification();
+        let prover = Prover::new_execution();
 
         loop {
-            match self.request_data(prover_verification.mode) {
+            match self.request_data(prover.mode) {
                 Ok((Some(id), prover_input)) => {
-                    match prover_verification.prove(prover_input) {
+                    match prover.prove_execution(&prover_input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry
@@ -60,7 +60,7 @@ impl ProofDataClient {
         }
     }
 
-    fn request_data(&self, mode: ProverMode) -> Result<(Option<u64>, Box<dyn Any + Send>), String> {
+    fn request_data(&self, mode: ProverMode) -> Result<(Option<u64>, ProverInput), String> {
         let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
@@ -80,23 +80,13 @@ impl ProofDataClient {
         match response {
             ProofData::Response {
                 id: Some(id),
-                prover_inputs_verification: Some(prover_inputs),
-                ..
-            } => {
-                debug!("Received response ID: {id:?}");
-                debug!("Received response block: {:?}", prover_inputs.head_block);
-
-                Ok((Some(id), Box::new(prover_inputs)))
-            }
-            ProofData::Response {
-                id: Some(id),
                 prover_inputs_execution: Some(prover_inputs),
                 ..
             } => {
                 debug!("Received response ID: {id:?}");
                 debug!("Received response block: {:?}", prover_inputs.block);
 
-                Ok((Some(id), Box::new(prover_inputs)))
+                Ok((Some(id), prover_inputs))
             }
             _ => Err(format!("Unexpected response {response:?}")),
         }

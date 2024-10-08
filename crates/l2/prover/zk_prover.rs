@@ -61,25 +61,6 @@ impl Prover {
         }
     }
 
-    pub fn prove(&self, input: Box<dyn std::any::Any>) -> Result<SP1ProofWithPublicValues, String> {
-        match self.mode {
-            ProverMode::Verification => {
-                if let Some(verification_input) = input.downcast_ref::<ProverInputNoExecution>() {
-                    self.prove_verification(verification_input)
-                } else {
-                    Err("Invalid input type for Verification".to_string())
-                }
-            }
-            ProverMode::Execution => {
-                if let Some(execution_input) = input.downcast_ref::<ProverInput>() {
-                    self.prove_execution(execution_input)
-                } else {
-                    Err("Invalid input type for Execution".to_string())
-                }
-            }
-        }
-    }
-
     pub fn prove_verification(
         &self,
         input: &ProverInputNoExecution,

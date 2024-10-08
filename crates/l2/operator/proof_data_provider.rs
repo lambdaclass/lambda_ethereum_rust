@@ -360,36 +360,15 @@ impl ProofDataProvider {
         debug!("Request received");
 
         let _last_block_number = Self::get_last_block_number().await?;
-        //let block = Self::get_block_by_number(last_block_number, false).await?;
-        //
-        //let parent_block_header = {
-        //    if last_block_number > 0 {
-        //        let parent_block = Self::get_block_by_number(last_block_number - 1, false).await?;
-        //        parent_block.header
-        //    } else {
-        //        BlockHeader::default()
-        //    }
-        //};
 
-        // Crate Mismatch
-        //let parent_block_header = self
-        //    .store
-        //    .get_block_header(last_block_number - 1)
-        //    .unwrap()
-        //    .unwrap();
-
-        //let block = Block{header, body}
         //let state = MemoryDB::new(accounts, storage, block_hashes);
-
-        //info!("get block by number result: {block:?}");
-        //let state = MemoryDB::default();
 
         // Build Inputs
         let mut blocks = read_chain_file("./test_data/chain.rlp");
         let head_block = blocks.pop().unwrap();
         let parent_block_header = blocks.pop().unwrap().header;
 
-        let prover_inputs_verification = ProverInputNoExecution {
+        let _prover_inputs_verification = ProverInputNoExecution {
             head_block: head_block.clone(),
             parent_block_header: parent_block_header.clone(),
             block_is_valid: false,
@@ -402,44 +381,20 @@ impl ProofDataProvider {
         };
 
         let response = match prover_mode {
-            ProverMode::Execution => {
-                // This condition has to be true.
-                //let response = if last_block_number > last_proved_block {
-                if true {
-                    ProofData::Response {
-                        id: Some(last_proved_block + 1),
-                        prover_inputs_verification: None,
-                        prover_inputs_execution: Some(prover_inputs_execution),
-                        mode: prover_mode,
-                    }
-                } else {
-                    ProofData::Response {
-                        id: None,
-                        prover_inputs_verification: None,
-                        prover_inputs_execution: None,
-                        mode: prover_mode,
-                    }
-                }
-            }
-            ProverMode::Verification => {
-                // This condition has to be true.
-                //let response = if last_block_number > last_proved_block {
-                if true {
-                    ProofData::Response {
-                        id: Some(last_proved_block + 1),
-                        prover_inputs_verification: Some(prover_inputs_verification),
-                        prover_inputs_execution: None,
-                        mode: prover_mode,
-                    }
-                } else {
-                    ProofData::Response {
-                        id: None,
-                        prover_inputs_verification: None,
-                        prover_inputs_execution: None,
-                        mode: prover_mode,
-                    }
-                }
-            }
+            // This condition has to be true.
+            //if last_block_number > last_proved_block
+            ProverMode::Execution if true => ProofData::Response {
+                id: Some(last_proved_block + 1),
+                prover_inputs_verification: None,
+                prover_inputs_execution: Some(prover_inputs_execution),
+                mode: prover_mode,
+            },
+            _ => ProofData::Response {
+                id: None,
+                prover_inputs_verification: None,
+                prover_inputs_execution: None,
+                mode: prover_mode,
+            },
         };
 
         let writer = BufWriter::new(stream);
