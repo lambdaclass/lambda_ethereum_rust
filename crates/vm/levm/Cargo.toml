@@ -18,6 +18,9 @@ ethers = "2.0.14"
 hex = "0.4.3"
 
 [[test]]
-name = "normal"
+name = "ef_tests"
 path = "tests/ef_tests.rs"
 harness = false
+
+[features]
+skip_ef_tests = []

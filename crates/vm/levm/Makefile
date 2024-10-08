@@ -30,7 +30,7 @@ ethtests: ${ETHTEST_TAR}  # 📥 Downloads Ethereum Foundation tests.
 	sha256sum -c ${ETHTEST_SHASUM}
 
 test-eth:  # 💎 Runs Ethereum Foundation tests.
-	cargo nextest run --workspace --all-features --no-capture --test normal
+	cargo nextest run --workspace --all-features --no-capture --test ef_tests
 
 ###### Benchmarks ######
 

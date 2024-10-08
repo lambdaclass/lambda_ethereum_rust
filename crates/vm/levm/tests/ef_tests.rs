@@ -1,6 +1,9 @@
-use std::{collections::HashSet, path::Path};
 mod ef_tests_executor;
 use ef_tests_executor::test_utils::run_test;
+
+use std::{collections::HashSet, path::Path};
+
+use datatest_stable;
 
 fn get_group_name_from_path(path: &Path) -> String {
     // Gets the parent directory's name.
@@ -145,4 +148,5 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
+#[cfg(not(feature = "skip_ef_tests"))]
 datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/", r"^.*/*.json",);
