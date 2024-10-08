@@ -1,4 +1,4 @@
-use crate::rpc::l1_rpc::L1Rpc;
+use crate::utils::eth_client::EthClient;
 use ethereum_types::{Address, H256, U256};
 use std::{cmp::min, time::Duration};
 use tokio::time::sleep;
@@ -35,7 +35,7 @@ impl L1Watcher {
 
         let mut last_block: U256 = U256::zero();
 
-        let l1_rpc = L1Rpc::new("http://localhost:8545");
+        let l1_rpc = EthClient::new("http://localhost:8545");
 
         loop {
             let current_block = l1_rpc.get_block_number().await.unwrap();
