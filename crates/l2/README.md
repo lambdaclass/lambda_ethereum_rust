@@ -34,6 +34,7 @@ The main differences between this mode and regular Ethereum Rust are:
 | 1 | The network supports basic L2 functionality, allowing users to deposit and withdraw funds to join and exit the network, while also interacting with the network as they do normally on the Ethereum network (deploying contracts, sending transactions, etc). | 🏗️ | 
 | 2 | The network now commits to state diffs instead of the full state, lowering the commit transactions costs and supports EIP4844. The L2 can be deployed using a custom native token, meaning that an ERC20 can be the common currency, with fees payed in that currency. | ❌ |
 | 3 | The L2 can be initialized in Validium Mode, meaning the Data Availability layer is no longer the L1, but rather a DA layer of the user's choice. The L2 supports native account abstraction following EIP 4337, allowing for custom transaction validation logic and paymaster flows. | ❌ |
+| 4 | The L2 has added security mechanisms in place, running on Trusted Execution Environments and Multi Prover setup where multiple guarantees (Execution on TEEs, zkVMs/proving systems) are required for settlement on the L1. | ❌ |
 
 ### Milestone 0
 
@@ -56,7 +57,7 @@ Users can deposit Eth in the L1 (Ethereum) and receive the corresponding funds o
 | CLI | `wallet transfer` | Support command for transferring funds on L2   | 🏗️     |
 
 
-### Milestone 1 (MVP)
+### Milestone 1: MVP
 
 The network supports basic L2 functionality, allowing users to deposit and withdraw funds to join and exit the network, while also interacting with the network as they do normally on the Ethereum network (deploying contracts, sending transactions, etc).
 
@@ -71,7 +72,7 @@ The network supports basic L2 functionality, allowing users to deposit and withd
 |           | Withdraw transactions handling |    New transaction type for burning funds on L2 and unlock funds on L1                                                                                                                   | 🏗️     |
 | Prover    | `ProofDataClient`              |  Asks for block execution data to prove, generates proofs of execution and submits proofs to the `ProofDataProvider`                                                                                                                     | 🏗️     |
 
-### Milestone 2 (State diffs + blobs + base token)
+### Milestone 2: State diffs + blobs + custom native token
 
 The network now commits to state diffs instead of the full state, lowering the commit transactions costs and supports EIP4844.
 
@@ -96,7 +97,7 @@ The L2 can be deployed using a custom native token, meaning that an ERC20 can be
 |     | `init`   | Adapt stack initialization to either send blobs or calldata                                                       |    ❌    |
 |Misc  |    | Add a DA integration example for Validium mode                                                       |    ❌    |
 
-### Milestone 3 (Validium + Account Abstraction)
+### Milestone 3: Validium + Account Abstraction
 
 The L2 can be initialized in Validium Mode, meaning the Data Availability layer is no longer the L1, but rather a DA layer of the user's choice.
 
@@ -106,12 +107,24 @@ The L2 supports native account abstraction following EIP 4337, allowing for cust
 
 |           | Name          | Description                                            | Status |
 | --------- | ------------- | ------------------------------------------------------ | ------ |
-| Contracts | BlockExecutor | Do no check data availability in Validium mode                                                      |  ❌      |
+| Contracts | BlockExecutor | Do not check data availability in Validium mode                                                      |  ❌      |
 | VM        |               | The VM should return which storage slots were modified |   ❌     |
 | Operator  |  L1TxSender  |  Do no send data in commit transactions   |   ❌     |
 | CLI    | `init`   | Adapt stack initialization to support Validium stacks                                                       |    ❌    |
 
 TODO: Expand on account abstraction tasks.
+
+### Milestone 4: Security (TEEs and Multi Prover support)
+
+The L2 has added security mechanisms in place, running on Trusted Execution Environments and Multi Prover setup where multiple guarantees (Execution on TEEs, zkVMs/proving systems) are required for settlement on the L1. This better protects against possible security bugs on implementations.
+
+#### Status
+
+|           | Name          | Description                                            | Status |
+| --------- | ------------- | ------------------------------------------------------ | ------ |
+| VM/Prover        |               | Support proving with multiple different zkVMs |   ❌     |
+| Contracts        |               | Support verifying multiple different zkVM executions |   ❌     |
+| VM        |               | Support running the operator on a TEE environment |   ❌     |
 
 ## Prerequisites
 
