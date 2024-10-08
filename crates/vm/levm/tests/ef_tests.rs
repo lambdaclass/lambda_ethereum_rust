@@ -4,8 +4,6 @@ use ef_tests_executor::test_utils::run_test;
 
 use std::{collections::HashSet, path::Path};
 
-use datatest_stable;
-
 fn get_group_name_from_path(path: &Path) -> String {
     // Gets the parent directory's name.
     // Example: ethtests/GeneralStateTests/stArgsZeroOneBalance/addmodNonConst.json
