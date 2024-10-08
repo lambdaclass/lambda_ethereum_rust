@@ -32,7 +32,7 @@ jobs:
             run_command: make run-hive SIMULATION=devp2p TEST_PATTERN="discv4"
           - simulation: engine
             name: "Engine tests (only Cancun)"
-            run_command: make run-hive SIMULATION=engine TEST_PATTERN="/Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Parallel Blob Transactions"
+            run_command: make run-hive SIMULATION=engine TEST_PATTERN="/Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
