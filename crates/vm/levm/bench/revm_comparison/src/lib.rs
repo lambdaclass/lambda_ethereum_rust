@@ -24,18 +24,21 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
     for _ in 0..runs - 1 {
         let mut vm = new_vm_with_bytecode(Bytes::new());
         *vm.current_call_frame_mut() = call_frame.clone();
-        let result = black_box(vm.execute());
+        let result = black_box(vm.execute(0).unwrap());
         assert!(matches!(result, ExecutionResult::Success { .. }));
     }
     let mut vm = new_vm_with_bytecode(Bytes::new());
     *vm.current_call_frame_mut() = call_frame.clone();
-    let result = black_box(vm.execute());
+    let result = black_box(vm.execute(0).unwrap());
     assert!(matches!(result, ExecutionResult::Success { .. }));
 
     if let ExecutionResult::Success {
         reason: _,
         logs: _,
         return_data,
+        output: _,
+        gas_used: _,
+        gas_refunded: _,
     } = result
     {
         println!("\t\t0x{}", hex::encode(return_data));
