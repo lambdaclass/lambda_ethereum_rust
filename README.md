@@ -238,7 +238,9 @@ See issues and progress: https://github.com/lambdaclass/ethereum_rust/milestone/
 
 # Lambda Ethereum Rust L2
 
-[Roadmap](./crates/l2/README.md)
+Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. The node has the same interface as regular Ethereum Rust, with the addition that blocks execution is proven and the proof is sent to an L1 network for verification, thus inheriting the L1's security.
+
+[Full Roadmap](./crates/l2/README.md)
 
 # Crates documentation
 

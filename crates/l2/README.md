@@ -1,8 +1,6 @@
 # Ethereum Rust L2
 
-Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. The node has the same interface as regular Ethereum Rust, with the addition that blocks execution is proven and the proof is sent to an L1 network for verification, thus inheriting the L1's security.
-
-The main differences with regular Ethereum Rust are:
+The main differences between this mode and regular Ethereum Rust are:
 
 - There is no consensus, only one sequencer proposes blocks for the network.
 - Block execution is proven using a RISC-V zkVM and its proofs are sent to L1 for verification.
