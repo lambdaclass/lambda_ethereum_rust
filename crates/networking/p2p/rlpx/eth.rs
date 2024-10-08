@@ -81,22 +81,23 @@ impl RLPxMessage for StatusMessage {
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (eth_version, decoder): (u32, _) = decoder.decode_field("protocolVersion").unwrap();
+        let (eth_version, decoder): (u32, _) = decoder.decode_field("protocolVersion")?;
 
         assert_eq!(eth_version, 68, "only eth version 68 is supported");
 
-        let (network_id, decoder): (u64, _) = decoder.decode_field("networkId").unwrap();
+        let (network_id, decoder): (u64, _) = decoder.decode_field("networkId")?;
 
-        let (total_difficulty, decoder): (U256, _) =
-            decoder.decode_field("totalDifficulty").unwrap();
+        let (total_difficulty, decoder): (U256, _) = decoder.decode_field("totalDifficulty")?;
 
-        let (block_hash, decoder): (BlockHash, _) = decoder.decode_field("blockHash").unwrap();
+        let (block_hash, decoder): (BlockHash, _) = decoder.decode_field("blockHash")?;
 
-        let (genesis, decoder): (BlockHash, _) = decoder.decode_field("genesis").unwrap();
+        let (genesis, decoder): (BlockHash, _) = decoder.decode_field("genesis")?;
 
-        let (fork_id, decoder): (ForkId, _) = decoder.decode_field("forkId").unwrap();
+        let (fork_id, decoder): (ForkId, _) = decoder.decode_field("forkId")?;
 
         // Implementations must ignore any additional list elements
         let _padding = decoder.finish_unchecked();
@@ -194,6 +195,9 @@ impl RLPxMessage for GetBlockHeaders {
         let mut snappy_encoder = SnappyEncoder::new();
         let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
 
+        // This unwrap shouldn't panic, compress only returns an error if we want to compress something
+        // bigger than 4 GBytes, or the output len is smaller than the input len, this doesn't happen
+        // as we create the buffer (msg_data) with max_compress_len + 1
         let compressed_size = snappy_encoder
             .compress(&encoded_data, &mut msg_data)
             .unwrap();
@@ -205,13 +209,15 @@ impl RLPxMessage for GetBlockHeaders {
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
-        let (startblock, decoder): (HashOrNumber, _) = decoder.decode_field("startblock").unwrap();
-        let (limit, decoder): (u64, _) = decoder.decode_field("limit").unwrap();
-        let (skip, decoder): (u64, _) = decoder.decode_field("skip").unwrap();
-        let (reverse, _): (bool, _) = decoder.decode_field("reverse").unwrap();
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (startblock, decoder): (HashOrNumber, _) = decoder.decode_field("startblock")?;
+        let (limit, decoder): (u64, _) = decoder.decode_field("limit")?;
+        let (skip, decoder): (u64, _) = decoder.decode_field("skip")?;
+        let (reverse, _): (bool, _) = decoder.decode_field("reverse")?;
 
         Ok(Self {
             id,
@@ -296,10 +302,12 @@ impl RLPxMessage for BlockHeaders {
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
-        let (block_headers, _): (Vec<BlockHeader>, _) = decoder.decode_field("headers").unwrap();
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (block_headers, _): (Vec<BlockHeader>, _) = decoder.decode_field("headers")?;
 
         Ok(Self { block_headers, id })
     }
