@@ -241,7 +241,6 @@ impl BlockHeaders {
     ) -> Result<Self, StoreError> {
         let mut block_headers = vec![];
 
-        // how should we get the next block starting from here?
         let first_block = match startblock {
             HashOrNumber::Hash(hash) => match storage.get_block_header_by_hash(hash)? {
                 Some(header) => header,
@@ -306,7 +305,7 @@ impl RLPxMessage for BlockHeaders {
 
 #[cfg(test)]
 mod tests {
-    use ethereum_rust_core::types::{Block, BlockHash, BlockHeader};
+    use ethereum_rust_core::types::{Block, BlockBody, BlockHash, BlockHeader};
     use ethereum_rust_storage::Store;
 
     use crate::rlpx::{
@@ -516,12 +515,96 @@ mod tests {
 
         let block_bodies =
             BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 3, 1, true).unwrap();
-        // we should get 1, skip 2 and get 3
+        // we should get 1, skip 2 and get 3, and it should be backwards
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
 
         let decoded = BlockHeaders::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_headers, vec![header3, header1]);
+    }
+
+    #[test]
+    fn get_block_headers_receive_block_headers() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody::default();
+        let mut header1 = BlockHeader::default();
+        let mut header2 = BlockHeader::default();
+        let mut header3 = BlockHeader::default();
+        header1.parent_hash = BlockHash::from([0; 32]);
+        header1.number = 1;
+        header2.parent_hash = BlockHash::from([1; 32]);
+        header2.number = 2;
+        header3.parent_hash = BlockHash::from([1; 32]);
+        header3.number = 3;
+        let block1 = Block {
+            header: header1.clone(),
+            body: body.clone(),
+        };
+        let block2 = Block {
+            header: header2.clone(),
+            body: body.clone(),
+        };
+        let block3 = Block {
+            header: header3.clone(),
+            body: body.clone(),
+        };
+        store.add_block(block1.clone()).unwrap();
+        store.add_block(block2.clone()).unwrap();
+        store.add_block(block3.clone()).unwrap();
+        store
+            .set_canonical_block(1, header1.compute_block_hash())
+            .unwrap();
+        store
+            .set_canonical_block(2, header2.compute_block_hash())
+            .unwrap();
+        store
+            .set_canonical_block(3, header3.compute_block_hash())
+            .unwrap();
+
+        let sender_address = "127.0.0.1:3000";
+        let receiver_address = "127.0.0.1:4000";
+        let sender = std::net::UdpSocket::bind(sender_address).unwrap();
+        let receiver = std::net::UdpSocket::bind(receiver_address).unwrap();
+
+        let sender_chosen_id = 1;
+        let get_block_headers =
+            GetBlockHeaders::build_from(sender_chosen_id, HashOrNumber::Number(1), 3, 1, true)
+                .unwrap();
+        let mut send_data_of_block_headers = Vec::new();
+        get_block_headers.encode(&mut send_data_of_block_headers);
+        sender
+            .send_to(&send_data_of_block_headers, receiver_address)
+            .unwrap(); // sends the block headers request
+
+        let mut receiver_data_of_block_headers_request = [0; 1024];
+        let len = receiver
+            .recv(&mut receiver_data_of_block_headers_request)
+            .unwrap(); // receives the block headers request
+        let received_block_header_request =
+            GetBlockHeaders::decode(&receiver_data_of_block_headers_request[..len]).unwrap(); // transform the encoded received data to our struct
+
+        assert_eq!(received_block_header_request.id, sender_chosen_id);
+        let block_headers = BlockHeaders::build_from(
+            received_block_header_request.id,
+            &store,
+            received_block_header_request.startblock,
+            received_block_header_request.limit,
+            received_block_header_request.skip,
+            received_block_header_request.reverse,
+        )
+        .unwrap();
+        let mut block_headers_to_send = Vec::new();
+        block_headers.encode(&mut block_headers_to_send); // encode the block headers that were requested
+        receiver
+            .send_to(&block_headers_to_send, sender_address)
+            .unwrap(); // send the block bodies to the sender that requested them
+
+        let mut received_block_headers = [0; 1024];
+        let len = sender.recv(&mut received_block_headers).unwrap(); // receive the block headers
+        let received_block_bodies = BlockHeaders::decode(&received_block_headers[..len]).unwrap(); // decode the received block headers
+
+        assert_eq!(received_block_bodies.id, sender_chosen_id);
+        assert_eq!(received_block_bodies.block_headers, vec![header3, header1]);
     }
 }
