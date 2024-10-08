@@ -1,3 +1,4 @@
+#![cfg(feature = "ethereum_foundation_tests")]
 mod ef_tests_executor;
 use ef_tests_executor::test_utils::run_test;
 

@@ -17,7 +17,11 @@ ethers = "2.0.14"
 [dev-dependencies]
 hex = "0.4.3"
 
+[features]
+ethereum_foundation_tests = []
+
 [[test]]
 name = "ef_tests"
-path = "ef_tests/mod.rs"
+path = "tests/ef_tests.rs"
 harness = false
+required-features = ["ethereum_foundation_tests"]
