@@ -1,12 +1,10 @@
-use std::str::FromStr;
-
+use crate::utils::eth_client::EthClient;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_types::{Address, H256};
 use libsecp256k1::SecretKey;
+use std::str::FromStr;
 use tracing::{debug, warn};
-
-use crate::rpc::l1_rpc::L1Rpc;
 
 const RICH_WALLET_PK: &str = "0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924";
 const RICH_WALLET_ADDR: &str = "0x3D1e15a1a55578f7c920884a9943b3B35D0D885b";
@@ -18,7 +16,7 @@ pub struct L1TxSender;
 
 impl L1TxSender {
     async fn send_transaction(mut tx: EIP1559Transaction) -> Result<H256, String> {
-        let client = L1Rpc::new("http://localhost:8545");
+        let client = EthClient::new("http://localhost:8545");
         let private_key = SecretKey::parse(&H256::from_str(RICH_WALLET_PK).unwrap().0).unwrap();
 
         tx.gas_limit = client
