@@ -252,6 +252,8 @@ impl BlockHeaders {
             },
         };
         // skip +1 because skip can be 0
+        // if we have a skip == 0, we should expect to get the first block and the next continuos one (1, 2, 3, 4, ..., limit)
+        // so if we don't add the + 1 we will be getting nothing from the loop
         let first_block_number = first_block.number;
         let headers_range = first_block_number..first_block_number + limit * (skip + 1);
         for i in headers_range.step_by((skip + 1) as usize) {
