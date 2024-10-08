@@ -1,8 +1,6 @@
 use ethereum_rust_storage::Store;
-use std::net::{IpAddr, Ipv4Addr};
 
 pub mod block_producer;
-pub mod engine;
 pub mod l1_tx_sender;
 pub mod l1_watcher;
 pub mod proof_data_provider;

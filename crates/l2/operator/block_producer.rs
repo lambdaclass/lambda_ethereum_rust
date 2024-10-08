@@ -1,14 +1,15 @@
-use crate::operator::engine::Engine;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_types::H256;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 
+use crate::utils::{config::engine_api::EngineApiConfig, eth_client::engine::EngineClient};
+
 pub async fn start_block_producer(current_block_hash: H256) {
     let mut current_block_hash = current_block_hash;
     loop {
-        let secret = std::fs::read("../../../jwt.hex").unwrap();
-        let engine = Engine::new("http://localhost:8551", secret.into());
+        let engine_config = EngineApiConfig::from_env().unwrap();
+        let engine = EngineClient::new_from_config(engine_config);
 
         let fork_choice_state = ForkChoiceState {
             head_block_hash: current_block_hash,
