@@ -682,7 +682,7 @@ mod tests {
 
     use bytes::Bytes;
     use ethereum_rust_core::{
-        types::{Transaction, TxType},
+        types::{Transaction, TxType, BYTES_PER_BLOB},
         Bloom,
     };
     use ethereum_rust_rlp::decode::RLPDecode;
@@ -997,16 +997,18 @@ mod tests {
 
     fn blobs_bundle_loadtest(store: Store) {
         // Write a bundle of 6 blobs 10 times
-        for i in 0..3 {
-            let blobs = [[i as u8;BYTES_PER_BLOB];6];
-            let commitments = [[i as u8;48];6];
-            let proofs = [[i as u8;48];6];
+        for i in 0..1000 {
+            let blobs = [[i as u8; BYTES_PER_BLOB]; 6];
+            let commitments = [[i as u8; 48]; 6];
+            let proofs = [[i as u8; 48]; 6];
             let bundle = BlobsBundle {
                 blobs: blobs.to_vec(),
                 commitments: commitments.to_vec(),
-                proofs: proofs.to_vec()
+                proofs: proofs.to_vec(),
             };
-            store.add_blobs_bundle_to_pool(H256::random(), bundle).unwrap();
+            store
+                .add_blobs_bundle_to_pool(H256::random(), bundle)
+                .unwrap();
         }
     }
 }
