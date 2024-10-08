@@ -1,12 +1,5 @@
 # Ethereum Rust L2
 
-The main differences between this mode and regular Ethereum Rust are:
-
-- There is no consensus, only one sequencer proposes blocks for the network.
-- Block execution is proven using a RISC-V zkVM and its proofs are sent to L1 for verification.
-- A set of Solidity contracts to be deployed to the L1 are included as part of network initialization.
-- Two new types of transactions are included: deposits (native token mints) and withdrawals.
-
 ## Table of Contents
 
 - [Roadmap](#roadmap)

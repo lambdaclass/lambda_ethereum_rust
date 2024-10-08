@@ -24,9 +24,31 @@ Read more about our engineering philosophy [here](https://blog.lambdaclass.com/l
 - Prioritize code readability and maintainability over premature optimizations.
 - Avoid concurrency split all over the codebase. Concurrency adds complexity. Only use where strictly necessary.
 
-## Lambda Ethereum Rust L1
+# L1 and L2 support
 
-## Table of Contents
+This client supports running in two different modes:
+
+- As a regular Ethereum execution client, like `geth`.
+- As a ZK-Rollup, where block execution is proven and the proof sent to an L1 network for verification, thus inheriting the L1's security.
+
+We call the first one Lambda Ethereum Rust L1 and the second one Lambda Ethereum Rust L2.
+
+# Lambda Ethereum Rust L2
+
+The main differences between this mode and regular Ethereum Rust are:
+
+- There is no consensus, only one sequencer proposes blocks for the network.
+- Block execution is proven using a RISC-V zkVM and its proofs are sent to L1 for verification.
+- A set of Solidity contracts to be deployed to the L1 are included as part of network initialization.
+- Two new types of transactions are included: deposits (native token mints) and withdrawals.
+
+DEPOSIT DEMO HERE.
+
+[Full Roadmap](./crates/l2/README.md)
+
+# Lambda Ethereum Rust L1
+
+### Table of Contents
 
 - [Roadmap](#roadmap)
     - [Milestone 1: Read-only RPC Node Support](#milestone-1-read-only-rpc-node-support)
@@ -53,7 +75,7 @@ An Ethereum execution client consists roughly of the following parts:
 - Block building and Fork choice management (i.e. logic to both build blocks so a validator can propose them and set where the head of the chain is currently at, according to what the consensus layer determines). This is essentially what our `blockchain` crate contains.
 - The block execution logic itself, i.e., an EVM implementation. We currently rely on [revm](https://github.com/bluealloy/revm) but are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethereum_rust/tree/main/crates/vm/levm) (Lambda EVM).
 
-Because most of the milestones below do not overlap much, we are currently working on them in parallel.
+Because most of the milestones below do not overlap much, we are currentlyworking on them in parallel
 
 ### Milestone 1: Read-only RPC Node Support
 
@@ -119,14 +141,6 @@ Add support for the `SNAP` protocol, which lets us get a recent copy of the bloc
 |  | Implement `SNAP` protocol for snap syncing                                    | ❌     |
 
 Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/3).
-
-# Lambda Ethereum Rust L2
-
-Ethereum Rust L2 is a feature allowing you to run Ethereum Rust as a ZK-Rollup. The node has the same interface as regular Ethereum Rust, with the addition that block execution is proven and the proof is sent to an L1 network for verification, thus inheriting the L1's security.
-
-DEPOSIT DEMO HERE.
-
-[Full Roadmap](./crates/l2/README.md)
 
 ## Quick Start (L1 localnet)
 
