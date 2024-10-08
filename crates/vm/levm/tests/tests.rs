@@ -80,7 +80,7 @@ fn mul_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(8));
 }
@@ -94,7 +94,7 @@ fn sub_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
 }
@@ -109,7 +109,7 @@ fn div_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(5));
 
@@ -121,7 +121,7 @@ fn div_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
 }
@@ -136,7 +136,7 @@ fn sdiv_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
 }
@@ -151,7 +151,7 @@ fn mod_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(1));
 }
@@ -167,7 +167,7 @@ fn smod_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(1));
 
@@ -192,7 +192,7 @@ fn smod_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     let c = U256::from_str_radix(
         "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
@@ -214,7 +214,7 @@ fn addmod_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(4));
 }
@@ -230,7 +230,7 @@ fn mulmod_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(4));
 }
@@ -245,7 +245,7 @@ fn exp_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
 }
@@ -260,7 +260,7 @@ fn sign_extend_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0x7F));
 
     // Case 2: Input: 0, 0xFF. Output: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -271,7 +271,7 @@ fn sign_extend_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::MAX);
 }
 
@@ -285,7 +285,7 @@ fn lt_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
@@ -300,7 +300,7 @@ fn gt_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
@@ -315,7 +315,7 @@ fn slt_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
@@ -330,7 +330,7 @@ fn sgt_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
 
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 }
@@ -345,7 +345,7 @@ fn eq_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 
     // Case 2: Input: 10, 20. Output: 0 (false)
@@ -356,7 +356,7 @@ fn eq_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
 }
 
@@ -369,7 +369,7 @@ fn is_zero_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
 
     // Case 2: Input is non-zero (e.g., 10), Output should be 0 (since 10 != 0 is false)
@@ -379,7 +379,7 @@ fn is_zero_op() {
         Operation::Stop,
     ]);
 
-    vm.execute(0).unwrap();
+    vm.execute(0);
     assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
 }
 
