@@ -140,7 +140,7 @@ impl VM {
         if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        
+
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {

@@ -345,8 +345,11 @@ impl VM {
         Ok(ResultAndState { result, state })
     }
 
-    pub fn execute(&mut self, _initial_gas_consumed: u64) -> ExecutionResult{
-        let mut current_call_frame = self.call_frames.pop().expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
+    pub fn execute(&mut self, _initial_gas_consumed: u64) -> ExecutionResult {
+        let mut current_call_frame = self
+            .call_frames
+            .pop()
+            .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
