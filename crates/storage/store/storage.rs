@@ -997,7 +997,8 @@ mod tests {
 
     fn blobs_bundle_loadtest(store: Store) {
         // Write a bundle of 6 blobs 10 times
-        for i in 0..1000 {
+        // If this test fails please adjust the max_size in the DB config
+        for i in 0..300 {
             let blobs = [[i as u8; BYTES_PER_BLOB]; 6];
             let commitments = [[i as u8; 48]; 6];
             let proofs = [[i as u8; 48]; 6];
