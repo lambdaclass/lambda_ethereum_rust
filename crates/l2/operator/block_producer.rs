@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use std::{
     str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -18,10 +17,8 @@ pub async fn start_block_producer() {
             .unwrap();
 
     loop {
-        let secret = Bytes::from_static(include_bytes!(
-            "/Users/manu/Documents/Lambda/eth/ethereum_rust/jwt.hex"
-        ));
-        let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret);
+        let secret = std::fs::read("../../../jwt.hex").unwrap();
+        let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret.into());
 
         let fork_choice_state = ForkChoiceState {
             head_block_hash: current_block_hash,

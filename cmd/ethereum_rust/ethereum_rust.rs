@@ -9,6 +9,7 @@ use ethereum_rust_storage::{EngineType, Store};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use std::future::IntoFuture;
 use std::path::Path;
+use std::str::FromStr;
 use std::time::Duration;
 use std::{
     fs::File,
@@ -23,12 +24,6 @@ mod decode;
 
 #[tokio::main]
 async fn main() {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
     let matches = cli::cli().get_matches();
 
     if let Some(matches) = matches.subcommand_matches("removedb") {
@@ -44,6 +39,13 @@ async fn main() {
         }
         return;
     }
+
+    let log_level = matches
+        .get_one::<String>("log-level")
+        .expect("shouldn't happen, log-level is used with a default value");
+    let log_level = Level::from_str(log_level).expect("Not supported log level provided");
+    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let http_addr = matches
         .get_one::<String>("http.addr")
