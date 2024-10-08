@@ -263,12 +263,11 @@ impl StoreEngine for Store {
         for tx in tx_iter {
             tx.compute_hash();
             if filter(&tx) {
-                // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
                 txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
         }
         for (_, txs) in txs_by_sender.iter_mut() {
-            txs.reverse();
+            txs.sort_by_key(|tx| tx.nonce());
         }
         Ok(txs_by_sender)
     }
