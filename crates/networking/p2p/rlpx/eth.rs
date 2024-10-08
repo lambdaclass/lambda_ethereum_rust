@@ -111,6 +111,47 @@ impl RLPxMessage for StatusMessage {
 }
 
 #[derive(Debug)]
+pub(crate) struct Transactions {
+    transactions: Vec<Transaction>,
+}
+
+impl Transactions {
+    pub fn build_from(transactions: Vec<Transaction>) -> Result<Self, StoreError> {
+        Ok(Self { transactions })
+    }
+}
+
+impl RLPxMessage for Transactions {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.transactions)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (transactions, _): (Vec<Transaction>, _) =
+            decoder.decode_field("transactions").unwrap();
+
+        Ok(Self { transactions })
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct GetPooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
@@ -235,9 +276,70 @@ mod tests {
     use ethereum_rust_storage::Store;
 
     use crate::rlpx::{
-        eth::{GetPooledTransactions, PooledTransactions},
+        eth::{GetPooledTransactions, PooledTransactions, Transactions},
         message::RLPxMessage,
     };
+
+    #[test]
+    fn transactions_message() {
+        // here https://github.com/belfortep/devp2p/blob/master/caps/eth.md#transactions-0x02 says:
+        //"Specify transactions that the peer should make sure is included on its transaction queue"
+        // This means transactions to add to the store, right?
+
+        let transaction1 = Transaction::LegacyTransaction(Default::default());
+        let transaction2 = EIP1559Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: TxKind::Call(Address::zero()),
+            ..Default::default()
+        };
+        let transaction3 = EIP2930Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: TxKind::Call(Address::zero()),
+            ..Default::default()
+        };
+        let transaction4 = EIP4844Transaction {
+            signature_r: U256::zero(),
+            signature_s: U256::max_value(),
+            to: Address::zero(),
+            ..Default::default()
+        };
+        let transaction2 = Transaction::EIP1559Transaction(transaction2.clone());
+        let transaction3 = Transaction::EIP2930Transaction(transaction3.clone());
+        let transaction4 = Transaction::EIP4844Transaction(transaction4.clone());
+
+        let sender_address = "127.0.0.1:3000";
+        let receiver_address = "127.0.0.1:4000";
+        let sender = std::net::UdpSocket::bind(sender_address).unwrap();
+        let receiver = std::net::UdpSocket::bind(receiver_address).unwrap();
+        let transactions = vec![
+            transaction1.clone(),
+            transaction2.clone(),
+            transaction3.clone(),
+            transaction4.clone(),
+        ];
+
+        let send_transactions = Transactions::build_from(transactions.clone()).unwrap();
+        let mut send_data_of_transactions = Vec::new();
+        send_transactions.encode(&mut send_data_of_transactions);
+        sender
+            .send_to(&send_data_of_transactions, receiver_address)
+            .unwrap(); // sends the transactions
+
+        let mut receiver_data_of_transactions = [0; 1024];
+        let len = receiver.recv(&mut receiver_data_of_transactions).unwrap(); // receives the transactions
+        let received_transactions =
+            Transactions::decode(&receiver_data_of_transactions[..len]).unwrap(); // transform the encoded received data to our struct
+        assert_eq!(received_transactions.transactions, transactions);
+
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        for transaction in received_transactions.transactions {
+            store
+                .add_transaction_to_pool(transaction.compute_hash(), transaction.clone())
+                .unwrap();
+        }
+    }
 
     #[test]
     fn get_pooled_transactions_empty_message() {
