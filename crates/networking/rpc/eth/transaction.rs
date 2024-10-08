@@ -185,7 +185,7 @@ impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!(
-            "Requested transaction at index: {} of block with hash: {}",
+            "Requested transaction at index: {} of block with hash: {:#x}",
             self.transaction_index, self.block,
         );
         let block_number = match storage.get_block_number(self.block)? {
@@ -222,7 +222,10 @@ impl RpcHandler for GetTransactionByHashRequest {
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        info!("Requested transaction with hash: {}", self.transaction_hash,);
+        info!(
+            "Requested transaction with hash: {:#x}",
+            self.transaction_hash,
+        );
         let (block_number, block_hash, index) =
             match storage.get_transaction_location(self.transaction_hash)? {
                 Some(location) => location,
@@ -258,7 +261,7 @@ impl RpcHandler for GetTransactionReceiptRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!(
-            "Requested receipt for transaction {}",
+            "Requested receipt for transaction {:#x}",
             self.transaction_hash,
         );
         let (block_number, block_hash, index) =
