@@ -35,9 +35,11 @@ impl std::fmt::Display for ExchangeTransitionConfigV1Req {
 
 impl RpcHandler for ExchangeTransitionConfigV1Req {
     fn parse(params: &Option<Vec<Value>>) -> Result<ExchangeTransitionConfigV1Req, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 1 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 1 param".to_owned()));
         };
         let payload: ExchangeTransitionConfigPayload = serde_json::from_value(params[0].clone())?;
         Ok(ExchangeTransitionConfigV1Req { payload })
@@ -65,6 +67,6 @@ impl RpcHandler for ExchangeTransitionConfigV1Req {
             terminal_block_number: payload.terminal_block_number,
             terminal_total_difficulty: terminal_total_difficulty.unwrap_or_default(),
         })
-        .map_err(|_| RpcErr::Internal)
+        .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }

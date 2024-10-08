@@ -39,7 +39,9 @@ impl RpcHandler for LogsFilter {
     fn parse(params: &Option<Vec<Value>>) -> Result<LogsFilter, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let param = param.as_object().ok_or(RpcErr::BadParams)?;
+                let param = param
+                    .as_object()
+                    .ok_or(RpcErr::BadParams("Param is not a object".to_owned()))?;
                 let from_block = param
                     .get("fromBlock")
                     .ok_or_else(|| RpcErr::MissingParam("fromBlock".to_string()))
@@ -73,7 +75,9 @@ impl RpcHandler for LogsFilter {
                     topics: topics_filters.unwrap_or_else(Vec::new),
                 })
             }
-            _ => Err(RpcErr::BadParams),
+            _ => Err(RpcErr::BadParams(
+                "Params are not an array of one element".to_owned(),
+            )),
         }
     }
     // TODO: This is longer than it has the right to be, maybe we should refactor it.
@@ -95,7 +99,7 @@ impl RpcHandler for LogsFilter {
             .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
         if (from..=to).is_empty() {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Empty range".to_string()));
         }
 
         let address_filter: HashSet<_> = match &self.address_filters {
@@ -112,10 +116,17 @@ impl RpcHandler for LogsFilter {
         for block_num in from..=to {
             // Take the header of the block, we
             // will use it to access the transactions.
-            let block_body = storage.get_block_body(block_num)?.ok_or(RpcErr::Internal)?;
+            let block_body =
+                storage
+                    .get_block_body(block_num)?
+                    .ok_or(RpcErr::Internal(format!(
+                        "Could not get body for block {block_num}"
+                    )))?;
             let block_header = storage
                 .get_block_header(block_num)?
-                .ok_or(RpcErr::Internal)?;
+                .ok_or(RpcErr::Internal(format!(
+                    "Could not get header for block {block_num}"
+                )))?;
             let block_hash = block_header.compute_block_hash();
 
             let mut block_log_index = 0_u64;
@@ -126,7 +137,7 @@ impl RpcHandler for LogsFilter {
                 let tx_hash = tx.compute_hash();
                 let receipt = storage
                     .get_receipt(block_num, tx_index as u64)?
-                    .ok_or(RpcErr::Internal)?;
+                    .ok_or(RpcErr::Internal("Could not get receipt".to_owned()))?;
 
                 if receipt.succeeded {
                     for log in &receipt.logs {
@@ -184,6 +195,6 @@ impl RpcHandler for LogsFilter {
                 .collect::<Vec<RpcLog>>()
         };
 
-        serde_json::to_value(filtered_logs).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(filtered_logs).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
