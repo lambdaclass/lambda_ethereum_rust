@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct ProverConfig {
     pub elf_path: String,
-    pub proof_data_handler_endpoint: String,
+    pub proof_data_provider_endpoint: String,
 }
 
 impl ProverConfig {

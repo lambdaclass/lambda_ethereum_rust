@@ -10,11 +10,11 @@ use tracing::{debug, warn};
 
 use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
 
-use super::sp1_prover::SP1Prover;
+use super::prover::Prover;
 
 pub async fn start_proof_data_client() {
     let config = ProverConfig::from_env().unwrap();
-    let proof_data_client = ProofDataClient::new(config.proof_data_handler_endpoint.clone());
+    let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
     proof_data_client.start(config).await;
 }
 
@@ -30,7 +30,7 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self, config: ProverConfig) {
-        let prover = SP1Prover::new_from_config(config);
+        let prover = Prover::new_from_config(config);
 
         loop {
             let id = self.request_new_data().unwrap();

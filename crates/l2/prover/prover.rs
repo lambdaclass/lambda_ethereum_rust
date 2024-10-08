@@ -4,20 +4,20 @@ use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, S
 
 use crate::utils::config::prover::ProverConfig;
 
-pub struct SP1Prover {
+pub struct Prover {
     client: ProverClient,
     pk: SP1ProvingKey,
     vk: SP1VerifyingKey,
 }
 
-impl Default for SP1Prover {
+impl Default for Prover {
     fn default() -> Self {
         let config = ProverConfig::from_env().unwrap();
         Self::new_from_config(config)
     }
 }
 
-impl SP1Prover {
+impl Prover {
     pub fn new_from_config(config: ProverConfig) -> Self {
         let elf = std::fs::read(config.elf_path).unwrap();
 
