@@ -5,7 +5,7 @@ use ethereum_rust_core::types::{
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -19,7 +19,7 @@ pub type NodeMap = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
 #[derive(Default, Clone)]
 pub struct Store(Arc<Mutex<StoreInner>>);
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct StoreInner {
     chain_data: ChainData,
     block_numbers: HashMap<BlockHash, BlockNumber>,
@@ -41,7 +41,7 @@ struct StoreInner {
     payloads: HashMap<u64, Block>,
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct ChainData {
     chain_config: Option<ChainConfig>,
     earliest_block_number: Option<BlockNumber>,
