@@ -1534,7 +1534,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+    current_call_frame.to = Some(Address::from_low_u64_be(U256::from(5).low_u64()));
 
     vm.execute(0).unwrap();
 
@@ -1592,7 +1592,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+    current_call_frame.to = Some(Address::from_low_u64_be(U256::from(5).low_u64()));
 
     vm.execute(0).unwrap();
 
@@ -1648,7 +1648,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+    current_call_frame.to = Some(Address::from_low_u64_be(U256::from(5).low_u64()));
 
     vm.execute(0).unwrap();
 
@@ -3381,6 +3381,7 @@ fn caller_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         msg_sender: caller,
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3413,6 +3414,7 @@ fn origin_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         msg_sender,
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3466,9 +3468,11 @@ fn address_op() {
     let address_that_has_the_code = Address::from_low_u64_be(0x42);
 
     let operations = [Operation::Address, Operation::Stop];
+    // let operations = [Operation::Address];
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3500,6 +3504,7 @@ fn selfbalance_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3530,6 +3535,7 @@ fn callvalue_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         value,
         ..Default::default()
     };
@@ -3559,6 +3565,7 @@ fn codesize_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3590,6 +3597,7 @@ fn gasprice_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         gas_price: Some(U256::from(0x9876)),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3637,6 +3645,7 @@ fn codecopy_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 

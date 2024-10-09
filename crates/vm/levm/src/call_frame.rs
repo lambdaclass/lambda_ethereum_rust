@@ -62,7 +62,7 @@ pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
-    pub to: Address,
+    pub to: Option<Address>,
     pub code_address: Address,
     pub delegate: Option<Address>,
     pub bytecode: Bytes,
@@ -91,7 +91,7 @@ impl CallFrame {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         msg_sender: Address,
-        to: Address,
+        to: Option<Address>,
         code_address: Address,
         delegate: Option<Address>,
         bytecode: Bytes,

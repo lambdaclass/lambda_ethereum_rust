@@ -73,7 +73,7 @@ impl VM {
         self.accrued_substate.warm_addresses.insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let to = current_call_frame.to.expect("no callee for call");
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -109,7 +109,7 @@ impl VM {
         let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
         let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let to = current_call_frame.to.expect("no callee for callcode");
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -176,7 +176,7 @@ impl VM {
 
         let value = current_call_frame.msg_value;
         let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let to = current_call_frame.to.expect("no callee for delegate call");
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
