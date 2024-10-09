@@ -1,4 +1,4 @@
-use super::secret_key_deserializer;
+use crate::utils::secret_key_deserializer;
 use ethereum_types::Address;
 use libsecp256k1::SecretKey;
 use serde::Deserialize;
