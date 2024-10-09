@@ -497,6 +497,7 @@ impl VM {
 
         let code_address_bytecode = self.db.get_account_bytecode(&code_address);
         if code_address_bytecode.is_empty() {
+            // should stop
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
