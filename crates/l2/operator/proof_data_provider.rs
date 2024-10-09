@@ -7,8 +7,11 @@ use serde::{Deserialize, Serialize};
 use sp1_sdk::SP1ProofWithPublicValues;
 use tracing::{debug, info};
 
-pub async fn start_proof_data_provider(ip: IpAddr, port: u16) {
-    let proof_data_provider = ProofDataProvider::new(ip, port);
+use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
+
+pub async fn start_proof_data_provider() {
+    let config = ProofDataProviderConfig::from_env().unwrap();
+    let proof_data_provider = ProofDataProvider::new_from_config(config);
     proof_data_provider.start();
 }
 
@@ -33,8 +36,11 @@ struct ProofDataProvider {
 }
 
 impl ProofDataProvider {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        Self { ip, port }
+    pub fn new_from_config(config: ProofDataProviderConfig) -> Self {
+        Self {
+            ip: config.listen_ip,
+            port: config.listen_port,
+        }
     }
 
     pub fn start(&self) {
