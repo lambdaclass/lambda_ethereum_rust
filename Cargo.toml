@@ -11,6 +11,7 @@ members = [
     "cmd/ethereum_rust",
     "cmd/ef_tests",
     "crates/vm/levm",
+    "crates/vm/levm/bench/revm_comparison",
     "cmd/ethereum_rust_l2",
 ]
 resolver = "2"
@@ -30,6 +31,7 @@ ethereum_rust-evm = { path = "./crates/vm/evm" }
 ethereum_rust-trie = { path = "./crates/storage/trie" }
 ethereum_rust-rlp = { path = "./crates/common/rlp" }
 ethereum_rust-l2 =  { path = "./crates/l2" }
+ethereum_rust-levm =  { path = "./crates/levm" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
@@ -47,5 +49,6 @@ crc32fast = "1.4.2"
 lazy_static = "1.5.0"
 sha3 = "0.10.8"
 tokio-util = { version = "0.7.12", features = ["rt"] }
+jsonwebtoken = "9.3.0"
 rand = "0.8.5"
 reqwest = { version = "0.12.7", features = ["json"] }

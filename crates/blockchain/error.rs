@@ -54,4 +54,8 @@ pub enum MempoolError {
     TxIntrinsicGasCostAboveLimitError,
     #[error("Transaction blob base fee too low")]
     TxBlobBaseFeeTooLowError,
+    #[error("Blob transaction submited without blobs bundle")]
+    BlobTxNoBlobsBundle,
+    #[error("Mismatch between blob versioned hashes and blobs bundle content length")]
+    BlobsBundleWrongLen,
 }

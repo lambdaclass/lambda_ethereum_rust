@@ -97,16 +97,19 @@ pub enum Fork {
 impl ChainConfig {
     pub fn is_shanghai_activated(&self, block_timestamp: u64) -> bool {
         self.shanghai_time
-            .map_or(false, |time| time <= block_timestamp)
+            .is_some_and(|time| time <= block_timestamp)
     }
 
     pub fn is_cancun_activated(&self, block_timestamp: u64) -> bool {
-        self.cancun_time
-            .map_or(false, |time| time <= block_timestamp)
+        self.cancun_time.is_some_and(|time| time <= block_timestamp)
     }
 
     pub fn is_istanbul_activated(&self, block_number: BlockNumber) -> bool {
-        self.istanbul_block.map_or(false, |num| num <= block_number)
+        self.istanbul_block.is_some_and(|num| num <= block_number)
+    }
+
+    pub fn is_eip155_activated(&self, block_number: BlockNumber) -> bool {
+        self.eip155_block.is_some_and(|num| num <= block_number)
     }
 
     pub fn get_fork(&self, block_timestamp: u64) -> Fork {

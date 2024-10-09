@@ -69,14 +69,14 @@ impl NewFilterRequest {
             .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
         if (from..=to).is_empty() {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Invalid block range".to_string()));
         }
 
         let id: u64 = random();
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|unix_time| unix_time.as_secs())
-            .map_err(|_err| RpcErr::Internal)?;
+            .map_err(|error| RpcErr::Internal(error.to_string()))?;
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
             error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
             **poisoned_guard.get_mut() = HashMap::new();
@@ -112,7 +112,7 @@ impl DeleteFilterRequest {
                 return Ok(DeleteFilterRequest { id });
             }
             Some(_) => {
-                return Err(RpcErr::BadParams);
+                return Err(RpcErr::BadParams("Expected an array with a single hex encoded id".to_string()));
             }
             None => {
                 return Err(RpcErr::MissingParam("0".to_string()));

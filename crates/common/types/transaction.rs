@@ -610,11 +610,11 @@ impl Transaction {
         keccak_hash::keccak(self.encode_canonical_to_vec())
     }
 
-    fn gas_tip_cap(&self) -> u64 {
+    pub fn gas_tip_cap(&self) -> u64 {
         self.max_priority_fee().unwrap_or(self.gas_price())
     }
 
-    fn gas_fee_cap(&self) -> u64 {
+    pub fn gas_fee_cap(&self) -> u64 {
         self.max_fee_per_gas().unwrap_or(self.gas_price())
     }
 
@@ -625,6 +625,18 @@ impl Transaction {
         self.gas_fee_cap()
             .checked_sub(base_fee)
             .map(|tip| min(tip, self.gas_fee_cap()))
+    }
+
+    /// Returns whether the transaction is replay-protected.
+    /// For more information check out [EIP-155](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md)
+    pub fn protected(&self) -> bool {
+        match self {
+            Transaction::LegacyTransaction(tx) if tx.v.bits() <= 8 => {
+                let v = tx.v.as_u64();
+                v != 27 && v != 28 && v != 1 && v != 0
+            }
+            _ => true,
+        }
     }
 }
 
@@ -779,16 +791,15 @@ mod serde_impl {
         where
             D: serde::Deserializer<'de>,
         {
-            let str = String::deserialize(deserializer)?;
-            Ok(if str.is_empty() {
-                TxKind::Create
-            } else {
-                TxKind::Call(
+            let str_option = Option::<String>::deserialize(deserializer)?;
+            match str_option {
+                Some(str) if !str.is_empty() => Ok(TxKind::Call(
                     Address::from_str(str.trim_start_matches("0x")).map_err(|_| {
                         serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
                     })?,
-                )
-            })
+                )),
+                _ => Ok(TxKind::Create),
+            }
         }
     }
 
