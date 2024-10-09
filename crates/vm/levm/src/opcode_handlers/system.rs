@@ -272,4 +272,28 @@ impl VM {
 
         Ok(OpcodeSuccess::Continue)
     }
+
+    // REVERT operation
+    pub fn op_revert(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        unimplemented!("REVERT opcode encountered")
+    }
+
+    // INVALID operation
+    pub fn op_invalid(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        unimplemented!("INVALID opcode encountered")
+    }
+
+    // SELFDESTRUCT operation
+    pub fn op_selfdestruct(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        unimplemented!("SELFDESTRUCT opcode encountered")        
+    }
 }

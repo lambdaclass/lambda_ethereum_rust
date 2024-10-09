@@ -165,9 +165,9 @@ pub enum Opcode {
     DELEGATECALL = 0xF4,
     CREATE2 = 0xF5,
     STATICCALL = 0xFA,
-    // REVERT = 0xFD,
-    // INVALID = 0xFE,
-    // SELFDESTRUCT = 0xFF,
+    REVERT = 0xFD,
+    INVALID = 0xFE,
+    SELFDESTRUCT = 0xFF,
 }
 
 impl Copy for Opcode {}
