@@ -3520,3 +3520,139 @@ fn selfbalance_op() {
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), balance);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::SELFBALANCE);
 }
+
+#[test]
+fn callvalue_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let value = U256::from(0x1234);
+
+    let operations = [Operation::Callvalue, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        value,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute(0).unwrap().is_success());
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), value);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLVALUE);
+}
+
+#[test]
+fn codesize_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Codesize, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute(0).unwrap().is_success());
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(2)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CODESIZE);
+}
+
+#[test]
+fn gasprice_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let operations = [Operation::Gasprice, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_price: Some(U256::from(0x9876)),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute(0).unwrap().is_success());
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(0x9876)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::GASPRICE);
+}
+
+#[test]
+fn codecopy_op() {
+    // Copies two bytes of the code, with offset 2, and loads them beginning at offset 3 in memory.
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    // https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code=%27~2z~2z~3zCODECOPY%27~PUSH1%200x0z%5Cn%01z~_
+    let operations = [
+        Operation::Push((1, 0x02.into())), // size
+        Operation::Push((1, 0x02.into())), // offset
+        Operation::Push((1, 0x03.into())), // destination offset
+        Operation::Codecopy,
+        Operation::Stop,
+    ];
+
+    let expected_memory_bytes = [
+        [0x00; 3].to_vec(),
+        [[0x60], [0x02]].concat(),
+        [0x00; 27].to_vec(),
+    ]
+    .concat();
+
+    let expected_memory = U256::from_big_endian(&expected_memory_bytes);
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute(0).unwrap().is_success());
+
+    assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9 + 3 * gas_cost::PUSHN);
+}

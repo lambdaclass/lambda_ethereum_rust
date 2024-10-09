@@ -196,7 +196,7 @@ pub struct Environment {
     pub origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    // gas_price: u64,
+    pub gas_price: U256,
     pub gas_limit: u64,
     pub consumed_gas: u64,
     refunded_gas: u64,
@@ -263,6 +263,7 @@ impl VM {
         let env = Environment {
             block: block_env,
             consumed_gas: TX_BASE_COST,
+            gas_price: tx_env.gas_price.unwrap_or_default(),
             gas_limit: u64::MAX,
             origin: tx_env.msg_sender,
             refunded_gas: 0,
@@ -442,6 +443,10 @@ impl VM {
                 Opcode::ORIGIN => self.op_origin(&mut current_call_frame),
                 Opcode::BALANCE => self.op_balance(&mut current_call_frame),
                 Opcode::CALLER => self.op_caller(&mut current_call_frame),
+                Opcode::CALLVALUE => self.op_callvalue(&mut current_call_frame),
+                Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
+                Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
+                Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
