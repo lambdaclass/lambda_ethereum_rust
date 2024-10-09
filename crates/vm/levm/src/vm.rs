@@ -119,7 +119,7 @@ impl Db {
             .insert(key, slot);
     }
 
-    fn get_account_bytecode(&self, address: &Address) -> Bytes {
+    pub fn get_account_bytecode(&self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
@@ -450,6 +450,7 @@ impl VM {
                 Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
                 Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
+                Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 

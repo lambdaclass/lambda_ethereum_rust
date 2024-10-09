@@ -3926,6 +3926,43 @@ fn gasprice_op() {
 }
 
 #[test]
+fn extcodesize_existing_account() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let operations = [
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeSize,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 23.into());
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodesize_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODESIZE%5CnSTOP'_
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let operations = [
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeSize,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 0.into());
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
 fn codecopy_op() {
     // Copies two bytes of the code, with offset 2, and loads them beginning at offset 3 in memory.
     let address_that_has_the_code = Address::from_low_u64_be(0x42);

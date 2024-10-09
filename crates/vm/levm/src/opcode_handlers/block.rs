@@ -1,6 +1,7 @@
 use crate::{
+    block::LAST_AVAILABLE_BLOCK_LIMIT,
+    constants::{call_opcode, WORD_SIZE},
     vm::word_to_address,
-    {block::LAST_AVAILABLE_BLOCK_LIMIT, constants::WORD_SIZE},
 };
 
 // Block Information (11)
@@ -383,9 +384,22 @@ impl VM {
     // EXTCODESIZE operation
     pub fn op_extcodesize(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        let address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        };
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+        let code_size = self.db.get_account_bytecode(&address).len();
+        current_call_frame.stack.push(code_size.into())?;
+
+        self.env.consumed_gas += gas_cost;
+        Ok(OpcodeSuccess::Continue)
     }
 
     // EXTCODECOPY operation
