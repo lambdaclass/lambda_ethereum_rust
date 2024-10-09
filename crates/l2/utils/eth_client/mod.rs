@@ -203,4 +203,19 @@ impl EthClient {
             Err(e) => Err(e.to_string()),
         }
     }
+
+    pub async fn gas_price(&self) -> Result<U256, String> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_gasPrice".to_string(),
+            params: None,
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
+            Ok(RpcResponse::Error(e)) => Err(e.error.message),
+            Err(e) => Err(e.to_string()),
+        }
+    }
 }
