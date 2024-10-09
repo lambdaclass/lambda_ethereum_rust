@@ -7,12 +7,14 @@ use crate::{
 };
 use ethereum_types::Address;
 use eyre::Context;
+use libsecp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct EthereumRustL2Config {
     pub network: NetworkConfig,
     pub wallet: WalletConfig,
+    pub contracts: ContractsConfig,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -28,7 +30,16 @@ pub struct NetworkConfig {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct WalletConfig {
     pub address: Address,
-    pub private_key: String,
+    #[serde(
+        serialize_with = "ethereum_rust_l2::utils::secret_key_serializer",
+        deserialize_with = "ethereum_rust_l2::utils::secret_key_deserializer"
+    )]
+    pub private_key: SecretKey,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ContractsConfig {
+    pub common_bridge: Address,
 }
 
 pub async fn try_load_selected_config() -> eyre::Result<Option<EthereumRustL2Config>> {

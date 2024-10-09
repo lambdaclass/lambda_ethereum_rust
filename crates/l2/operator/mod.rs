@@ -3,6 +3,7 @@ use crate::utils::{
     engine_client::EngineClient,
     eth_client::EthClient,
 };
+use errors::OperatorError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{Block, EIP1559Transaction, TxKind};
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -17,6 +18,8 @@ use tracing::{error, info};
 
 pub mod l1_watcher;
 pub mod proof_data_provider;
+
+pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
@@ -34,10 +37,11 @@ pub async fn start_operator(store: Store) {
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
     let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
     let operator = tokio::spawn(async move {
-        let eth_config = EthConfig::from_env().unwrap();
-        let operator_config = OperatorConfig::from_env().unwrap();
-        let engine_config = EngineApiConfig::from_env().unwrap();
-        let operator = Operator::new_from_config(&operator_config, eth_config, engine_config);
+        let eth_config = EthConfig::from_env().expect("EthConfig::from_env");
+        let operator_config = OperatorConfig::from_env().expect("OperatorConfig::from_env");
+        let engine_config = EngineApiConfig::from_env().expect("EngineApiConfig::from_env");
+        let operator = Operator::new_from_config(&operator_config, eth_config, engine_config)
+            .expect("Operator::new_from_config");
         let head_block_hash = {
             let current_block_number = store
                 .get_latest_block_number()
@@ -48,9 +52,12 @@ pub async fn start_operator(store: Store) {
                 .expect("store.get_canonical_block_hash")
                 .expect("store.get_canonical_block_hash returned None")
         };
-        operator.start(head_block_hash, store).await
+        operator
+            .start(head_block_hash, store)
+            .await
+            .expect("Operator::start");
     });
-    tokio::try_join!(l1_watcher, proof_data_provider, operator).unwrap();
+    tokio::try_join!(l1_watcher, proof_data_provider, operator).expect("tokio::try_join");
 }
 
 impl Operator {
@@ -58,21 +65,21 @@ impl Operator {
         config: &OperatorConfig,
         eth_config: EthConfig,
         engine_config: EngineApiConfig,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, OperatorError> {
+        Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
-            engine_client: EngineClient::new_from_config(engine_config),
+            engine_client: EngineClient::new_from_config(engine_config)?,
             block_executor_address: config.block_executor_address,
             operator_address: config.operator_address,
             operator_private_key: config.operator_private_key,
             block_production_interval: Duration::from_millis(config.interval_ms),
-        }
+        })
     }
 
-    pub async fn start(&self, head_block_hash: H256, store: Store) {
+    pub async fn start(&self, head_block_hash: H256, store: Store) -> Result<(), OperatorError> {
         let mut head_block_hash = head_block_hash;
         loop {
-            head_block_hash = self.produce_block(head_block_hash).await;
+            head_block_hash = self.produce_block(head_block_hash).await?;
 
             // TODO: Check what happens with the transactions included in the payload of the failed block.
             if head_block_hash == H256::zero() {
@@ -80,7 +87,14 @@ impl Operator {
                 continue;
             }
 
-            let block = store.get_block_by_hash(head_block_hash).unwrap().unwrap();
+            let block = store
+                .get_block_by_hash(head_block_hash)
+                .map_err(|error| {
+                    OperatorError::FailedToRetrieveBlockFromStorage(error.to_string())
+                })?
+                .ok_or(OperatorError::FailedToProduceBlock(
+                    "Failed to get block by hash from storage".to_string(),
+                ))?;
 
             let commitment = keccak(block.encode_to_vec());
 
@@ -114,7 +128,7 @@ impl Operator {
         }
     }
 
-    pub async fn produce_block(&self, head_block_hash: H256) -> H256 {
+    pub async fn produce_block(&self, head_block_hash: H256) -> Result<H256, OperatorError> {
         info!("Producing block");
         let fork_choice_state = ForkChoiceState {
             head_block_hash,
@@ -122,10 +136,7 @@ impl Operator {
             finalized_block_hash: head_block_hash,
         };
         let payload_attributes = PayloadAttributesV3 {
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
             ..Default::default()
         };
         let fork_choice_response = match self
@@ -134,20 +145,27 @@ impl Operator {
             .await
         {
             Ok(response) => response,
-            Err(e) => {
-                error!("Error sending forkchoiceUpdateV3: {e}");
-                // TODO: Return error
-                return H256::zero();
+            Err(error) => {
+                error!("Error sending forkchoiceUpdateV3: {error}");
+                return Err(OperatorError::FailedToProduceBlock(format!(
+                    "forkchoiceUpdateV3: {error}",
+                )));
             }
         };
-        let payload_id = fork_choice_response.payload_id.unwrap();
+        let payload_id =
+            fork_choice_response
+                .payload_id
+                .ok_or(OperatorError::FailedToProduceBlock(
+                    "payload_id is None in ForkChoiceResponse".to_string(),
+                ))?;
         let execution_payload_response =
             match self.engine_client.engine_get_payload_v3(payload_id).await {
                 Ok(response) => response,
-                Err(e) => {
-                    error!("Error sending getPayload: {e}");
-                    // TODO: Return error
-                    return H256::zero();
+                Err(error) => {
+                    error!("Error sending getPayloadV3: {error}");
+                    return Err(OperatorError::FailedToProduceBlock(format!(
+                        "getPayloadV3: {error}"
+                    )));
                 }
             };
         let payload_status = match self
@@ -160,15 +178,21 @@ impl Operator {
             .await
         {
             Ok(response) => response,
-            Err(e) => {
-                error!("Error sending newPayload: {e}");
-                // TODO: Return error
-                return H256::zero();
+            Err(error) => {
+                error!("Error sending newPayloadV3: {error}");
+                return Err(OperatorError::FailedToProduceBlock(format!(
+                    "newPayloadV3: {error}"
+                )));
             }
         };
-        let produced_block_hash = payload_status.latest_valid_hash.unwrap();
+        let produced_block_hash =
+            payload_status
+                .latest_valid_hash
+                .ok_or(OperatorError::FailedToProduceBlock(
+                    "latest_valid_hash is None in PayloadStatus".to_string(),
+                ))?;
         info!("Produced block {produced_block_hash:#x}");
-        produced_block_hash
+        Ok(produced_block_hash)
     }
 
     pub async fn prepare_commitment(&self, block: Block) -> H256 {
@@ -176,7 +200,7 @@ impl Operator {
         keccak(block.encode_to_vec())
     }
 
-    pub async fn send_commitment(&self, commitment: H256) -> Result<H256, String> {
+    pub async fn send_commitment(&self, commitment: H256) -> Result<H256, OperatorError> {
         info!("Sending commitment");
         let mut calldata = Vec::with_capacity(68);
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
@@ -196,8 +220,7 @@ impl Operator {
         while self
             .eth_client
             .get_transaction_receipt(commit_tx_hash)
-            .await
-            .unwrap()
+            .await?
             .is_none()
         {
             sleep(Duration::from_secs(1)).await;
@@ -206,7 +229,7 @@ impl Operator {
         Ok(commit_tx_hash)
     }
 
-    pub async fn send_proof(&self, block_proof: &[u8]) -> Result<H256, String> {
+    pub async fn send_proof(&self, block_proof: &[u8]) -> Result<H256, OperatorError> {
         info!("Sending proof");
         let mut calldata = Vec::new();
         calldata.extend(VERIFY_FUNCTION_SELECTOR);
@@ -230,8 +253,7 @@ impl Operator {
         while self
             .eth_client
             .get_transaction_receipt(verify_tx_hash)
-            .await
-            .unwrap()
+            .await?
             .is_none()
         {
             sleep(Duration::from_secs(1)).await;
@@ -240,7 +262,7 @@ impl Operator {
         Ok(verify_tx_hash)
     }
 
-    async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, String> {
+    async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, OperatorError> {
         tx.gas_limit = self
             .eth_client
             .estimate_gas(tx.clone())
@@ -254,5 +276,6 @@ impl Operator {
         self.eth_client
             .send_eip1559_transaction(tx, self.operator_private_key)
             .await
+            .map_err(OperatorError::from)
     }
 }

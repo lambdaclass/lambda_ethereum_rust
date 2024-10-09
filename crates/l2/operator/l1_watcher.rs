@@ -1,6 +1,9 @@
-use crate::utils::{
-    config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
-    eth_client::{transaction::PayloadRLPEncode, EthClient},
+use crate::{
+    operator::errors::L1WatcherError,
+    utils::{
+        config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
+        eth_client::{transaction::PayloadRLPEncode, EthClient},
+    },
 };
 use bytes::Bytes;
 use ethereum_rust_blockchain::{constants::TX_GAS_COST, mempool};
@@ -16,12 +19,15 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 pub async fn start_l1_watcher(store: Store) {
-    let eth_config = EthConfig::from_env().unwrap();
-    let watcher_config = L1WatcherConfig::from_env().unwrap();
+    let eth_config = EthConfig::from_env().expect("EthConfig::from_env()");
+    let watcher_config = L1WatcherConfig::from_env().expect("L1WatcherConfig::from_env()");
     let mut l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     loop {
-        let logs = l1_watcher.get_logs().await;
-        l1_watcher.process_logs(logs, &store).await;
+        let logs = l1_watcher.get_logs().await.expect("l1_watcher.get_logs()");
+        let _deposit_txs = l1_watcher
+            .process_logs(logs, &store)
+            .await
+            .expect("l1_watcher.process_logs()");
     }
 }
 
@@ -47,8 +53,9 @@ impl L1Watcher {
             l2_operator_pk: watcher_config.l2_operator_private_key,
         }
     }
-    pub async fn get_logs(&mut self) -> Vec<RpcLog> {
-        let current_block = self.eth_client.get_block_number().await.unwrap();
+
+    pub async fn get_logs(&mut self) -> Result<Vec<RpcLog>, L1WatcherError> {
+        let current_block = self.eth_client.get_block_number().await?;
 
         debug!(
             "Current block number: {} ({:#x})",
@@ -70,8 +77,7 @@ impl L1Watcher {
                 self.address,
                 self.topics[0],
             )
-            .await
-            .unwrap();
+            .await?;
 
         debug!("Logs: {:#?}", logs);
 
@@ -79,37 +85,52 @@ impl L1Watcher {
 
         sleep(self.check_interval).await;
 
-        logs
+        Ok(logs)
     }
 
-    pub async fn process_logs(&self, logs: Vec<RpcLog>, store: &Store) {
+    pub async fn process_logs(
+        &self,
+        logs: Vec<RpcLog>,
+        store: &Store,
+    ) -> Result<Vec<H256>, L1WatcherError> {
+        let mut deposit_txs = Vec::new();
         for log in logs {
-            let mint_value = format!("{:#x}", log.log.topics[1]).parse::<U256>().unwrap();
+            let mint_value = format!("{:#x}", log.log.topics[1])
+                .parse::<U256>()
+                .map_err(|e| {
+                    L1WatcherError::FailedToDeserializeLog(format!(
+                        "Failed to parse mint value from log: {e:#?}"
+                    ))
+                })?;
             let beneficiary = format!("{:#x}", log.log.topics[2].into_uint())
                 .parse::<Address>()
-                .unwrap();
+                .map_err(|e| {
+                    L1WatcherError::FailedToDeserializeLog(format!(
+                        "Failed to parse beneficiary from log: {e:#?}"
+                    ))
+                })?;
 
-            info!(
-                "Initiating mint transaction for {:#x} with value {:#x}",
-                beneficiary, mint_value
-            );
+            info!("Initiating mint transaction for {beneficiary:#x} with value {mint_value:#x}",);
 
             let mut mint_transaction = EIP1559Transaction {
                 to: TxKind::Call(beneficiary),
                 data: Bytes::from(b"mint".as_slice()),
-                chain_id: store.get_chain_config().unwrap().chain_id,
+                chain_id: store
+                    .get_chain_config()
+                    .map_err(|e| L1WatcherError::FailedToRetrieveChainConfig(e.to_string()))?
+                    .chain_id,
                 ..Default::default()
             };
 
             mint_transaction.nonce = store
                 .get_account_info(
-                    self.eth_client.get_block_number().await.unwrap().as_u64(),
+                    self.eth_client.get_block_number().await?.as_u64(),
                     beneficiary,
                 )
-                .unwrap()
+                .map_err(|e| L1WatcherError::FailedToRetrieveDepositorAccountInfo(e.to_string()))?
                 .map(|info| info.nonce)
                 .unwrap_or_default();
-            mint_transaction.max_fee_per_gas = self.eth_client.gas_price().await.unwrap().as_u64();
+            mint_transaction.max_fee_per_gas = self.eth_client.gas_price().await?.as_u64();
             // TODO(IMPORTANT): gas_limit should come in the log and must
             // not be calculated in here. The reason for this is that the
             // gas_limit for this transaction is payed by the caller in
@@ -139,13 +160,15 @@ impl L1Watcher {
             ) {
                 Ok(hash) => {
                     info!("Mint transaction added to mempool {hash:#x}",);
-                    // Ok(hash)
+                    deposit_txs.push(hash);
                 }
                 Err(e) => {
                     warn!("Failed to add mint transaction to the mempool: {e:#?}");
-                    // Err(e)
+                    // TODO: Figure out if we want to continue or not
+                    continue;
                 }
             }
         }
+        Ok(deposit_txs)
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     commands::{self, config::EditConfigOpts},
-    config::{EthereumRustL2Config, NetworkConfig, WalletConfig},
+    config::{ContractsConfig, EthereumRustL2Config, NetworkConfig, WalletConfig},
     utils::messages::{
         ADDRESS_PROMPT_MSG, CONFIG_CREATE_PROMPT_MSG, CONFIG_EDIT_PROMPT_MSG,
         L1_CHAIN_ID_PROMPT_MSG, L1_EXPLORER_URL_PROMPT_MSG, L1_RPC_URL_PROMPT_MSG,
@@ -9,14 +9,19 @@ use crate::{
     },
 };
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use ethereum_types::H256;
 use eyre::ContextCompat;
+use libsecp256k1::SecretKey;
 use std::{path::PathBuf, str::FromStr};
 
 pub mod default_values;
 use default_values::{
-    DEFAULT_ADDRESS, DEFAULT_L1_CHAIN_ID, DEFAULT_L1_EXPLORER_URL, DEFAULT_L1_RPC_URL,
-    DEFAULT_L2_CHAIN_ID, DEFAULT_L2_EXPLORER_URL, DEFAULT_L2_RPC_URL, DEFAULT_PRIVATE_KEY,
+    DEFAULT_ADDRESS, DEFAULT_CONTRACTS_COMMON_BRIDGE_ADDRESS, DEFAULT_L1_CHAIN_ID,
+    DEFAULT_L1_EXPLORER_URL, DEFAULT_L1_RPC_URL, DEFAULT_L2_CHAIN_ID, DEFAULT_L2_EXPLORER_URL,
+    DEFAULT_L2_RPC_URL, DEFAULT_PRIVATE_KEY,
 };
+
+use super::messages::CONTRACTS_COMMON_BRIDGE_PROMPT_MSG;
 
 pub const SELECTED_CONFIG_FILE_NAME: &str = ".selected";
 
@@ -101,8 +106,22 @@ pub fn prompt_config() -> eyre::Result<EthereumRustL2Config> {
             l1_explorer_url: prompt(L1_EXPLORER_URL_PROMPT_MSG, DEFAULT_L1_EXPLORER_URL.into())?,
         },
         wallet: WalletConfig {
-            private_key: prompt(PRIVATE_KEY_PROMPT_MSG, DEFAULT_PRIVATE_KEY.into())?,
+            private_key: {
+                let prompted_private_key = prompt(
+                    PRIVATE_KEY_PROMPT_MSG,
+                    hex::encode(
+                        SecretKey::parse(DEFAULT_PRIVATE_KEY.as_fixed_bytes())?.serialize(),
+                    ),
+                )?;
+                SecretKey::parse(H256::from_str(&prompted_private_key[2..])?.as_fixed_bytes())?
+            },
             address: prompt(ADDRESS_PROMPT_MSG, DEFAULT_ADDRESS)?,
+        },
+        contracts: ContractsConfig {
+            common_bridge: prompt(
+                CONTRACTS_COMMON_BRIDGE_PROMPT_MSG,
+                DEFAULT_CONTRACTS_COMMON_BRIDGE_ADDRESS,
+            )?,
         },
     };
     Ok(prompted_config)
@@ -191,8 +210,20 @@ pub fn edit_existing_config_interactively(
             )?,
         },
         wallet: WalletConfig {
-            private_key: prompt(PRIVATE_KEY_PROMPT_MSG, existing_config.wallet.private_key)?,
+            private_key: {
+                let prompted_private_key = prompt(
+                    PRIVATE_KEY_PROMPT_MSG,
+                    hex::encode(existing_config.wallet.private_key.serialize()),
+                )?;
+                SecretKey::parse(H256::from_str(&prompted_private_key[2..])?.as_fixed_bytes())?
+            },
             address: prompt(ADDRESS_PROMPT_MSG, existing_config.wallet.address)?,
+        },
+        contracts: ContractsConfig {
+            common_bridge: prompt(
+                CONTRACTS_COMMON_BRIDGE_PROMPT_MSG,
+                existing_config.contracts.common_bridge,
+            )?,
         },
     };
     Ok(config)
@@ -227,7 +258,15 @@ pub fn edit_existing_config_non_interactively(
             address: opts.address.unwrap_or(existing_config.wallet.address),
             private_key: opts
                 .private_key
+                .map(|pk| {
+                    SecretKey::parse(H256::from_str(&pk[2..]).unwrap().as_fixed_bytes()).unwrap()
+                })
                 .unwrap_or(existing_config.wallet.private_key),
+        },
+        contracts: ContractsConfig {
+            common_bridge: opts
+                .common_bridge
+                .unwrap_or(existing_config.contracts.common_bridge),
         },
     };
     Ok(config)

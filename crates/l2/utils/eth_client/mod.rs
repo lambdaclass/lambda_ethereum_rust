@@ -1,3 +1,8 @@
+use crate::utils::config::eth::EthConfig;
+use errors::{
+    EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError, GetGasPriceError,
+    GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
+};
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
@@ -12,8 +17,7 @@ use serde::Deserialize;
 use serde_json::json;
 use transaction::PayloadRLPEncode;
 
-use super::config::eth::EthConfig;
-
+pub mod errors;
 pub mod transaction;
 
 #[derive(Deserialize, Debug)]
@@ -45,18 +49,21 @@ impl EthClient {
         }
     }
 
-    async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, reqwest::Error> {
+    async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, EthClientError> {
         self.client
             .post(&self.url)
             .header("content-type", "application/json")
-            .body(serde_json::ser::to_string(&request).unwrap())
+            .body(serde_json::ser::to_string(&request).map_err(|error| {
+                EthClientError::FailedToSerializeRequestBody(format!("{error}: {request:?}"))
+            })?)
             .send()
             .await?
             .json::<RpcResponse>()
             .await
+            .map_err(EthClientError::from)
     }
 
-    pub async fn send_raw_transaction(&self, data: &[u8]) -> Result<H256, String> {
+    pub async fn send_raw_transaction(&self, data: &[u8]) -> Result<H256, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -65,9 +72,13 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(SendRawTransactionError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(SendRawTransactionError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
@@ -75,7 +86,7 @@ impl EthClient {
         &self,
         mut tx: EIP1559Transaction,
         private_key: SecretKey,
-    ) -> Result<H256, String> {
+    ) -> Result<H256, EthClientError> {
         let mut payload = vec![EIP1559_TX_TYPE];
         payload.append(tx.encode_payload_to_vec().as_mut());
 
@@ -95,7 +106,10 @@ impl EthClient {
         self.send_raw_transaction(data.as_slice()).await
     }
 
-    pub async fn estimate_gas(&self, transaction: EIP1559Transaction) -> Result<u64, String> {
+    pub async fn estimate_gas(
+        &self,
+        transaction: EIP1559Transaction,
+    ) -> Result<u64, EthClientError> {
         let to = match transaction.to {
             TxKind::Call(addr) => addr,
             TxKind::Create => Address::zero(),
@@ -114,16 +128,20 @@ impl EthClient {
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => u64::from_str_radix(
-                &serde_json::from_value::<String>(result.result).unwrap()[2..],
+                &serde_json::from_value::<String>(result.result)
+                    .map_err(EstimateGasPriceError::SerdeJSONError)?[2..],
                 16,
             )
-            .map_err(|e| e.to_string()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            .map_err(EstimateGasPriceError::ParseIntError)
+            .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(EstimateGasPriceError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
-    pub async fn get_gas_price(&self) -> Result<u64, String> {
+    pub async fn get_gas_price(&self) -> Result<u64, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -133,16 +151,20 @@ impl EthClient {
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => u64::from_str_radix(
-                &serde_json::from_value::<String>(result.result).unwrap()[2..],
+                &serde_json::from_value::<String>(result.result)
+                    .map_err(GetGasPriceError::SerdeJSONError)?[2..],
                 16,
             )
-            .map_err(|e| e.to_string()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            .map_err(GetGasPriceError::ParseIntError)
+            .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetGasPriceError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
-    pub async fn get_nonce(&self, address: Address) -> Result<u64, String> {
+    pub async fn get_nonce(&self, address: Address) -> Result<u64, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -152,16 +174,20 @@ impl EthClient {
 
         match self.send_request(request).await {
             Ok(RpcResponse::Success(result)) => u64::from_str_radix(
-                &serde_json::from_value::<String>(result.result).unwrap()[2..],
+                &serde_json::from_value::<String>(result.result)
+                    .map_err(GetNonceError::SerdeJSONError)?[2..],
                 16,
             )
-            .map_err(|e| e.to_string()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            .map_err(GetNonceError::ParseIntError)
+            .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetNonceError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
-    pub async fn get_block_number(&self) -> Result<U256, String> {
+    pub async fn get_block_number(&self) -> Result<U256, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -170,9 +196,13 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetBlockNumberError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetBlockNumberError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
@@ -182,7 +212,7 @@ impl EthClient {
         to_block: U256,
         address: Address,
         topic: H256,
-    ) -> Result<Vec<RpcLog>, String> {
+    ) -> Result<Vec<RpcLog>, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -198,13 +228,17 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetLogsError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetLogsError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
-    pub async fn gas_price(&self) -> Result<U256, String> {
+    pub async fn gas_price(&self) -> Result<U256, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -213,16 +247,20 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetLogsError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetLogsError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: H256,
-    ) -> Result<Option<RpcReceipt>, String> {
+    ) -> Result<Option<RpcReceipt>, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -231,9 +269,32 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetTransactionReceiptError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetTransactionReceiptError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_balance(&self, address: Address) -> Result<U256, EthClientError> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getBalance".to_string(),
+            params: Some(vec![json!(format!("{:#x}", address)), json!("latest")]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetBalanceError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetBalanceError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 }
