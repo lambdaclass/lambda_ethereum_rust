@@ -1,20 +1,18 @@
+use std::collections::HashMap;
+
 use ethereum_rust_levm::{
-    block::TARGET_BLOB_GAS_PER_BLOCK,
+    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     constants::*,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
+    transaction::{TransactTo, TxEnv},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
-    vm::{Account, Storage, StorageSlot, VM},
+    vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
     vm_result::{ExecutionResult, VMError},
 };
 use ethereum_types::H32;
-use std::collections::HashMap;
 
-fn word_to_address(word: U256) -> Address {
-    let mut bytes = [0u8; 32];
-    word.to_big_endian(&mut bytes);
-    Address::from_slice(&bytes[12..])
-}
+// cargo test -p 'levm'
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -3371,4 +3369,154 @@ fn create_on_create() {
 
     vm.execute(0).unwrap();
     assert_eq!(vm.db.accounts.len(), 4);
+}
+
+#[test]
+fn caller_op() {
+    let caller = Address::from_low_u64_be(0x100);
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Caller, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        msg_sender: caller,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute(0).unwrap();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(caller.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLER);
+}
+
+#[test]
+fn origin_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let msg_sender = Address::from_low_u64_be(0x999);
+
+    let operations = [Operation::Origin, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        msg_sender,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute(0).unwrap();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(msg_sender.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ORIGIN);
+}
+
+#[test]
+fn balance_op() {
+    let address = 0x999;
+
+    let operations = [
+        Operation::Push((32, U256::from(address))),
+        Operation::Balance,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        ops_to_bytecde(&operations),
+        Address::from_low_u64_be(address),
+        U256::from(1234),
+    );
+
+    vm.execute(0).unwrap();
+
+    dbg!(&vm);
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(1234)
+    )
+}
+
+#[test]
+fn address_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Address, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute(0).unwrap();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(address_that_has_the_code.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ADDRESS);
+}
+
+#[test]
+fn selfbalance_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let balance = U256::from(999);
+
+    let operations = [Operation::SelfBalance, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default()
+            .with_bytecode(ops_to_bytecde(&operations))
+            .with_balance(balance),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute(0).unwrap();
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), balance);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::SELFBALANCE);
 }
