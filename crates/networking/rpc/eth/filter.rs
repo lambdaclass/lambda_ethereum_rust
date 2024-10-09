@@ -107,15 +107,15 @@ impl DeleteFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let id = parse_json_hex(&param)
+                let id = parse_json_hex(param)
                     .map_err(|_err| RpcErr::BadHexFormat(0))?;
-                return Ok(DeleteFilterRequest { id });
+                Ok(DeleteFilterRequest { id })
             }
             Some(_) => {
-                return Err(RpcErr::BadParams("Expected an array with a single hex encoded id".to_string()));
+                Err(RpcErr::BadParams("Expected an array with a single hex encoded id".to_string()))
             }
             None => {
-                return Err(RpcErr::MissingParam("0".to_string()));
+                Err(RpcErr::MissingParam("0".to_string()))
             }
         }
     }

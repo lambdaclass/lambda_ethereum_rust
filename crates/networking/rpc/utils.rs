@@ -228,9 +228,9 @@ pub fn parse_json_hex(hex: &serde_json::Value) -> Result<u64, String> {
     if let Value::String(maybe_hex) = hex {
         let trimmed = maybe_hex.trim_start_matches("0x");
         let maybe_parsed = u64::from_str_radix(trimmed, 16);
-        return maybe_parsed.map_err(|_| format!("Could not parse given hex {}", maybe_hex));
+        maybe_parsed.map_err(|_| format!("Could not parse given hex {}", maybe_hex))
     } else {
-        return Err(format!("Could not parse given hex {}", hex));
+        Err(format!("Could not parse given hex {}", hex))
     }
 }
 
