@@ -159,15 +159,21 @@ pub(crate) struct NewPooledTransactionHashes {
 
 impl NewPooledTransactionHashes {
     pub fn build_from(transactions: Vec<Transaction>) -> Self {
-        let mut transaction_types = vec![];
-        let mut transaction_sizes = vec![];
-        let mut transaction_hashes = vec![];
+        let transactions_len = transactions.len();
+        let mut transaction_types = Vec::with_capacity(transactions_len);
+        let mut transaction_sizes = Vec::with_capacity(transactions_len);
+        let mut transaction_hashes = Vec::with_capacity(transactions_len);
         for transaction in transactions {
             let transaction_type = transaction.tx_type();
             transaction_types.push(transaction_type as u8);
-            // size is defined as the concatenation of tx_type and the tx_data
-            // as the tx_type is 0x0(one_number). the size of tx_type is always 1.
-            let transaction_size = 1 + transaction.data().len();
+            // size is defined as the len of the concatenation of tx_type and the tx_data
+            // as the tx_type goes from 0x00 to 0xff, the size of tx_type is at much 2.
+            let tx_type_size = if (transaction_type as usize) < 0x10 {
+                1
+            } else {
+                2
+            };
+            let transaction_size = tx_type_size + transaction.data().len();
             transaction_sizes.push(transaction_size);
             let transaction_hash = transaction.compute_hash();
             transaction_hashes.push(transaction_hash);
@@ -205,11 +211,20 @@ impl RLPxMessage for NewPooledTransactionHashes {
             decoder.decode_field("transactionSizes")?;
         let (transaction_hashes, _): (Vec<H256>, _) = decoder.decode_field("transactionHashes")?;
 
-        Ok(Self {
-            transaction_types,
-            transaction_sizes,
-            transaction_hashes,
-        })
+        if transaction_hashes.len() == transaction_sizes.len()
+            && transaction_sizes.len() == transaction_types.len()
+        {
+            return Ok(Self {
+                transaction_types,
+                transaction_sizes,
+                transaction_hashes,
+            });
+        } else {
+            return Err(RLPDecodeError::Custom(
+                "transaction_hashes, transaction_sizes and transaction_types must have the same length"
+                    .to_string(),
+            ));
+        }
     }
 }
 
