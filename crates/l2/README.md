@@ -1,13 +1,6 @@
 # Ethereum Rust L2
 
-The main differences between this mode and regular Ethereum Rust are:
-
-- There is no consensus, only one sequencer proposes blocks for the network.
-- Block execution is proven using a RISC-V zkVM and its proofs are sent to L1 for verification.
-- A set of Solidity contracts to be deployed to the L1 are included as part of network initialization.
-- Two new types of transactions are included
-
-## ToC
+## Table of Contents
 
 - [Roadmap](#roadmap)
     - [Milestone 0](#milestone-0)
@@ -74,9 +67,9 @@ The network supports basic L2 functionality, allowing users to deposit and withd
 
 ### Milestone 2: State diffs + blobs + custom native token
 
-The network now commits to state diffs instead of the full state, lowering the commit transactions costs and supports EIP4844.
+The network now commits to state diffs instead of the full state, lowering the commit transactions costs. It also supports EIP4844 for commit transactions, so state diffs are sent as blob sidecars instead of calldata.
 
-The L2 can be deployed using a custom native token, meaning that an ERC20 can be the common currency, with fees payed in that currency.
+The L2 can also be deployed using a custom native token, meaning that a certain ERC20 can be the common currency that's used for paying network fees.
 
 #### Status
 
@@ -210,3 +203,4 @@ The following links, repos, companies and projects have been important in the de
 
 - [Matter Labs](https://matter-labs.io/)
 - [Optimism](https://www.optimism.io/)
+- [SP1](https://github.com/succinctlabs/sp1)

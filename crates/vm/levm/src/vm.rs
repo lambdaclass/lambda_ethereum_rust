@@ -3,6 +3,8 @@ use std::{
     str::FromStr,
 };
 
+use ethers::utils::keccak256;
+
 use crate::{
     block::BlockEnv,
     call_frame::CallFrame,
@@ -10,26 +12,30 @@ use crate::{
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
-    vm_result::{ExecutionResult, OpcodeSuccess, ResultReason, VMError},
+    vm_result::{
+        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, OpcodeSuccess, Output,
+        ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
+    },
 };
 extern crate ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use sha3::{Digest, Keccak256};
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Account {
     pub address: Address,
     pub balance: U256,
     pub bytecode: Bytes,
-    pub nonce: u64,
     pub storage: HashMap<U256, StorageSlot>,
+    pub nonce: u64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
+    pub is_cold: bool,
 }
 
 impl Account {
@@ -47,6 +53,16 @@ impl Account {
             storage,
             nonce,
         }
+    }
+
+    pub fn has_code(&self) -> bool {
+        !(self.bytecode.is_empty()
+            || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
+    }
+
+    pub fn bytecode_hash(&self) -> H256 {
+        let hash = keccak256(self.bytecode.as_ref());
+        H256::from(hash)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -109,7 +125,7 @@ impl Db {
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
-    fn balance(&mut self, address: &Address) -> U256 {
+    pub fn balance(&mut self, address: &Address) -> U256 {
         self.accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
@@ -124,6 +140,47 @@ impl Db {
             acc.increment_nonce()
         }
     }
+
+    pub fn into_state(&self) -> HashMap<Address, StateAccount> {
+        self.accounts
+            .iter()
+            .map(|(address, acc)| {
+                let code_hash = if acc.has_code() {
+                    acc.bytecode_hash()
+                } else {
+                    H256::from_str(EMPTY_CODE_HASH_STR).unwrap()
+                };
+
+                let storage: HashMap<U256, StorageSlot> = acc
+                    .storage
+                    .iter()
+                    .map(|(&key, slot)| {
+                        (
+                            key,
+                            StorageSlot {
+                                original_value: slot.original_value,
+                                current_value: slot.current_value,
+                                is_cold: false,
+                            },
+                        )
+                    })
+                    .collect();
+                (
+                    *address,
+                    StateAccount {
+                        info: AccountInfo {
+                            balance: acc.balance,
+                            nonce: acc.nonce,
+                            code_hash,
+                            code: acc.bytecode.clone(),
+                        },
+                        storage,
+                        status: AccountStatus::Loaded,
+                    },
+                )
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -132,18 +189,17 @@ pub struct Substate {
     pub warm_addresses: HashSet<Address>,
 }
 
-/// Transaction environment shared by all the call frames
-/// created by the current transaction.
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
-    // origin: Address,
+    pub origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    // gas_price: u64,
+    pub gas_price: U256,
     pub gas_limit: u64,
     pub consumed_gas: u64,
+    refunded_gas: u64,
     /// The block header of the present block.
     pub block: BlockEnv,
 }
@@ -165,9 +221,11 @@ fn address_to_word(address: Address) -> U256 {
     U256::from_str(&format!("{address:?}")).unwrap()
 }
 
-// The execution model specifies how the system state is
-// altered given a series of bytecode instructions and a small
-// tuple of environmental data.
+pub fn word_to_address(word: U256) -> Address {
+    let mut bytes = [0u8; 32];
+    word.to_big_endian(&mut bytes);
+    Address::from_slice(&bytes[12..])
+}
 
 impl VM {
     pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
@@ -205,7 +263,10 @@ impl VM {
         let env = Environment {
             block: block_env,
             consumed_gas: TX_BASE_COST,
+            gas_price: tx_env.gas_price.unwrap_or_default(),
             gas_limit: u64::MAX,
+            origin: tx_env.msg_sender,
+            refunded_gas: 0,
         };
 
         Self {
@@ -216,19 +277,87 @@ impl VM {
         }
     }
 
-    pub fn write_success_result(call_frame: CallFrame, reason: ResultReason) -> ExecutionResult {
+    pub fn write_success_result(
+        call_frame: CallFrame,
+        reason: ResultReason,
+        gas_used: u64,
+        gas_refunded: u64,
+    ) -> ExecutionResult {
+        let reason = match reason {
+            ResultReason::Stop => SuccessReason::Stop,
+            ResultReason::Return => SuccessReason::Return,
+        };
+
         ExecutionResult::Success {
             reason,
             logs: call_frame.logs.clone(),
             return_data: call_frame.returndata.clone(),
+            gas_used,
+            output: Output::Call(call_frame.returndata.clone()),
+            gas_refunded,
         }
+    }
+
+    pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
+        let gas_used = self.env.consumed_gas;
+
+        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
+        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
+
+        let exis_status_code = match res {
+            ExecutionResult::Success { reason, .. } => match reason {
+                SuccessReason::Stop => ExitStatusCode::Stop,
+                SuccessReason::Return => ExitStatusCode::Return,
+                SuccessReason::SelfDestruct => todo!(),
+                SuccessReason::EofReturnContract => todo!(),
+            },
+            ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
+            ExecutionResult::Halt { .. } => ExitStatusCode::Error,
+        };
+
+        let current_call_frame = self.current_call_frame_mut();
+
+        let return_values = current_call_frame.returndata.clone();
+
+        let result = match exis_status_code {
+            ExitStatusCode::Return => ExecutionResult::Success {
+                reason: SuccessReason::Return,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
+                logs: res.logs().to_vec(),
+                return_data: return_values.clone(),
+            },
+            ExitStatusCode::Stop => ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
+                logs: res.logs().to_vec(),
+                return_data: return_values.clone(),
+            },
+            ExitStatusCode::Revert => ExecutionResult::Revert {
+                output: return_values,
+                gas_used,
+                reason: res.reason(),
+            },
+            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Halt {
+                reason: res.reason(),
+                gas_used,
+            },
+        };
+
+        // TODO: Check if this is ok
+        let state = self.db.into_state();
+
+        Ok(ResultAndState { result, state })
     }
 
     pub fn execute(&mut self) -> ExecutionResult {
         let mut current_call_frame = self
             .call_frames
             .pop()
-            .expect("Fatal Error. This shouldn't happen"); // if this happens during execution, we are cooked 💀
+            .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -267,16 +396,14 @@ impl VM {
                 Opcode::PREVRANDAO => self.op_prevrandao(&mut current_call_frame),
                 Opcode::GASLIMIT => self.op_gaslimit(&mut current_call_frame),
                 Opcode::CHAINID => self.op_chainid(&mut current_call_frame),
-                Opcode::SELFBALANCE => self.op_selfbalance(&mut current_call_frame),
                 Opcode::BASEFEE => self.op_basefee(&mut current_call_frame),
                 Opcode::BLOBHASH => self.op_blobhash(&mut current_call_frame),
                 Opcode::BLOBBASEFEE => self.op_blobbasefee(&mut current_call_frame),
                 Opcode::PUSH0 => self.op_push0(&mut current_call_frame),
                 // PUSHn
-                op if (Opcode::PUSH1..Opcode::PUSH32).contains(&op) => {
+                op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
                     self.op_push(&mut current_call_frame, op)
                 }
-                Opcode::PUSH32 => self.op_push(&mut current_call_frame, Opcode::PUSH32),
                 Opcode::AND => self.op_and(&mut current_call_frame),
                 Opcode::OR => self.op_or(&mut current_call_frame),
                 Opcode::XOR => self.op_xor(&mut current_call_frame),
@@ -314,13 +441,27 @@ impl VM {
                 Opcode::CREATE2 => self.op_create2(&mut current_call_frame),
                 Opcode::TLOAD => self.op_tload(&mut current_call_frame),
                 Opcode::TSTORE => self.op_tstore(&mut current_call_frame),
+                Opcode::SELFBALANCE => self.op_selfbalance(&mut current_call_frame),
+                Opcode::ADDRESS => self.op_address(&mut current_call_frame),
+                Opcode::ORIGIN => self.op_origin(&mut current_call_frame),
+                Opcode::BALANCE => self.op_balance(&mut current_call_frame),
+                Opcode::CALLER => self.op_caller(&mut current_call_frame),
+                Opcode::CALLVALUE => self.op_callvalue(&mut current_call_frame),
+                Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
+                Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
+                Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(r)) => {
-                    return Self::write_success_result(current_call_frame.clone(), r)
+                    return Self::write_success_result(
+                        current_call_frame.clone(),
+                        r,
+                        self.env.consumed_gas,
+                        self.env.refunded_gas,
+                    );
                 }
                 Err(e) => {
                     return ExecutionResult::Halt {
@@ -330,6 +471,13 @@ impl VM {
                 }
             }
         }
+    }
+
+    pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
+        // let initial_gas_consumed = self.validate_transaction()?;
+        // let initial_gas_consumed = 0;
+        let res = self.execute();
+        self.get_result(res)
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -422,10 +570,15 @@ impl VM {
                 current_call_frame.returndata = output;
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 current_call_frame.gas -= U256::from(gas_used);
+                self.env.refunded_gas += gas_used;
             }
             ExecutionResult::Halt { reason, gas_used } => {
                 current_call_frame.stack.push(U256::from(reason as u8))?;
-                current_call_frame.gas -= U256::from(gas_used);
+                if U256::from(gas_used) > current_call_frame.gas {
+                    current_call_frame.gas = U256::zero();
+                } else {
+                    current_call_frame.gas -= U256::from(gas_used);
+                }
             } // WARNING: I commented this because I don't know when this should be executed.
               // Err(_) => {
               //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
