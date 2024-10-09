@@ -5,15 +5,15 @@ pub enum L1WatcherError {
     #[error("L1Watcher error: {0}")]
     EthClientError(#[from] EthClientError),
     #[error("L1Watcher failed to deserialize log: {0}")]
-    LogTopicDeserializationError(String),
+    FailedToDeserializeLog(String),
     #[error("L1Watcher failed to parse private key: {0}")]
-    SignerPrivateKeyDeserializationError(String),
+    FailedToDeserializePrivateKey(String),
     #[error("L1Watcher failed to retrieve depositor account info: {0}")]
-    DepositorAccountInfoRetrievalError(String),
+    FailedToRetrieveDepositorAccountInfo(String),
     #[error("L1Watcher failed to retrieve chain config: {0}")]
-    ChainConfigRetrievalError(String),
+    FailedToRetrieveChainConfig(String),
     #[error("L1Watcher failed to get config: {0}")]
-    ConfigError(#[from] ConfigError),
+    FailedToGetConfig(#[from] ConfigError),
 }
 
 #[derive(Debug, thiserror::Error)]

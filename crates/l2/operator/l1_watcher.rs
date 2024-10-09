@@ -96,14 +96,14 @@ impl L1Watcher {
             let mint_value = format!("{:#x}", log.log.topics[1])
                 .parse::<U256>()
                 .map_err(|e| {
-                    L1WatcherError::LogTopicDeserializationError(format!(
+                    L1WatcherError::FailedToDeserializeLog(format!(
                         "Failed to parse mint value from log: {e:#?}"
                     ))
                 })?;
             let beneficiary = format!("{:#x}", log.log.topics[2].into_uint())
                 .parse::<Address>()
                 .map_err(|e| {
-                    L1WatcherError::LogTopicDeserializationError(format!(
+                    L1WatcherError::FailedToDeserializeLog(format!(
                         "Failed to parse beneficiary from log: {e:#?}"
                     ))
                 })?;
@@ -115,7 +115,7 @@ impl L1Watcher {
                 data: Bytes::from(b"mint".as_slice()),
                 chain_id: store
                     .get_chain_config()
-                    .map_err(|e| L1WatcherError::ChainConfigRetrievalError(e.to_string()))?
+                    .map_err(|e| L1WatcherError::FailedToRetrieveChainConfig(e.to_string()))?
                     .chain_id,
                 ..Default::default()
             };
@@ -124,17 +124,17 @@ impl L1Watcher {
                 &H256::from_str(
                     "0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924",
                 )
-                .map_err(|e| L1WatcherError::SignerPrivateKeyDeserializationError(e.to_string()))?
+                .map_err(|e| L1WatcherError::FailedToDeserializePrivateKey(e.to_string()))?
                 .0,
             )
-            .map_err(|e| L1WatcherError::SignerPrivateKeyDeserializationError(e.to_string()))?;
+            .map_err(|e| L1WatcherError::FailedToDeserializePrivateKey(e.to_string()))?;
 
             mint_transaction.nonce = store
                 .get_account_info(
                     self.eth_client.get_block_number().await?.as_u64(),
                     beneficiary,
                 )
-                .map_err(|e| L1WatcherError::DepositorAccountInfoRetrievalError(e.to_string()))?
+                .map_err(|e| L1WatcherError::FailedToRetrieveDepositorAccountInfo(e.to_string()))?
                 .map(|info| info.nonce)
                 .unwrap_or_default();
             mint_transaction.max_fee_per_gas = self.eth_client.gas_price().await?.as_u64();
