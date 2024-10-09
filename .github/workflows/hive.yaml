@@ -30,9 +30,9 @@ jobs:
           - simulation: discv4
             name: "Devp2p discv4 tests"
             run_command: make run-hive SIMULATION=devp2p TEST_PATTERN="discv4"
-          - simulation: engine-cancun
-            name: "Engine tests (Cancun)"
-            run_command:  make run-hive SIMULATION=ethereum/engine TEST_PATTERN="/cancun|Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root|NewPayloadV3 After Cancun|NewPayloadV3 Versioned Hashes|ParentHash equals BlockHash on NewPayload|RPC|ForkchoiceUpdated Version on Payload Request|Re-Execute Payload|Payload Build after New Invalid Payload|Build Payload with Invalid ChainID|Unique Payload ID"
+          - simulation: engine
+            name: "Engine tests (only Cancun)"
+            run_command:  make run-hive SIMULATION=ethereum/engine TEST_PATTERN="/Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root|NewPayloadV3 After Cancun|NewPayloadV3 Versioned Hashes|cancun/ParentHash equals BlockHash on NewPayload|cancun/RPC|ForkchoiceUpdated Version on Payload Request|cancun/Re-Execute Payload|cancun/Payload Build after New Invalid Payload|cancun/Build Payload with Invalid ChainID|cancun/Unique Payload ID"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
