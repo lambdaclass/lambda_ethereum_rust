@@ -452,6 +452,7 @@ impl VM {
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
                 Opcode::EXTCODECOPY => self.op_extcodecopy(&mut current_call_frame),
+                Opcode::EXTCODEHASH => self.op_extcodehash(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
@@ -484,10 +485,6 @@ impl VM {
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
-    }
-
-    pub fn current_call_frame(&self) -> &CallFrame {
-        self.call_frames.last().unwrap()
     }
 
     #[allow(clippy::too_many_arguments)]

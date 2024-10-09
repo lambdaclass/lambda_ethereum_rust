@@ -49,7 +49,7 @@ pub enum Opcode {
     EXTCODECOPY = 0x3C,
     RETURNDATASIZE = 0x3D,
     RETURNDATACOPY = 0x3E,
-    // EXTCODEHASH = 0x3F,
+    EXTCODEHASH = 0x3F,
 
     // Block Information
     BLOCKHASH = 0x40,
@@ -217,6 +217,7 @@ impl From<u8> for Opcode {
             0x3C => Opcode::EXTCODECOPY,
             0x3D => Opcode::RETURNDATASIZE,
             0x3E => Opcode::RETURNDATACOPY,
+            0x3F => Opcode::EXTCODEHASH,
             0x40 => Opcode::BLOCKHASH,
             0x41 => Opcode::COINBASE,
             0x42 => Opcode::TIMESTAMP,
