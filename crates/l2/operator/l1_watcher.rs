@@ -1,41 +1,42 @@
-use crate::utils::eth_client::EthClient;
+use crate::utils::{
+    config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
+    eth_client::EthClient,
+};
 use ethereum_types::{Address, H256, U256};
 use std::{cmp::min, time::Duration};
 use tokio::time::sleep;
 use tracing::debug;
 
 pub async fn start_l1_watcher() {
-    // This address and topic were used for testing purposes only.
-    // TODO: Receive them as parameters from config.
-    let l1_watcher = L1Watcher::new(
-        "0xe441CF0795aF14DdB9f7984Da85CD36DB1B8790d"
-            .parse()
-            .unwrap(),
-        vec![
-            "0xe2ea736f80f92a510d75d1a96b5c1d5e5544283362b7acd97390d60ea1c7d149"
-                .parse()
-                .unwrap(),
-        ],
-    );
+    let eth_config = EthConfig::from_env().unwrap();
+    let watcher_config = L1WatcherConfig::from_env().unwrap();
+    let l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
     l1_watcher.get_logs().await;
 }
 
 pub struct L1Watcher {
+    rpc_url: String,
     address: Address,
     topics: Vec<H256>,
+    check_interval: Duration,
+    max_block_step: U256,
 }
 
 impl L1Watcher {
-    pub fn new(address: Address, topics: Vec<H256>) -> Self {
-        Self { address, topics }
+    pub fn new_from_config(watcher_config: L1WatcherConfig, eth_config: EthConfig) -> Self {
+        Self {
+            rpc_url: eth_config.rpc_url,
+            address: watcher_config.bridge_address,
+            topics: watcher_config.topics,
+            check_interval: Duration::from_millis(watcher_config.check_interval_ms),
+            max_block_step: watcher_config.max_block_step,
+        }
     }
 
     pub async fn get_logs(&self) {
-        let step = U256::from(5000);
-
         let mut last_block: U256 = U256::zero();
 
-        let l1_rpc = EthClient::new("http://localhost:8545");
+        let l1_rpc = EthClient::new(&self.rpc_url);
 
         loop {
             let current_block = l1_rpc.get_block_number().await.unwrap();
@@ -43,7 +44,7 @@ impl L1Watcher {
                 "Current block number: {} ({:#x})",
                 current_block, current_block
             );
-            let new_last_block = min(last_block + step, current_block);
+            let new_last_block = min(last_block + self.max_block_step, current_block);
             debug!(
                 "Looking logs from block {:#x} to {:#x}",
                 last_block, new_last_block
@@ -56,7 +57,7 @@ impl L1Watcher {
             debug!("Logs: {:#?}", logs);
 
             last_block = new_last_block + 1;
-            sleep(Duration::from_secs(5)).await;
+            sleep(self.check_interval).await;
         }
     }
 }

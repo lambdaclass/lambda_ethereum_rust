@@ -36,6 +36,9 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
         reason: _,
         logs: _,
         return_data,
+        output: _,
+        gas_used: _,
+        gas_refunded: _,
     } = result
     {
         println!("\t\t0x{}", hex::encode(return_data));
