@@ -4,7 +4,8 @@ use std::{
     collections::HashMap,
     future::IntoFuture,
     net::SocketAddr,
-    sync::{Arc, Mutex}, time::Duration,
+    sync::{Arc, Mutex},
+    time::Duration,
 };
 use types::transaction::SendRawTransactionRequest;
 
@@ -80,7 +81,7 @@ trait RpcHandler: Sized {
 const FILTER_DURATION: Duration = Duration::from_secs(1);
 
 #[cfg(not(test))]
-const FILTER_DURATION: Duration = Duration::from_secs(5*60);
+const FILTER_DURATION: Duration = Duration::from_secs(5 * 60);
 
 pub async fn start_api(
     http_addr: SocketAddr,
@@ -101,18 +102,16 @@ pub async fn start_api(
     };
 
     // Periodically clean up the active filters for the filters endpoints.
-    tokio::task::spawn(
-        async move {
-            let mut interval = tokio::time::interval(FILTER_DURATION);
-            let filters = active_filters.clone();
-            loop {
-                interval.tick().await;
-                tracing::info!("Running filter clean task");
-                filter::clean_outdated_filters(filters.clone(), FILTER_DURATION.as_secs());
-                tracing::info!("Filter clean task complete");
-            }
+    tokio::task::spawn(async move {
+        let mut interval = tokio::time::interval(FILTER_DURATION);
+        let filters = active_filters.clone();
+        loop {
+            interval.tick().await;
+            tracing::info!("Running filter clean task");
+            filter::clean_outdated_filters(filters.clone(), FILTER_DURATION.as_secs());
+            tracing::info!("Filter clean task complete");
         }
-    );
+    });
 
     let http_router = Router::new()
         .route("/", post(handle_http_request))

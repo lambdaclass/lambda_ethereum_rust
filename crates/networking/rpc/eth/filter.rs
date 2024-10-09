@@ -107,16 +107,13 @@ impl DeleteFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         match params.as_deref() {
             Some([param]) => {
-                let id = parse_json_hex(param)
-                    .map_err(|_err| RpcErr::BadHexFormat(0))?;
+                let id = parse_json_hex(param).map_err(|_err| RpcErr::BadHexFormat(0))?;
                 Ok(DeleteFilterRequest { id })
             }
-            Some(_) => {
-                Err(RpcErr::BadParams("Expected an array with a single hex encoded id".to_string()))
-            }
-            None => {
-                Err(RpcErr::MissingParam("0".to_string()))
-            }
+            Some(_) => Err(RpcErr::BadParams(
+                "Expected an array with a single hex encoded id".to_string(),
+            )),
+            None => Err(RpcErr::MissingParam("0".to_string())),
         }
     }
 
@@ -151,11 +148,15 @@ impl DeleteFilterRequest {
 mod tests {
     use std::{
         collections::HashMap,
-        sync::{Arc, Mutex}, time::Duration,
+        sync::{Arc, Mutex},
+        time::Duration,
     };
 
     use crate::{
-        eth::logs::{AddressFilter, LogsFilter, TopicFilter}, map_http_requests, utils::test_utils::start_test_api, FILTER_DURATION
+        eth::logs::{AddressFilter, LogsFilter, TopicFilter},
+        map_http_requests,
+        utils::test_utils::start_test_api,
+        FILTER_DURATION,
     };
     use crate::{
         types::block_identifier::BlockIdentifier,
@@ -299,7 +300,10 @@ mod tests {
         run_new_filter_request_test(raw_json.clone(), filters.clone());
     }
 
-    fn run_new_filter_request_test(json_req: serde_json::Value, filters_pointer: ActiveFilters) -> u64 {
+    fn run_new_filter_request_test(
+        json_req: serde_json::Value,
+        filters_pointer: ActiveFilters,
+    ) -> u64 {
         let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
         let response = map_http_requests(
@@ -320,42 +324,64 @@ mod tests {
 
     #[test]
     fn install_filter_removed_correctly_test() {
-        let uninstall_filter_req: RpcRequest =
-            serde_json::from_value(
-                json!(
-                    {
-                        "jsonrpc":"2.0",
-                        "method":"eth_uninstallFilter",
-                        "params":
-                        [
-                            "0xFF"
-                        ]
-                            ,"id":1
-                    })
-            ).expect("Json for test is not a valid request");
-        let filter = (0xFF, (1, LogsFilter { from_block: BlockIdentifier::Number(1), to_block: BlockIdentifier::Number(2), address_filters: None, topics: vec![] }));
+        let uninstall_filter_req: RpcRequest = serde_json::from_value(json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_uninstallFilter",
+            "params":
+            [
+                "0xFF"
+            ]
+                ,"id":1
+        }))
+        .expect("Json for test is not a valid request");
+        let filter = (
+            0xFF,
+            (
+                1,
+                LogsFilter {
+                    from_block: BlockIdentifier::Number(1),
+                    to_block: BlockIdentifier::Number(2),
+                    address_filters: None,
+                    topics: vec![],
+                },
+            ),
+        );
         let active_filters = Arc::new(Mutex::new(HashMap::from([filter])));
-        map_http_requests(&uninstall_filter_req, Store::new("in-mem", EngineType::InMemory).unwrap(), example_p2p_node(), active_filters.clone()).unwrap();
-        assert!(active_filters.clone().lock().unwrap().len() == 0, "Expected filter map to be empty after request");
+        map_http_requests(
+            &uninstall_filter_req,
+            Store::new("in-mem", EngineType::InMemory).unwrap(),
+            example_p2p_node(),
+            active_filters.clone(),
+        )
+        .unwrap();
+        assert!(
+            active_filters.clone().lock().unwrap().len() == 0,
+            "Expected filter map to be empty after request"
+        );
     }
 
     #[test]
     fn removing_non_existing_filter_returns_false() {
-        let uninstall_filter_req: RpcRequest =
-            serde_json::from_value(
-                json!(
-                    {
-                        "jsonrpc":"2.0",
-                        "method":"eth_uninstallFilter",
-                        "params":
-                        [
-                            "0xFF"
-                        ]
-                            ,"id":1
-                    })
-            ).expect("Json for test is not a valid request");
+        let uninstall_filter_req: RpcRequest = serde_json::from_value(json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_uninstallFilter",
+            "params":
+            [
+                "0xFF"
+            ]
+                ,"id":1
+        }))
+        .expect("Json for test is not a valid request");
         let active_filters = Arc::new(Mutex::new(HashMap::new()));
-        let res = map_http_requests(&uninstall_filter_req, Store::new("in-mem", EngineType::InMemory).unwrap(), example_p2p_node(), active_filters.clone()).unwrap();
+        let res = map_http_requests(
+            &uninstall_filter_req,
+            Store::new("in-mem", EngineType::InMemory).unwrap(),
+            example_p2p_node(),
+            active_filters.clone(),
+        )
+        .unwrap();
         assert!(matches!(res, serde_json::Value::Bool(false)));
     }
 
@@ -363,9 +389,7 @@ mod tests {
     async fn background_job_removes_filter_smoke_test() {
         // Start a test server to start the cleanup
         // task in the background
-        let server_handle = tokio::spawn(async move {
-            start_test_api().await
-        });
+        let server_handle = tokio::spawn(async move { start_test_api().await });
 
         // Give the server some time to start
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -373,50 +397,23 @@ mod tests {
         // Install a filter through the endpiont
         let client = reqwest::Client::new();
         let raw_json = json!(
-            {
-                "jsonrpc":"2.0",
-                "method":"eth_newFilter",
-                "params":
-                [
-                    {
-                        "fromBlock": "0x1",
-                        "toBlock": "0xA",
-                        "topics": null,
-                        "address": null
-                    }
-                ]
-                    ,"id":1
-            });
-        let response: Value = client.post("http://localhost:8500")
-                                    .json(&raw_json)
-                                    .send()
-                                    .await
-                                    .unwrap()
-                                    .json()
-                                    .await
-                                    .unwrap();
-
-        assert!(response.get("result").is_some(), "Response should have a 'result' field");
-
-        let raw_json = json!(
-            {
-                "jsonrpc":"2.0",
-                "method":"eth_uninstallFilter",
-                "params":
-                [
-                    response.get("result").unwrap()
-                ]
-                    ,"id":1
-            });
-
-        tokio::time::sleep(FILTER_DURATION).await;
-        tokio::time::sleep(FILTER_DURATION).await;
-
-        let response: serde_json::Value = client
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": "0x1",
+                    "toBlock": "0xA",
+                    "topics": null,
+                    "address": null
+                }
+            ]
+                ,"id":1
+        });
+        let response: Value = client
             .post("http://localhost:8500")
-            .json(
-                &raw_json
-            )
+            .json(&raw_json)
             .send()
             .await
             .unwrap()
@@ -425,8 +422,41 @@ mod tests {
             .unwrap();
 
         assert!(
-            matches!(response.get("result").unwrap(), serde_json::Value::Bool(false)),
-            "Filter was expected to be deleted by background job, but it still exists");
+            response.get("result").is_some(),
+            "Response should have a 'result' field"
+        );
+
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_uninstallFilter",
+            "params":
+            [
+                response.get("result").unwrap()
+            ]
+                ,"id":1
+        });
+
+        tokio::time::sleep(FILTER_DURATION).await;
+        tokio::time::sleep(FILTER_DURATION).await;
+
+        let response: serde_json::Value = client
+            .post("http://localhost:8500")
+            .json(&raw_json)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        assert!(
+            matches!(
+                response.get("result").unwrap(),
+                serde_json::Value::Bool(false)
+            ),
+            "Filter was expected to be deleted by background job, but it still exists"
+        );
 
         server_handle.abort();
     }
