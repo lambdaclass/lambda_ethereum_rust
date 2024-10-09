@@ -2,6 +2,8 @@ use ethereum_types::{Address, H256};
 use libsecp256k1::SecretKey;
 use serde::{Deserialize, Deserializer};
 
+use super::errors::ConfigError;
+
 #[derive(Deserialize)]
 pub struct OperatorConfig {
     pub block_executor_address: Address,
@@ -12,11 +14,10 @@ pub struct OperatorConfig {
 }
 
 impl OperatorConfig {
-    pub fn from_env() -> Result<Self, String> {
-        match envy::prefixed("XXX_").from_env::<Self>() {
-            Ok(config) => Ok(config),
-            Err(error) => Err(error.to_string()),
-        }
+    pub fn from_env() -> Result<Self, ConfigError> {
+        envy::prefixed("XXX_")
+            .from_env::<Self>()
+            .map_err(ConfigError::from)
     }
 }
 

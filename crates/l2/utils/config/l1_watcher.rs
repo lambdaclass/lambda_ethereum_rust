@@ -1,6 +1,8 @@
 use ethereum_types::{Address, H256, U256};
 use serde::Deserialize;
 
+use super::errors::ConfigError;
+
 #[derive(Deserialize)]
 pub struct L1WatcherConfig {
     pub bridge_address: Address,
@@ -10,10 +12,9 @@ pub struct L1WatcherConfig {
 }
 
 impl L1WatcherConfig {
-    pub fn from_env() -> Result<Self, String> {
-        match envy::prefixed("L1_WATCHER_").from_env::<Self>() {
-            Ok(config) => Ok(config),
-            Err(error) => Err(error.to_string()),
-        }
+    pub fn from_env() -> Result<Self, ConfigError> {
+        envy::prefixed("L1_WATCHER_")
+            .from_env::<Self>()
+            .map_err(ConfigError::from)
     }
 }
