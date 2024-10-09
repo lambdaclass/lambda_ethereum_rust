@@ -21,8 +21,8 @@ pub fn cli() -> Command {
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::new("log-level")
-                .long("log-level")
+            Arg::new("log.level")
+                .long("log.level")
                 .default_value(Level::INFO.as_str())
                 .value_name("LOG_LEVEL")
                 .required(false)
