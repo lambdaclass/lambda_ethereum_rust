@@ -387,7 +387,7 @@ impl ProofDataProvider {
 
         // we need the storage of the current_block-1
         // we should execute the EVM with that state and simulating the inclusion of the current_block
-        get_last_block_state(&self.store);
+        let memory_db = get_last_block_state(&self.store).map_err(|e| format!("error code: {e}"));
         // with the execution_outputs we should get a way to have the State/Store represented with Hashmaps
 
         // finally, this information has to be contained in an structure that can be de/serealized,
@@ -435,27 +435,23 @@ impl ProofDataProvider {
 }
 
 /// Same concept as adding a block [ethereum_rust_blockchain::add_block].
-fn get_last_block_state(storage: &Store) {
-    let last_block_number = storage.get_latest_block_number().unwrap().unwrap();
-    let body = storage.get_block_body(last_block_number).unwrap().unwrap();
-    let header = storage
-        .get_block_header(last_block_number)
-        .unwrap()
-        .unwrap();
+fn get_last_block_state(storage: &Store) -> Result<MemoryDB, Box<dyn std::error::Error>> {
+    let last_block_number = storage.get_latest_block_number()?.unwrap();
+    let body = storage.get_block_body(last_block_number)?.unwrap();
+    let header = storage.get_block_header(last_block_number)?.unwrap();
 
     let last_block = Block { header, body };
 
-    validate_parent_canonical(&last_block, storage).unwrap();
-    let parent_header = find_parent_header(&last_block.header, storage).unwrap();
+    validate_parent_canonical(&last_block, storage)?;
+    let parent_header = find_parent_header(&last_block.header, storage)?;
 
-    let prev_state = evm_state(storage.clone(), last_block.header.parent_hash);
     let mut state = evm_state(storage.clone(), last_block.header.parent_hash);
 
-    validate_block(&last_block, &parent_header, &state).unwrap();
+    validate_block(&last_block, &parent_header, &state)?;
 
-    let receipts = execute_block(&last_block, &mut state).unwrap();
+    let receipts = execute_block(&last_block, &mut state)?;
 
-    validate_gas_used(&receipts, &last_block.header).unwrap();
+    validate_gas_used(&receipts, &last_block.header)?;
 
     let account_updates = get_state_transitions(&mut state);
 
@@ -465,6 +461,16 @@ fn get_last_block_state(storage: &Store) {
         RevmAddress,
         HashMap<revm::primitives::alloy_primitives::U256, revm::primitives::alloy_primitives::U256>,
     > = HashMap::new();
+
+    // Apply the account updates over the last block's state and compute the new state root
+    let new_state_root = state
+        .database()
+        .apply_account_updates(last_block.header.parent_hash, &account_updates)?
+        .unwrap_or_default();
+
+    // Check state root matches the one in block header after execution
+    validate_state_root(&last_block.header, new_state_root)?;
+    info!("LAST BLOCK STATE MATCHES");
 
     for account_update in account_updates {
         let address = RevmAddress::from_slice(account_update.address.as_bytes());
@@ -497,22 +503,11 @@ fn get_last_block_state(storage: &Store) {
         }
     }
 
-    let memory_db = MemoryDB {
+    Ok(MemoryDB {
         accounts,
         storage,
         block_hashes: todo!(),
-    };
-
-    // Apply the account updates over the last block's state and compute the new state root
-    let new_state_root = state
-        .database()
-        .apply_account_updates(last_block.header.parent_hash, &account_updates)
-        .unwrap()
-        .unwrap_or_default();
-
-    // Check state root matches the one in block header after execution
-    validate_state_root(&last_block.header, new_state_root).unwrap();
-    info!("LAST BLOCK STATE MATCHES");
+    })
 }
 
 fn u64_to_u8_array(u64_slice: &[u64]) -> [u8; 48] {
