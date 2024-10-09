@@ -125,7 +125,7 @@ impl Db {
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
-    fn balance(&mut self, address: &Address) -> U256 {
+    pub fn balance(&mut self, address: &Address) -> U256 {
         self.accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
@@ -193,10 +193,10 @@ pub struct Substate {
 pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
-    // origin: Address,
+    pub origin: Address,
     /// The price of gas paid by the signer of the transaction
     /// that originated this execution.
-    // gas_price: u64,
+    pub gas_price: U256,
     pub gas_limit: u64,
     pub consumed_gas: u64,
     refunded_gas: u64,
@@ -219,6 +219,12 @@ pub struct VM {
 fn address_to_word(address: Address) -> U256 {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
     U256::from_str(&format!("{address:?}")).unwrap()
+}
+
+pub fn word_to_address(word: U256) -> Address {
+    let mut bytes = [0u8; 32];
+    word.to_big_endian(&mut bytes);
+    Address::from_slice(&bytes[12..])
 }
 
 impl VM {
@@ -257,7 +263,9 @@ impl VM {
         let env = Environment {
             block: block_env,
             consumed_gas: TX_BASE_COST,
+            gas_price: tx_env.gas_price.unwrap_or_default(),
             gas_limit: u64::MAX,
+            origin: tx_env.msg_sender,
             refunded_gas: 0,
         };
 
@@ -395,7 +403,6 @@ impl VM {
                 Opcode::PREVRANDAO => self.op_prevrandao(&mut current_call_frame),
                 Opcode::GASLIMIT => self.op_gaslimit(&mut current_call_frame),
                 Opcode::CHAINID => self.op_chainid(&mut current_call_frame),
-                Opcode::SELFBALANCE => self.op_selfbalance(&mut current_call_frame),
                 Opcode::BASEFEE => self.op_basefee(&mut current_call_frame),
                 Opcode::BLOBHASH => self.op_blobhash(&mut current_call_frame),
                 Opcode::BLOBBASEFEE => self.op_blobbasefee(&mut current_call_frame),
@@ -441,6 +448,15 @@ impl VM {
                 Opcode::CREATE2 => self.op_create2(&mut current_call_frame),
                 Opcode::TLOAD => self.op_tload(&mut current_call_frame),
                 Opcode::TSTORE => self.op_tstore(&mut current_call_frame),
+                Opcode::SELFBALANCE => self.op_selfbalance(&mut current_call_frame),
+                Opcode::ADDRESS => self.op_address(&mut current_call_frame),
+                Opcode::ORIGIN => self.op_origin(&mut current_call_frame),
+                Opcode::BALANCE => self.op_balance(&mut current_call_frame),
+                Opcode::CALLER => self.op_caller(&mut current_call_frame),
+                Opcode::CALLVALUE => self.op_callvalue(&mut current_call_frame),
+                Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
+                Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
+                Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 

@@ -88,11 +88,11 @@ In a bit more detail:
 
 |        | Task Description                                                                 | Status |
 | --------- |  --------------------------------------------------------------------------- | ------ |
-|  |  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅     |
-|  |  Revm (for now) wrapper for block execution                                                       | ✅     |
-|  |  JSON RPC API server setup                                                      | ✅     |
-|  |  RPC State-serving endpoints                                                     | 🏗️  (almost done, a few endpoint are left)   |
-|  |  Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅   |
+|  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅     |
+|   Revm (for now) wrapper for block execution                                                       | ✅     |
+|    JSON RPC API server setup                                                      | ✅     |
+|    RPC State-serving endpoints                                                     | 🏗️  (almost done, a few endpoint are left)   |
+|    Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅   |
 
 See detailed issues and progress for this milestone [here](https://github.com/lambdaclass/ethereum_rust/milestone/1).
 
@@ -102,9 +102,9 @@ Implement support for block reorganizations and historical state queries. This m
 
 |        | Task Description                                                                 | Status |
 | --------- |  --------------------------------------------------------------------------- | ------ |
-|  | Persist data on an on-disk Merkle Patricia Tree using `libmdbx`                                       | ✅     |
-|  | Engine API `forkchoiceUpdated` implementation (without `payloadAttributes`)                                                     | 🏗️     |
-|  |  Support for RPC historical queries, i.e. queries (`eth_call`, `eth_getBalance`, etc) at any block                                       | ✅   |
+|   Persist data on an on-disk Merkle Patricia Tree using `libmdbx`                                       | ✅     |
+|   Engine API `forkchoiceUpdated` implementation (without `payloadAttributes`)                                                     | 🏗️     |
+|    Support for RPC historical queries, i.e. queries (`eth_call`, `eth_getBalance`, etc) at any block                                       | ✅   |
 
 Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/4).
 
@@ -114,9 +114,9 @@ Add the ability to build new payloads (blocks), so the consensus client can prop
 
 |        | Task Description                                                                 | Status |
 | --------- |  --------------------------------------------------------------------------- | ------ |
-|  | `engine_forkchoiceUpdated` implementation with a non-null `payloadAttributes`                                      | 🏗️     |
-|  | `engine_getPayload` endpoint implementation that builds blocks.                                                     | 🏗️     |
-|  |  Implement a mempool and the `eth_sendRawTransaction` endpoint where users can send transactions                                      | ✅   |
+|   `engine_forkchoiceUpdated` implementation with a non-null `payloadAttributes`                                      | 🏗️     |
+|   `engine_getPayload` endpoint implementation that builds blocks.                                                     | 🏗️     |
+|    Implement a mempool and the `eth_sendRawTransaction` endpoint where users can send transactions                                      | ✅   |
 
 Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/5).
 
@@ -126,9 +126,9 @@ Implement the peer to peer networking stack, i.e. the DevP2P protocol. This incl
 
 |        | Task Description                                                                 | Status |
 | --------- |  --------------------------------------------------------------------------- | ------ |
-|  | Implement `discv4` for peer discovery                                    | ✅     |
-|  | Implement the `RLPx` transport protocol                                                     | 🏗️     |
-|  |  Implement the `eth` capability                                     | 🏗️  |
+|   Implement `discv4` for peer discovery                                    | ✅     |
+|   Implement the `RLPx` transport protocol                                                     | 🏗️     |
+|  Implement the `eth` capability                                     | 🏗️  |
 
 Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/2).
 
@@ -138,7 +138,7 @@ Add support for the `SNAP` protocol, which lets us get a recent copy of the bloc
 
 |        | Task Description                                                                 | Status |
 | --------- |  --------------------------------------------------------------------------- | ------ |
-|  | Implement `SNAP` protocol for snap syncing                                    | ❌     |
+|   Implement `SNAP` protocol for snap syncing                                    | ❌     |
 
 Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust/milestone/3).
 
@@ -270,7 +270,7 @@ Ethereum Rust supports the following command line arguments:
 - `--discovery.addr <ADDRESS>`: UDP address for P2P discovery. Default value: 0.0.0.0.
 - `--discovery.port <PORT>`: UDP port for P2P discovery. Default value: 30303.
 - `--bootnodes <BOOTNODE_LIST>`: Comma separated enode URLs for P2P discovery bootstrap.
-- `--log-level <LOG_LEVEL>`: The verbosity level used for logs. Default value: info. possible values: info, debug, trace, warn, error
+- `--log.level <LOG_LEVEL>`: The verbosity level used for logs. Default value: info. possible values: info, debug, trace, warn, error
 
 # Crates documentation
 
