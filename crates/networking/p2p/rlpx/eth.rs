@@ -287,7 +287,7 @@ impl PooledTransactions {
 
         for transaction_hash in transaction_hashes {
             let pooled_transaction = match storage.get_transaction_from_pool(transaction_hash)? {
-                Some(body) => body,
+                Some(pooled_transaction) => pooled_transaction,
                 None => continue,
             };
             pooled_transactions.push(pooled_transaction);
