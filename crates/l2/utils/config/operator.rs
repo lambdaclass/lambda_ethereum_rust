@@ -3,7 +3,7 @@ use libsecp256k1::SecretKey;
 use serde::{Deserialize, Deserializer};
 
 #[derive(Deserialize)]
-pub struct XXXConfig {
+pub struct OperatorConfig {
     pub block_executor_address: Address,
     pub operator_address: Address,
     #[serde(deserialize_with = "secret_key_deserializer")]
@@ -11,7 +11,7 @@ pub struct XXXConfig {
     pub interval_ms: u64,
 }
 
-impl XXXConfig {
+impl OperatorConfig {
     pub fn from_env() -> Result<Self, String> {
         match envy::prefixed("XXX_").from_env::<Self>() {
             Ok(config) => Ok(config),
