@@ -47,7 +47,6 @@ impl L1Watcher {
             l2_operator_pk: watcher_config.l2_operator_private_key,
         }
     }
-
     pub async fn get_logs(&mut self) -> Vec<RpcLog> {
         let current_block = self.eth_client.get_block_number().await.unwrap();
 

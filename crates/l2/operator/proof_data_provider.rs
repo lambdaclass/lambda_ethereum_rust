@@ -1,32 +1,33 @@
+use crate::utils::eth_client::RpcResponse;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use sp1_sdk::SP1ProofWithPublicValues;
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, TcpListener, TcpStream},
 };
-
-use serde::{Deserialize, Serialize};
-use sp1_sdk::SP1ProofWithPublicValues;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
 
 pub async fn start_proof_data_provider() {
     let config = ProofDataProviderConfig::from_env().unwrap();
     let proof_data_provider = ProofDataProvider::new_from_config(config);
-    proof_data_provider.start();
+    proof_data_provider.start().await;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ProofData {
     Request {},
     Response {
-        id: u32,
+        id: Option<u64>,
     },
     Submit {
-        id: u32,
+        id: u64,
         proof: Box<SP1ProofWithPublicValues>,
     },
     SubmitAck {
-        id: u32,
+        id: u64,
     },
 }
 
@@ -43,49 +44,111 @@ impl ProofDataProvider {
         }
     }
 
-    pub fn start(&self) {
+    pub async fn start(&self) {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).unwrap();
 
-        let mut current_id = 1;
+        let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
             let stream = stream.unwrap();
 
             debug!("Connection established!");
-            self.handle_connection(stream, &mut current_id);
+            self.handle_connection(stream, &mut last_proved_block).await;
         }
     }
 
-    fn handle_connection(&self, mut stream: TcpStream, current_id: &mut u32) {
+    async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
         let buf_reader = BufReader::new(&stream);
 
-        let data: ProofData = serde_json::de::from_reader(buf_reader).unwrap();
+        let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
-            ProofData::Request {} => {
-                self.handle_request(&mut stream, *current_id);
-                *current_id = (*current_id % 20) + 1;
+            Ok(ProofData::Request {}) => {
+                if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
+                    warn!("Failed to handle request: {e}");
+                }
             }
-            ProofData::Submit { id, proof } => self.handle_submit(&mut stream, id, proof),
-            _ => {}
+            Ok(ProofData::Submit { id, proof }) => {
+                if let Err(e) = self.handle_submit(&mut stream, id, proof) {
+                    warn!("Failed to handle submit: {e}");
+                }
+                *last_proved_block += 1;
+            }
+            Err(e) => {
+                warn!("Failed to parse request: {e}");
+            }
+            _ => {
+                warn!("Invalid request");
+            }
         }
 
         debug!("Connection closed");
     }
 
-    fn handle_request(&self, stream: &mut TcpStream, current_id: u32) {
-        debug!("Request received");
+    async fn get_last_block_number() -> Result<u64, String> {
+        let response = Client::new()
+            .post("http://localhost:8551")
+            .header("content-type", "application/json")
+            .body(
+                r#"{
+                    "jsonrpc": "2.0",
+                    "method": "eth_blockNumber",
+                    "params": [],
+                    "id": 1
+                }"#,
+            )
+            .send()
+            .await
+            .map_err(|e| e.to_string())?
+            .json::<RpcResponse>()
+            .await
+            .map_err(|e| e.to_string())?;
 
-        let response = ProofData::Response { id: current_id };
-        let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).unwrap();
+        if let RpcResponse::Success(r) = response {
+            u64::from_str_radix(
+                r.result
+                    .as_str()
+                    .ok_or("Response format error".to_string())?
+                    .strip_prefix("0x")
+                    .ok_or("Response format error".to_string())?,
+                16,
+            )
+            .map_err(|e| e.to_string())
+        } else {
+            Err("Failed to get last block number".to_string())
+        }
     }
 
-    fn handle_submit(&self, stream: &mut TcpStream, id: u32, proof: Box<SP1ProofWithPublicValues>) {
+    async fn handle_request(
+        &self,
+        stream: &mut TcpStream,
+        last_proved_block: u64,
+    ) -> Result<(), String> {
+        debug!("Request received");
+
+        let last_block_number = Self::get_last_block_number().await?;
+
+        let response = if last_block_number > last_proved_block {
+            ProofData::Response {
+                id: Some(last_proved_block + 1),
+            }
+        } else {
+            ProofData::Response { id: None }
+        };
+        let writer = BufWriter::new(stream);
+        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+    }
+
+    fn handle_submit(
+        &self,
+        stream: &mut TcpStream,
+        id: u64,
+        proof: Box<SP1ProofWithPublicValues>,
+    ) -> Result<(), String> {
         debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
 
         let response = ProofData::SubmitAck { id };
         let writer = BufWriter::new(stream);
-        serde_json::to_writer(writer, &response).unwrap();
+        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
 }
