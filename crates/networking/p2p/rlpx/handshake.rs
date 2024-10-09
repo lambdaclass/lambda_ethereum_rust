@@ -180,23 +180,15 @@ pub fn encrypt_message(remote_static_pubkey: &PublicKey, mut encoded_msg: Vec<u8
     let r_public_key = message_secret_key.public_key().to_encoded_point(false);
     let mac_footer = sha256_hmac(&mac_key, &[&iv.0, &encrypted_auth_msg], &auth_size_bytes);
 
-    // Save the Auth message for the egress-mac initialization
-    let msg = [
+    // Return the message
+    [
         &auth_size_bytes,
         r_public_key.as_bytes(),
         &iv.0,
         &encrypted_auth_msg,
         &mac_footer,
     ]
-    .concat();
-
-    msg
-    // Write everything into the buffer.
-    // buf.put_slice(&auth_size_bytes);
-    // buf.put_slice(r_public_key.as_bytes());
-    // buf.put_slice(&iv.0);
-    // buf.put_slice(&encrypted_auth_msg);
-    // buf.put_slice(&mac_footer);
+    .concat()
 }
 
 fn retrieve_remote_ephemeral_key(

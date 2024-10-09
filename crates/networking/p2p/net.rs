@@ -18,11 +18,7 @@ use k256::{
 };
 use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-use rlpx::{
-    connection::{RLPxConnection, SUPPORTED_CAPABILITIES},
-    message::Message as RLPxMessage,
-    p2p,
-};
+use rlpx::connection::RLPxConnection;
 use tokio::{
     net::{TcpSocket, TcpStream, UdpSocket},
     sync::Mutex,
@@ -189,8 +185,9 @@ async fn discover_peers_server(
                         let mut sig_bytes = vec![0; 65];
                         buf[32..32 + 65].clone_into(&mut sig_bytes);
                         let signer_clone = signer.clone();
+                        // TODO: make this work to initiate p2p thread
                         // tokio::spawn(async move {
-                        //     start_rplx_connection(&msg_buf, &sig_bytes, &node, signer_clone).await;
+                        //     handle_peer_as_initiator(signer_clone, &msg_buf, &node).await;
                         // });
                     } else {
                         debug!(
@@ -713,6 +710,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let _ = socket.send_to(&buf, to_addr).await;
 }
 
+// TODO: remove this function. It's used for a hardcoded test
 async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
     let mut udp_addr = tcp_addr;
     udp_addr.set_port(tcp_addr.port() + 1);
@@ -756,90 +754,6 @@ async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, st
     handle_peer_as_initiator(signer, msg, &node).await;
 }
 
-// TODO: remove this function, it was left here only as reference
-// async fn serve_requestsx(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
-
-//     let digest = sha3::Keccak256::digest(msg);
-//     let signature = &ethereum_rust_core::Signature::from_bytes(sig_bytes[..64].into()).unwrap();
-//     let rid = k256::ecdsa::RecoveryId::from_byte(sig_bytes[64]).unwrap();
-
-//     let peer_pk = k256::ecdsa::VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
-
-//     let mut client = rlpx::handshake::RLPxClient::random(false);
-//     let mut auth_message = vec![];
-//     client.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
-
-//     // NOTE: for some reason kurtosis peers don't publish their active TCP port
-//     let tcp_addr = endpoint
-//         .tcp_address()
-//         .unwrap_or(str_tcp_addr.parse().unwrap());
-
-//     let mut stream = TcpSocket::new_v4()
-//         .unwrap()
-//         .connect(tcp_addr)
-//         .await
-//         .unwrap();
-
-//     tokio::io::AsyncWriteExt::write_all(&mut stream, &auth_message).await.unwrap();
-//     info!("Sent auth message correctly!");
-//     // Read the ack message's size
-//     tokio::io::AsyncReadExt::read_exact(&mut stream, &mut buf[..2]).await.unwrap();
-//     let auth_data = buf[..2].try_into().unwrap();
-//     let msg_size = u16::from_be_bytes(auth_data) as usize;
-
-//     // Read the rest of the ack message
-//     tokio::io::AsyncReadExt::read_exact(&mut stream, &mut buf[2..msg_size + 2]).await.unwrap();
-
-//     let msg = &mut buf[2..msg_size + 2];
-//     let state = client.decode_ack_message(&secret_key, msg, auth_data);
-//     let mut conn = RLPxConnection::new(state, stream, tcp_addr);
-//     info!("Completed handshake!");
-
-//     let hello_msg = RLPxMessage::Hello(p2p::HelloMessage::new(
-//         SUPPORTED_CAPABILITIES
-//             .into_iter()
-//             .map(|(name, version)| (name.to_string(), version))
-//             .collect(),
-//         PublicKey::from(signer.verifying_key()),
-//     ));
-
-//     conn.send(hello_msg).await;
-
-//     // Receive Hello message
-//     conn.receive().await;
-
-//     info!("Completed Hello roundtrip!");
-
-//     let received_status = conn.receive().await;
-//     debug!("Received RLPxMessage: {:?}", received_status);
-//     if let RLPxMessage::Status(_received) = received_status {
-//         if let Ok(response_status) = rlpx::eth::StatusMessage::build_from(&storage) {
-//             let response_status = RLPxMessage::Status(response_status);
-//             conn.send(response_status).await;
-//         }
-//     }
-
-// TODO hello messages exchanges is missing
-async fn exchange_hello_messages(
-    mut conn: RLPxConnection<tokio::net::TcpStream>,
-    signer: &SigningKey,
-) {
-    let hello_msg = RLPxMessage::Hello(p2p::HelloMessage::new(
-        SUPPORTED_CAPABILITIES
-            .into_iter()
-            .map(|(name, version)| (name.to_string(), version))
-            .collect(),
-        PublicKey::from(signer.verifying_key()),
-    ));
-
-    conn.send(hello_msg).await;
-
-    // Receive Hello message
-    conn.receive().await;
-
-    info!("Completed Hello roundtrip!");
-}
-
 async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
@@ -869,9 +783,6 @@ async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
 
 async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
     conn.handshake().await;
-
-    // exchange_hello_messages(conn, &signer).await;
-
     // TODO react on handshale or capabilities exchange result
     loop {
         // Properly build listen loop
