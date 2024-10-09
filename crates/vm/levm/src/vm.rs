@@ -270,43 +270,33 @@ impl VM {
     }
 
     pub fn write_success_result(
-        &mut self,
         current_call_frame: CallFrame,
         reason: ResultReason,
         gas_used: u64,
         gas_refunded: u64,
     ) -> ExecutionResult {
         match reason {
-            ResultReason::Stop => {
-                self.call_frames.push(current_call_frame.clone());
-                ExecutionResult::Success {
-                    reason: SuccessReason::Stop,
-                    logs: current_call_frame.logs.clone(),
-                    return_data: current_call_frame.returndata.clone(),
-                    gas_used,
-                    output: Output::Call(current_call_frame.returndata.clone()),
-                    gas_refunded,
-                }
-            }
-            ResultReason::Return => {
-                self.call_frames.push(current_call_frame.clone());
-                ExecutionResult::Success {
-                    reason: SuccessReason::Return,
-                    logs: current_call_frame.logs.clone(),
-                    return_data: current_call_frame.returndata.clone(),
-                    gas_used,
-                    output: Output::Call(current_call_frame.returndata.clone()),
-                    gas_refunded,
-                }
-            }
-            ResultReason::Revert => {
-                self.call_frames.push(current_call_frame.clone());
-                ExecutionResult::Revert {
-                    reason: VMError::FatalError,
-                    gas_used,
-                    output: current_call_frame.returndata.clone(),
-                }
-            }
+            ResultReason::Stop => ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                logs: current_call_frame.logs.clone(),
+                return_data: current_call_frame.returndata.clone(),
+                gas_used,
+                output: Output::Call(current_call_frame.returndata.clone()),
+                gas_refunded,
+            },
+            ResultReason::Return => ExecutionResult::Success {
+                reason: SuccessReason::Return,
+                logs: current_call_frame.logs.clone(),
+                return_data: current_call_frame.returndata.clone(),
+                gas_used,
+                output: Output::Call(current_call_frame.returndata.clone()),
+                gas_refunded,
+            },
+            ResultReason::Revert => ExecutionResult::Revert {
+                reason: VMError::FatalError,
+                gas_used,
+                output: current_call_frame.returndata.clone(),
+            },
         }
     }
 
@@ -457,7 +447,8 @@ impl VM {
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(r)) => {
-                    return Ok(self.write_success_result(
+                    self.call_frames.push(current_call_frame.clone());
+                    return Ok(Self::write_success_result(
                         current_call_frame.clone(),
                         r,
                         self.env.consumed_gas,
@@ -465,10 +456,11 @@ impl VM {
                     ));
                 }
                 Err(e) => {
+                    self.call_frames.push(current_call_frame.clone());
                     return Ok(ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
-                    })
+                    });
                 }
             }
         }
