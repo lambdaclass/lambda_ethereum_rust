@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
 reqwest = { version = "0.12.7", features = ["json"] }
 tokio.workspace = true
 tokio-util.workspace = true
@@ -15,14 +16,11 @@ serde_json.workspace = true
 ethereum-types.workspace = true
 ethereum_rust-rpc.workspace = true
 ethereum_rust-storage.workspace = true
-#ethereum_rust-rlp.workspace = true
-# TODO We need the patches/patch_001_mdbx branch, check how to reference the repo directly (merge the branch?).
-# Using this branch to have De/Serialization for the Block type.
-# ethereum_rust
-ethereum_rust-core = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-core", branch = "patches/patch_001_mdbx", default-features = false, features = [
-    "no_libmdbx",
-] }
-ethereum_rust-rlp = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rlp", branch = "patches/patch_001_mdbx", default-features = false }
+ethereum_rust-rlp.workspace = true
+ethereum_rust-evm.workspace = true
+ethereum_rust-core.workspace = true
+ethereum_rust-blockchain.workspace = true
+
 hex.workspace = true
 bytes.workspace = true
 jsonwebtoken.workspace = true

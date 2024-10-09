@@ -7,7 +7,12 @@ use std::{
     str::FromStr,
 };
 
-use ethereum_rust_core::types::{Block, BlockBody, BlockHeader};
+use ethereum_rust_blockchain::{
+    find_parent_header, validate_block, validate_gas_used, validate_parent_canonical,
+    validate_state_root,
+};
+use ethereum_rust_core::types::{Block, BlockBody, BlockHeader, TxKind};
+use ethereum_rust_evm::{evm_state, execute_block, get_state_transitions};
 use ethereum_rust_storage::Store;
 use ethereum_types::{Bloom, H160, H256, U256};
 use prover_lib::{
@@ -24,7 +29,7 @@ use crate::{
     rpc::l1_rpc::RpcResponse,
 };
 
-use revm::{db::CacheDB, InMemoryDB};
+use revm::{db::CacheDB, Evm, InMemoryDB};
 
 pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
     let proof_data_provider = ProofDataProvider::new(store, ip, port);
@@ -359,7 +364,7 @@ impl ProofDataProvider {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        let _last_block_number = Self::get_last_block_number().await?;
+        //let _last_block_number = Self::get_last_block_number().await?;
 
         //let state = MemoryDB::new(accounts, storage, block_hashes);
 
@@ -373,6 +378,14 @@ impl ProofDataProvider {
             parent_block_header: parent_block_header.clone(),
             block_is_valid: false,
         };
+
+        // we need the storage of the current_block-1
+        // we should execute the EVM with that state and simulating the inclusion of the current_block
+        get_last_block_state(&self.store);
+        // with the execution_outputs we should get a way to have the State/Store represented with Hashmaps
+
+        // finally, this information has to be contained in an structure that can be de/serealized,
+        // so that, any zkVM can receive the state as input and prove the block execution.
 
         let prover_inputs_execution = ProverInput {
             block: head_block,
@@ -413,4 +426,41 @@ impl ProofDataProvider {
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
+}
+
+/// Same concept as adding a block [ethereum_rust_blockchain::add_block].
+fn get_last_block_state(storage: &Store) {
+    let last_block_number = storage.get_latest_block_number().unwrap().unwrap();
+    let body = storage.get_block_body(last_block_number).unwrap().unwrap();
+    let header = storage
+        .get_block_header(last_block_number)
+        .unwrap()
+        .unwrap();
+
+    let last_block = Block { header, body };
+
+    validate_parent_canonical(&last_block, storage).unwrap();
+    let parent_header = find_parent_header(&last_block.header, storage).unwrap();
+
+    let prev_state = evm_state(storage.clone(), last_block.header.parent_hash);
+    let mut state = evm_state(storage.clone(), last_block.header.parent_hash);
+
+    validate_block(&last_block, &parent_header, &state).unwrap();
+
+    let receipts = execute_block(&last_block, &mut state).unwrap();
+
+    validate_gas_used(&receipts, &last_block.header).unwrap();
+
+    let account_updates = get_state_transitions(&mut state);
+
+    // Apply the account updates over the last block's state and compute the new state root
+    let new_state_root = state
+        .database()
+        .apply_account_updates(last_block.header.parent_hash, &account_updates)
+        .unwrap()
+        .unwrap_or_default();
+
+    // Check state root matches the one in block header after execution
+    validate_state_root(&last_block.header, new_state_root).unwrap();
+    info!("LAST BLOCK STATE MATCHES");
 }
