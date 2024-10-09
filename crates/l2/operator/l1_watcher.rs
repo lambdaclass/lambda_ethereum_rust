@@ -122,15 +122,6 @@ impl L1Watcher {
                 ..Default::default()
             };
 
-            let private_key = SecretKey::parse(
-                &H256::from_str(
-                    "0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924",
-                )
-                .map_err(|e| L1WatcherError::FailedToDeserializePrivateKey(e.to_string()))?
-                .0,
-            )
-            .map_err(|e| L1WatcherError::FailedToDeserializePrivateKey(e.to_string()))?;
-
             mint_transaction.nonce = store
                 .get_account_info(
                     self.eth_client.get_block_number().await?.as_u64(),
