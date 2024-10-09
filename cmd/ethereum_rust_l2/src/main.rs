@@ -1,4 +1,4 @@
-use ethereum_rust_l2::cli;
+use ethereum_rust_l2_cli::cli;
 
 #[tokio::main]
 async fn main() {
