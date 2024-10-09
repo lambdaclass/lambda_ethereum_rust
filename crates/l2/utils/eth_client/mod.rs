@@ -1,7 +1,7 @@
 use crate::utils::config::eth::EthConfig;
 use errors::{
-    EstimateGasPriceError, EthClientError, GetBlockNumberError, GetGasPriceError, GetLogsError,
-    GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
+    EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError, GetGasPriceError,
+    GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
 };
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -274,6 +274,25 @@ impl EthClient {
                 .map_err(EthClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
                 Err(GetTransactionReceiptError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_balance(&self, address: Address) -> Result<U256, EthClientError> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getBalance".to_string(),
+            params: Some(vec![json!(format!("{:#x}", address)), json!("latest")]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetBalanceError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetBalanceError::RPCError(error_response.error.message).into())
             }
             Err(error) => Err(error),
         }
