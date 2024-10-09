@@ -17,7 +17,10 @@ pub enum L1WatcherError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ProofDataProviderError {}
+pub enum ProofDataProviderError {
+    #[error("ProofDataProvider connection failed: {0}")]
+    ConnectionError(#[from] std::io::Error),
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum OperatorError {}
