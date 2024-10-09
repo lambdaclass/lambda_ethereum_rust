@@ -151,12 +151,12 @@ impl RLPDecode for HashOrNumber {
     }
 }
 
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#getblockheaders-0x03
 #[derive(Debug)]
 pub(crate) struct GetBlockHeaders {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     id: u64,
-    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#getblockheaders-0x03
     startblock: HashOrNumber,
     limit: u64,
     skip: u64,
@@ -170,14 +170,14 @@ impl GetBlockHeaders {
         limit: u64,
         skip: u64,
         reverse: bool,
-    ) -> Result<Self, StoreError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             id,
             startblock,
             limit,
             skip,
             reverse,
-        })
+        }
     }
 }
 
@@ -229,6 +229,7 @@ impl RLPxMessage for GetBlockHeaders {
     }
 }
 
+//https://github.com/belfortep/devp2p/blob/master/caps/eth.md#blockheaders-0x04
 pub(crate) struct BlockHeaders {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
@@ -325,8 +326,7 @@ mod tests {
 
     #[test]
     fn get_block_headers_startblock_number_message() {
-        let get_block_bodies =
-            GetBlockHeaders::build_from(1, HashOrNumber::Number(1), 0, 0, false).unwrap();
+        let get_block_bodies = GetBlockHeaders::build_from(1, HashOrNumber::Number(1), 0, 0, false);
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -344,8 +344,7 @@ mod tests {
             0,
             0,
             false,
-        )
-        .unwrap();
+        );
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -608,8 +607,7 @@ mod tests {
 
         let sender_chosen_id = 1;
         let get_block_headers =
-            GetBlockHeaders::build_from(sender_chosen_id, HashOrNumber::Number(1), 3, 1, true)
-                .unwrap();
+            GetBlockHeaders::build_from(sender_chosen_id, HashOrNumber::Number(1), 3, 1, true);
         let mut send_data_of_block_headers = Vec::new();
         get_block_headers.encode(&mut send_data_of_block_headers);
         sender
