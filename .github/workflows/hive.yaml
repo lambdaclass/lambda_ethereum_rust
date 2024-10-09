@@ -35,7 +35,7 @@ jobs:
             run_command:  make run-hive SIMULATION=ethereum/engine TEST_PATTERN="/Blob Transactions On Block 1, Cancun Genesis|Blob Transactions On Block 1, Shanghai Genesis|Blob Transaction Ordering, Single Account, Single Blob|Blob Transaction Ordering, Single Account, Dual Blob|Parallel Blob Transactions|ForkchoiceUpdatedV3 Modifies Payload ID on Different Beacon Root|NewPayloadV3 After Cancun|NewPayloadV3 Versioned Hashes|cancun/ParentHash equals BlockHash on NewPayload|cancun/RPC|ForkchoiceUpdated Version on Payload Request|cancun/Re-Execute Payload|cancun/Payload Build after New Invalid Payload|cancun/Build Payload with Invalid ChainID|cancun/Unique Payload ID"
           - simulation: engine-cancun
             name: "Cancun Engine tests (wip)"
-            run_command:  make run-hive SIMULATION=ethereum/engine TEST_PATTERN="/cancun/Unique Payload ID"
+            run_command:  make run-hive SIMULATION=ethereum/engine TEST_PATTERN="cancun/Unique Payload ID"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
