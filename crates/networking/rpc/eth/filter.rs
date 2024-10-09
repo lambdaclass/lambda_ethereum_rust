@@ -131,7 +131,7 @@ impl DeleteFilterRequest {
             filters.clear_poison();
             poisoned_guard.into_inner()
         });
-        match active_filters_guard.get_mut(&self.id) {
+        match active_filters_guard.remove(&self.id) {
             Some(_) => Ok(true.into()),
             None => Ok(false.into()),
         }
@@ -325,7 +325,7 @@ mod tests {
                 json!(
                     {
                         "jsonrpc":"2.0",
-                        "method":"eth_newFilter",
+                        "method":"eth_uninstallFilter",
                         "params":
                         [
                             "0xFF"
@@ -336,7 +336,29 @@ mod tests {
         let filter = (0xFF, (1, LogsFilter { from_block: BlockIdentifier::Number(1), to_block: BlockIdentifier::Number(2), address_filters: None, topics: vec![] }));
         let active_filters = Arc::new(Mutex::new(HashMap::from([filter])));
         map_http_requests(&uninstall_filter_req, Store::new("in-mem", EngineType::InMemory).unwrap(), example_p2p_node(), active_filters.clone()).unwrap();
+        assert!(active_filters.clone().lock().unwrap().len() == 0, "Expected filter map to be empty after request");
     }
+
+    #[test]
+    fn removing_non_existing_filter_returns_false() {
+        let uninstall_filter_req: RpcRequest =
+            serde_json::from_value(
+                json!(
+                    {
+                        "jsonrpc":"2.0",
+                        "method":"eth_uninstallFilter",
+                        "params":
+                        [
+                            "0xFF"
+                        ]
+                            ,"id":1
+                    })
+            ).expect("Json for test is not a valid request");
+        let active_filters = Arc::new(Mutex::new(HashMap::new()));
+        let res = map_http_requests(&uninstall_filter_req, Store::new("in-mem", EngineType::InMemory).unwrap(), example_p2p_node(), active_filters.clone()).unwrap();
+        assert!(matches!(res, serde_json::Value::Bool(false)));
+    }
+
     #[tokio::test]
     async fn background_job_removes_filter_smoke_test() {
         // Start a test server to start the cleanup
