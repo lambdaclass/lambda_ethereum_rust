@@ -113,6 +113,7 @@ impl RLPxMessage for StatusMessage {
     }
 }
 
+// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#newpooledtransactionhashes-0x08
 // Broadcast message
 #[derive(Debug)]
 pub(crate) struct Transactions {
@@ -147,7 +148,7 @@ impl RLPxMessage for Transactions {
         Ok(Self { transactions })
     }
 }
-
+// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#newpooledtransactionhashes-0x08
 // Broadcast message
 #[derive(Debug)]
 pub(crate) struct NewPooledTransactionHashes {
@@ -212,6 +213,7 @@ impl RLPxMessage for NewPooledTransactionHashes {
     }
 }
 
+// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#getpooledtransactions-0x09
 #[derive(Debug)]
 pub(crate) struct GetPooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
@@ -257,6 +259,7 @@ impl RLPxMessage for GetPooledTransactions {
     }
 }
 
+// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#pooledtransactions-0x0a
 pub(crate) struct PooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
