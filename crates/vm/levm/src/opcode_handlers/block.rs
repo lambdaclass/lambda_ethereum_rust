@@ -440,9 +440,9 @@ impl VM {
         }
 
         let mut code = self.db.get_account_bytecode(&address);
-        if code.len() < size {
+        if code.len() < offset + size {
             let mut extended_code = code.to_vec();
-            extended_code.resize(size, 0);
+            extended_code.resize(offset + size, 0);
             code = Bytes::from(extended_code);
         }
         current_call_frame
