@@ -1,4 +1,8 @@
 use bytes::Bytes;
+use errors::{
+    EngineClientError, ExchangeCapabilitiesError, ForkChoiceUpdateError, GetPayloadError,
+    NewPayloadError,
+};
 use ethereum_rust_rpc::{
     engine::{
         fork_choice::ForkChoiceUpdatedV3,
@@ -20,6 +24,8 @@ use crate::utils::config::engine_api::EngineApiConfig;
 
 use super::eth_client::RpcResponse;
 
+pub mod errors;
+
 pub struct EngineClient {
     client: Client,
     secret: Bytes,
@@ -35,33 +41,40 @@ impl EngineClient {
         }
     }
 
-    pub fn new_from_config(config: EngineApiConfig) -> Self {
-        Self {
+    pub fn new_from_config(config: EngineApiConfig) -> Result<Self, EngineClientError> {
+        Ok(Self {
             client: Client::new(),
-            secret: std::fs::read(config.jwt_path).unwrap().into(),
+            secret: std::fs::read(config.jwt_path)?.into(),
             execution_client_url: config.rpc_url,
-        }
+        })
     }
 
-    async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, reqwest::Error> {
+    async fn send_request(&self, request: RpcRequest) -> Result<RpcResponse, EngineClientError> {
         self.client
             .post(&self.execution_client_url)
-            .bearer_auth(self.auth_token())
+            .bearer_auth(self.auth_token()?)
             .header("content-type", "application/json")
-            .body(serde_json::ser::to_string(&request).unwrap())
+            .body(serde_json::ser::to_string(&request).map_err(|error| {
+                EngineClientError::FailedToSerializeRequestBody(format!("{error}: {request:?}"))
+            })?)
             .send()
             .await?
             .json::<RpcResponse>()
             .await
+            .map_err(EngineClientError::from)
     }
 
-    pub async fn engine_exchange_capabilities(&self) -> Result<Vec<String>, String> {
+    pub async fn engine_exchange_capabilities(&self) -> Result<Vec<String>, EngineClientError> {
         let request = ExchangeCapabilitiesRequest::from(Self::capabilities()).into();
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(ExchangeCapabilitiesError::SerdeJSONError)
+                .map_err(EngineClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(ExchangeCapabilitiesError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
@@ -69,7 +82,7 @@ impl EngineClient {
         &self,
         state: ForkChoiceState,
         payload_attributes: PayloadAttributesV3,
-    ) -> Result<ForkChoiceResponse, String> {
+    ) -> Result<ForkChoiceResponse, EngineClientError> {
         let request = ForkChoiceUpdatedV3 {
             fork_choice_state: state,
             payload_attributes: Some(payload_attributes),
@@ -77,28 +90,30 @@ impl EngineClient {
         .into();
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(s)) => match serde_json::from_value(s.result.clone()) {
-                Ok(parsed_value) => Ok(parsed_value),
-                Err(error) => {
-                    dbg!(s.result);
-                    Err(error.to_string())
-                }
-            },
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(ForkChoiceUpdateError::SerdeJSONError)
+                .map_err(EngineClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(ForkChoiceUpdateError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
     pub async fn engine_get_payload_v3(
         &self,
         payload_id: u64,
-    ) -> Result<ExecutionPayloadResponse, String> {
+    ) -> Result<ExecutionPayloadResponse, EngineClientError> {
         let request = GetPayloadV3Request { payload_id }.into();
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(s)) => Ok(serde_json::from_value(s.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetPayloadError::SerdeJSONError)
+                .map_err(EngineClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetPayloadError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
@@ -107,7 +122,7 @@ impl EngineClient {
         execution_payload: ExecutionPayloadV3,
         expected_blob_versioned_hashes: Vec<H256>,
         parent_beacon_block_root: H256,
-    ) -> Result<PayloadStatus, String> {
+    ) -> Result<PayloadStatus, EngineClientError> {
         let request = NewPayloadV3Request {
             payload: execution_payload,
             expected_blob_versioned_hashes,
@@ -116,26 +131,28 @@ impl EngineClient {
         .into();
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(s)) => Ok(serde_json::from_value(s.result).unwrap()),
-            Ok(RpcResponse::Error(e)) => Err(e.error.message),
-            Err(e) => Err(e.to_string()),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(NewPayloadError::SerdeJSONError)
+                .map_err(EngineClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(NewPayloadError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
         }
     }
 
-    fn auth_token(&self) -> String {
+    fn auth_token(&self) -> Result<String, EngineClientError> {
         // Header
         let header = jsonwebtoken::Header::default();
         // Claims
-        let valid_iat = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as usize;
+        let valid_iat = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
         let claims = json!({"iat": valid_iat});
         // Encoding Key
-        let decoded_secret = hex::decode(self.secret.clone()).unwrap();
+        let decoded_secret = hex::decode(self.secret.clone())
+            .map_err(|error| EngineClientError::FailedToDecodeJWTSecret(error.to_string()))?;
         let encoding_key = jsonwebtoken::EncodingKey::from_secret(decoded_secret.as_ref());
         // JWT Token
-        jsonwebtoken::encode(&header, &claims, &encoding_key).unwrap()
+        jsonwebtoken::encode(&header, &claims, &encoding_key).map_err(EngineClientError::from)
     }
 
     fn capabilities() -> Vec<String> {
