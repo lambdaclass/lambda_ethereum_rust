@@ -18,9 +18,10 @@ pub async fn start_block_producer() {
             .unwrap();
 
     loop {
-        let secret = Bytes::from_static(include_bytes!(
-            "/Users/federicoborello/Desktop/ethereum_lambda/ethereum_rust/l2/sp1-execute-block/crates/l2/jwt.hex"
-        ));
+        // let secret = Bytes::from_static(include_bytes!(
+        //     "/Users/federicoborello/Desktop/ethereum_lambda/ethereum_rust/l2/sp1-execute-block/crates/l2/jwt.hex"
+        // ));
+        let secret = Bytes::from_static(&[0]);
         let consensus_mock_client = ConsensusMock::new("http://localhost:8551", secret);
 
         let fork_choice_state = ForkChoiceState {
