@@ -1,7 +1,7 @@
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
-    types::receipt::RpcLog,
+    types::receipt::{RpcLog, RpcReceipt},
     utils::{RpcErrorResponse, RpcRequest, RpcRequestId, RpcSuccessResponse},
 };
 use ethereum_types::{Address, H256, U256};
@@ -10,28 +10,38 @@ use libsecp256k1::{sign, Message, SecretKey};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
+use transaction::PayloadRLPEncode;
 
-use super::transaction::PayloadRLPEncode;
+use super::config::eth::EthConfig;
 
-#[derive(Deserialize)]
+pub mod transaction;
+
+#[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub enum RpcResponse {
     Success(RpcSuccessResponse),
     Error(RpcErrorResponse),
 }
 
-pub struct L1Rpc {
+pub struct EthClient {
     client: Client,
     url: String,
 }
 
 const EIP1559_TX_TYPE: u8 = 2;
 
-impl L1Rpc {
+impl EthClient {
     pub fn new(url: &str) -> Self {
         Self {
             client: Client::new(),
             url: url.to_string(),
+        }
+    }
+
+    pub fn new_from_config(config: EthConfig) -> Self {
+        Self {
+            client: Client::new(),
+            url: config.rpc_url,
         }
     }
 
@@ -185,6 +195,39 @@ impl L1Rpc {
                     "topics": [format!("{:#x}", topic)]
                 }
             )]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
+            Ok(RpcResponse::Error(e)) => Err(e.error.message),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    pub async fn gas_price(&self) -> Result<U256, String> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_gasPrice".to_string(),
+            params: None,
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => Ok(serde_json::from_value(result.result).unwrap()),
+            Ok(RpcResponse::Error(e)) => Err(e.error.message),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    pub async fn get_transaction_receipt(
+        &self,
+        tx_hash: H256,
+    ) -> Result<Option<RpcReceipt>, String> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getTransactionReceipt".to_string(),
+            params: Some(vec![json!(format!("{:#x}", tx_hash))]),
         };
 
         match self.send_request(request).await {

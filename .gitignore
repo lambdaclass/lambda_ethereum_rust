@@ -41,5 +41,4 @@ jwt.hex
 # Used by the make test target
 /tmp
 
-# Zip used for testing
-*.tar.gz
+tests_v3.0.0.tar.gz
