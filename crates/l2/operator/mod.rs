@@ -17,7 +17,6 @@ use tracing::{error, info};
 
 pub mod l1_watcher;
 pub mod proof_data_provider;
-pub mod xxx;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
