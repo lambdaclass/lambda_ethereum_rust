@@ -13,7 +13,7 @@ use keccak_hash::keccak;
 use libsecp256k1::SecretKey;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info};
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
