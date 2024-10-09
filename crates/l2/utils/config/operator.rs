@@ -16,7 +16,7 @@ pub struct OperatorConfig {
 
 impl OperatorConfig {
     pub fn from_env() -> Result<Self, ConfigError> {
-        envy::prefixed("XXX_")
+        envy::prefixed("OPERATOR_")
             .from_env::<Self>()
             .map_err(ConfigError::from)
     }

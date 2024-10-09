@@ -16,9 +16,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 use tracing::{error, info};
 
-pub mod errors;
 pub mod l1_watcher;
 pub mod proof_data_provider;
+
+pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
