@@ -15,6 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
 use tracing::{error, info};
 
+pub mod errors;
 pub mod l1_watcher;
 pub mod proof_data_provider;
 
@@ -234,15 +235,21 @@ impl Operator {
         tx.gas_limit = self
             .eth_client
             .estimate_gas(tx.clone())
-            .await?
+            .await
+            .unwrap()
             .saturating_add(TX_GAS_COST);
 
-        tx.max_fee_per_gas = self.eth_client.get_gas_price().await?;
+        tx.max_fee_per_gas = self.eth_client.get_gas_price().await.unwrap();
 
-        tx.nonce = self.eth_client.get_nonce(self.operator_address).await?;
+        tx.nonce = self
+            .eth_client
+            .get_nonce(self.operator_address)
+            .await
+            .unwrap();
 
         self.eth_client
             .send_eip1559_transaction(tx, self.operator_private_key)
             .await
+            .map_err(|e| e.to_string())
     }
 }
