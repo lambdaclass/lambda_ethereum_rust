@@ -229,7 +229,7 @@ impl RLPxMessage for GetBlockHeaders {
     }
 }
 
-//https://github.com/belfortep/devp2p/blob/master/caps/eth.md#blockheaders-0x04
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#blockheaders-0x04
 pub(crate) struct BlockHeaders {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
