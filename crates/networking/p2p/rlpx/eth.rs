@@ -167,13 +167,8 @@ impl NewPooledTransactionHashes {
             let transaction_type = transaction.tx_type();
             transaction_types.push(transaction_type as u8);
             // size is defined as the len of the concatenation of tx_type and the tx_data
-            // as the tx_type goes from 0x00 to 0xff, the size of tx_type is at much 2.
-            let tx_type_size = if (transaction_type as usize) < 0x10 {
-                1
-            } else {
-                2
-            };
-            let transaction_size = tx_type_size + transaction.data().len();
+            // as the tx_type goes from 0x00 to 0xff, the size of tx_type is 1 byte
+            let transaction_size = 1 + transaction.data().len();
             transaction_sizes.push(transaction_size);
             let transaction_hash = transaction.compute_hash();
             transaction_hashes.push(transaction_hash);
