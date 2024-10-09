@@ -36,4 +36,4 @@ path = "./ethereum_rust.rs"
 
 [features]
 default = []
-l2 = []
+l2 = ["ethereum_rust-evm/l2"]
