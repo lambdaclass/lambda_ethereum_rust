@@ -1,6 +1,7 @@
-use ethereum_types::{Address, H256};
+use super::secret_key_deserializer;
+use ethereum_types::Address;
 use libsecp256k1::SecretKey;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct L1TxSenderConfig {
@@ -17,12 +18,4 @@ impl L1TxSenderConfig {
             Err(error) => Err(error.to_string()),
         }
     }
-}
-
-fn secret_key_deserializer<'de, D>(deserializer: D) -> Result<SecretKey, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let hex = H256::deserialize(deserializer)?;
-    SecretKey::parse(hex.as_fixed_bytes()).map_err(serde::de::Error::custom)
 }
