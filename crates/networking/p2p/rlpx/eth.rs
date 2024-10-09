@@ -110,6 +110,7 @@ impl RLPxMessage for StatusMessage {
     }
 }
 
+// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#getblockbodies-0x05
 #[derive(Debug)]
 pub(crate) struct GetBlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
@@ -119,8 +120,8 @@ pub(crate) struct GetBlockBodies {
 }
 
 impl GetBlockBodies {
-    pub fn build_from(id: u64, block_hashes: Vec<BlockHash>) -> Result<Self, StoreError> {
-        Ok(Self { block_hashes, id })
+    pub fn build_from(id: u64, block_hashes: Vec<BlockHash>) -> Self {
+        Self { block_hashes, id }
     }
 }
 
@@ -146,15 +147,18 @@ impl RLPxMessage for GetBlockBodies {
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|err| RLPDecodeError::Custom(err.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
-        let (block_hashes, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes").unwrap();
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (block_hashes, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes")?;
 
         Ok(Self { block_hashes, id })
     }
 }
 
+// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#blockbodies-0x06
 pub(crate) struct BlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
@@ -204,10 +208,12 @@ impl RLPxMessage for BlockBodies {
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
         let mut snappy_decoder = SnappyDecoder::new();
-        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|err| RLPDecodeError::Custom(err.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (id, decoder): (u64, _) = decoder.decode_field("request-id").unwrap();
-        let (block_bodies, _): (Vec<BlockBody>, _) = decoder.decode_field("blockBodies").unwrap();
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (block_bodies, _): (Vec<BlockBody>, _) = decoder.decode_field("blockBodies")?;
 
         Ok(Self { block_bodies, id })
     }
@@ -226,7 +232,7 @@ mod tests {
     #[test]
     fn get_block_bodies_empty_message() {
         let blocks_hash = vec![];
-        let get_block_bodies = GetBlockBodies::build_from(1, blocks_hash.clone()).unwrap();
+        let get_block_bodies = GetBlockBodies::build_from(1, blocks_hash.clone());
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -243,7 +249,7 @@ mod tests {
             BlockHash::from([1; 32]),
             BlockHash::from([2; 32]),
         ];
-        let get_block_bodies = GetBlockBodies::build_from(1, blocks_hash.clone()).unwrap();
+        let get_block_bodies = GetBlockBodies::build_from(1, blocks_hash.clone());
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -270,7 +276,11 @@ mod tests {
     #[test]
     fn block_bodies_for_multiple_block() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let body = BlockBody::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let mut header1 = BlockHeader::default();
         let mut header2 = BlockHeader::default();
         let mut header3 = BlockHeader::default();
@@ -313,7 +323,11 @@ mod tests {
     #[test]
     fn block_bodies_not_existing_block() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let body = BlockBody::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let mut header1 = BlockHeader::default();
 
         header1.parent_hash = BlockHash::from([0; 32]);
@@ -338,7 +352,11 @@ mod tests {
     #[test]
     fn get_block_bodies_receive_block_bodies() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let body = BlockBody::default();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
         let mut header1 = BlockHeader::default();
         let mut header2 = BlockHeader::default();
         header1.parent_hash = BlockHash::from([0; 32]);
@@ -360,8 +378,7 @@ mod tests {
         let sender_chosen_id = 1;
         let sender_address = "127.0.0.1:3000";
         let receiver_address = "127.0.0.1:4000";
-        let get_block_bodies =
-            GetBlockBodies::build_from(sender_chosen_id, blocks_hash.clone()).unwrap();
+        let get_block_bodies = GetBlockBodies::build_from(sender_chosen_id, blocks_hash.clone());
 
         let mut send_data_of_blocks_hash = Vec::new();
         get_block_bodies.encode(&mut send_data_of_blocks_hash);

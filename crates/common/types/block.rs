@@ -183,7 +183,7 @@ impl RLPDecode for BlockHeader {
 }
 
 // The body of a block on the chain
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
