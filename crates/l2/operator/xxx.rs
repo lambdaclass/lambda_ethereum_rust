@@ -223,7 +223,7 @@ impl XXX {
         Ok(verify_tx_hash)
     }
 
-    async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, String> {
+    pub async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, String> {
         tx.gas_limit = self
             .eth_client
             .estimate_gas(tx.clone())
