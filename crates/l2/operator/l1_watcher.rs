@@ -11,7 +11,7 @@ use ethereum_rust_storage::Store;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
 use libsecp256k1::{sign, Message, SecretKey};
-use std::{cmp::min, ops::Mul, str::FromStr, time::Duration};
+use std::{cmp::min, ops::Mul, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
@@ -32,6 +32,7 @@ pub struct L1Watcher {
     check_interval: Duration,
     max_block_step: U256,
     last_block_fetched: U256,
+    l2_operator_pk: SecretKey,
 }
 
 impl L1Watcher {
@@ -43,6 +44,7 @@ impl L1Watcher {
             check_interval: Duration::from_millis(watcher_config.check_interval_ms),
             max_block_step: watcher_config.max_block_step,
             last_block_fetched: U256::zero(),
+            l2_operator_pk: watcher_config.l2_operator_private_key,
         }
     }
 
@@ -100,15 +102,6 @@ impl L1Watcher {
                 ..Default::default()
             };
 
-            let private_key = SecretKey::parse(
-                &H256::from_str(
-                    "0x385c546456b6a603a1cfcaa9ec9494ba4832da08dd6bcf4de9a71e4a01b74924",
-                )
-                .unwrap()
-                .0,
-            )
-            .unwrap();
-
             mint_transaction.nonce = store
                 .get_account_info(
                     self.eth_client.get_block_number().await.unwrap().as_u64(),
@@ -129,7 +122,7 @@ impl L1Watcher {
             payload.append(mint_transaction.encode_payload_to_vec().as_mut());
 
             let data = Message::parse(&keccak(payload).0);
-            let signature = sign(&data, &private_key);
+            let signature = sign(&data, &self.l2_operator_pk);
 
             mint_transaction.signature_r = U256::from(signature.0.r.b32());
             mint_transaction.signature_s = U256::from(signature.0.s.b32());

@@ -1,4 +1,6 @@
+use super::secret_key_deserializer;
 use ethereum_types::{Address, H256, U256};
+use libsecp256k1::SecretKey;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -7,6 +9,8 @@ pub struct L1WatcherConfig {
     pub topics: Vec<H256>,
     pub check_interval_ms: u64,
     pub max_block_step: U256,
+    #[serde(deserialize_with = "secret_key_deserializer")]
+    pub l2_operator_private_key: SecretKey,
 }
 
 impl L1WatcherConfig {
