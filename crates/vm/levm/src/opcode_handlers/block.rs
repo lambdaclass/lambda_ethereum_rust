@@ -3,6 +3,7 @@ use crate::{
     constants::{call_opcode, WORD_SIZE},
     vm::word_to_address,
 };
+use sha3::{Digest, Keccak256};
 
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
@@ -456,9 +457,28 @@ impl VM {
     // EXTCODEHASH operation
     pub fn op_extcodehash(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        let address = word_to_address(current_call_frame.stack.pop()?);
+        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        };
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        let code = self.db.get_account_bytecode(&address);
+        let mut hasher = Keccak256::new();
+        hasher.update(code);
+        let result = hasher.finalize();
+        current_call_frame
+            .stack
+            .push(U256::from_big_endian(&result))?;
+
+        self.env.consumed_gas += gas_cost;
+        Ok(OpcodeSuccess::Continue)
     }
 }
 
