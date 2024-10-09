@@ -261,7 +261,6 @@ impl StoreEngine for Store {
             .map_while(|res| res.ok().map(|(_, tx)| tx.to()));
         let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
         for tx in tx_iter {
-            tx.compute_hash();
             if filter(&tx) {
                 txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
