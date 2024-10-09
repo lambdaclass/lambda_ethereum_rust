@@ -91,3 +91,8 @@ pub mod call_opcode {
     pub const VALUE_TO_EMPTY_ACCOUNT_COST: u64 = 25_000;
 }
 pub const STACK_LIMIT: usize = 1024;
+
+pub const GAS_REFUND_DENOMINATOR: u64 = 5;
+
+pub const EMPTY_CODE_HASH_STR: &str =
+    "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";

@@ -14,13 +14,25 @@ lint: ## 🧹 Linter check
 fmt: ## 📄 Runs rustfmt
 	cargo fmt --all
 
-ethtests: # 📥 Downloads Ethereum Foundation tests.
-	@echo "Downloading Ethereum Foundation tests..."
-	@echo "Not implemented yet"
+###### Ethereum tests ######
 
-test-eth: # 💎 Runs Ethereum Foundation tests.
-	@echo "Running Ethereum Foundation tests..."
-	@echo "Not implemented yet"
+ETHTEST_SHASUM := ".ethtest_shasum"
+ETHTEST_VERSION := $(shell cat .ethtest_version)
+ETHTEST_TAR := "ethtests-${ETHTEST_VERSION}.tar.gz"
+
+${ETHTEST_TAR}: .ethtest_version
+	curl -Lo ${ETHTEST_TAR} https://github.com/ethereum/tests/archive/refs/tags/${ETHTEST_VERSION}.tar.gz
+
+ethtests: ${ETHTEST_TAR}  # 📥 Downloads Ethereum Foundation tests.
+	mkdir -p "$@"
+	tar -xzmf "$<" --strip-components=1 -C "$@"
+	@cat ${ETHTEST_SHASUM}
+	sha256sum -c ${ETHTEST_SHASUM}
+
+test-eth:  # 💎 Runs Ethereum Foundation tests.
+	cargo nextest run --workspace --features ethereum_foundation_tests --no-capture --test ef_tests
+
+###### Benchmarks ######
 
 revm-comparison:
 	$(MAKE) build-revm-comparison
