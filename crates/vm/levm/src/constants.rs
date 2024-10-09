@@ -3,8 +3,6 @@ pub const REVERT_FOR_CALL: i32 = 0;
 pub const HALT_FOR_CALL: i32 = 2;
 pub const SUCCESS_FOR_RETURN: i32 = 1;
 pub const REVERT_FOR_CREATE: i32 = 0;
-pub const MAX_CODE_SIZE: usize = 0x6000;
-pub const TX_BASE_COST: u64 = 21_000;
 pub const WORD_SIZE: usize = 32;
 
 /// Contains the gas costs of the EVM instructions
@@ -100,3 +98,18 @@ pub const GAS_REFUND_DENOMINATOR: u64 = 5;
 
 pub const EMPTY_CODE_HASH_STR: &str =
     "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+
+// Transaction costs
+pub const TX_BASE_COST: u64 = 21000;
+pub const TX_DATA_COST_PER_NON_ZERO: u64 = 16;
+pub const TX_DATA_COST_PER_ZERO: u64 = 4;
+pub const TX_CREATE_COST: u64 = 32000;
+pub const TX_ACCESS_LIST_ADDRESS_COST: u64 = 2400;
+pub const TX_ACCESS_LIST_STORAGE_KEY_COST: u64 = 1900;
+pub const MAX_CODE_SIZE: usize = 0x6000;
+
+pub const INIT_WORD_COST: i64 = 2;
+
+pub fn init_code_cost(init_code_length: usize) -> u64 {
+    INIT_WORD_COST as u64 * (init_code_length as u64 + 31) / 32
+}

@@ -38,6 +38,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         max_priority_fee_per_gas: Default::default(),
         blob_hashes: Default::default(),
         max_fee_per_blob_gas: Default::default(),
+        max_fee_per_gas: Default::default(),
     };
 
     let block_env = BlockEnv {

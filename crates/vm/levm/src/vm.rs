@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use ethers::utils::keccak256;
+use ethers::{core::k256::elliptic_curve::rand_core::block, utils::keccak256};
 
 use crate::{
     block::BlockEnv,
@@ -11,10 +11,10 @@ use crate::{
     constants::*,
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    transaction::{TransactTo, TxEnv},
+    transaction::{TransactTo, TxEnv, TxType},
     vm_result::{
-        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, OpcodeSuccess, Output,
-        ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
+        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, InvalidTx, OpcodeSuccess,
+        Output, ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
     },
 };
 extern crate ethereum_rust_rlp;
@@ -202,72 +202,7 @@ pub struct Environment {
     refunded_gas: u64,
     /// The block header of the present block.
     pub block: BlockEnv,
-}
-
-impl Environment {
-    pub fn consume_intrinsic_cost(&mut self) -> Result<u64, VMError> {
-        let intrinsic_cost = self.calculate_intrinsic_cost();
-        if self.tx.gas_limit >= intrinsic_cost {
-            self.tx.gas_limit -= intrinsic_cost;
-            Ok(intrinsic_cost)
-        } else {
-            Err(InvalidTransaction::CallGasCostMoreThanGasLimit)
-        }
-    }
-
-    /// Reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L332
-    pub fn validate_transaction(&mut self) -> Result<(), VMError> {
-        let is_create = matches!(self.tx.transact_to, TransactTo::Create);
-
-        if is_create && self.tx.data.len() > 2 * MAX_CODE_SIZE {
-            return Err(InvalidTransaction::CreateInitCodeSizeLimit);
-        }
-        if let Some(max) = self.tx.max_fee_per_blob_gas {
-            let price = self.block.blob_gasprice.unwrap();
-            if U256::from(price) > max {
-                return Err(InvalidTransaction::BlobGasPriceGreaterThanMax);
-            }
-            if self.tx.blob_hashes.is_empty() {
-                return Err(InvalidTransaction::EmptyBlobs);
-            }
-            if is_create {
-                return Err(InvalidTransaction::BlobCreateTransaction);
-            }
-            for blob in self.tx.blob_hashes.iter() {
-                if blob[0] != VERSIONED_HASH_VERSION_KZG {
-                    return Err(InvalidTransaction::BlobVersionNotSupported);
-                }
-            }
-
-            let num_blobs = self.tx.blob_hashes.len();
-            if num_blobs > MAX_BLOB_NUMBER_PER_BLOCK as usize {
-                return Err(InvalidTransaction::TooManyBlobs {
-                    have: num_blobs,
-                    max: MAX_BLOB_NUMBER_PER_BLOCK as usize,
-                });
-            }
-        }
-
-        // TODO: check if more validations are needed
-        Ok(())
-    }
-
-    ///  Calculates the gas that is charged before execution is started.
-    pub fn calculate_intrinsic_cost(&self) -> u64 {
-        let data_cost = self.tx.data.iter().fold(0, |acc, byte| {
-            acc + if *byte == 0 {
-                TX_DATA_COST_PER_ZERO
-            } else {
-                TX_DATA_COST_PER_NON_ZERO
-            }
-        });
-        let create_cost = match self.tx.transact_to {
-            TransactTo::Call(_) => 0,
-            TransactTo::Create => TX_CREATE_COST + init_code_cost(self.tx.data.len()),
-        };
-        let access_list_cost = access_list_cost(&self.tx.access_list);
-        TX_BASE_COST + data_cost + create_cost + access_list_cost
-    }
+    pub tx_env: TxEnv,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -320,7 +255,7 @@ impl VM {
             None,
             bytecode,
             tx_env.value,
-            tx_env.data,
+            tx_env.data.clone(),
             false,
             U256::zero(),
             0,
@@ -333,6 +268,7 @@ impl VM {
             gas_limit: u64::MAX,
             origin: tx_env.msg_sender,
             refunded_gas: 0,
+            tx_env,
         };
 
         Self {
@@ -362,61 +298,6 @@ impl VM {
             output: Output::Call(call_frame.returndata.clone()),
             gas_refunded,
         }
-    }
-
-    pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
-        let gas_used = self.env.consumed_gas;
-
-        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
-        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
-
-        let exis_status_code = match res {
-            ExecutionResult::Success { reason, .. } => match reason {
-                SuccessReason::Stop => ExitStatusCode::Stop,
-                SuccessReason::Return => ExitStatusCode::Return,
-                SuccessReason::SelfDestruct => todo!(),
-                SuccessReason::EofReturnContract => todo!(),
-            },
-            ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
-            ExecutionResult::Halt { .. } => ExitStatusCode::Error,
-        };
-
-        let current_call_frame = self.current_call_frame_mut();
-
-        let return_values = current_call_frame.returndata.clone();
-
-        let result = match exis_status_code {
-            ExitStatusCode::Return => ExecutionResult::Success {
-                reason: SuccessReason::Return,
-                gas_used,
-                gas_refunded,
-                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
-                logs: res.logs().to_vec(),
-                return_data: return_values.clone(),
-            },
-            ExitStatusCode::Stop => ExecutionResult::Success {
-                reason: SuccessReason::Stop,
-                gas_used,
-                gas_refunded,
-                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
-                logs: res.logs().to_vec(),
-                return_data: return_values.clone(),
-            },
-            ExitStatusCode::Revert => ExecutionResult::Revert {
-                output: return_values,
-                gas_used,
-                reason: res.reason(),
-            },
-            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Halt {
-                reason: res.reason(),
-                gas_used,
-            },
-        };
-
-        // TODO: Check if this is ok
-        let state = self.db.into_state();
-
-        Ok(ResultAndState { result, state })
     }
 
     pub fn execute(&mut self, _initial_gas_consumed: u64) -> Result<ExecutionResult, VMError> {
@@ -536,17 +417,70 @@ impl VM {
         }
     }
 
-    pub fn validate_transaction(&self) -> Result<u64, VMError> {
-        let initial_gas_consumed = self.env.consume_intrinsic_cost()?;
-        self.env.validate_transaction()?;
+    pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
+        let gas_used = self.env.consumed_gas;
 
-        Ok(initial_gas_consumed)
+        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
+        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
+
+        let exis_status_code = match res {
+            ExecutionResult::Success { reason, .. } => match reason {
+                SuccessReason::Stop => ExitStatusCode::Stop,
+                SuccessReason::Return => ExitStatusCode::Return,
+                SuccessReason::SelfDestruct => todo!(),
+                SuccessReason::EofReturnContract => todo!(),
+            },
+            ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
+            ExecutionResult::Halt { .. } => ExitStatusCode::Error,
+        };
+
+        let current_call_frame = self.current_call_frame_mut();
+
+        let return_values = current_call_frame.returndata.clone();
+
+        let result = match exis_status_code {
+            ExitStatusCode::Return => ExecutionResult::Success {
+                reason: SuccessReason::Return,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
+                logs: res.logs().to_vec(),
+                return_data: return_values.clone(),
+            },
+            ExitStatusCode::Stop => ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
+                logs: res.logs().to_vec(),
+                return_data: return_values.clone(),
+            },
+            ExitStatusCode::Revert => ExecutionResult::Revert {
+                output: return_values,
+                gas_used,
+                reason: res.reason(),
+            },
+            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Halt {
+                reason: res.reason(),
+                gas_used,
+            },
+        };
+
+        // TODO: Check if this is ok
+        let state = self.db.into_state();
+
+        Ok(ResultAndState { result, state })
     }
 
     pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
-        // let initial_gas_consumed = self.validate_transaction()?;
-        let initial_gas_consumed = 0;
-        let res = self.execute(initial_gas_consumed)?;
+        let account = self.db.accounts.get(&self.env.tx_env.msg_sender).unwrap();
+
+        let initial_gas = self
+            .env
+            .tx_env
+            .validate_transaction(account, &self.env.block)?;
+
+        let res = self.execute(initial_gas)?;
         self.get_result(res)
     }
 
