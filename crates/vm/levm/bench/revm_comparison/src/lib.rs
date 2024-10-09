@@ -24,12 +24,12 @@ pub fn run_with_levm(program: &str, runs: usize, number_of_iterations: u32) {
     for _ in 0..runs - 1 {
         let mut vm = new_vm_with_bytecode(Bytes::new());
         *vm.current_call_frame_mut() = call_frame.clone();
-        let result = black_box(vm.execute(0));
+        let result = black_box(vm.execute());
         assert!(matches!(result, ExecutionResult::Success { .. }));
     }
     let mut vm = new_vm_with_bytecode(Bytes::new());
     *vm.current_call_frame_mut() = call_frame.clone();
-    let result = black_box(vm.execute(0));
+    let result = black_box(vm.execute());
     assert!(matches!(result, ExecutionResult::Success { .. }));
 
     if let ExecutionResult::Success {
