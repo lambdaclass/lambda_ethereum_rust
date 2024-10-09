@@ -31,7 +31,7 @@ pub struct Operator {
     block_production_interval: Duration,
 }
 
-pub async fn start_operator(head_block_hash: H256, store: Store) {
+pub async fn start_operator(store: Store) {
     info!("Starting Operator");
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
     let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
@@ -41,6 +41,16 @@ pub async fn start_operator(head_block_hash: H256, store: Store) {
         let engine_config = EngineApiConfig::from_env().expect("EngineApiConfig::from_env");
         let operator = Operator::new_from_config(&operator_config, eth_config, engine_config)
             .expect("Operator::new_from_config");
+        let head_block_hash = {
+            let current_block_number = store
+                .get_latest_block_number()
+                .expect("store.get_latest_block_number")
+                .expect("store.get_latest_block_number returned None");
+            store
+                .get_canonical_block_hash(current_block_number)
+                .expect("store.get_canonical_block_hash")
+                .expect("store.get_canonical_block_hash returned None")
+        };
         operator
             .start(head_block_hash, store)
             .await
