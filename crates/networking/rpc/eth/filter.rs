@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use ethereum_rust_storage::Store;
@@ -24,12 +24,7 @@ pub struct NewFilterRequest {
 /// - filters: the filters to clean up.
 /// - filter_duration: represents how many *seconds* filter can last,
 ///   if any filter is older than this, it will be removed.
-pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: u64) {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|unix_time| unix_time.as_secs())
-        .unwrap();
-
+pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: Duration) {
     let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
         error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
         **poisoned_guard.get_mut() = HashMap::new();
@@ -39,10 +34,10 @@ pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: u64) {
 
     // Keep only filters that have not expired.
     active_filters_guard
-        .retain(|_, (filter_timestamp, _)| filter_timestamp.abs_diff(now) <= filter_duration);
+        .retain(|_, (filter_timestamp, _)| filter_timestamp.elapsed() <= filter_duration);
 }
 /// Maps IDs to active log filters and their timestamps.
-pub type ActiveFilters = Arc<Mutex<HashMap<u64, (u64, LogsFilter)>>>;
+pub type ActiveFilters = Arc<Mutex<HashMap<u64, (Instant, LogsFilter)>>>;
 
 impl NewFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
@@ -73,10 +68,7 @@ impl NewFilterRequest {
         }
 
         let id: u64 = random();
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|unix_time| unix_time.as_secs())
-            .map_err(|error| RpcErr::Internal(error.to_string()))?;
+        let timestamp = Instant::now();
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
             error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
             **poisoned_guard.get_mut() = HashMap::new();
@@ -149,7 +141,7 @@ mod tests {
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
-        time::Duration,
+        time::{Duration, Instant},
     };
 
     use crate::{
@@ -338,7 +330,7 @@ mod tests {
         let filter = (
             0xFF,
             (
-                1,
+                Instant::now(),
                 LogsFilter {
                     from_block: BlockIdentifier::Number(1),
                     to_block: BlockIdentifier::Number(2),
