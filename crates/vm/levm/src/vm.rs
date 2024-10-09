@@ -204,6 +204,72 @@ pub struct Environment {
     pub block: BlockEnv,
 }
 
+impl Environment {
+    pub fn consume_intrinsic_cost(&mut self) -> Result<u64, VMError> {
+        let intrinsic_cost = self.calculate_intrinsic_cost();
+        if self.tx.gas_limit >= intrinsic_cost {
+            self.tx.gas_limit -= intrinsic_cost;
+            Ok(intrinsic_cost)
+        } else {
+            Err(InvalidTransaction::CallGasCostMoreThanGasLimit)
+        }
+    }
+
+    /// Reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L332
+    pub fn validate_transaction(&mut self) -> Result<(), VMError> {
+        let is_create = matches!(self.tx.transact_to, TransactTo::Create);
+
+        if is_create && self.tx.data.len() > 2 * MAX_CODE_SIZE {
+            return Err(InvalidTransaction::CreateInitCodeSizeLimit);
+        }
+        if let Some(max) = self.tx.max_fee_per_blob_gas {
+            let price = self.block.blob_gasprice.unwrap();
+            if U256::from(price) > max {
+                return Err(InvalidTransaction::BlobGasPriceGreaterThanMax);
+            }
+            if self.tx.blob_hashes.is_empty() {
+                return Err(InvalidTransaction::EmptyBlobs);
+            }
+            if is_create {
+                return Err(InvalidTransaction::BlobCreateTransaction);
+            }
+            for blob in self.tx.blob_hashes.iter() {
+                if blob[0] != VERSIONED_HASH_VERSION_KZG {
+                    return Err(InvalidTransaction::BlobVersionNotSupported);
+                }
+            }
+
+            let num_blobs = self.tx.blob_hashes.len();
+            if num_blobs > MAX_BLOB_NUMBER_PER_BLOCK as usize {
+                return Err(InvalidTransaction::TooManyBlobs {
+                    have: num_blobs,
+                    max: MAX_BLOB_NUMBER_PER_BLOCK as usize,
+                });
+            }
+        }
+
+        // TODO: check if more validations are needed
+        Ok(())
+    }
+
+    ///  Calculates the gas that is charged before execution is started.
+    pub fn calculate_intrinsic_cost(&self) -> u64 {
+        let data_cost = self.tx.data.iter().fold(0, |acc, byte| {
+            acc + if *byte == 0 {
+                TX_DATA_COST_PER_ZERO
+            } else {
+                TX_DATA_COST_PER_NON_ZERO
+            }
+        });
+        let create_cost = match self.tx.transact_to {
+            TransactTo::Call(_) => 0,
+            TransactTo::Create => TX_CREATE_COST + init_code_cost(self.tx.data.len()),
+        };
+        let access_list_cost = access_list_cost(&self.tx.access_list);
+        TX_BASE_COST + data_cost + create_cost + access_list_cost
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
@@ -468,6 +534,13 @@ impl VM {
                 }
             }
         }
+    }
+
+    pub fn validate_transaction(&self) -> Result<u64, VMError> {
+        let initial_gas_consumed = self.env.consume_intrinsic_cost()?;
+        self.env.validate_transaction()?;
+
+        Ok(initial_gas_consumed)
     }
 
     pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
