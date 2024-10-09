@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+use core::slice::SlicePattern;
 use std::{
-    io::{BufReader, BufWriter},
+    collections::HashMap,
+    io::{BufReader, BufWriter, Read},
     net::{IpAddr, TcpListener, TcpStream},
     str::FromStr,
 };
@@ -12,9 +14,9 @@ use ethereum_rust_blockchain::{
     validate_state_root,
 };
 use ethereum_rust_core::types::{Block, BlockBody, BlockHeader, TxKind};
-use ethereum_rust_evm::{evm_state, execute_block, get_state_transitions};
+use ethereum_rust_evm::{evm_state, execute_block, get_state_transitions, RevmAddress};
 use ethereum_rust_storage::Store;
-use ethereum_types::{Bloom, H160, H256, U256};
+use ethereum_types::{Address, Bloom, H160, H256, U256};
 use prover_lib::{
     db_memorydb::MemoryDB,
     inputs::{read_chain_file, ProverInput, ProverInputNoExecution},
@@ -29,7 +31,11 @@ use crate::{
     rpc::l1_rpc::RpcResponse,
 };
 
-use revm::{db::CacheDB, Evm, InMemoryDB};
+use revm::{
+    db::CacheDB,
+    primitives::{bitvec::view::AsBits, AccountInfo, FixedBytes},
+    Evm, InMemoryDB,
+};
 
 pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
     let proof_data_provider = ProofDataProvider::new(store, ip, port);
@@ -453,6 +459,50 @@ fn get_last_block_state(storage: &Store) {
 
     let account_updates = get_state_transitions(&mut state);
 
+    let mut accounts: HashMap<RevmAddress, AccountInfo> = HashMap::new();
+
+    let mut storage: HashMap<
+        RevmAddress,
+        HashMap<revm::primitives::alloy_primitives::U256, revm::primitives::alloy_primitives::U256>,
+    > = HashMap::new();
+
+    for account_update in account_updates {
+        let address = RevmAddress::from_slice(account_update.address.as_bytes());
+        let account_info = account_update.info.unwrap();
+
+        let revm_account_info = revm::primitives::AccountInfo {
+            balance: revm::primitives::alloy_primitives::U256::from_be_bytes(u64_to_u8_array(
+                account_info.balance.0.as_slice(),
+            )),
+            nonce: account_info.nonce,
+            code_hash: FixedBytes::from_slice(account_info.code_hash.as_bytes()),
+            code: None, // Is this necessary?
+        };
+
+        accounts.insert(address, revm_account_info);
+
+        let inner_storage = storage.entry(address).or_insert_with(HashMap::new);
+
+        let added_storage: HashMap<H256, U256> = account_update.added_storage;
+        for (key, value) in added_storage {
+            // Convert H256 key to U256
+            let k_u256 = U256::from_big_endian(&key.0);
+            let k = revm::primitives::alloy_primitives::U256::from_be_bytes(u64_to_u8_array(
+                k_u256.0.as_slice(),
+            ));
+            let v = revm::primitives::alloy_primitives::U256::from_be_bytes(u64_to_u8_array(
+                value.0.as_slice(),
+            ));
+            inner_storage.insert(k, v);
+        }
+    }
+
+    let memory_db = MemoryDB {
+        accounts,
+        storage,
+        block_hashes: todo!(),
+    };
+
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
         .database()
@@ -463,4 +513,20 @@ fn get_last_block_state(storage: &Store) {
     // Check state root matches the one in block header after execution
     validate_state_root(&last_block.header, new_state_root).unwrap();
     info!("LAST BLOCK STATE MATCHES");
+}
+
+fn u64_to_u8_array(u64_slice: &[u64]) -> [u8; 48] {
+    // Expected exactly 6 u64 values to convert to [u8; 48]
+
+    // 4 * u64 == 48 bytes
+    let mut bytes = [0u8; 48];
+    let mut index = 0;
+
+    for &value in u64_slice {
+        let byte_slice = value.to_be_bytes();
+        bytes[index..index + 8].copy_from_slice(&byte_slice);
+        index += 8;
+    }
+
+    bytes
 }
