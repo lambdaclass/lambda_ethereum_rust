@@ -345,7 +345,7 @@ impl VM {
         Ok(ResultAndState { result, state })
     }
 
-    pub fn execute(&mut self, _initial_gas_consumed: u64) -> ExecutionResult {
+    pub fn execute(&mut self) -> ExecutionResult {
         let mut current_call_frame = self
             .call_frames
             .pop()
@@ -459,8 +459,8 @@ impl VM {
 
     pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
         // let initial_gas_consumed = self.validate_transaction()?;
-        let initial_gas_consumed = 0;
-        let res = self.execute(initial_gas_consumed);
+        // let initial_gas_consumed = 0;
+        let res = self.execute();
         self.get_result(res)
     }
 
@@ -530,7 +530,7 @@ impl VM {
         current_call_frame.return_data_size = Some(ret_size);
 
         self.call_frames.push(new_call_frame.clone());
-        let result = self.execute(self.env.consumed_gas);
+        let result = self.execute();
 
         match result {
             ExecutionResult::Success {
