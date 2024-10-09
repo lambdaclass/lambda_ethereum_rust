@@ -3,16 +3,17 @@ use libsecp256k1::SecretKey;
 use serde::{Deserialize, Deserializer};
 
 #[derive(Deserialize)]
-pub struct L1TxSenderConfig {
+pub struct XXXConfig {
     pub block_executor_address: Address,
     pub operator_address: Address,
     #[serde(deserialize_with = "secret_key_deserializer")]
     pub operator_private_key: SecretKey,
+    pub interval_ms: u64,
 }
 
-impl L1TxSenderConfig {
+impl XXXConfig {
     pub fn from_env() -> Result<Self, String> {
-        match envy::prefixed("L1_TX_SENDER_").from_env::<Self>() {
+        match envy::prefixed("XXX_").from_env::<Self>() {
             Ok(config) => Ok(config),
             Err(error) => Err(error.to_string()),
         }
