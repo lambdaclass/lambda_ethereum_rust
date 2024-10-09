@@ -41,8 +41,8 @@ async fn main() {
     }
 
     let log_level = matches
-        .get_one::<String>("log-level")
-        .expect("shouldn't happen, log-level is used with a default value");
+        .get_one::<String>("log.level")
+        .expect("shouldn't happen, log.level is used with a default value");
     let log_level = Level::from_str(log_level).expect("Not supported log level provided");
     let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
@@ -164,8 +164,8 @@ async fn main() {
         if #[cfg(feature = "l2")] {
             let l2_operator = ethereum_rust_l2::start_operator(store.clone()).into_future();
             tracker.spawn(l2_operator);
-            let l2_prover = ethereum_rust_l2::start_prover().into_future();
-            tracker.spawn(l2_prover);
+            // let l2_prover = ethereum_rust_l2::start_prover().into_future();
+            // tracker.spawn(l2_prover);
         } else {
             let networking = ethereum_rust_net::start_network(
                 udp_socket_addr,

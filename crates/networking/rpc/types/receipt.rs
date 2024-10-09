@@ -7,7 +7,7 @@ use ethereum_rust_evm::RevmAddress;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RpcReceipt {
     #[serde(flatten)]
     pub receipt: RpcReceiptInfo,
@@ -40,7 +40,7 @@ impl RpcReceipt {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcReceiptInfo {
     #[serde(rename = "type")]
@@ -117,7 +117,7 @@ impl From<Log> for RpcLogInfo {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcReceiptBlockInfo {
     pub block_hash: BlockHash,
@@ -125,7 +125,8 @@ pub struct RpcReceiptBlockInfo {
     pub block_number: BlockNumber,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        with = "serde_utils::u64::hex_str_opt"
+        with = "serde_utils::u64::hex_str_opt",
+        default = "Option::default"
     )]
     pub blob_gas_used: Option<u64>,
 }
@@ -145,7 +146,7 @@ impl RpcReceiptBlockInfo {
         }
     }
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcReceiptTxInfo {
     pub transaction_hash: H256,
@@ -160,7 +161,8 @@ pub struct RpcReceiptTxInfo {
     pub effective_gas_price: u64,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        with = "ethereum_rust_core::serde_utils::u64::hex_str_opt"
+        with = "ethereum_rust_core::serde_utils::u64::hex_str_opt",
+        default = "Option::default"
     )]
     pub blob_gas_price: Option<u64>,
 }

@@ -1,62 +1,151 @@
-use crate::utils::eth_client::EthClient;
-use ethereum_types::{Address, H256, U256};
-use std::{cmp::min, time::Duration};
+use crate::utils::{
+    config::{eth::EthConfig, l1_watcher::L1WatcherConfig},
+    eth_client::{transaction::PayloadRLPEncode, EthClient},
+};
+use bytes::Bytes;
+use ethereum_rust_blockchain::{constants::TX_GAS_COST, mempool};
+use ethereum_rust_core::types::{EIP1559Transaction, Transaction, TxKind, TxType};
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_rpc::types::receipt::RpcLog;
+use ethereum_rust_storage::Store;
+use ethereum_types::{Address, BigEndianHash, H256, U256};
+use keccak_hash::keccak;
+use libsecp256k1::{sign, Message, SecretKey};
+use std::{cmp::min, ops::Mul, time::Duration};
 use tokio::time::sleep;
-use tracing::debug;
+use tracing::{debug, info, warn};
 
-pub async fn start_l1_watcher() {
-    // This address and topic were used for testing purposes only.
-    // TODO: Receive them as parameters from config.
-    let l1_watcher = L1Watcher::new(
-        "0xe441CF0795aF14DdB9f7984Da85CD36DB1B8790d"
-            .parse()
-            .unwrap(),
-        vec![
-            "0xe2ea736f80f92a510d75d1a96b5c1d5e5544283362b7acd97390d60ea1c7d149"
-                .parse()
-                .unwrap(),
-        ],
-    );
-    l1_watcher.get_logs().await;
+pub async fn start_l1_watcher(store: Store) {
+    let eth_config = EthConfig::from_env().unwrap();
+    let watcher_config = L1WatcherConfig::from_env().unwrap();
+    let mut l1_watcher = L1Watcher::new_from_config(watcher_config, eth_config);
+    loop {
+        let logs = l1_watcher.get_logs().await;
+        l1_watcher.process_logs(logs, &store).await;
+    }
 }
 
 pub struct L1Watcher {
+    eth_client: EthClient,
     address: Address,
     topics: Vec<H256>,
+    check_interval: Duration,
+    max_block_step: U256,
+    last_block_fetched: U256,
+    l2_operator_pk: SecretKey,
 }
 
 impl L1Watcher {
-    pub fn new(address: Address, topics: Vec<H256>) -> Self {
-        Self { address, topics }
+    pub fn new_from_config(watcher_config: L1WatcherConfig, eth_config: EthConfig) -> Self {
+        Self {
+            eth_client: EthClient::new_from_config(eth_config),
+            address: watcher_config.bridge_address,
+            topics: watcher_config.topics,
+            check_interval: Duration::from_millis(watcher_config.check_interval_ms),
+            max_block_step: watcher_config.max_block_step,
+            last_block_fetched: U256::zero(),
+            l2_operator_pk: watcher_config.l2_operator_private_key,
+        }
+    }
+    pub async fn get_logs(&mut self) -> Vec<RpcLog> {
+        let current_block = self.eth_client.get_block_number().await.unwrap();
+
+        debug!(
+            "Current block number: {} ({:#x})",
+            current_block, current_block
+        );
+
+        let new_last_block = min(self.last_block_fetched + self.max_block_step, current_block);
+
+        debug!(
+            "Looking logs from block {:#x} to {:#x}",
+            self.last_block_fetched, new_last_block
+        );
+
+        let logs = self
+            .eth_client
+            .get_logs(
+                self.last_block_fetched,
+                new_last_block,
+                self.address,
+                self.topics[0],
+            )
+            .await
+            .unwrap();
+
+        debug!("Logs: {:#?}", logs);
+
+        self.last_block_fetched = new_last_block;
+
+        sleep(self.check_interval).await;
+
+        logs
     }
 
-    pub async fn get_logs(&self) {
-        let step = U256::from(5000);
+    pub async fn process_logs(&self, logs: Vec<RpcLog>, store: &Store) {
+        for log in logs {
+            let mint_value = format!("{:#x}", log.log.topics[1]).parse::<U256>().unwrap();
+            let beneficiary = format!("{:#x}", log.log.topics[2].into_uint())
+                .parse::<Address>()
+                .unwrap();
 
-        let mut last_block: U256 = U256::zero();
-
-        let l1_rpc = EthClient::new("http://localhost:8545");
-
-        loop {
-            let current_block = l1_rpc.get_block_number().await.unwrap();
-            debug!(
-                "Current block number: {} ({:#x})",
-                current_block, current_block
-            );
-            let new_last_block = min(last_block + step, current_block);
-            debug!(
-                "Looking logs from block {:#x} to {:#x}",
-                last_block, new_last_block
+            info!(
+                "Initiating mint transaction for {:#x} with value {:#x}",
+                beneficiary, mint_value
             );
 
-            let logs = l1_rpc
-                .get_logs(last_block, new_last_block, self.address, self.topics[0])
-                .await;
+            let mut mint_transaction = EIP1559Transaction {
+                to: TxKind::Call(beneficiary),
+                data: Bytes::from(b"mint".as_slice()),
+                chain_id: store.get_chain_config().unwrap().chain_id,
+                ..Default::default()
+            };
 
-            debug!("Logs: {:#?}", logs);
+            mint_transaction.nonce = store
+                .get_account_info(
+                    self.eth_client.get_block_number().await.unwrap().as_u64(),
+                    beneficiary,
+                )
+                .unwrap()
+                .map(|info| info.nonce)
+                .unwrap_or_default();
+            mint_transaction.max_fee_per_gas = self.eth_client.gas_price().await.unwrap().as_u64();
+            // TODO(IMPORTANT): gas_limit should come in the log and must
+            // not be calculated in here. The reason for this is that the
+            // gas_limit for this transaction is payed by the caller in
+            // the L1 as part of the deposited funds.
+            mint_transaction.gas_limit = TX_GAS_COST.mul(2);
+            mint_transaction.value = mint_value;
 
-            last_block = new_last_block + 1;
-            sleep(Duration::from_secs(5)).await;
+            let mut payload = vec![TxType::EIP1559 as u8];
+            payload.append(mint_transaction.encode_payload_to_vec().as_mut());
+
+            let data = Message::parse(&keccak(payload).0);
+            let signature = sign(&data, &self.l2_operator_pk);
+
+            mint_transaction.signature_r = U256::from(signature.0.r.b32());
+            mint_transaction.signature_s = U256::from(signature.0.s.b32());
+            mint_transaction.signature_y_parity = signature.1.serialize() != 0;
+
+            let mut encoded_tx = Vec::new();
+            mint_transaction.encode(&mut encoded_tx);
+
+            let mut data = vec![TxType::EIP1559 as u8];
+            data.append(&mut encoded_tx);
+
+            match mempool::add_transaction(
+                Transaction::EIP1559Transaction(mint_transaction),
+                store.clone(),
+            ) {
+                Ok(hash) => {
+                    info!("Mint transaction added to mempool {hash:#x}",);
+                    // Ok(hash)
+                }
+                Err(e) => {
+                    warn!("Failed to add mint transaction to the mempool: {e:#?}");
+                    // Err(e)
+                }
+            }
         }
     }
 }

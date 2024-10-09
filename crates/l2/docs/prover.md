@@ -4,6 +4,7 @@
 
 - [Prover](#prover)
 - [Workflow](#workflow)
+- [Configuration](#configuration)
 
 ## Prover
 
@@ -25,3 +26,11 @@ sequenceDiagram
     ProofDataClient->>+ProofDataProvider: ProofData::Submit(id)
     ProofDataProvider-->>-ProofDataClient: ProofData::SubmitAck(id)
 ```
+
+## Configuration
+
+The following environment variables are available to configure the prover:
+
+- `SP1_PROVER`: Prover type. Can be `local` or `mock`.
+- `PROVER_PROOF_DATA_PROVIDER_ENDPOINT`: Endpoint to connect to the ProofDataProvider.
+- `PROVER_ELF_PATH`: Path to the ELF file to prove.
