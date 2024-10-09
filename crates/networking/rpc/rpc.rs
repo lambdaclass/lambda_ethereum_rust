@@ -88,7 +88,7 @@ pub async fn start_api(
     authrpc_addr: SocketAddr,
     storage: Store,
     jwt_secret: Bytes,
-    local_p2p_node: Node
+    local_p2p_node: Node,
 ) {
     // TODO: Refactor how filters are handled,
     // filters are used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
