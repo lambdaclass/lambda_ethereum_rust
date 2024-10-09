@@ -1,3 +1,4 @@
+use core::panic;
 use std::{collections::HashMap, fmt};
 
 use serde::{de, Deserialize};
@@ -144,7 +145,7 @@ impl ExecutionResult {
         match self {
             Self::Revert { reason, .. } => reason.clone(),
             Self::Halt { reason, .. } => reason.clone(),
-            _ => VMError::FatalError,
+            _ => panic!("ExecutionResult.reason() called on non-revert/halt result"),
         }
     }
 }
