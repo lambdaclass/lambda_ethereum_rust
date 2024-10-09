@@ -10,10 +10,15 @@ use tracing::{debug, info, warn};
 
 use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
 
+use super::errors::ProofDataProviderError;
+
 pub async fn start_proof_data_provider() {
-    let config = ProofDataProviderConfig::from_env().unwrap();
+    let config = ProofDataProviderConfig::from_env().expect("ProofDataProviderConfig::from_env()");
     let proof_data_provider = ProofDataProvider::new_from_config(config);
-    proof_data_provider.start().await;
+    proof_data_provider
+        .start()
+        .await
+        .expect("proof_data_provider.start()");
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -44,18 +49,18 @@ impl ProofDataProvider {
         }
     }
 
-    pub async fn start(&self) {
-        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).unwrap();
+    pub async fn start(&self) -> Result<(), ProofDataProviderError> {
+        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
-            let stream = stream.unwrap();
-
             debug!("Connection established!");
-            self.handle_connection(stream, &mut last_proved_block).await;
+            self.handle_connection(stream?, &mut last_proved_block)
+                .await;
         }
+        Ok(())
     }
 
     async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
