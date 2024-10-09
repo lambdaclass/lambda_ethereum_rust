@@ -77,11 +77,13 @@ trait RpcHandler: Sized {
     fn handle(&self, storage: Store) -> Result<Value, RpcErr>;
 }
 
-#[cfg(test)]
-const FILTER_DURATION: Duration = Duration::from_secs(1);
-
-#[cfg(not(test))]
-const FILTER_DURATION: Duration = Duration::from_secs(5 * 60);
+const FILTER_DURATION: Duration = {
+    if cfg!(test) {
+        Duration::from_secs(1)
+    } else {
+        Duration::from_secs(5 * 60)
+    }
+};
 
 pub async fn start_api(
     http_addr: SocketAddr,
