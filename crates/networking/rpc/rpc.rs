@@ -31,7 +31,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::{self, clean_outdated_filters, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
+    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
     logs::LogsFilter,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,

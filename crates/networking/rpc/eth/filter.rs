@@ -151,13 +151,11 @@ impl DeleteFilterRequest {
 mod tests {
     use std::{
         collections::HashMap,
-        io::Bytes,
-        net::SocketAddr,
         sync::{Arc, Mutex}, time::Duration,
     };
 
     use crate::{
-        eth::logs::{AddressFilter, LogsFilter, TopicFilter}, map_http_requests, start_api, utils::test_utils::start_test_api, FILTER_DURATION
+        eth::logs::{AddressFilter, LogsFilter, TopicFilter}, map_http_requests, utils::test_utils::start_test_api, FILTER_DURATION
     };
     use crate::{
         types::block_identifier::BlockIdentifier,
@@ -298,7 +296,7 @@ mod tests {
                 ,"id":1
         });
         let filters = Arc::new(Mutex::new(HashMap::new()));
-        let id = run_new_filter_request_test(raw_json.clone(), filters.clone());
+        run_new_filter_request_test(raw_json.clone(), filters.clone());
     }
 
     fn run_new_filter_request_test(json_req: serde_json::Value, filters_pointer: ActiveFilters) -> u64 {
