@@ -110,6 +110,7 @@ impl RLPxMessage for StatusMessage {
     }
 }
 
+// Broadcast message
 #[derive(Debug)]
 pub(crate) struct Transactions {
     transactions: Vec<Transaction>,
@@ -148,6 +149,76 @@ impl RLPxMessage for Transactions {
             decoder.decode_field("transactions").unwrap();
 
         Ok(Self { transactions })
+    }
+}
+
+// Broadcast message
+#[derive(Debug)]
+pub(crate) struct NewPooledTransactionHashes {
+    transaction_types: Vec<u8>,
+    transaction_sizes: Vec<usize>,
+    transaction_hashes: Vec<H256>,
+}
+
+impl NewPooledTransactionHashes {
+    pub fn build_from(transactions: Vec<Transaction>) -> Result<Self, StoreError> {
+        let mut transaction_types = vec![];
+        let mut transaction_sizes = vec![];
+        let mut transaction_hashes = vec![];
+        for transaction in transactions {
+            let transaction_type = transaction.tx_type();
+            transaction_types.push(transaction_type as u8);
+            // size is defined as the concatenation of tx_type and the tx_data
+            // as the tx_type is 0x0(something), the size of tx_type is always 1.
+            let transaction_size = 1 + transaction.data().len();
+            transaction_sizes.push(transaction_size);
+            let transaction_hash = transaction.compute_hash();
+            transaction_hashes.push(transaction_hash);
+        }
+        Ok(Self {
+            transaction_types,
+            transaction_sizes,
+            transaction_hashes,
+        })
+    }
+}
+
+impl RLPxMessage for NewPooledTransactionHashes {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.transaction_types)
+            .encode_field(&self.transaction_sizes)
+            .encode_field(&self.transaction_hashes)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder.decompress_vec(msg_data).unwrap();
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (transaction_types, decoder): (Vec<u8>, _) =
+            decoder.decode_field("transactionTypes")?;
+        let (transaction_sizes, decoder): (Vec<usize>, _) =
+            decoder.decode_field("transactionSizes")?;
+        let (transaction_hashes, _): (Vec<H256>, _) = decoder.decode_field("transactionHashes")?;
+
+        Ok(Self {
+            transaction_types,
+            transaction_sizes,
+            transaction_hashes,
+        })
     }
 }
 
