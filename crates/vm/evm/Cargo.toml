@@ -30,6 +30,7 @@ bincode = "1"
 
 [features]
 default = ["libmdbx"]
+l2 = []
 c-kzg = ["revm/c-kzg"]
 blst = ["revm/blst"]
 no_libmdbx = [
@@ -40,7 +41,3 @@ libmdbx = ["ethereum_rust-storage/libmdbx", "ethereum_rust-core/libmdbx"]
 
 [lib]
 path = "./evm.rs"
-
-[features]
-default = []
-l2 = []
