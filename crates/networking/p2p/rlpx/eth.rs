@@ -110,7 +110,7 @@ impl RLPxMessage for StatusMessage {
     }
 }
 
-// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#getblockbodies-0x05
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#getblockbodies-0x05
 #[derive(Debug)]
 pub(crate) struct GetBlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
@@ -158,7 +158,7 @@ impl RLPxMessage for GetBlockBodies {
     }
 }
 
-// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#blockbodies-0x06
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#blockbodies-0x06
 pub(crate) struct BlockBodies {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
