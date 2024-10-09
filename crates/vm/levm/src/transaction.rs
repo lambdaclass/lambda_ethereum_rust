@@ -5,16 +5,17 @@ type AccessList = Vec<(Address, Vec<U256>)>;
 // type VersionedHash = H32;
 
 /// Transaction destination.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum TransactTo {
     /// Simple call to an address.
     Call(Address),
     /// Contract creation.
+    #[default]
     Create,
 }
 
 /// The transaction environment.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TxEnv {
     /// Caller aka Author aka transaction signer.
     pub msg_sender: Address,
