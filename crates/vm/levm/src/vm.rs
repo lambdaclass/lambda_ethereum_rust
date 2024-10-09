@@ -231,19 +231,22 @@ impl VM {
     pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
         let bytecode = match tx_env.transact_to {
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
-            TransactTo::Create => {
-                todo!()
-            }
+            TransactTo::Create => tx_env.data.clone(),
+        };
+
+        let calldata = match tx_env.transact_to {
+            TransactTo::Call(_) => tx_env.data.clone(),
+            TransactTo::Create => Bytes::default(),
         };
 
         let to = match tx_env.transact_to {
-            TransactTo::Call(addr) => addr,
-            TransactTo::Create => tx_env.msg_sender,
+            TransactTo::Call(addr) => Some(addr),
+            TransactTo::Create => None,
         };
 
         let code_addr = match tx_env.transact_to {
             TransactTo::Call(addr) => addr,
-            TransactTo::Create => todo!(),
+            TransactTo::Create => tx_env.msg_sender,
         };
 
         // TODO: this is mostly placeholder
@@ -254,7 +257,7 @@ impl VM {
             None,
             bytecode,
             tx_env.value,
-            tx_env.data,
+            calldata,
             false,
             U256::zero(),
             0,
@@ -264,7 +267,7 @@ impl VM {
             block: block_env,
             consumed_gas: TX_BASE_COST,
             gas_price: tx_env.gas_price.unwrap_or_default(),
-            gas_limit: u64::MAX,
+            gas_limit: tx_env.gas_limit,
             origin: tx_env.msg_sender,
             refunded_gas: 0,
         };
@@ -528,7 +531,7 @@ impl VM {
 
         let new_call_frame = CallFrame::new(
             msg_sender,
-            to,
+            Some(to),
             code_address,
             delegate,
             code_address_bytecode,
