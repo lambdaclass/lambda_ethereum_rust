@@ -451,6 +451,7 @@ impl VM {
                 Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
+                Opcode::EXTCODECOPY => self.op_extcodecopy(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
