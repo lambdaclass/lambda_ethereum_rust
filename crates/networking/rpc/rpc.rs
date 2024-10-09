@@ -88,11 +88,10 @@ pub async fn start_api(
     authrpc_addr: SocketAddr,
     storage: Store,
     jwt_secret: Bytes,
-    local_p2p_node: Node,
-    // TODO: This should be some kind of config.
+    local_p2p_node: Node
 ) {
-    // TODO: Refactor how filters are handled
-    // Filters used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
+    // TODO: Refactor how filters are handled,
+    // filters are used by the filters endpoints (eth_newFilter, eth_getFilterChanges, ...etc)
     let active_filters = Arc::new(Mutex::new(HashMap::new()));
     let service_context = RpcApiContext {
         storage: storage.clone(),
