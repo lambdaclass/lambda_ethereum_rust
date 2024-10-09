@@ -152,11 +152,11 @@ impl Command {
                     ..Default::default()
                 };
 
-                let estimated_gas = eth_client
-                    .estimate_gas(transfer_transaction.clone())
-                    .await?;
+                // let estimated_gas = eth_client
+                //     .estimate_gas(transfer_transaction.clone())
+                //     .await?;
 
-                transfer_transaction.gas_limit = estimated_gas;
+                transfer_transaction.gas_limit = 21000 * 2;
 
                 let tx_hash = if l1 {
                     eth_client
@@ -169,7 +169,7 @@ impl Command {
                 };
 
                 println!(
-                    "[{}] Transfer sent: {tx_hash}",
+                    "[{}] Transfer sent: {tx_hash:#x}",
                     if l1 { "L1" } else { "L2" }
                 );
             }
