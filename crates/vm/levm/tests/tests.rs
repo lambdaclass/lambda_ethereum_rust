@@ -3617,7 +3617,7 @@ fn gasprice_op() {
 fn codecopy_op() {
     // Copies two bytes of the code, with offset 2, and loads them beginning at offset 3 in memory.
     let address_that_has_the_code = Address::from_low_u64_be(0x42);
-    // https://www.evm.codes/playground?fork=cancun&unit=Wei&callData=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF&codeType=Mnemonic&code=%27~2z~2z~3zCODECOPY%27~PUSH1%200x0z%5Cn%01z~_
+    // https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code=%27~2z~2z~3zCODECOPY%27~PUSH1%200x0z%5Cn%01z~_
     let operations = [
         Operation::Push((1, 0x02.into())), // size
         Operation::Push((1, 0x02.into())), // offset
