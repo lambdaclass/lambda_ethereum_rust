@@ -22,6 +22,8 @@ pub enum EthClientError {
     GasPriceError(#[from] GasPriceError),
     #[error("eth_getTransactionReceipt request error: {0}")]
     GetTransactionReceiptError(#[from] GetTransactionReceiptError),
+    #[error("Failed to serialize request body: {0}")]
+    FailedToSerializeRequestBody(String),
 }
 
 #[derive(Debug, thiserror::Error)]

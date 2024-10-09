@@ -53,7 +53,9 @@ impl EthClient {
         self.client
             .post(&self.url)
             .header("content-type", "application/json")
-            .body(serde_json::ser::to_string(&request).unwrap())
+            .body(serde_json::ser::to_string(&request).map_err(|error| {
+                EthClientError::FailedToSerializeRequestBody(format!("{error}: {request:?}"))
+            })?)
             .send()
             .await?
             .json::<RpcResponse>()
