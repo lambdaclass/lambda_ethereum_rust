@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use core::slice::SlicePattern;
 use std::{
     collections::HashMap,
     io::{BufReader, BufWriter, Read},
     net::{IpAddr, TcpListener, TcpStream},
+    os::macos::raw::stat,
     str::FromStr,
 };
 
@@ -33,7 +33,7 @@ use crate::{
 
 use revm::{
     db::CacheDB,
-    primitives::{bitvec::view::AsBits, AccountInfo, FixedBytes},
+    primitives::{bitvec::view::AsBits, AccountInfo, FixedBytes, B256},
     Evm, InMemoryDB,
 };
 
@@ -457,7 +457,7 @@ fn get_last_block_state(storage: &Store) -> Result<MemoryDB, Box<dyn std::error:
 
     let mut accounts: HashMap<RevmAddress, AccountInfo> = HashMap::new();
 
-    let mut storage: HashMap<
+    let mut storage_hmap: HashMap<
         RevmAddress,
         HashMap<revm::primitives::alloy_primitives::U256, revm::primitives::alloy_primitives::U256>,
     > = HashMap::new();
@@ -487,7 +487,7 @@ fn get_last_block_state(storage: &Store) -> Result<MemoryDB, Box<dyn std::error:
 
         accounts.insert(address, revm_account_info);
 
-        let inner_storage = storage.entry(address).or_insert_with(HashMap::new);
+        let inner_storage = storage_hmap.entry(address).or_default();
 
         let added_storage: HashMap<H256, U256> = account_update.added_storage;
         for (key, value) in added_storage {
@@ -503,10 +503,29 @@ fn get_last_block_state(storage: &Store) -> Result<MemoryDB, Box<dyn std::error:
         }
     }
 
+    let oldest_block_number = state.oldest_block_number();
+
+    let mut block_headers = Vec::new();
+
+    for block_number in (oldest_block_number..=(last_block_number - 1)).rev() {
+        let block_header = state.database().get_block_header(block_number)?.unwrap();
+        block_headers.push(block_header);
+    }
+
+    let mut block_hashes: HashMap<u64, B256> = HashMap::new();
+
+    for i in 0..block_headers.len() - 1 {
+        let child_header = &block_headers[i];
+        let parent_header = &block_headers[i + 1];
+
+        let parent_hash = B256::from_slice(&child_header.parent_hash.0);
+        block_hashes.insert(parent_header.number, parent_hash);
+    }
+
     Ok(MemoryDB {
         accounts,
-        storage,
-        block_hashes: todo!(),
+        storage: storage_hmap,
+        block_hashes,
     })
 }
 
