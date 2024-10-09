@@ -19,6 +19,8 @@ pub enum VMError {
     OpcodeNotFound,
     InvalidBytecode,
     OutOfGas,
+    VeryLargeNumber,
+    FatalError,
 }
 
 pub enum OpcodeSuccess {
@@ -67,7 +69,7 @@ pub enum ExecutionResult {
 }
 
 impl ExecutionResult {
-    /// Returns if transaction execution is successful.
+    /// Returns true if transaction execution is successful.
     /// 1 indicates success, 0 indicates revert.
     /// <https://eips.ethereum.org/EIPS/eip-658>
     pub fn is_success(&self) -> bool {
