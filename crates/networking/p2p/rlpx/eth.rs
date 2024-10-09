@@ -113,7 +113,7 @@ impl RLPxMessage for StatusMessage {
     }
 }
 
-// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#newpooledtransactionhashes-0x08
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#transactions-0x02
 // Broadcast message
 #[derive(Debug)]
 pub(crate) struct Transactions {
@@ -148,7 +148,7 @@ impl RLPxMessage for Transactions {
         Ok(Self { transactions })
     }
 }
-// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#newpooledtransactionhashes-0x08
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#newpooledtransactionhashes-0x08
 // Broadcast message
 #[derive(Debug)]
 pub(crate) struct NewPooledTransactionHashes {
@@ -166,7 +166,7 @@ impl NewPooledTransactionHashes {
             let transaction_type = transaction.tx_type();
             transaction_types.push(transaction_type as u8);
             // size is defined as the concatenation of tx_type and the tx_data
-            // as the tx_type is 0x0(something), the size of tx_type is always 1.
+            // as the tx_type is 0x0(one_number). the size of tx_type is always 1.
             let transaction_size = 1 + transaction.data().len();
             transaction_sizes.push(transaction_size);
             let transaction_hash = transaction.compute_hash();
@@ -213,7 +213,7 @@ impl RLPxMessage for NewPooledTransactionHashes {
     }
 }
 
-// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#getpooledtransactions-0x09
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#getpooledtransactions-0x09
 #[derive(Debug)]
 pub(crate) struct GetPooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
@@ -259,7 +259,7 @@ impl RLPxMessage for GetPooledTransactions {
     }
 }
 
-// https://github.com/belfortep/devp2p/blob/master/caps/eth.md#pooledtransactions-0x0a
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#pooledtransactions-0x0a
 pub(crate) struct PooledTransactions {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
