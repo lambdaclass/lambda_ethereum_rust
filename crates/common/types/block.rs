@@ -70,7 +70,7 @@ pub struct BlockHeader {
     pub parent_hash: H256,
     #[serde(rename(serialize = "sha3Uncles", deserialize = "sha3Uncles"))]
     pub ommers_hash: H256, // ommer = uncle
-    #[serde(rename(serialize = "miner", deserialize = "miner"))]
+    #[serde(rename = "miner")]
     pub coinbase: Address,
     pub state_root: H256,
     pub transactions_root: H256,
