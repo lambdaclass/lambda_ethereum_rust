@@ -215,6 +215,15 @@ mod tests {
         message::RLPxMessage,
     };
 
+    fn get_block_bodies_from_hash(store: &Store, blocks_hash: Vec<BlockHash>) -> Vec<BlockBody> {
+        let mut block_bodies = vec![];
+        for block_hash in blocks_hash {
+            let block = store.get_block_by_hash(block_hash).unwrap().unwrap();
+            block_bodies.push(block.body);
+        }
+        block_bodies
+    }
+
     #[test]
     fn get_block_bodies_empty_message() {
         let blocks_hash = vec![];
@@ -294,12 +303,8 @@ mod tests {
             block2.header.compute_block_hash(),
             block3.header.compute_block_hash(),
         ];
-        let mut block_bodies = vec![];
-        for block_hash in blocks_hash {
-            let block = store.get_block_by_hash(block_hash).unwrap().unwrap();
-            block_bodies.push(block.body);
-        }
 
+        let block_bodies = get_block_bodies_from_hash(&store, blocks_hash);
         let block_bodies = BlockBodies::new(1, block_bodies);
 
         let mut buf = Vec::new();
@@ -357,12 +362,7 @@ mod tests {
             GetBlockBodies::decode(&receiver_data_of_blocks_hash[..len]).unwrap(); // transform the encoded received data to blockhashes
         assert_eq!(received_block_hashes.id, sender_chosen_id);
         assert_eq!(received_block_hashes.block_hashes, blocks_hash);
-        let mut block_bodies = vec![];
-        for block_hash in blocks_hash {
-            let block = store.get_block_by_hash(block_hash).unwrap().unwrap();
-            block_bodies.push(block.body);
-        }
-
+        let block_bodies = get_block_bodies_from_hash(&store, blocks_hash);
         let block_bodies = BlockBodies::new(received_block_hashes.id, block_bodies.clone());
 
         let mut block_bodies_to_send = Vec::new();
