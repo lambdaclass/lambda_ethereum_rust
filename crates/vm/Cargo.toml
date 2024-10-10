@@ -1,12 +1,12 @@
 [package]
-name = "ethereum_rust-evm"
-version.workspace = true
-edition.workspace = true
+name = "ethereum_rust-vm"
+version = "0.1.0"
+edition = "2021"
 
 [dependencies]
 # FIXME: It is necessary not to re-use the workspace definitions.
-ethereum_rust-core = { path = "../../common", default-features = false }
-ethereum_rust-storage = { path = "../../storage/store", default-features = false }
+ethereum_rust-core = { path = "../common", default-features = false }
+ethereum_rust-storage = { path = "../storage/store", default-features = false }
 revm = { version = "14.0.3", features = [
     "serde",
     "std",
@@ -14,6 +14,8 @@ revm = { version = "14.0.3", features = [
     "optional_no_base_fee",
     "optional_block_gas_limit",
 ], default-features = false }
+
+
 # These dependencies must be kept up to date with the corresponding revm version, otherwise errors may pop up because of trait implementation mismatches
 revm-inspectors = { version = "0.8.1" }
 revm-primitives = { version = "10.0.0", features = [
@@ -28,6 +30,9 @@ cfg-if.workspace = true
 serde.workspace = true
 bincode = "1"
 
+[lib]
+path = "./vm.rs"
+
 [features]
 default = ["libmdbx"]
 l2 = []
@@ -38,6 +43,3 @@ no_libmdbx = [
     "ethereum_rust-core/no_libmdbx",
 ]
 libmdbx = ["ethereum_rust-storage/libmdbx", "ethereum_rust-core/libmdbx"]
-
-[lib]
-path = "./evm.rs"

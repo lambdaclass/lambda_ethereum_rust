@@ -14,7 +14,7 @@ tracing.workspace = true
 # FIXME: It is necessary not to re-use the workspace definitions.
 ethereum_rust-core = { path = "../common", default-features = false }
 ethereum_rust-storage = { path = "../storage/store", default-features = false }
-ethereum_rust-evm = { path = "../vm/evm", default-features = false }
+ethereum_rust-vm = { path = "../vm", default-features = false }
 
 [lib]
 path = "./blockchain.rs"
@@ -24,10 +24,10 @@ default = ["libmdbx"]
 no_libmdbx = [
     "ethereum_rust-core/no_libmdbx",
     "ethereum_rust-storage/no_libmdbx",
-    "ethereum_rust-evm/no_libmdbx",
+    "ethereum_rust-vm/no_libmdbx",
 ]
 libmdbx = [
     "ethereum_rust-core/libmdbx",
     "ethereum_rust-storage/libmdbx",
-    "ethereum_rust-evm/libmdbx",
+    "ethereum_rust-vm/libmdbx",
 ]
