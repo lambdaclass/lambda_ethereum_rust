@@ -100,13 +100,13 @@ impl Prover {
 
     pub fn prove_execution(&self, input: &ProverInput) -> Result<SP1ProofWithPublicValues, String> {
         let head_block_rlp = input.block.clone().encode_to_vec();
-        //let memory_db = input.db;
+        let parent_header_rlp = input.parent_block_header.clone().encode_to_vec();
 
-        // Setup the inputs.
+        // Write the inputs
         let mut stdin = SP1Stdin::new();
-
         stdin.write(&head_block_rlp);
-        // TODO write db
+        stdin.write(&parent_header_rlp);
+        stdin.write(&input.db);
 
         info!(
             "Starting block execution proof for block = {:?}",

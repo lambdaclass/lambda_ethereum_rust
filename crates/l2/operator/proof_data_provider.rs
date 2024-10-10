@@ -3,6 +3,7 @@
 
 use std::{
     collections::HashMap,
+    fmt::format,
     io::{BufReader, BufWriter, Read},
     net::{IpAddr, TcpListener, TcpStream},
     os::macos::raw::stat,
@@ -13,8 +14,10 @@ use ethereum_rust_blockchain::{
     find_parent_header, validate_block, validate_gas_used, validate_parent_canonical,
     validate_state_root,
 };
-use ethereum_rust_core::types::{Block, BlockBody, BlockHeader, TxKind};
-use ethereum_rust_evm::{evm_state, execute_block, get_state_transitions, RevmAddress};
+use ethereum_rust_core::types::{Block, BlockBody, BlockHeader, Receipt, Transaction, TxKind};
+use ethereum_rust_evm::{
+    block_env, evm_state, execute_block, get_state_transitions, tx_env, RevmAddress,
+};
 use ethereum_rust_storage::Store;
 use ethereum_types::{Address, Bloom, H160, H256, U256};
 use prover_lib::{
@@ -32,7 +35,6 @@ use crate::{
 };
 
 use revm::{
-    db::CacheDB,
     primitives::{bitvec::view::AsBits, AccountInfo, FixedBytes, B256},
     Evm, InMemoryDB,
 };
@@ -385,18 +387,32 @@ impl ProofDataProvider {
             block_is_valid: false,
         };
 
+        let last_block_number = self.store.get_latest_block_number().unwrap().unwrap();
+        let body = self
+            .store
+            .get_block_body(last_block_number)
+            .unwrap()
+            .unwrap();
+        let header = self
+            .store
+            .get_block_header(last_block_number)
+            .unwrap()
+            .unwrap();
+
+        let last_block = Block { header, body };
+
         // we need the storage of the current_block-1
         // we should execute the EVM with that state and simulating the inclusion of the current_block
-        let memory_db = get_last_block_state(&self.store).map_err(|e| format!("error code: {e}"));
-        // with the execution_outputs we should get a way to have the State/Store represented with Hashmaps
-
-        // finally, this information has to be contained in an structure that can be de/serealized,
-        // so that, any zkVM can receive the state as input and prove the block execution.
+        let memory_db =
+            get_last_block_state(&self.store, &last_block).map_err(|e| format!("Error: {e}"))?;
+        // with the execution_outputs we should get a way to have the State/Store represented with Hashmaps.
+        // finally, this information has to be contained in anstructure that can be de/serealized,
+        // so that, any zkVM could receive the state as input and prove the block execution.
 
         let prover_inputs_execution = ProverInput {
             block: head_block,
             parent_block_header,
-            db: MemoryDB::default(),
+            db: memory_db,
         };
 
         let response = match prover_mode {
@@ -435,21 +451,18 @@ impl ProofDataProvider {
 }
 
 /// Same concept as adding a block [ethereum_rust_blockchain::add_block].
-fn get_last_block_state(storage: &Store) -> Result<MemoryDB, Box<dyn std::error::Error>> {
-    let last_block_number = storage.get_latest_block_number()?.unwrap();
-    let body = storage.get_block_body(last_block_number)?.unwrap();
-    let header = storage.get_block_header(last_block_number)?.unwrap();
-
-    let last_block = Block { header, body };
-
-    validate_parent_canonical(&last_block, storage)?;
+fn get_last_block_state(
+    storage: &Store,
+    last_block: &Block,
+) -> Result<MemoryDB, Box<dyn std::error::Error>> {
+    validate_parent_canonical(last_block, storage)?;
     let parent_header = find_parent_header(&last_block.header, storage)?;
 
     let mut state = evm_state(storage.clone(), last_block.header.parent_hash);
 
-    validate_block(&last_block, &parent_header, &state)?;
+    validate_block(last_block, &parent_header, &state)?;
 
-    let receipts = execute_block(&last_block, &mut state)?;
+    let receipts = execute_block(last_block, &mut state)?;
 
     validate_gas_used(&receipts, &last_block.header)?;
 
@@ -507,6 +520,7 @@ fn get_last_block_state(storage: &Store) -> Result<MemoryDB, Box<dyn std::error:
 
     let mut block_headers = Vec::new();
 
+    let last_block_number = last_block.header.number;
     for block_number in (oldest_block_number..=(last_block_number - 1)).rev() {
         let block_header = state.database().get_block_header(block_number)?.unwrap();
         block_headers.push(block_header);
