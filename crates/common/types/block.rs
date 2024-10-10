@@ -187,7 +187,7 @@ impl RLPDecode for BlockHeader {
 pub struct BlockBody {
     pub transactions: Vec<Transaction>,
     // TODO: ommers list is always empty, so we can remove it
-    #[serde(rename(serialize = "uncles", deserialize = "uncles"))]
+    #[serde(rename = "uncles")]
     pub ommers: Vec<BlockHeader>,
     pub withdrawals: Option<Vec<Withdrawal>>,
 }
