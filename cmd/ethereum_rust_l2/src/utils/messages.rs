@@ -15,3 +15,4 @@ pub const L2_EXPLORER_URL_PROMPT_MSG: &str = "L2 Explorer URL";
 pub const L1_EXPLORER_URL_PROMPT_MSG: &str = "L1 Explorer URL";
 pub const PRIVATE_KEY_PROMPT_MSG: &str = "Private key";
 pub const ADDRESS_PROMPT_MSG: &str = "Address";
+pub const CONTRACTS_COMMON_BRIDGE_PROMPT_MSG: &str = "Bridge contract address";

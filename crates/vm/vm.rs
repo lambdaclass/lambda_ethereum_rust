@@ -1,6 +1,8 @@
 mod db;
 mod errors;
 mod execution_result;
+#[cfg(feature = "l2")]
+mod mods;
 
 use db::StoreWrapper;
 use std::cmp::min;
@@ -125,7 +127,8 @@ fn run_evm(
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
         let chain_spec = state.database().get_chain_config()?;
-        let mut evm = Evm::builder()
+        #[allow(unused_mut)]
+        let mut evm_builder = Evm::builder()
             .with_db(&mut state.0)
             .with_block_env(block_env)
             .with_tx_env(tx_env)
@@ -133,8 +136,23 @@ fn run_evm(
             .with_spec_id(spec_id)
             .with_external_context(
                 TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
-            )
-            .build();
+            );
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "l2")] {
+                use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
+                use std::sync::Arc;
+
+                evm_builder = evm_builder.with_handler({
+                    let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
+                    evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
+                    evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
+                    // TODO: Override `end` function. We should deposit even if we revert.
+                    // evm_handler.pre_execution.end
+                    evm_handler
+                });
+            }
+        }
+        let mut evm = evm_builder.build();
         evm.transact_commit().map_err(EvmError::from)?
     };
     Ok(tx_result.into())

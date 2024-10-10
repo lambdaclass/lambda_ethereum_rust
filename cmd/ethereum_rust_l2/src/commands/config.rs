@@ -53,6 +53,8 @@ pub struct EditConfigOpts {
     pub private_key: Option<String>,
     #[arg(long, requires = "config_name", required = false)]
     pub address: Option<Address>,
+    #[arg(long, requires = "config_name", required = false)]
+    pub common_bridge: Option<Address>,
 }
 
 impl EditConfigOpts {
@@ -63,6 +65,7 @@ impl EditConfigOpts {
             && self.l2_rpc_url.is_none()
             && self.private_key.is_none()
             && self.address.is_none()
+            && self.common_bridge.is_none()
     }
 }
 

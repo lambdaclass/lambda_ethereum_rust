@@ -25,6 +25,7 @@ sp1-sdk = "2.0.0"
 libsecp256k1 = "0.7.1"
 keccak-hash = "0.10.0"
 envy = "0.4.2"
+thiserror.workspace = true
 
 [lib]
 path = "./l2.rs"
