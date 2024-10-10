@@ -7,8 +7,6 @@ on:
       - opened
       - edited
       - synchronize
-      - labeled
-      - unlabeled
 
 jobs:
   main:
@@ -40,10 +38,14 @@ jobs:
 
           # Configure which scopes are allowed (newline-delimited).
           # These are regex patterns auto-wrapped in `^ $`.
-          #scopes: |
+          scopes: |
+            core
+            l1
+            l2
+            levm
 
           # Configure that a scope must always be provided.
-          requireScope: false
+          requireScope: true
 
           # Configure which scopes are disallowed in PR titles (newline-delimited).
           # For instance by setting the value below, `chore(release): ...` (lowercase)
@@ -67,6 +69,6 @@ jobs:
           # validation is skipped. If you want to rerun the validation when
           # labels change, you might want to use the `labeled` and `unlabeled`
           # event triggers in your workflow.
-          ignoreLabels: |
-            bot
-            ignore-semantic-pull-request
+          # ignoreLabels: |
+          #   bot
+          #   ignore-semantic-pull-request
