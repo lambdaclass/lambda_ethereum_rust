@@ -88,7 +88,7 @@ pub struct BlockHeader {
     pub timestamp: u64,
     #[serde(with = "crate::serde_utils::bytes")]
     pub extra_data: Bytes,
-    #[serde(rename(serialize = "mixHash", deserialize = "mixHash"))]
+    #[serde(rename = "mixHash")]
     pub prev_randao: H256,
     #[serde(with = "crate::serde_utils::u64::hex_str_padding")]
     pub nonce: u64,
