@@ -154,7 +154,7 @@ impl RLPxMessage for GetBlockBodies {
         let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
         let (block_hashes, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes")?;
 
-        Ok(Self { block_hashes, id })
+        Ok(Self::new(id, block_hashes))
     }
 }
 
@@ -167,18 +167,8 @@ pub(crate) struct BlockBodies {
 }
 
 impl BlockBodies {
-    pub fn new(id: u64, storage: &Store, blocks_hash: Vec<BlockHash>) -> Result<Self, StoreError> {
-        let mut block_bodies = vec![];
-
-        for block_hash in blocks_hash {
-            let block_body = match storage.get_block_body_by_hash(block_hash)? {
-                Some(body) => body,
-                None => continue,
-            };
-            block_bodies.push(block_body);
-        }
-
-        Ok(Self { block_bodies, id })
+    pub fn new(id: u64, block_bodies: Vec<BlockBody>) -> Self {
+        Self { block_bodies, id }
     }
 }
 
@@ -211,7 +201,7 @@ impl RLPxMessage for BlockBodies {
         let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
         let (block_bodies, _): (Vec<BlockBody>, _) = decoder.decode_field("blockBodies")?;
 
-        Ok(Self { block_bodies, id })
+        Ok(Self::new(id, block_bodies))
     }
 }
 
@@ -257,9 +247,8 @@ mod tests {
 
     #[test]
     fn block_bodies_empty_message() {
-        let blocks_hash = vec![];
-        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let block_bodies = BlockBodies::new(1, &store, blocks_hash).unwrap();
+        let block_bodies = vec![];
+        let block_bodies = BlockBodies::new(1, block_bodies);
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -305,8 +294,13 @@ mod tests {
             block2.header.compute_block_hash(),
             block3.header.compute_block_hash(),
         ];
+        let mut block_bodies = vec![];
+        for block_hash in blocks_hash {
+            let block = store.get_block_by_hash(block_hash).unwrap().unwrap();
+            block_bodies.push(block.body);
+        }
 
-        let block_bodies = BlockBodies::new(1, &store, blocks_hash).unwrap();
+        let block_bodies = BlockBodies::new(1, block_bodies);
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -314,35 +308,6 @@ mod tests {
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
         assert_eq!(decoded.block_bodies, vec![body.clone(), body.clone(), body]);
-    }
-
-    #[test]
-    fn block_bodies_not_existing_block() {
-        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let body = BlockBody {
-            transactions: vec![],
-            ommers: vec![],
-            withdrawals: None,
-        };
-        let mut header1 = BlockHeader::default();
-
-        header1.parent_hash = BlockHash::from([0; 32]);
-        let block1 = Block {
-            header: header1,
-            body: body.clone(),
-        };
-        store.add_block(block1.clone()).unwrap();
-
-        let blocks_hash = vec![BlockHash::from([1; 32])];
-
-        let block_bodies = BlockBodies::new(1, &store, blocks_hash).unwrap();
-
-        let mut buf = Vec::new();
-        block_bodies.encode(&mut buf);
-
-        let decoded = BlockBodies::decode(&buf).unwrap();
-        assert_eq!(decoded.id, 1);
-        assert_eq!(decoded.block_bodies, vec![]);
     }
 
     #[test]
@@ -390,15 +355,15 @@ mod tests {
 
         let received_block_hashes =
             GetBlockBodies::decode(&receiver_data_of_blocks_hash[..len]).unwrap(); // transform the encoded received data to blockhashes
-
         assert_eq!(received_block_hashes.id, sender_chosen_id);
         assert_eq!(received_block_hashes.block_hashes, blocks_hash);
-        let block_bodies = BlockBodies::new(
-            received_block_hashes.id,
-            &store,
-            received_block_hashes.block_hashes,
-        )
-        .unwrap();
+        let mut block_bodies = vec![];
+        for block_hash in blocks_hash {
+            let block = store.get_block_by_hash(block_hash).unwrap().unwrap();
+            block_bodies.push(block.body);
+        }
+
+        let block_bodies = BlockBodies::new(received_block_hashes.id, block_bodies.clone());
 
         let mut block_bodies_to_send = Vec::new();
         block_bodies.encode(&mut block_bodies_to_send); // encode the block bodies that we got
