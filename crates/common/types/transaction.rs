@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
+pub use mempool::MempoolTransaction;
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use serde::{ser::SerializeStruct, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
@@ -1016,6 +1017,62 @@ mod serde_impl {
         pub blobs: Vec<Bytes>,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub chain_id: Option<u64>,
+    }
+}
+
+mod mempool {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct MempoolTransaction {
+        // Unix timestamp (in microseconds) created once the transaction reached the MemPool
+        timestamp: u128,
+        inner: Transaction,
+    }
+
+    impl MempoolTransaction {
+        pub fn new(tx: Transaction) -> Self {
+            Self {
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Invalid system time")
+                    .as_micros(),
+                inner: tx,
+            }
+        }
+    }
+
+    impl RLPEncode for MempoolTransaction {
+        fn encode(&self, buf: &mut dyn bytes::BufMut) {
+            Encoder::new(buf)
+                .encode_field(&self.timestamp)
+                .encode_field(&self.inner)
+                .finish();
+        }
+    }
+
+    impl RLPDecode for MempoolTransaction {
+        fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+            let decoder = Decoder::new(rlp)?;
+            let (timestamp, decoder) = decoder.decode_field("timestamp")?;
+            let (inner, decoder) = decoder.decode_field("inner")?;
+            Ok((Self { timestamp, inner }, decoder.finish()?))
+        }
+    }
+
+    impl std::ops::Deref for MempoolTransaction {
+        type Target = Transaction;
+
+        fn deref(&self) -> &Self::Target {
+            &self.inner
+        }
+    }
+
+    impl Into<Transaction> for MempoolTransaction {
+        fn into(self) -> Transaction {
+            self.inner
+        }
     }
 }
 

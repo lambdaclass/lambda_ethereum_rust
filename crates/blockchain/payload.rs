@@ -7,7 +7,8 @@ use ethereum_rust_core::{
     types::{
         calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root,
         compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
-        BlockHash, BlockHeader, BlockNumber, Receipt, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        BlockHash, BlockHeader, BlockNumber, MempoolTransaction, Receipt, Transaction, Withdrawal,
+        DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, Bytes, H256, U256,
 };
@@ -281,6 +282,14 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             &mut plain_txs
         };
 
+        println!(
+            "sender: {}, tip: {}, nonce: {}, blobs: {}",
+            head_tx.sender,
+            head_tx.tip,
+            head_tx.tx.nonce(),
+            head_tx.tx.blob_versioned_hashes().len()
+        );
+
         // Check if we have enough gas to run the transaction
         if context.remaining_gas < head_tx.tx.gas_limit() {
             debug!(
@@ -321,7 +330,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         };
         // Add transaction to block
         debug!("Adding transaction: {} to payload", tx_hash);
-        context.payload.body.transactions.push(head_tx.tx);
+        context.payload.body.transactions.push(head_tx.into());
         // Save receipt for hash calculation
         context.receipts.push(receipt);
     }
@@ -334,7 +343,7 @@ fn apply_transaction(
     head: &HeadTransaction,
     context: &mut PayloadBuildContext,
 ) -> Result<Receipt, ChainError> {
-    match head.tx {
+    match **head {
         Transaction::EIP4844Transaction(_) => apply_blob_transaction(head, context),
         _ => apply_plain_transaction(head, context),
     }
@@ -410,21 +419,35 @@ struct TransactionQueue {
     // The first transaction for each account along with its tip, sorted by highest tip
     heads: Vec<HeadTransaction>,
     // The remaining txs grouped by account and sorted by nonce
-    txs: HashMap<Address, Vec<Transaction>>,
+    txs: HashMap<Address, Vec<MempoolTransaction>>,
     // Base Fee stored for tip calculations
     base_fee: Option<u64>,
 }
 
 #[derive(Clone, Debug)]
 struct HeadTransaction {
-    tx: Transaction,
+    tx: MempoolTransaction,
     sender: Address,
     tip: u64,
 }
 
+impl std::ops::Deref for HeadTransaction {
+    type Target = Transaction;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tx
+    }
+}
+
+impl Into<Transaction> for HeadTransaction {
+    fn into(self) -> Transaction {
+        self.tx.into()
+    }
+}
+
 impl TransactionQueue {
     /// Creates a new TransactionQueue from a set of transactions grouped by sender and sorted by nonce
-    fn new(mut txs: HashMap<Address, Vec<Transaction>>, base_fee: Option<u64>) -> Self {
+    fn new(mut txs: HashMap<Address, Vec<MempoolTransaction>>, base_fee: Option<u64>) -> Self {
         let mut heads = Vec::new();
         for (address, txs) in txs.iter_mut() {
             // Pull the first tx from each list and add it to the heads list
