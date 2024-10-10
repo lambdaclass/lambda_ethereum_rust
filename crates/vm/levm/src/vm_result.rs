@@ -20,7 +20,7 @@ pub enum VMError {
     OutOfGas,
     VeryLargeNumber,
     FatalError,
-    Transaction(InvalidTx),
+    InvalidTransaction,
 }
 
 pub enum OpcodeSuccess {
@@ -180,12 +180,6 @@ impl Output {
             Output::Call(_) => None,
             Output::Create(_, address) => address.as_ref(),
         }
-    }
-}
-
-impl From<InvalidTx> for VMError {
-    fn from(value: InvalidTx) -> Self {
-        Self::Transaction(value)
     }
 }
 

@@ -475,10 +475,19 @@ impl VM {
     pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
         let account = self.db.accounts.get(&self.env.tx_env.msg_sender).unwrap();
 
-        let initial_gas = self
+        let initial_gas = match self
             .env
             .tx_env
-            .validate_transaction(account, &self.env.block)?;
+            .validate_transaction(account, &self.env.block)
+        {
+            Ok(gas) => gas,
+            Err(e) => {
+                return self.get_result(ExecutionResult::Halt {
+                    reason: e,
+                    gas_used: 0,
+                })
+            }
+        };
 
         let res = self.execute(initial_gas)?;
         self.get_result(res)

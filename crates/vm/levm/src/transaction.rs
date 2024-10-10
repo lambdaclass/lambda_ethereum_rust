@@ -13,7 +13,7 @@ use crate::{
     vm_result::{InvalidTx, VMError},
 };
 
-type AccessList = Vec<(Address, Vec<U256>)>;
+pub type AccessList = Vec<(Address, Vec<U256>)>;
 // type VersionedHash = H32;
 
 /// Transaction destination.
@@ -84,7 +84,7 @@ pub struct TxEnv {
 }
 
 impl TxEnv {
-    fn get_tx_type(&self) -> TxType {
+    pub fn get_tx_type(&self) -> TxType {
         if let Some(_gas_price) = self.gas_price {
             if let Some(_access_list) = &self.access_list {
                 TxType::AccessList
@@ -99,7 +99,7 @@ impl TxEnv {
     }
 
     //  Calculates the gas that is charged before execution is started.
-    fn calculate_intrinsic_cost(&self) -> u64 {
+    pub fn calculate_intrinsic_cost(&self) -> u64 {
         let data_cost = self.data.clone().iter().fold(0, |acc, byte| {
             acc + if *byte == 0 {
                 TX_DATA_COST_PER_ZERO
@@ -119,7 +119,7 @@ impl TxEnv {
         TX_BASE_COST + data_cost + create_cost
     }
 
-    fn consume_intrinsic_cost(&mut self) -> Result<u64, InvalidTx> {
+    pub fn consume_intrinsic_cost(&mut self) -> Result<u64, InvalidTx> {
         let intrinsic_cost = self.calculate_intrinsic_cost();
         if self.gas_limit >= intrinsic_cost {
             self.gas_limit -= intrinsic_cost;
@@ -130,7 +130,11 @@ impl TxEnv {
     }
 
     /// Reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L332
-    fn validate_tx_env(&self, account: &Account, block_env: &BlockEnv) -> Result<(), InvalidTx> {
+    pub fn validate_tx_env(
+        &self,
+        account: &Account,
+        block_env: &BlockEnv,
+    ) -> Result<(), InvalidTx> {
         // if nonce is None, nonce check skipped
         // https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L419
         if let Some(tx) = self.nonce {
@@ -277,8 +281,11 @@ impl TxEnv {
         account: &Account,
         block_env: &BlockEnv,
     ) -> Result<u64, VMError> {
-        let initial_gas_consumed = self.consume_intrinsic_cost()?;
-        self.validate_tx_env(account, block_env)?;
+        let initial_gas_consumed = self
+            .consume_intrinsic_cost()
+            .map_err(|_| VMError::InvalidTransaction)?;
+        self.validate_tx_env(account, block_env)
+            .map_err(|_| VMError::InvalidTransaction)?;
 
         Ok(initial_gas_consumed)
     }
@@ -311,7 +318,7 @@ impl TxEnv {
 
     // calculates the total blob gas for the transaction, which is
     // https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/vm/gas.py#L295
-    fn calculate_total_blob_gas(&self) -> U256 {
+    pub fn calculate_total_blob_gas(&self) -> U256 {
         if self.max_fee_per_blob_gas.is_some() {
             (GAS_PER_BLOB * self.blob_hashes.len() as u64).into()
         } else {
