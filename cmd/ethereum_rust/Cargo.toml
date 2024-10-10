@@ -11,7 +11,7 @@ ethereum_rust-rpc.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-net.workspace = true
 ethereum_rust-storage.workspace = true
-ethereum_rust-evm.workspace = true
+ethereum_rust-vm.workspace = true
 ethereum_rust-rlp.workspace = true
 ethereum_rust-l2.workspace = true
 
@@ -36,4 +36,4 @@ path = "./ethereum_rust.rs"
 
 [features]
 default = []
-l2 = ["ethereum_rust-evm/l2"]
+l2 = ["ethereum_rust-vm/l2"]
