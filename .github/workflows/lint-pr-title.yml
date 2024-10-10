@@ -7,8 +7,6 @@ on:
       - opened
       - edited
       - synchronize
-      - labeled
-      - unlabeled
 
 jobs:
   main:
@@ -71,6 +69,6 @@ jobs:
           # validation is skipped. If you want to rerun the validation when
           # labels change, you might want to use the `labeled` and `unlabeled`
           # event triggers in your workflow.
-          ignoreLabels: |
-            bot
-            ignore-semantic-pull-request
+          # ignoreLabels: |
+          #   bot
+          #   ignore-semantic-pull-request
