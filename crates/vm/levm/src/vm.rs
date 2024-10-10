@@ -194,10 +194,6 @@ pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
     pub origin: Address,
-    /// The price of gas paid by the signer of the transaction
-    /// that originated this execution.
-    pub gas_price: U256,
-    pub gas_limit: u64,
     pub consumed_gas: u64,
     refunded_gas: u64,
     /// The block header of the present block.
@@ -264,8 +260,6 @@ impl VM {
         let env = Environment {
             block: block_env,
             consumed_gas: TX_BASE_COST,
-            gas_price: tx_env.gas_price.unwrap_or_default(),
-            gas_limit: u64::MAX,
             origin: tx_env.msg_sender,
             refunded_gas: 0,
             tx_env,
