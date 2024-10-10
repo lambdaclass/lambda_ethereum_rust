@@ -68,6 +68,7 @@ impl RpcHandler for GasPrice {
         }
         // FIXME: Properly handle this error before PR review.
         // FIXME: Check for overflow here.
+        // FIXME: Check if we need to add the base fee to this.
         let sample_gas = results
             .get(((results.len() - 1) * (TXS_SAMPLE_PERCENTILE / 100)))
             .ok_or(RpcErr::Internal("".to_string()))?;
