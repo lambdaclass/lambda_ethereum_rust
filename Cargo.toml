@@ -5,7 +5,7 @@ members = [
     "crates/networking/p2p",
     "crates/networking/rpc",
     "crates/storage/store",
-    "crates/vm/evm",
+    "crates/vm",
     "crates/storage/trie",
     "crates/common/rlp",
     "cmd/ethereum_rust",
@@ -27,11 +27,11 @@ ethereum_rust-core = { path = "./crates/common" }
 ethereum_rust-net = { path = "./crates/networking/p2p" }
 ethereum_rust-rpc = { path = "./crates/networking/rpc" }
 ethereum_rust-storage = { path = "./crates/storage/store" }
-ethereum_rust-evm = { path = "./crates/vm/evm" }
+ethereum_rust-vm = { path = "./crates/vm" }
 ethereum_rust-trie = { path = "./crates/storage/trie" }
 ethereum_rust-rlp = { path = "./crates/common/rlp" }
-ethereum_rust-l2 =  { path = "./crates/l2" }
-ethereum_rust-levm =  { path = "./crates/levm" }
+ethereum_rust-l2 = { path = "./crates/l2" }
+ethereum_rust-levm = { path = "./crates/levm" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"

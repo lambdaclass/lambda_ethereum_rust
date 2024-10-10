@@ -3,7 +3,7 @@ use ethereum_rust_core::{
     types::{BlockHash, BlockHeader, BlockNumber, Log, Receipt, Transaction, TxKind, TxType},
     Address, Bloom, Bytes, H256,
 };
-use ethereum_rust_evm::RevmAddress;
+use ethereum_rust_vm::RevmAddress;
 
 use serde::{Deserialize, Serialize};
 
