@@ -35,7 +35,9 @@ pub struct Operator {
 pub async fn start_operator(store: Store) {
     info!("Starting Operator");
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
-    let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
+    let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider(
+        store.clone(),
+    ));
     let operator = tokio::spawn(async move {
         let eth_config = EthConfig::from_env().expect("EthConfig::from_env");
         let operator_config = OperatorConfig::from_env().expect("OperatorConfig::from_env");

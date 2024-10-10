@@ -16,7 +16,6 @@ use prover_lib::inputs::{ProverInput, ProverInputNoExecution};
 
 use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
 
-use super::prover::Prover;
 use super::zk_prover::{Prover, ProverMode};
 
 pub async fn start_proof_data_client() {
@@ -40,9 +39,9 @@ impl ProofDataClient {
         let prover = Prover::new_from_config(config);
 
         loop {
-            match self.request_new_data() {
-                Ok(Some(id)) => {
-                    match prover.prove(id) {
+            match self.request_data(prover.mode) {
+                Ok((Some(id), prover_input)) => {
+                    match prover.prove_execution(&prover_input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry
@@ -52,13 +51,18 @@ impl ProofDataClient {
                         Err(e) => error!(e),
                     };
                 }
-                Ok(None) => sleep(Duration::from_secs(10)).await,
-                Err(e) => warn!("Failed to request new data: {e}"),
+                Ok((None, _)) => sleep(Duration::from_secs(10)).await,
+                Err(e) => {
+                    warn!("Failed to request new data: {e}");
+                    sleep(Duration::from_secs(10)).await;
+                }
             }
+            info!("The Prover has finished the last round.");
+            sleep(Duration::from_secs(30)).await;
         }
     }
 
-    fn request_new_data(&self) -> Result<Option<u64>, String> {
+    fn request_data(&self, mode: ProverMode) -> Result<(Option<u64>, ProverInput), String> {
         let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
