@@ -75,10 +75,10 @@ It also supports EIP 4844 for L1 commit transactions, which means state diffs ar
 | --------- | ------------- | ------------------------------------------------------ | ------ |
 | Contracts | BlockExecutor | Differentiate whether to execute in calldata or blobs mode                                                      |  ❌      |
 | Prover | RISC-V zkVM | Prove state diffs compression                                                      |  ❌      |
+| | RISC-V zkVM   | Adapt state proofs                                                       |    ❌    |
 | VM        |               | The VM should return which storage slots were modified |   ❌     |
 | Operator  |  ProofDataProvider  |  Sends state diffs to the prover   |   ❌     |
 |   |  L1TxSender  |  Differentiate whether to send the commit transaction with calldata or blobs   |   ❌     |
-| Prover    | RISC-V zkVM   | Adapt state proofs                                                       |    ❌    |
 |    |    | Add program for proving blobs                                                       |    ❌    |
 | CLI    | `reconstruct-state`   | Add a command for reconstructing the state                                                       |    ❌    |
 |     | `init`   | Adapt stack initialization to either send blobs or calldata                                                       |    ❌    |
