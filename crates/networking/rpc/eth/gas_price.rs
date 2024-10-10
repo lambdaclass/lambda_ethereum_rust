@@ -74,7 +74,7 @@ impl RpcHandler for GasPrice {
             .ok_or(RpcErr::Internal("".to_string()))?;
         // FIXME: Check sample gas is under limit
         let gas_as_hex = format!("0x{:x}", sample_gas);
-        // FIXME: Check gas price unit
+        // FIXME: Check gas price unit, should be wei according to the spec.
         return Ok(serde_json::Value::from_str(&gas_as_hex)?);
     }
 }
