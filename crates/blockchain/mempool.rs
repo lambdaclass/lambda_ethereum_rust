@@ -10,9 +10,9 @@ use crate::{
     error::MempoolError,
 };
 use ethereum_rust_core::{
-    types::{BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, Transaction},
-    Address, H256, U256,
+    types::{BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, Transaction}, Address, H256, U256
 };
+use ethereum_rust_rlp::{encode::RLPEncode, structs::Encoder};
 use ethereum_rust_storage::{error::StoreError, Store};
 
 /// Add a blob transaction and its blobs bundle to the mempool
@@ -107,6 +107,29 @@ pub struct PendingTxFilter {
     pub only_plain_txs: bool,
     pub only_blob_txs: bool,
 }
+
+#[derive(Debug)]
+pub struct MempoolTransaction {
+    // Unix timestamp created once the transaction reached the MemPool
+    timestamp: i64,
+    tx: Transaction,
+}
+
+impl MempoolTransaction {
+    fn new(tx: Transaction) -> Self {
+        Self {
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+            tx,
+        }
+    }
+}
+
+impl RLPEncode for MempoolTransaction {
+    fn encode(&self, buf: &mut dyn bytes::BufMut) {
+        Encoder::new(buf).encode_field(&self.timestamp).encode_field(&self.tx);
+    }
+}
+
 /*
 
 SOME VALIDATIONS THAT WE COULD INCLUDE
