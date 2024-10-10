@@ -147,11 +147,7 @@ impl TxEnv {
             }
         }
 
-        // let is_create = matches!(current_call_frame.to, TransactTo::Create);
-        let is_create = match self.transact_to {
-            TransactTo::Create => true,
-            _ => false,
-        };
+        let is_create = matches!(self.transact_to, TransactTo::Create);
 
         // if it's a create tx, check max code size
         // https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L376
@@ -327,16 +323,11 @@ impl TxEnv {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum TxType {
+    #[default]
     Legacy,
     AccessList,
     Blob,
     FeeMarket,
-}
-
-impl Default for TxType {
-    fn default() -> Self {
-        TxType::Legacy
-    }
 }
