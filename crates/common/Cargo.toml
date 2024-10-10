@@ -30,7 +30,6 @@ hex-literal.workspace = true
 
 [features]
 default = ["libmdbx"]
-no_libmdbx = ["ethereum_rust-trie/no_libmdbx"]
 libmdbx = ["ethereum_rust-trie/libmdbx"]
 
 [lib]

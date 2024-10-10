@@ -24,7 +24,6 @@ libmdbx = { workspace = true, optional = true }
 
 [features]
 default = ["libmdbx"]
-no_libmdbx = ["ethereum_rust-trie/no_libmdbx", "ethereum_rust-core/no_libmdbx"]
 libmdbx = [
     "dep:libmdbx",
     "ethereum_rust-trie/libmdbx",

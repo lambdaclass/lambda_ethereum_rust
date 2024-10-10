@@ -21,11 +21,6 @@ path = "./blockchain.rs"
 
 [features]
 default = ["libmdbx"]
-no_libmdbx = [
-    "ethereum_rust-core/no_libmdbx",
-    "ethereum_rust-storage/no_libmdbx",
-    "ethereum_rust-vm/no_libmdbx",
-]
 libmdbx = [
     "ethereum_rust-core/libmdbx",
     "ethereum_rust-storage/libmdbx",
