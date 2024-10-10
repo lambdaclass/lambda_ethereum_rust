@@ -1,6 +1,7 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
+use crate::utils::eth_client::RpcResponse;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use sp1_sdk::SP1ProofWithPublicValues;
 use std::{
     collections::HashMap,
     fmt::format,
@@ -9,7 +10,9 @@ use std::{
     os::macos::raw::stat,
     str::FromStr,
 };
+use tracing::{debug, info, warn};
 
+<<<<<<< HEAD
 use ethereum_rust_blockchain::{
     find_parent_header, validate_block, validate_gas_used, validate_parent_canonical,
     validate_state_root,
@@ -38,10 +41,17 @@ use revm::{
     primitives::{bitvec::view::AsBits, AccountInfo, FixedBytes, B256},
     Evm, InMemoryDB,
 };
+use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
 
-pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
-    let proof_data_provider = ProofDataProvider::new(store, ip, port);
-    proof_data_provider.start().await;
+use super::errors::ProofDataProviderError;
+
+pub async fn start_proof_data_provider() {
+    let config = ProofDataProviderConfig::from_env().expect("ProofDataProviderConfig::from_env()");
+    let proof_data_provider = ProofDataProvider::new_from_config(config);
+    proof_data_provider
+        .start()
+        .await
+        .expect("proof_data_provider.start()");
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -71,22 +81,25 @@ struct ProofDataProvider {
 }
 
 impl ProofDataProvider {
-    pub fn new(store: Store, ip: IpAddr, port: u16) -> Self {
-        Self { store, ip, port }
+    pub fn new_from_config(config: ProofDataProviderConfig) -> Self {
+        Self {
+            ip: config.listen_ip,
+            port: config.listen_port,
+        }
     }
 
-    pub async fn start(&self) {
-        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).unwrap();
+    pub async fn start(&self) -> Result<(), ProofDataProviderError> {
+        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
-            let stream = stream.unwrap();
-
             debug!("Connection established!");
-            self.handle_connection(stream, &mut last_proved_block).await;
+            self.handle_connection(stream?, &mut last_proved_block)
+                .await;
         }
+        Ok(())
     }
 
     async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
@@ -94,12 +107,8 @@ impl ProofDataProvider {
 
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
-            Ok(ProofData::Request { mode }) => {
-                info!("HANDLING proof_data_client REQUEST");
-                if let Err(e) = self
-                    .handle_request(&mut stream, mode, *last_proved_block)
-                    .await
-                {
+            Ok(ProofData::Request {}) => {
+                if let Err(e) = self.handle_request(&mut stream, *last_proved_block).await {
                     warn!("Failed to handle request: {e}");
                 }
             }
@@ -442,7 +451,7 @@ impl ProofDataProvider {
         id: u64,
         proof: Box<SP1ProofWithPublicValues>,
     ) -> Result<(), String> {
-        info!("Submit received. ID: {id}, proof: {:?}", proof.proof);
+        debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
 
         let response = ProofData::SubmitAck { id };
         let writer = BufWriter::new(stream);

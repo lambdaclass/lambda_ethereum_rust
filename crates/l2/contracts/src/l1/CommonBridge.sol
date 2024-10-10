@@ -7,12 +7,16 @@ import "./interfaces/ICommonBridge.sol";
 /// @author LambdaClass
 contract CommonBridge is ICommonBridge {
     /// @inheritdoc ICommonBridge
-    function deposit(address /*to*/, address /*refundRecipient*/) external payable {
+    function deposit(address to) public payable {
         if (msg.value == 0) {
             revert AmountToDepositIsZero();
         }
         // TODO: Build the tx.
         bytes32 l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
-        emit DepositInitiated(l2MintTxHash);
+        emit DepositInitiated(msg.value, to, l2MintTxHash);
+    }
+
+    receive() external payable {
+        deposit(msg.sender);
     }
 }

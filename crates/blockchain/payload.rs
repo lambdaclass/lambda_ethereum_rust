@@ -6,29 +6,29 @@ use std::{
 use ethereum_rust_core::{
     types::{
         calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root,
-        compute_transactions_root, compute_withdrawals_root, Block, BlockBody, BlockHash,
-        BlockHeader, BlockNumber, Receipt, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
+        BlockHash, BlockHeader, BlockNumber, Receipt, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, Bytes, H256, U256,
 };
-use ethereum_rust_evm::{
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_vm::{
     beacon_root_contract_call, evm_state, execute_tx, get_state_transitions, process_withdrawals,
     spec_id, EvmError, EvmState, SpecId,
 };
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::{error::StoreError, Store};
 use sha3::{Digest, Keccak256};
 
 use crate::{
     constants::{
-        GAS_LIMIT_BOUND_DIVISOR, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT, TARGET_BLOB_GAS_PER_BLOCK,
-        TX_GAS_COST,
+        GAS_LIMIT_BOUND_DIVISOR, GAS_PER_BLOB, MAX_BLOB_GAS_PER_BLOCK, MIN_GAS_LIMIT,
+        TARGET_BLOB_GAS_PER_BLOCK, TX_GAS_COST,
     },
     error::ChainError,
     mempool::{self, PendingTxFilter},
 };
 
-use tracing::info;
+use tracing::debug;
 
 pub struct BuildPayloadArgs {
     pub parent: BlockHash,
@@ -111,17 +111,7 @@ pub fn create_payload(args: &BuildPayloadArgs, storage: &Store) -> Result<Block,
             withdrawals: Some(args.withdrawals.clone()),
         },
     };
-    // Apply withdrawals & call beacon root contract, and obtain the new state root
-    let spec_id = spec_id(storage, args.timestamp)?;
-    let mut evm_state = evm_state(storage.clone(), args.parent);
-    if args.beacon_root.is_some() && spec_id == SpecId::CANCUN {
-        beacon_root_contract_call(&mut evm_state, &payload.header, spec_id)?;
-    }
-    process_withdrawals(&mut evm_state, &args.withdrawals)?;
-    let account_updates = get_state_transitions(&mut evm_state);
-    payload.header.state_root = storage
-        .apply_account_updates(args.parent, &account_updates)?
-        .unwrap_or_default();
+    // Delay applying withdrawals until the payload is requested and built
     Ok(payload)
 }
 
@@ -158,17 +148,16 @@ pub struct PayloadBuildContext<'a> {
     pub payload: &'a mut Block,
     pub evm_state: &'a mut EvmState,
     pub remaining_gas: u64,
-    pub blob_count: u64,
     pub receipts: Vec<Receipt>,
     pub block_value: U256,
     base_fee_per_blob_gas: U256,
+    pub blobs_bundle: BlobsBundle,
 }
 
 impl<'a> PayloadBuildContext<'a> {
     fn new(payload: &'a mut Block, evm_state: &'a mut EvmState) -> Self {
         PayloadBuildContext {
             remaining_gas: payload.header.gas_limit,
-            blob_count: 0,
             receipts: vec![],
             block_value: U256::zero(),
             base_fee_per_blob_gas: U256::from(calculate_base_fee_per_blob_gas(
@@ -176,13 +165,14 @@ impl<'a> PayloadBuildContext<'a> {
             )),
             payload,
             evm_state,
+            blobs_bundle: BlobsBundle::default(),
         }
     }
 }
 
 impl<'a> PayloadBuildContext<'a> {
-    fn parent_number(&self) -> BlockNumber {
-        self.payload.header.number - 1
+    fn parent_hash(&self) -> BlockHash {
+        self.payload.header.parent_hash
     }
 
     fn block_number(&self) -> BlockNumber {
@@ -199,15 +189,17 @@ impl<'a> PayloadBuildContext<'a> {
 }
 
 /// Completes the payload building process, return the block value
-pub fn build_payload(payload: &mut Block, store: &Store) -> Result<U256, ChainError> {
-    info!("Building payload");
-    let parent_number = payload.header.number.saturating_sub(1);
-    let mut evm_state = evm_state(store.clone(), parent_number);
+pub fn build_payload(
+    payload: &mut Block,
+    store: &Store,
+) -> Result<(BlobsBundle, U256), ChainError> {
+    debug!("Building payload");
+    let mut evm_state = evm_state(store.clone(), payload.header.parent_hash);
     let mut context = PayloadBuildContext::new(payload, &mut evm_state);
     apply_withdrawals(&mut context)?;
     fill_transactions(&mut context)?;
     finalize_payload(&mut context)?;
-    Ok(context.block_value)
+    Ok((context.blobs_bundle, context.block_value))
 }
 
 pub fn apply_withdrawals(context: &mut PayloadBuildContext) -> Result<(), EvmError> {
@@ -227,7 +219,7 @@ fn fetch_mempool_transactions(
     context: &mut PayloadBuildContext,
 ) -> Result<(TransactionQueue, TransactionQueue), StoreError> {
     let tx_filter = PendingTxFilter {
-        /*TODO: add tip filter */
+        /*TODO(https://github.com/lambdaclass/ethereum_rust/issues/680): add tip filter */
         base_fee: context.base_fee_per_gas(),
         blob_fee: Some(context.base_fee_per_blob_gas),
         ..Default::default()
@@ -258,21 +250,20 @@ fn fetch_mempool_transactions(
 /// Returns the block value
 pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainError> {
     let chain_config = context.store().get_chain_config()?;
-    info!("Fetching transactions from mempool");
+    debug!("Fetching transactions from mempool");
     // Fetch mempool transactions
     let (mut plain_txs, mut blob_txs) = fetch_mempool_transactions(context)?;
     // Execute and add transactions to payload (if suitable)
     loop {
         // Check if we have enough gas to run more transactions
         if context.remaining_gas < TX_GAS_COST {
-            info!("No more gas to run transactions");
+            debug!("No more gas to run transactions");
             break;
         };
         if !blob_txs.is_empty()
-            && context.base_fee_per_blob_gas * context.blob_count
-                > U256::from(MAX_BLOB_GAS_PER_BLOCK)
+            && context.blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB >= MAX_BLOB_GAS_PER_BLOCK
         {
-            info!("No more blob gas to run blob transactions");
+            debug!("No more blob gas to run blob transactions");
             blob_txs.clear();
         }
         // Fetch the next transactions
@@ -292,7 +283,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
 
         // Check if we have enough gas to run the transaction
         if context.remaining_gas < head_tx.tx.gas_limit() {
-            info!(
+            debug!(
                 "Skipping transaction: {}, no gas left",
                 head_tx.tx.compute_hash()
             );
@@ -300,33 +291,36 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             txs.pop();
             continue;
         }
-        // Pull transaction from the mempool
+
         // TODO: maybe fetch hash too when filtering mempool so we don't have to compute it here (we can do this in the same refactor as adding timestamp)
         let tx_hash = head_tx.tx.compute_hash();
-        mempool::remove_transaction(tx_hash, context.store())?;
 
         // Check wether the tx is replay-protected
         if head_tx.tx.protected() && !chain_config.is_eip155_activated(context.block_number()) {
             // Ignore replay protected tx & all txs from the sender
-            info!("Ignoring replay-protected transaction: {}", tx_hash);
+            // Pull transaction from the mempool
+            debug!("Ignoring replay-protected transaction: {}", tx_hash);
             txs.pop();
+            mempool::remove_transaction(tx_hash, context.store())?;
             continue;
         }
         // Execute tx
         let receipt = match apply_transaction(&head_tx, context) {
             Ok(receipt) => {
                 txs.shift();
+                // Pull transaction from the mempool
+                mempool::remove_transaction(tx_hash, context.store())?;
                 receipt
             }
             // Ignore following txs from sender
-            Err(_) => {
-                info!("Failed to execute transaction: {}", tx_hash);
+            Err(e) => {
+                debug!("Failed to execute transaction: {}, {e}", tx_hash);
                 txs.pop();
                 continue;
             }
         };
         // Add transaction to block
-        info!("Adding transaction: {} to payload", tx_hash);
+        debug!("Adding transaction: {} to payload", tx_hash);
         context.payload.body.transactions.push(head_tx.tx);
         // Save receipt for hash calculation
         context.receipts.push(receipt);
@@ -335,8 +329,48 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
 }
 
 /// Executes the transaction, updates gas-related context values & return the receipt
-// TODO: Handle blobs in blob txs
+/// The payload build context should have enough remaining gas to cover the transaction's gas_limit
 fn apply_transaction(
+    head: &HeadTransaction,
+    context: &mut PayloadBuildContext,
+) -> Result<Receipt, ChainError> {
+    match head.tx {
+        Transaction::EIP4844Transaction(_) => apply_blob_transaction(head, context),
+        _ => apply_plain_transaction(head, context),
+    }
+}
+
+/// Runs a blob transaction, updates the gas count & blob data and returns the receipt
+fn apply_blob_transaction(
+    head: &HeadTransaction,
+    context: &mut PayloadBuildContext,
+) -> Result<Receipt, ChainError> {
+    // Fetch blobs bundle
+    let tx_hash = head.tx.compute_hash();
+    let Some(blobs_bundle) = context.store().get_blobs_bundle_from_pool(tx_hash)? else {
+        // No blob tx should enter the mempool without its blobs bundle so this is an internal error
+        return Err(
+            StoreError::Custom(format!("No blobs bundle found for blob tx {tx_hash}")).into(),
+        );
+    };
+    if (context.blobs_bundle.blobs.len() + blobs_bundle.blobs.len()) as u64 * GAS_PER_BLOB
+        > MAX_BLOB_GAS_PER_BLOCK
+    {
+        // This error will only be used for debug tracing
+        return Err(EvmError::Custom("max data blobs reached".to_string()).into());
+    };
+    // Apply transaction
+    let receipt = apply_plain_transaction(head, context)?;
+    // Update context with blob data
+    let prev_blob_gas = context.payload.header.blob_gas_used.unwrap_or_default();
+    context.payload.header.blob_gas_used =
+        Some(prev_blob_gas + blobs_bundle.blobs.len() as u64 * GAS_PER_BLOB);
+    context.blobs_bundle += blobs_bundle;
+    Ok(receipt)
+}
+
+/// Runs a plain (non blob) transaction, updates the gas count and returns the receipt
+fn apply_plain_transaction(
     head: &HeadTransaction,
     context: &mut PayloadBuildContext,
 ) -> Result<Receipt, ChainError> {
@@ -346,7 +380,7 @@ fn apply_transaction(
         context.evm_state,
         spec_id(context.store(), context.payload.header.timestamp)?,
     )?;
-    context.remaining_gas -= result.gas_used();
+    context.remaining_gas = context.remaining_gas.saturating_sub(result.gas_used());
     context.block_value += U256::from(result.gas_used()) * head.tip;
     let receipt = Receipt::new(
         head.tx.tx_type(),
@@ -361,7 +395,7 @@ fn finalize_payload(context: &mut PayloadBuildContext) -> Result<(), StoreError>
     let account_updates = get_state_transitions(context.evm_state);
     context.payload.header.state_root = context
         .store()
-        .apply_account_updates(context.parent_number(), &account_updates)?
+        .apply_account_updates(context.parent_hash(), &account_updates)?
         .unwrap_or_default();
     context.payload.header.transactions_root =
         compute_transactions_root(&context.payload.body.transactions);
@@ -452,18 +486,14 @@ impl TransactionQueue {
                     sender: tx.sender,
                 };
                 // Insert head into heads list while maintaing order
-                let mut index = 0;
-                loop {
-                    if self
-                        .heads
-                        .get(index)
-                        .is_some_and(|current_head| compare_heads(current_head, &head).is_gt())
-                    {
-                        index += 1;
-                    } else {
-                        self.heads.insert(index, head.clone());
-                    }
-                }
+                let index = match self
+                    .heads
+                    .binary_search_by(|current_head| compare_heads(current_head, &head))
+                {
+                    Ok(index) => index, // Same ordering shouldn't be possible when adding timestamps
+                    Err(index) => index,
+                };
+                self.heads.insert(index, head);
             }
         }
     }
@@ -473,8 +503,8 @@ impl TransactionQueue {
 /// The transaction with the highest tip should go first,
 ///  if both have the same tip then the one with the lowest timestamp should go first
 /// This function will not return Ordering::Equal (TODO: make this true with timestamp)
-/// TODO: add timestamp
+/// TODO(https://github.com/lambdaclass/ethereum_rust/issues/681): add timestamp
 fn compare_heads(a: &HeadTransaction, b: &HeadTransaction) -> Ordering {
     b.tip.cmp(&a.tip)
-    // TODO: Add timestamp field to mempool txs so we can compare by it
+    // compare by timestamp if tips are equal
 }

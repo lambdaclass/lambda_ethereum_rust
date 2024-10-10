@@ -14,11 +14,11 @@ tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ethereum-types.workspace = true
+ethereum_rust-core.workspace = true
+ethereum_rust-rlp.workspace = true
 ethereum_rust-rpc.workspace = true
 ethereum_rust-storage.workspace = true
-ethereum_rust-rlp.workspace = true
-ethereum_rust-evm.workspace = true
-ethereum_rust-core.workspace = true
+ethereum_rust-vm.workspace = true
 ethereum_rust-blockchain.workspace = true
 
 hex.workspace = true
@@ -34,6 +34,10 @@ revm = { version = "14.0.3", features = [
     "serde",
     "kzg-rs",
 ], default-features = false }
+libsecp256k1 = "0.7.1"
+keccak-hash = "0.10.0"
+envy = "0.4.2"
+thiserror.workspace = true
 
 [lib]
 path = "./l2.rs"
