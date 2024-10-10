@@ -99,7 +99,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let msg = encode_auth_message(
                     &secret_key,
                     initiator_state.nonce,
-                    &peer_pk.into(),
+                    &peer_pk,
                     &initiator_state.ephemeral_key,
                 );
 
@@ -138,7 +138,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 self.stream.write_all(&ack_message).await.unwrap();
                 info!("Sent ack message correctly!");
 
-                self.state = RLPxConnectionState::PostHandshake(PostHandshake::for_receiver(
+                self.state = RLPxConnectionState::Established(Established::for_receiver(
                     received_auth_state,
                     ack_message,
                 ))
@@ -206,7 +206,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 info!("Received ack message correctly!");
 
                 // Build next state
-                self.state = RLPxConnectionState::PostHandshake(PostHandshake::for_initiator(
+                self.state = RLPxConnectionState::Established(Established::for_initiator(
                     initiated_auth_state,
                     ack_bytes.to_owned(),
                     ack.nonce,
@@ -228,10 +228,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         ));
 
         self.send(hello_msg).await;
+        info!("Hello message sent!");
 
         // Receive Hello message
         let msg = self.receive().await;
-        info!("{msg:?}");
+        info!("Hello message received {msg:?}");
 
         // self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
         //     handshake_auth,
@@ -243,19 +244,19 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     pub async fn send(&mut self, message: rlpx::Message) {
         match &mut self.state {
-            RLPxConnectionState::PostHandshake(post_handshake) => {
+            RLPxConnectionState::Established(post_handshake) => {
                 let mut frame_buffer = vec![];
                 message.encode(&mut frame_buffer);
                 frame::write(frame_buffer, post_handshake, &mut self.stream).await;
             }
             // TODO proper error
-            _ => panic!(),
+            _ => panic!("Invalid state to send message"),
         }
     }
 
     pub async fn receive(&mut self) -> rlpx::Message {
         match &mut self.state {
-            RLPxConnectionState::PostHandshake(post_handshake) => {
+            RLPxConnectionState::Established(post_handshake) => {
                 let frame_data = frame::read(post_handshake, &mut self.stream).await;
                 let (msg_id, msg_data): (u8, _) =
                     RLPDecode::decode_unfinished(&frame_data).unwrap();
@@ -278,7 +279,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 }
             }
             // TODO proper error
-            _ => panic!(),
+            _ => panic!("Received an unexpected message"),
         }
     }
 }
@@ -288,8 +289,7 @@ enum RLPxConnectionState {
     Receiver(Receiver),
     ReceivedAuth(ReceivedAuth),
     InitiatedAuth(InitiatedAuth),
-    PostHandshake(PostHandshake),
-    Live(),
+    Established(Established),
 }
 
 struct Receiver {
@@ -372,7 +372,12 @@ impl InitiatedAuth {
     }
 }
 
-pub struct PostHandshake {
+// TODO remove this allowance once we define if values are used or removed
+#[allow(unused)]
+pub struct Established {
+    // Not sure these values are required at this stage or if they are
+    // only used for handshake.
+    // TODO: check if we can remove them.
     pub(crate) local_initiator: bool,
 
     pub(crate) local_nonce: H256,
@@ -391,7 +396,7 @@ pub struct PostHandshake {
     pub egress_aes: Aes256Ctr64BE,
 }
 
-impl PostHandshake {
+impl Established {
     fn for_receiver(previous_state: &ReceivedAuth, init_message: Vec<u8>) -> Self {
         let ephemeral_key_secret = ecdh_xchng(
             &previous_state.local_ephemeral_key,

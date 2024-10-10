@@ -179,13 +179,13 @@ async fn discover_peers_server(
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
                         table.lock().await.pong_answered(peer.node.node_id);
-                        let node = peer.node;
+                        // TODO: make this work to initiate p2p thread
+                        let _node = peer.node;
                         let mut msg_buf = vec![0; read - (32 + 65)];
                         buf[32 + 65..read].clone_into(&mut msg_buf);
                         let mut sig_bytes = vec![0; 65];
                         buf[32..32 + 65].clone_into(&mut sig_bytes);
-                        let signer_clone = signer.clone();
-                        // TODO: make this work to initiate p2p thread
+                        let _signer_clone = signer.clone();
                         // tokio::spawn(async move {
                         //     handle_peer_as_initiator(signer_clone, &msg_buf, &node).await;
                         // });
@@ -711,7 +711,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
 }
 
 // TODO: remove this function. It's used for a hardcoded test
-async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
+async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
     let mut udp_addr = tcp_addr;
     udp_addr.set_port(tcp_addr.port() + 1);
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
@@ -754,7 +754,9 @@ async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, st
     handle_peer_as_initiator(signer, msg, &node).await;
 }
 
-async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
+// TODO build a proper listen loop that receives requests from both
+// peers and business layer and propagate storage to use when required
+async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
     let listener = tcp_socket.listen(50).unwrap();
@@ -785,7 +787,7 @@ async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
     conn.handshake().await;
     // TODO react on handshale or capabilities exchange result
     loop {
-        // Properly build listen loop
+        // TODO Properly build listen loop
         break;
         //conn.await_messages();
     }

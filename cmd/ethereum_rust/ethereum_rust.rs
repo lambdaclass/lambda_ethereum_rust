@@ -7,7 +7,7 @@ use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use k256::ecdsa::SigningKey;
 use std::future::IntoFuture;
 use std::path::Path;
 use std::str::FromStr as _;

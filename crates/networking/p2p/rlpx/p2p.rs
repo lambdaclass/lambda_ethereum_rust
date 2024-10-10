@@ -62,10 +62,7 @@ impl RLPxMessage for HelloMessage {
         // Implementations must ignore any additional list elements
         let _padding = decoder.finish_unchecked();
 
-        Ok(Self {
-            capabilities,
-            node_id: id2pubkey(node_id).unwrap(),
-        })
+        Ok(Self::new(capabilities, id2pubkey(node_id).unwrap()))
     }
 }
 
@@ -75,10 +72,9 @@ pub(crate) struct DisconnectMessage {
 }
 
 impl DisconnectMessage {
-    // TODO uncomment to use (commented out to prevent warnings)
-    // pub fn new(reason: Option<u8>) -> Self {
-    //     Self { reason }
-    // }
+    pub fn new(reason: Option<u8>) -> Self {
+        Self { reason }
+    }
 }
 
 impl RLPxMessage for DisconnectMessage {
@@ -124,7 +120,7 @@ impl RLPxMessage for DisconnectMessage {
             }
         };
 
-        Ok(Self { reason })
+        Ok(Self::new(reason))
     }
 }
 
@@ -165,7 +161,7 @@ impl RLPxMessage for PingMessage {
         let result = decoder.finish_unchecked();
         let empty: &[u8] = &[];
         assert_eq!(result, empty, "Ping msg_data should be &[]");
-        Ok(Self {})
+        Ok(Self::new())
     }
 }
 
@@ -173,10 +169,9 @@ impl RLPxMessage for PingMessage {
 pub(crate) struct PongMessage {}
 
 impl PongMessage {
-    // TODO uncomment to use (commented out to prevent warnings)
-    // pub fn new() -> Self {
-    //     Self {}
-    // }
+    pub fn new() -> Self {
+        Self {}
+    }
 }
 
 impl RLPxMessage for PongMessage {
@@ -206,6 +201,6 @@ impl RLPxMessage for PongMessage {
         let result = decoder.finish_unchecked();
         let empty: &[u8] = &[];
         assert_eq!(result, empty, "Pong msg_data should be &[]");
-        Ok(Self {})
+        Ok(Self::new())
     }
 }
