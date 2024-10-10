@@ -5,7 +5,7 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_rlp::{
     encode::RLPEncode,
-    error::RLPDecodeError,
+    error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -52,7 +52,7 @@ impl StatusMessage {
 }
 
 impl RLPxMessage for StatusMessage {
-    fn encode(&self, buf: &mut dyn BufMut) {
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         16_u8.encode(buf); // msg_id
 
         let mut encoded_data = vec![];
@@ -70,11 +70,12 @@ impl RLPxMessage for StatusMessage {
 
         let compressed_size = snappy_encoder
             .compress(&encoded_data, &mut msg_data)
-            .unwrap();
+            .map_err(|_| RLPEncodeError::InvalidCompression)?;
 
         msg_data.truncate(compressed_size);
 
         buf.put_slice(&msg_data);
+        Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
@@ -126,7 +127,7 @@ impl GetBlockBodies {
 }
 
 impl RLPxMessage for GetBlockBodies {
-    fn encode(&self, buf: &mut dyn BufMut) {
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
@@ -138,11 +139,12 @@ impl RLPxMessage for GetBlockBodies {
 
         let compressed_size = snappy_encoder
             .compress(&encoded_data, &mut msg_data)
-            .unwrap();
+            .map_err(|_| RLPEncodeError::InvalidCompression)?;
 
         msg_data.truncate(compressed_size);
 
         buf.put_slice(&msg_data);
+        Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
@@ -173,7 +175,7 @@ impl BlockBodies {
 }
 
 impl RLPxMessage for BlockBodies {
-    fn encode(&self, buf: &mut dyn BufMut) {
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
@@ -185,11 +187,12 @@ impl RLPxMessage for BlockBodies {
 
         let compressed_size = snappy_encoder
             .compress(&encoded_data, &mut msg_data)
-            .unwrap();
+            .map_err(|_| RLPEncodeError::InvalidCompression)?;
 
         msg_data.truncate(compressed_size);
 
         buf.put_slice(&msg_data);
+        Ok(())
     }
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
@@ -230,7 +233,7 @@ mod tests {
         let get_block_bodies = GetBlockBodies::new(1, blocks_hash.clone());
 
         let mut buf = Vec::new();
-        get_block_bodies.encode(&mut buf);
+        get_block_bodies.encode(&mut buf).unwrap();
 
         let decoded = GetBlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
@@ -247,7 +250,7 @@ mod tests {
         let get_block_bodies = GetBlockBodies::new(1, blocks_hash.clone());
 
         let mut buf = Vec::new();
-        get_block_bodies.encode(&mut buf);
+        get_block_bodies.encode(&mut buf).unwrap();
 
         let decoded = GetBlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
@@ -260,7 +263,7 @@ mod tests {
         let block_bodies = BlockBodies::new(1, block_bodies);
 
         let mut buf = Vec::new();
-        block_bodies.encode(&mut buf);
+        block_bodies.encode(&mut buf).unwrap();
 
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
@@ -308,7 +311,7 @@ mod tests {
         let block_bodies = BlockBodies::new(1, block_bodies);
 
         let mut buf = Vec::new();
-        block_bodies.encode(&mut buf);
+        block_bodies.encode(&mut buf).unwrap();
 
         let decoded = BlockBodies::decode(&buf).unwrap();
         assert_eq!(decoded.id, 1);
@@ -347,7 +350,9 @@ mod tests {
         let get_block_bodies = GetBlockBodies::new(sender_chosen_id, blocks_hash.clone());
 
         let mut send_data_of_blocks_hash = Vec::new();
-        get_block_bodies.encode(&mut send_data_of_blocks_hash);
+        get_block_bodies
+            .encode(&mut send_data_of_blocks_hash)
+            .unwrap();
 
         let sender = std::net::UdpSocket::bind(sender_address).unwrap();
         let receiver = std::net::UdpSocket::bind(receiver_address).unwrap();
@@ -366,7 +371,7 @@ mod tests {
         let block_bodies = BlockBodies::new(received_block_hashes.id, block_bodies.clone());
 
         let mut block_bodies_to_send = Vec::new();
-        block_bodies.encode(&mut block_bodies_to_send); // encode the block bodies that we got
+        block_bodies.encode(&mut block_bodies_to_send).unwrap(); // encode the block bodies that we got
 
         receiver
             .send_to(&block_bodies_to_send, sender_address)
