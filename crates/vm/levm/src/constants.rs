@@ -44,6 +44,10 @@ pub mod gas_cost {
     pub const RETURNDATASIZE: u64 = 2;
     pub const RETURNDATACOPY_STATIC: u64 = 3;
     pub const RETURNDATACOPY_DYNAMIC_BASE: u64 = 3;
+    pub const ADDRESS: u64 = 2;
+    pub const BALANCE: u64 = 100;
+    pub const ORIGIN: u64 = 2;
+    pub const CALLER: u64 = 2;
     pub const BLOCKHASH: u64 = 20;
     pub const COINBASE: u64 = 2;
     pub const TIMESTAMP: u64 = 2;
@@ -76,6 +80,12 @@ pub mod gas_cost {
     pub const LOGN_STATIC: u64 = 375;
     pub const LOGN_DYNAMIC_BASE: u64 = 375;
     pub const LOGN_DYNAMIC_BYTE_BASE: u64 = 8;
+    pub const CALLVALUE: u64 = 2;
+    pub const CODESIZE: u64 = 2;
+    pub const CODECOPY_STATIC: u64 = 3;
+    pub const CODECOPY_DYNAMIC_BASE: u64 = 3;
+    pub const GASPRICE: u64 = 2;
+    pub const EXTCODECOPY_DYNAMIC_BASE: u64 = 3;
 }
 
 pub mod call_opcode {
@@ -86,3 +96,8 @@ pub mod call_opcode {
     pub const VALUE_TO_EMPTY_ACCOUNT_COST: u64 = 25_000;
 }
 pub const STACK_LIMIT: usize = 1024;
+
+pub const GAS_REFUND_DENOMINATOR: u64 = 5;
+
+pub const EMPTY_CODE_HASH_STR: &str =
+    "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";

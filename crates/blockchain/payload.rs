@@ -11,12 +11,12 @@ use ethereum_rust_core::{
     },
     Address, Bloom, Bytes, H256, U256,
 };
-use ethereum_rust_evm::{
+use ethereum_rust_rlp::encode::RLPEncode;
+use ethereum_rust_storage::{error::StoreError, Store};
+use ethereum_rust_vm::{
     beacon_root_contract_call, evm_state, execute_tx, get_state_transitions, process_withdrawals,
     spec_id, EvmError, EvmState, SpecId,
 };
-use ethereum_rust_rlp::encode::RLPEncode;
-use ethereum_rust_storage::{error::StoreError, Store};
 use sha3::{Digest, Keccak256};
 
 use crate::{

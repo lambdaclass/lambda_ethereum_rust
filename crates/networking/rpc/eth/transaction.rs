@@ -16,7 +16,7 @@ use ethereum_rust_blockchain::mempool;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::Store;
 
-use ethereum_rust_evm::{evm_state, ExecutionResult, SpecId};
+use ethereum_rust_vm::{evm_state, ExecutionResult, SpecId};
 use serde::Serialize;
 
 use serde_json::Value;
@@ -185,7 +185,7 @@ impl RpcHandler for GetTransactionByBlockHashAndIndexRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!(
-            "Requested transaction at index: {} of block with hash: {}",
+            "Requested transaction at index: {} of block with hash: {:#x}",
             self.transaction_index, self.block,
         );
         let block_number = match storage.get_block_number(self.block)? {
@@ -222,7 +222,10 @@ impl RpcHandler for GetTransactionByHashRequest {
         })
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        info!("Requested transaction with hash: {}", self.transaction_hash,);
+        info!(
+            "Requested transaction with hash: {:#x}",
+            self.transaction_hash,
+        );
         let (block_number, block_hash, index) =
             match storage.get_transaction_location(self.transaction_hash)? {
                 Some(location) => location,
@@ -258,7 +261,7 @@ impl RpcHandler for GetTransactionReceiptRequest {
     }
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         info!(
-            "Requested receipt for transaction {}",
+            "Requested receipt for transaction {:#x}",
             self.transaction_hash,
         );
         let (block_number, block_hash, index) =
@@ -314,7 +317,7 @@ impl RpcHandler for CreateAccessListRequest {
             _ => return Ok(Value::Null),
         };
         // Run transaction and obtain access list
-        let (gas_used, access_list, error) = match ethereum_rust_evm::create_access_list(
+        let (gas_used, access_list, error) = match ethereum_rust_vm::create_access_list(
             &self.transaction,
             &header,
             &mut evm_state(storage, header.compute_block_hash()),
@@ -428,7 +431,7 @@ impl RpcHandler for EstimateGasRequest {
             // Block not found
             _ => return Ok(Value::Null),
         };
-        let spec_id = ethereum_rust_evm::spec_id(&storage, block_header.timestamp)?;
+        let spec_id = ethereum_rust_vm::spec_id(&storage, block_header.timestamp)?;
 
         // If the transaction is a plain value transfer, short circuit estimation.
         if let TxKind::Call(address) = self.transaction.to {
@@ -526,7 +529,7 @@ fn simulate_tx(
     storage: Store,
     spec_id: SpecId,
 ) -> Result<ExecutionResult, RpcErr> {
-    match ethereum_rust_evm::simulate_tx_from_generic(
+    match ethereum_rust_vm::simulate_tx_from_generic(
         transaction,
         block_header,
         &mut evm_state(storage, block_header.compute_block_hash()),
