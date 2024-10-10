@@ -71,7 +71,7 @@ pub struct EIP1559Transaction {
 }
 
 // TODO/FIXME: We must implement a custom Deserialize
-#[derive(Clone, Debug, PartialEq, Eq, Default,)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP4844Transaction {
     pub chain_id: u64,
     pub nonce: u64,
