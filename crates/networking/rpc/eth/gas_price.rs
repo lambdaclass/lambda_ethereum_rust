@@ -19,6 +19,8 @@ use super::logs::LogsFilter;
 #[derive(Debug, Clone)]
 pub struct GasPrice {}
 
+// TODO: This should be some kind of configuration.
+// The default limit for a gas estimation.
 pub const DEFAULT_MAX_PRICE_IN_WEI: usize = 500 * (10_usize.pow(9));
 // The limit for a gas estimation
 pub const DEFAULT_IGNORE_PRICE: usize = 500 * (10_usize.pow(9));
@@ -32,11 +34,6 @@ pub const TXS_SAMPLE_PERCENTILE: usize = 60;
 impl RpcHandler for GasPrice {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
         Ok(GasPrice {})
-    }
-
-    fn call(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
-        let request = Self::parse(&req.params)?;
-        request.handle(storage)
     }
 
     // TODO: Calculating gas price involves querying multiple blocks
@@ -80,3 +77,7 @@ impl RpcHandler for GasPrice {
         return Ok(serde_json::Value::from_str(&gas_as_hex)?);
     }
 }
+
+// FIXME: Test this with different block configs
+#[cfg(test)]
+mod tests {}
