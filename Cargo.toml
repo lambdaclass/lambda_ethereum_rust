@@ -1,20 +1,21 @@
 [workspace]
 members = [
     "crates/blockchain",
-    "crates/core",
-    "crates/net",
-    "crates/rpc",
-    "crates/storage",
-    "crates/evm",
-    "crates/trie",
-    "crates/rlp",
+    "crates/common",
+    "crates/networking/p2p",
+    "crates/networking/rpc",
+    "crates/storage/store",
+    "crates/vm/evm",
+    "crates/storage/trie",
+    "crates/common/rlp",
     "cmd/ethereum_rust",
     "cmd/ef_tests",
-    "crates/levm",
-    "crates/l2",
+    "crates/vm/levm",
+    "crates/vm/levm/bench/revm_comparison",
+    "cmd/ethereum_rust_l2",
 ]
 resolver = "2"
-default-members = ["cmd/ethereum_rust"]
+default-members = ["cmd/ethereum_rust", "cmd/ethereum_rust_l2"]
 
 [workspace.package]
 version = "0.1.0"
@@ -24,17 +25,6 @@ edition = "2021"
 # TODO change this
 # Conflicts with types, because of the patch
 # We need the patches/patch_001_mdbx branch, check how to reference the repo directly (merge the branch?).
-# Using this branch to have De/Serialization for some types, some functions were made public. 
-#ethereum_rust-blockchain = { path = "./crates/blockchain" }
-#ethereum_rust-core = { path = "./crates/core" }
-#ethereum_rust-net = { path = "./crates/net" }
-#ethereum_rust-rpc = { path = "./crates/rpc" }
-#ethereum_rust-storage = { path = "./crates/storage" }
-#ethereum_rust-evm = { path = "./crates/evm" }
-#ethereum_rust-trie = { path = "./crates/trie" }
-#ethereum_rust-rlp = { path = "./crates/rlp" }
-ethereum_rust-l2 = { path = "./crates/l2" }
-
 ethereum_rust-storage = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-storage", branch = "patches/patch_001_mdbx" }
 ethereum_rust-rpc = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rpc", branch = "patches/patch_001_mdbx" }
 ethereum_rust-core = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-core", branch = "patches/patch_001_mdbx" }
@@ -43,6 +33,8 @@ ethereum_rust-evm = { git = "https://github.com/lambdaclass/ethereum_rust", pack
 ethereum_rust-blockchain = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-blockchain", branch = "patches/patch_001_mdbx" }
 ethereum_rust-net = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-net", branch = "patches/patch_001_mdbx" }
 ethereum_rust-trie = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-trie", branch = "patches/patch_001_mdbx" }
+ethereum_rust-l2 =  { path = "./crates/l2" }
+ethereum_rust-levm =  { path = "./crates/levm" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
@@ -61,3 +53,5 @@ lazy_static = "1.5.0"
 sha3 = "0.10.8"
 tokio-util = { version = "0.7.12", features = ["rt"] }
 jsonwebtoken = "9.3.0"
+rand = "0.8.5"
+cfg-if = "1.0.0"

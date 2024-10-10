@@ -8,7 +8,7 @@ pragma solidity 0.8.27;
 interface IBlockExecutor {
     /// @notice A block has been committed.
     /// @dev Event emitted when a block is committed.
-    event BlockCommitted(bytes32 indexed previousBlockCommitment, bytes32 indexed currentBlockCommitment);
+    event BlockCommitted(bytes32 indexed currentBlockCommitment);
 
     /// @notice A block has been verified.
     /// @dev Event emitted when a block is verified.
@@ -17,9 +17,8 @@ interface IBlockExecutor {
     /// @notice Method used to commit an L2 block to be proved.
     /// @dev This method is used by the operator when a block is ready to be
     /// proved.
-    /// @param previousBlockCommitment is the committment to the previous block.
     /// @param currentBlockCommitment is the committment to the block to be proved.
-    function commit(bytes32 previousBlockCommitment, bytes32 currentBlockCommitment) external;
+    function commit(bytes32 currentBlockCommitment) external;
 
     /// @notice Method used to verify an L2 block proof.
     /// @dev This method is used by the operator when a block is ready to be

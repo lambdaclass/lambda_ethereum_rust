@@ -14,27 +14,29 @@ use tracing::{debug, error, info, warn};
 
 use prover_lib::inputs::{ProverInput, ProverInputNoExecution};
 
-use crate::operator::proof_data_provider::ProofData;
+use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
 
 use super::zk_prover::{Prover, ProverMode};
 
-pub async fn start_proof_data_client(ip: IpAddr, port: u16) {
-    let proof_data_client = ProofDataClient::new(ip, port);
-    proof_data_client.start().await;
+pub async fn start_proof_data_client() {
+    let config = ProverConfig::from_env().unwrap();
+    let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
+    proof_data_client.start(config).await;
 }
 
 struct ProofDataClient {
-    ip: IpAddr,
-    port: u16,
+    proof_data_provider_endpoint: String,
 }
 
 impl ProofDataClient {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        Self { ip, port }
+    pub fn new(proof_data_provider_endpoint: String) -> Self {
+        Self {
+            proof_data_provider_endpoint,
+        }
     }
 
-    pub async fn start(&self) {
-        let prover = Prover::new_execution();
+    pub async fn start(&self, config: ProverConfig) {
+        let prover = Prover::new_from_config(config);
 
         loop {
             match self.request_data(prover.mode) {
@@ -61,7 +63,7 @@ impl ProofDataClient {
     }
 
     fn request_data(&self, mode: ProverMode) -> Result<(Option<u64>, ProverInput), String> {
-        let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
+        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
@@ -93,7 +95,7 @@ impl ProofDataClient {
     }
 
     fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
-        let stream = TcpStream::connect(format!("{}:{}", self.ip, self.port))
+        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 

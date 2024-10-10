@@ -148,7 +148,9 @@ pub fn validate_block(
     match spec {
         SpecId::CANCUN => validate_cancun_header_fields(&block.header, parent_header)
             .map_err(InvalidBlockError::from)?,
-        _ => validate_no_cancun_header_fields(&block.header).map_err(InvalidBlockError::from)?,
+        _other_specs => {
+            validate_no_cancun_header_fields(&block.header).map_err(InvalidBlockError::from)?
+        }
     };
 
     if spec == SpecId::CANCUN {

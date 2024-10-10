@@ -7,6 +7,8 @@ use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, S
 
 use ethereum_rust_rlp::encode::RLPEncode;
 
+use crate::utils::config::prover::ProverConfig;
+
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const VERIFICATION_ELF: &[u8] =
     include_bytes!("./sp1/verification_program/elf/riscv32im-succinct-zkvm-elf");
@@ -26,33 +28,17 @@ pub enum ProverMode {
     Execution,
 }
 
-impl Default for Prover {
-    fn default() -> Self {
-        Self::new_verification()
-    }
-}
-
 impl Prover {
-    pub fn new_verification() -> Self {
-        info!("Setting up Verification Prover...");
+    pub fn new_from_config(_config: ProverConfig) -> Self {
+        //let elf = std::fs::read(config.elf_path).unwrap();
+        let elf = EXECUTION_ELF;
+
+        info!("Setting up prover...");
         let client = ProverClient::new();
-        let (pk, vk) = client.setup(VERIFICATION_ELF);
-        info!("Verification Prover setup complete!");
+        let (pk, vk) = client.setup(elf);
+        info!("Prover setup complete!");
 
-        Self {
-            client,
-            pk,
-            vk,
-            mode: ProverMode::Verification,
-        }
-    }
-
-    pub fn new_execution() -> Self {
-        info!("Setting up Verification Prover...");
-        let client = ProverClient::new();
-        let (pk, vk) = client.setup(VERIFICATION_ELF);
-        info!("Verification Prover setup complete!");
-
+        // TODO set the prover_mode in config.
         Self {
             client,
             pk,
@@ -60,7 +46,6 @@ impl Prover {
             mode: ProverMode::Execution,
         }
     }
-
     pub fn prove_verification(
         &self,
         input: &ProverInputNoExecution,

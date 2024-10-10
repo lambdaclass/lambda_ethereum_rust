@@ -1,47 +1,41 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
+use crate::{prover::zk_prover::ProverMode, utils::eth_client::RpcResponse};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use sp1_sdk::SP1ProofWithPublicValues;
 use std::{
     collections::HashMap,
-    fmt::format,
-    io::{BufReader, BufWriter, Read},
+    io::{BufReader, BufWriter},
     net::{IpAddr, TcpListener, TcpStream},
-    os::macos::raw::stat,
     str::FromStr,
 };
+use tracing::{debug, info, warn};
+
+use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
 
 use ethereum_rust_blockchain::{
     find_parent_header, validate_block, validate_gas_used, validate_parent_canonical,
     validate_state_root,
 };
-use ethereum_rust_core::types::{Block, BlockBody, BlockHeader, Receipt, Transaction, TxKind};
-use ethereum_rust_evm::{
-    block_env, evm_state, execute_block, get_state_transitions, tx_env, RevmAddress,
-};
+use ethereum_rust_core::types::{Block, BlockBody, BlockHeader};
+use ethereum_rust_evm::{evm_state, execute_block, get_state_transitions, RevmAddress};
 use ethereum_rust_storage::Store;
-use ethereum_types::{Address, Bloom, H160, H256, U256};
+use ethereum_types::{Bloom, H160, H256, U256};
 use prover_lib::{
     db_memorydb::MemoryDB,
     inputs::{read_chain_file, ProverInput, ProverInputNoExecution},
 };
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use sp1_sdk::{network::prover, SP1ProofWithPublicValues};
-use tracing::{debug, info, warn};
 
-use crate::{
-    prover::zk_prover::{Prover, ProverMode},
-    rpc::l1_rpc::RpcResponse,
-};
+use revm::primitives::{AccountInfo, FixedBytes, B256};
 
-use revm::{
-    primitives::{bitvec::view::AsBits, AccountInfo, FixedBytes, B256},
-    Evm, InMemoryDB,
-};
+use super::errors::ProofDataProviderError;
 
-pub async fn start_proof_data_provider(store: Store, ip: IpAddr, port: u16) {
-    let proof_data_provider = ProofDataProvider::new(store, ip, port);
-    proof_data_provider.start().await;
+pub async fn start_proof_data_provider(store: Store) {
+    let config = ProofDataProviderConfig::from_env().expect("ProofDataProviderConfig::from_env()");
+    let proof_data_provider = ProofDataProvider::new_from_config(config, store);
+    proof_data_provider
+        .start()
+        .await
+        .expect("proof_data_provider.start()");
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -71,22 +65,26 @@ struct ProofDataProvider {
 }
 
 impl ProofDataProvider {
-    pub fn new(store: Store, ip: IpAddr, port: u16) -> Self {
-        Self { store, ip, port }
+    pub fn new_from_config(config: ProofDataProviderConfig, store: Store) -> Self {
+        Self {
+            ip: config.listen_ip,
+            port: config.listen_port,
+            store,
+        }
     }
 
-    pub async fn start(&self) {
-        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).unwrap();
+    pub async fn start(&self) -> Result<(), ProofDataProviderError> {
+        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
-            let stream = stream.unwrap();
-
             debug!("Connection established!");
-            self.handle_connection(stream, &mut last_proved_block).await;
+            self.handle_connection(stream?, &mut last_proved_block)
+                .await;
         }
+        Ok(())
     }
 
     async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
@@ -120,6 +118,7 @@ impl ProofDataProvider {
         debug!("Connection closed");
     }
 
+    #[allow(dead_code)]
     async fn get_last_block_number() -> Result<u64, String> {
         let response = Client::new()
             .post("http://localhost:8551")
@@ -154,6 +153,7 @@ impl ProofDataProvider {
         }
     }
 
+    #[allow(dead_code)]
     fn convert_value_to_block(value: &serde_json::Value) -> Result<Block, String> {
         // Check if the value is an object
         if let serde_json::Value::Object(obj) = value {
@@ -330,6 +330,7 @@ impl ProofDataProvider {
         }
     }
 
+    #[allow(dead_code)]
     async fn get_block_by_number(block_number: u64, full: bool) -> Result<Block, String> {
         let hex_string_block = format!("0x{:x}", block_number);
         let json_body = format!(
