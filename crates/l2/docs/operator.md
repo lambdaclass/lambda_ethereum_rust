@@ -39,7 +39,6 @@ TODO
 
 The following environment variables are available to configure the operator:
 
-- `BLOCK_PRODUCER_INTERVAL_MS`: Interval in milliseconds to produce new blocks.
 - `ETH_RPC_URL`: URL of the L1 RPC.
 - `L1_WATCHER_BRIDGE_ADDRESS`: Address of the bridge contract on L1.
 - `L1_WATCHER_TOPICS`: Topics to filter the L1 events.
@@ -49,3 +48,7 @@ The following environment variables are available to configure the operator:
 - `ENGINE_API_JWT_PATH`: Path to the JWT authentication file, required to connect to the EngineAPI.
 - `PROOF_DATA_PROVIDER_LISTEN_IP`: IP to listen for proof data requests.
 - `PROOF_DATA_PROVIDER_LISTEN_PORT`: Port to listen for proof data requests.
+- `XXX_BLOCK_EXECUTOR_ADDRESS`: Address of the block executor contract on L1.
+- `XXX_OPERATOR_ADDRESS`: Address of the chain operator.
+- `XXX_OPERATOR_PRIVATE_KEY`: Private key of the chain operator.
+- `XXX_INTERVAL_MS`: Interval in milliseconds to produce new blocks.

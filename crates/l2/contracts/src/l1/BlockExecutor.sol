@@ -7,8 +7,8 @@ import "./interfaces/IBlockExecutor.sol";
 /// @author LambdaClass
 contract BlockExecutor is IBlockExecutor {
     /// @inheritdoc IBlockExecutor
-    function commit(bytes32 previousBlockCommitment, bytes32 currentBlockCommitment) external override {
-        emit BlockCommitted(previousBlockCommitment, currentBlockCommitment);
+    function commit(bytes32 currentBlockCommitment) external override {
+        emit BlockCommitted(currentBlockCommitment);
     }
 
     /// @inheritdoc IBlockExecutor
