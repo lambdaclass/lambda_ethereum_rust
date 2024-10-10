@@ -43,7 +43,7 @@ impl RpcHandler for GasPrice {
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         // FIXME: Handle None values (i.e. remove unwraps before PR review)
         let latest_block_number = storage.get_latest_block_number()?.unwrap();
-        let block_range = latest_block_number.wrapping_sub(20)..=latest_block_number;
+        let block_range = latest_block_number.saturating_sub(20)..=latest_block_number;
         // FIXME: Handle this case before PR review
         if block_range.is_empty() {
             todo!("Block range is empty")
