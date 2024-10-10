@@ -74,6 +74,7 @@ impl RpcHandler for GasPrice {
             .get(((results.len() - 1) * (TXS_SAMPLE_PERCENTILE / 100)))
             .ok_or(RpcErr::Internal("".to_string()))?;
         // FIXME: Check sample gas is under limit
+        // FIXME: Check gas price unit
         return Ok(format!("0x{:x}", sample_gas));
     }
 }
