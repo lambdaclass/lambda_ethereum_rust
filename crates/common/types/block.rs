@@ -68,7 +68,7 @@ impl RLPDecode for Block {
 #[serde(rename_all = "camelCase")]
 pub struct BlockHeader {
     pub parent_hash: H256,
-    #[serde(rename(serialize = "sha3Uncles", deserialize = "sha3Uncles"))]
+    #[serde(rename = "sha3Uncles")]
     pub ommers_hash: H256, // ommer = uncle
     #[serde(rename = "miner")]
     pub coinbase: Address,
