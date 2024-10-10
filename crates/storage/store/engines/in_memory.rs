@@ -246,18 +246,6 @@ impl StoreEngine for Store {
         }
     }
 
-    fn get_receipt_by_hash(
-        &self,
-        block_hash: BlockHash,
-        index: Index,
-    ) -> Result<Option<Receipt>, StoreError> {
-        let store = self.inner();
-        Ok(store
-            .receipts
-            .get(&block_hash)
-            .and_then(|entry| entry.get(&index).cloned()))
-    }
-
     fn get_all_receipts_by_hash(
         &self,
         block_hash: BlockHash,

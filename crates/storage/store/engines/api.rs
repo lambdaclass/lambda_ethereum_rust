@@ -127,13 +127,6 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         index: Index,
     ) -> Result<Option<Receipt>, StoreError>;
 
-    /// Obtain receipt for a canonical block represented by the block hash
-    fn get_receipt_by_hash(
-        &self,
-        block_hash: BlockHash,
-        index: Index,
-    ) -> Result<Option<Receipt>, StoreError>;
-
     /// Obtain all receipts for a canonical block represented by the block hash
     fn get_all_receipts_by_hash(
         &self,

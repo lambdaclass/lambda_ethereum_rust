@@ -396,14 +396,6 @@ impl Store {
         self.engine.get_receipt(block_number, index)
     }
 
-    pub fn get_receipt_by_hash(
-        &self,
-        block_hash: BlockHash,
-        index: Index,
-    ) -> Result<Option<Receipt>, StoreError> {
-        self.engine.get_receipt_by_hash(block_hash, index)
-    }
-
     pub fn get_all_receipts_by_hash(
         &self,
         block_hash: BlockHash,
