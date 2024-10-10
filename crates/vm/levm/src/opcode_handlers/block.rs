@@ -1,7 +1,9 @@
 use crate::{
+    block::LAST_AVAILABLE_BLOCK_LIMIT,
+    constants::{call_opcode, WORD_SIZE},
     vm::word_to_address,
-    {block::LAST_AVAILABLE_BLOCK_LIMIT, constants::WORD_SIZE},
 };
+use sha3::{Digest, Keccak256};
 
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
@@ -383,25 +385,100 @@ impl VM {
     // EXTCODESIZE operation
     pub fn op_extcodesize(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        let address = word_to_address(current_call_frame.stack.pop()?);
+        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        };
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+        let code_size = self.db.get_account_bytecode(&address).len();
+        current_call_frame.stack.push(code_size.into())?;
+
+        self.env.consumed_gas += gas_cost;
+        Ok(OpcodeSuccess::Continue)
     }
 
     // EXTCODECOPY operation
     pub fn op_extcodecopy(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        let address = word_to_address(current_call_frame.stack.pop()?);
+        let dest_offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let offset: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+        let size: usize = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
+        let memory_expansion_cost =
+            current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        };
+        let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size as u64
+            + memory_expansion_cost
+            + address_access_cost;
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        let mut code = self.db.get_account_bytecode(&address);
+        if code.len() < offset + size {
+            let mut extended_code = code.to_vec();
+            extended_code.resize(offset + size, 0);
+            code = Bytes::from(extended_code);
+        }
+        current_call_frame
+            .memory
+            .store_bytes(dest_offset, &code[offset..offset + size]);
+
+        self.env.consumed_gas += gas_cost;
+        Ok(OpcodeSuccess::Continue)
     }
 
     // EXTCODEHASH operation
     pub fn op_extcodehash(
         &mut self,
-        _current_call_frame: &mut CallFrame,
+        current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!();
+        let address = word_to_address(current_call_frame.stack.pop()?);
+        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
+        } else {
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        };
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+
+        let code = self.db.get_account_bytecode(&address);
+        let mut hasher = Keccak256::new();
+        hasher.update(code);
+        let result = hasher.finalize();
+        current_call_frame
+            .stack
+            .push(U256::from_big_endian(&result))?;
+
+        self.env.consumed_gas += gas_cost;
+        Ok(OpcodeSuccess::Continue)
     }
 }
 
