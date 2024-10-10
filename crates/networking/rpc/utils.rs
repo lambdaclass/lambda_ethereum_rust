@@ -1,5 +1,5 @@
-use ethereum_rust_evm::EvmError;
 use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_vm::EvmError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -20,6 +20,7 @@ pub enum RpcErr {
     Halt { reason: String, gas_used: u64 },
     AuthenticationError(AuthenticationError),
     InvalidForkChoiceState(String),
+    InvalidPayloadAttributes(String),
     UnknownPayload(String),
 }
 
@@ -102,6 +103,11 @@ impl From<RpcErr> for RpcErrorMetadata {
             },
             RpcErr::InvalidForkChoiceState(data) => RpcErrorMetadata {
                 code: -38002,
+                data: Some(data),
+                message: "Invalid forkchoice state".to_string(),
+            },
+            RpcErr::InvalidPayloadAttributes(data) => RpcErrorMetadata {
+                code: -38003,
                 data: Some(data),
                 message: "Invalid forkchoice state".to_string(),
             },

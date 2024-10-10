@@ -1,8 +1,8 @@
 use thiserror::Error;
 
 use ethereum_rust_core::types::InvalidBlockHeaderError;
-use ethereum_rust_evm::EvmError;
 use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_vm::EvmError;
 
 #[derive(Debug, Error)]
 pub enum ChainError {
