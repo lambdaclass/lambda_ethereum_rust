@@ -119,7 +119,7 @@ impl Db {
             .insert(key, slot);
     }
 
-    fn get_account_bytecode(&self, address: &Address) -> Bytes {
+    pub fn get_account_bytecode(&self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
@@ -294,8 +294,11 @@ impl VM {
         }
     }
 
-    pub fn execute(&mut self, _initial_gas_consumed: u64) -> Result<ExecutionResult, VMError> {
-        let mut current_call_frame = self.call_frames.pop().ok_or(VMError::FatalError)?; // if this happens during execution, we are cooked 💀
+    pub fn execute(&mut self) -> ExecutionResult {
+        let mut current_call_frame = self
+            .call_frames
+            .pop()
+            .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -388,24 +391,27 @@ impl VM {
                 Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
                 Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
+                Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
+                Opcode::EXTCODECOPY => self.op_extcodecopy(&mut current_call_frame),
+                Opcode::EXTCODEHASH => self.op_extcodehash(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(r)) => {
-                    return Ok(Self::write_success_result(
+                    return Self::write_success_result(
                         current_call_frame.clone(),
                         r,
                         self.env.consumed_gas,
                         self.env.refunded_gas,
-                    ));
+                    );
                 }
                 Err(e) => {
-                    return Ok(ExecutionResult::Halt {
+                    return ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
-                    })
+                    }
                 }
             }
         }
@@ -483,16 +489,14 @@ impl VM {
             }
         };
 
-        let res = self.execute(initial_gas)?;
+        self.env.consumed_gas = initial_gas;
+
+        let res = self.execute();
         self.get_result(res)
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
-    }
-
-    pub fn current_call_frame(&self) -> &CallFrame {
-        self.call_frames.last().unwrap()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -553,7 +557,7 @@ impl VM {
         current_call_frame.return_data_size = Some(ret_size);
 
         self.call_frames.push(new_call_frame.clone());
-        let result = self.execute(self.env.consumed_gas)?;
+        let result = self.execute();
 
         match result {
             ExecutionResult::Success {

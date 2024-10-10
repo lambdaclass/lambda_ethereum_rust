@@ -73,7 +73,7 @@ An Ethereum execution client consists roughly of the following parts:
     - The Ethereum Wire Protocol (`ETH`), used for state synchronization and block/transaction propagation, among other things. This runs on top of `RLPx`.
     - The `SNAP` protocol, used for exchanging state snapshots. Mainly needed for **snap sync**, a more optimized way of doing state sync than the old fast sync (you can read more about it [here](https://blog.ethereum.org/2021/03/03/geth-v1-10-0)).
 - Block building and Fork choice management (i.e. logic to both build blocks so a validator can propose them and set where the head of the chain is currently at, according to what the consensus layer determines). This is essentially what our `blockchain` crate contains.
-- The block execution logic itself, i.e., an EVM implementation. We currently rely on [revm](https://github.com/bluealloy/revm) but are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethereum_rust/tree/main/crates/vm/levm) (Lambda EVM).
+- The block execution logic itself, i.e., an EVM implementation. We are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethereum_rust/tree/main/crates/vm/levm) (Lambda EVM).
 
 Because most of the milestones below do not overlap much, we are currentlyworking on them in parallel
 
@@ -89,7 +89,7 @@ In a bit more detail:
 |        | Task Description                                                                 | Status |
 | --------- |  --------------------------------------------------------------------------- | ------ |
 |  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅     |
-|   Revm (for now) wrapper for block execution                                                       | ✅     |
+|   EVM wrapper for block execution                                                       | ✅     |
 |    JSON RPC API server setup                                                      | ✅     |
 |    RPC State-serving endpoints                                                     | 🏗️  (almost done, a few endpoint are left)   |
 |    Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅   |

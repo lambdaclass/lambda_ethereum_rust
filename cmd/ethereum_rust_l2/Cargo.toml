@@ -1,5 +1,5 @@
 [package]
-name = "ethereum_rust_l2"
+name = "ethereum_rust_l2_cli"
 version.workspace = true
 edition.workspace = true
 
@@ -23,6 +23,10 @@ colored = "2.1.0"
 spinoff = "0.8.0"
 itertools = "0.13.0"
 strum = "0.26.3"
+libsecp256k1 = "0.7.1"
+
+ethereum_rust-l2.workspace = true
+ethereum_rust-core.workspace = true
 
 [[bin]]
 name = "ethereum_rust_l2"

@@ -140,36 +140,24 @@ impl VM {
         if self.env.consumed_gas + gas_cost::SMOD > self.env.tx_env.gas_limit {
             return Err(VMError::OutOfGas);
         }
+
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
             current_call_frame.stack.push(U256::zero())?;
         } else {
-            let dividend_is_negative = is_negative(dividend);
-            let divisor_is_negative = is_negative(divisor);
+            let normalized_dividend = abs(dividend);
+            let normalized_divisor = abs(divisor);
 
-            let dividend = if dividend_is_negative {
-                negate(dividend)
-            } else {
-                dividend
-            };
-            let divisor = if divisor_is_negative {
-                negate(divisor)
-            } else {
-                divisor
-            };
-
-            let remainder = dividend % divisor;
-            let remainder_is_negative = dividend_is_negative ^ divisor_is_negative;
-
-            let remainder = if remainder_is_negative {
-                negate(remainder)
-            } else {
-                remainder
-            };
+            let mut remainder = normalized_dividend % normalized_divisor;
+            // The remainder should have the same sign as the dividend
+            if is_negative(dividend) {
+                remainder = negate(remainder);
+            }
 
             current_call_frame.stack.push(remainder)?;
         }
+
         self.env.consumed_gas += gas_cost::SMOD;
 
         Ok(OpcodeSuccess::Continue)
@@ -290,6 +278,15 @@ impl VM {
 /// Shifts the value to the right by 255 bits and checks the most significant bit is a 1
 fn is_negative(value: U256) -> bool {
     value.bit(255)
+}
+
+/// Negates a number in two's complement
+fn abs(value: U256) -> U256 {
+    if is_negative(value) {
+        negate(value)
+    } else {
+        value
+    }
 }
 
 /// Negates a number in two's complement

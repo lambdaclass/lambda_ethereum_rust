@@ -47,9 +47,12 @@ impl RpcHandler for NewPayloadV3Request {
             return Err(RpcErr::BadParams("Expected 3 params".to_owned()));
         }
         Ok(NewPayloadV3Request {
-            payload: serde_json::from_value(params[0].clone())?,
-            expected_blob_versioned_hashes: serde_json::from_value(params[1].clone())?,
-            parent_beacon_block_root: serde_json::from_value(params[2].clone())?,
+            payload: serde_json::from_value(params[0].clone())
+                .map_err(|_| RpcErr::WrongParam("payload".to_string()))?,
+            expected_blob_versioned_hashes: serde_json::from_value(params[1].clone())
+                .map_err(|_| RpcErr::WrongParam("expected_blob_versioned_hashes".to_string()))?,
+            parent_beacon_block_root: serde_json::from_value(params[2].clone())
+                .map_err(|_| RpcErr::WrongParam("parent_beacon_block_root".to_string()))?,
         })
     }
 
@@ -208,12 +211,14 @@ impl RpcHandler for GetPayloadV3Request {
                 self.payload_id
             )));
         };
-        let block_value = build_payload(&mut payload, &storage)
-            .map_err(|error| RpcErr::Internal(error.to_string()))?;
-        serde_json::to_value(ExecutionPayloadResponse::new(
-            ExecutionPayloadV3::from_block(payload),
+        let (blobs_bundle, block_value) = build_payload(&mut payload, &storage)
+            .map_err(|err| RpcErr::Internal(err.to_string()))?;
+        serde_json::to_value(ExecutionPayloadResponse {
+            execution_payload: ExecutionPayloadV3::from_block(payload),
             block_value,
-        ))
+            blobs_bundle,
+            should_override_builder: false,
+        })
         .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
