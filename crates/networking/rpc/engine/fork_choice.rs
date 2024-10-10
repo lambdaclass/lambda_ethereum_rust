@@ -12,6 +12,7 @@ use crate::{
         fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
         payload::PayloadStatus,
     },
+    utils::RpcRequest,
     RpcErr, RpcHandler,
 };
 
@@ -20,6 +21,19 @@ pub struct ForkChoiceUpdatedV3 {
     pub fork_choice_state: ForkChoiceState,
     #[allow(unused)]
     pub payload_attributes: Option<PayloadAttributesV3>,
+}
+
+impl From<ForkChoiceUpdatedV3> for RpcRequest {
+    fn from(val: ForkChoiceUpdatedV3) -> Self {
+        RpcRequest {
+            method: "engine_forkchoiceUpdatedV3".to_string(),
+            params: Some(vec![
+                serde_json::json!(val.fork_choice_state),
+                serde_json::json!(val.payload_attributes),
+            ]),
+            ..Default::default()
+        }
+    }
 }
 
 impl RpcHandler for ForkChoiceUpdatedV3 {

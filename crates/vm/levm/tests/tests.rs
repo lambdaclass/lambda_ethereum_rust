@@ -1,92 +1,18 @@
 use std::collections::HashMap;
 
-use ethereum_types::H32;
-use levm::{
+use ethereum_rust_levm::{
     block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
     constants::*,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
-    vm::{Account, Db, Storage, StorageSlot, VM},
+    utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
+    vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
     vm_result::{ExecutionResult, VMError},
 };
+use ethereum_types::H32;
 
 // cargo test -p 'levm'
-
-fn word_to_address(word: U256) -> Address {
-    let mut bytes = [0u8; 32];
-    word.to_big_endian(&mut bytes);
-    Address::from_slice(&bytes[12..])
-}
-
-pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
-    new_vm_with_ops_addr_bal(operations, Address::from_low_u64_be(100), U256::MAX)
-}
-
-pub fn new_vm_with_ops_addr_bal(operations: &[Operation], address: Address, balance: U256) -> VM {
-    let bytecode = ops_to_bytecde(operations);
-
-    let tx_env = TxEnv {
-        msg_sender: address,
-        chain_id: Some(1),
-        transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
-        gas_limit: Default::default(),
-        gas_price: Default::default(),
-        value: Default::default(),
-        data: Default::default(),
-        nonce: Default::default(),
-        access_list: Default::default(),
-        max_priority_fee_per_gas: Default::default(),
-        blob_hashes: Default::default(),
-        max_fee_per_blob_gas: Default::default(),
-    };
-
-    let block_env = BlockEnv {
-        number: Default::default(),
-        coinbase: Default::default(),
-        timestamp: Default::default(),
-        base_fee_per_gas: Default::default(),
-        gas_limit: Default::default(),
-        chain_id: Default::default(),
-        prev_randao: Default::default(),
-        excess_blob_gas: Default::default(),
-        blob_gas_used: Default::default(),
-    };
-
-    let accounts = [
-        (
-            Address::from_low_u64_be(42),
-            Account {
-                address: Address::from_low_u64_be(42),
-                balance: U256::MAX,
-                bytecode,
-                storage: HashMap::new(),
-                nonce: 0,
-            },
-        ),
-        (
-            address,
-            Account {
-                address,
-                balance,
-                bytecode: Bytes::default(),
-                storage: HashMap::new(),
-                nonce: 0,
-            },
-        ),
-    ];
-
-    let state = Db {
-        accounts: accounts.into(),
-        block_hashes: Default::default(),
-    };
-
-    // add the account with code to call
-
-    // add the account passed by parameter
-
-    VM::new(tx_env, block_env, state)
-}
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -107,11 +33,11 @@ pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
 
 fn callee_return_bytecode(return_value: U256) -> Bytes {
     let ops = vec![
-        Operation::Push32(return_value), // value
-        Operation::Push32(U256::zero()), // offset
+        Operation::Push((32, return_value)), // value
+        Operation::Push((32, U256::zero())), // offset
         Operation::Mstore,
-        Operation::Push32(U256::from(32)), // size
-        Operation::Push32(U256::zero()),   // offset
+        Operation::Push((32, U256::from(32))), // size
+        Operation::Push((32, U256::zero())),   // offset
         Operation::Return,
     ];
 
@@ -131,8 +57,8 @@ pub fn store_data_in_memory_operations(data: &[u8], memory_offset: usize) -> Vec
 #[test]
 fn add_op() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::one())),
+        Operation::Push((32, U256::zero())),
         Operation::Add,
         Operation::Stop,
     ]);
@@ -144,10 +70,322 @@ fn add_op() {
 }
 
 #[test]
+fn mul_op() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(4))),
+        Operation::Mul,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(8));
+}
+
+#[test]
+fn sub_op() {
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(3))),
+        Operation::Push((1, U256::from(5))),
+        Operation::Sub,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
+}
+
+#[test]
+fn div_op() {
+    // 11 // 2 = 5
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(11))),
+        Operation::Div,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(5));
+
+    // In EVM: 10 / 0 = 0
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::zero())),
+        Operation::Push((1, U256::from(10))),
+        Operation::Div,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
+}
+
+#[test]
+fn sdiv_op() {
+    // Values are treated as two's complement signed 256-bit integers
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::MAX - 1)),
+        Operation::Sdiv,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(2));
+}
+
+#[test]
+fn mod_op() {
+    // 10 % 3 = 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(3))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Mod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(1));
+}
+
+#[test]
+fn smod_op() {
+    // First Example
+    // 10 % 3 = 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(3))),
+        Operation::Push((1, U256::from(10))),
+        Operation::SMod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(1));
+
+    // Second Example
+    // Example taken from evm.codes
+    // In 2's complement it is: -8 % -3 = -2
+    let a = U256::from_str_radix(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD",
+        16,
+    )
+    .unwrap();
+    let b = U256::from_str_radix(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8",
+        16,
+    )
+    .unwrap();
+    // Values are treated as two's complement signed 256-bit integers
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32, a)),
+        Operation::Push((32, b)),
+        Operation::SMod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    let c = U256::from_str_radix(
+        "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
+        16,
+    )
+    .unwrap();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == c);
+}
+
+#[test]
+fn addmod_op() {
+    // (10 + 10) % 8 = 4
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(8))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Addmod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(4));
+}
+
+#[test]
+fn mulmod_op() {
+    // (10 * 10) % 8 = 4
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(8))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Mulmod,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(4));
+}
+
+#[test]
+fn exp_op() {
+    // 10^2 = 100
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(2))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Exp,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(100));
+}
+
+#[test]
+fn sign_extend_op() {
+    // Case 1: Input: 0, 0x7F. Output: 0x7F
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(0x7F))),
+        Operation::Push((1, U256::zero())),
+        Operation::SignExtend,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::from(0x7F));
+
+    // Case 2: Input: 0, 0xFF. Output: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(0xFF))),
+        Operation::Push((1, U256::zero())),
+        Operation::SignExtend,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::MAX);
+}
+
+#[test]
+fn lt_op() {
+    // Input: 9, 10. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(9))),
+        Operation::Lt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn gt_op() {
+    // Input: 10, 9. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(9))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Gt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn slt_op() {
+    // Input: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 0. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32, U256::zero())),
+        Operation::Push((32, U256::MAX)),
+        Operation::Slt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn sgt_op() {
+    // Input: 0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF. Output: 1
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::zero())),
+        Operation::Sgt,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+}
+
+#[test]
+fn eq_op() {
+    // Case 1: Input: 10, 10. Output: 1 (true)
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(10))),
+        Operation::Eq,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+
+    // Case 2: Input: 10, 20. Output: 0 (false)
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::Push((1, U256::from(20))),
+        Operation::Eq,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
+}
+
+#[test]
+fn is_zero_op() {
+    // Case 1: Input is 0, Output should be 1 (since 0 == 0 is true)
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::zero())),
+        Operation::IsZero,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::one());
+
+    // Case 2: Input is non-zero (e.g., 10), Output should be 0 (since 10 != 0 is false)
+    let mut vm = new_vm_with_ops(&[
+        Operation::Push((1, U256::from(10))),
+        Operation::IsZero,
+        Operation::Stop,
+    ]);
+
+    vm.execute();
+    assert!(vm.current_call_frame_mut().stack.pop().unwrap() == U256::zero());
+}
+
+#[test]
 fn and_basic() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
-        Operation::Push32(U256::from(0b1100)),
+        Operation::Push((32, U256::from(0b1010))),
+        Operation::Push((32, U256::from(0b1100))),
         Operation::And,
         Operation::Stop,
     ]);
@@ -162,8 +400,8 @@ fn and_basic() {
 #[test]
 fn and_binary_with_zero() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::from(0b1010))),
+        Operation::Push((32, U256::zero())),
         Operation::And,
         Operation::Stop,
     ]);
@@ -178,8 +416,8 @@ fn and_binary_with_zero() {
 #[test]
 fn and_with_hex_numbers() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFFFF)),
-        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Push((32, U256::from(0xFFFF))),
+        Operation::Push((32, U256::from(0xF0F0))),
         Operation::And,
         Operation::Stop,
     ]);
@@ -191,8 +429,8 @@ fn and_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xF000)),
-        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Push((32, U256::from(0xF000))),
+        Operation::Push((32, U256::from(0xF0F0))),
         Operation::And,
         Operation::Stop,
     ]);
@@ -204,8 +442,8 @@ fn and_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xB020)),
-        Operation::Push32(U256::from(0x1F0F)),
+        Operation::Push((32, U256::from(0xB020))),
+        Operation::Push((32, U256::from(0x1F0F))),
         Operation::And,
         Operation::Stop,
     ]);
@@ -220,8 +458,8 @@ fn and_with_hex_numbers() {
 #[test]
 fn or_basic() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
-        Operation::Push32(U256::from(0b1100)),
+        Operation::Push((32, U256::from(0b1010))),
+        Operation::Push((32, U256::from(0b1100))),
         Operation::Or,
         Operation::Stop,
     ]);
@@ -233,8 +471,8 @@ fn or_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::from(0b1010))),
+        Operation::Push((32, U256::zero())),
         Operation::Or,
         Operation::Stop,
     ]);
@@ -246,8 +484,8 @@ fn or_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(u64::MAX)),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::from(u64::MAX))),
+        Operation::Push((32, U256::zero())),
         Operation::Or,
         Operation::Stop,
     ]);
@@ -262,8 +500,8 @@ fn or_basic() {
 #[test]
 fn or_with_hex_numbers() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFFFF)),
-        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Push((32, U256::from(0xFFFF))),
+        Operation::Push((32, U256::from(0xF0F0))),
         Operation::Or,
         Operation::Stop,
     ]);
@@ -275,8 +513,8 @@ fn or_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xF000)),
-        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Push((32, U256::from(0xF000))),
+        Operation::Push((32, U256::from(0xF0F0))),
         Operation::Or,
         Operation::Stop,
     ]);
@@ -288,8 +526,8 @@ fn or_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xB020)),
-        Operation::Push32(U256::from(0x1F0F)),
+        Operation::Push((32, U256::from(0xB020))),
+        Operation::Push((32, U256::from(0x1F0F))),
         Operation::Or,
         Operation::Stop,
     ]);
@@ -304,8 +542,8 @@ fn or_with_hex_numbers() {
 #[test]
 fn xor_basic() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
-        Operation::Push32(U256::from(0b1100)),
+        Operation::Push((32, U256::from(0b1010))),
+        Operation::Push((32, U256::from(0b1100))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -317,8 +555,8 @@ fn xor_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::from(0b1010))),
+        Operation::Push((32, U256::zero())),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -330,8 +568,8 @@ fn xor_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(u64::MAX)),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::from(u64::MAX))),
+        Operation::Push((32, U256::zero())),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -343,8 +581,8 @@ fn xor_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(u64::MAX)),
-        Operation::Push32(U256::from(u64::MAX)),
+        Operation::Push((32, U256::from(u64::MAX))),
+        Operation::Push((32, U256::from(u64::MAX))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -359,8 +597,8 @@ fn xor_basic() {
 #[test]
 fn xor_with_hex_numbers() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xF0)),
-        Operation::Push32(U256::from(0xF)),
+        Operation::Push((32, U256::from(0xF0))),
+        Operation::Push((32, U256::from(0xF))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -372,8 +610,8 @@ fn xor_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFF)),
-        Operation::Push32(U256::from(0xFF)),
+        Operation::Push((32, U256::from(0xFF))),
+        Operation::Push((32, U256::from(0xFF))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -385,8 +623,8 @@ fn xor_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFFFF)),
-        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Push((32, U256::from(0xFFFF))),
+        Operation::Push((32, U256::from(0xF0F0))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -398,8 +636,8 @@ fn xor_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xF000)),
-        Operation::Push32(U256::from(0xF0F0)),
+        Operation::Push((32, U256::from(0xF000))),
+        Operation::Push((32, U256::from(0xF0F0))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -411,8 +649,8 @@ fn xor_with_hex_numbers() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x4C0F)),
-        Operation::Push32(U256::from(0x3A4B)),
+        Operation::Push((32, U256::from(0x4C0F))),
+        Operation::Push((32, U256::from(0x3A4B))),
         Operation::Xor,
         Operation::Stop,
     ]);
@@ -427,7 +665,7 @@ fn xor_with_hex_numbers() {
 #[test]
 fn not() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0b1010)),
+        Operation::Push((32, U256::from(0b1010))),
         Operation::Not,
         Operation::Stop,
     ]);
@@ -440,7 +678,7 @@ fn not() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX),
+        Operation::Push((32, U256::MAX)),
         Operation::Not,
         Operation::Stop,
     ]);
@@ -452,7 +690,7 @@ fn not() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::zero())),
         Operation::Not,
         Operation::Stop,
     ]);
@@ -464,7 +702,7 @@ fn not() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 6);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(1)),
+        Operation::Push((32, U256::from(1))),
         Operation::Not,
         Operation::Stop,
     ]);
@@ -479,8 +717,8 @@ fn not() {
 #[test]
 fn byte_basic() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xF0F1)),
-        Operation::Push32(U256::from(31)),
+        Operation::Push((32, U256::from(0xF0F1))),
+        Operation::Push((32, U256::from(31))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -492,8 +730,8 @@ fn byte_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x33ED)),
-        Operation::Push32(U256::from(30)),
+        Operation::Push((32, U256::from(0x33ED))),
+        Operation::Push((32, U256::from(30))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -508,8 +746,8 @@ fn byte_basic() {
 #[test]
 fn byte_edge_cases() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX),
-        Operation::Push32(U256::from(0)),
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::from(0))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -521,8 +759,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX),
-        Operation::Push32(U256::from(12)),
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::from(12))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -534,8 +772,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x00E0D0000)),
-        Operation::Push32(U256::from(29)),
+        Operation::Push((32, U256::from(0x00E0D0000))),
+        Operation::Push((32, U256::from(29))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -547,8 +785,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFDEA179)),
-        Operation::Push32(U256::from(50)),
+        Operation::Push((32, U256::from(0xFDEA179))),
+        Operation::Push((32, U256::from(50))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -560,8 +798,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFDEA179)),
-        Operation::Push32(U256::from(32)),
+        Operation::Push((32, U256::from(0xFDEA179))),
+        Operation::Push((32, U256::from(32))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -573,8 +811,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::from(15)),
+        Operation::Push((32, U256::zero())),
+        Operation::Push((32, U256::from(15))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -592,8 +830,8 @@ fn byte_edge_cases() {
     ]);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word),
-        Operation::Push32(U256::from(10)),
+        Operation::Push((32, word)),
+        Operation::Push((32, U256::from(10))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -605,8 +843,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word),
-        Operation::Push32(U256::from(7)),
+        Operation::Push((32, word)),
+        Operation::Push((32, U256::from(7))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -618,8 +856,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word),
-        Operation::Push32(U256::from(19)),
+        Operation::Push((32, word)),
+        Operation::Push((32, U256::from(19))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -631,8 +869,8 @@ fn byte_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word),
-        Operation::Push32(U256::from(31)),
+        Operation::Push((32, word)),
+        Operation::Push((32, U256::from(31))),
         Operation::Byte,
         Operation::Stop,
     ]);
@@ -647,8 +885,8 @@ fn byte_edge_cases() {
 #[test]
 fn shl_basic() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xDDDD)),
-        Operation::Push32(U256::from(0)),
+        Operation::Push((32, U256::from(0xDDDD))),
+        Operation::Push((32, U256::from(0))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -660,8 +898,8 @@ fn shl_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x12345678)),
-        Operation::Push32(U256::from(1)),
+        Operation::Push((32, U256::from(0x12345678))),
+        Operation::Push((32, U256::from(1))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -673,8 +911,8 @@ fn shl_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x12345678)),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, U256::from(0x12345678))),
+        Operation::Push((32, U256::from(4))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -686,8 +924,8 @@ fn shl_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFF)),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, U256::from(0xFF))),
+        Operation::Push((32, U256::from(4))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -702,8 +940,8 @@ fn shl_basic() {
 #[test]
 fn shl_edge_cases() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x1)),
-        Operation::Push32(U256::from(256)),
+        Operation::Push((32, U256::from(0x1))),
+        Operation::Push((32, U256::from(256))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -715,8 +953,8 @@ fn shl_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::from(200)),
+        Operation::Push((32, U256::zero())),
+        Operation::Push((32, U256::from(200))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -728,8 +966,8 @@ fn shl_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX),
-        Operation::Push32(U256::from(1)),
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::from(1))),
         Operation::Shl,
         Operation::Stop,
     ]);
@@ -744,8 +982,8 @@ fn shl_edge_cases() {
 #[test]
 fn shr_basic() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xDDDD)),
-        Operation::Push32(U256::from(0)),
+        Operation::Push((32, U256::from(0xDDDD))),
+        Operation::Push((32, U256::from(0))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -757,8 +995,8 @@ fn shr_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x12345678)),
-        Operation::Push32(U256::from(1)),
+        Operation::Push((32, U256::from(0x12345678))),
+        Operation::Push((32, U256::from(1))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -770,8 +1008,8 @@ fn shr_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x12345678)),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, U256::from(0x12345678))),
+        Operation::Push((32, U256::from(4))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -783,8 +1021,8 @@ fn shr_basic() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0xFF)),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, U256::from(0xFF))),
+        Operation::Push((32, U256::from(4))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -799,8 +1037,8 @@ fn shr_basic() {
 #[test]
 fn shr_edge_cases() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x1)),
-        Operation::Push32(U256::from(256)),
+        Operation::Push((32, U256::from(0x1))),
+        Operation::Push((32, U256::from(256))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -812,8 +1050,8 @@ fn shr_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::from(200)),
+        Operation::Push((32, U256::zero())),
+        Operation::Push((32, U256::from(200))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -825,8 +1063,8 @@ fn shr_edge_cases() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::MAX),
-        Operation::Push32(U256::from(1)),
+        Operation::Push((32, U256::MAX)),
+        Operation::Push((32, U256::from(1))),
         Operation::Shr,
         Operation::Stop,
     ]);
@@ -841,8 +1079,8 @@ fn shr_edge_cases() {
 #[test]
 fn sar_shift_by_0() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x12345678)),
-        Operation::Push32(U256::from(0)),
+        Operation::Push((32, U256::from(0x12345678))),
+        Operation::Push((32, U256::from(0))),
         Operation::Sar,
         Operation::Stop,
     ]);
@@ -863,8 +1101,8 @@ fn sar_shifting_large_value_with_all_bits_set() {
     ]);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word),
-        Operation::Push32(U256::from(8)),
+        Operation::Push((32, word)),
+        Operation::Push((32, U256::from(8))),
         Operation::Sar,
         Operation::Stop,
     ]);
@@ -890,8 +1128,8 @@ fn sar_shifting_negative_value_and_small_shift() {
     ]);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word_neg),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, word_neg)),
+        Operation::Push((32, U256::from(4))),
         Operation::Sar,
         Operation::Stop,
     ]);
@@ -911,8 +1149,8 @@ fn sar_shifting_negative_value_and_small_shift() {
 #[test]
 fn sar_shift_positive_value() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x7FFFFF)),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, U256::from(0x7FFFFF))),
+        Operation::Push((32, U256::from(4))),
         Operation::Sar,
         Operation::Stop,
     ]);
@@ -933,8 +1171,8 @@ fn sar_shift_negative_value() {
     ]);
 
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(word_neg),
-        Operation::Push32(U256::from(4)),
+        Operation::Push((32, word_neg)),
+        Operation::Push((32, U256::from(4))),
         Operation::Sar,
         Operation::Stop,
     ]);
@@ -956,8 +1194,9 @@ fn sar_shift_negative_value() {
 fn keccak256_zero_offset_size_four() {
     let operations = [
         // Put the required value in memory
-        Operation::Push32(U256::from(
-            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        Operation::Push((
+            32,
+            U256::from("0xFFFFFFFF00000000000000000000000000000000000000000000000000000000"),
         )),
         Operation::Push0,
         Operation::Mstore, // gas_cost = 3 + 3 = 6
@@ -984,8 +1223,9 @@ fn keccak256_zero_offset_size_four() {
 fn keccak256_zero_offset_size_bigger_than_actual_memory() {
     let operations = [
         // Put the required value in memory
-        Operation::Push32(U256::from(
-            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        Operation::Push((
+            32,
+            U256::from("0xFFFFFFFF00000000000000000000000000000000000000000000000000000000"),
         )),
         Operation::Push0,
         Operation::Mstore, // gas_cost = 3 + 3 = 6
@@ -1033,8 +1273,9 @@ fn keccak256_zero_offset_zero_size() {
 fn keccak256_offset_four_size_four() {
     let operations = [
         // Put the required value in memory
-        Operation::Push32(U256::from(
-            "0xFFFFFFFF00000000000000000000000000000000000000000000000000000000",
+        Operation::Push((
+            32,
+            U256::from("0xFFFFFFFF00000000000000000000000000000000000000000000000000000000"),
         )),
         Operation::Push0,
         Operation::Mstore,
@@ -1060,8 +1301,8 @@ fn keccak256_offset_four_size_four() {
 #[test]
 fn mstore() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x33333)),
-        Operation::Push32(U256::zero()),
+        Operation::Push((32, U256::from(0x33333))),
+        Operation::Push((32, U256::zero())),
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
@@ -1080,8 +1321,8 @@ fn mstore() {
 #[test]
 fn mstore_saves_correct_value() {
     let mut vm = new_vm_with_ops(&[
-        Operation::Push32(U256::from(0x33333)), // value
-        Operation::Push32(U256::zero()),        // offset
+        Operation::Push((32, U256::from(0x33333))), // value
+        Operation::Push((32, U256::zero())),        // offset
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
@@ -1101,8 +1342,8 @@ fn mstore_saves_correct_value() {
 #[test]
 fn mstore8() {
     let operations = [
-        Operation::Push32(U256::from(0xAB)), // value
-        Operation::Push32(U256::zero()),     // offset
+        Operation::Push((32, U256::from(0xAB))), // value
+        Operation::Push((32, U256::zero())),     // offset
         Operation::Mstore8,
         Operation::Stop,
     ];
@@ -1123,11 +1364,11 @@ fn mstore8() {
 #[test]
 fn mcopy() {
     let operations = [
-        Operation::Push32(U256::from(32)),      // size
-        Operation::Push32(U256::from(0)),       // source offset
-        Operation::Push32(U256::from(64)),      // destination offset
-        Operation::Push32(U256::from(0x33333)), // value
-        Operation::Push32(U256::from(0)),       // offset
+        Operation::Push((32, U256::from(32))),      // size
+        Operation::Push((32, U256::from(0))),       // source offset
+        Operation::Push((32, U256::from(64))),      // destination offset
+        Operation::Push((32, U256::from(0x33333))), // value
+        Operation::Push((32, U256::from(0))),       // offset
         Operation::Mstore,
         Operation::Mcopy,
         Operation::Msize,
@@ -1149,10 +1390,10 @@ fn mcopy() {
 #[test]
 fn mload() {
     let operations = [
-        Operation::Push32(U256::from(0x33333)), // value
-        Operation::Push32(U256::zero()),        // offset
+        Operation::Push((32, U256::from(0x33333))), // value
+        Operation::Push((32, U256::zero())),        // offset
         Operation::Mstore,
-        Operation::Push32(U256::zero()), // offset
+        Operation::Push((32, U256::zero())), // offset
         Operation::Mload,
         Operation::Stop,
     ];
@@ -1179,8 +1420,8 @@ fn msize() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 
     let operations = [
-        Operation::Push32(U256::from(0x33333)), // value
-        Operation::Push32(U256::zero()),        // offset
+        Operation::Push((32, U256::from(0x33333))), // value
+        Operation::Push((32, U256::zero())),        // offset
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
@@ -1195,8 +1436,8 @@ fn msize() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 14);
 
     let operations = [
-        Operation::Push32(U256::from(0x55555)), // value
-        Operation::Push32(U256::from(64)),      // offset
+        Operation::Push((32, U256::from(0x55555))), // value
+        Operation::Push((32, U256::from(64))),      // offset
         Operation::Mstore,
         Operation::Msize,
         Operation::Stop,
@@ -1214,10 +1455,10 @@ fn msize() {
 #[test]
 fn mstore_mload_offset_not_multiple_of_32() {
     let operations = [
-        Operation::Push32(0xabcdef.into()), // value
-        Operation::Push32(10.into()),       // offset
+        Operation::Push((32, 0xabcdef.into())), // value
+        Operation::Push((32, 10.into())),       // offset
         Operation::Mstore,
-        Operation::Push32(10.into()), // offset
+        Operation::Push((32, 10.into())), // offset
         Operation::Mload,
         Operation::Msize,
         Operation::Stop,
@@ -1237,10 +1478,10 @@ fn mstore_mload_offset_not_multiple_of_32() {
     // check with big offset
 
     let operations = [
-        Operation::Push32(0x123456.into()), // value
-        Operation::Push32(2000.into()),     // offset
+        Operation::Push((32, 0x123456.into())), // value
+        Operation::Push((32, 2000.into())),     // offset
         Operation::Mstore,
-        Operation::Push32(2000.into()), // offset
+        Operation::Push((32, 2000.into())), // offset
         Operation::Mload,
         Operation::Msize,
         Operation::Stop,
@@ -1261,7 +1502,7 @@ fn mstore_mload_offset_not_multiple_of_32() {
 #[test]
 fn mload_uninitialized_memory() {
     let operations = [
-        Operation::Push32(50.into()), // offset
+        Operation::Push((32, 50.into())), // offset
         Operation::Mload,
         Operation::Msize,
         Operation::Stop,
@@ -1291,19 +1532,19 @@ fn call_returns_if_bytecode_empty() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
         Operation::Stop,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -1326,19 +1567,19 @@ fn call_changes_callframe_and_stores() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
         Operation::Stop,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -1372,28 +1613,28 @@ fn nested_calls() {
         .with_bytecode(callee3_bytecode);
 
     let mut callee2_ops = vec![
-        Operation::Push32(U256::from(32)),       // ret_size
-        Operation::Push32(U256::from(0)),        // ret_offset
-        Operation::Push32(U256::from(0)),        // args_size
-        Operation::Push32(U256::from(0)),        // args_offset
-        Operation::Push32(U256::zero()),         // value
-        Operation::Push32(callee3_address_u256), // address
-        Operation::Push32(U256::from(100_000)),  // gas
+        Operation::Push((32, U256::from(32))),       // ret_size
+        Operation::Push((32, U256::from(0))),        // ret_offset
+        Operation::Push((32, U256::from(0))),        // args_size
+        Operation::Push((32, U256::from(0))),        // args_offset
+        Operation::Push((32, U256::zero())),         // value
+        Operation::Push((32, callee3_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))),  // gas
         Operation::Call,
     ];
 
     let callee2_return_value = U256::from(0xBBBBBBB);
 
     let callee2_return_bytecode = vec![
-        Operation::Push32(callee2_return_value), // value
-        Operation::Push32(U256::from(32)),       // offset
+        Operation::Push((32, callee2_return_value)), // value
+        Operation::Push((32, U256::from(32))),       // offset
         Operation::Mstore,
-        Operation::Push32(U256::from(32)), // size
-        Operation::Push32(U256::zero()),   // returndata_offset
-        Operation::Push32(U256::zero()),   // dest_offset
+        Operation::Push((32, U256::from(32))), // size
+        Operation::Push((32, U256::zero())),   // returndata_offset
+        Operation::Push((32, U256::zero())),   // dest_offset
         Operation::ReturnDataCopy,
-        Operation::Push32(U256::from(64)), // size
-        Operation::Push32(U256::zero()),   // offset
+        Operation::Push((32, U256::from(64))), // size
+        Operation::Push((32, U256::zero())),   // offset
         Operation::Return,
     ];
 
@@ -1412,13 +1653,13 @@ fn nested_calls() {
         .with_bytecode(callee2_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(64)),       // ret_size
-        Operation::Push32(U256::from(0)),        // ret_offset
-        Operation::Push32(U256::from(0)),        // args_size
-        Operation::Push32(U256::from(0)),        // args_offset
-        Operation::Push32(U256::zero()),         // value
-        Operation::Push32(callee2_address_u256), // address
-        Operation::Push32(U256::from(100_000)),  // gas
+        Operation::Push((32, U256::from(64))),       // ret_size
+        Operation::Push((32, U256::from(0))),        // ret_offset
+        Operation::Push((32, U256::from(0))),        // args_size
+        Operation::Push((32, U256::from(0))),        // args_offset
+        Operation::Push((32, U256::zero())),         // value
+        Operation::Push((32, callee2_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))),  // gas
         Operation::Call,
         Operation::Stop,
     ];
@@ -1426,7 +1667,8 @@ fn nested_calls() {
     let caller_address = Address::from_low_u64_be(U256::from(1).low_u64());
     let caller_balance = U256::from(1_000_000);
 
-    let mut vm = new_vm_with_ops_addr_bal(&caller_ops, caller_address, caller_balance);
+    let mut vm =
+        new_vm_with_ops_addr_bal(ops_to_bytecde(&caller_ops), caller_address, caller_balance);
 
     vm.db.add_account(callee2_address, callee2_account);
     vm.db.add_account(callee3_address, callee3_account);
@@ -1462,8 +1704,8 @@ fn nested_calls() {
 fn staticcall_changes_callframe_is_static() {
     let callee_return_value = U256::from(0xAAAAAAA);
     let callee_ops = [
-        Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // offset
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // offset
         Operation::Mstore,
         Operation::Stop,
     ];
@@ -1480,18 +1722,18 @@ fn staticcall_changes_callframe_is_static() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::StaticCall,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -1546,7 +1788,7 @@ fn pc_op() {
 #[test]
 fn pc_op_with_push_offset() {
     let operations = [
-        Operation::Push32(U256::one()),
+        Operation::Push((32, U256::one())),
         Operation::PC,
         Operation::Stop,
     ];
@@ -1567,8 +1809,8 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     // --- DELEGATECALL --- changes account 1 storage
     let callee_return_value = U256::from(0xBBBBBBB);
     let callee_ops = [
-        Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1585,17 +1827,17 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(callee_address_u256), // code address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, callee_address_u256)), // code address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::DelegateCall,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::from(1000),
     );
@@ -1615,6 +1857,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     let slot = StorageSlot {
         original_value: U256::from(0xBBBBBBB),
         current_value: U256::from(0xBBBBBBB),
+        is_cold: false,
     };
 
     assert_eq!(storage_slot, Some(slot));
@@ -1623,8 +1866,8 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let callee_return_value = U256::from(0xAAAAAAA);
     let callee_ops = [
-        Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1641,18 +1884,18 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -1669,6 +1912,7 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     let slot = StorageSlot {
         original_value: U256::from(0xAAAAAAA),
         current_value: U256::from(0xAAAAAAA),
+        is_cold: false,
     };
 
     assert_eq!(storage_slot, Some(slot));
@@ -1679,8 +1923,8 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
     // --- DELEGATECALL
     let callee_return_value = U256::from(0xBBBBBBB);
     let callee_ops = [
-        Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1697,17 +1941,17 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(callee_address_u256), // code address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, callee_address_u256)), // code address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::DelegateCall,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::from(1000),
     );
@@ -1732,8 +1976,8 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 
     let callee_return_value = U256::from(0xAAAAAAA);
     let callee_ops = [
-        Operation::Push32(callee_return_value), // value
-        Operation::Push32(U256::zero()),        // key
+        Operation::Push((32, callee_return_value)), // value
+        Operation::Push((32, U256::zero())),        // key
         Operation::Sstore,
         Operation::Stop,
     ];
@@ -1750,18 +1994,18 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(0)),       // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::from(100)),     // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(0))),       // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::from(100))),     // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::CallCode,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::from(1000),
     );
@@ -1779,6 +2023,7 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
     let slot = StorageSlot {
         original_value: U256::from(0xAAAAAAA),
         current_value: U256::from(0xAAAAAAA),
+        is_cold: false,
     };
     assert_eq!(storage_slot, Some(slot));
     assert_eq!(
@@ -1791,10 +2036,10 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 #[test]
 fn jump_position_bigger_than_program_bytecode_size() {
     let operations = [
-        Operation::Push32(U256::from(5000)),
+        Operation::Push((32, U256::from(5000))),
         Operation::Jump,
         Operation::Stop,
-        Operation::Push32(U256::from(10)),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
 
@@ -1813,12 +2058,12 @@ fn jump_position_bigger_than_program_bytecode_size() {
 #[test]
 fn jumpi_not_zero() {
     let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(68)),
+        Operation::Push((32, U256::one())),
+        Operation::Push((32, U256::from(68))),
         Operation::Jumpi,
         Operation::Stop, // should skip this one
         Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
     let mut vm = new_vm_with_ops(&operations);
@@ -1835,13 +2080,13 @@ fn jumpi_not_zero() {
 #[test]
 fn jumpi_for_zero() {
     let operations = [
-        Operation::Push32(U256::from(100)),
-        Operation::Push32(U256::zero()),
-        Operation::Push32(U256::from(100)),
+        Operation::Push((32, U256::from(100))),
+        Operation::Push((32, U256::zero())),
+        Operation::Push((32, U256::from(100))),
         Operation::Jumpi,
         Operation::Stop,
         Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
 
@@ -1865,7 +2110,7 @@ fn calldataload() {
     ]
     .into();
     let ops = vec![
-        Operation::Push32(U256::from(0)), // offset
+        Operation::Push((32, U256::from(0))), // offset
         Operation::CallDataLoad,
         Operation::Stop,
     ];
@@ -1891,12 +2136,12 @@ fn calldataload() {
 #[test]
 fn calldataload_being_set_by_parent() {
     let ops = vec![
-        Operation::Push32(U256::zero()), // offset
+        Operation::Push((32, U256::zero())), // offset
         Operation::CallDataLoad,
-        Operation::Push32(U256::from(0)), // offset
+        Operation::Push((32, U256::from(0))), // offset
         Operation::Mstore,
-        Operation::Push32(U256::from(32)), // size
-        Operation::Push32(U256::zero()),   // offset
+        Operation::Push((32, U256::from(32))), // size
+        Operation::Push((32, U256::zero())),   // offset
         Operation::Return,
     ];
 
@@ -1918,22 +2163,22 @@ fn calldataload_being_set_by_parent() {
     ];
 
     let caller_ops = vec![
-        Operation::Push32(U256::from_big_endian(&calldata[..32])), // value
-        Operation::Push32(U256::from(0)),                          // offset
+        Operation::Push((32, U256::from_big_endian(&calldata[..32]))), // value
+        Operation::Push((32, U256::from(0))),                          // offset
         Operation::Mstore,
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(32)),      // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(32))),      // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
         Operation::Stop,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -1975,9 +2220,9 @@ fn calldatasize() {
 fn calldatacopy() {
     let calldata = vec![0x11, 0x22, 0x33, 0x44, 0x55].into();
     let ops = vec![
-        Operation::Push32(U256::from(2)), // size
-        Operation::Push32(U256::from(1)), // calldata_offset
-        Operation::Push32(U256::from(0)), // dest_offset
+        Operation::Push((32, U256::from(2))), // size
+        Operation::Push((32, U256::from(1))), // calldata_offset
+        Operation::Push((32, U256::from(0))), // dest_offset
         Operation::CallDataCopy,
         Operation::Stop,
     ];
@@ -2013,9 +2258,9 @@ fn returndatasize() {
 fn returndatacopy() {
     let returndata = vec![0xAA, 0xBB, 0xCC, 0xDD].into();
     let ops = vec![
-        Operation::Push32(U256::from(2)), // size
-        Operation::Push32(U256::from(1)), // returndata_offset
-        Operation::Push32(U256::from(0)), // dest_offset
+        Operation::Push((32, U256::from(2))), // size
+        Operation::Push((32, U256::from(1))), // returndata_offset
+        Operation::Push((32, U256::from(0))), // dest_offset
         Operation::ReturnDataCopy,
         Operation::Stop,
     ];
@@ -2041,23 +2286,23 @@ fn returndatacopy_being_set_by_parent() {
         .with_bytecode(callee_bytecode);
 
     let caller_ops = vec![
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(U256::from(2)),       // callee address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, U256::from(2))),       // callee address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
-        Operation::Push32(U256::from(32)), // size
-        Operation::Push32(U256::from(0)),  // returndata offset
-        Operation::Push32(U256::from(0)),  // dest offset
+        Operation::Push((32, U256::from(32))), // size
+        Operation::Push((32, U256::from(0))),  // returndata offset
+        Operation::Push((32, U256::from(0))),  // dest offset
         Operation::ReturnDataCopy,
         Operation::Stop,
     ];
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -2086,7 +2331,8 @@ fn blockhash_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, Address::default(), U256::MAX);
+    let mut vm =
+        new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
     vm.db
         .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
@@ -2145,7 +2391,8 @@ fn blockhash_block_number_not_from_recent_256() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, Address::default(), U256::MAX);
+    let mut vm =
+        new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
     vm.db
         .block_hashes
         .insert(U256::from(block_number), H256::from_low_u64_be(block_hash));
@@ -2320,8 +2567,8 @@ fn blobbasefee_minimum_cost() {
 #[test]
 fn pop_op() {
     let operations = [
-        Operation::Push32(U256::one()),
-        Operation::Push32(U256::from(100)),
+        Operation::Push((32, U256::one())),
+        Operation::Push((32, U256::from(100))),
         Operation::Pop,
         Operation::Stop,
     ];
@@ -2340,11 +2587,11 @@ fn pop_op() {
 #[test]
 fn jump_op() {
     let operations = [
-        Operation::Push32(U256::from(35)),
+        Operation::Push((32, U256::from(35))),
         Operation::Jump,
         Operation::Stop, // should skip this one
         Operation::Jumpdest,
-        Operation::Push32(U256::from(10)),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
 
@@ -2363,10 +2610,10 @@ fn jump_op() {
 #[test]
 fn jump_not_jumpdest_position() {
     let operations = [
-        Operation::Push32(U256::from(36)),
+        Operation::Push((32, U256::from(36))),
         Operation::Jump,
         Operation::Stop,
-        Operation::Push32(U256::from(10)),
+        Operation::Push((32, U256::from(10))),
         Operation::Stop,
     ];
 
@@ -2801,20 +3048,20 @@ fn logs_from_multiple_callers() {
     );
 
     let mut caller_ops = vec![
-        Operation::Push32(U256::from(32)),      // ret_size
-        Operation::Push32(U256::from(0)),       // ret_offset
-        Operation::Push32(U256::from(0)),       // args_size
-        Operation::Push32(U256::from(0)),       // args_offset
-        Operation::Push32(U256::zero()),        // value
-        Operation::Push32(callee_address_u256), // address
-        Operation::Push32(U256::from(100_000)), // gas
+        Operation::Push((32, U256::from(32))),      // ret_size
+        Operation::Push((32, U256::from(0))),       // ret_offset
+        Operation::Push((32, U256::from(0))),       // args_size
+        Operation::Push((32, U256::from(0))),       // args_offset
+        Operation::Push((32, U256::zero())),        // value
+        Operation::Push((32, callee_address_u256)), // address
+        Operation::Push((32, U256::from(100_000))), // gas
         Operation::Call,
     ];
 
     caller_ops.append(&mut operations);
 
     let mut vm = new_vm_with_ops_addr_bal(
-        &caller_ops,
+        ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
     );
@@ -2846,13 +3093,13 @@ fn logs_from_multiple_callers() {
 //     );
 
 //     let caller_ops = vec![
-//         Operation::Push32(U256::from(32)),      // ret_size
-//         Operation::Push32(U256::from(0)),       // ret_offset
-//         Operation::Push32(U256::from(0)),       // args_size
-//         Operation::Push32(U256::from(0)),       // args_offset
-//         Operation::Push32(U256::zero()),        // value
-//         Operation::Push32(callee_address_u256), // address
-//         Operation::Push32(U256::from(100_000)), // gas
+//         Operation::Push((32,U256::from(32))),      // ret_size
+//         Operation::Push((32,U256::from(0))),       // ret_offset
+//         Operation::Push((32,U256::from(0))),       // args_size
+//         Operation::Push((32,U256::from(0))),       // args_offset
+//         Operation::Push((32,U256::zero())),        // value
+//         Operation::Push((32,callee_address_u256)), // address
+//         Operation::Push((32,U256::from(100_000))), // gas
 //         Operation::Call,
 //         Operation::Stop,
 //     ];
@@ -2865,7 +3112,7 @@ fn logs_from_multiple_callers() {
 
 //     vm.db.add_account(callee_address, callee_account);
 
-//     vm.execute();
+//   vm.execute();
 
 //     assert_eq!(
 //         vm.current_call_frame_mut().stack.pop().unwrap(),
@@ -2922,7 +3169,7 @@ fn push31_ok() {
 #[test]
 fn push32_ok() {
     let to_push = U256::from_big_endian(&[0xff; 32]);
-    let operations = [Operation::Push32(to_push), Operation::Stop];
+    let operations = [Operation::Push((32, to_push)), Operation::Stop];
     let mut vm = new_vm_with_ops(&operations);
 
     vm.execute();
@@ -3069,8 +3316,8 @@ fn transient_store() {
     let key = U256::from_big_endian(&[0xff; 2]);
 
     let operations = [
-        Operation::Push32(value),
-        Operation::Push32(key),
+        Operation::Push((32, value)),
+        Operation::Push((32, key)),
         Operation::Tstore,
         Operation::Stop,
     ];
@@ -3111,7 +3358,11 @@ fn transient_load() {
     let value = U256::from_big_endian(&[0xaa; 3]);
     let key = U256::from_big_endian(&[0xff; 2]);
 
-    let operations = [Operation::Push32(key), Operation::Tload, Operation::Stop];
+    let operations = [
+        Operation::Push((32, key)),
+        Operation::Tload,
+        Operation::Stop,
+    ];
 
     let mut vm = new_vm_with_ops(&operations);
 
@@ -3151,7 +3402,7 @@ fn create_happy_path() {
     ]
     .concat();
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3182,7 +3433,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3208,7 +3459,7 @@ fn cant_create_on_static_contexts() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
     vm.current_call_frame_mut().is_static = true;
 
@@ -3235,7 +3486,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3382,7 +3633,7 @@ fn create2_happy_path() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
@@ -3424,10 +3675,426 @@ fn create_on_create() {
     ]
     .concat();
 
-    let mut vm = new_vm_with_ops_addr_bal(&operations, sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
 
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
     assert_eq!(vm.db.accounts.len(), 4);
+}
+
+#[test]
+fn caller_op() {
+    let caller = Address::from_low_u64_be(0x100);
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Caller, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        msg_sender: caller,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(caller.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLER);
+}
+
+#[test]
+fn origin_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let msg_sender = Address::from_low_u64_be(0x999);
+
+    let operations = [Operation::Origin, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        msg_sender,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(msg_sender.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ORIGIN);
+}
+
+#[test]
+fn balance_op() {
+    let address = 0x999;
+
+    let operations = [
+        Operation::Push((32, U256::from(address))),
+        Operation::Balance,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops_addr_bal(
+        ops_to_bytecde(&operations),
+        Address::from_low_u64_be(address),
+        U256::from(1234),
+    );
+
+    vm.execute();
+
+    dbg!(&vm);
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(1234)
+    )
+}
+
+#[test]
+fn address_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Address, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(address_that_has_the_code.as_bytes())
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::ADDRESS);
+}
+
+#[test]
+fn selfbalance_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let balance = U256::from(999);
+
+    let operations = [Operation::SelfBalance, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+    db.add_account(
+        address_that_has_the_code,
+        Account::default()
+            .with_bytecode(ops_to_bytecde(&operations))
+            .with_balance(balance),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    vm.execute();
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), balance);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::SELFBALANCE);
+}
+
+#[test]
+fn callvalue_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let value = U256::from(0x1234);
+
+    let operations = [Operation::Callvalue, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        value,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute().is_success());
+
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), value);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CALLVALUE);
+}
+
+#[test]
+fn codesize_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+
+    let operations = [Operation::Codesize, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute().is_success());
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(2)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::CODESIZE);
+}
+
+#[test]
+fn gasprice_op() {
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    let operations = [Operation::Gasprice, Operation::Stop];
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_price: Some(U256::from(0x9876)),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute().is_success());
+
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(0x9876)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + gas_cost::GASPRICE);
+}
+
+#[test]
+fn codecopy_op() {
+    // Copies two bytes of the code, with offset 2, and loads them beginning at offset 3 in memory.
+    let address_that_has_the_code = Address::from_low_u64_be(0x42);
+    // https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code=%27~2z~2z~3zCODECOPY%27~PUSH1%200x0z%5Cn%01z~_
+    let operations = [
+        Operation::Push((1, 0x02.into())), // size
+        Operation::Push((1, 0x02.into())), // offset
+        Operation::Push((1, 0x03.into())), // destination offset
+        Operation::Codecopy,
+        Operation::Stop,
+    ];
+
+    let expected_memory_bytes = [
+        [0x00; 3].to_vec(),
+        [[0x60], [0x02]].concat(),
+        [0x00; 27].to_vec(),
+    ]
+    .concat();
+
+    let expected_memory = U256::from_big_endian(&expected_memory_bytes);
+
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(address_that_has_the_code),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv::default();
+
+    let mut db = Db::default();
+
+    db.add_account(
+        address_that_has_the_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    let mut vm = VM::new(tx_env, block_env, db);
+
+    assert!(vm.execute().is_success());
+
+    assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9 + 3 * gas_cost::PUSHN);
+}
+
+#[test]
+fn extcodesize_existing_account() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let operations = [
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeSize,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 23.into());
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodesize_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODESIZE%5CnSTOP'_
+    let operations = [
+        Operation::Push((20, "0x42".into())),
+        Operation::ExtcodeSize,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 0.into());
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodecopy_existing_account() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let size: usize = 1;
+
+    let operations = [
+        Operation::Push((1, size.into())),
+        Operation::Push0, // offset
+        Operation::Push0, // destOffset
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeCopy,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().memory.load_range(0, size),
+        vec![0x60]
+    );
+    assert_eq!(vm.env.consumed_gas, 23616);
+}
+
+#[test]
+fn extcodecopy_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='y1%201~~~20%200x42zEXTCODECOPYzSTOP'~0zyz%5CnyPUSH%01yz~_
+    let size: usize = 10;
+
+    let operations = [
+        Operation::Push((1, size.into())),
+        Operation::Push0, // offset
+        Operation::Push0, // destOffset
+        Operation::Push((20, "0x42".into())),
+        Operation::ExtcodeCopy,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().memory.load_range(0, size),
+        vec![0; size]
+    );
+    assert_eq!(vm.env.consumed_gas, 23616);
+}
+
+#[test]
+fn extcodehash_account_with_empty_code() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let operations = [
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(Bytes::new()),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
+    );
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodehash_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODEHASH%5CnSTOP'_
+    let operations = [
+        Operation::Push((20, "0x42".into())),
+        Operation::ExtcodeHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
+    );
+    assert_eq!(vm.env.consumed_gas, 23603);
 }

@@ -1,5 +1,5 @@
-use ethereum_rust_evm::EvmError;
 use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_vm::EvmError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -172,6 +172,17 @@ impl RpcRequest {
             }
         } else {
             Err(RpcErr::MethodNotFound(self.method.clone()))
+        }
+    }
+}
+
+impl Default for RpcRequest {
+    fn default() -> Self {
+        RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "".to_string(),
+            params: None,
         }
     }
 }
