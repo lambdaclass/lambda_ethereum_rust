@@ -28,7 +28,7 @@ pub(crate) struct StatusMessage {
 }
 
 impl StatusMessage {
-    pub fn build_from(storage: &Store) -> Result<Self, StoreError> {
+    pub fn new(storage: &Store) -> Result<Self, StoreError> {
         let chain_config = storage.get_chain_config()?;
         let total_difficulty =
             U256::from(chain_config.terminal_total_difficulty.unwrap_or_default());
@@ -164,13 +164,7 @@ pub(crate) struct GetBlockHeaders {
 }
 
 impl GetBlockHeaders {
-    pub fn build_from(
-        id: u64,
-        startblock: HashOrNumber,
-        limit: u64,
-        skip: u64,
-        reverse: bool,
-    ) -> Self {
+    pub fn new(id: u64, startblock: HashOrNumber, limit: u64, skip: u64, reverse: bool) -> Self {
         Self {
             id,
             startblock,
@@ -238,7 +232,7 @@ pub(crate) struct BlockHeaders {
 }
 
 impl BlockHeaders {
-    pub fn build_from(
+    pub fn new(
         id: u64,
         storage: &Store,
         startblock: HashOrNumber,
@@ -326,7 +320,7 @@ mod tests {
 
     #[test]
     fn get_block_headers_startblock_number_message() {
-        let get_block_bodies = GetBlockHeaders::build_from(1, HashOrNumber::Number(1), 0, 0, false);
+        let get_block_bodies = GetBlockHeaders::new(1, HashOrNumber::Number(1), 0, 0, false);
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -338,13 +332,8 @@ mod tests {
 
     #[test]
     fn get_block_headers_startblock_hash_message() {
-        let get_block_bodies = GetBlockHeaders::build_from(
-            1,
-            HashOrNumber::Hash(BlockHash::from([1; 32])),
-            0,
-            0,
-            false,
-        );
+        let get_block_bodies =
+            GetBlockHeaders::new(1, HashOrNumber::Hash(BlockHash::from([1; 32])), 0, 0, false);
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -378,7 +367,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(number), 1, 0, false).unwrap();
+            BlockHeaders::new(1, &store, HashOrNumber::Number(number), 1, 0, false).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -408,7 +397,7 @@ mod tests {
             .set_canonical_block(number, header1.compute_block_hash())
             .unwrap();
 
-        let block_bodies = BlockHeaders::build_from(
+        let block_bodies = BlockHeaders::new(
             1,
             &store,
             HashOrNumber::Hash(header1.compute_block_hash()),
@@ -467,7 +456,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 3, 0, false).unwrap();
+            BlockHeaders::new(1, &store, HashOrNumber::Number(1), 3, 0, false).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -497,7 +486,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(404), 1, 0, false).unwrap();
+            BlockHeaders::new(1, &store, HashOrNumber::Number(404), 1, 0, false).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -548,7 +537,7 @@ mod tests {
             .unwrap();
 
         let block_bodies =
-            BlockHeaders::build_from(1, &store, HashOrNumber::Number(1), 3, 1, true).unwrap();
+            BlockHeaders::new(1, &store, HashOrNumber::Number(1), 3, 1, true).unwrap();
         // we should get 1, skip 2 and get 3, and it should be backwards
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -607,7 +596,7 @@ mod tests {
 
         let sender_chosen_id = 1;
         let get_block_headers =
-            GetBlockHeaders::build_from(sender_chosen_id, HashOrNumber::Number(1), 3, 1, true);
+            GetBlockHeaders::new(sender_chosen_id, HashOrNumber::Number(1), 3, 1, true);
         let mut send_data_of_block_headers = Vec::new();
         get_block_headers.encode(&mut send_data_of_block_headers);
         sender
@@ -622,7 +611,7 @@ mod tests {
             GetBlockHeaders::decode(&receiver_data_of_block_headers_request[..len]).unwrap(); // transform the encoded received data to our struct
 
         assert_eq!(received_block_header_request.id, sender_chosen_id);
-        let block_headers = BlockHeaders::build_from(
+        let block_headers = BlockHeaders::new(
             received_block_header_request.id,
             &store,
             received_block_header_request.startblock,
