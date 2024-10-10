@@ -3968,3 +3968,133 @@ fn codecopy_op() {
     assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 9 + 3 * gas_cost::PUSHN);
 }
+
+#[test]
+fn extcodesize_existing_account() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let operations = [
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeSize,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 23.into());
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodesize_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODESIZE%5CnSTOP'_
+    let operations = [
+        Operation::Push((20, "0x42".into())),
+        Operation::ExtcodeSize,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 0.into());
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodecopy_existing_account() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let size: usize = 1;
+
+    let operations = [
+        Operation::Push((1, size.into())),
+        Operation::Push0, // offset
+        Operation::Push0, // destOffset
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeCopy,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(ops_to_bytecde(&operations)),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().memory.load_range(0, size),
+        vec![0x60]
+    );
+    assert_eq!(vm.env.consumed_gas, 23616);
+}
+
+#[test]
+fn extcodecopy_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='y1%201~~~20%200x42zEXTCODECOPYzSTOP'~0zyz%5CnyPUSH%01yz~_
+    let size: usize = 10;
+
+    let operations = [
+        Operation::Push((1, size.into())),
+        Operation::Push0, // offset
+        Operation::Push0, // destOffset
+        Operation::Push((20, "0x42".into())),
+        Operation::ExtcodeCopy,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().memory.load_range(0, size),
+        vec![0; size]
+    );
+    assert_eq!(vm.env.consumed_gas, 23616);
+}
+
+#[test]
+fn extcodehash_account_with_empty_code() {
+    let address_with_code = Address::from_low_u64_be(0x42);
+    let operations = [
+        Operation::Push((20, address_with_code.as_bytes().into())),
+        Operation::ExtcodeHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.db.add_account(
+        address_with_code,
+        Account::default().with_bytecode(Bytes::new()),
+    );
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
+    );
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
+
+#[test]
+fn extcodehash_non_existing_account() {
+    // EVM Playground: https://www.evm.codes/playground?fork=cancun&unit=Wei&codeType=Mnemonic&code='PUSH20%200x42%5CnEXTCODEHASH%5CnSTOP'_
+    let operations = [
+        Operation::Push((20, "0x42".into())),
+        Operation::ExtcodeHash,
+        Operation::Stop,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    assert!(vm.execute().is_success());
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
+    );
+    assert_eq!(vm.env.consumed_gas, 23603);
+}
