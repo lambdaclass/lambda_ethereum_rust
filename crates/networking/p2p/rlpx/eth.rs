@@ -15,6 +15,17 @@ pub const ETH_VERSION: u32 = 68;
 
 use super::message::RLPxMessage;
 
+fn snappy_encode(encoded_data: Vec<u8>) -> Result<Vec<u8>, RLPEncodeError> {
+    let mut snappy_encoder = SnappyEncoder::new();
+    let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+    let compressed_size = snappy_encoder
+        .compress(&encoded_data, &mut msg_data)
+        .map_err(|_| RLPEncodeError::InvalidCompression)?;
+
+    msg_data.truncate(compressed_size);
+    Ok(msg_data)
+}
+
 #[derive(Debug)]
 pub(crate) struct StatusMessage {
     eth_version: u32,
@@ -65,15 +76,7 @@ impl RLPxMessage for StatusMessage {
             .encode_field(&self.fork_id)
             .finish();
 
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .map_err(|_| RLPEncodeError::InvalidCompression)?;
-
-        msg_data.truncate(compressed_size);
-
+        let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
@@ -134,15 +137,7 @@ impl RLPxMessage for GetBlockBodies {
             .encode_field(&self.block_hashes)
             .finish();
 
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .map_err(|_| RLPEncodeError::InvalidCompression)?;
-
-        msg_data.truncate(compressed_size);
-
+        let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
