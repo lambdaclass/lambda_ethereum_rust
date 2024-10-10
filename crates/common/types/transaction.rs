@@ -1074,6 +1074,12 @@ mod mempool {
             self.inner
         }
     }
+
+    impl MempoolTransaction {
+        pub fn time(&self) -> u128 {
+            self.timestamp
+        }
+    }
 }
 
 #[cfg(test)]

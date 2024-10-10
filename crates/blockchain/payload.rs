@@ -525,9 +525,11 @@ impl TransactionQueue {
 /// Returns the order in which txs a and b should be executed
 /// The transaction with the highest tip should go first,
 ///  if both have the same tip then the one with the lowest timestamp should go first
-/// This function will not return Ordering::Equal (TODO: make this true with timestamp)
-/// TODO(https://github.com/lambdaclass/ethereum_rust/issues/681): add timestamp
+/// This function will not return Ordering::Equal
 fn compare_heads(a: &HeadTransaction, b: &HeadTransaction) -> Ordering {
-    b.tip.cmp(&a.tip)
-    // compare by timestamp if tips are equal
+    match b.tip.cmp(&a.tip) {
+        // Timestamp should never be equal
+        Ordering::Equal => a.tx.time().cmp(&b.tx.time()),
+        ordering => ordering,
+    }
 }
