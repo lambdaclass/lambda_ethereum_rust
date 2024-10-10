@@ -569,6 +569,11 @@ impl VM {
                 gas_used,
                 output,
             } => {
+                // Call revert function with ret_offset and ret_size
+                // Like: self.revert(&mut self, ret_offset, ret_size)
+                // I guess that that function reverts changes and sets the new_callframe return data.
+                // Then, here we should push to the stack the value 0.
+
                 current_call_frame.memory.store_bytes(ret_offset, &output);
                 current_call_frame.returndata = output;
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
@@ -724,5 +729,9 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
+    }
+
+    pub fn revert(&mut self, ){
+
     }
 }

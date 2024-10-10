@@ -278,6 +278,36 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        let offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        let size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
+
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit { // This should be changed to callframe gas limit I guess.
+            return Err(VMError::OutOfGas);
+        }
+
+        // Increment the consumed gas by the gas cost
+        self.env.consumed_gas += gas_cost;
+
+        // Load the revert data from memory
+        let revert_data = current_call_frame.memory.load_range(offset, size).into();
+
+        // Set the return data of the current call frame to the revert data
+        current_call_frame.returndata = revert_data;
+
+        // Should we push success for revert? Maybe that should be done after handling a call.
+
+        
         unimplemented!("REVERT opcode encountered")
     }
 
