@@ -13,6 +13,7 @@ members = [
     "crates/vm/levm",
     "crates/vm/levm/bench/revm_comparison",
     "cmd/ethereum_rust_l2",
+    "crates/dev"
 ]
 resolver = "2"
 default-members = ["cmd/ethereum_rust", "cmd/ethereum_rust_l2"]
