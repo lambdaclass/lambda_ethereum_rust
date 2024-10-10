@@ -1,5 +1,5 @@
-use ethereum_rust_evm::EvmError;
 use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_vm::EvmError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
