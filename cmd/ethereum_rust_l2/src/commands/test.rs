@@ -10,6 +10,8 @@ use std::{
     fs::File,
     io::{self, BufRead},
     path::Path,
+    thread::sleep,
+    time::Duration,
 };
 
 #[derive(Subcommand)]
@@ -67,7 +69,7 @@ async fn transfer_from(
     iterations: u64,
     verbose: bool,
     cfg: EthereumRustL2Config,
-) {
+) -> u64 {
     let client = EthClient::new(&cfg.network.l2_rpc_url);
     let private_key = SecretKey::parse(pk.parse::<H256>().unwrap().as_fixed_bytes()).unwrap();
 
@@ -79,6 +81,8 @@ async fn transfer_from(
 
     let address = H160::from(keccak(buffer));
     let nonce = client.get_nonce(address).await.unwrap();
+
+    let mut retries = 0;
 
     for i in nonce..nonce + iterations {
         if verbose {
@@ -95,11 +99,18 @@ async fn transfer_from(
             max_priority_fee_per_gas: 3000000000,
             ..Default::default()
         };
-        client
-            .send_eip1559_transaction(tx, private_key)
+
+        while let Err(e) = client
+            .send_eip1559_transaction(tx.clone(), private_key)
             .await
-            .unwrap();
+        {
+            println!("Transaction failed (PK: {pk} - Nonce: {}): {e}", tx.nonce);
+            retries += 1;
+            sleep(std::time::Duration::from_secs(2));
+        }
     }
+
+    retries
 }
 
 impl Command {
@@ -133,9 +144,13 @@ impl Command {
                             threads.push(thread);
                         }
                     }
+
+                    let mut retries = 0;
                     for thread in threads {
-                        thread.await?;
+                        retries += thread.await?;
                     }
+
+                    println!("Total retries: {retries}");
                 }
 
                 Ok(())
