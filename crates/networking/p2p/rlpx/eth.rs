@@ -1,6 +1,6 @@
 use bytes::BufMut;
 use ethereum_rust_core::{
-    types::{BlockHash, ForkId},
+    types::{BlockHash, ForkId, Receipt},
     U256,
 };
 use ethereum_rust_rlp::{
@@ -107,5 +107,100 @@ impl RLPxMessage for StatusMessage {
             genesis,
             fork_id,
         })
+    }
+}
+
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#getreceipts-0x0f
+#[derive(Debug)]
+pub(crate) struct GetReceipts {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    block_hashes: Vec<BlockHash>,
+}
+
+impl GetReceipts {
+    pub fn new(id: u64, block_hashes: Vec<BlockHash>) -> Self {
+        Self { block_hashes, id }
+    }
+}
+
+impl RLPxMessage for GetReceipts {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.block_hashes)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|err| RLPDecodeError::Custom(err.to_string()))?;
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (block_hashes, _): (Vec<BlockHash>, _) = decoder.decode_field("blockHashes")?;
+
+        Ok(Self::new(id, block_hashes))
+    }
+}
+
+// https://github.com/ethereum/devp2p/blob/master/caps/eth.md#receipts-0x10
+pub(crate) struct Receipts {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    receipts: Vec<Vec<Receipt>>,
+}
+
+impl Receipts {
+    pub fn new(id: u64, receipts: Vec<Vec<Receipt>>) -> Self {
+        Self { receipts, id }
+    }
+}
+
+impl RLPxMessage for Receipts {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_field(&self.receipts)
+            .finish();
+
+        let mut snappy_encoder = SnappyEncoder::new();
+        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
+
+        let compressed_size = snappy_encoder
+            .compress(&encoded_data, &mut msg_data)
+            .unwrap();
+
+        msg_data.truncate(compressed_size);
+
+        buf.put_slice(&msg_data);
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|err| RLPDecodeError::Custom(err.to_string()))?;
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (receipts, _): (Vec<Vec<Receipt>>, _) = decoder.decode_field("receipts")?;
+
+        Ok(Self::new(id, receipts))
     }
 }
