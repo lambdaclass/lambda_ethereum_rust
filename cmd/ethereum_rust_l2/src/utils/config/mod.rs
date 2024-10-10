@@ -109,8 +109,11 @@ pub fn prompt_config() -> eyre::Result<EthereumRustL2Config> {
             private_key: {
                 let prompted_private_key = prompt(
                     PRIVATE_KEY_PROMPT_MSG,
-                    hex::encode(
-                        SecretKey::parse(DEFAULT_PRIVATE_KEY.as_fixed_bytes())?.serialize(),
+                    format!(
+                        "0x{}",
+                        hex::encode(
+                            SecretKey::parse(DEFAULT_PRIVATE_KEY.as_fixed_bytes())?.serialize(),
+                        )
                     ),
                 )?;
                 SecretKey::parse(H256::from_str(&prompted_private_key[2..])?.as_fixed_bytes())?
@@ -213,7 +216,10 @@ pub fn edit_existing_config_interactively(
             private_key: {
                 let prompted_private_key = prompt(
                     PRIVATE_KEY_PROMPT_MSG,
-                    hex::encode(existing_config.wallet.private_key.serialize()),
+                    format!(
+                        "0x{}",
+                        hex::encode(existing_config.wallet.private_key.serialize())
+                    ),
                 )?;
                 SecretKey::parse(H256::from_str(&prompted_private_key[2..])?.as_fixed_bytes())?
             },

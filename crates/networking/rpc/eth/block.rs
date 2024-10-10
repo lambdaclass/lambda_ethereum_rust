@@ -354,12 +354,8 @@ pub fn get_all_block_rpc_receipts(
     if header.parent_hash.is_zero() {
         return Ok(receipts);
     }
-    let parent_header = match find_parent_header(&header, storage) {
-        Ok(header) => header,
-        Err(error) => return Err(RpcErr::Internal(error.to_string())),
-    };
     let blob_gas_price =
-        calculate_base_fee_per_blob_gas(parent_header.excess_blob_gas.unwrap_or_default());
+        calculate_base_fee_per_blob_gas(header.excess_blob_gas.unwrap_or_default());
     // Fetch receipt info from block
     let block_info = RpcReceiptBlockInfo::from_block_header(header);
     // Fetch receipt for each tx in the block and add block and tx info

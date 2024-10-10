@@ -682,7 +682,7 @@ mod tests {
 
     use bytes::Bytes;
     use ethereum_rust_core::{
-        types::{Transaction, TxType},
+        types::{Transaction, TxType, BYTES_PER_BLOB},
         Bloom,
     };
     use ethereum_rust_rlp::decode::RLPDecode;
@@ -728,6 +728,8 @@ mod tests {
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_chain_config_storage, engine_type);
         run_test(&test_genesis_block, engine_type);
+        run_test(&test_filter_mempool_transactions, engine_type);
+        run_test(&blobs_bundle_loadtest, engine_type);
     }
 
     fn test_genesis_block(store: Store) {
@@ -971,6 +973,43 @@ mod tests {
             terminal_total_difficulty: Some(58750000000000000000000),
             terminal_total_difficulty_passed: true,
             ..Default::default()
+        }
+    }
+
+    use hex_literal::hex;
+
+    fn test_filter_mempool_transactions(store: Store) {
+        let plain_tx = Transaction::decode_canonical(&hex!("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4")).unwrap();
+        let blob_tx = Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap();
+        let plain_tx_hash = plain_tx.compute_hash();
+        let blob_tx_hash = blob_tx.compute_hash();
+        let filter =
+            |tx: &Transaction| -> bool { matches!(tx, Transaction::EIP4844Transaction(_)) };
+        store
+            .add_transaction_to_pool(blob_tx_hash, blob_tx.clone())
+            .unwrap();
+        store
+            .add_transaction_to_pool(plain_tx_hash, plain_tx)
+            .unwrap();
+        let txs = store.filter_pool_transactions(&filter).unwrap();
+        assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
+    }
+
+    fn blobs_bundle_loadtest(store: Store) {
+        // Write a bundle of 6 blobs 10 times
+        // If this test fails please adjust the max_size in the DB config
+        for i in 0..300 {
+            let blobs = [[i as u8; BYTES_PER_BLOB]; 6];
+            let commitments = [[i as u8; 48]; 6];
+            let proofs = [[i as u8; 48]; 6];
+            let bundle = BlobsBundle {
+                blobs: blobs.to_vec(),
+                commitments: commitments.to_vec(),
+                proofs: proofs.to_vec(),
+            };
+            store
+                .add_blobs_bundle_to_pool(H256::random(), bundle)
+                .unwrap();
         }
     }
 }
