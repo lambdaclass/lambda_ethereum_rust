@@ -1,5 +1,7 @@
 # Lambda Ethereum Rust Execution Client
 
+test
+
 [![Telegram Chat][tg-badge]][tg-url]
 [![license](https://img.shields.io/github/license/lambdaclass/ethereum_rust)](/LICENSE)
 
