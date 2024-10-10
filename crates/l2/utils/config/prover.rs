@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use super::errors::ConfigError;
+
 #[derive(Deserialize)]
 pub struct ProverConfig {
     pub elf_path: String,
@@ -7,10 +9,9 @@ pub struct ProverConfig {
 }
 
 impl ProverConfig {
-    pub fn from_env() -> Result<Self, String> {
-        match envy::prefixed("PROVER_").from_env::<Self>() {
-            Ok(config) => Ok(config),
-            Err(error) => Err(error.to_string()),
-        }
+    pub fn from_env() -> Result<Self, ConfigError> {
+        envy::prefixed("PROVER_")
+            .from_env::<Self>()
+            .map_err(ConfigError::from)
     }
 }
