@@ -31,6 +31,9 @@ pub const TXS_SAMPLE_SIZE: usize = 3;
 // be taken as a reference for the gas price.
 pub const TXS_SAMPLE_PERCENTILE: usize = 60;
 
+// How many blocks we'll go back to calculate the estimate.
+pub const BLOCK_RANGE_LOWER_BOUND_DEC: u64 = 20;
+
 impl RpcHandler for GasPrice {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
         Ok(GasPrice {})
@@ -41,18 +44,32 @@ impl RpcHandler for GasPrice {
     // caching this result.
     // FIXME: Check diffs between legacy transaction, eip2930... etc.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        // FIXME: Handle None values (i.e. remove unwraps before PR review)
-        let latest_block_number = storage.get_latest_block_number()?.unwrap();
-        let block_range = latest_block_number.saturating_sub(20)..=latest_block_number;
-        // FIXME: Handle this case before PR review
+        let Some(latest_block_number) = storage.get_latest_block_number()? else {
+            error!("FATAL: LATEST BLOCK NUMBER IS MISSING");
+            return Err(RpcErr::Internal("Error calculating gas price".to_string()));
+        };
+        let block_range_lower_bound =
+            latest_block_number.saturating_sub(BLOCK_RANGE_LOWER_BOUND_DEC);
+        // These are the blocks we'll use to estimate the price.
+        let block_range = block_range_lower_bound..=latest_block_number;
         if block_range.is_empty() {
-            todo!("Block range is empty")
+            error!(
+                "Calculated block range from block {} \
+                    up to block {} for gas price estimation is empty",
+                block_range_lower_bound, latest_block_number
+            );
+            return Err(RpcErr::Internal("Error calculating gas price".to_string()));
         }
         let mut results = vec![];
         for block_num in block_range {
-            // FIXME: Handle None values (i.e. remove unwraps before PR review)
-            let mut block_body = storage.get_block_body(latest_block_number)?.unwrap();
-            let block_header = storage.get_block_header(latest_block_number)?.unwrap();
+            let Some(block_body) = storage.get_block_body(latest_block_number)? else {
+                error!("Block body for block number {block_num} is missing but is below the latest known block!");
+                return Err(RpcErr::Internal("Error calculating gas price".to_string()));
+            };
+            let Some(block_header) = storage.get_block_header(latest_block_number)? else {
+                error!("Block header for block number {block_num} is missing but is below the latest known block!");
+                return Err(RpcErr::Internal("Error calculating gas price".to_string()));
+            };
             let base_fee = block_header.base_fee_per_gas;
             let mut txs_tips = block_body
                 .transactions
@@ -66,12 +83,17 @@ impl RpcHandler for GasPrice {
 
             results.extend(txs_tips.into_iter().take(TXS_SAMPLE_SIZE));
         }
-        // FIXME: Properly handle this error before PR review.
         // FIXME: Check for overflow here.
         // FIXME: Check if we need to add the base fee to this.
         let sample_gas = results
             .get(((results.len() - 1) * (TXS_SAMPLE_PERCENTILE / 100)))
-            .ok_or(RpcErr::Internal("".to_string()))?;
+            .ok_or(RpcErr::Internal("Error calculating gas price".to_string()))?;
+
+        // FIXME: Return proper default value here, investigate
+        // which would be appropiate
+        if (*sample_gas as usize) > DEFAULT_MAX_PRICE_IN_WEI {
+            todo!("")
+        }
         // FIXME: Check sample gas is under limit
         let gas_as_hex = format!("0x{:x}", sample_gas);
         // FIXME: Check gas price unit, should be wei according to the spec.
