@@ -1,5 +1,6 @@
 use crate::constants::WORD_SIZE;
 use crate::primitives::U256;
+use crate::vm_result::VMError;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Memory {
@@ -64,16 +65,20 @@ impl Memory {
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
 
-    pub fn expansion_cost(&self, memory_byte_size: usize) -> usize {
+    pub fn expansion_cost(&self, memory_byte_size: usize) -> Result<usize, VMError> {
         if memory_byte_size <= self.data.len() {
-            return 0;
+            return Ok(0);
         }
-        let new_memory_size_word = (memory_byte_size + WORD_SIZE - 1) / WORD_SIZE;
+        let new_memory_size_word = memory_byte_size
+            .checked_add(WORD_SIZE - 1)
+            .ok_or("Overflow occurred when calculating memory size")
+            .map_err(|_| VMError::OverflowInAddition)?
+            / WORD_SIZE;
         let new_memory_cost =
             (new_memory_size_word * new_memory_size_word) / 512 + (3 * new_memory_size_word);
         let last_memory_size_word = (self.data.len() + WORD_SIZE - 1) / WORD_SIZE;
         let last_memory_cost =
             (last_memory_size_word * last_memory_size_word) / 512 + (3 * last_memory_size_word);
-        new_memory_cost - last_memory_cost
+        Ok(new_memory_cost - last_memory_cost)
     }
 }

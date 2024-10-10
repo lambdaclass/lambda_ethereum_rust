@@ -46,10 +46,8 @@ fn get_ignored_groups() -> HashSet<String> {
         "stEIP158Specific".into(),
         "stEIP4844-blobtransactions".into(),
         "eip4844_blobs".into(),
-
         // "stEIP5656-MCOPY".into(),
         // "eip5656_mcopy".into(),
-
         "stEIP2930".into(),
         "stRandom".into(),
         "stRandom2".into(),
@@ -149,4 +147,10 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
-datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/", r"^.*/*.json",);
+datatest_stable::harness!(
+    run_ef_test,
+    "ethtests/GeneralStateTests/Cancun/stEIP5656-MCOPY",
+    r"^.*/*.json",
+);
+
+// crates/vm/levm/ethtests/GeneralStateTests/Cancun/stEIP5656-MCOPY

@@ -346,8 +346,9 @@ impl VM {
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
 
-        let memory_expansion_cost =
-            current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(dest_offset + size)? as u64;
 
         let gas_cost = gas_cost::CODECOPY_STATIC
             + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size as u64
@@ -426,8 +427,9 @@ impl VM {
             .map_err(|_| VMError::VeryLargeNumber)?;
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost =
-            current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(dest_offset + size)? as u64;
         let address_access_cost = if self.accrued_substate.warm_addresses.contains(&address) {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         } else {
