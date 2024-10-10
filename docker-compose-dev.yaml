@@ -1,0 +1,15 @@
+
+version: '3.2'
+services:
+  ethereum_rust:
+    restart: always
+    image: "ethereum_rust_dev"
+    build:
+      context: ./
+      dockerfile: ./docker/dev/Dockerfile
+    ports:
+      - 127.0.0.1:8545:8545
+    volumes:
+      - ./volumes/ethereum_rust_data:/ethereum_rust_data
+      - ./test_data/genesis-kurtosis.json:/genesis-kurtosis.json
+    command: --network /genesis-kurtosis.json --datadir /ethereum_rust_data
