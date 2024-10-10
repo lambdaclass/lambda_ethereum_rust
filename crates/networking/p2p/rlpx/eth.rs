@@ -378,14 +378,16 @@ mod tests {
     #[test]
     fn block_headers_startblock_hash_message() {
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let mut header1 = BlockHeader::default();
+        let number = 1;
+        let header1 = BlockHeader {
+            number,
+            ..Default::default()
+        };
         let body = BlockBody {
             transactions: vec![],
             ommers: vec![],
             withdrawals: None,
         };
-        let number = 1;
-        header1.number = number;
         let block1 = Block {
             header: header1.clone(),
             body,
@@ -421,12 +423,18 @@ mod tests {
             ommers: vec![],
             withdrawals: None,
         };
-        let mut header1 = BlockHeader::default();
-        header1.number = 1;
-        let mut header2 = BlockHeader::default();
-        header2.number = 2;
-        let mut header3 = BlockHeader::default();
-        header3.number = 3;
+        let header1 = BlockHeader {
+            number: 1,
+            ..Default::default()
+        };
+        let header2 = BlockHeader {
+            number: 2,
+            ..Default::default()
+        };
+        let header3 = BlockHeader {
+            number: 3,
+            ..Default::default()
+        };
         let block1 = Block {
             header: header1.clone(),
             body: body.clone(),
@@ -473,12 +481,18 @@ mod tests {
             ommers: vec![],
             withdrawals: None,
         };
-        let mut header1 = BlockHeader::default();
-        header1.number = 1;
-        let mut header2 = BlockHeader::default();
-        header2.number = 2;
-        let mut header3 = BlockHeader::default();
-        header3.number = 3;
+        let header1 = BlockHeader {
+            number: 1,
+            ..Default::default()
+        };
+        let header2 = BlockHeader {
+            number: 2,
+            ..Default::default()
+        };
+        let header3 = BlockHeader {
+            number: 3,
+            ..Default::default()
+        };
         let block1 = Block {
             header: header1.clone(),
             body: body.clone(),
@@ -525,15 +539,18 @@ mod tests {
             ommers: vec![],
             withdrawals: None,
         };
-        let mut header1 = BlockHeader::default();
-        let mut header2 = BlockHeader::default();
-        let mut header3 = BlockHeader::default();
-        header1.parent_hash = BlockHash::from([0; 32]);
-        header1.number = 1;
-        header2.parent_hash = BlockHash::from([1; 32]);
-        header2.number = 2;
-        header3.parent_hash = BlockHash::from([2; 32]);
-        header3.number = 3;
+        let header1 = BlockHeader {
+            number: 1,
+            ..Default::default()
+        };
+        let header2 = BlockHeader {
+            number: 2,
+            ..Default::default()
+        };
+        let header3 = BlockHeader {
+            number: 3,
+            ..Default::default()
+        };
         let block1 = Block {
             header: header1.clone(),
             body: body.clone(),
