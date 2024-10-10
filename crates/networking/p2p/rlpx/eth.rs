@@ -209,16 +209,16 @@ impl RLPxMessage for NewPooledTransactionHashes {
         if transaction_hashes.len() == transaction_sizes.len()
             && transaction_sizes.len() == transaction_types.len()
         {
-            return Ok(Self {
+            Ok(Self {
                 transaction_types,
                 transaction_sizes,
                 transaction_hashes,
-            });
+            })
         } else {
-            return Err(RLPDecodeError::Custom(
+            Err(RLPDecodeError::Custom(
                 "transaction_hashes, transaction_sizes and transaction_types must have the same length"
                     .to_string(),
-            ));
+            ))
         }
     }
 }
@@ -262,10 +262,7 @@ impl RLPxMessage for GetPooledTransactions {
         let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
         let (transaction_hashes, _): (Vec<H256>, _) = decoder.decode_field("transactionHashes")?;
 
-        Ok(Self {
-            transaction_hashes,
-            id,
-        })
+        Ok(Self::new(id, transaction_hashes))
     }
 }
 
@@ -307,10 +304,7 @@ impl RLPxMessage for PooledTransactions {
         let (pooled_transactions, _): (Vec<Transaction>, _) =
             decoder.decode_field("pooledTransactions")?;
 
-        Ok(Self {
-            pooled_transactions,
-            id,
-        })
+        Ok(Self::new(id, pooled_transactions))
     }
 }
 
