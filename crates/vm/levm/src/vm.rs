@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use ethers::{core::k256::elliptic_curve::rand_core::block, utils::keccak256};
+use ethers::utils::keccak256;
 
 use crate::{
     block::BlockEnv,
@@ -11,10 +11,10 @@ use crate::{
     constants::*,
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    transaction::{TransactTo, TxEnv, TxType},
+    transaction::{TransactTo, TxEnv},
     vm_result::{
-        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, InvalidTx, OpcodeSuccess,
-        Output, ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
+        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, OpcodeSuccess, Output,
+        ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
     },
 };
 extern crate ethereum_rust_rlp;
