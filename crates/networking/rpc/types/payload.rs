@@ -230,21 +230,6 @@ pub struct ExecutionPayloadResponse {
     pub blobs_bundle: BlobsBundle,
 }
 
-// TODO: Fill BlobsBundle
-impl ExecutionPayloadResponse {
-    pub fn new(payload: ExecutionPayloadV3, block_value: U256) -> Self {
-        Self {
-            execution_payload: payload,
-            block_value,
-            blobs_bundle: BlobsBundle {
-                commitments: vec![],
-                proofs: vec![],
-                blobs: vec![],
-            },
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;

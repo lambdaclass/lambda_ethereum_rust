@@ -252,23 +252,21 @@ impl StoreEngine for Store {
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
     ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
-        let cursor = self
-            .db
-            .begin_read()
-            .map_err(StoreError::LibmdbxError)?
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn
             .cursor::<TransactionPool>()
             .map_err(StoreError::LibmdbxError)?;
-        let mut tx_iter = cursor.walk(None);
+        let tx_iter = cursor
+            .walk(None)
+            .map_while(|res| res.ok().map(|(_, tx)| tx.to()));
         let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
-        while let Some(Ok((_, tx))) = tx_iter.next() {
-            let tx = tx.to();
+        for tx in tx_iter {
             if filter(&tx) {
-                // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
-                txs_by_sender
-                    .entry(tx.sender())
-                    .or_default()
-                    .push(tx.clone())
+                txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
+        }
+        for (_, txs) in txs_by_sender.iter_mut() {
+            txs.sort_by_key(|tx| tx.nonce());
         }
         Ok(txs_by_sender)
     }
@@ -425,6 +423,48 @@ impl StoreEngine for Store {
 
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
+    }
+
+    fn get_transaction_by_hash(
+        &self,
+        transaction_hash: H256,
+    ) -> std::result::Result<Option<Transaction>, StoreError> {
+        let (_block_number, block_hash, index) =
+            match self.get_transaction_location(transaction_hash)? {
+                Some(location) => location,
+                None => return Ok(None),
+            };
+        self.get_transaction_by_location(block_hash, index)
+    }
+
+    fn get_transaction_by_location(
+        &self,
+        block_hash: H256,
+        index: u64,
+    ) -> std::result::Result<Option<Transaction>, StoreError> {
+        let block_body = match self.get_block_body_by_hash(block_hash)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(index
+            .try_into()
+            .ok()
+            .and_then(|index: usize| block_body.transactions.get(index).cloned()))
+    }
+
+    fn get_block_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<Block>, StoreError> {
+        let header = match self.get_block_header_by_hash(block_hash)? {
+            Some(header) => header,
+            None => return Ok(None),
+        };
+        let body = match self.get_block_body_by_hash(block_hash)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(Some(Block { header, body }))
     }
 }
 

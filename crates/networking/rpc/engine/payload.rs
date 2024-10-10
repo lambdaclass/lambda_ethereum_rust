@@ -208,12 +208,13 @@ impl RpcHandler for GetPayloadV3Request {
                 self.payload_id
             )));
         };
-        let block_value = build_payload(&mut payload, &storage)
-            .map_err(|error| RpcErr::Internal(error.to_string()))?;
-        serde_json::to_value(ExecutionPayloadResponse::new(
-            ExecutionPayloadV3::from_block(payload),
+        let (blobs_bundle, block_value) = build_payload(&mut payload, &storage)
+            .map_err(|err| RpcErr::Internal(err.to_string()))?;
+        serde_json::to_value(ExecutionPayloadResponse {
+            execution_payload: ExecutionPayloadV3::from_block(payload),
             block_value,
-        ))
+            blobs_bundle,
+        })
         .map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
