@@ -1,6 +1,7 @@
 use crate::{config::EthereumRustL2Config, utils::config::confirm};
 use clap::Subcommand;
 use eyre::ContextCompat;
+use libsecp256k1::SecretKey;
 use std::path::{Path, PathBuf};
 
 pub const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -140,7 +141,7 @@ fn contract_deps(contracts_path: &PathBuf) -> eyre::Result<()> {
 
 fn deploy_l1(
     l1_rpc_url: &str,
-    deployer_private_key: &str,
+    deployer_private_key: &SecretKey,
     contracts_path: &PathBuf,
 ) -> eyre::Result<()> {
     // Run 'which solc' to get the path of the solc binary
@@ -157,7 +158,7 @@ fn deploy_l1(
         .arg("--rpc-url")
         .arg(l1_rpc_url)
         .arg("--private-key")
-        .arg(deployer_private_key) // TODO: In the future this must be the operator's private key.
+        .arg(hex::encode(deployer_private_key.serialize())) // TODO: In the future this must be the operator's private key.
         .arg("--broadcast")
         .arg("--use")
         .arg(solc_path)
