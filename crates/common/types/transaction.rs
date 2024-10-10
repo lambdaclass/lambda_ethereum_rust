@@ -1024,7 +1024,7 @@ mod mempool {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct MempoolTransaction {
         // Unix timestamp (in microseconds) created once the transaction reached the MemPool
         timestamp: u128,
@@ -1040,6 +1040,9 @@ mod mempool {
                     .as_micros(),
                 inner: tx,
             }
+        }
+        pub fn time(&self) -> u128 {
+            self.timestamp
         }
     }
 
@@ -1075,9 +1078,20 @@ mod mempool {
         }
     }
 
-    impl MempoolTransaction {
-        pub fn time(&self) -> u128 {
-            self.timestamp
+    // Compares transactions by lowest nonce, if the nonce is equal, compares by highest timestamp
+    impl std::cmp::Ord for MempoolTransaction {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            match self.nonce().cmp(&other.nonce()) {
+                // TODO: check this, test Replace Blob Transactions passes with this ordering
+                std::cmp::Ordering::Equal => other.time().cmp(&self.time()),
+                ordering => ordering,
+            }
+        }
+    }
+
+    impl std::cmp::PartialOrd for MempoolTransaction {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
         }
     }
 }

@@ -213,10 +213,7 @@ impl StoreEngine for Store {
                     .push(tx.clone())
             }
         }
-        // As we store txs in hashmaps they won't be sorted by nonce
-        for (_, txs) in txs_by_sender.iter_mut() {
-            txs.sort_by_key(|tx| tx.nonce());
-        }
+        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
     }
 

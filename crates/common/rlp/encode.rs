@@ -162,7 +162,7 @@ impl RLPEncode for u128 {
             // Otherwise, if a string is 0-55 bytes long, the RLP encoding consists of a
             // single byte with value RLP_NULL (0x80) plus the length of the string followed by the string.
             n => {
-                let mut bytes = ArrayVec::<[u8; 8]>::new();
+                let mut bytes = ArrayVec::<[u8; 16]>::new();
                 bytes.extend_from_slice(&n.to_be_bytes());
                 let start = bytes.iter().position(|&x| x != 0).unwrap();
                 let len = bytes.len() - start;
