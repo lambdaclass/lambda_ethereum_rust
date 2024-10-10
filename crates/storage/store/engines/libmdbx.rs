@@ -21,6 +21,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
+use libmdbx::{DatabaseOptions, Mode, ReadWriteOptions};
 use serde_json;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
@@ -654,7 +655,15 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     .into_iter()
     .collect();
     let path = path.map(|p| p.as_ref().to_path_buf());
-    Database::create(path, &tables).unwrap()
+    let options = DatabaseOptions {
+        mode: Mode::ReadWrite(ReadWriteOptions {
+            // Set max DB size to 1TB
+            max_size: Some(1024_isize.pow(4)),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    Database::create_with_options(path, options, &tables).unwrap()
 }
 
 #[cfg(test)]

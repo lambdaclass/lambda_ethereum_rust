@@ -228,6 +228,7 @@ pub struct ExecutionPayloadResponse {
     // Total fees consumed by the block (fees paid)
     pub block_value: U256,
     pub blobs_bundle: BlobsBundle,
+    pub should_override_builder: bool, // TODO: look into this
 }
 
 #[cfg(test)]
