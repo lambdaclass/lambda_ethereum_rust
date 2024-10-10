@@ -1,6 +1,7 @@
 pub mod block;
 pub mod call_frame;
 pub mod constants;
+pub mod env;
 pub mod memory;
 pub mod opcode_handlers;
 pub mod opcodes;

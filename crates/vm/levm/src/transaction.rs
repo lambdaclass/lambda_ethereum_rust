@@ -18,11 +18,41 @@ pub enum TransactTo {
 #[derive(Clone, Debug, Default)]
 pub struct TxEnv {
     /// Caller aka Author aka transaction signer.
-    pub msg_sender: Address,
-    /// The gas limit of the transaction.
+    pub caller: Address,
+
+    /// Maximum amount of gas that should be used in executing
+    /// this transaction.
     pub gas_limit: u64,
-    /// The gas price of the transaction.
-    pub gas_price: Option<U256>,
+
+    /// The amount of wei the transaction signer will pay per unit
+    /// of gas consumed during the transaction's execution.
+    ///
+    /// It is calculated as follows:
+    ///
+    /// - For type 0 and type 1 transactions:
+    ///
+    /// ```p = tx.gas_price```
+    ///
+    /// - For type 2 and type 3 transactions:
+    ///
+    /// ```p = gas_priority_fee + block.base_fee_per_gas```
+    pub effective_gas_price: U256,
+
+    /// The amount of wei the block's beneficiary address will
+    /// receive per unit of gas consumed during the transaction's
+    /// execution.
+    ///
+    /// If is calculated as follows:
+    ///
+    /// - For type 0 and type 1 transactions:
+    ///
+    /// ```f = tx.gas_price - block.base_fee_per_gas```
+    ///
+    /// - For type 2 and type 3 transactions:
+    ///
+    /// ```f = min(tx.max_priority_fee_per_gas, tx.max_fee_per_gas - tx.base_fee_per_gas)```
+    pub priority_fee: U256,
+
     /// The destination of the transaction.
     pub transact_to: TransactTo,
     /// The value sent to `transact_to`.
@@ -30,30 +60,19 @@ pub struct TxEnv {
     // The data of the transaction.
     pub data: Bytes,
     // The nonce of the transaction.
-    pub nonce: Option<u64>,
-    // Caution: If set to `None`, then nonce validation against the account's nonce is skipped: [InvalidTransaction::NonceTooHigh] and [InvalidTransaction::NonceTooLow]
-
+    pub nonce: u64,
     // The chain ID of the transaction. If set to `None`, no checks are performed.
     //
     // Incorporated as part of the Spurious Dragon upgrade via [EIP-155].
     //
     // [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     pub chain_id: Option<u64>,
-
     // A list of addresses and storage keys that the transaction plans to access.
     //
     // Added in [EIP-2930].
     //
     // [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     pub access_list: Option<AccessList>,
-
-    /// Maximum number of Wei to be paid to the block's recipient
-    /// as an incentive to include the transaction.
-    ///
-    /// Incorporated as part of the London upgrade via [EIP-1559].
-    ///
-    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-155
-    pub max_priority_fee_per_gas: Option<U256>,
 
     // The list of blob versioned hashes. Per EIP there should be at least
     // one blob present if [`Self::max_fee_per_blob_gas`] is `Some`.

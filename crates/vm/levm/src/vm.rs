@@ -721,4 +721,8 @@ impl VM {
             code_size_in_memory,
         )
     }
+
+    pub fn new_with_env(env: Env, db: Db) -> Self {
+        todo!()
+    }
 }

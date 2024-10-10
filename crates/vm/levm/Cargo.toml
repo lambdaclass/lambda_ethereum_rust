@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 ethereum-types.workspace = true
+ethereum_rust-core.workspace = true
 bytes.workspace = true
 sha3 = "0.10.8"
 datatest-stable = "0.2.9"
