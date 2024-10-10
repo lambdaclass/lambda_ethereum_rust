@@ -2,9 +2,7 @@ use std::marker::PhantomData;
 
 use bytes::Bytes;
 use ethereum_rust_core::{
-    types::{
-        BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, MempoolTransaction, Receipt,
-    },
+    types::{BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, MempoolTransaction, Receipt},
     H256,
 };
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
