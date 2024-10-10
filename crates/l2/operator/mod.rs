@@ -27,8 +27,8 @@ pub struct Operator {
     eth_client: EthClient,
     engine_client: EngineClient,
     block_executor_address: Address,
-    operator_address: Address,
-    operator_private_key: SecretKey,
+    l1_address: Address,
+    l1_private_key: SecretKey,
     block_production_interval: Duration,
 }
 
@@ -62,17 +62,17 @@ pub async fn start_operator(store: Store) {
 
 impl Operator {
     pub fn new_from_config(
-        config: &OperatorConfig,
+        operator_config: &OperatorConfig,
         eth_config: EthConfig,
         engine_config: EngineApiConfig,
     ) -> Result<Self, OperatorError> {
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
-            block_executor_address: config.block_executor_address,
-            operator_address: config.operator_address,
-            operator_private_key: config.operator_private_key,
-            block_production_interval: Duration::from_millis(config.interval_ms),
+            block_executor_address: operator_config.block_executor_address,
+            l1_address: operator_config.l1_address,
+            l1_private_key: operator_config.l1_private_key,
+            block_production_interval: Duration::from_millis(operator_config.interval_ms),
         })
     }
 
@@ -271,10 +271,10 @@ impl Operator {
 
         tx.max_fee_per_gas = self.eth_client.get_gas_price().await?;
 
-        tx.nonce = self.eth_client.get_nonce(self.operator_address).await?;
+        tx.nonce = self.eth_client.get_nonce(self.l1_address).await?;
 
         self.eth_client
-            .send_eip1559_transaction(tx, self.operator_private_key)
+            .send_eip1559_transaction(tx, self.l1_private_key)
             .await
             .map_err(OperatorError::from)
     }
