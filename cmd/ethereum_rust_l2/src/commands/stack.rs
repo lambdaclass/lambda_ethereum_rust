@@ -26,7 +26,7 @@ pub(crate) enum Command {
         l1: bool,
         #[clap(long, help = "Shuts down the L2 node.", default_value_t = true)]
         l2: bool,
-        #[clap(short = 'y', long, help = "Forces the restart without confirmation.")]
+        #[clap(short = 'y', long, help = "Forces the shutdown without confirmation.")]
         force: bool,
     },
     #[clap(about = "Starts the stack.")]
@@ -35,12 +35,12 @@ pub(crate) enum Command {
         l1: bool,
         #[clap(long, help = "Starts the L2 node.", required = false)]
         l2: bool,
-        #[clap(short = 'y', long, help = "Forces the restart without confirmation.")]
+        #[clap(short = 'y', long, help = "Forces the start without confirmation.")]
         force: bool,
     },
     #[clap(about = "Cleans up the stack. Prompts for confirmation.")]
     Purge {
-        #[clap(short = 'y', long, help = "Forces the restart without confirmation.")]
+        #[clap(short = 'y', long, help = "Forces the purge without confirmation.")]
         force: bool,
     },
     #[clap(
