@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    str::FromStr,
     sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -55,7 +56,7 @@ impl RpcHandler for GasPrice {
             // FIXME: Handle None values (i.e. remove unwraps before PR review)
             let mut block_body = storage.get_block_body(latest_block_number)?.unwrap();
             let block_header = storage.get_block_header(latest_block_number)?.unwrap();
-            let base_fee = latest_block_header.base_fee_per_gas;
+            let base_fee = block_header.base_fee_per_gas;
             let mut txs_tips = block_body
                 .transactions
                 .into_iter()
@@ -66,7 +67,7 @@ impl RpcHandler for GasPrice {
 
             txs_tips.sort();
 
-            results.extend(txs_.into_iter().take(TXS_SAMPLE_SIZE));
+            results.extend(txs_tips.into_iter().take(TXS_SAMPLE_SIZE));
         }
         // FIXME: Properly handle this error before PR review.
         // FIXME: Check for overflow here.
@@ -74,7 +75,8 @@ impl RpcHandler for GasPrice {
             .get(((results.len() - 1) * (TXS_SAMPLE_PERCENTILE / 100)))
             .ok_or(RpcErr::Internal("".to_string()))?;
         // FIXME: Check sample gas is under limit
+        let gas_as_hex = format!("0x{:x}", sample_gas);
         // FIXME: Check gas price unit
-        return Ok(format!("0x{:x}", sample_gas));
+        return Ok(serde_json::Value::from_str(&gas_as_hex)?);
     }
 }

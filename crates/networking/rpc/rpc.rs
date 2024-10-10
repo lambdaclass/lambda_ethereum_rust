@@ -23,21 +23,15 @@ use eth::{
     account::{
         GetBalanceRequest, GetCodeRequest, GetProofRequest, GetStorageAtRequest,
         GetTransactionCountRequest,
-    },
-    block::{
+    }, block::{
         BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
         GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
         GetRawHeaderRequest, GetRawReceipts,
-    },
-    client::{ChainId, Syncing},
-    fee_market::FeeHistoryRequest,
-    filter::{ActiveFilters, FilterRequest},
-    logs::LogsFilter,
-    transaction::{
+    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, filter::{ActiveFilters, FilterRequest}, gas_price::GasPrice, logs::LogsFilter, transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
-    },
+    }
 };
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -218,6 +212,7 @@ pub fn map_eth_requests(
         "eth_newFilter" => FilterRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
+        "eth_gasPrice" => GasPrice::call(req, storage),
         unknown_eth_method => Err(RpcErr::MethodNotFound(unknown_eth_method.to_owned())),
     }
 }
