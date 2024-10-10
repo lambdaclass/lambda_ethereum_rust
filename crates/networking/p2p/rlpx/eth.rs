@@ -217,20 +217,9 @@ mod tests {
 
     fn get_receipts_from_hash(store: &Store, blocks_hash: Vec<BlockHash>) -> Vec<Vec<Receipt>> {
         let mut receipts = vec![];
-        let mut receipts_index = 1;
-        let mut ammount_of_elements = 0;
         for block_hash in blocks_hash {
-            receipts.push(vec![]);
-            // TODO: probably the store will need a "get_all_receipts_from_block" function
-            while let Some(receipt) = store
-                .get_receipt_by_hash(block_hash, receipts_index)
-                .unwrap()
-            {
-                receipts_index += 1;
-                receipts[ammount_of_elements].push(receipt);
-            }
-            ammount_of_elements += 1;
-            receipts_index = 1;
+            let block_receipts = store.get_all_receipts_by_hash(block_hash).unwrap().unwrap();
+            receipts.push(block_receipts);
         }
         receipts
     }

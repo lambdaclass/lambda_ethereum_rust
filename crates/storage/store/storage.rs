@@ -404,6 +404,13 @@ impl Store {
         self.engine.get_receipt_by_hash(block_hash, index)
     }
 
+    pub fn get_all_receipts_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<Vec<Receipt>>, StoreError> {
+        self.engine.get_all_receipts_by_hash(block_hash)
+    }
+
     pub fn add_block(&self, block: Block) -> Result<(), StoreError> {
         // TODO Maybe add both in a single tx?
         let header = block.header;

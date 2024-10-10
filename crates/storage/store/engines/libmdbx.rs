@@ -196,6 +196,13 @@ impl StoreEngine for Store {
             .map(|b| b.to()))
     }
 
+    fn get_all_receipts_by_hash(
+        &self,
+        _block_hash: BlockHash,
+    ) -> Result<Option<Vec<Receipt>>, StoreError> {
+        todo!();
+    }
+
     fn add_transaction_location(
         &self,
         transaction_hash: H256,
