@@ -4,7 +4,6 @@ use bytes::Bytes;
 use ethereum_rust_core::{
     types::{
         BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, MempoolTransaction, Receipt,
-        Transaction,
     },
     H256,
 };

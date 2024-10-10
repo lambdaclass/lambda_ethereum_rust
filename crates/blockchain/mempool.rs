@@ -363,7 +363,7 @@ mod tests {
         let ret_tx = get_transaction(hash, store).expect("Get transaction");
         assert!(ret_tx.is_some());
         let ret_tx = ret_tx.unwrap();
-        assert!(tx_equal(&tx, &*ret_tx))
+        assert!(tx_equal(&tx, &ret_tx))
     }
 
     #[test]

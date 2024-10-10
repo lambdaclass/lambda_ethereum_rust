@@ -282,14 +282,6 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             &mut plain_txs
         };
 
-        println!(
-            "sender: {}, tip: {}, nonce: {}, blobs: {}",
-            head_tx.sender,
-            head_tx.tip,
-            head_tx.tx.nonce(),
-            head_tx.tx.blob_versioned_hashes().len()
-        );
-
         // Check if we have enough gas to run the transaction
         if context.remaining_gas < head_tx.tx.gas_limit() {
             debug!(
@@ -439,9 +431,9 @@ impl std::ops::Deref for HeadTransaction {
     }
 }
 
-impl Into<Transaction> for HeadTransaction {
-    fn into(self) -> Transaction {
-        self.tx.into()
+impl From<HeadTransaction> for Transaction {
+    fn from(val: HeadTransaction) -> Self {
+        val.tx.into()
     }
 }
 

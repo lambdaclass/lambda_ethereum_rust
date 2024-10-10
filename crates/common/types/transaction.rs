@@ -1075,9 +1075,9 @@ mod mempool {
         }
     }
 
-    impl Into<Transaction> for MempoolTransaction {
-        fn into(self) -> Transaction {
-            self.inner
+    impl From<MempoolTransaction> for Transaction {
+        fn from(val: MempoolTransaction) -> Self {
+            val.inner
         }
     }
 
