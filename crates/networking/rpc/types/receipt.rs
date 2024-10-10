@@ -1,3 +1,4 @@
+use ethereum_rust_blockchain::constants::GAS_PER_BLOB;
 use ethereum_rust_core::{
     serde_utils,
     types::{BlockHash, BlockHeader, BlockNumber, Log, Receipt, Transaction, TxKind, TxType},
@@ -123,12 +124,6 @@ pub struct RpcReceiptBlockInfo {
     pub block_hash: BlockHash,
     #[serde(with = "serde_utils::u64::hex_str")]
     pub block_number: BlockNumber,
-    #[serde(
-        skip_serializing_if = "Option::is_none",
-        with = "serde_utils::u64::hex_str_opt",
-        default = "Option::default"
-    )]
-    pub blob_gas_used: Option<u64>,
 }
 
 impl RpcReceiptBlockInfo {
@@ -136,13 +131,6 @@ impl RpcReceiptBlockInfo {
         RpcReceiptBlockInfo {
             block_hash: block_header.compute_block_hash(),
             block_number: block_header.number,
-            blob_gas_used: block_header.blob_gas_used.and_then(|val| {
-                if val == 0 {
-                    None
-                } else {
-                    Some(val)
-                }
-            }),
         }
     }
 }
@@ -165,6 +153,11 @@ pub struct RpcReceiptTxInfo {
         default = "Option::default"
     )]
     pub blob_gas_price: Option<u64>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "serde_utils::u64::hex_str_opt"
+    )]
+    pub blob_gas_used: Option<u64>,
 }
 
 impl RpcReceiptTxInfo {
@@ -179,10 +172,12 @@ impl RpcReceiptTxInfo {
         let transaction_hash = transaction.compute_hash();
         let effective_gas_price = transaction.gas_price();
         let transaction_index = index;
-        let blob_gas_price = if transaction.tx_type() == TxType::EIP4844 {
-            Some(block_blob_gas_price)
-        } else {
-            None
+        let (blob_gas_price, blob_gas_used) = match &transaction {
+            Transaction::EIP4844Transaction(tx) => (
+                Some(block_blob_gas_price),
+                Some(tx.blob_versioned_hashes.len() as u64 * GAS_PER_BLOB),
+            ),
+            _ => (None, None),
         };
         let (contract_address, to) = match transaction.to() {
             TxKind::Create => (
@@ -203,6 +198,7 @@ impl RpcReceiptTxInfo {
             gas_used,
             effective_gas_price,
             blob_gas_price,
+            blob_gas_used,
         }
     }
 }
@@ -241,11 +237,11 @@ mod tests {
                 gas_used: 147,
                 effective_gas_price: 157,
                 blob_gas_price: None,
+                blob_gas_used: None,
             },
             RpcReceiptBlockInfo {
                 block_hash: BlockHash::zero(),
                 block_number: 3,
-                blob_gas_used: None,
             },
             0,
         );
