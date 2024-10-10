@@ -15,9 +15,14 @@ use tracing::{debug, error, info, warn};
 use prover_lib::inputs::{ProverInput, ProverInputNoExecution};
 
 use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
+use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
 
 use super::zk_prover::{Prover, ProverMode};
 
+pub async fn start_proof_data_client() {
+    let config = ProverConfig::from_env().unwrap();
+    let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
+    proof_data_client.start(config).await;
 pub async fn start_proof_data_client() {
     let config = ProverConfig::from_env().unwrap();
     let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
@@ -26,6 +31,7 @@ pub async fn start_proof_data_client() {
 
 struct ProofDataClient {
     proof_data_provider_endpoint: String,
+    proof_data_provider_endpoint: String,
 }
 
 impl ProofDataClient {
@@ -33,8 +39,14 @@ impl ProofDataClient {
         Self {
             proof_data_provider_endpoint,
         }
+    pub fn new(proof_data_provider_endpoint: String) -> Self {
+        Self {
+            proof_data_provider_endpoint,
+        }
     }
 
+    pub async fn start(&self, config: ProverConfig) {
+        let prover = Prover::new_from_config(config);
     pub async fn start(&self, config: ProverConfig) {
         let prover = Prover::new_from_config(config);
 
@@ -78,6 +90,8 @@ impl ProofDataClient {
         let buf_reader = BufReader::new(&stream);
         let response: ProofData = serde_json::de::from_reader(buf_reader)
             .map_err(|e| format!("Invalid response format: {e}"))?;
+        let response: ProofData = serde_json::de::from_reader(buf_reader)
+            .map_err(|e| format!("Invalid response format: {e}"))?;
 
         match response {
             ProofData::Response {
@@ -97,6 +111,9 @@ impl ProofDataClient {
     fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
         let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
+    fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
+        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
+            .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {
@@ -107,15 +124,23 @@ impl ProofDataClient {
         stream
             .shutdown(std::net::Shutdown::Write)
             .map_err(|e| e.to_string())?;
+        serde_json::ser::to_writer(buf_writer, &submit).map_err(|e| e.to_string())?;
+        stream
+            .shutdown(std::net::Shutdown::Write)
+            .map_err(|e| e.to_string())?;
 
         let buf_reader = BufReader::new(&stream);
+        let response: ProofData = serde_json::de::from_reader(buf_reader)
+            .map_err(|e| format!("Invalid response format: {e}"))?;
         let response: ProofData = serde_json::de::from_reader(buf_reader)
             .map_err(|e| format!("Invalid response format: {e}"))?;
         match response {
             ProofData::SubmitAck { id: res_id } => {
                 debug!("Received submit ack: {res_id}");
+                debug!("Received submit ack: {res_id}");
                 Ok(())
             }
+            _ => Err(format!("Unexpected response {response:?}")),
             _ => Err(format!("Unexpected response {response:?}")),
         }
     }

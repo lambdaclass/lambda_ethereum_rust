@@ -51,9 +51,11 @@ pub enum ProofData {
     },
     Submit {
         id: u64,
+        id: u64,
         proof: Box<SP1ProofWithPublicValues>,
     },
     SubmitAck {
+        id: u64,
         id: u64,
     },
 }
@@ -75,7 +77,10 @@ impl ProofDataProvider {
 
     pub async fn start(&self) -> Result<(), ProofDataProviderError> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
+    pub async fn start(&self) -> Result<(), ProofDataProviderError> {
+        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
+        let mut last_proved_block = 0;
         let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
@@ -83,13 +88,18 @@ impl ProofDataProvider {
             debug!("Connection established!");
             self.handle_connection(stream?, &mut last_proved_block)
                 .await;
+            self.handle_connection(stream?, &mut last_proved_block)
+                .await;
         }
+        Ok(())
         Ok(())
     }
 
     async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
+    async fn handle_connection(&self, mut stream: TcpStream, last_proved_block: &mut u64) {
         let buf_reader = BufReader::new(&stream);
 
+        let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         let data: Result<ProofData, _> = serde_json::de::from_reader(buf_reader);
         match data {
             Ok(ProofData::Request { mode }) => {
@@ -100,6 +110,18 @@ impl ProofDataProvider {
                 {
                     warn!("Failed to handle request: {e}");
                 }
+            }
+            Ok(ProofData::Submit { id, proof }) => {
+                if let Err(e) = self.handle_submit(&mut stream, id, proof) {
+                    warn!("Failed to handle submit: {e}");
+                }
+                *last_proved_block += 1;
+            }
+            Err(e) => {
+                warn!("Failed to parse request: {e}");
+            }
+            _ => {
+                warn!("Invalid request");
             }
             Ok(ProofData::Submit { id, proof }) => {
                 if let Err(e) = self.handle_submit(&mut stream, id, proof) {
@@ -434,6 +456,7 @@ impl ProofDataProvider {
         };
 
         let writer = BufWriter::new(stream);
+        serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
 
