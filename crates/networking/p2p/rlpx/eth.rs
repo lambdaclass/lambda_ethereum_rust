@@ -26,7 +26,7 @@ pub(crate) struct StatusMessage {
 }
 
 impl StatusMessage {
-    pub fn build_from(storage: &Store) -> Result<Self, StoreError> {
+    pub fn new(storage: &Store) -> Result<Self, StoreError> {
         let chain_config = storage.get_chain_config()?;
         let total_difficulty =
             U256::from(chain_config.terminal_total_difficulty.unwrap_or_default());
@@ -120,7 +120,7 @@ pub(crate) struct GetBlockBodies {
 }
 
 impl GetBlockBodies {
-    pub fn build_from(id: u64, block_hashes: Vec<BlockHash>) -> Self {
+    pub fn new(id: u64, block_hashes: Vec<BlockHash>) -> Self {
         Self { block_hashes, id }
     }
 }
@@ -167,11 +167,7 @@ pub(crate) struct BlockBodies {
 }
 
 impl BlockBodies {
-    pub fn build_from(
-        id: u64,
-        storage: &Store,
-        blocks_hash: Vec<BlockHash>,
-    ) -> Result<Self, StoreError> {
+    pub fn new(id: u64, storage: &Store, blocks_hash: Vec<BlockHash>) -> Result<Self, StoreError> {
         let mut block_bodies = vec![];
 
         for block_hash in blocks_hash {
@@ -232,7 +228,7 @@ mod tests {
     #[test]
     fn get_block_bodies_empty_message() {
         let blocks_hash = vec![];
-        let get_block_bodies = GetBlockBodies::build_from(1, blocks_hash.clone());
+        let get_block_bodies = GetBlockBodies::new(1, blocks_hash.clone());
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -249,7 +245,7 @@ mod tests {
             BlockHash::from([1; 32]),
             BlockHash::from([2; 32]),
         ];
-        let get_block_bodies = GetBlockBodies::build_from(1, blocks_hash.clone());
+        let get_block_bodies = GetBlockBodies::new(1, blocks_hash.clone());
 
         let mut buf = Vec::new();
         get_block_bodies.encode(&mut buf);
@@ -263,7 +259,7 @@ mod tests {
     fn block_bodies_empty_message() {
         let blocks_hash = vec![];
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let block_bodies = BlockBodies::build_from(1, &store, blocks_hash).unwrap();
+        let block_bodies = BlockBodies::new(1, &store, blocks_hash).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -310,7 +306,7 @@ mod tests {
             block3.header.compute_block_hash(),
         ];
 
-        let block_bodies = BlockBodies::build_from(1, &store, blocks_hash).unwrap();
+        let block_bodies = BlockBodies::new(1, &store, blocks_hash).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -339,7 +335,7 @@ mod tests {
 
         let blocks_hash = vec![BlockHash::from([1; 32])];
 
-        let block_bodies = BlockBodies::build_from(1, &store, blocks_hash).unwrap();
+        let block_bodies = BlockBodies::new(1, &store, blocks_hash).unwrap();
 
         let mut buf = Vec::new();
         block_bodies.encode(&mut buf);
@@ -378,7 +374,7 @@ mod tests {
         let sender_chosen_id = 1;
         let sender_address = "127.0.0.1:3000";
         let receiver_address = "127.0.0.1:4000";
-        let get_block_bodies = GetBlockBodies::build_from(sender_chosen_id, blocks_hash.clone());
+        let get_block_bodies = GetBlockBodies::new(sender_chosen_id, blocks_hash.clone());
 
         let mut send_data_of_blocks_hash = Vec::new();
         get_block_bodies.encode(&mut send_data_of_blocks_hash);
@@ -397,7 +393,7 @@ mod tests {
 
         assert_eq!(received_block_hashes.id, sender_chosen_id);
         assert_eq!(received_block_hashes.block_hashes, blocks_hash);
-        let block_bodies = BlockBodies::build_from(
+        let block_bodies = BlockBodies::new(
             received_block_hashes.id,
             &store,
             received_block_hashes.block_hashes,
