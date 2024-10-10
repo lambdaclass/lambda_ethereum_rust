@@ -15,7 +15,9 @@ pub type Index = u64;
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Receipt {
     pub tx_type: TxType,
+    #[serde(with = "crate::serde_utils::bool")]
     pub succeeded: bool,
+    #[serde(with = "crate::serde_utils::u64::hex_str")]
     pub cumulative_gas_used: u64,
     pub bloom: Bloom,
     pub logs: Vec<Log>,
