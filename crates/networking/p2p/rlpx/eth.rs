@@ -145,7 +145,7 @@ impl RLPxMessage for Transactions {
         let decoder = Decoder::new(&decompressed_data)?;
         let (transactions, _): (Vec<Transaction>, _) = decoder.decode_field("transactions")?;
 
-        Ok(Self { transactions })
+        Ok(Self::new(transactions))
     }
 }
 // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#newpooledtransactionhashes-0x08
@@ -278,25 +278,11 @@ pub(crate) struct PooledTransactions {
 }
 
 impl PooledTransactions {
-    pub fn new(
-        id: u64,
-        storage: &Store,
-        transaction_hashes: Vec<H256>,
-    ) -> Result<Self, StoreError> {
-        let mut pooled_transactions = vec![];
-
-        for transaction_hash in transaction_hashes {
-            let pooled_transaction = match storage.get_transaction_from_pool(transaction_hash)? {
-                Some(pooled_transaction) => pooled_transaction,
-                None => continue,
-            };
-            pooled_transactions.push(pooled_transaction);
-        }
-
-        Ok(Self {
+    pub fn new(id: u64, pooled_transactions: Vec<Transaction>) -> Self {
+        Self {
             pooled_transactions,
             id,
-        })
+        }
     }
 }
 
@@ -336,7 +322,7 @@ mod tests {
         types::{EIP1559Transaction, EIP2930Transaction, EIP4844Transaction, Transaction, TxKind},
         Address, H256, U256,
     };
-    use ethereum_rust_storage::Store;
+    use ethereum_rust_storage::{error::StoreError, Store};
 
     use crate::rlpx::{
         eth::{
@@ -344,6 +330,22 @@ mod tests {
         },
         message::RLPxMessage,
     };
+
+    fn get_pooled_transactions_from_hashes(
+        storage: &Store,
+        transaction_hashes: Vec<H256>,
+    ) -> Result<Vec<Transaction>, StoreError> {
+        let mut pooled_transactions = vec![];
+
+        for transaction_hash in transaction_hashes {
+            let pooled_transaction = match storage.get_transaction_from_pool(transaction_hash)? {
+                Some(pooled_transaction) => pooled_transaction,
+                None => continue,
+            };
+            pooled_transactions.push(pooled_transaction);
+        }
+        Ok(pooled_transactions)
+    }
 
     fn send_transactions_with_sockets(
         sender_chosen_id: u64,
@@ -369,13 +371,13 @@ mod tests {
             received_transaction_hashes.transaction_hashes,
             transaction_hashes
         );
-
-        let pooled_transactions = PooledTransactions::new(
-            received_transaction_hashes.id,
+        let pooled_transactions = get_pooled_transactions_from_hashes(
             &store,
             received_transaction_hashes.transaction_hashes,
         )
         .unwrap();
+        let pooled_transactions =
+            PooledTransactions::new(received_transaction_hashes.id, pooled_transactions);
         let mut pooled_transactions_to_send = Vec::new();
         pooled_transactions.encode(&mut pooled_transactions_to_send); // encode the pooled transactions that we got
         receiver.send(&pooled_transactions_to_send).unwrap(); // sends to the requester
@@ -552,7 +554,9 @@ mod tests {
     fn pooled_transactions_empty_message() {
         let transaction_hashes = vec![];
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions =
+            get_pooled_transactions_from_hashes(&store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, pooled_transactions);
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
@@ -575,7 +579,9 @@ mod tests {
 
         let transaction_hashes = vec![H256::from_low_u64_be(404)];
 
-        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions =
+            get_pooled_transactions_from_hashes(&store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, pooled_transactions);
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
@@ -594,7 +600,9 @@ mod tests {
             .add_transaction_to_pool(H256::from_low_u64_be(1), transaction1.clone())
             .unwrap();
         let transaction_hashes = vec![H256::from_low_u64_be(1)];
-        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions =
+            get_pooled_transactions_from_hashes(&store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, pooled_transactions);
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
@@ -615,7 +623,9 @@ mod tests {
                 .unwrap();
             transaction_hashes.push(hash);
         }
-        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions =
+            get_pooled_transactions_from_hashes(&store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, pooled_transactions);
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
