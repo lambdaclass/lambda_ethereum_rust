@@ -37,7 +37,7 @@ pub(crate) struct StatusMessage {
 }
 
 impl StatusMessage {
-    pub fn build_from(storage: &Store) -> Result<Self, StoreError> {
+    pub fn new(storage: &Store) -> Result<Self, StoreError> {
         let chain_config = storage.get_chain_config()?;
         let total_difficulty =
             U256::from(chain_config.terminal_total_difficulty.unwrap_or_default());
@@ -121,7 +121,7 @@ pub(crate) struct Transactions {
 }
 
 impl Transactions {
-    pub fn build_from(transactions: Vec<Transaction>) -> Self {
+    pub fn new(transactions: Vec<Transaction>) -> Self {
         Self { transactions }
     }
 }
@@ -158,7 +158,7 @@ pub(crate) struct NewPooledTransactionHashes {
 }
 
 impl NewPooledTransactionHashes {
-    pub fn build_from(transactions: Vec<Transaction>) -> Self {
+    pub fn new(transactions: Vec<Transaction>) -> Self {
         let transactions_len = transactions.len();
         let mut transaction_types = Vec::with_capacity(transactions_len);
         let mut transaction_sizes = Vec::with_capacity(transactions_len);
@@ -233,7 +233,7 @@ pub(crate) struct GetPooledTransactions {
 }
 
 impl GetPooledTransactions {
-    pub fn build_from(id: u64, transaction_hashes: Vec<H256>) -> Self {
+    pub fn new(id: u64, transaction_hashes: Vec<H256>) -> Self {
         Self {
             transaction_hashes,
             id,
@@ -278,7 +278,7 @@ pub(crate) struct PooledTransactions {
 }
 
 impl PooledTransactions {
-    pub fn build_from(
+    pub fn new(
         id: u64,
         storage: &Store,
         transaction_hashes: Vec<H256>,
@@ -353,7 +353,7 @@ mod tests {
         receiver: UdpSocket,
     ) -> PooledTransactions {
         let get_pooled_transactions =
-            GetPooledTransactions::build_from(sender_chosen_id, transaction_hashes.clone());
+            GetPooledTransactions::new(sender_chosen_id, transaction_hashes.clone());
         let mut send_data_of_transaction_hashes = Vec::new();
         get_pooled_transactions.encode(&mut send_data_of_transaction_hashes);
         sender.send(&send_data_of_transaction_hashes).unwrap(); // sends the transaction_hashes
@@ -370,7 +370,7 @@ mod tests {
             transaction_hashes
         );
 
-        let pooled_transactions = PooledTransactions::build_from(
+        let pooled_transactions = PooledTransactions::new(
             received_transaction_hashes.id,
             &store,
             received_transaction_hashes.transaction_hashes,
@@ -424,7 +424,7 @@ mod tests {
         let sender = std::net::UdpSocket::bind(sender_address).unwrap();
         let receiver = std::net::UdpSocket::bind(receiver_address).unwrap();
 
-        let send_transactions = Transactions::build_from(transactions.clone());
+        let send_transactions = Transactions::new(transactions.clone());
         let mut send_data_of_transactions = Vec::new();
         send_transactions.encode(&mut send_data_of_transactions);
         sender
@@ -472,7 +472,7 @@ mod tests {
                 .unwrap();
         }
         // Send the broadcast message
-        let send_transactions = NewPooledTransactionHashes::build_from(transactions.clone());
+        let send_transactions = NewPooledTransactionHashes::new(transactions.clone());
         let mut send_data_of_transactions = Vec::new();
         send_transactions.encode(&mut send_data_of_transactions);
         sender.send(&send_data_of_transactions).unwrap(); // sends the transactions
@@ -521,8 +521,7 @@ mod tests {
     #[test]
     fn get_pooled_transactions_empty_message() {
         let transaction_hashes = vec![];
-        let get_pooled_transactions =
-            GetPooledTransactions::build_from(1, transaction_hashes.clone());
+        let get_pooled_transactions = GetPooledTransactions::new(1, transaction_hashes.clone());
 
         let mut buf = Vec::new();
         get_pooled_transactions.encode(&mut buf);
@@ -539,8 +538,7 @@ mod tests {
             H256::from_low_u64_be(2),
             H256::from_low_u64_be(3),
         ];
-        let get_pooled_transactions =
-            GetPooledTransactions::build_from(1, transaction_hashes.clone());
+        let get_pooled_transactions = GetPooledTransactions::new(1, transaction_hashes.clone());
 
         let mut buf = Vec::new();
         get_pooled_transactions.encode(&mut buf);
@@ -554,8 +552,7 @@ mod tests {
     fn pooled_transactions_empty_message() {
         let transaction_hashes = vec![];
         let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
-        let pooled_transactions =
-            PooledTransactions::build_from(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
@@ -578,8 +575,7 @@ mod tests {
 
         let transaction_hashes = vec![H256::from_low_u64_be(404)];
 
-        let pooled_transactions =
-            PooledTransactions::build_from(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
@@ -598,8 +594,7 @@ mod tests {
             .add_transaction_to_pool(H256::from_low_u64_be(1), transaction1.clone())
             .unwrap();
         let transaction_hashes = vec![H256::from_low_u64_be(1)];
-        let pooled_transactions =
-            PooledTransactions::build_from(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
@@ -620,8 +615,7 @@ mod tests {
                 .unwrap();
             transaction_hashes.push(hash);
         }
-        let pooled_transactions =
-            PooledTransactions::build_from(1, &store, transaction_hashes).unwrap();
+        let pooled_transactions = PooledTransactions::new(1, &store, transaction_hashes).unwrap();
 
         let mut buf = Vec::new();
         pooled_transactions.encode(&mut buf);
