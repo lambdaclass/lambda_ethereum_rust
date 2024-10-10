@@ -1022,7 +1022,10 @@ mod serde_impl {
 
 mod mempool {
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::{
+        cmp::Ordering,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct MempoolTransaction {
@@ -1078,19 +1081,18 @@ mod mempool {
         }
     }
 
-    // Compares transactions by lowest nonce, if the nonce is equal, compares by highest timestamp
-    impl std::cmp::Ord for MempoolTransaction {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    // Orders transactions by lowest nonce, if the nonce is equal, orders by highest timestamp
+    impl Ord for MempoolTransaction {
+        fn cmp(&self, other: &Self) -> Ordering {
             match self.nonce().cmp(&other.nonce()) {
-                // TODO: check this, test Replace Blob Transactions passes with this ordering
-                std::cmp::Ordering::Equal => other.time().cmp(&self.time()),
+                Ordering::Equal => other.time().cmp(&self.time()),
                 ordering => ordering,
             }
         }
     }
 
-    impl std::cmp::PartialOrd for MempoolTransaction {
-        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    impl PartialOrd for MempoolTransaction {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
             Some(self.cmp(other))
         }
     }

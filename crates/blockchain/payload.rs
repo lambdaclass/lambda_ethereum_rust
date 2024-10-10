@@ -272,8 +272,8 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             (None, None) => break,
             (None, Some(tx)) => (tx, true),
             (Some(tx), None) => (tx, false),
-            (Some(a), Some(b)) if compare_heads(&a, &b).is_lt() => (b, true),
-            (Some(tx), _) => (tx.clone(), false),
+            (Some(a), Some(b)) if b < a => (b, true),
+            (Some(tx), _) => (tx, false),
         };
 
         let txs = if is_blob {
@@ -424,7 +424,7 @@ struct TransactionQueue {
     base_fee: Option<u64>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct HeadTransaction {
     tx: MempoolTransaction,
     sender: Address,
@@ -460,8 +460,8 @@ impl TransactionQueue {
                 sender: *address,
             });
         }
-        // Sort heads by higest tip
-        heads.sort_by(compare_heads);
+        // Sort heads by higest tip (and lowest timestamp if tip is equal)
+        heads.sort();
         TransactionQueue {
             heads,
             txs,
@@ -509,10 +509,7 @@ impl TransactionQueue {
                     sender: tx.sender,
                 };
                 // Insert head into heads list while maintaing order
-                let index = match self
-                    .heads
-                    .binary_search_by(|current_head| compare_heads(current_head, &head))
-                {
+                let index = match self.heads.binary_search(&head) {
                     Ok(index) => index, // Same ordering shouldn't be possible when adding timestamps
                     Err(index) => index,
                 };
@@ -522,14 +519,18 @@ impl TransactionQueue {
     }
 }
 
-/// Returns the order in which txs a and b should be executed
-/// The transaction with the highest tip should go first,
-///  if both have the same tip then the one with the lowest timestamp should go first
-/// This function will not return Ordering::Equal
-fn compare_heads(a: &HeadTransaction, b: &HeadTransaction) -> Ordering {
-    match b.tip.cmp(&a.tip) {
-        // Timestamp should never be equal
-        Ordering::Equal => a.tx.time().cmp(&b.tx.time()),
-        ordering => ordering,
+// Orders transactions by highest tip, if tip is equal, orders by lowest timestamp
+impl Ord for HeadTransaction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match other.tip.cmp(&self.tip) {
+            Ordering::Equal => self.tx.time().cmp(&other.tx.time()),
+            ordering => ordering,
+        }
+    }
+}
+
+impl PartialOrd for HeadTransaction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
