@@ -204,3 +204,168 @@ impl RLPxMessage for Receipts {
         Ok(Self::new(id, receipts))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use ethereum_rust_core::types::{Block, BlockBody, BlockHash, BlockHeader, Receipt, TxType};
+    use ethereum_rust_storage::Store;
+
+    use crate::rlpx::{
+        eth::{GetReceipts, Receipts},
+        message::RLPxMessage,
+    };
+
+    fn get_receipts_from_hash(store: &Store, blocks_hash: Vec<BlockHash>) -> Vec<Vec<Receipt>> {
+        let mut receipts = vec![];
+        let mut receipts_index = 1;
+        let mut ammount_of_elements = 0;
+        for block_hash in blocks_hash {
+            receipts.push(vec![]);
+            // TODO: probably the store will need a "get_all_receipts_from_block" function
+            while let Some(receipt) = store
+                .get_receipt_by_hash(block_hash, receipts_index)
+                .unwrap()
+            {
+                receipts_index += 1;
+                receipts[ammount_of_elements].push(receipt);
+            }
+            ammount_of_elements += 1;
+            receipts_index = 1;
+        }
+        receipts
+    }
+
+    #[test]
+    fn get_recepits_bodies_empty_message() {
+        let blocks_hash = vec![];
+        let get_receipts = GetReceipts::new(1, blocks_hash.clone());
+
+        let mut buf = Vec::new();
+        get_receipts.encode(&mut buf);
+
+        let decoded = GetReceipts::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_hashes, blocks_hash);
+    }
+
+    #[test]
+    fn get_receipts_not_empty_message() {
+        let blocks_hash = vec![
+            BlockHash::from([0; 32]),
+            BlockHash::from([1; 32]),
+            BlockHash::from([2; 32]),
+        ];
+        let get_receipts = GetReceipts::new(1, blocks_hash.clone());
+
+        let mut buf = Vec::new();
+        get_receipts.encode(&mut buf);
+
+        let decoded = GetReceipts::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.block_hashes, blocks_hash);
+    }
+
+    #[test]
+    fn receipts_empty_message() {
+        let receipts = vec![];
+        let receipts = Receipts::new(1, receipts);
+
+        let mut buf = Vec::new();
+        receipts.encode(&mut buf);
+
+        let decoded = Receipts::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.receipts, Vec::<Vec<Receipt>>::new());
+    }
+
+    #[test]
+    fn multiple_receipts_one_block() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
+        let header = BlockHeader::default();
+        let block = Block {
+            header,
+            body: body.clone(),
+        };
+        let receipt1 = Receipt::new(TxType::default(), true, 100, vec![]);
+        let receipt2 = Receipt::new(TxType::default(), true, 500, vec![]);
+        let receipt3 = Receipt::new(TxType::default(), true, 1000, vec![]);
+        let block_hash = block.header.compute_block_hash();
+        store.add_block(block.clone()).unwrap();
+        store.add_receipt(block_hash, 1, receipt1.clone()).unwrap();
+        store.add_receipt(block_hash, 2, receipt2.clone()).unwrap();
+        store.add_receipt(block_hash, 3, receipt3.clone()).unwrap();
+
+        let blocks_hash = vec![block_hash];
+
+        let receipts = get_receipts_from_hash(&store, blocks_hash);
+        let receipts = Receipts::new(1, receipts);
+
+        let mut buf = Vec::new();
+        receipts.encode(&mut buf);
+
+        let decoded = Receipts::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(decoded.receipts, vec![vec![receipt1, receipt2, receipt3]]);
+    }
+
+    #[test]
+    fn multiple_receipts_multiple_blocks() {
+        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let body = BlockBody {
+            transactions: vec![],
+            ommers: vec![],
+            withdrawals: None,
+        };
+        let mut header1 = BlockHeader::default();
+        let mut header2 = BlockHeader::default();
+        let mut header3 = BlockHeader::default();
+
+        header1.parent_hash = BlockHash::from([0; 32]);
+        header2.parent_hash = BlockHash::from([1; 32]);
+        header3.parent_hash = BlockHash::from([2; 32]);
+        let block1 = Block {
+            header: header1,
+            body: body.clone(),
+        };
+        let block2 = Block {
+            header: header2,
+            body: body.clone(),
+        };
+        let block3 = Block {
+            header: header3,
+            body: body.clone(),
+        };
+        let receipt1 = Receipt::new(TxType::default(), true, 100, vec![]);
+        let receipt2 = Receipt::new(TxType::default(), true, 500, vec![]);
+        let receipt3 = Receipt::new(TxType::default(), true, 1000, vec![]);
+        let block_hash1 = block1.header.compute_block_hash();
+        let block_hash2 = block2.header.compute_block_hash();
+        let block_hash3 = block3.header.compute_block_hash();
+        store.add_block(block1.clone()).unwrap();
+        store.add_block(block2.clone()).unwrap();
+        store.add_block(block3.clone()).unwrap();
+        store.add_receipt(block_hash1, 1, receipt1.clone()).unwrap();
+        store.add_receipt(block_hash1, 2, receipt2.clone()).unwrap();
+        store.add_receipt(block_hash3, 1, receipt3.clone()).unwrap();
+
+        let blocks_hash = vec![block_hash1, block_hash2, block_hash3];
+
+        let block_bodies = get_receipts_from_hash(&store, blocks_hash);
+        let receipts = Receipts::new(1, block_bodies);
+
+        let mut buf = Vec::new();
+        receipts.encode(&mut buf);
+
+        let decoded = Receipts::decode(&buf).unwrap();
+        assert_eq!(decoded.id, 1);
+        assert_eq!(
+            decoded.receipts,
+            vec![vec![receipt1, receipt2], vec![], vec![receipt3]]
+        );
+    }
+}

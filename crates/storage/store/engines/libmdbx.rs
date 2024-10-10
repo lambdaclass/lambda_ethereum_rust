@@ -186,6 +186,16 @@ impl StoreEngine for Store {
         }
     }
 
+    fn get_receipt_by_hash(
+        &self,
+        block_hash: BlockHash,
+        index: Index,
+    ) -> Result<Option<Receipt>, StoreError> {
+        Ok(self
+            .read::<Receipts>((block_hash, index).into())?
+            .map(|b| b.to()))
+    }
+
     fn add_transaction_location(
         &self,
         transaction_hash: H256,
