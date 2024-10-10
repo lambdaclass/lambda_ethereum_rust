@@ -26,6 +26,8 @@ pub(crate) enum Command {
         l1: bool,
         #[clap(long, help = "Shuts down the L2 node.", default_value_t = true)]
         l2: bool,
+        #[clap(short = 'y', long, help = "Forces the shutdown without confirmation.")]
+        force: bool,
     },
     #[clap(about = "Starts the stack.")]
     Start {
@@ -33,14 +35,22 @@ pub(crate) enum Command {
         l1: bool,
         #[clap(long, help = "Starts the L2 node.", required = false)]
         l2: bool,
+        #[clap(short = 'y', long, help = "Forces the start without confirmation.")]
+        force: bool,
     },
     #[clap(about = "Cleans up the stack. Prompts for confirmation.")]
-    Purge,
+    Purge {
+        #[clap(short = 'y', long, help = "Forces the purge without confirmation.")]
+        force: bool,
+    },
     #[clap(
         about = "Re-initializes the stack. Prompts for confirmation.",
         long_about = "Re-initializing a stack means to shutdown, cleanup, and initialize the stack again. It uses the `shutdown` and `cleanup` commands under the hood."
     )]
-    Restart,
+    Restart {
+        #[clap(short = 'y', long, help = "Forces the restart without confirmation.")]
+        force: bool,
+    },
 }
 
 impl Command {
@@ -71,24 +81,25 @@ impl Command {
                 }
                 start_l2(root.to_path_buf(), &l2_rpc_url).await?;
             }
-            Command::Shutdown { l1, l2 } => {
-                if l1 && confirm("Are you sure you want to shutdown the local L1 node?")? {
+            Command::Shutdown { l1, l2, force } => {
+                if force || (l1 && confirm("Are you sure you want to shutdown the local L1 node?")?)
+                {
                     shutdown_l1(&l2_crate_path)?;
                 }
-                if l2 && confirm("Are you sure you want to shutdown the L2 node?")? {
+                if force || (l2 && confirm("Are you sure you want to shutdown the L2 node?")?) {
                     shutdown_l2()?;
                 }
             }
-            Command::Start { l1, l2 } => {
-                if l1 {
+            Command::Start { l1, l2, force } => {
+                if force || l1 {
                     start_l1(&l2_crate_path).await?;
                 }
-                if l2 {
+                if force || l2 {
                     start_l2(root.to_path_buf(), &l2_rpc_url).await?;
                 }
             }
-            Command::Purge => {
-                if confirm("Are you sure you want to purge the stack?")? {
+            Command::Purge { force } => {
+                if force || confirm("Are you sure you want to purge the stack?")? {
                     std::fs::remove_dir_all(l2_crate_path.join("volumes"))?;
                     std::fs::remove_dir_all(contracts_path.join("out"))?;
                     std::fs::remove_dir_all(contracts_path.join("lib"))?;
@@ -97,13 +108,19 @@ impl Command {
                     println!("Aborted.");
                 }
             }
-            Command::Restart => {
-                if confirm("Are you sure you want to restart the stack?")? {
+            Command::Restart { force } => {
+                if force || confirm("Are you sure you want to restart the stack?")? {
                     Box::pin(async {
-                        Self::Shutdown { l1: true, l2: true }.run(cfg.clone()).await
+                        Self::Shutdown {
+                            l1: true,
+                            l2: true,
+                            force,
+                        }
+                        .run(cfg.clone())
+                        .await
                     })
                     .await?;
-                    Box::pin(async { Self::Purge.run(cfg.clone()).await }).await?;
+                    Box::pin(async { Self::Purge { force }.run(cfg.clone()).await }).await?;
                     Box::pin(async {
                         Self::Init {
                             skip_l1_deployment: false,
