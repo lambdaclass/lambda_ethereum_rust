@@ -9,6 +9,7 @@ use crate::{
     block::BlockEnv,
     call_frame::CallFrame,
     constants::*,
+    env::Env,
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
@@ -191,13 +192,6 @@ pub struct Substate {
 
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
-    /// The sender address of the transaction that originated
-    /// this execution.
-    pub origin: Address,
-    /// The price of gas paid by the signer of the transaction
-    /// that originated this execution.
-    pub gas_price: U256,
-    pub gas_limit: u64,
     pub consumed_gas: u64,
     refunded_gas: u64,
     /// The block header of the present block.
@@ -207,7 +201,7 @@ pub struct Environment {
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
-    pub env: Environment,
+    pub env: Env,
     /// Information that is acted upon immediately following the
     /// transaction.
     pub accrued_substate: Substate,

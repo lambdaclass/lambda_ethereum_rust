@@ -6,6 +6,7 @@ use crate::{
     transaction::{TransactTo, TxEnv},
 };
 
+#[derive(Debug, Clone, Default)]
 pub struct Env {
     pub tx_env: TxEnv,
     pub block_env: BlockEnv,
