@@ -85,6 +85,8 @@ pub enum InvalidForkChoice {
     Syncing,
     #[error("Head hash value is invalid.")]
     InvalidHeadHash,
+    #[error("New head block is already canonical. Skipping update.")]
+    NewHeadAlreadyCanonical,
     #[error("A fork choice element (safe, finalized or head) was not found, but an ancestor was, so it's not a sync problem.")]
     ElementNotFound,
     #[error("Pre merge block can't be a fork choice update.")]

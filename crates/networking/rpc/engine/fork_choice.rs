@@ -1,6 +1,7 @@
 use ethereum_rust_blockchain::{
     apply_fork_choice,
     error::{ChainError, InvalidForkChoice},
+    latest_valid_hash,
     payload::{build_payload, BuildPayloadArgs},
 };
 use ethereum_rust_storage::Store;
@@ -35,7 +36,34 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
-        // Build block from received payload
+        let fork_choice_error_to_response = |error| {
+            let response = match error {
+                InvalidForkChoice::NewHeadAlreadyCanonical => ForkChoiceResponse::from(
+                    PayloadStatus::valid_with_hash(latest_valid_hash(&storage).unwrap()),
+                ),
+                InvalidForkChoice::Syncing => ForkChoiceResponse::from(PayloadStatus::syncing()),
+                reason => {
+                    warn!("Invalid fork choice state. Reason: {:#?}", reason);
+                    ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
+                        reason.to_string().as_str(),
+                    ))
+                }
+            };
+
+            serde_json::to_value(response).map_err(|_| RpcErr::Internal)
+        };
+
+        match apply_fork_choice(
+            &storage,
+            self.fork_choice_state.head_block_hash,
+            self.fork_choice_state.safe_block_hash,
+            self.fork_choice_state.finalized_block_hash,
+        ) {
+            Ok(()) => (),
+            Err(error) => return fork_choice_error_to_response(error),
+        };
+
+        // Build block from received payload. This step is skipped if applying the fork choice state failed
         let mut response = ForkChoiceResponse::from(PayloadStatus::valid_with_hash(
             self.fork_choice_state.head_block_hash,
         ));
@@ -62,22 +90,6 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             storage.add_payload(payload_id, payload)?;
         }
 
-        // TODO: Map error better.
-        let response = match apply_fork_choice(
-            &storage,
-            self.fork_choice_state.head_block_hash,
-            self.fork_choice_state.safe_block_hash,
-            self.fork_choice_state.finalized_block_hash,
-        ) {
-            Ok(()) => response,
-            Err(InvalidForkChoice::Syncing) => ForkChoiceResponse::from(PayloadStatus::syncing()),
-            Err(reason) => {
-                warn!("Invalid fork choice state. Reason: {:#?}", reason);
-                ForkChoiceResponse::from(PayloadStatus::invalid_with_err(
-                    reason.to_string().as_str(),
-                ))
-            }
-        };
         serde_json::to_value(response).map_err(|_| RpcErr::Internal)
     }
 }

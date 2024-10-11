@@ -9,13 +9,15 @@ mod test {
     use ethereum_rust_storage::{EngineType, Store};
 
     use crate::{
-        apply_fork_choice, import_block, is_canonical,
+        apply_fork_choice,
+        error::InvalidForkChoice,
+        import_block, is_canonical,
         payload::{build_payload, BuildPayloadArgs},
     };
 
     #[test]
     fn test_small_to_long_reorg() {
-        // Goal: Start from genesis, create new block, check balances in the new state.
+        // Store and genesis
         let store = test_store();
         let genesis_header = store.get_block_header(0).unwrap().unwrap();
         let genesis_hash = genesis_header.compute_block_hash();
@@ -66,7 +68,7 @@ mod test {
 
     #[test]
     fn test_reorg_from_long_to_short_chain() {
-        // Goal: Start from genesis, create new block, check balances in the new state.
+        // Store and genesis
         let store = test_store();
         let genesis_header = store.get_block_header(0).unwrap().unwrap();
         let genesis_hash = genesis_header.compute_block_hash();
@@ -115,6 +117,45 @@ mod test {
         assert!(is_canonical(&store, 1, hash_1a).unwrap());
         assert!(!is_canonical(&store, 2, hash_2).unwrap());
         assert!(!is_canonical(&store, 1, hash_1b).unwrap());
+    }
+
+    #[test]
+    fn new_head_with_canonical_ancestor_should_skip() {
+        // Store and genesis
+        let store = test_store();
+        let genesis_header = store.get_block_header(0).unwrap().unwrap();
+        let genesis_hash = genesis_header.compute_block_hash();
+
+        // Add block at height 1.
+        let block_1 = new_block(&store, &genesis_header);
+        let hash_1 = block_1.header.compute_block_hash();
+        import_block(&block_1, &store).expect("Could not add block 1b.");
+
+        // Add child at height 2.
+        let block_2 = new_block(&store, &block_1.header);
+        let hash_2 = block_2.header.compute_block_hash();
+        import_block(&block_2, &store).expect("Could not add block 2.");
+
+        assert!(!is_canonical(&store, 1, hash_1).unwrap());
+        assert!(!is_canonical(&store, 2, hash_2).unwrap());
+
+        // Make that chain the canonical one.
+        apply_fork_choice(&store, hash_2, genesis_hash, genesis_hash).unwrap();
+
+        assert!(is_canonical(&store, 1, hash_1).unwrap());
+        assert!(is_canonical(&store, 2, hash_2).unwrap());
+
+        let result = apply_fork_choice(&store, hash_2, hash_2, hash_2);
+
+        assert!(matches!(
+            result,
+            Err(InvalidForkChoice::NewHeadAlreadyCanonical)
+        ));
+
+        // Important blocks should still be the same as before.
+        assert!(store.get_finalized_block_number().unwrap() == Some(0));
+        assert!(store.get_safe_block_number().unwrap() == Some(0));
+        assert!(store.get_latest_block_number().unwrap() == Some(2));
     }
 
     fn new_block(store: &Store, parent: &BlockHeader) -> Block {

@@ -198,7 +198,7 @@ pub fn apply_fork_choice(
     // If the head block is already in our canonical chain, the beacon client is
     // probably resyncing. Ignore the update.
     if is_canonical(store, head.number, head_hash)? {
-        return Ok(());
+        return Err(InvalidForkChoice::NewHeadAlreadyCanonical);
     }
 
     // Find out if blocks are correctly connected.
@@ -244,7 +244,7 @@ pub fn apply_fork_choice(
         store.set_canonical_block(number, hash)?;
     }
 
-    // Note: should we panic here? We should never not have a latest block number.
+    // TODO(#791): should we panic here? We should never not have a latest block number.
     let Some(latest) = store.get_latest_block_number()? else {
         return Err(StoreError::Custom("Latest block number not found".to_string()).into());
     };
@@ -344,6 +344,7 @@ fn total_difficulty_check<'a>(
             "Block difficulty not found for parent block".to_string(),
         ))?;
 
+    // TODO(#790): is this check necessary and correctly implemented?
     if parent_total_difficulty >= terminal_total_difficulty.into() {
         Err((StoreError::Custom(
             "Parent block is already post terminal total difficulty".to_string(),

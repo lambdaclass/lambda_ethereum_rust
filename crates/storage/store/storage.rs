@@ -489,6 +489,7 @@ impl Store {
         self.engine.update_earliest_block_number(block_number)
     }
 
+    // TODO(#790): This should not return an option.
     pub fn get_earliest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.get_earliest_block_number()
     }
@@ -513,22 +514,13 @@ impl Store {
     }
 
     pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
-        // NOTE: this is prone to race conditions.
-        match self.get_latest_block_number()? {
-            Some(current_number) => {
-                if current_number < block_number {
-                    self.engine.update_latest_block_number(block_number)
-                } else {
-                    Ok(())
-                }
-            }
-            None => self.engine.update_latest_block_number(block_number),
-        }
+        self.engine.update_latest_block_number(block_number)
     }
     pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
         self.engine.update_latest_total_difficulty(block_difficulty)
     }
 
+    // TODO(#790): This should not return an option.
     pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.get_latest_block_number()
     }
