@@ -75,7 +75,7 @@ An Ethereum execution client consists roughly of the following parts:
 - Block building and Fork choice management (i.e. logic to both build blocks so a validator can propose them and set where the head of the chain is currently at, according to what the consensus layer determines). This is essentially what our `blockchain` crate contains.
 - The block execution logic itself, i.e., an EVM implementation. We are finishing an implementation of our own called [levm](https://github.com/lambdaclass/ethereum_rust/tree/main/crates/vm/levm) (Lambda EVM).
 
-Because most of the milestones below do not overlap much, we are currentlyworking on them in parallel
+Because most of the milestones below do not overlap much, we are currently working on them in parallel.
 
 ### Milestone 1: Read-only RPC Node Support
 
