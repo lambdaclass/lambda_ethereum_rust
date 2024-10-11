@@ -12,7 +12,7 @@ mod test {
         apply_fork_choice,
         error::InvalidForkChoice,
         import_block, is_canonical,
-        payload::{build_payload, BuildPayloadArgs},
+        payload::{build_payload, create_payload, BuildPayloadArgs},
     };
 
     #[test]
@@ -169,7 +169,9 @@ mod test {
             version: 1,
         };
 
-        build_payload(&args, store).unwrap()
+        let mut block = create_payload(&args, store).unwrap();
+        build_payload(&mut block, store).unwrap();
+        block
     }
 
     fn test_store() -> Store {
