@@ -67,7 +67,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                 }
             };
 
-            serde_json::to_value(response).map_err(|_| RpcErr::Internal)
+            serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
         };
 
         match apply_fork_choice(
@@ -113,6 +113,6 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             storage.add_payload(payload_id, payload)?;
         }
 
-        serde_json::to_value(response).map_err(|_| RpcErr::Internal)
+        serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
     }
 }
