@@ -35,6 +35,8 @@ We call the first one Lambda Ethereum Rust L1 and the second one Lambda Ethereum
 
 # Lambda Ethereum Rust L2
 
+[Full Roadmap](./crates/l2/README.md)
+
 The main differences between this mode and regular Ethereum Rust are:
 
 - There is no consensus, only one sequencer proposes blocks for the network.
@@ -44,7 +46,7 @@ The main differences between this mode and regular Ethereum Rust are:
 
 [](https://github.com/user-attachments/assets/99c96831-a641-4978-b70c-4acb519d0098)
 
-[Full Roadmap](./crates/l2/README.md)
+
 
 # Lambda Ethereum Rust L1
 
