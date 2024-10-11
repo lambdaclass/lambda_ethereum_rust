@@ -276,5 +276,9 @@ Ethereum Rust supports the following command line arguments:
 
 Documentation for each crate can be found on the following links (still a work in progress, we will be adding more documentation as we go).
 
--   [Networking](./crates/net/README.md)
--   [L2](./crates/l2/README.md)
+-   [Blockchain](./crates/blockchain)
+-   [Common](./crates/common)
+-   [L2](./crates/l2)
+-   [Networking](./crates/net)
+-   [Storage](./crates/storage)
+-   [Vm](./crates/vm)

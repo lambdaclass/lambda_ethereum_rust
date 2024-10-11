@@ -1,6 +1,6 @@
-# Network
+# P2P
 
-The network crate handles the ethereum networking protocols. This involves:
+The p2p crate handles the ethereum networking protocols. This involves:
 
 -   [Discovery protocol](#discovery-protocol): built on top of udp and it is how we discover new nodes.
 -   devP2P: sits on top of tcp and is where the actual blockchain information exchange happens.

@@ -28,4 +28,4 @@ lazy_static.workspace = true
 hex-literal.workspace = true
 
 [lib]
-path = "./core.rs"
+path = "./common.rs"
