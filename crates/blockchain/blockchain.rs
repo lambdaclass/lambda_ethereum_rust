@@ -159,12 +159,14 @@ pub fn is_canonical(
 ///
 /// After the validity checks, the canonical chain is updated so that all head's ancestors
 /// and itself are made canonical.
+///
+/// If the fork choice state is applied correctly, the head block header is returned.
 pub fn apply_fork_choice(
     store: &Store,
     head_hash: H256,
     safe_hash: H256,
     finalized_hash: H256,
-) -> Result<(), InvalidForkChoice> {
+) -> Result<BlockHeader, InvalidForkChoice> {
     if head_hash.is_zero() {
         return Err(InvalidForkChoice::InvalidHeadHash);
     }
@@ -254,7 +256,7 @@ pub fn apply_fork_choice(
     store.set_canonical_block(head.number, head_hash)?;
     store.update_finalized_block_number(finalized.number)?;
     store.update_safe_block_number(safe.number)?;
-    Ok(())
+    Ok(head)
 }
 
 fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result<(), ChainError> {

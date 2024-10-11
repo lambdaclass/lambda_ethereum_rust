@@ -70,13 +70,13 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             serde_json::to_value(response).map_err(|error| RpcErr::Internal(error.to_string()))
         };
 
-        match apply_fork_choice(
+        let head_block = match apply_fork_choice(
             &storage,
             self.fork_choice_state.head_block_hash,
             self.fork_choice_state.safe_block_hash,
             self.fork_choice_state.finalized_block_hash,
         ) {
-            Ok(()) => (),
+            Ok(head) => head,
             Err(error) => return fork_choice_error_to_response(error),
         };
 
