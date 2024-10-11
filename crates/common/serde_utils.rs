@@ -1,4 +1,4 @@
-use serde::{de::Error, Deserialize, Deserializer, Serializer};
+use serde::{de::Error, ser::SerializeSeq, Deserialize, Deserializer, Serializer};
 
 pub mod u256 {
     use super::*;
@@ -230,8 +230,6 @@ pub mod bytes {
     }
 
     pub mod vec {
-        use serde::ser::SerializeSeq;
-
         use super::*;
 
         pub fn deserialize<'de, D>(d: D) -> Result<Vec<Bytes>, D::Error>
@@ -253,11 +251,7 @@ pub mod bytes {
         where
             S: Serializer,
         {
-            let mut seq_serializer = serializer.serialize_seq(Some(value.len()))?;
-            for encoded in value {
-                seq_serializer.serialize_element(&format!("0x{}", hex::encode(encoded)))?;
-            }
-            seq_serializer.end()
+            serialize_vec_of_hex_encodables(value, serializer)
         }
     }
 }
@@ -282,4 +276,96 @@ pub mod bool {
     {
         serializer.serialize_str(&format!("{:#x}", *value as u8))
     }
+}
+
+pub mod bytes48 {
+    use super::*;
+
+    pub mod vec {
+        use super::*;
+
+        pub fn serialize<S>(value: &Vec<[u8; 48]>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serialize_vec_of_hex_encodables(value, serializer)
+        }
+
+        pub fn deserialize<'de, D>(d: D) -> Result<Vec<[u8; 48]>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Vec::<String>::deserialize(d)?;
+            let mut output = Vec::new();
+            for str in value {
+                let bytes = hex::decode(str.trim_start_matches("0x"))
+                    .map_err(|e| D::Error::custom(e.to_string()))?;
+                if bytes.len() != 48 {
+                    return Err(D::Error::custom(format!(
+                        "Expected 48 bytes, got {}",
+                        bytes.len()
+                    )));
+                }
+                let mut blob = [0u8; 48];
+                blob.copy_from_slice(&bytes);
+                output.push(blob);
+            }
+            Ok(output)
+        }
+    }
+}
+
+pub mod blob {
+    use super::*;
+
+    pub mod vec {
+        use crate::types::BYTES_PER_BLOB;
+
+        use super::*;
+
+        pub fn serialize<S>(
+            value: &Vec<[u8; BYTES_PER_BLOB]>,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serialize_vec_of_hex_encodables(value, serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<[u8; BYTES_PER_BLOB]>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let value = Vec::<String>::deserialize(deserializer)?;
+            let mut output = Vec::new();
+            for str in value {
+                let bytes = hex::decode(str.trim_start_matches("0x"))
+                    .map_err(|e| D::Error::custom(e.to_string()))?;
+                if bytes.len() != BYTES_PER_BLOB {
+                    return Err(D::Error::custom(format!(
+                        "Expected {} bytes, got {}",
+                        BYTES_PER_BLOB,
+                        bytes.len()
+                    )));
+                }
+                let mut blob = [0u8; BYTES_PER_BLOB];
+                blob.copy_from_slice(&bytes);
+                output.push(blob);
+            }
+            Ok(output)
+        }
+    }
+}
+
+// Const generics are not supported on `Serialize` impls so we need separate impls for different array sizes
+fn serialize_vec_of_hex_encodables<S: Serializer, T: std::convert::AsRef<[u8]>>(
+    value: &Vec<T>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let mut seq_serializer = serializer.serialize_seq(Some(value.len()))?;
+    for encoded in value {
+        seq_serializer.serialize_element(&format!("0x{}", hex::encode(encoded)))?;
+    }
+    seq_serializer.end()
 }

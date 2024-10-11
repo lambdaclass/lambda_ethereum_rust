@@ -2,7 +2,7 @@ use super::payload::PayloadStatus;
 use ethereum_rust_core::{serde_utils, types::Withdrawal, Address, H256};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForkChoiceState {
     #[allow(unused)]
@@ -11,7 +11,7 @@ pub struct ForkChoiceState {
     pub finalized_block_hash: H256,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(unused)]
 pub struct PayloadAttributesV3 {
@@ -23,7 +23,7 @@ pub struct PayloadAttributesV3 {
     pub parent_beacon_block_root: H256,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForkChoiceResponse {
     pub payload_status: PayloadStatus,

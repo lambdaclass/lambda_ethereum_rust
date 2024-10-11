@@ -2,7 +2,7 @@ use ethereum_rust_blockchain::{
     apply_fork_choice,
     error::{ChainError, InvalidForkChoice},
     latest_valid_hash,
-    payload::{build_payload, BuildPayloadArgs},
+    payload::{create_payload, BuildPayloadArgs},
 };
 use ethereum_rust_storage::Store;
 use serde_json::Value;
@@ -13,6 +13,7 @@ use crate::{
         fork_choice::{ForkChoiceResponse, ForkChoiceState, PayloadAttributesV3},
         payload::PayloadStatus,
     },
+    utils::RpcRequest,
     RpcErr, RpcHandler,
 };
 
@@ -23,15 +24,31 @@ pub struct ForkChoiceUpdatedV3 {
     pub payload_attributes: Option<PayloadAttributesV3>,
 }
 
+impl From<ForkChoiceUpdatedV3> for RpcRequest {
+    fn from(val: ForkChoiceUpdatedV3) -> Self {
+        RpcRequest {
+            method: "engine_forkchoiceUpdatedV3".to_string(),
+            params: Some(vec![
+                serde_json::json!(val.fork_choice_state),
+                serde_json::json!(val.payload_attributes),
+            ]),
+            ..Default::default()
+        }
+    }
+}
+
 impl RpcHandler for ForkChoiceUpdatedV3 {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
-        let params = params.as_ref().ok_or(RpcErr::BadParams)?;
+        let params = params
+            .as_ref()
+            .ok_or(RpcErr::BadParams("No params provided".to_owned()))?;
         if params.len() != 2 {
-            return Err(RpcErr::BadParams);
+            return Err(RpcErr::BadParams("Expected 2 params".to_owned()));
         }
         Ok(ForkChoiceUpdatedV3 {
             fork_choice_state: serde_json::from_value(params[0].clone())?,
-            payload_attributes: serde_json::from_value(params[1].clone())?,
+            payload_attributes: serde_json::from_value(params[1].clone())
+                .map_err(|e| RpcErr::InvalidPayloadAttributes(e.to_string()))?,
         })
     }
 
@@ -69,6 +86,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         ));
 
         if let Some(attributes) = &self.payload_attributes {
+            let chain_config = storage.get_chain_config()?;
+            if !chain_config.is_cancun_activated(attributes.timestamp) {
+                return Err(RpcErr::UnsuportedFork(
+                    "forkChoiceV3 used to build pre-Cancun payload".to_string(),
+                ));
+            }
             let args = BuildPayloadArgs {
                 parent: self.fork_choice_state.head_block_hash,
                 timestamp: attributes.timestamp,
@@ -80,12 +103,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
             };
             let payload_id = args.id();
             response.set_id(payload_id);
-            let payload = match build_payload(&args, &storage) {
+            let payload = match create_payload(&args, &storage) {
                 Ok(payload) => payload,
                 Err(ChainError::EvmError(error)) => return Err(error.into()),
                 // Parent block is guaranteed to be present at this point,
                 // so the only errors that may be returned are internal storage errors
-                _ => return Err(RpcErr::Internal),
+                Err(error) => return Err(RpcErr::Internal(error.to_string())),
             };
             storage.add_payload(payload_id, payload)?;
         }

@@ -6,8 +6,9 @@ use self::error::StoreError;
 use bytes::Bytes;
 use engines::api::StoreEngine;
 use ethereum_rust_core::types::{
-    code_hash, AccountInfo, AccountState, Block, BlockBody, BlockHash, BlockHeader, BlockNumber,
-    ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction, EMPTY_TRIE_HASH,
+    code_hash, AccountInfo, AccountState, BlobsBundle, Block, BlockBody, BlockHash, BlockHeader,
+    BlockNumber, ChainConfig, Genesis, GenesisAccount, Index, Receipt, Transaction,
+    EMPTY_TRIE_HASH,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -101,7 +102,7 @@ impl Store {
         block_hash: BlockHash,
         address: Address,
     ) -> Result<Option<AccountInfo>, StoreError> {
-        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -204,6 +205,7 @@ impl Store {
         self.engine.get_transaction_location(transaction_hash)
     }
 
+    /// Add transaction to the pool
     pub fn add_transaction_to_pool(
         &self,
         hash: H256,
@@ -212,8 +214,40 @@ impl Store {
         self.engine.add_transaction_to_pool(hash, transaction)
     }
 
+    /// Get a transaction from the pool
     pub fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
         self.engine.get_transaction_from_pool(hash)
+    }
+
+    /// Add a blobs bundle to the pool by its blob transaction hash
+    pub fn add_blobs_bundle_to_pool(
+        &self,
+        tx_hash: H256,
+        blobs_bundle: BlobsBundle,
+    ) -> Result<(), StoreError> {
+        self.engine.add_blobs_bundle_to_pool(tx_hash, blobs_bundle)
+    }
+
+    /// Get a blobs bundle to the pool given its blob transaction hash
+    pub fn get_blobs_bundle_from_pool(
+        &self,
+        tx_hash: H256,
+    ) -> Result<Option<BlobsBundle>, StoreError> {
+        self.engine.get_blobs_bundle_from_pool(tx_hash)
+    }
+
+    /// Remove a transaction from the pool
+    pub fn remove_transaction_from_pool(&self, hash: H256) -> Result<(), StoreError> {
+        self.engine.remove_transaction_from_pool(hash)
+    }
+
+    /// Applies the filter and returns a set of suitable transactions from the mempool.
+    /// These transactions will be grouped by sender and sorted by nonce
+    pub fn filter_pool_transactions(
+        &self,
+        filter: &dyn Fn(&Transaction) -> bool,
+    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+        self.engine.filter_pool_transactions(filter)
     }
 
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
@@ -232,7 +266,7 @@ impl Store {
         let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
             return Ok(None);
         };
-        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -250,7 +284,7 @@ impl Store {
         let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
             return Ok(None);
         };
-        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -268,7 +302,7 @@ impl Store {
         block_hash: BlockHash,
         account_updates: &[AccountUpdate],
     ) -> Result<Option<H256>, StoreError> {
-        let Some(mut state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(mut state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         for update in account_updates.iter() {
@@ -318,7 +352,7 @@ impl Store {
         &self,
         genesis_accounts: HashMap<Address, GenesisAccount>,
     ) -> Result<H256, StoreError> {
-        let mut genesis_state_trie = self.engine.new_state_trie()?;
+        let mut genesis_state_trie = self.engine.open_state_trie(*EMPTY_TRIE_HASH);
         for (address, account) in genesis_accounts {
             // Store account code (as this won't be stored in the trie)
             let code_hash = code_hash(&account.code);
@@ -558,6 +592,14 @@ impl Store {
         self.engine.unset_canonical_block(number)
     }
 
+    // Obtain the storage trie for the given block
+    fn state_trie(&self, block_hash: BlockHash) -> Result<Option<Trie>, StoreError> {
+        let Some(header) = self.get_block_header_by_hash(block_hash)? else {
+            return Ok(None);
+        };
+        Ok(Some(self.engine.open_state_trie(header.state_root)))
+    }
+
     // Obtain the storage trie for the given account on the given block
     fn storage_trie(
         &self,
@@ -565,7 +607,7 @@ impl Store {
         address: Address,
     ) -> Result<Option<Trie>, StoreError> {
         // Fetch Account from state_trie
-        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -586,7 +628,7 @@ impl Store {
         let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
             return Ok(None);
         };
-        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         let hashed_address = hash_address(&address);
@@ -604,7 +646,7 @@ impl Store {
         let Some(block_hash) = self.engine.get_canonical_block_hash(block_number)? else {
             return Ok(None);
         };
-        let Some(state_trie) = self.engine.state_trie(block_hash)? else {
+        let Some(state_trie) = self.state_trie(block_hash)? else {
             return Ok(None);
         };
         Ok(Some(state_trie.get_proof(&hash_address(address))).transpose()?)
@@ -648,7 +690,7 @@ mod tests {
 
     use bytes::Bytes;
     use ethereum_rust_core::{
-        types::{Transaction, TxType},
+        types::{Transaction, TxType, BYTES_PER_BLOB},
         Bloom,
     };
     use ethereum_rust_rlp::decode::RLPDecode;
@@ -694,6 +736,8 @@ mod tests {
         run_test(&test_store_block_tags, engine_type);
         run_test(&test_chain_config_storage, engine_type);
         run_test(&test_genesis_block, engine_type);
+        run_test(&test_filter_mempool_transactions, engine_type);
+        run_test(&blobs_bundle_loadtest, engine_type);
     }
 
     fn test_genesis_block(store: Store) {
@@ -937,6 +981,43 @@ mod tests {
             terminal_total_difficulty: Some(58750000000000000000000),
             terminal_total_difficulty_passed: true,
             ..Default::default()
+        }
+    }
+
+    use hex_literal::hex;
+
+    fn test_filter_mempool_transactions(store: Store) {
+        let plain_tx = Transaction::decode_canonical(&hex!("f86d80843baa0c4082f618946177843db3138ae69679a54b95cf345ed759450d870aa87bee538000808360306ba0151ccc02146b9b11adf516e6787b59acae3e76544fdcd75e77e67c6b598ce65da064c5dd5aae2fbb535830ebbdad0234975cd7ece3562013b63ea18cc0df6c97d4")).unwrap();
+        let blob_tx = Transaction::decode_canonical(&hex!("03f88f0780843b9aca008506fc23ac00830186a09400000000000000000000000000000000000001008080c001e1a0010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c44401401a0840650aa8f74d2b07f40067dc33b715078d73422f01da17abdbd11e02bbdfda9a04b2260f6022bf53eadb337b3e59514936f7317d872defb891a708ee279bdca90")).unwrap();
+        let plain_tx_hash = plain_tx.compute_hash();
+        let blob_tx_hash = blob_tx.compute_hash();
+        let filter =
+            |tx: &Transaction| -> bool { matches!(tx, Transaction::EIP4844Transaction(_)) };
+        store
+            .add_transaction_to_pool(blob_tx_hash, blob_tx.clone())
+            .unwrap();
+        store
+            .add_transaction_to_pool(plain_tx_hash, plain_tx)
+            .unwrap();
+        let txs = store.filter_pool_transactions(&filter).unwrap();
+        assert_eq!(txs, HashMap::from([(blob_tx.sender(), vec![blob_tx])]));
+    }
+
+    fn blobs_bundle_loadtest(store: Store) {
+        // Write a bundle of 6 blobs 10 times
+        // If this test fails please adjust the max_size in the DB config
+        for i in 0..300 {
+            let blobs = [[i as u8; BYTES_PER_BLOB]; 6];
+            let commitments = [[i as u8; 48]; 6];
+            let proofs = [[i as u8; 48]; 6];
+            let bundle = BlobsBundle {
+                blobs: blobs.to_vec(),
+                commitments: commitments.to_vec(),
+                proofs: proofs.to_vec(),
+            };
+            store
+                .add_blobs_bundle_to_pool(H256::random(), bundle)
+                .unwrap();
         }
     }
 }

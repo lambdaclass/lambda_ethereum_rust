@@ -12,11 +12,11 @@ use ethereum_rust_core::types::{
 };
 use ethereum_rust_core::H256;
 
-use ethereum_rust_evm::{
-    evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
-};
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
+use ethereum_rust_vm::{
+    evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
+};
 
 //TODO: Implement a struct Chain or BlockChain to encapsulate
 //functionality and canonical chain state and config
@@ -125,17 +125,15 @@ pub fn validate_block(
     let spec = spec_id(state.database(), block.header.timestamp).unwrap();
 
     // Verify initial header validity against parent
-    let mut valid_header = validate_block_header(&block.header, parent_header);
+    validate_block_header(&block.header, parent_header).map_err(InvalidBlockError::from)?;
 
-    valid_header = match spec {
-        SpecId::CANCUN => {
-            valid_header && validate_cancun_header_fields(&block.header, parent_header)
+    match spec {
+        SpecId::CANCUN => validate_cancun_header_fields(&block.header, parent_header)
+            .map_err(InvalidBlockError::from)?,
+        _other_specs => {
+            validate_no_cancun_header_fields(&block.header).map_err(InvalidBlockError::from)?
         }
-        _ => valid_header && validate_no_cancun_header_fields(&block.header),
     };
-    if !valid_header {
-        return Err(ChainError::InvalidBlock(InvalidBlockError::InvalidHeader));
-    }
 
     if spec == SpecId::CANCUN {
         verify_blob_gas_usage(block)?

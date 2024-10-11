@@ -3,8 +3,9 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-use ethereum_rust_evm::EvmError;
+use ethereum_rust_core::types::InvalidBlockHeaderError;
 use ethereum_rust_storage::error::StoreError;
+use ethereum_rust_vm::EvmError;
 
 #[derive(Debug, Error)]
 pub enum ChainError {
@@ -26,8 +27,8 @@ pub enum ChainError {
 pub enum InvalidBlockError {
     #[error("World State Root does not match the one in the header after executing")]
     StateRootMismatch,
-    #[error("Invalid Header, validation failed pre-execution")]
-    InvalidHeader,
+    #[error("Invalid Header, validation failed pre-execution: {0}")]
+    InvalidHeader(#[from] InvalidBlockHeaderError),
     #[error("Exceeded MAX_BLOB_GAS_PER_BLOCK")]
     ExceededMaxBlobGasPerBlock,
     #[error("Exceeded MAX_BLOB_NUMBER_PER_BLOCK")]
@@ -56,6 +57,10 @@ pub enum MempoolError {
     TxIntrinsicGasCostAboveLimitError,
     #[error("Transaction blob base fee too low")]
     TxBlobBaseFeeTooLowError,
+    #[error("Blob transaction submited without blobs bundle")]
+    BlobTxNoBlobsBundle,
+    #[error("Mismatch between blob versioned hashes and blobs bundle content length")]
+    BlobsBundleWrongLen,
 }
 
 #[derive(Debug)]
