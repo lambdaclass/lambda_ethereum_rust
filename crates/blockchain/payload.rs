@@ -7,7 +7,8 @@ use ethereum_rust_core::{
     types::{
         calculate_base_fee_per_blob_gas, calculate_base_fee_per_gas, compute_receipts_root,
         compute_transactions_root, compute_withdrawals_root, BlobsBundle, Block, BlockBody,
-        BlockHash, BlockHeader, BlockNumber, Receipt, Transaction, Withdrawal, DEFAULT_OMMERS_HASH,
+        BlockHash, BlockHeader, BlockNumber, MempoolTransaction, Receipt, Transaction, Withdrawal,
+        DEFAULT_OMMERS_HASH,
     },
     Address, Bloom, Bytes, H256, U256,
 };
@@ -271,8 +272,8 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
             (None, None) => break,
             (None, Some(tx)) => (tx, true),
             (Some(tx), None) => (tx, false),
-            (Some(a), Some(b)) if compare_heads(&a, &b).is_lt() => (b, true),
-            (Some(tx), _) => (tx.clone(), false),
+            (Some(a), Some(b)) if b < a => (b, true),
+            (Some(tx), _) => (tx, false),
         };
 
         let txs = if is_blob {
@@ -321,7 +322,7 @@ pub fn fill_transactions(context: &mut PayloadBuildContext) -> Result<(), ChainE
         };
         // Add transaction to block
         debug!("Adding transaction: {} to payload", tx_hash);
-        context.payload.body.transactions.push(head_tx.tx);
+        context.payload.body.transactions.push(head_tx.into());
         // Save receipt for hash calculation
         context.receipts.push(receipt);
     }
@@ -334,7 +335,7 @@ fn apply_transaction(
     head: &HeadTransaction,
     context: &mut PayloadBuildContext,
 ) -> Result<Receipt, ChainError> {
-    match head.tx {
+    match **head {
         Transaction::EIP4844Transaction(_) => apply_blob_transaction(head, context),
         _ => apply_plain_transaction(head, context),
     }
@@ -410,21 +411,35 @@ struct TransactionQueue {
     // The first transaction for each account along with its tip, sorted by highest tip
     heads: Vec<HeadTransaction>,
     // The remaining txs grouped by account and sorted by nonce
-    txs: HashMap<Address, Vec<Transaction>>,
+    txs: HashMap<Address, Vec<MempoolTransaction>>,
     // Base Fee stored for tip calculations
     base_fee: Option<u64>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct HeadTransaction {
-    tx: Transaction,
+    tx: MempoolTransaction,
     sender: Address,
     tip: u64,
 }
 
+impl std::ops::Deref for HeadTransaction {
+    type Target = Transaction;
+
+    fn deref(&self) -> &Self::Target {
+        &self.tx
+    }
+}
+
+impl From<HeadTransaction> for Transaction {
+    fn from(val: HeadTransaction) -> Self {
+        val.tx.into()
+    }
+}
+
 impl TransactionQueue {
     /// Creates a new TransactionQueue from a set of transactions grouped by sender and sorted by nonce
-    fn new(mut txs: HashMap<Address, Vec<Transaction>>, base_fee: Option<u64>) -> Self {
+    fn new(mut txs: HashMap<Address, Vec<MempoolTransaction>>, base_fee: Option<u64>) -> Self {
         let mut heads = Vec::new();
         for (address, txs) in txs.iter_mut() {
             // Pull the first tx from each list and add it to the heads list
@@ -437,8 +452,8 @@ impl TransactionQueue {
                 sender: *address,
             });
         }
-        // Sort heads by higest tip
-        heads.sort_by(compare_heads);
+        // Sort heads by higest tip (and lowest timestamp if tip is equal)
+        heads.sort();
         TransactionQueue {
             heads,
             txs,
@@ -486,10 +501,7 @@ impl TransactionQueue {
                     sender: tx.sender,
                 };
                 // Insert head into heads list while maintaing order
-                let index = match self
-                    .heads
-                    .binary_search_by(|current_head| compare_heads(current_head, &head))
-                {
+                let index = match self.heads.binary_search(&head) {
                     Ok(index) => index, // Same ordering shouldn't be possible when adding timestamps
                     Err(index) => index,
                 };
@@ -499,12 +511,18 @@ impl TransactionQueue {
     }
 }
 
-/// Returns the order in which txs a and b should be executed
-/// The transaction with the highest tip should go first,
-///  if both have the same tip then the one with the lowest timestamp should go first
-/// This function will not return Ordering::Equal (TODO: make this true with timestamp)
-/// TODO(https://github.com/lambdaclass/ethereum_rust/issues/681): add timestamp
-fn compare_heads(a: &HeadTransaction, b: &HeadTransaction) -> Ordering {
-    b.tip.cmp(&a.tip)
-    // compare by timestamp if tips are equal
+// Orders transactions by highest tip, if tip is equal, orders by lowest timestamp
+impl Ord for HeadTransaction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match other.tip.cmp(&self.tip) {
+            Ordering::Equal => self.tx.time().cmp(&other.tx.time()),
+            ordering => ordering,
+        }
+    }
+}
+
+impl PartialOrd for HeadTransaction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }

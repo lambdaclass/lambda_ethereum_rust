@@ -10,7 +10,9 @@ use crate::{
     error::MempoolError,
 };
 use ethereum_rust_core::{
-    types::{BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, Transaction},
+    types::{
+        BlobsBundle, BlockHeader, ChainConfig, EIP4844Transaction, MempoolTransaction, Transaction,
+    },
     Address, H256, U256,
 };
 use ethereum_rust_storage::{error::StoreError, Store};
@@ -30,7 +32,7 @@ pub fn add_blob_transaction(
 
     // Add transaction and blobs bundle to storage
     let hash = transaction.compute_hash();
-    store.add_transaction_to_pool(hash, transaction)?;
+    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction))?;
     store.add_blobs_bundle_to_pool(hash, blobs_bundle)?;
     Ok(hash)
 }
@@ -47,13 +49,16 @@ pub fn add_transaction(transaction: Transaction, store: Store) -> Result<H256, M
     let hash = transaction.compute_hash();
 
     // Add transaction to storage
-    store.add_transaction_to_pool(hash, transaction)?;
+    store.add_transaction_to_pool(hash, MempoolTransaction::new(transaction))?;
 
     Ok(hash)
 }
 
 /// Fetch a transaction from the mempool
-pub fn get_transaction(hash: H256, store: Store) -> Result<Option<Transaction>, MempoolError> {
+pub fn get_transaction(
+    hash: H256,
+    store: Store,
+) -> Result<Option<MempoolTransaction>, MempoolError> {
     Ok(store.get_transaction_from_pool(hash)?)
 }
 
@@ -67,7 +72,7 @@ pub fn get_blobs_bundle(tx_hash: H256, store: Store) -> Result<Option<BlobsBundl
 pub fn filter_transactions(
     filter: &PendingTxFilter,
     store: &Store,
-) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
     let filter_tx = |tx: &Transaction| -> bool {
         // Filter by tx type
         let is_blob_tx = matches!(tx, Transaction::EIP4844Transaction(_));
@@ -107,6 +112,7 @@ pub struct PendingTxFilter {
     pub only_plain_txs: bool,
     pub only_blob_txs: bool,
 }
+
 /*
 
 SOME VALIDATIONS THAT WE COULD INCLUDE
@@ -292,7 +298,7 @@ mod tests {
         Ok(store)
     }
 
-    fn tx_equal(t1: Transaction, t2: Transaction) -> bool {
+    fn tx_equal(t1: &Transaction, t2: &Transaction) -> bool {
         t1.nonce() == t2.nonce()
             && t1.max_priority_fee().unwrap_or_default()
                 == t2.max_priority_fee().unwrap_or_default()
@@ -357,7 +363,7 @@ mod tests {
         let ret_tx = get_transaction(hash, store).expect("Get transaction");
         assert!(ret_tx.is_some());
         let ret_tx = ret_tx.unwrap();
-        assert!(tx_equal(tx, ret_tx))
+        assert!(tx_equal(&tx, &ret_tx))
     }
 
     #[test]

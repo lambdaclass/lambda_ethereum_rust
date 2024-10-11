@@ -2,7 +2,7 @@ use crate::error::StoreError;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    Receipt, Transaction,
+    MempoolTransaction, Receipt, Transaction,
 };
 use ethereum_rust_trie::{InMemoryTrieDB, Trie};
 use ethereum_types::{Address, H256, U256};
@@ -31,7 +31,7 @@ struct StoreInner {
     // Maps transaction hashes to their blocks (height+hash) and index within the blocks.
     transaction_locations: HashMap<H256, Vec<(BlockNumber, BlockHash, Index)>>,
     // Stores pooled transactions by their hashes
-    transaction_pool: HashMap<H256, Transaction>,
+    transaction_pool: HashMap<H256, MempoolTransaction>,
     // Stores the blobs_bundle for each blob transaction in the transaction_pool
     blobs_bundle_pool: HashMap<H256, BlobsBundle>,
     receipts: HashMap<BlockHash, HashMap<Index, Receipt>>,
@@ -169,13 +169,16 @@ impl StoreEngine for Store {
     fn add_transaction_to_pool(
         &self,
         hash: H256,
-        transaction: Transaction,
+        transaction: MempoolTransaction,
     ) -> Result<(), StoreError> {
         self.inner().transaction_pool.insert(hash, transaction);
         Ok(())
     }
 
-    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+    fn get_transaction_from_pool(
+        &self,
+        hash: H256,
+    ) -> Result<Option<MempoolTransaction>, StoreError> {
         Ok(self.inner().transaction_pool.get(&hash).cloned())
     }
 
@@ -200,8 +203,8 @@ impl StoreEngine for Store {
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
-        let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
+    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
+        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
         for (_, tx) in self.inner().transaction_pool.iter() {
             if filter(tx) {
                 txs_by_sender
@@ -210,10 +213,7 @@ impl StoreEngine for Store {
                     .push(tx.clone())
             }
         }
-        // As we store txs in hashmaps they won't be sorted by nonce
-        for (_, txs) in txs_by_sender.iter_mut() {
-            txs.sort_by_key(|tx| tx.nonce());
-        }
+        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
     }
 
