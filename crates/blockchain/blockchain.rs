@@ -182,8 +182,16 @@ pub fn apply_fork_choice(
     // if we have the descendants, as we are working on the assumption that we only add block
     // if they are connected to the canonical chain.
     let (finalized, safe, head) = match (finalized_header_res, safe_header_res, head_header_res) {
-        (None, Some(_), _) => return Err(InvalidForkChoice::ElementNotFound),
-        (_, None, Some(_)) => return Err(InvalidForkChoice::ElementNotFound),
+        (None, Some(_), _) => {
+            return Err(InvalidForkChoice::ElementNotFound(
+                error::ForkChoiceElement::Finalized,
+            ))
+        }
+        (_, None, Some(_)) => {
+            return Err(InvalidForkChoice::ElementNotFound(
+                error::ForkChoiceElement::Safe,
+            ))
+        }
         (Some(f), Some(s), Some(h)) => (f.header, s.header, h.header),
         _ => return Err(InvalidForkChoice::Syncing),
     };
