@@ -292,7 +292,7 @@ impl VM {
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
 
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit { // This should be changed to callframe gas limit I guess.
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit { // This should be changed to callframe gas limit, not env limit.
             return Err(VMError::OutOfGas);
         }
 
@@ -301,8 +301,6 @@ impl VM {
 
         current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 
-
-        // Should we push success for revert? Maybe that should be done after handling a call.
 
         // evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
 

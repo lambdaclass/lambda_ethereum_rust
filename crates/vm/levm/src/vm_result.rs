@@ -56,9 +56,9 @@ pub enum ExecutionResult {
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas.
     Revert {
-        reason: VMError,
-        gas_used: u64,
-        output: Bytes,
+        reason: VMError, // Does this matter? We don't need to know the reason (unless it's used for debugging)
+        gas_used: u64, // This is for knowing how much gas is going to be returned to the caller. It could also be "unused_gas"
+        output: Bytes, // This is the return data
     },
     /// Reverted for various reasons and spend all gas.
     Halt {

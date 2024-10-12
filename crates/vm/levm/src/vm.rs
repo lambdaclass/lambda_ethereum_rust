@@ -568,17 +568,23 @@ impl VM {
             }
             ExecutionResult::Revert {
                 reason: _,
-                gas_used,
+                gas_used: _,
                 output,
             } => {
                 // By this point the revert has already been done, down below is the additional behavior between contexts/callframes.
                 // This additional behavior includes: pushing 0 to the stack, adding unused gas to the caller (if substracted before), storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size), we should also "revert" gas refunds (triggered by SSTORE).
 
-                current_call_frame.memory.store_bytes(ret_offset, &output); // Stores return data of sub-context in offset. It is partially ok but we should specify how many bytes to store, that's why we have ret_size I believe.
-                // current_call_frame.returndata = output; // Is this ok? output was the returndata of the calling context, why is it now the returndata of the caller?
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?; // Pushes 0 to the stack.
-                current_call_frame.gas -= U256::from(gas_used);
-                self.env.refunded_gas += gas_used;
+                // 1. Pushing 0 to stack
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+
+                // 2. Adding unused gas to the caller
+                // Caller should've assigned some of it's gas to the sub-context before, so now we should add the unused gas by the sub-context to the caller. I just leave the comment because I didn't see this being implemented.
+
+                // 3. Storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size)
+                current_call_frame.memory.store_n_bytes(ret_offset, &output, ret_size);
+
+                // 4. Reverting gas refunds
+                // I checked for gas_refunds in the current_call_frame, but I didn't see any, so I didn't implement this part. SSTORE doesn't have gas_refunds implemented, so I don't know how to do this part.
             }
             ExecutionResult::Halt { reason, gas_used } => {
                 current_call_frame.stack.push(U256::from(reason as u8))?;
