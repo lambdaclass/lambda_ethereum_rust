@@ -90,6 +90,7 @@ pub fn validate_state_root(
     }
 }
 
+// Returns the hash of the head of the canonical chain (the latest valid hash).
 pub fn latest_valid_hash(storage: &Store) -> Result<H256, ChainError> {
     if let Some(latest_block_number) = storage.get_latest_block_number()? {
         if let Some(latest_valid_header) = storage.get_block_header(latest_block_number)? {
@@ -249,13 +250,16 @@ pub fn apply_fork_choice(
         return Err(StoreError::Custom("Latest block number not found".to_string()).into());
     };
 
-    for number in head.number..(latest + 1) {
+    // Remove anything after the head from the canonical chain.
+    for number in (head.number + 1)..(latest + 1) {
         store.unset_canonical_block(number)?;
     }
 
     store.set_canonical_block(head.number, head_hash)?;
     store.update_finalized_block_number(finalized.number)?;
     store.update_safe_block_number(safe.number)?;
+    store.update_latest_block_number(head.number)?;
+
     Ok(head)
 }
 

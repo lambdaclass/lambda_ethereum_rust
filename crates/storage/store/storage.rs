@@ -411,7 +411,6 @@ impl Store {
         self.add_block_body(hash, block.body)?;
         self.add_block_header(hash, header)?;
         self.add_block_number(hash, number)?;
-        self.update_latest_block_number(number)?;
         self.add_block_total_difficulty(hash, block_total_difficulty)?;
         self.update_latest_total_difficulty(block_total_difficulty)
     }
@@ -457,6 +456,7 @@ impl Store {
 
         // Store genesis block
         self.update_earliest_block_number(genesis_block_number)?;
+        self.update_latest_block_number(genesis_block_number)?;
         self.add_block(genesis_block)?;
         self.set_canonical_block(genesis_block_number, genesis_hash)?;
 

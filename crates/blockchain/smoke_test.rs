@@ -2,18 +2,18 @@
 mod test {
     use std::{fs::File, io::BufReader};
 
+    use crate::{
+        apply_fork_choice,
+        error::InvalidForkChoice,
+        import_block, is_canonical, latest_valid_hash,
+        payload::{build_payload, create_payload, BuildPayloadArgs},
+    };
+
     use ethereum_rust_core::{
         types::{Block, BlockHeader},
         H160, H256,
     };
     use ethereum_rust_storage::{EngineType, Store};
-
-    use crate::{
-        apply_fork_choice,
-        error::InvalidForkChoice,
-        import_block, is_canonical,
-        payload::{build_payload, create_payload, BuildPayloadArgs},
-    };
 
     #[test]
     fn test_small_to_long_reorg() {
@@ -85,19 +85,21 @@ mod test {
         let block_1b = new_block(&store, &genesis_header);
         let hash_1b = block_1b.header.compute_block_hash();
         import_block(&block_1b, &store).expect("Could not add block 1b.");
-        store.set_canonical_block(1, hash_1b).unwrap();
+        apply_fork_choice(&store, hash_1b, genesis_hash, genesis_hash).unwrap();
         let retrieved_1b = store.get_block_header(1).unwrap().unwrap();
 
         assert_ne!(retrieved_1a, retrieved_1b);
         assert_eq!(retrieved_1b, block_1b.header);
         assert!(is_canonical(&store, 1, hash_1b).unwrap());
+        assert_eq!(latest_valid_hash(&store).unwrap(), hash_1b);
 
         // Add a third block at height 2, child to the canonical one.
         let block_2 = new_block(&store, &block_1b.header);
         let hash_2 = block_2.header.compute_block_hash();
         import_block(&block_2, &store).expect("Could not add block 2.");
+        apply_fork_choice(&store, hash_2, genesis_hash, genesis_hash).unwrap();
         let retrieved_2 = store.get_block_header_by_hash(hash_2).unwrap();
-        store.set_canonical_block(2, hash_2).unwrap();
+        assert_eq!(latest_valid_hash(&store).unwrap(), hash_2);
 
         assert!(retrieved_2.is_some());
         assert!(is_canonical(&store, 2, hash_2).unwrap());
@@ -115,8 +117,8 @@ mod test {
         // Check that canonical blocks changed to the new branch.
         assert!(is_canonical(&store, 0, genesis_hash).unwrap());
         assert!(is_canonical(&store, 1, hash_1a).unwrap());
-        assert!(!is_canonical(&store, 2, hash_2).unwrap());
         assert!(!is_canonical(&store, 1, hash_1b).unwrap());
+        assert!(!is_canonical(&store, 2, hash_2).unwrap());
     }
 
     #[test]
@@ -156,6 +158,47 @@ mod test {
         assert!(store.get_finalized_block_number().unwrap() == Some(0));
         assert!(store.get_safe_block_number().unwrap() == Some(0));
         assert!(store.get_latest_block_number().unwrap() == Some(2));
+    }
+
+    #[test]
+    fn latest_block_number_should_always_be_the_canonical_head() {
+        // Goal: put a, b in the same branch, both canonical.
+        // Then add one in a different branch. Check that the last one is still the same.
+
+        // Store and genesis
+        let store = test_store();
+        let genesis_header = store.get_block_header(0).unwrap().unwrap();
+        let genesis_hash = genesis_header.compute_block_hash();
+
+        // Add block at height 1.
+        let block_1 = new_block(&store, &genesis_header);
+        import_block(&block_1, &store).expect("Could not add block 1b.");
+
+        // Add child at height 2.
+        let block_2 = new_block(&store, &block_1.header);
+        let hash_2 = block_2.header.compute_block_hash();
+        import_block(&block_2, &store).expect("Could not add block 2.");
+
+        assert_eq!(latest_valid_hash(&store).unwrap(), genesis_hash);
+
+        // Make that chain the canonical one.
+        apply_fork_choice(&store, hash_2, genesis_hash, genesis_hash).unwrap();
+
+        assert_eq!(latest_valid_hash(&store).unwrap(), hash_2);
+
+        // Add a new, non canonical block, starting from genesis.
+        let block_1b = new_block(&store, &genesis_header);
+        let hash_b = block_1b.header.compute_block_hash();
+        import_block(&block_1b, &store).expect("Could not add block b.");
+
+        // The latest block should be the same.
+        assert_eq!(latest_valid_hash(&store).unwrap(), hash_2);
+
+        // if we apply fork choice to the new one, then we should
+        apply_fork_choice(&store, hash_b, genesis_hash, genesis_hash).unwrap();
+
+        // The latest block should now be the new head.
+        assert_eq!(latest_valid_hash(&store).unwrap(), hash_b);
     }
 
     fn new_block(store: &Store, parent: &BlockHeader) -> Block {
