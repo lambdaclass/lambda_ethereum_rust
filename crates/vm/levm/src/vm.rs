@@ -572,7 +572,7 @@ impl VM {
                 output,
             } => {
                 // By this point the revert has already been done, down below is the additional behavior between contexts/callframes.
-                // This additional behavior includes: pushing 0 to the stack, adding unused gas to the caller (if substracted before), storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size)
+                // This additional behavior includes: pushing 0 to the stack, adding unused gas to the caller (if substracted before), storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size), we should also "revert" gas refunds (triggered by SSTORE).
 
                 current_call_frame.memory.store_bytes(ret_offset, &output); // Stores return data of sub-context in offset. It is partially ok but we should specify how many bytes to store, that's why we have ret_size I believe.
                 // current_call_frame.returndata = output; // Is this ok? output was the returndata of the calling context, why is it now the returndata of the caller?
