@@ -21,6 +21,7 @@ pub enum VMError {
     OutOfGas,
     VeryLargeNumber,
     FatalError,
+    InvalidOpcode,
 }
 
 pub enum OpcodeSuccess {
@@ -32,6 +33,7 @@ pub enum OpcodeSuccess {
 pub enum ResultReason {
     Stop,
     Return,
+    Revert,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -374,6 +376,7 @@ pub enum SuccessReason {
     Return,
     SelfDestruct,
     EofReturnContract,
+    Revert,
 }
 
 /// Indicates that the EVM has experienced an exceptional halt. This causes execution to

@@ -286,6 +286,7 @@ impl VM {
         let reason = match reason {
             ResultReason::Stop => SuccessReason::Stop,
             ResultReason::Return => SuccessReason::Return,
+            ResultReason::Revert => SuccessReason::Revert,
         };
 
         ExecutionResult::Success {
@@ -308,6 +309,7 @@ impl VM {
             ExecutionResult::Success { reason, .. } => match reason {
                 SuccessReason::Stop => ExitStatusCode::Stop,
                 SuccessReason::Return => ExitStatusCode::Return,
+                SuccessReason::Revert => ExitStatusCode::Revert,
                 SuccessReason::SelfDestruct => todo!(),
                 SuccessReason::EofReturnContract => todo!(),
             },
@@ -469,6 +471,7 @@ impl VM {
                 Err(e) => {
                     // We should call self.revert(...) and return to the caller what it needs.
                     // The caller needs: the return data, the used gas (to do returned_gas = sent_gas - used_gas), the reason of the revert ¿¿¿why???.
+                    let _ = self.revert(&mut current_call_frame, 0, 0);
                     return ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
@@ -737,7 +740,18 @@ impl VM {
         )
     }
 
-    pub fn revert(&mut self, ){
+    pub fn revert(&mut self, current_call_frame: &mut CallFrame, offset: usize, size: usize) -> Result<(), VMError> {
 
+        // If it has something to return
+        if size > 0 {
+            current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
+        }
+        
+
+        // Here I should revert state changes, but I don't know how.
+        // Note from evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
+
+        
+        Ok(()) // Change later
     }
 }

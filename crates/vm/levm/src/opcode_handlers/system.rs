@@ -299,21 +299,19 @@ impl VM {
         // Increment the consumed gas by the gas cost
         self.env.consumed_gas += gas_cost;
 
-        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 
+        let _ = self.revert(current_call_frame, offset, size);
 
-        // evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
-
-        
-        unimplemented!("REVERT opcode encountered")
+        Ok(OpcodeSuccess::Result(ResultReason::Revert))
     }
 
-    // INVALID operation
+    /// ### INVALID operation
+    /// Reverts consuming all gas, no return data.
     pub fn op_invalid(
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        unimplemented!("INVALID opcode encountered")
+        Err(VMError::InvalidOpcode)
     }
 
     // SELFDESTRUCT operation
