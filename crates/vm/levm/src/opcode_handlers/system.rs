@@ -299,13 +299,12 @@ impl VM {
         // Increment the consumed gas by the gas cost
         self.env.consumed_gas += gas_cost;
 
-        // Load the revert data from memory
-        let revert_data = current_call_frame.memory.load_range(offset, size).into();
+        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 
-        // Set the return data of the current call frame to the revert data
-        current_call_frame.returndata = revert_data;
 
         // Should we push success for revert? Maybe that should be done after handling a call.
+
+        // evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
 
         
         unimplemented!("REVERT opcode encountered")

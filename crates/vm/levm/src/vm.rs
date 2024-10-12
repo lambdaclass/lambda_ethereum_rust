@@ -467,6 +467,8 @@ impl VM {
                     );
                 }
                 Err(e) => {
+                    // We should call self.revert(...) and return to the caller what it needs.
+                    // The caller needs: the return data, the used gas (to do returned_gas = sent_gas - used_gas), the reason of the revert ¿¿¿why???.
                     return ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
@@ -574,9 +576,9 @@ impl VM {
                 // I guess that that function reverts changes and sets the new_callframe return data.
                 // Then, here we should push to the stack the value 0.
 
-                current_call_frame.memory.store_bytes(ret_offset, &output);
-                current_call_frame.returndata = output;
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                current_call_frame.memory.store_bytes(ret_offset, &output); // Stores return data of sub-context in offset.
+                // current_call_frame.returndata = output; // Is this ok? output was the returndata of the calling context, why is it now the returndata of the caller?
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?; // Pushes 0 to the stack.
                 current_call_frame.gas -= U256::from(gas_used);
                 self.env.refunded_gas += gas_used;
             }
