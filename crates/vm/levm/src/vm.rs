@@ -469,9 +469,9 @@ impl VM {
                     );
                 }
                 Err(e) => {
-                    // We should call self.revert(...) and return to the caller what it needs.
-                    // The caller needs: the return data, the used gas (to do returned_gas = sent_gas - used_gas), the reason of the revert ¿¿¿why???.
-                    let _ = self.revert(&mut current_call_frame, 0, 0);
+                    // When an error happens we should revert changes made and consume all gas of the context.
+                    let _ = self.revert(&mut current_call_frame, 0, 0); // Revert changes
+
                     return ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
@@ -749,9 +749,10 @@ impl VM {
         
 
         // Here I should revert state changes, but I don't know how.
+        // The only thing that comes to my mind is to backup (clone) the VM and restore it if a revert happens.
         // Note from evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
 
-        
+
         Ok(()) // Change later
     }
 }
