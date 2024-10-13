@@ -92,6 +92,11 @@ impl Account {
     pub fn increment_nonce(&mut self) {
         self.nonce += 1;
     }
+
+    pub fn with_address(mut self, address: Address) -> Self {
+        self.address = address;
+        self
+    }
 }
 
 pub type Storage = HashMap<U256, H256>;

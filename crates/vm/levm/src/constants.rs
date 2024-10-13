@@ -86,6 +86,8 @@ pub mod gas_cost {
     pub const CODECOPY_DYNAMIC_BASE: u64 = 3;
     pub const GASPRICE: u64 = 2;
     pub const SELFDESTRUCT_STATIC: u64 = 5000;
+    pub const SELFDESTRUCT_DYNAMIC_BASE: u64 = 25000;
+    pub const SELFDESTRUCT_DYNAMIC_COLD: u64 = 2600;
 }
 
 pub mod call_opcode {
