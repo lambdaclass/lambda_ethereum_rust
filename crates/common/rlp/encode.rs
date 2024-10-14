@@ -29,6 +29,10 @@ pub trait RLPEncode {
     }
 }
 
+pub trait RLPEncodeSlim {
+    fn encode(&self, buf: &mut dyn BufMut);
+}
+
 impl RLPEncode for bool {
     #[inline(always)]
     fn encode(&self, buf: &mut dyn BufMut) {
