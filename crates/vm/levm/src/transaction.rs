@@ -242,8 +242,6 @@ impl TxEnv {
             let excess_blob_gas = block_env
                 .excess_blob_gas
                 .ok_or(InvalidTx::ExcessBlobGasNotSet)?;
-            // TODO: this should probably return an error, but it would violate
-            // revms api.
 
             let blob_gasprice = Self::calculate_blob_gas_price(excess_blob_gas);
 
