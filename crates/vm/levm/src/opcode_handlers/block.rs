@@ -1,7 +1,5 @@
 use crate::{
-    block::LAST_AVAILABLE_BLOCK_LIMIT,
-    constants::{call_opcode, WORD_SIZE},
-    vm::word_to_address,
+    block::LAST_AVAILABLE_BLOCK_LIMIT, constants::{call_opcode, WORD_SIZE}, vm::word_to_address
 };
 use sha3::{Digest, Keccak256};
 

@@ -107,8 +107,10 @@ pub const TX_DATA_COST_PER_ZERO: u64 = 4;
 pub const TX_CREATE_COST: u64 = 32000;
 pub const TX_ACCESS_LIST_ADDRESS_COST: u64 = 2400;
 pub const TX_ACCESS_LIST_STORAGE_KEY_COST: u64 = 1900;
+
 pub const MAX_CODE_SIZE: usize = 0x6000;
 
+// Costs in gas for init word and init code
 pub const INIT_WORD_COST: i64 = 2;
 
 pub fn init_code_cost(init_code_length: usize) -> u64 {
