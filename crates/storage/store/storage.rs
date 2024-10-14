@@ -139,6 +139,13 @@ impl Store {
         self.engine.get_block_header_by_hash(block_hash)
     }
 
+    pub fn get_block_body_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<BlockBody>, StoreError> {
+        self.engine.get_block_body_by_hash(block_hash)
+    }
+
     pub fn add_block_body(
         &self,
         block_hash: BlockHash,

@@ -18,8 +18,8 @@ use k256::{
     PublicKey, SecretKey,
 };
 use sha3::{Digest, Keccak256};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tracing::info;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tracing::error;
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
@@ -237,7 +237,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         match &mut self.state {
             RLPxConnectionState::Established(state) => {
                 let mut frame_buffer = vec![];
-                message.encode(&mut frame_buffer);
+                match message.encode(&mut frame_buffer) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        // TODO: better error handling
+                        error!("Failed to encode message: {:?}", e);
+                    }
+                };
                 frame::write(frame_buffer, state, &mut self.stream).await;
             }
             // TODO proper error
