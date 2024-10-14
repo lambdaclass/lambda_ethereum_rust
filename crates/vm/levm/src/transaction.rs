@@ -119,12 +119,13 @@ impl TxEnv {
 
     pub fn consume_intrinsic_cost(&mut self) -> Result<u64, InvalidTx> {
         let intrinsic_cost = self.calculate_intrinsic_cost();
-        if self.gas_limit >= intrinsic_cost {
-            self.gas_limit -= intrinsic_cost;
-            Ok(intrinsic_cost)
-        } else {
-            Err(InvalidTx::CallGasCostMoreThanGasLimit)
-        }
+
+        self.gas_limit = self
+            .gas_limit
+            .checked_sub(intrinsic_cost)
+            .ok_or(InvalidTx::CallGasCostMoreThanGasLimit)?;
+
+        Ok(intrinsic_cost)
     }
 
     /// Reference: https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L332
