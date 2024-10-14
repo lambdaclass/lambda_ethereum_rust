@@ -247,6 +247,8 @@ pub enum InvalidTx {
     },
     /// Blob transaction contains a versioned hash with an incorrect version
     BlobVersionNotSupported,
+    // The excess blob gas is not set
+    ExcessBlobGasNotSet,
     /// EOF crate should have `to` address
     EofCrateShouldHaveToAddress,
 }

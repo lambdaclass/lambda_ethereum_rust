@@ -241,7 +241,7 @@ impl TxEnv {
             // https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L412
             let excess_blob_gas = block_env
                 .excess_blob_gas
-                .expect("it's a blob tx, but the block has no blob gas price");
+                .ok_or(InvalidTx::ExcessBlobGasNotSet)?;
             // TODO: this should probably return an error, but it would violate
             // revms api.
 
