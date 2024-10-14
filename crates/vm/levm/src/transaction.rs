@@ -112,7 +112,7 @@ impl TxEnv {
             TransactTo::Call(_) => 0,
         };
 
-        // TODO: implement with access lists
+        // TODO: implement with access lists: https://github.com/lambdaclass/lambda_ethereum_rust/issues/835
         // let access_list_cost = access_list_cost(&current_call_frame.access_list);
 
         TX_BASE_COST + data_cost + create_cost
