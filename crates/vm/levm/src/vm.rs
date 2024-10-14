@@ -182,6 +182,8 @@ impl Db {
             .collect()
     }
 
+    /// Returns the account associated with the given address.
+    /// If the account does not exist in the Db, it creates a new one with the given address.
     pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
         if self.accounts.contains_key(address) {
             return Ok(self.accounts.get(address).unwrap());
