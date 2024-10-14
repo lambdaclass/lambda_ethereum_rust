@@ -231,10 +231,10 @@ pub fn apply_fork_choice(
     // Check that finalized and safe blocks are part of the new canonical chain.
     if let Some(ref finalized_block) = finalized_res {
         let finalized = &finalized_block.header;
-        if !(is_canonical(store, finalized.number, finalized_hash)?
+        if !((is_canonical(store, finalized.number, finalized_hash)?
             && finalized.number <= link_block_number)
             || (finalized.number == head.number && finalized_hash == head_hash)
-            || new_canonical_blocks.contains(&(finalized.number, finalized_hash))
+            || new_canonical_blocks.contains(&(finalized.number, finalized_hash)))
         {
             return Err(InvalidForkChoice::Disconnected(
                 error::ForkChoiceElement::Head,
@@ -245,9 +245,9 @@ pub fn apply_fork_choice(
 
     if let Some(ref safe_block) = safe_res {
         let safe = &safe_block.header;
-        if !(is_canonical(store, safe.number, safe_hash)? && safe.number <= link_block_number)
+        if !((is_canonical(store, safe.number, safe_hash)? && safe.number <= link_block_number)
             || (safe.number == head.number && safe_hash == head_hash)
-            || new_canonical_blocks.contains(&(safe.number, safe_hash))
+            || new_canonical_blocks.contains(&(safe.number, safe_hash)))
         {
             return Err(InvalidForkChoice::Disconnected(
                 error::ForkChoiceElement::Head,
