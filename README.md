@@ -126,7 +126,7 @@ Detailed issues and progress [here](https://github.com/lambdaclass/ethereum_rust
 
 Implement the peer to peer networking stack, i.e. the DevP2P protocol. This includes `discv4`, `RLPx` and the `eth` capability. This will let us get and retrieve blocks and transactions from other nodes. We'll add the transactions we receive to the mempool. We'll also download blocks from other nodes when we get payloads where the parent isn't in our local chain.
 
-|  Task Description      |                                                                  | 
+|  Task Description      | Status                                                                  | 
 | --------- |  --------------------------------------------------------------------------- | 
 |   Implement `discv4` for peer discovery                                    | ✅     
 |   Implement the `RLPx` transport protocol                                                     | 🏗️     
