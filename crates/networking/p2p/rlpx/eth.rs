@@ -1120,7 +1120,7 @@ mod tests {
             transaction_hashes
         );
         let pooled_transactions = get_pooled_transactions_from_hashes(
-            &store,
+            store,
             received_transaction_hashes.transaction_hashes,
         )
         .unwrap();
