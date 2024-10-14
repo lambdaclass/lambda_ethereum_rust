@@ -34,6 +34,7 @@ pub enum OpcodeSuccess {
 pub enum ResultReason {
     Stop,
     Return,
+    SelfDestruct,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -191,6 +191,8 @@ impl Db {
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
     pub warm_addresses: HashSet<Address>,
+    pub self_destruct_set: HashSet<Address>,
+    pub created_contracts: HashSet<Address>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -304,7 +306,8 @@ impl VM {
                 gas_used,
                 output: Output::Call(current_call_frame.returndata.clone()),
                 gas_refunded,
-            }
+            },
+            ResultReason::SelfDestruct => todo!(),
         }
     }
 
@@ -743,6 +746,10 @@ impl VM {
         current_call_frame
             .stack
             .push(address_to_word(new_address))?;
+
+
+        // Add to substate created contracts in transaction (for SelfDestruct)
+        self.accrued_substate.created_contracts.insert(new_address);
 
         self.generic_call(
             current_call_frame,

@@ -306,18 +306,14 @@ impl VM {
         // Sends all ether in the account to the target address
         // Steps:
         // 1. Pop the target address from the stack
-        // 1': Store in a variable the balance of the current account
-        // 2. Get the target account, checking if it is empty and if it is cold. Update gas cost accordingly.
-        // 3. Check if gas cost exceeds gas limit (return OutOfGas if it does)
+        // 2. Get current account and: Store the balance in a variable, set it's balance to 0
+        // 3. Get the target account, checking if it is empty and if it is cold. Update gas cost accordingly.
         // 4. Add the balance of the current account to the target account
-        // 5. Set the balance of the current account to 0
+        // 5. Register account to be destroyed in accrued substate.
 
-        // Problems/Doubts: 
-        //      Should I update db directly with get_mut? 
-        //      How do I know if address is cold or warm? Is it in accesslist?
-        //      How do I know if address is empty? It should have a balance of 0, nonce 0 and no code. But if an Account is not in the database, does it mean it is empty? I don't know what does our database represent, should I assume that all existing accounts are in there?
-
-        // Notes: If context is Static, return error.
+        // Notes: 
+        //      If context is Static, return error.
+        //      If executed in the same transaction a contract was created, the current account is registered to be destroyed
         if current_call_frame.is_static {
             return Err(VMError::OpcodeNotAllowedInStaticContext);
         }
@@ -326,7 +322,7 @@ impl VM {
         let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
         let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_BASE;
         let cold_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_COLD;
-        let mut gas_cost = static_gas_cost ; // This will be updated later
+        let mut gas_cost = static_gas_cost; // This will be updated later
 
         
         // 1
@@ -334,33 +330,35 @@ impl VM {
 
         // 1'
         let current_account_balance = self.db.accounts.get(&current_call_frame.to).unwrap().balance;
+        self.db.accounts.get_mut(&current_call_frame.to).unwrap().balance = U256::zero();
 
         
-        // Get the target account (I HAVE TO CHECK IF ADDRESS IS COLD AND IF IT IS EMPTY AND UPDATE GAS COST ACCORDINGLY)
+        // 2. Get the target account
+
+        // If address is cold, there is an additional cost of 2600. accessList has not been implemented yet.
+
+
         // If a positive balance is sent to an empty account, the dynamic gas is 25000.
-        // Additionaly, if address is cold, there is an additional cost of 2600.
         let target_account = match self.db.accounts.get_mut(&target_address) {
             Some(acc) => acc,
             None => {
-                // If it is not in the database, does it mean it is an empty account?
+                // I'm considering that if address is not in the database, it means that it is an empty account.
+                gas_cost += dynamic_gas_cost;
                 self.db.accounts.insert(target_address, Account::default());
                 self.db.accounts.get_mut(&target_address).unwrap()
             }
         };
         
-        if current_call_frame.gas_used + gas_cost > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
+        target_account.balance += current_account_balance;
+        
+        // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
+        if self.accrued_substate.created_contracts.contains(&current_call_frame.to) {
+           self.accrued_substate.self_destruct_set.insert(current_call_frame.to);
         }
         
         
-        target_account.balance += current_account_balance;
-        
-        
-        
-        // // Reset balance of the current account. (Last step)
-        // let current_account = self.db.accounts.get_mut(&current_call_frame.to).unwrap();
-        // current_account.balance = U256::zero();
-        
-        unimplemented!("SELFDESTRUCT opcode encountered")        
+        self.increase_gas(current_call_frame, gas_cost)?;
+
+        Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))    
     }
 }
