@@ -481,19 +481,20 @@ impl VM {
                     );
                 }
                 Err(e) => {
-                    // Any error triggers a Revert, even Revert Opcode is considered an execution error (the only difference is that this doesn't consume all gas).
+                    // Any error triggers a Revert, even Revert Opcode is considered an execution error (the only difference is in gas consumption and output).
                     self.call_frames.push(current_call_frame.clone());
-                    
-                    let unused_gas = if e == VMError::RevertOpcode {
-                        current_call_frame.gas_limit - current_call_frame.gas_used
-                    } else {
-                        0
+
+                    let (unused_gas, output) = if e == VMError::RevertOpcode {
+                        (current_call_frame.gas_limit - current_call_frame.gas_used, current_call_frame.returndata.clone())
+                    }
+                    else{
+                        (0, Bytes::new())
                     };
     
                     return ExecutionResult::Revert { 
-                        reason: e, 
-                        unused_gas, 
-                        output: Bytes::new() 
+                        reason: e,
+                        unused_gas,
+                        output 
                     };
                 }
             }
@@ -595,20 +596,18 @@ impl VM {
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             ExecutionResult::Revert {
-                reason: r,
+                reason,
                 unused_gas,
                 output,
             } => {
                 // Restore the VM to the state before the call
                 *self = backup_vm;
 
-                // Additional Behavior: pushing 0 to the stack of current callframe, adding unused gas to the caller (if substracted before), storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size), we should also "revert" gas refunds (triggered by SSTORE).
-
                 // 1. Pushing 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
 
-                // Caller should've assigned some of it's gas to the sub-context before, so now we should add the unused gas by the sub-context to the caller. I just leave the comment because I didn't see this being implemented.
-                if r == VMError::RevertOpcode {
+                // If reverted by Revert opcode we should return unused gas to the caller and also store the return data in memory
+                if reason == VMError::RevertOpcode {
                     // 2. Adding unused gas to the caller (If not exceptional halt)
                     current_call_frame.gas_used += unused_gas;
 
@@ -616,8 +615,8 @@ impl VM {
                     current_call_frame.memory.store_n_bytes(ret_offset, &output, ret_size);
                 };
 
-                // 4. Reverting gas refunds
-                // I checked for gas_refunds in the current_call_frame, but I didn't see any, so I didn't implement this part. SSTORE doesn't have gas_refunds implemented, so I don't know how to do this part.
+                // 4. Reverting gas refunds (triggered by SSTORE)
+                // gas_refunds are not implemented yet so this is going to stay as a comment for now.
             }
         }
 
