@@ -1,5 +1,3 @@
-use sha3::digest::consts::U2;
-
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN}, vm::Account, vm_result::ResultReason
 };
@@ -332,9 +330,9 @@ impl VM {
         }
 
         // Gas costs variables
-        let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC as u64;
-        let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_BASE as u64;
-        let cold_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_COLD as u64;
+        let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
+        let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_BASE;
+        let cold_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_COLD;
         let mut gas_cost = static_gas_cost ; // This will be updated later
 
         
