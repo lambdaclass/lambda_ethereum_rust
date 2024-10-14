@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn multiple_receipts_one_block() {
-        let store = Store::new("", ethereum_rust_storage::EngineType::InMemory).unwrap();
+        let store = Store::new("aguante_rust", ethereum_rust_storage::EngineType::Libmdbx).unwrap();
         let body = BlockBody {
             transactions: vec![],
             ommers: vec![],

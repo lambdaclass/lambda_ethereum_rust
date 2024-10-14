@@ -189,9 +189,23 @@ impl StoreEngine for Store {
 
     fn get_all_receipts_by_hash(
         &self,
-        _block_hash: BlockHash,
+        block_hash: BlockHash,
     ) -> Result<Option<Vec<Receipt>>, StoreError> {
-        todo!();
+        //let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        //txn.get::<T>(key).map_err(StoreError::LibmdbxError)
+
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let mut cursor = txn.cursor::<Receipts>().unwrap();
+        let mut receipts = Vec::new();
+        while let Ok(x) = cursor.next() {
+            let (x, y) = match x {
+                Some((x, y)) => (x, y),
+                None => break,
+            };
+
+            receipts.push(y.to());
+        }
+        Ok(Some(receipts))
     }
 
     fn add_transaction_location(
