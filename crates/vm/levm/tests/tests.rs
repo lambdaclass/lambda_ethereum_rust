@@ -1760,7 +1760,7 @@ fn pop_on_empty_stack() {
 
     let result = vm.execute();
 
-    // result should be ExecutionResult::Halt with error VMError::StackUnderflow
+    // result should be ExecutionResult::Revert with error VMError::StackUnderflow
 
     assert_eq!(
         result,
@@ -2958,7 +2958,7 @@ fn cant_create_log_in_static_context() {
         } => {
             // Test passes
         }
-        _ => panic!("Expected ExecutionResult::Halt with OpcodeNotAllowedInStaticContext"),
+        _ => panic!("Expected ExecutionResult::Revert with OpcodeNotAllowedInStaticContext"),
     }
 }
 
@@ -3248,7 +3248,7 @@ fn dup_halts_if_stack_underflow() {
         } => {
             // Test passes
         }
-        _ => panic!("Expected ExecutionResult::Halt with StackUnderflow"),
+        _ => panic!("Expected ExecutionResult::Revert with StackUnderflow"),
     }
 }
 
@@ -3312,7 +3312,7 @@ fn swap_halts_if_stack_underflow() {
         } => {
             // Test passes
         }
-        _ => panic!("Expected ExecutionResult::Halt with StackUnderflow"),
+        _ => panic!("Expected ExecutionResult::Revert with StackUnderflow"),
     }
 }
 
