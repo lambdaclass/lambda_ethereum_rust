@@ -474,12 +474,11 @@ impl VM {
                     );
                 }
                 Err(e) => {
-                    // When an error happens we should revert changes made and consume all gas of the context.
-                    let _ = self.revert(&mut current_call_frame, 0, 0); // Revert changes
-
+                    // When an error happens we should revert changes made and consume all gas of the context. That is an Exceptional Halt, and the revert of changes is handled by the caller in generic_call().
+                    
                     return ExecutionResult::Halt {
                         reason: e,
-                        gas_used: self.env.consumed_gas,
+                        gas_used: self.env.consumed_gas, // This attribute is unnecessary because there is no gas refund.
                     }
                 }
             }
