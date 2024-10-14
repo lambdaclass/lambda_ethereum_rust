@@ -230,12 +230,25 @@ fn get_message_from_revert_data(_data: &str) -> String {
     "".to_owned()
 }
 
+pub fn parse_json_hex(hex: &serde_json::Value) -> Result<u64, String> {
+    if let Value::String(maybe_hex) = hex {
+        let trimmed = maybe_hex.trim_start_matches("0x");
+        let maybe_parsed = u64::from_str_radix(trimmed, 16);
+        maybe_parsed.map_err(|_| format!("Could not parse given hex {}", maybe_hex))
+    } else {
+        Err(format!("Could not parse given hex {}", hex))
+    }
+}
+
 #[cfg(test)]
 pub mod test_utils {
-    use std::str::FromStr;
+    use std::{net::SocketAddr, str::FromStr};
 
     use ethereum_rust_core::H512;
     use ethereum_rust_net::types::Node;
+    use ethereum_rust_storage::{EngineType, Store};
+
+    use crate::start_api;
 
     pub fn example_p2p_node() -> Node {
         let node_id_1 = H512::from_str("d860a01f9722d78051619d1e2351aba3f43f943f6f00718d1b9baa4101932a1f5011f16bb2b1bb35db20d6fe28fa0bf09636d26a87d31de9ec6203eeedb1f666").unwrap();
@@ -245,5 +258,27 @@ pub mod test_utils {
             tcp_port: 30303,
             node_id: node_id_1,
         }
+    }
+
+    // Util to start an api for testing on ports 8500 and 8501,
+    // mostly for when hive is missing some endpoints to test
+    // like eth_uninstallFilter.
+    // Here's how you would use it:
+    // ```
+    // let server_handle = tokio::spawn(async move { start_stest_api().await })
+    // ...
+    // assert!(something_that_needs_the_server)
+    // ...
+    // server_handle.abort()
+    // ```
+    pub async fn start_test_api() {
+        let http_addr: SocketAddr = "127.0.0.1:8500".parse().unwrap();
+        let authrpc_addr: SocketAddr = "127.0.0.1:8501".parse().unwrap();
+        let storage =
+            Store::new("", EngineType::InMemory).expect("Failed to create in-memory storage");
+
+        let jwt_secret = Default::default();
+        let local_p2p_node = example_p2p_node();
+        start_api(http_addr, authrpc_addr, storage, jwt_secret, local_p2p_node).await;
     }
 }
