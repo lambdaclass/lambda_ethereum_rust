@@ -31,7 +31,6 @@ pub(crate) struct RLPxConnection<S> {
     signer: SigningKey,
     state: RLPxConnectionState,
     stream: S,
-    hello_exchanged: bool,
     // ...capabilities information
 }
 
@@ -41,7 +40,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             signer,
             state,
             stream,
-            hello_exchanged: false,
         }
     }
 
@@ -229,8 +227,17 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         info!("Hello message sent!");
 
         // Receive Hello message
-        let msg = self.receive().await;
-        info!("Hello message received {msg:?}");
+        match self.receive().await {
+            Message::Hello(hello_message) => {
+                // TODO, register shared capabilities
+                // https://github.com/lambdaclass/lambda_ethereum_rust/issues/841
+                info!("Hello message received {hello_message:?}");
+            }
+            _ => {
+                // if it is not a hello message panic
+                panic!("Expected Hello message")
+            }
+        }
     }
 
     pub async fn send(&mut self, message: rlpx::Message) {
@@ -257,23 +264,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 let frame_data = frame::read(state, &mut self.stream).await;
                 let (msg_id, msg_data): (u8, _) =
                     RLPDecode::decode_unfinished(&frame_data).unwrap();
-                if !self.hello_exchanged {
-                    if msg_id == 0 {
-                        let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
-                        assert!(
-                            matches!(message, rlpx::Message::Hello(_)),
-                            "Expected Hello message"
-                        );
-                        self.hello_exchanged = true;
-                        // TODO, register shared capabilities
-                        message
-                    } else {
-                        // if it is not a hello message panic
-                        panic!("Expected Hello message")
-                    }
-                } else {
-                    rlpx::Message::decode(msg_id, msg_data).unwrap()
-                }
+                rlpx::Message::decode(msg_id, msg_data).unwrap()
             }
             // TODO proper error
             _ => panic!("Received an unexpected message"),
@@ -456,6 +447,7 @@ impl Established {
 }
 
 // TODO fix this test now that RLPxClient does no longer exist
+// https://github.com/lambdaclass/lambda_ethereum_rust/issues/843
 #[cfg(test)]
 mod tests {
     // use hex_literal::hex;

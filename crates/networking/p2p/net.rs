@@ -48,6 +48,7 @@ pub async fn start_network(
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
     let server_handle = tokio::spawn(serve_requests(tcp_addr, signer.clone(), storage.clone()));
     // TODO Remove this spawn, it's just for testing
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
     tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
 
     try_join!(discovery_handle, server_handle).unwrap();
@@ -180,6 +181,7 @@ async fn discover_peers_server(
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
                         table.lock().await.pong_answered(peer.node.node_id);
                         // TODO: make this work to initiate p2p thread
+                        // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
                         let _node = peer.node;
                         let mut msg_buf = vec![0; read - (32 + 65)];
                         buf[32 + 65..read].clone_into(&mut msg_buf);
@@ -711,6 +713,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
 }
 
 // TODO: remove this function. It's used for a hardcoded test
+// https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
 async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
     let mut udp_addr = tcp_addr;
     udp_addr.set_port(tcp_addr.port() + 1);
@@ -756,6 +759,7 @@ async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _s
 
 // TODO build a proper listen loop that receives requests from both
 // peers and business layer and propagate storage to use when required
+// https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
 async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
@@ -786,8 +790,10 @@ async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
 async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
     conn.handshake().await;
     // TODO react on handshake or capabilities exchange result
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/841
 
     // TODO Properly build listen loop
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
     // loop {
     //     conn.await_messages();
     // }
