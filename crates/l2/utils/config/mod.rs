@@ -12,7 +12,8 @@ pub mod prover;
 pub mod errors;
 
 pub fn read_env_file() -> Result<(), errors::ConfigError> {
-    let env_file = std::fs::File::open(".env")?;
+    let env_file_name = std::env::var("ENV_FILE").unwrap_or_else(|_| ".env".to_string());
+    let env_file = std::fs::File::open(env_file_name)?;
     let reader = std::io::BufReader::new(env_file);
 
     for line in reader.lines() {
