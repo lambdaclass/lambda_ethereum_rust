@@ -249,8 +249,7 @@ impl VM {
         // let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
         let words_copied = size
             .checked_add(WORD_SIZE - 1)
-            .ok_or("Overflow occurred when calculating memory size")
-            .map_err(|_| VMError::OverflowInArithmeticOp)?
+            .ok_or(VMError::OverflowInArithmeticOp)?
             / WORD_SIZE;
         // let memory_byte_size = (src_offset + size).max(dest_offset + size);
         let memory_byte_size = src_offset
@@ -260,8 +259,7 @@ impl VM {
                     .checked_add(size)
                     .map(|dest_sum| src_sum.max(dest_sum))
             })
-            .ok_or("Overflow occurred when calculating memory_byte_size")
-            .map_err(|_| VMError::OverflowInArithmeticOp)?;
+            .ok_or(VMError::OverflowInArithmeticOp)?;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
         let gas_cost = gas_cost::MCOPY_STATIC
             + gas_cost::MCOPY_DYNAMIC_BASE * words_copied as u64
