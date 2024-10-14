@@ -280,7 +280,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // Gets values from stack, calculates gas cost and calls revert function.
-        
+
         let offset = current_call_frame
             .stack
             .pop()?
@@ -302,8 +302,7 @@ impl VM {
         // Increment the consumed gas by the gas cost
         self.env.consumed_gas += gas_cost;
 
-
-        let _ = self.revert(current_call_frame, offset, size);
+        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 
         Ok(OpcodeSuccess::Result(ResultReason::Revert))
     }

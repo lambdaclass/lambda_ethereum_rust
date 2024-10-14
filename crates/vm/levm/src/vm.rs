@@ -559,6 +559,7 @@ impl VM {
         current_call_frame.return_data_size = Some(ret_size);
 
         // I was thinking of cloning the VM and restoring it if a revert happens.
+        let backup_vm = self.clone();
 
         self.call_frames.push(new_call_frame.clone());
         let result = self.execute();
@@ -581,8 +582,10 @@ impl VM {
                 gas_used: _,
                 output,
             } => {
-                // By this point the revert has already been done, down below is the additional behavior between contexts/callframes.
-                // This additional behavior includes: pushing 0 to the stack, adding unused gas to the caller (if substracted before), storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size), we should also "revert" gas refunds (triggered by SSTORE).
+                // Restore the VM to the state before the call
+                *self = backup_vm;
+
+                // Additional Behavior: pushing 0 to the stack of current callframe, adding unused gas to the caller (if substracted before), storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size), we should also "revert" gas refunds (triggered by SSTORE).
 
                 // 1. Pushing 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
@@ -745,23 +748,5 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
-    }
-
-    pub fn revert(&mut self, current_call_frame: &mut CallFrame, offset: usize, size: usize) -> Result<(), VMError> {
-
-        // If it has something to return
-        if size > 0 {
-            current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
-        }
-        
-
-        // Here I should revert state changes, but I don't know how.
-        // The only thing that comes to my mind is to backup (clone) the VM and restore it if a revert happens.
-        // Note from evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
-
-        // self.accrued_substate.warm_addresses = warm addresses backup? // Backup should be done in every generic_call?
-
-
-        Ok(()) // Change later
     }
 }
