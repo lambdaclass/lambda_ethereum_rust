@@ -50,7 +50,7 @@ pub struct TxEnv {
     ///
     /// - For type 2 and type 3 transactions:
     ///
-    /// ```f = min(tx.max_priority_fee_per_gas, tx.max_fee_per_gas - tx.base_fee_per_gas)```
+    /// ```f = min(tx.max_priority_fee_per_gas, tx.max_fee_per_gas - block.base_fee_per_gas)```
     pub priority_fee: U256,
 
     /// The destination of the transaction.
