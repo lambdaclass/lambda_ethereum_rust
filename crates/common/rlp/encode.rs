@@ -152,6 +152,27 @@ impl RLPEncode for usize {
     }
 }
 
+impl RLPEncode for u128 {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        match *self {
+            // 0, also known as null or the empty string is 0x80
+            0 => buf.put_u8(RLP_NULL),
+            // for a single byte whose value is in the [0x00, 0x7f] range, that byte is its own RLP encoding.
+            n @ 1..=0x7f => buf.put_u8(n as u8),
+            // Otherwise, if a string is 0-55 bytes long, the RLP encoding consists of a
+            // single byte with value RLP_NULL (0x80) plus the length of the string followed by the string.
+            n => {
+                let mut bytes = ArrayVec::<[u8; 16]>::new();
+                bytes.extend_from_slice(&n.to_be_bytes());
+                let start = bytes.iter().position(|&x| x != 0).unwrap();
+                let len = bytes.len() - start;
+                buf.put_u8(RLP_NULL + len as u8);
+                buf.put_slice(&bytes[start..]);
+            }
+        }
+    }
+}
+
 impl RLPEncode for () {
     fn encode(&self, buf: &mut dyn BufMut) {
         buf.put_u8(RLP_NULL);

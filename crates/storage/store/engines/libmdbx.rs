@@ -2,14 +2,14 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP,
+    BlockRLP, BlockTotalDifficultyRLP, MempoolTransactionRLP, ReceiptRLP, Rlp, TransactionHashRLP,
     TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    Receipt, Transaction,
+    MempoolTransaction, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -21,6 +21,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
+use libmdbx::{DatabaseOptions, Mode, ReadWriteOptions};
 use serde_json;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
@@ -219,13 +220,16 @@ impl StoreEngine for Store {
     fn add_transaction_to_pool(
         &self,
         hash: H256,
-        transaction: Transaction,
+        transaction: MempoolTransaction,
     ) -> Result<(), StoreError> {
         self.write::<TransactionPool>(hash.into(), transaction.into())?;
         Ok(())
     }
 
-    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+    fn get_transaction_from_pool(
+        &self,
+        hash: H256,
+    ) -> Result<Option<MempoolTransaction>, StoreError> {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
@@ -251,7 +255,7 @@ impl StoreEngine for Store {
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
+    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         let cursor = txn
             .cursor::<TransactionPool>()
@@ -259,15 +263,13 @@ impl StoreEngine for Store {
         let tx_iter = cursor
             .walk(None)
             .map_while(|res| res.ok().map(|(_, tx)| tx.to()));
-        let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
+        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
         for tx in tx_iter {
             if filter(&tx) {
                 txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
         }
-        for (_, txs) in txs_by_sender.iter_mut() {
-            txs.sort_by_key(|tx| tx.nonce());
-        }
+        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
     }
 
@@ -523,7 +525,7 @@ dupsort!(
 
 table!(
     /// Transaction pool table.
-    ( TransactionPool ) TransactionHashRLP => TransactionRLP
+    ( TransactionPool ) TransactionHashRLP => MempoolTransactionRLP
 );
 
 table!(
@@ -654,7 +656,15 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     .into_iter()
     .collect();
     let path = path.map(|p| p.as_ref().to_path_buf());
-    Database::create(path, &tables).unwrap()
+    let options = DatabaseOptions {
+        mode: Mode::ReadWrite(ReadWriteOptions {
+            // Set max DB size to 1TB
+            max_size: Some(1024_isize.pow(4)),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    Database::create_with_options(path, options, &tables).unwrap()
 }
 
 #[cfg(test)]

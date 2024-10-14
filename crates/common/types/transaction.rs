@@ -2,6 +2,7 @@ use std::cmp::min;
 
 use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
+pub use mempool::MempoolTransaction;
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
 use serde::{ser::SerializeStruct, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
@@ -1016,6 +1017,84 @@ mod serde_impl {
         pub blobs: Vec<Bytes>,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub chain_id: Option<u64>,
+    }
+}
+
+mod mempool {
+    use super::*;
+    use std::{
+        cmp::Ordering,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct MempoolTransaction {
+        // Unix timestamp (in microseconds) created once the transaction reached the MemPool
+        timestamp: u128,
+        inner: Transaction,
+    }
+
+    impl MempoolTransaction {
+        pub fn new(tx: Transaction) -> Self {
+            Self {
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Invalid system time")
+                    .as_micros(),
+                inner: tx,
+            }
+        }
+        pub fn time(&self) -> u128 {
+            self.timestamp
+        }
+    }
+
+    impl RLPEncode for MempoolTransaction {
+        fn encode(&self, buf: &mut dyn bytes::BufMut) {
+            Encoder::new(buf)
+                .encode_field(&self.timestamp)
+                .encode_field(&self.inner)
+                .finish();
+        }
+    }
+
+    impl RLPDecode for MempoolTransaction {
+        fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+            let decoder = Decoder::new(rlp)?;
+            let (timestamp, decoder) = decoder.decode_field("timestamp")?;
+            let (inner, decoder) = decoder.decode_field("inner")?;
+            Ok((Self { timestamp, inner }, decoder.finish()?))
+        }
+    }
+
+    impl std::ops::Deref for MempoolTransaction {
+        type Target = Transaction;
+
+        fn deref(&self) -> &Self::Target {
+            &self.inner
+        }
+    }
+
+    impl From<MempoolTransaction> for Transaction {
+        fn from(val: MempoolTransaction) -> Self {
+            val.inner
+        }
+    }
+
+    // Orders transactions by lowest nonce, if the nonce is equal, orders by highest timestamp
+    impl Ord for MempoolTransaction {
+        fn cmp(&self, other: &Self) -> Ordering {
+            match self.nonce().cmp(&other.nonce()) {
+                Ordering::Equal => other.time().cmp(&self.time()),
+                ordering => ordering,
+            }
+        }
+    }
+
+    impl PartialOrd for MempoolTransaction {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
     }
 }
 
