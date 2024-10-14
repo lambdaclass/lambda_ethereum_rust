@@ -562,7 +562,7 @@ impl VM {
             value,
             calldata,
             is_static,
-            gas,
+            gas, // It should be min(gas, current_call_frame.remaining_gas / 64)
             current_call_frame.depth + 1,
         );
 
