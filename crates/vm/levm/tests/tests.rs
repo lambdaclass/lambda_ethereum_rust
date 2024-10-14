@@ -4357,7 +4357,7 @@ fn tx_too_many_blobs() {
     assert_eq!(
         tx_result,
         Err(InvalidTx::TooManyBlobs {
-            max: MAX_BLOB_NUMBER_PER_BLOCK as usize,
+            max: MAX_BLOB_NUMBER_PER_BLOCK,
             have: 7
         })
     )
