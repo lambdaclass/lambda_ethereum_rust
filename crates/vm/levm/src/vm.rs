@@ -627,10 +627,7 @@ impl VM {
                     current_call_frame.gas -= U256::from(gas_used);
                 }
                 Err(reason)
-            } // WARNING: I commented this because I don't know when this should be executed.
-              // Err(_) => {
-              //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-              // }
+            }
         }
     }
 
