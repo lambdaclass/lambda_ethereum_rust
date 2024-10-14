@@ -747,6 +747,32 @@ mod tests {
         run_test(&test_genesis_block, engine_type);
         run_test(&test_filter_mempool_transactions, engine_type);
         run_test(&blobs_bundle_loadtest, engine_type);
+        run_test(&test_get_all_receipts_by_hash, engine_type);
+    }
+
+    fn test_get_all_receipts_by_hash(store: Store) {
+        let receipt1 = Receipt::new(TxType::default(), true, 100, vec![]);
+        let receipt2 = Receipt::new(TxType::default(), true, 500, vec![]);
+        let receipt3 = Receipt::new(TxType::default(), true, 1000, vec![]);
+        store
+            .add_receipt(H256::from_low_u64_be(1), 1, receipt1)
+            .unwrap();
+        store
+            .add_receipt(H256::from_low_u64_be(1), 2, receipt2)
+            .unwrap();
+        store
+            .add_receipt(H256::from_low_u64_be(2), 1, receipt3)
+            .unwrap();
+
+        let block1_receipts = store
+            .get_all_receipts_by_hash(H256::from_low_u64_be(1))
+            .unwrap();
+        let block2_receipts = store
+            .get_all_receipts_by_hash(H256::from_low_u64_be(2))
+            .unwrap();
+
+        assert_eq!(block1_receipts.unwrap().len(), 2);
+        assert_eq!(block2_receipts.unwrap().len(), 1);
     }
 
     fn test_genesis_block(store: Store) {
