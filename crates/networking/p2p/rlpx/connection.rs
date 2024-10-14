@@ -4,6 +4,7 @@ use ethereum_rust_core::H256;
 use ethereum_rust_rlp::decode::RLPDecode;
 use sha3::{Digest, Keccak256};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tracing::error;
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
@@ -29,7 +30,13 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     pub async fn send(&mut self, message: rlpx::Message) {
         let mut frame_buffer = vec![];
-        message.encode(&mut frame_buffer);
+        match message.encode(&mut frame_buffer) {
+            Ok(_) => {}
+            Err(e) => {
+                // TODO: better error handling
+                error!("Failed to encode message: {:?}", e);
+            }
+        };
         frame::write(frame_buffer, &mut self.state, &mut self.stream).await;
     }
 
