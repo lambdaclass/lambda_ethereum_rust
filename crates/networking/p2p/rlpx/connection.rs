@@ -18,8 +18,8 @@ use k256::{
     PublicKey, SecretKey,
 };
 use sha3::{Digest, Keccak256};
-use tokio::io::{AsyncRead, AsyncWrite};
-use tracing::error;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tracing::{error, info};
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 1] = [("p2p", 5)];
 pub const SUPPORTED_CAPABILITIES: [(&str, u8); 2] = [("p2p", 5), ("eth", 68)];
 // pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
