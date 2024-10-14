@@ -38,7 +38,7 @@ pub async fn start_operator(store: Store) {
     info!("Starting Operator");
 
     if let Err(e) = read_env_file() {
-        warn!("Failed to read .env file: {}", e);
+        warn!("Failed to read .env file: {e}");
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
