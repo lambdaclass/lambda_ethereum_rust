@@ -1,5 +1,3 @@
-use std::thread::current;
-
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN}, vm::Account, vm_result::ResultReason
 };
@@ -66,11 +64,9 @@ impl VM {
             + positive_value_cost
             + value_to_empty_account_cost;
 
-        if current_call_frame.gas_used + gas_cost > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        
 
-        self.increase_gas(current_call_frame, gas_cost);
+        self.increase_gas(current_call_frame, gas_cost)?;
         self.accrued_substate.warm_addresses.insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
@@ -145,11 +141,9 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
-        if current_call_frame.gas_used + gas_cost > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        
 
-        self.increase_gas(current_call_frame, gas_cost);
+        self.increase_gas(current_call_frame, gas_cost)?;
         let return_data = current_call_frame.memory.load_range(offset, size).into();
         current_call_frame.returndata = return_data;
         current_call_frame
@@ -287,12 +281,7 @@ impl VM {
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
 
-        if current_call_frame.gas_used + gas_cost > current_call_frame.gas_limit { 
-            return Err(VMError::OutOfGas);
-        }
-
-        // Increment the consumed gas by the gas cost
-        self.increase_gas(current_call_frame, gas_cost);
+        self.increase_gas(current_call_frame, gas_cost)?;
         
         current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 

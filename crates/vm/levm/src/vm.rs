@@ -762,8 +762,13 @@ impl VM {
         )
     }
 
-    pub fn increase_gas(&mut self, current_call_frame: &mut CallFrame, gas: u64) {
+    /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.
+    pub fn increase_gas(&mut self, current_call_frame: &mut CallFrame, gas: u64) -> Result<(), VMError>{
+        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
         current_call_frame.gas_used += gas;
         self.env.consumed_gas += gas;
+        Ok(())
     }
 }

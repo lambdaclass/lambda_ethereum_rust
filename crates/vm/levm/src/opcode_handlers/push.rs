@@ -9,9 +9,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
-        if current_call_frame.gas_used + gas_cost::PUSHN > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_gas(current_call_frame, gas_cost::PUSHN)?;
 
         let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
 
@@ -26,7 +24,6 @@ impl VM {
 
         current_call_frame.increment_pc_by(n_bytes as usize);
 
-        self.increase_gas(current_call_frame, gas_cost::PUSHN);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -36,12 +33,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if current_call_frame.gas_used + gas_cost::PUSH0 > current_call_frame.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_gas(current_call_frame, gas_cost::PUSH0)?;
 
         current_call_frame.stack.push(U256::zero())?;
-        self.increase_gas(current_call_frame, gas_cost::PUSH0);
 
         Ok(OpcodeSuccess::Continue)
     }
