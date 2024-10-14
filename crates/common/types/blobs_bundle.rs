@@ -1,3 +1,5 @@
+use std::ops::AddAssign;
+
 use crate::serde_utils;
 use ethereum_rust_rlp::{
     decode::RLPDecode,
@@ -14,7 +16,7 @@ pub type Blob = [u8; BYTES_PER_BLOB];
 pub type Commitment = Bytes48;
 pub type Proof = Bytes48;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 /// Struct containing all the blobs for a blob transaction, along with the corresponding commitments and proofs
 pub struct BlobsBundle {
@@ -51,5 +53,13 @@ impl RLPDecode for BlobsBundle {
             },
             decoder.finish()?,
         ))
+    }
+}
+
+impl AddAssign for BlobsBundle {
+    fn add_assign(&mut self, rhs: Self) {
+        self.blobs.extend_from_slice(&rhs.blobs);
+        self.commitments.extend_from_slice(&rhs.commitments);
+        self.proofs.extend_from_slice(&rhs.proofs);
     }
 }

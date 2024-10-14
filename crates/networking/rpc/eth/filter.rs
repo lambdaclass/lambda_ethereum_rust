@@ -1,13 +1,13 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use ethereum_rust_storage::Store;
 use tracing::error;
 
-use crate::utils::{RpcErr, RpcRequest};
+use crate::utils::{parse_json_hex, RpcErr, RpcRequest};
 use crate::RpcHandler;
 use rand::prelude::*;
 use serde_json::{json, Value};
@@ -15,13 +15,38 @@ use serde_json::{json, Value};
 use super::logs::LogsFilter;
 
 #[derive(Debug, Clone)]
-pub struct FilterRequest {
+pub struct NewFilterRequest {
     pub request_data: LogsFilter,
 }
 
+/// Used by the tokio runtime to clean outdated filters
+/// Takes 2 arguments:
+/// - filters: the filters to clean up.
+/// - filter_duration: represents how many *seconds* filter can last,
+///   if any filter is older than this, it will be removed.
+pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: Duration) {
+    let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
+        error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
+        **poisoned_guard.get_mut() = HashMap::new();
+        filters.clear_poison();
+        poisoned_guard.into_inner()
+    });
+
+    // Keep only filters that have not expired.
+    active_filters_guard
+        .retain(|_, (filter_timestamp, _)| filter_timestamp.elapsed() <= filter_duration);
+}
 /// Maps IDs to active log filters and their timestamps.
-pub type ActiveFilters = Arc<Mutex<HashMap<u64, (u64, LogsFilter)>>>;
-impl FilterRequest {
+pub type ActiveFilters = Arc<Mutex<HashMap<u64, (Instant, LogsFilter)>>>;
+
+impl NewFilterRequest {
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
+        let filter = LogsFilter::parse(params)?;
+        Ok(NewFilterRequest {
+            request_data: filter,
+        })
+    }
+
     pub fn handle(
         &self,
         storage: ethereum_rust_storage::Store,
@@ -43,10 +68,7 @@ impl FilterRequest {
         }
 
         let id: u64 = random();
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|unix_time| unix_time.as_secs())
-            .map_err(|error| RpcErr::Internal(error.to_string()))?;
+        let timestamp = Instant::now();
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
             error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
             **poisoned_guard.get_mut() = HashMap::new();
@@ -59,13 +81,6 @@ impl FilterRequest {
         Ok(as_hex)
     }
 
-    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
-        let filter = LogsFilter::parse(params)?;
-        Ok(FilterRequest {
-            request_data: filter,
-        })
-    }
-
     pub fn stateful_call(
         req: &RpcRequest,
         storage: Store,
@@ -76,23 +91,71 @@ impl FilterRequest {
     }
 }
 
+pub struct DeleteFilterRequest {
+    pub id: u64,
+}
+
+impl DeleteFilterRequest {
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
+        match params.as_deref() {
+            Some([param]) => {
+                let id = parse_json_hex(param).map_err(|_err| RpcErr::BadHexFormat(0))?;
+                Ok(DeleteFilterRequest { id })
+            }
+            Some(_) => Err(RpcErr::BadParams(
+                "Expected an array with a single hex encoded id".to_string(),
+            )),
+            None => Err(RpcErr::MissingParam("0".to_string())),
+        }
+    }
+
+    pub fn handle(
+        &self,
+        _storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
+    ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
+            error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
+            **poisoned_guard.get_mut() = HashMap::new();
+            filters.clear_poison();
+            poisoned_guard.into_inner()
+        });
+        match active_filters_guard.remove(&self.id) {
+            Some(_) => Ok(true.into()),
+            None => Ok(false.into()),
+        }
+    }
+
+    pub fn stateful_call(
+        req: &RpcRequest,
+        storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
+    ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        let request = Self::parse(&req.params)?;
+        request.handle(storage, filters)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
         collections::HashMap,
         sync::{Arc, Mutex},
+        time::{Duration, Instant},
     };
 
     use crate::{
-        eth::logs::{AddressFilter, TopicFilter},
+        eth::logs::{AddressFilter, LogsFilter, TopicFilter},
         map_http_requests,
+        utils::test_utils::start_test_api,
+        FILTER_DURATION,
     };
     use crate::{
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
     use ethereum_rust_storage::{EngineType, Store};
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     use super::ActiveFilters;
 
@@ -117,7 +180,7 @@ mod tests {
                 ,"id":1
         });
         let filters = Arc::new(Mutex::new(HashMap::new()));
-        let id = run_filter_request_test(raw_json.clone(), filters.clone());
+        let id = run_new_filter_request_test(raw_json.clone(), filters.clone());
         let filters = filters.lock().unwrap();
         assert!(filters.len() == 1);
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
@@ -145,7 +208,7 @@ mod tests {
                 ,"id":1
         });
         let filters = Arc::new(Mutex::new(HashMap::new()));
-        let id = run_filter_request_test(raw_json.clone(), filters.clone());
+        let id = run_new_filter_request_test(raw_json.clone(), filters.clone());
         let filters = filters.lock().unwrap();
         assert!(filters.len() == 1);
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
@@ -173,7 +236,7 @@ mod tests {
                 ,"id":1
         });
         let filters = Arc::new(Mutex::new(HashMap::new()));
-        let id = run_filter_request_test(raw_json.clone(), filters.clone());
+        let id = run_new_filter_request_test(raw_json.clone(), filters.clone());
         let filters = filters.lock().unwrap();
         assert!(filters.len() == 1);
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
@@ -204,7 +267,7 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), Default::default());
+        run_new_filter_request_test(raw_json.clone(), Default::default());
     }
 
     #[test]
@@ -225,10 +288,14 @@ mod tests {
             ]
                 ,"id":1
         });
-        run_filter_request_test(raw_json.clone(), Default::default());
+        let filters = Arc::new(Mutex::new(HashMap::new()));
+        run_new_filter_request_test(raw_json.clone(), filters.clone());
     }
 
-    fn run_filter_request_test(json_req: serde_json::Value, filters_pointer: ActiveFilters) -> u64 {
+    fn run_new_filter_request_test(
+        json_req: serde_json::Value,
+        filters_pointer: ActiveFilters,
+    ) -> u64 {
         let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
         let response = map_http_requests(
@@ -239,12 +306,150 @@ mod tests {
         )
         .unwrap()
         .to_string();
-        // Check id is a hex num.
         let trimmed_id = response.trim().trim_matches('"');
         assert!(trimmed_id.starts_with("0x"));
         let hex = trimmed_id.trim_start_matches("0x");
         let parsed = u64::from_str_radix(hex, 16);
         assert!(u64::from_str_radix(hex, 16).is_ok());
         parsed.unwrap()
+    }
+
+    #[test]
+    fn install_filter_removed_correctly_test() {
+        let uninstall_filter_req: RpcRequest = serde_json::from_value(json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_uninstallFilter",
+            "params":
+            [
+                "0xFF"
+            ]
+                ,"id":1
+        }))
+        .expect("Json for test is not a valid request");
+        let filter = (
+            0xFF,
+            (
+                Instant::now(),
+                LogsFilter {
+                    from_block: BlockIdentifier::Number(1),
+                    to_block: BlockIdentifier::Number(2),
+                    address_filters: None,
+                    topics: vec![],
+                },
+            ),
+        );
+        let active_filters = Arc::new(Mutex::new(HashMap::from([filter])));
+        map_http_requests(
+            &uninstall_filter_req,
+            Store::new("in-mem", EngineType::InMemory).unwrap(),
+            example_p2p_node(),
+            active_filters.clone(),
+        )
+        .unwrap();
+        assert!(
+            active_filters.clone().lock().unwrap().len() == 0,
+            "Expected filter map to be empty after request"
+        );
+    }
+
+    #[test]
+    fn removing_non_existing_filter_returns_false() {
+        let uninstall_filter_req: RpcRequest = serde_json::from_value(json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_uninstallFilter",
+            "params":
+            [
+                "0xFF"
+            ]
+                ,"id":1
+        }))
+        .expect("Json for test is not a valid request");
+        let active_filters = Arc::new(Mutex::new(HashMap::new()));
+        let res = map_http_requests(
+            &uninstall_filter_req,
+            Store::new("in-mem", EngineType::InMemory).unwrap(),
+            example_p2p_node(),
+            active_filters.clone(),
+        )
+        .unwrap();
+        assert!(matches!(res, serde_json::Value::Bool(false)));
+    }
+
+    #[tokio::test]
+    async fn background_job_removes_filter_smoke_test() {
+        // Start a test server to start the cleanup
+        // task in the background
+        let server_handle = tokio::spawn(async move { start_test_api().await });
+
+        // Give the server some time to start
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // Install a filter through the endpiont
+        let client = reqwest::Client::new();
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": "0x1",
+                    "toBlock": "0xA",
+                    "topics": null,
+                    "address": null
+                }
+            ]
+                ,"id":1
+        });
+        let response: Value = client
+            .post("http://localhost:8500")
+            .json(&raw_json)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        assert!(
+            response.get("result").is_some(),
+            "Response should have a 'result' field"
+        );
+
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_uninstallFilter",
+            "params":
+            [
+                response.get("result").unwrap()
+            ]
+                ,"id":1
+        });
+
+        tokio::time::sleep(FILTER_DURATION).await;
+        tokio::time::sleep(FILTER_DURATION).await;
+
+        let response: serde_json::Value = client
+            .post("http://localhost:8500")
+            .json(&raw_json)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        assert!(
+            matches!(
+                response.get("result").unwrap(),
+                serde_json::Value::Bool(false)
+            ),
+            "Filter was expected to be deleted by background job, but it still exists"
+        );
+
+        server_handle.abort();
     }
 }

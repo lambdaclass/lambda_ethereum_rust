@@ -32,8 +32,8 @@ pub enum OpcodeSuccess {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResultReason {
     Stop,
-    Return,
     Revert,
+    Return,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
