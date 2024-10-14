@@ -188,11 +188,11 @@ impl Db {
         }
 
         let new_account = Account {
-            address: address.clone(),
+            address: *address,
             ..Default::default()
         };
 
-        self.accounts.insert(address.clone(), new_account);
+        self.accounts.insert(*address, new_account);
 
         Ok(self.accounts.get(address).unwrap())
     }
