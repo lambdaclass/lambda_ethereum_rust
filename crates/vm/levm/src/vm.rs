@@ -181,6 +181,21 @@ impl Db {
             })
             .collect()
     }
+
+    pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
+        if self.accounts.contains_key(address) {
+            return Ok(self.accounts.get(address).unwrap());
+        }
+
+        let new_account = Account {
+            address: address.clone(),
+            ..Default::default()
+        };
+
+        self.accounts.insert(address.clone(), new_account);
+
+        Ok(self.accounts.get(address).unwrap())
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -281,15 +296,8 @@ impl VM {
     }
 
     fn add_coinbase_to_db(block: &BlockEnv, db: &mut Db, accrued_substate: &mut Substate) {
-        // let coinbase = block.coinbase;
-        let coinbase = Address::from(0x41);
-        let account = Account::new(
-            coinbase,
-            U256::zero(),
-            Bytes::new(),
-            0,
-            Default::default(),
-        );
+        let coinbase = block.coinbase;
+        let account = Account::new(coinbase, U256::zero(), Bytes::new(), 0, Default::default());
         db.add_account(coinbase, account);
         accrued_substate.warm_addresses.insert(coinbase);
     }
