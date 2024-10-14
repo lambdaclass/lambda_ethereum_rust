@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use ethereum_rust_core::{types::BlockHash, Address as CoreAddress, H256 as CoreH256};
 use ethereum_rust_storage::{error::StoreError, Store};
 use revm::primitives::{
@@ -10,7 +8,6 @@ use revm::primitives::{
 pub struct StoreWrapper {
     pub store: Store,
     pub block_hash: BlockHash,
-    pub oldest_block_number: RefCell<u64>,
 }
 
 impl revm::Database for StoreWrapper {
@@ -61,10 +58,6 @@ impl revm::Database for StoreWrapper {
             .store
             .get_block_header(number)?
             .ok_or_else(|| StoreError::Custom(format!("Block {number} not found")))?;
-
-        // Update the oldest_block_number
-        let mut oldest_block_number = self.oldest_block_number.borrow_mut();
-        *oldest_block_number = number.min(*oldest_block_number);
 
         Ok(RevmB256::from_slice(&block_header.compute_block_hash().0))
     }

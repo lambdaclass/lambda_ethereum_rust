@@ -45,10 +45,6 @@ impl EvmState {
     pub fn database(&self) -> &Store {
         &self.0.database.store
     }
-    /// Get the oldest_block_number
-    pub fn oldest_block_number(&self) -> u64 {
-        *self.0.database.oldest_block_number.borrow()
-    }
 }
 
 /// Executes all transactions in a block and returns their receipts.
@@ -347,11 +343,7 @@ pub fn process_withdrawals(
 pub fn evm_state(store: Store, block_hash: BlockHash) -> EvmState {
     EvmState(
         revm::db::State::builder()
-            .with_database(StoreWrapper {
-                store,
-                block_hash,
-                oldest_block_number: 0.into(),
-            })
+            .with_database(StoreWrapper { store, block_hash })
             .with_bundle_update()
             .without_state_clear()
             .build(),
