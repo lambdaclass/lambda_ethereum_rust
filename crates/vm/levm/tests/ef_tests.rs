@@ -46,8 +46,6 @@ fn get_ignored_groups() -> HashSet<String> {
         "stEIP158Specific".into(),
         "stEIP4844-blobtransactions".into(),
         "eip4844_blobs".into(),
-        // "stEIP5656-MCOPY".into(),
-        // "eip5656_mcopy".into(),
         "stEIP2930".into(),
         "stRandom".into(),
         "stRandom2".into(),
