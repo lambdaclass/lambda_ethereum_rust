@@ -191,9 +191,6 @@ impl StoreEngine for Store {
         &self,
         block_hash: BlockHash,
     ) -> Result<Option<Vec<Receipt>>, StoreError> {
-        //let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        //txn.get::<T>(key).map_err(StoreError::LibmdbxError)
-
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         let mut cursor = txn.cursor::<Receipts>().unwrap();
         let mut receipts = Vec::new();
@@ -202,6 +199,10 @@ impl StoreEngine for Store {
                 Some((x, y)) => (x, y),
                 None => break,
             };
+            let x = x.to();
+            if x.0 != block_hash {
+                continue;
+            }
 
             receipts.push(y.to());
         }
