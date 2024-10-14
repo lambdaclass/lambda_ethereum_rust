@@ -34,18 +34,17 @@ edition = "2021"
 #ethereum_rust-vm = { path = "./crates/vm" }
 #ethereum_rust-trie = { path = "./crates/storage/trie" }
 #ethereum_rust-rlp = { path = "./crates/common/rlp" }
-#ethereum_rust-levm = { path = "./crates/levm" }
-
+ethereum_rust-levm = { path = "./crates/levm" }
 ethereum_rust-l2 = { path = "./crates/l2" }
 
-ethereum_rust-storage = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-storage", branch = "patches/patch_001_mdbx" }
-ethereum_rust-rpc = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rpc", branch = "patches/patch_001_mdbx" }
-ethereum_rust-core = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-core", branch = "patches/patch_001_mdbx" }
-ethereum_rust-rlp = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rlp", branch = "patches/patch_001_mdbx" }
-ethereum_rust-vm = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-vm", branch = "patches/patch_001_mdbx" }
-ethereum_rust-blockchain = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-blockchain", branch = "patches/patch_001_mdbx" }
-ethereum_rust-net = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-net", branch = "patches/patch_001_mdbx" }
-ethereum_rust-trie = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-trie", branch = "patches/patch_001_mdbx" }
+ethereum_rust-storage = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-storage", rev = "abc2676" }
+ethereum_rust-rpc = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rpc", rev = "abc2676" }
+ethereum_rust-core = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-core", rev = "abc2676" }
+ethereum_rust-rlp = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rlp", rev = "abc2676" }
+ethereum_rust-vm = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-vm", rev = "abc2676" }
+ethereum_rust-blockchain = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-blockchain", rev = "abc2676" }
+ethereum_rust-net = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-net", rev = "abc2676" }
+ethereum_rust-trie = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-trie", rev = "abc2676" }
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"

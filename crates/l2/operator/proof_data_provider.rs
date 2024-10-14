@@ -269,7 +269,9 @@ fn get_last_block_state(
         }
     }
 
-    let oldest_block_number = state.oldest_block_number();
+    // TODO, the oldest block number has to be the oldest block queried from the DB at execution time to avoid unneeded information.
+    // Now we are starting from genesis.
+    let oldest_block_number = 0;
 
     let mut block_headers = Vec::new();
 
