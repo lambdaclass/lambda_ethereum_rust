@@ -194,15 +194,15 @@ impl StoreEngine for Store {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
         let mut cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
         let mut receipts = Vec::new();
-        while let Ok(x) = cursor.next() {
-            let (x, y) = match x {
-                Some((x, y)) => (x, y),
+        while let Ok(key_value_pair) = cursor.next() {
+            let (key, value) = match key_value_pair {
+                Some((key, value)) => (key, value),
                 None => break,
             };
-            if x.to().0 != block_hash {
+            if key.to().0 != block_hash {
                 continue;
             }
-            receipts.push(y.to());
+            receipts.push(value.to());
         }
         Ok(Some(receipts))
     }
