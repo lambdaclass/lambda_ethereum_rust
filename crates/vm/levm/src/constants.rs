@@ -101,3 +101,5 @@ pub const GAS_REFUND_DENOMINATOR: u64 = 5;
 
 pub const EMPTY_CODE_HASH_STR: &str =
     "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+
+pub const MEMORY_EXPANSION_QUOTIENT: usize = 512;

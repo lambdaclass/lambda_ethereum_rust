@@ -1,4 +1,4 @@
-use crate::constants::WORD_SIZE;
+use crate::constants::{MEMORY_EXPANSION_QUOTIENT, WORD_SIZE};
 use crate::primitives::U256;
 use crate::vm_result::VMError;
 
@@ -76,12 +76,12 @@ impl Memory {
         // (new_memory_size_word * new_memory_size_word) / 512 + (3 * new_memory_size_word);
         let new_memory_cost = new_memory_size_word
             .checked_mul(new_memory_size_word)
-            .and_then(|square| square.checked_div(512))
+            .and_then(|square| square.checked_div(MEMORY_EXPANSION_QUOTIENT))
             .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
             .ok_or(VMError::OverflowInArithmeticOp)?;
         let last_memory_size_word = (self.data.len() + WORD_SIZE - 1) / WORD_SIZE;
         let last_memory_cost =
-            (last_memory_size_word * last_memory_size_word) / 512 + (3 * last_memory_size_word);
+            (last_memory_size_word * last_memory_size_word) / MEMORY_EXPANSION_QUOTIENT + (3 * last_memory_size_word);
         Ok(new_memory_cost - last_memory_cost)
     }
 }
