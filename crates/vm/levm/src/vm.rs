@@ -228,7 +228,7 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
+    pub fn new(tx_env: TxEnv, block_env: BlockEnv, mut db: Db) -> Self {
         let bytecode = match tx_env.transact_to {
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
             TransactTo::Create => {
@@ -268,13 +268,30 @@ impl VM {
             origin: tx_env.msg_sender,
             refunded_gas: 0,
         };
+        let mut accrued_substate = Substate::default();
+
+        Self::add_coinbase_to_db(&env.block, &mut db, &mut accrued_substate);
 
         Self {
             call_frames: vec![initial_call_frame],
             db,
             env,
-            accrued_substate: Substate::default(),
+            accrued_substate,
         }
+    }
+
+    fn add_coinbase_to_db(block: &BlockEnv, db: &mut Db, accrued_substate: &mut Substate) {
+        // let coinbase = block.coinbase;
+        let coinbase = Address::from(0x41);
+        let account = Account::new(
+            coinbase,
+            U256::zero(),
+            Bytes::new(),
+            0,
+            Default::default(),
+        );
+        db.add_account(coinbase, account);
+        accrued_substate.warm_addresses.insert(coinbase);
     }
 
     pub fn write_success_result(
