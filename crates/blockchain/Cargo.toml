@@ -16,6 +16,8 @@ ethereum_rust-core = { path = "../common", default-features = false }
 ethereum_rust-storage = { path = "../storage/store", default-features = false }
 ethereum_rust-vm = { path = "../vm", default-features = false }
 
+bytes.workspace = true
+
 [lib]
 path = "./blockchain.rs"
 
