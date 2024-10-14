@@ -22,6 +22,7 @@ pub enum VMError {
     VeryLargeNumber,
     FatalError,
     InvalidOpcode,
+    RevertOpcode,
 }
 
 pub enum OpcodeSuccess {
@@ -32,7 +33,6 @@ pub enum OpcodeSuccess {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResultReason {
     Stop,
-    Revert,
     Return,
 }
 
@@ -47,7 +47,7 @@ pub struct ResultAndState {
 /// Result of a transaction execution.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ExecutionResult {
-    /// Returned successfully
+    /// Returned successfully. This in yellowpaper is "Normal Halt"
     Success {
         reason: SuccessReason,
         gas_used: u64,
@@ -56,17 +56,11 @@ pub enum ExecutionResult {
         output: Output,
         return_data: Bytes,
     },
-    /// Reverted by `REVERT` opcode that doesn't spend all gas.
+    /// This is caused either by Revert opcode or by an exceptional halt.
     Revert {
-        reason: VMError, // Does this matter? We don't need to know the reason (unless it's used for debugging)
-        gas_used: u64, // This is for knowing how much gas is going to be returned to the caller. It could also be "unused_gas"
-        output: Bytes, // This is the return data
-    },
-    /// Reverted for various reasons and spend all gas.
-    Halt {
         reason: VMError,
-        /// Halting will spend all the gas, and will be equal to gas_limit.
-        gas_used: u64,
+        unused_gas: u64, // This is for knowing how much gas is going to be returned to the caller.
+        output: Bytes, // This is the return data (if any) that is going to be returned to the caller
     },
 }
 
@@ -80,11 +74,6 @@ impl ExecutionResult {
 
     pub fn is_revert(&self) -> bool {
         matches!(self, Self::Revert { .. })
-    }
-
-    /// Returns true if execution result is a Halt.
-    pub fn is_halt(&self) -> bool {
-        matches!(self, Self::Halt { .. })
     }
 
     /// Returns the output data of the execution.
@@ -129,9 +118,8 @@ impl ExecutionResult {
     /// Returns the gas used.
     pub fn gas_used(&self) -> u64 {
         match *self {
-            Self::Success { gas_used, .. }
-            | Self::Revert { gas_used, .. }
-            | Self::Halt { gas_used, .. } => gas_used,
+            Self::Success { gas_used, .. } => gas_used,
+            _ => 0,
         }
     }
 
@@ -146,7 +134,6 @@ impl ExecutionResult {
     pub fn reason(&self) -> VMError {
         match self {
             Self::Revert { reason, .. } => reason.clone(),
-            Self::Halt { reason, .. } => reason.clone(),
             _ => panic!("ExecutionResult.reason() called on non-revert/halt result"),
         }
     }
@@ -376,7 +363,6 @@ pub enum SuccessReason {
     Return,
     SelfDestruct,
     EofReturnContract,
-    Revert,
 }
 
 /// Indicates that the EVM has experienced an exceptional halt. This causes execution to

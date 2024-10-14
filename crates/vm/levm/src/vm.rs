@@ -1,6 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
+    cmp, collections::{HashMap, HashSet}, str::FromStr, u64
 };
 
 use ethers::utils::keccak256;
@@ -261,7 +260,8 @@ impl VM {
             tx_env.value,
             tx_env.data,
             false,
-            U256::zero(),
+            u64::MAX,
+            0,
             0,
         );
 
@@ -304,12 +304,7 @@ impl VM {
                 gas_used,
                 output: Output::Call(current_call_frame.returndata.clone()),
                 gas_refunded,
-            },
-            ResultReason::Revert => ExecutionResult::Revert {
-                reason: VMError::FatalError,
-                gas_used,
-                output: current_call_frame.returndata.clone(),
-            },
+            }
         }
     }
 
@@ -323,12 +318,10 @@ impl VM {
             ExecutionResult::Success { reason, .. } => match reason {
                 SuccessReason::Stop => ExitStatusCode::Stop,
                 SuccessReason::Return => ExitStatusCode::Return,
-                SuccessReason::Revert => ExitStatusCode::Revert,
                 SuccessReason::SelfDestruct => todo!(),
                 SuccessReason::EofReturnContract => todo!(),
             },
             ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
-            ExecutionResult::Halt { .. } => ExitStatusCode::Error,
         };
 
         let current_call_frame = self.current_call_frame_mut();
@@ -354,12 +347,13 @@ impl VM {
             },
             ExitStatusCode::Revert => ExecutionResult::Revert {
                 output: return_values,
-                gas_used,
+                unused_gas: 0, // TODO: add unused gas
                 reason: res.reason(),
             },
-            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Halt {
+            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Revert { // 
                 reason: res.reason(),
-                gas_used,
+                unused_gas: 0, // TODO: add unused gas
+                output: Bytes::new()
             },
         };
 
@@ -487,13 +481,19 @@ impl VM {
                     );
                 }
                 Err(e) => {
-                    // When an error happens we should revert changes made and consume all gas of the context. That is an Exceptional Halt, and the revert of changes is handled by the caller in generic_call().
-                    
+                    // Any error triggers a Revert, even Revert Opcode is considered an execution error (the only difference is that this doesn't consume all gas).
                     self.call_frames.push(current_call_frame.clone());
                     
-                    return ExecutionResult::Halt {
-                        reason: e,
-                        gas_used: self.env.consumed_gas, // This attribute is unnecessary because there is no gas refund.
+                    let unused_gas = if e == VMError::RevertOpcode {
+                        current_call_frame.gas_limit - current_call_frame.gas_used
+                    } else {
+                        0
+                    };
+    
+                    return ExecutionResult::Revert { 
+                        reason: e, 
+                        unused_gas, 
+                        output: Bytes::new() 
                     };
                 }
             }
@@ -553,6 +553,8 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
+        
+        let gas_limit = cmp::min(gas.as_u64(), (current_call_frame.gas_limit - current_call_frame.gas_used) / 64); // Gas limit for new callframe.
         let new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -562,15 +564,19 @@ impl VM {
             value,
             calldata,
             is_static,
-            gas, // It should be min(gas, current_call_frame.remaining_gas / 64)
+            gas_limit,
+            0,
             current_call_frame.depth + 1,
         );
+
+        current_call_frame.gas_used += gas_limit; // Gas sent to the new callframe is "spent" by the caller. (In some cases it is returned back afterwards)
+
 
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
 
-        // I was thinking of cloning the VM and restoring it if a revert happens.
-        let backup_vm = self.clone();
+
+        let backup_vm = self.clone(); // Clone VM for restoring it's state if revert happens
 
         self.call_frames.push(new_call_frame.clone());
         let result = self.execute();
@@ -587,11 +593,10 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
-                Ok(OpcodeSuccess::Continue)
             }
             ExecutionResult::Revert {
-                reason: _,
-                gas_used: _,
+                reason: r,
+                unused_gas,
                 output,
             } => {
                 // Restore the VM to the state before the call
@@ -602,33 +607,21 @@ impl VM {
                 // 1. Pushing 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
 
-                // 2. Adding unused gas to the caller
                 // Caller should've assigned some of it's gas to the sub-context before, so now we should add the unused gas by the sub-context to the caller. I just leave the comment because I didn't see this being implemented.
+                if r == VMError::RevertOpcode {
+                    // 2. Adding unused gas to the caller (If not exceptional halt)
+                    current_call_frame.gas_used += unused_gas;
 
-                // 3. Storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size)
-                current_call_frame.memory.store_n_bytes(ret_offset, &output, ret_size);
+                    // 3. Storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size)
+                    current_call_frame.memory.store_n_bytes(ret_offset, &output, ret_size);
+                };
 
                 // 4. Reverting gas refunds
                 // I checked for gas_refunds in the current_call_frame, but I didn't see any, so I didn't implement this part. SSTORE doesn't have gas_refunds implemented, so I don't know how to do this part.
-
-
-                // From main branch
-                //      current_call_frame.gas -= U256::from(gas_used);
-                //      self.env.refunded_gas += gas_used;
-                Ok(OpcodeSuccess::Continue)
-            }
-            ExecutionResult::Halt { reason, gas_used } => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(reason.clone() as u8))?;
-                if U256::from(gas_used) > current_call_frame.gas {
-                    current_call_frame.gas = U256::zero();
-                } else {
-                    current_call_frame.gas -= U256::from(gas_used);
-                }
-                Err(reason)
             }
         }
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
@@ -681,13 +674,13 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::RevertOpcode);
         }
         if current_call_frame.is_static {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::RevertOpcode);
         }
 
         let sender_account = self
@@ -700,14 +693,14 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::RevertOpcode);
         }
 
         let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::RevertOpcode);
         };
         sender_account.nonce = new_nonce;
         sender_account.balance -= value_in_wei_to_send;
@@ -730,7 +723,7 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+            return Err(VMError::RevertOpcode);
         }
 
         let new_account = Account::new(
@@ -742,9 +735,11 @@ impl VM {
         );
         self.db.add_account(new_address, new_account);
 
-        let mut gas = current_call_frame.gas;
-        gas -= gas / 64; // 63/64 of the gas to the call
-        current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
+        let gas: U256 = ((current_call_frame.gas_limit - current_call_frame.gas_used) / 64).into();
+        // I commented this because I don't understand it's purpose and it is breaking...
+        //      let mut gas = current_call_frame.gas;
+        //      gas -= gas / 64; // 63/64 of the gas to the call
+        //      current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
 
         current_call_frame
             .stack

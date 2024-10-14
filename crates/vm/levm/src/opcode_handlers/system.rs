@@ -294,7 +294,7 @@ impl VM {
         
         current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 
-        Ok(OpcodeSuccess::Result(ResultReason::Revert))
+        Err(VMError::RevertOpcode)
     }
 
     /// ### INVALID operation
@@ -305,6 +305,8 @@ impl VM {
         Err(VMError::InvalidOpcode)
     }
 
+
+    // selfdestruct(address). Agarra todo el ether de un contrato y se lo da a un address.
     // SELFDESTRUCT operation
     pub fn op_selfdestruct(
         &mut self,

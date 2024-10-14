@@ -1764,9 +1764,10 @@ fn pop_on_empty_stack() {
 
     assert_eq!(
         result,
-        ExecutionResult::Halt {
+        ExecutionResult::Revert {
             reason: VMError::StackUnderflow,
-            gas_used: vm.env.consumed_gas
+            unused_gas: 0,
+            output: Bytes::new(),
         }
     ); // I don't know if this is right
 }
@@ -2048,11 +2049,12 @@ fn jump_position_bigger_than_program_bytecode_size() {
     let result = vm.execute();
     assert_eq!(
         result,
-        ExecutionResult::Halt {
+        ExecutionResult::Revert {
             reason: VMError::InvalidJump,
-            gas_used: vm.env.consumed_gas,
+            unused_gas: 0,
+            output: Bytes::new(),
         }
-    );
+    ); // I don't know if this is right
 }
 
 #[test]
@@ -2622,11 +2624,12 @@ fn jump_not_jumpdest_position() {
     let result = vm.execute();
     assert_eq!(
         result,
-        ExecutionResult::Halt {
+        ExecutionResult::Revert {
             reason: VMError::InvalidJump,
-            gas_used: vm.env.consumed_gas,
+            unused_gas: 0,
+            output: Bytes::new(),
         }
-    );
+    ); // I don't know if this is right
 }
 
 #[test]
@@ -2948,9 +2951,10 @@ fn cant_create_log_in_static_context() {
     let result = vm.execute();
 
     match result {
-        ExecutionResult::Halt {
+        ExecutionResult::Revert {
             reason: VMError::OpcodeNotAllowedInStaticContext,
-            gas_used: _,
+            unused_gas: _,
+            output: _,
         } => {
             // Test passes
         }
@@ -3237,9 +3241,10 @@ fn dup_halts_if_stack_underflow() {
     let result = vm.execute();
 
     match result {
-        ExecutionResult::Halt {
+        ExecutionResult::Revert {
             reason: VMError::StackUnderflow,
-            gas_used: _,
+            unused_gas: _,
+            output: _,
         } => {
             // Test passes
         }
@@ -3300,9 +3305,10 @@ fn swap_halts_if_stack_underflow() {
     let result = vm.execute();
 
     match result {
-        ExecutionResult::Halt {
+        ExecutionResult::Revert {
             reason: VMError::StackUnderflow,
-            gas_used: _,
+            unused_gas: _,
+            output: _,
         } => {
             // Test passes
         }
