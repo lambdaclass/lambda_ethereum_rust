@@ -800,7 +800,7 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
     let received_status = conn.receive().await;
     debug!("Received RLPxMessage: {:?}", received_status);
     if let RLPxMessage::Status(_received) = received_status {
-        if let Ok(response_status) = StatusMessage::build_from(&storage) {
+        if let Ok(response_status) = StatusMessage::new(&storage) {
             let response_status = RLPxMessage::Status(response_status);
             conn.send(response_status).await;
         }

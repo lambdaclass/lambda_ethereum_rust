@@ -1,11 +1,11 @@
 use bytes::BufMut;
-use ethereum_rust_rlp::error::RLPDecodeError;
+use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 
 use super::eth::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
 
 pub trait RLPxMessage: Sized {
-    fn encode(&self, buf: &mut dyn BufMut);
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError>;
 
     fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError>;
 }
@@ -30,7 +30,7 @@ impl Message {
         }
     }
 
-    pub fn encode(&self, buf: &mut dyn BufMut) {
+    pub fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
         match self {
             Message::Hello(msg) => msg.encode(buf),
             Message::Disconnect(msg) => msg.encode(buf),
