@@ -23,6 +23,8 @@ hex.workspace = true
 axum-extra = { version = "0.9.3", features = ["typed-header"] }
 jsonwebtoken.workspace = true
 rand.workspace = true
+tokio-util.workspace = true
+reqwest.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"

@@ -90,9 +90,7 @@ impl VM {
             args_size,
             ret_offset,
             ret_size,
-        )?;
-
-        Ok(OpcodeSuccess::Continue)
+        )
     }
 
     // CALLCODE operation
@@ -126,9 +124,7 @@ impl VM {
             args_size,
             ret_offset,
             ret_size,
-        )?;
-
-        Ok(OpcodeSuccess::Continue)
+        )
     }
 
     // RETURN operation
@@ -193,9 +189,7 @@ impl VM {
             args_size,
             ret_offset,
             ret_size,
-        )?;
-
-        Ok(OpcodeSuccess::Continue)
+        )
     }
 
     // STATICCALL operation
@@ -227,9 +221,7 @@ impl VM {
             args_size,
             ret_offset,
             ret_size,
-        )?;
-
-        Ok(OpcodeSuccess::Continue)
+        )
     }
 
     // CREATE operation
@@ -247,9 +239,7 @@ impl VM {
             code_size_in_memory,
             None,
             current_call_frame,
-        )?;
-
-        Ok(OpcodeSuccess::Continue)
+        )
     }
 
     // CREATE2 operation
@@ -268,8 +258,6 @@ impl VM {
             code_size_in_memory,
             Some(salt),
             current_call_frame,
-        )?;
-
-        Ok(OpcodeSuccess::Continue)
+        )
     }
 }
