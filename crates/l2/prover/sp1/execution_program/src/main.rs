@@ -6,7 +6,7 @@ use ethereum_rust_blockchain::{validate_gas_used, verify_blob_gas_usage};
 use ethereum_rust_core::types::{
     validate_block_header, validate_cancun_header_fields, Block, Receipt, Transaction,
 };
-use ethereum_rust_evm::{block_env, tx_env};
+use ethereum_rust_vm::{block_env, tx_env};
 use prover_lib::{db_memorydb::MemoryDB, inputs::ProverInput};
 
 use revm::{
@@ -53,7 +53,7 @@ pub fn main() {
 fn execute_block(
     block: &ethereum_rust_core::types::Block,
     db: &mut CacheDB<MemoryDB>,
-) -> Result<Vec<Receipt>, ethereum_rust_evm::EvmError> {
+) -> Result<Vec<Receipt>, ethereum_rust_vm::EvmError> {
     let spec_id = revm::primitives::SpecId::CANCUN;
     let mut receipts = Vec::new();
     let mut cumulative_gas_used = 0;
@@ -78,12 +78,12 @@ fn execute_tx(
     block_header: &ethereum_rust_core::types::BlockHeader,
     db: &mut CacheDB<MemoryDB>,
     spec_id: revm::primitives::SpecId,
-) -> Result<ethereum_rust_evm::ExecutionResult, ethereum_rust_evm::EvmError> {
+) -> Result<ethereum_rust_vm::ExecutionResult, ethereum_rust_vm::EvmError> {
     let block_env = block_env(block_header);
     let tx_env = tx_env(transaction);
     run_evm(tx_env, block_env, db, spec_id)
         .map(Into::into)
-        .map_err(ethereum_rust_evm::EvmError::from)
+        .map_err(ethereum_rust_vm::EvmError::from)
 }
 
 fn run_evm(
@@ -91,7 +91,7 @@ fn run_evm(
     block_env: revm::primitives::BlockEnv,
     db: &mut CacheDB<MemoryDB>,
     spec_id: revm::primitives::SpecId,
-) -> Result<revm::primitives::ExecutionResult, ethereum_rust_evm::EvmError> {
+) -> Result<revm::primitives::ExecutionResult, ethereum_rust_vm::EvmError> {
     // let chain_spec = db.get_chain_config()?;
     let mut evm = Revm::builder()
         .with_db(db)
