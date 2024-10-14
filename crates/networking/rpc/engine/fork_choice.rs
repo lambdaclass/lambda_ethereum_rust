@@ -121,6 +121,11 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
                     "forkChoiceV3 used to build pre-Cancun payload".to_string(),
                 ));
             }
+            if attributes.timestamp <= head_block.timestamp {
+                return Err(RpcErr::InvalidPayloadAttributes(
+                    "invalid timestamp".to_string(),
+                ));
+            }
             let args = BuildPayloadArgs {
                 parent: self.fork_choice_state.head_block_hash,
                 timestamp: attributes.timestamp,
