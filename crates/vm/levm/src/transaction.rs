@@ -157,7 +157,7 @@ impl TxEnv {
 
         // if the tx gas limit is greater than the available gas in the block
         // https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L379
-        if U256::from(self.gas_limit) > U256::from(block_env.gas_limit) {
+        if self.gas_limit as usize > block_env.gas_limit {
             return Err(InvalidTx::CallerGasLimitMoreThanBlock);
         }
 
