@@ -136,10 +136,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 self.stream.write_all(&ack_message).await.unwrap();
                 info!("Sent ack message correctly!");
 
-                self.state = RLPxConnectionState::Established(Established::for_receiver(
+                self.state = RLPxConnectionState::Established(Box::new(Established::for_receiver(
                     received_auth_state,
                     ack_message,
-                ))
+                )))
             }
             // TODO proper error
             _ => panic!("Invalid state to send ack message"),
@@ -204,12 +204,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 info!("Received ack message correctly!");
 
                 // Build next state
-                self.state = RLPxConnectionState::Established(Established::for_initiator(
+                self.state = RLPxConnectionState::Established(Box::new(Established::for_initiator(
                     initiated_auth_state,
                     ack_bytes.to_owned(),
                     ack.nonce,
                     remote_ephemeral_key,
-                ))
+                )))
             }
             // TODO proper error
             _ => panic!("Received an unexpected ack message"),
@@ -286,7 +286,7 @@ enum RLPxConnectionState {
     Receiver(Receiver),
     ReceivedAuth(ReceivedAuth),
     InitiatedAuth(InitiatedAuth),
-    Established(Established),
+    Established(Box<Established>),
 }
 
 struct Receiver {
@@ -320,7 +320,6 @@ impl Initiator {
 }
 
 struct ReceivedAuth {
-    pub(crate) local_initiator: bool,
     pub(crate) local_nonce: H256,
     pub(crate) local_ephemeral_key: SecretKey,
     pub(crate) remote_node_id: H512,
@@ -338,7 +337,6 @@ impl ReceivedAuth {
         remote_ephemeral_key: PublicKey,
     ) -> Self {
         Self {
-            local_initiator: false,
             local_nonce: previous_state.nonce,
             local_ephemeral_key: previous_state.ephemeral_key.clone(),
             remote_node_id,
@@ -350,20 +348,16 @@ impl ReceivedAuth {
 }
 
 struct InitiatedAuth {
-    pub(crate) local_initiator: bool,
     pub(crate) local_nonce: H256,
     pub(crate) local_ephemeral_key: SecretKey,
-    pub(crate) remote_node_id: H512,
     pub(crate) local_init_message: Vec<u8>,
 }
 
 impl InitiatedAuth {
     pub fn new(previous_state: &Initiator, local_init_message: Vec<u8>) -> Self {
         Self {
-            local_initiator: true,
             local_nonce: previous_state.nonce,
             local_ephemeral_key: previous_state.ephemeral_key.clone(),
-            remote_node_id: previous_state.remote_node_id,
             local_init_message,
         }
     }
