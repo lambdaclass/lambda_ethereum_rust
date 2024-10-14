@@ -309,8 +309,7 @@ impl VM {
     /// ### INVALID operation
     /// Reverts consuming all gas, no return data.
     pub fn op_invalid(
-        &mut self,
-        current_call_frame: &mut CallFrame,
+        &mut self
     ) -> Result<OpcodeSuccess, VMError> {
         Err(VMError::InvalidOpcode)
     }

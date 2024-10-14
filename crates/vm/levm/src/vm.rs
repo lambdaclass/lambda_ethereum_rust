@@ -458,7 +458,7 @@ impl VM {
                 Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
                 Opcode::REVERT => self.op_revert(&mut current_call_frame),
-                Opcode::INVALID => self.op_invalid(&mut current_call_frame),
+                Opcode::INVALID => self.op_invalid(),
                 Opcode::SELFDESTRUCT => self.op_selfdestruct(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
