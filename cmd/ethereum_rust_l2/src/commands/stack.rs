@@ -249,6 +249,8 @@ async fn start_l2(root: PathBuf, l2_rpc_url: &str) -> eyre::Result<()> {
     let cmd = std::process::Command::new("cargo")
         .arg("run")
         .arg("--release")
+        .arg("--manifest-path")
+        .arg(root.join("Cargo.toml"))
         .arg("--bin")
         .arg("ethereum_rust")
         .arg("--features")
@@ -258,7 +260,6 @@ async fn start_l2(root: PathBuf, l2_rpc_url: &str) -> eyre::Result<()> {
         .arg(l2_genesis_file_path)
         .arg("--http.port")
         .arg(l2_rpc_url.split(':').last().unwrap())
-        .current_dir(root)
         .spawn()?
         .wait()?;
     if !cmd.success() {

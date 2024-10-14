@@ -1,5 +1,7 @@
 use crate::utils::{
-    config::{engine_api::EngineApiConfig, eth::EthConfig, operator::OperatorConfig},
+    config::{
+        engine_api::EngineApiConfig, eth::EthConfig, operator::OperatorConfig, read_env_file,
+    },
     engine_client::EngineClient,
     eth_client::EthClient,
 };
@@ -14,7 +16,7 @@ use keccak_hash::keccak;
 use libsecp256k1::SecretKey;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::time::sleep;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub mod l1_watcher;
 pub mod proof_data_provider;
@@ -34,6 +36,11 @@ pub struct Operator {
 
 pub async fn start_operator(store: Store) {
     info!("Starting Operator");
+
+    if let Err(e) = read_env_file() {
+        warn!("Failed to read .env file: {e}");
+    }
+
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
     let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
     let operator = tokio::spawn(async move {
