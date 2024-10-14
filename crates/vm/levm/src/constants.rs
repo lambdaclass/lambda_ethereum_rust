@@ -100,7 +100,7 @@ pub const GAS_REFUND_DENOMINATOR: u64 = 5;
 pub const EMPTY_CODE_HASH_STR: &str =
     "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
 
-// Transaction costs
+// Transaction costs in gas
 pub const TX_BASE_COST: u64 = 21000;
 pub const TX_DATA_COST_PER_NON_ZERO: u64 = 16;
 pub const TX_DATA_COST_PER_ZERO: u64 = 4;
