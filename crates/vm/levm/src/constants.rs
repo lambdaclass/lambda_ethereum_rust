@@ -119,4 +119,4 @@ pub fn init_code_cost(init_code_length: usize) -> u64 {
 }
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
-pub const MAX_BLOB_NUMBER_PER_BLOCK: u8 = 6;
+pub const MAX_BLOB_NUMBER_PER_BLOCK: usize = 6;

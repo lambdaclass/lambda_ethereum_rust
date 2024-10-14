@@ -222,10 +222,10 @@ impl TxEnv {
 
             // the maximum number of blobs in a block for now is 6
             // https://eips.ethereum.org/EIPS/eip-4844#throughput
-            if self.number_of_blobs() > MAX_BLOB_NUMBER_PER_BLOCK as u64 {
+            if self.number_of_blobs() > MAX_BLOB_NUMBER_PER_BLOCK {
                 return Err(InvalidTx::TooManyBlobs {
-                    have: self.number_of_blobs() as usize,
-                    max: MAX_BLOB_NUMBER_PER_BLOCK as usize,
+                    have: self.number_of_blobs(),
+                    max: MAX_BLOB_NUMBER_PER_BLOCK,
                 });
             }
 
@@ -286,8 +286,8 @@ impl TxEnv {
         Ok(initial_gas_consumed)
     }
 
-    pub fn number_of_blobs(&self) -> u64 {
-        self.blob_hashes.len() as u64
+    pub fn number_of_blobs(&self) -> usize {
+        self.blob_hashes.len()
     }
 
     fn calculate_blob_gas_price(excess_blob_gas: u64) -> u64 {
