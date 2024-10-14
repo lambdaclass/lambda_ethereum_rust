@@ -24,7 +24,6 @@ ethereum-package/
 **/.DS_Store
 **/.vscode
 
-
 # EVM Mlir stuff
 **/*.mlir
 **/*.ll
@@ -38,7 +37,10 @@ crates/levm_mlir/*.tar.gz
 # Ethereum Rust L2 stuff
 volumes
 jwt.hex
+
+# .env files
 .env
+.envrc
 
 # Used by the make test target
 /tmp
