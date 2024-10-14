@@ -423,9 +423,9 @@ mod tests {
         let receipts = Receipts::new(received_block_hashes.id, receipts.clone());
 
         let mut receipts_to_send = Vec::new();
-        receipts.encode(&mut receipts_to_send); // encode the block bodies that we got
+        receipts.encode(&mut receipts_to_send); // encode the receipts that we got
 
-        receiver.send(&receipts_to_send).unwrap(); // send the block bodies to the sender that requested them
+        receiver.send(&receipts_to_send).unwrap(); // send the receipts to the sender that requested them
 
         let mut received_receipts = [0; 1024];
         let len = sender.recv(&mut received_receipts).unwrap(); // receive the block bodies

@@ -199,11 +199,9 @@ impl StoreEngine for Store {
                 Some((x, y)) => (x, y),
                 None => break,
             };
-            let x = x.to();
-            if x.0 != block_hash {
+            if x.to().0 != block_hash {
                 continue;
             }
-
             receipts.push(y.to());
         }
         Ok(Some(receipts))
