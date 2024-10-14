@@ -45,12 +45,12 @@ pub async fn start_network(
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
 
-    //tokio::spawn(discover_peers(udp_addr, signer, bootnodes));
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
     let server_handle = tokio::spawn(serve_requests(tcp_addr, signer.clone(), storage.clone()));
-    let server_handlex = tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
+    // TODO Remove this spawn, it's just for testing
+    tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
 
-    try_join!(discovery_handle, server_handle, server_handlex).unwrap();
+    try_join!(discovery_handle, server_handle).unwrap();
 }
 
 async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
@@ -785,12 +785,12 @@ async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
 
 async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
     conn.handshake().await;
-    // TODO react on handshale or capabilities exchange result
-    loop {
-        // TODO Properly build listen loop
-        break;
-        //conn.await_messages();
-    }
+    // TODO react on handshake or capabilities exchange result
+
+    // TODO Properly build listen loop
+    // loop {
+    //     conn.await_messages();
+    // }
 }
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {

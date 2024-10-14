@@ -31,7 +31,7 @@ pub(crate) struct RLPxConnection<S> {
     signer: SigningKey,
     state: RLPxConnectionState,
     stream: S,
-    established: bool,
+    hello_exchanged: bool,
     // ...capabilities information
 }
 
@@ -41,7 +41,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             signer,
             state,
             stream,
-            established: false,
+            hello_exchanged: false,
         }
     }
 
@@ -106,8 +106,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 auth_message.put_slice(&msg);
                 self.stream.write_all(&auth_message).await.unwrap();
                 info!("Sent auth message correctly!");
-
-                //self.local_init_message = Some(msg);
 
                 self.state = RLPxConnectionState::InitiatedAuth(InitiatedAuth::new(
                     initiator_state,
@@ -233,21 +231,14 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         // Receive Hello message
         let msg = self.receive().await;
         info!("Hello message received {msg:?}");
-
-        // self.state = RLPxConnectionState::PostHandshake(PostHandshake::receiver(
-        //     handshake_auth,
-        //     ack_message,
-        //     aes_key,
-        //     mac_key,
-        // ))
     }
 
     pub async fn send(&mut self, message: rlpx::Message) {
         match &mut self.state {
-            RLPxConnectionState::Established(post_handshake) => {
+            RLPxConnectionState::Established(state) => {
                 let mut frame_buffer = vec![];
                 message.encode(&mut frame_buffer);
-                frame::write(frame_buffer, post_handshake, &mut self.stream).await;
+                frame::write(frame_buffer, state, &mut self.stream).await;
             }
             // TODO proper error
             _ => panic!("Invalid state to send message"),
@@ -256,18 +247,18 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     pub async fn receive(&mut self) -> rlpx::Message {
         match &mut self.state {
-            RLPxConnectionState::Established(post_handshake) => {
-                let frame_data = frame::read(post_handshake, &mut self.stream).await;
+            RLPxConnectionState::Established(state) => {
+                let frame_data = frame::read(state, &mut self.stream).await;
                 let (msg_id, msg_data): (u8, _) =
                     RLPDecode::decode_unfinished(&frame_data).unwrap();
-                if !self.established {
+                if !self.hello_exchanged {
                     if msg_id == 0 {
                         let message = rlpx::Message::decode(msg_id, msg_data).unwrap();
                         assert!(
                             matches!(message, rlpx::Message::Hello(_)),
                             "Expected Hello message"
                         );
-                        self.established = true;
+                        self.hello_exchanged = true;
                         // TODO, register shared capabilities
                         message
                     } else {
@@ -372,23 +363,7 @@ impl InitiatedAuth {
     }
 }
 
-// TODO remove this allowance once we define if values are used or removed
-#[allow(unused)]
 pub struct Established {
-    // Not sure these values are required at this stage or if they are
-    // only used for handshake.
-    // TODO: check if we can remove them.
-    pub(crate) local_initiator: bool,
-
-    pub(crate) local_nonce: H256,
-    pub(crate) local_ephemeral_key: SecretKey,
-    pub(crate) local_init_message: Vec<u8>,
-    pub(crate) remote_node_id: H512,
-    pub(crate) remote_nonce: H256,
-    pub(crate) remote_ephemeral_key: PublicKey,
-    pub(crate) remote_init_message: Vec<u8>,
-
-    pub(crate) aes_key: H256,
     pub(crate) mac_key: H256,
     pub ingress_mac: Keccak256,
     pub egress_mac: Keccak256,
@@ -398,54 +373,22 @@ pub struct Established {
 
 impl Established {
     fn for_receiver(previous_state: &ReceivedAuth, init_message: Vec<u8>) -> Self {
-        let ephemeral_key_secret = ecdh_xchng(
-            &previous_state.local_ephemeral_key,
-            &previous_state.remote_ephemeral_key,
-        );
-
         // keccak256(nonce || initiator-nonce)
         // Remote node is initator
         let hashed_nonces = Keccak256::digest(
             [previous_state.local_nonce.0, previous_state.remote_nonce.0].concat(),
         )
         .into();
-        // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
-        let shared_secret =
-            Keccak256::digest([ephemeral_key_secret, hashed_nonces].concat()).into();
-        // aes-secret = keccak256(ephemeral-key || shared-secret)
-        let aes_key =
-            H256(Keccak256::digest([ephemeral_key_secret, shared_secret].concat()).into());
-        // mac-secret = keccak256(ephemeral-key || aes-secret)
-        let mac_key = H256(Keccak256::digest([ephemeral_key_secret, aes_key.0].concat()).into());
 
-        // egress-mac = keccak256.init((mac-secret ^ remote-nonce) || auth)
-        let egress_mac = Keccak256::default()
-            .chain_update(mac_key ^ previous_state.remote_nonce)
-            .chain_update(&init_message);
-
-        // ingress-mac = keccak256.init((mac-secret ^ initiator-nonce) || ack)
-        let ingress_mac = Keccak256::default()
-            .chain_update(mac_key ^ previous_state.local_nonce)
-            .chain_update(&previous_state.remote_init_message);
-
-        let ingress_aes = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key.0.into(), &[0; 16].into());
-        let egress_aes = ingress_aes.clone();
-        Self {
-            local_initiator: previous_state.local_initiator,
-            local_nonce: previous_state.local_nonce,
-            local_ephemeral_key: previous_state.local_ephemeral_key.clone(),
-            local_init_message: init_message,
-            remote_node_id: previous_state.remote_node_id,
-            remote_nonce: previous_state.remote_nonce,
-            remote_ephemeral_key: previous_state.remote_ephemeral_key,
-            remote_init_message: previous_state.remote_init_message.clone(),
-            aes_key,
-            mac_key,
-            ingress_mac,
-            egress_mac,
-            ingress_aes,
-            egress_aes,
-        }
+        Self::new(
+            init_message,
+            previous_state.local_nonce,
+            previous_state.local_ephemeral_key.clone(),
+            hashed_nonces,
+            previous_state.remote_init_message.clone(),
+            previous_state.remote_nonce,
+            previous_state.remote_ephemeral_key,
+        )
     }
 
     fn for_initiator(
@@ -454,13 +397,33 @@ impl Established {
         remote_nonce: H256,
         remote_ephemeral_key: PublicKey,
     ) -> Self {
-        let ephemeral_key_secret =
-            ecdh_xchng(&previous_state.local_ephemeral_key, &remote_ephemeral_key);
-
         // keccak256(nonce || initiator-nonce)
         // Local node is initator
         let hashed_nonces =
             Keccak256::digest([remote_nonce.0, previous_state.local_nonce.0].concat()).into();
+
+        Self::new(
+            previous_state.local_init_message.clone(),
+            previous_state.local_nonce,
+            previous_state.local_ephemeral_key.clone(),
+            hashed_nonces,
+            remote_init_message,
+            remote_nonce,
+            remote_ephemeral_key,
+        )
+    }
+
+    fn new(
+        local_init_message: Vec<u8>,
+        local_nonce: H256,
+        local_ephemeral_key: SecretKey,
+        hashed_nonces: [u8; 32],
+        remote_init_message: Vec<u8>,
+        remote_nonce: H256,
+        remote_ephemeral_key: PublicKey,
+    ) -> Self {
+        let ephemeral_key_secret = ecdh_xchng(&local_ephemeral_key, &remote_ephemeral_key);
+
         // shared-secret = keccak256(ephemeral-key || keccak256(nonce || initiator-nonce))
         let shared_secret =
             Keccak256::digest([ephemeral_key_secret, hashed_nonces].concat()).into();
@@ -473,25 +436,16 @@ impl Established {
         // egress-mac = keccak256.init((mac-secret ^ remote-nonce) || auth)
         let egress_mac = Keccak256::default()
             .chain_update(mac_key ^ remote_nonce)
-            .chain_update(&previous_state.local_init_message);
+            .chain_update(&local_init_message);
 
         // ingress-mac = keccak256.init((mac-secret ^ initiator-nonce) || ack)
         let ingress_mac = Keccak256::default()
-            .chain_update(mac_key ^ previous_state.local_nonce)
+            .chain_update(mac_key ^ local_nonce)
             .chain_update(&remote_init_message);
 
         let ingress_aes = <Aes256Ctr64BE as KeyIvInit>::new(&aes_key.0.into(), &[0; 16].into());
         let egress_aes = ingress_aes.clone();
         Self {
-            local_initiator: previous_state.local_initiator,
-            local_nonce: previous_state.local_nonce,
-            local_ephemeral_key: previous_state.local_ephemeral_key.clone(),
-            local_init_message: previous_state.local_init_message.clone(),
-            remote_node_id: previous_state.remote_node_id,
-            remote_nonce,
-            remote_ephemeral_key,
-            remote_init_message,
-            aes_key,
             mac_key,
             ingress_mac,
             egress_mac,
