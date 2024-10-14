@@ -1,7 +1,6 @@
 use tracing::info;
 
 pub mod proof_data_client;
-pub mod prover;
 pub mod zk_prover;
 
 pub async fn start_prover() {
