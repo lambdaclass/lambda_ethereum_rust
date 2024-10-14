@@ -147,7 +147,7 @@ mod test {
         assert!(is_canonical(&store, 1, hash_1).unwrap());
         assert!(is_canonical(&store, 2, hash_2).unwrap());
 
-        let result = apply_fork_choice(&store, hash_2, hash_2, hash_2);
+        let result = apply_fork_choice(&store, hash_1, hash_1, hash_1);
 
         assert!(matches!(
             result,
