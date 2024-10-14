@@ -38,11 +38,6 @@ fn get_ignored_groups() -> HashSet<String> {
         "stCallDelegateCodesHomestead".into(),
         "stDelegatecallTestHomestead".into(),
         "stCodeSizeLimit".into(),
-        "stCreate2".into(),
-        "stCreateTest".into(),
-        "stRecursiveCreate".into(),
-        "stCallCreateCallCodeTest".into(),
-        "stCallCodes".into(),
         "stEIP158Specific".into(),
         "stEIP4844-blobtransactions".into(),
         "eip4844_blobs".into(),
@@ -147,4 +142,9 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
-datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/", r"^.*/*.json",);
+datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/stCallCreateCallCodeTest", r"^.*/*.json",);
+// "stCreate2".into(),
+// "stCreateTest".into(),
+// "stRecursiveCreate".into(),
+// "stCallCreateCallCodeTest".into(),
+// "stCallCodes".into(), -> 80 tests

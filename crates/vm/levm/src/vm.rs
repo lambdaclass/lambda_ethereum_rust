@@ -181,6 +181,21 @@ impl Db {
             })
             .collect()
     }
+
+    pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
+        if self.accounts.contains_key(address) {
+            return Ok(self.accounts.get(address).unwrap());
+        }
+
+        let new_account = Account {
+            address: *address,
+            ..Default::default()
+        };
+
+        self.accounts.insert(*address, new_account);
+
+        Ok(self.accounts.get(address).unwrap())
+    }
 }
 
 #[derive(Debug, Clone, Default)]
