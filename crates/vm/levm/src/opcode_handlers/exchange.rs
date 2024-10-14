@@ -9,7 +9,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SWAPN > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::SWAPN > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
@@ -24,7 +24,7 @@ impl VM {
         current_call_frame
             .stack
             .swap(stack_top_index - 1, to_swap_index - 1);
-        self.env.consumed_gas += gas_cost::SWAPN;
+        self.increase_gas(current_call_frame, gas_cost::SWAPN);
 
         Ok(OpcodeSuccess::Continue)
     }

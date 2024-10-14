@@ -7,35 +7,35 @@ use super::*;
 impl VM {
     // LT operation
     pub fn op_lt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::LT > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::LT > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho < rho { U256::one() } else { U256::zero() };
         current_call_frame.stack.push(result)?;
-        self.env.consumed_gas += gas_cost::LT;
+        self.increase_gas(current_call_frame, gas_cost::LT);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // GT operation
     pub fn op_gt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::GT > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::GT > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho > rho { U256::one() } else { U256::zero() };
         current_call_frame.stack.push(result)?;
-        self.env.consumed_gas += gas_cost::GT;
+        self.increase_gas(current_call_frame, gas_cost::GT);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // SLT operation (signed less than)
     pub fn op_slt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SLT > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::SLT > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let lho = current_call_frame.stack.pop()?;
@@ -58,14 +58,14 @@ impl VM {
             }
         };
         current_call_frame.stack.push(result)?;
-        self.env.consumed_gas += gas_cost::SLT;
+        self.increase_gas(current_call_frame, gas_cost::SLT);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // SGT operation (signed greater than)
     pub fn op_sgt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SGT > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::SGT > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let lho = current_call_frame.stack.pop()?;
@@ -88,14 +88,14 @@ impl VM {
             }
         };
         current_call_frame.stack.push(result)?;
-        self.env.consumed_gas += gas_cost::SGT;
+        self.increase_gas(current_call_frame, gas_cost::SGT);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // EQ operation (equality check)
     pub fn op_eq(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::EQ > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::EQ > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let lho = current_call_frame.stack.pop()?;
@@ -106,7 +106,7 @@ impl VM {
             U256::zero()
         };
         current_call_frame.stack.push(result)?;
-        self.env.consumed_gas += gas_cost::EQ;
+        self.increase_gas(current_call_frame, gas_cost::EQ);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -116,7 +116,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ISZERO > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::ISZERO > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let operand = current_call_frame.stack.pop()?;
@@ -126,58 +126,58 @@ impl VM {
             U256::zero()
         };
         current_call_frame.stack.push(result)?;
-        self.env.consumed_gas += gas_cost::ISZERO;
+        self.increase_gas(current_call_frame, gas_cost::ISZERO);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // AND operation
     pub fn op_and(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::AND > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::AND > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a & b)?;
-        self.env.consumed_gas += gas_cost::AND;
+        self.increase_gas(current_call_frame, gas_cost::AND);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // OR operation
     pub fn op_or(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::OR > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::OR > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a | b)?;
-        self.env.consumed_gas += gas_cost::OR;
+        self.increase_gas(current_call_frame, gas_cost::OR);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // XOR operation
     pub fn op_xor(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::XOR > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::XOR > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a ^ b)?;
-        self.env.consumed_gas += gas_cost::XOR;
+        self.increase_gas(current_call_frame, gas_cost::XOR);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // NOT operation
     pub fn op_not(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::NOT > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::NOT > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let a = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(!a)?;
-        self.env.consumed_gas += gas_cost::NOT;
+        self.increase_gas(current_call_frame, gas_cost::NOT);
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -187,7 +187,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BYTE > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::BYTE > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let op1 = current_call_frame.stack.pop()?;
@@ -201,14 +201,14 @@ impl VM {
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
-        self.env.consumed_gas += gas_cost::BYTE;
+        self.increase_gas(current_call_frame, gas_cost::BYTE);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // SHL operation (shift left)
     pub fn op_shl(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SHL > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::SHL > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let shift = current_call_frame.stack.pop()?;
@@ -218,14 +218,14 @@ impl VM {
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
-        self.env.consumed_gas += gas_cost::SHL;
+        self.increase_gas(current_call_frame, gas_cost::SHL);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // SHR operation (shift right)
     pub fn op_shr(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SHR > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::SHR > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let shift = current_call_frame.stack.pop()?;
@@ -235,14 +235,14 @@ impl VM {
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
-        self.env.consumed_gas += gas_cost::SHR;
+        self.increase_gas(current_call_frame, gas_cost::SHR);
 
         Ok(OpcodeSuccess::Continue)
     }
 
     // SAR operation (arithmetic shift right)
     pub fn op_sar(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SAR > self.env.gas_limit {
+        if current_call_frame.gas_used + gas_cost::SAR > current_call_frame.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let shift = current_call_frame.stack.pop()?;
@@ -255,7 +255,7 @@ impl VM {
             U256::zero()
         };
         current_call_frame.stack.push(res)?;
-        self.env.consumed_gas += gas_cost::SAR;
+        self.increase_gas(current_call_frame, gas_cost::SAR);
 
         Ok(OpcodeSuccess::Continue)
     }

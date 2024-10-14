@@ -397,7 +397,7 @@ impl VM {
                 Opcode::RETURNDATACOPY => self.op_returndatacopy(&mut current_call_frame),
                 Opcode::JUMP => self.op_jump(&mut current_call_frame),
                 Opcode::JUMPI => self.op_jumpi(&mut current_call_frame),
-                Opcode::JUMPDEST => self.op_jumpdest(),
+                Opcode::JUMPDEST => self.op_jumpdest(&mut current_call_frame),
                 Opcode::PC => self.op_pc(&mut current_call_frame),
                 Opcode::BLOCKHASH => self.op_blockhash(&mut current_call_frame),
                 Opcode::COINBASE => self.op_coinbase(&mut current_call_frame),
@@ -760,5 +760,10 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
+    }
+
+    pub fn increase_gas(&mut self, current_call_frame: &mut CallFrame, gas: u64) {
+        current_call_frame.gas_used += gas;
+        self.env.consumed_gas += gas;
     }
 }
