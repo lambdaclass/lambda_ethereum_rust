@@ -72,10 +72,15 @@ impl Memory {
         let new_memory_size_word = memory_byte_size
             .checked_add(WORD_SIZE - 1)
             .ok_or("Overflow occurred when calculating memory size")
-            .map_err(|_| VMError::OverflowInAddition)?
+            .map_err(|_| VMError::OverflowInArithmeticOp)?
             / WORD_SIZE;
-        let new_memory_cost =
-            (new_memory_size_word * new_memory_size_word) / 512 + (3 * new_memory_size_word);
+        // (new_memory_size_word * new_memory_size_word) / 512 + (3 * new_memory_size_word);
+        let new_memory_cost = new_memory_size_word
+            .checked_mul(new_memory_size_word)
+            .and_then(|square| square.checked_div(512))
+            .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
+            .ok_or("Overflow while calculating new_memory_cost")
+            .map_err(|_| VMError::OverflowInArithmeticOp)?;
         let last_memory_size_word = (self.data.len() + WORD_SIZE - 1) / WORD_SIZE;
         let last_memory_cost =
             (last_memory_size_word * last_memory_size_word) / 512 + (3 * last_memory_size_word);

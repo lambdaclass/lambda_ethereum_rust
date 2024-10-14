@@ -123,7 +123,11 @@ fn get_ignored_groups() -> HashSet<String> {
 // 58 tests
 // - stSLoadTest
 // 1 test
-// Total: 120 tests
+// - stEIP5656-MCOPY
+// 4 tests
+// - eip5656_mcopy
+// 5 tests
+// Total: 129 tests
 
 fn get_ignored_suites() -> HashSet<String> {
     HashSet::from([
@@ -147,10 +151,4 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
-datatest_stable::harness!(
-    run_ef_test,
-    "ethtests/GeneralStateTests/Cancun/stEIP5656-MCOPY",
-    r"^.*/*.json",
-);
-
-// crates/vm/levm/ethtests/GeneralStateTests/Cancun/stEIP5656-MCOPY
+datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/", r"^.*/*.json",);
