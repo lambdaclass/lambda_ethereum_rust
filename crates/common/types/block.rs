@@ -95,9 +95,17 @@ pub struct BlockHeader {
     #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
     pub base_fee_per_gas: Option<u64>,
     pub withdrawals_root: Option<H256>,
-    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "crate::serde_utils::u64::hex_str_opt",
+        default = "Option::default"
+    )]
     pub blob_gas_used: Option<u64>,
-    #[serde(with = "crate::serde_utils::u64::hex_str_opt")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "crate::serde_utils::u64::hex_str_opt",
+        default = "Option::default"
+    )]
     pub excess_blob_gas: Option<u64>,
     pub parent_beacon_block_root: Option<H256>,
 }
