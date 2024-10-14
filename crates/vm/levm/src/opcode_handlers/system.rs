@@ -65,11 +65,11 @@ impl VM {
             + positive_value_cost
             + value_to_empty_account_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.consumed_gas + gas_cost > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        self.env.consumed_gas += gas_cost;
+        self.consumed_gas += gas_cost;
         self.accrued_substate.warm_addresses.insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
@@ -148,11 +148,11 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.consumed_gas + gas_cost > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        self.env.consumed_gas += gas_cost;
+        self.consumed_gas += gas_cost;
         let return_data = current_call_frame.memory.load_range(offset, size).into();
         current_call_frame.returndata = return_data;
         current_call_frame

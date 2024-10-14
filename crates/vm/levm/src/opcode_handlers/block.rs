@@ -15,21 +15,21 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BLOCKHASH > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::BLOCKHASH > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
         let block_number = current_call_frame.stack.pop()?;
-        self.env.consumed_gas += gas_cost::BLOCKHASH;
+        self.consumed_gas += gas_cost::BLOCKHASH;
 
         // If the block number is not valid, return zero
         if block_number
             < self
                 .env
-                .block
+                .block_env
                 .number
                 .saturating_sub(U256::from(LAST_AVAILABLE_BLOCK_LIMIT))
-            || block_number >= self.env.block.number
+            || block_number >= self.env.block_env.number
         {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
@@ -51,13 +51,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::COINBASE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::COINBASE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let coinbase = self.env.block.coinbase; // Assuming block_env has been integrated
+        let coinbase = self.env.block_env.coinbase; // Assuming block_env has been integrated
         current_call_frame.stack.push(address_to_word(coinbase))?;
-        self.env.consumed_gas += gas_cost::COINBASE;
+        self.consumed_gas += gas_cost::COINBASE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -67,13 +67,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::TIMESTAMP > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let timestamp = self.env.block.timestamp; // Assuming block_env has been integrated
+        let timestamp = self.env.block_env.timestamp; // Assuming block_env has been integrated
         current_call_frame.stack.push(timestamp)?;
-        self.env.consumed_gas += gas_cost::TIMESTAMP;
+        self.consumed_gas += gas_cost::TIMESTAMP;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -83,13 +83,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::NUMBER > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::NUMBER > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let block_number = self.env.block.number; // Assuming block_env has been integrated
+        let block_number = self.env.block_env.number; // Assuming block_env has been integrated
         current_call_frame.stack.push(block_number)?;
-        self.env.consumed_gas += gas_cost::NUMBER;
+        self.consumed_gas += gas_cost::NUMBER;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -99,15 +99,15 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::PREVRANDAO > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::PREVRANDAO > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let randao = self.env.block.prev_randao.unwrap_or_default(); // Assuming block_env has been integrated
+        let randao = self.env.block_env.prev_randao.unwrap_or_default(); // Assuming block_env has been integrated
         current_call_frame
             .stack
             .push(U256::from_big_endian(randao.0.as_slice()))?;
-        self.env.consumed_gas += gas_cost::PREVRANDAO;
+        self.consumed_gas += gas_cost::PREVRANDAO;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -117,13 +117,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::GASLIMIT > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let gas_limit = self.env.block.gas_limit; // Assuming block_env has been integrated
+        let gas_limit = self.env.block_env.gas_limit; // Assuming block_env has been integrated
         current_call_frame.stack.push(U256::from(gas_limit))?;
-        self.env.consumed_gas += gas_cost::GASLIMIT;
+        self.consumed_gas += gas_cost::GASLIMIT;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -133,13 +133,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::CHAINID > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let chain_id = self.env.block.chain_id; // Assuming block_env has been integrated
+        let chain_id = self.env.block_env.chain_id; // Assuming block_env has been integrated
         current_call_frame.stack.push(U256::from(chain_id))?;
-        self.env.consumed_gas += gas_cost::CHAINID;
+        self.consumed_gas += gas_cost::CHAINID;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -149,14 +149,14 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SELFBALANCE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::SELFBALANCE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
         let balance = self.db.balance(&current_call_frame.code_address);
         current_call_frame.stack.push(balance)?;
 
-        self.env.consumed_gas += gas_cost::SELFBALANCE;
+        self.consumed_gas += gas_cost::SELFBALANCE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -166,13 +166,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::BASEFEE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let base_fee = self.env.block.base_fee_per_gas; // Assuming block_env has been integrated
+        let base_fee = self.env.block_env.base_fee_per_gas; // Assuming block_env has been integrated
         current_call_frame.stack.push(base_fee)?;
-        self.env.consumed_gas += gas_cost::BASEFEE;
+        self.consumed_gas += gas_cost::BASEFEE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -182,11 +182,11 @@ impl VM {
         &mut self,
         _current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BLOBHASH > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::BLOBHASH > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        self.env.consumed_gas += gas_cost::BLOBHASH;
+        self.consumed_gas += gas_cost::BLOBHASH;
 
         unimplemented!("when we have tx implemented");
 
@@ -198,13 +198,13 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::BLOBBASEFEE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let blob_base_fee = self.env.block.calculate_blob_gas_price(); // Assuming block_env has been integrated
+        let blob_base_fee = self.env.block_env.calculate_blob_gas_price(); // Assuming block_env has been integrated
         current_call_frame.stack.push(blob_base_fee)?;
-        self.env.consumed_gas += gas_cost::BLOBBASEFEE;
+        self.consumed_gas += gas_cost::BLOBBASEFEE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -214,7 +214,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ADDRESS > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::ADDRESS > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -225,7 +225,7 @@ impl VM {
         };
 
         current_call_frame.stack.push(U256::from(addr.as_bytes()))?;
-        self.env.consumed_gas += gas_cost::ADDRESS;
+        self.consumed_gas += gas_cost::ADDRESS;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -235,7 +235,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BALANCE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::BALANCE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -244,7 +244,7 @@ impl VM {
         let balance = self.db.balance(&word_to_address(addr));
         current_call_frame.stack.push(balance)?;
 
-        self.env.consumed_gas += gas_cost::BALANCE;
+        self.consumed_gas += gas_cost::BALANCE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -254,16 +254,16 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ORIGIN > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::ORIGIN > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        let origin = self.env.origin;
+        let origin = self.env.tx_env.caller;
         current_call_frame
             .stack
             .push(U256::from(origin.as_bytes()))?;
 
-        self.env.consumed_gas += gas_cost::ORIGIN;
+        self.consumed_gas += gas_cost::ORIGIN;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -273,7 +273,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLER > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::CALLER > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -282,7 +282,7 @@ impl VM {
             .stack
             .push(U256::from(caller.as_bytes()))?;
 
-        self.env.consumed_gas += gas_cost::CALLER;
+        self.consumed_gas += gas_cost::CALLER;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -292,7 +292,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLVALUE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::CALLVALUE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -300,7 +300,7 @@ impl VM {
 
         current_call_frame.stack.push(callvalue)?;
 
-        self.env.consumed_gas += gas_cost::CALLVALUE;
+        self.consumed_gas += gas_cost::CALLVALUE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -310,7 +310,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::CODESIZE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -318,7 +318,7 @@ impl VM {
             .stack
             .push(U256::from(current_call_frame.bytecode.len()))?;
 
-        self.env.consumed_gas += gas_cost::CODESIZE;
+        self.consumed_gas += gas_cost::CODESIZE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -353,7 +353,7 @@ impl VM {
             + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.consumed_gas + gas_cost > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -361,7 +361,7 @@ impl VM {
 
         current_call_frame.memory.store_bytes(dest_offset, &code);
 
-        self.env.consumed_gas += gas_cost;
+        self.consumed_gas += gas_cost;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -371,13 +371,15 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::GASPRICE > self.env.gas_limit {
+        if self.consumed_gas + gas_cost::GASPRICE > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
-        current_call_frame.stack.push(self.env.gas_price)?;
+        current_call_frame
+            .stack
+            .push(self.env.tx_env.effective_gas_price)?;
 
-        self.env.consumed_gas += gas_cost::GASPRICE;
+        self.consumed_gas += gas_cost::GASPRICE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -393,13 +395,13 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.consumed_gas + gas_cost > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let code_size = self.db.get_account_bytecode(&address).len();
         current_call_frame.stack.push(code_size.into())?;
 
-        self.env.consumed_gas += gas_cost;
+        self.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -436,7 +438,7 @@ impl VM {
         let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost
             + address_access_cost;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.consumed_gas + gas_cost > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -450,7 +452,7 @@ impl VM {
             .memory
             .store_bytes(dest_offset, &code[offset..offset + size]);
 
-        self.env.consumed_gas += gas_cost;
+        self.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -465,7 +467,7 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.consumed_gas + gas_cost > self.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -477,7 +479,7 @@ impl VM {
             .stack
             .push(U256::from_big_endian(&result))?;
 
-        self.env.consumed_gas += gas_cost;
+        self.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
     }
 }
