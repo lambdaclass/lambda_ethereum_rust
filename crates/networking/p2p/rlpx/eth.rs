@@ -228,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn get_recepits_bodies_empty_message() {
+    fn get_receipts_empty_message() {
         let blocks_hash = vec![];
         let get_receipts = GetReceipts::new(1, blocks_hash.clone());
 
@@ -350,8 +350,8 @@ mod tests {
 
         let blocks_hash = vec![block_hash1, block_hash2, block_hash3];
 
-        let block_bodies = get_receipts_from_hash(&store, blocks_hash);
-        let receipts = Receipts::new(1, block_bodies);
+        let receipts = get_receipts_from_hash(&store, blocks_hash);
+        let receipts = Receipts::new(1, receipts);
 
         let mut buf = Vec::new();
         receipts.encode(&mut buf);
@@ -428,9 +428,9 @@ mod tests {
         receiver.send(&receipts_to_send).unwrap(); // send the receipts to the sender that requested them
 
         let mut received_receipts = [0; 1024];
-        let len = sender.recv(&mut received_receipts).unwrap(); // receive the block bodies
+        let len = sender.recv(&mut received_receipts).unwrap(); // receive the receipts
         let received_receipts = Receipts::decode(&received_receipts[..len]).unwrap();
-        // decode the received block bodies
+        // decode the receipts
 
         assert_eq!(received_receipts.id, sender_chosen_id);
         assert_eq!(received_receipts.receipts.len(), 2);
