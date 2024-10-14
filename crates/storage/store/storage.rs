@@ -455,9 +455,14 @@ impl Store {
         debug_assert_eq!(genesis_state_root, genesis_block.header.state_root);
 
         // Store genesis block
+        info!(
+            "Storing genesis block with number {} and hash {}",
+            genesis_block_number, genesis_hash
+        );
+
+        self.add_block(genesis_block)?;
         self.update_earliest_block_number(genesis_block_number)?;
         self.update_latest_block_number(genesis_block_number)?;
-        self.add_block(genesis_block)?;
         self.set_canonical_block(genesis_block_number, genesis_hash)?;
 
         // Set chain config
@@ -553,13 +558,14 @@ impl Store {
     pub fn update_latest_block_number(&self, block_number: BlockNumber) -> Result<(), StoreError> {
         self.engine.update_latest_block_number(block_number)
     }
-    pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
-        self.engine.update_latest_total_difficulty(block_difficulty)
-    }
 
     // TODO(#790): This should not return an option.
     pub fn get_latest_block_number(&self) -> Result<Option<BlockNumber>, StoreError> {
         self.engine.get_latest_block_number()
+    }
+
+    pub fn update_latest_total_difficulty(&self, block_difficulty: U256) -> Result<(), StoreError> {
+        self.engine.update_latest_total_difficulty(block_difficulty)
     }
 
     pub fn get_latest_total_difficulty(&self) -> Result<Option<U256>, StoreError> {

@@ -174,43 +174,48 @@ pub fn apply_fork_choice(
 
     // We get the block bodies even if we only use headers them so we check that they are
     // stored too.
-    let finalized_header_res = store.get_block_by_hash(finalized_hash)?;
-    let safe_header_res = store.get_block_by_hash(safe_hash)?;
-    let head_header_res = store.get_block_by_hash(head_hash)?;
 
-    // Check that we already have all the needed blocks stored and that we have the ancestors
-    // if we have the descendants, as we are working on the assumption that we only add block
-    // if they are connected to the canonical chain.
-    let (finalized, safe, head) = match (finalized_header_res, safe_header_res, head_header_res) {
-        (None, Some(_), _) => {
-            return Err(InvalidForkChoice::ElementNotFound(
-                error::ForkChoiceElement::Finalized,
-            ))
-        }
-        (_, None, Some(_)) => {
-            return Err(InvalidForkChoice::ElementNotFound(
-                error::ForkChoiceElement::Safe,
-            ))
-        }
-        (Some(f), Some(s), Some(h)) => (f.header, s.header, h.header),
-        _ => return Err(InvalidForkChoice::Syncing),
+    let finalized_res = if !finalized_hash.is_zero() {
+        store.get_block_by_hash(finalized_hash)?
+    } else {
+        None
     };
 
-    // Check that we are not being pushed pre-merge
-    total_difficulty_check(&head_hash, &head, store)?;
+    let safe_res = if !safe_hash.is_zero() {
+        store.get_block_by_hash(safe_hash)?
+    } else {
+        None
+    };
 
-    // Check that the headers are in the correct order.
-    if finalized.number > safe.number || safe.number > head.number {
-        return Err(InvalidForkChoice::Unordered);
+    let head_res = store.get_block_by_hash(head_hash)?;
+
+    if !safe_hash.is_zero() {
+        check_order(&safe_res, &head_res)?;
     }
 
-    // If the head block is already in our canonical chain, the beacon client is
-    // probably resyncing. Ignore the update.
-    if is_canonical(store, head.number, head_hash)? {
+    if !finalized_hash.is_zero() && !safe_hash.is_zero() {
+        check_order(&finalized_res, &safe_res)?;
+    }
+
+    let Some(head_block) = head_res else {
+        return Err(InvalidForkChoice::Syncing);
+    };
+
+    let head = head_block.header;
+
+    total_difficulty_check(&head_hash, &head, store)?;
+
+    // TODO(#791): should we panic here? We should never not have a latest block number.
+    let Some(latest) = store.get_latest_block_number()? else {
+        return Err(StoreError::Custom("Latest block number not found".to_string()).into());
+    };
+
+    // If the head block is an already present head ancestor, skip the update.
+    if is_canonical(store, head.number, head_hash)? && head.number < latest {
         return Err(InvalidForkChoice::NewHeadAlreadyCanonical);
     }
 
-    // Find out if blocks are correctly connected.
+    // Find blocks that will be part of the new canonical chain.
     let Some(new_canonical_blocks) = find_link_with_canonical_chain(store, &head)? else {
         return Err(InvalidForkChoice::Disconnected(
             error::ForkChoiceElement::Head,
@@ -223,52 +228,75 @@ pub fn apply_fork_choice(
         None => head.number,
     };
 
-    // Check that finalized and safe blocks are either in the new canonical blocks, or already
-    // but prior to the canonical link to the new head. This is a relatively quick way of making
-    // sure that head, safe and finalized are connected.
+    // Check that finalized and safe blocks are part of the new canonical chain.
+    if let Some(ref finalized_block) = finalized_res {
+        let finalized = &finalized_block.header;
+        if !(is_canonical(store, finalized.number, finalized_hash)?
+            && finalized.number <= link_block_number)
+            || (finalized.number == head.number && finalized_hash == head_hash)
+            || new_canonical_blocks.contains(&(finalized.number, finalized_hash))
+        {
+            return Err(InvalidForkChoice::Disconnected(
+                error::ForkChoiceElement::Head,
+                error::ForkChoiceElement::Finalized,
+            ));
+        };
+    }
 
-    if !(is_canonical(store, finalized.number, finalized_hash)?
-        && finalized.number <= link_block_number
-        || new_canonical_blocks.contains(&(finalized.number, finalized_hash))
-        || (finalized.number == head.number && finalized_hash == head_hash))
-    {
-        return Err(InvalidForkChoice::Disconnected(
-            error::ForkChoiceElement::Head,
-            error::ForkChoiceElement::Finalized,
-        ));
-    };
-
-    if !((is_canonical(store, safe.number, safe_hash)? && safe.number <= link_block_number)
-        || new_canonical_blocks.contains(&(safe.number, safe_hash))
-        || (safe.number == head.number && safe_hash == head_hash))
-    {
-        return Err(InvalidForkChoice::Disconnected(
-            error::ForkChoiceElement::Head,
-            error::ForkChoiceElement::Safe,
-        ));
-    };
+    if let Some(ref safe_block) = safe_res {
+        let safe = &safe_block.header;
+        if !(is_canonical(store, safe.number, safe_hash)? && safe.number <= link_block_number)
+            || (safe.number == head.number && safe_hash == head_hash)
+            || new_canonical_blocks.contains(&(safe.number, safe_hash))
+        {
+            return Err(InvalidForkChoice::Disconnected(
+                error::ForkChoiceElement::Head,
+                error::ForkChoiceElement::Safe,
+            ));
+        };
+    }
 
     // Finished all validations.
+
+    // Make all ancestors to head canonical.
     for (number, hash) in new_canonical_blocks {
         store.set_canonical_block(number, hash)?;
     }
-
-    // TODO(#791): should we panic here? We should never not have a latest block number.
-    let Some(latest) = store.get_latest_block_number()? else {
-        return Err(StoreError::Custom("Latest block number not found".to_string()).into());
-    };
 
     // Remove anything after the head from the canonical chain.
     for number in (head.number + 1)..(latest + 1) {
         store.unset_canonical_block(number)?;
     }
 
+    // Make head canonical and label all special blocks correctly.
     store.set_canonical_block(head.number, head_hash)?;
-    store.update_finalized_block_number(finalized.number)?;
-    store.update_safe_block_number(safe.number)?;
+    if let Some(finalized) = finalized_res {
+        store.update_finalized_block_number(finalized.header.number)?;
+    }
+    if let Some(safe) = safe_res {
+        store.update_safe_block_number(safe.header.number)?;
+    }
     store.update_latest_block_number(head.number)?;
 
     Ok(head)
+}
+
+// Checks that block 1 is prior to block 2 and that if the second is present, the first one is too.
+fn check_order(block_1: &Option<Block>, block_2: &Option<Block>) -> Result<(), InvalidForkChoice> {
+    // We don't need to perform the check if the hashes are null
+    match (block_1, block_2) {
+        (None, Some(_)) => Err(InvalidForkChoice::ElementNotFound(
+            error::ForkChoiceElement::Finalized,
+        )),
+        (Some(b1), Some(b2)) => {
+            if b1.header.number > b2.header.number {
+                Err(InvalidForkChoice::Unordered)
+            } else {
+                Ok(())
+            }
+        }
+        _ => Err(InvalidForkChoice::Syncing),
+    }
 }
 
 fn validate_gas_used(receipts: &[Receipt], block_header: &BlockHeader) -> Result<(), ChainError> {
