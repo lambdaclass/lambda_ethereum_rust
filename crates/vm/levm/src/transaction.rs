@@ -85,13 +85,11 @@ pub struct TxEnv {
 
 impl TxEnv {
     pub fn get_tx_type(&self) -> TxType {
-        if let Some(_gas_price) = self.gas_price {
-            if let Some(_access_list) = &self.access_list {
-                TxType::AccessList
-            } else {
-                TxType::Legacy
-            }
-        } else if let Some(_max_fee_per_blob_gas) = self.max_fee_per_blob_gas {
+        if self.gas_price.is_some() && self.access_list.is_some() {
+            TxType::AccessList
+        } else if self.gas_price.is_some() {
+            TxType::Legacy
+        } else if self.max_fee_per_blob_gas.is_some() {
             TxType::Blob
         } else {
             TxType::FeeMarket
