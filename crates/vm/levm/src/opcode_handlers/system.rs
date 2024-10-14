@@ -142,8 +142,8 @@ impl VM {
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
         
-
         self.increase_gas(current_call_frame, gas_cost)?;
+
         let return_data = current_call_frame.memory.load_range(offset, size).into();
         current_call_frame.returndata = return_data;
         current_call_frame

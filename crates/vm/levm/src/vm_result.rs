@@ -83,7 +83,6 @@ impl ExecutionResult {
         let output = match self {
             Self::Success { output, .. } => Some(output.data()),
             Self::Revert { output, .. } => Some(output),
-            _ => None,
         };
         output.and_then(|data| if data.is_empty() { None } else { Some(data) })
     }
@@ -95,7 +94,6 @@ impl ExecutionResult {
         match self {
             Self::Success { output, .. } => Some(output.into_data()),
             Self::Revert { output, .. } => Some(output),
-            _ => None,
         }
     }
 
