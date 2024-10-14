@@ -17,7 +17,14 @@ pub fn read_env_file() -> Result<(), errors::ConfigError> {
     let reader = std::io::BufReader::new(env_file);
 
     for line in reader.lines() {
-        match line?.split_once('=') {
+        let line = line?;
+
+        if line.starts_with("#") {
+            // Skip comments
+            continue;
+        };
+
+        match line.split_once('=') {
             Some((key, value)) => {
                 debug!("Setting env var from .env: {key}={value}");
                 std::env::set_var(key, value)
