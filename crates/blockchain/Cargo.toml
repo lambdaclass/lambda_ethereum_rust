@@ -7,9 +7,9 @@ edition = "2021"
 
 [dependencies]
 ethereum_rust-rlp.workspace = true
-ethereum_rust-core = { path = "../common" }
-ethereum_rust-storage = { path = "../storage/store" }
-ethereum_rust-vm = { path = "../vm" }
+ethereum_rust-core.workspace = true
+ethereum_rust-storage.workspace = true
+ethereum_rust-vm.workspace = true
 
 thiserror.workspace = true
 sha3.workspace = true
