@@ -37,6 +37,8 @@ TODO
 
 ## Configuration
 
+Configuration is done through environment variables. The easiest way to configure the operator is by creating a `.env` file and setting the variables there. Then, at start, it will read the file and set the variables.
+
 The following environment variables are available to configure the operator:
 
 - `ETH_RPC_URL`: URL of the L1 RPC.
@@ -44,11 +46,14 @@ The following environment variables are available to configure the operator:
 - `L1_WATCHER_TOPICS`: Topics to filter the L1 events.
 - `L1_WATCHER_CHECK_INTERVAL_MS`: Interval in milliseconds to check for new events.
 - `L1_WATCHER_MAX_BLOCK_STEP`: Maximum number of blocks to look for when checking for new events.
+- `L1_WATCHER_L2_OPERATOR_PRIVATE_KEY`: Private key of the L2 operator.
 - `ENGINE_API_RPC_URL`: URL of the EngineAPI.
 - `ENGINE_API_JWT_PATH`: Path to the JWT authentication file, required to connect to the EngineAPI.
 - `PROOF_DATA_PROVIDER_LISTEN_IP`: IP to listen for proof data requests.
 - `PROOF_DATA_PROVIDER_LISTEN_PORT`: Port to listen for proof data requests.
-- `XXX_BLOCK_EXECUTOR_ADDRESS`: Address of the block executor contract on L1.
-- `XXX_OPERATOR_ADDRESS`: Address of the chain operator.
-- `XXX_OPERATOR_PRIVATE_KEY`: Private key of the chain operator.
-- `XXX_INTERVAL_MS`: Interval in milliseconds to produce new blocks.
+- `OPERATOR_BLOCK_EXECUTOR_ADDRESS`: Address of the block executor contract on L1.
+- `OPERATOR_L1_ADDRESS`: Address of the L1 operator.
+- `OPERATOR_L1_PRIVATE_KEY`: Private key of the L1 operator.
+- `OPERATOR_INTERVAL_MS`: Interval in milliseconds to produce new blocks.
+
+If you want to use a different configuration file, you can set the `ENV_FILE` environment variable to the path of the file.

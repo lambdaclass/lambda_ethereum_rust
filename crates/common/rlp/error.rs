@@ -16,3 +16,12 @@ pub enum RLPDecodeError {
     #[error("{0}")]
     Custom(String),
 }
+
+// TODO: improve errors
+#[derive(Debug, Error)]
+pub enum RLPEncodeError {
+    #[error("InvalidCompression")]
+    InvalidCompression,
+    #[error("{0}")]
+    Custom(String),
+}
