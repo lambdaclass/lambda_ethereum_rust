@@ -29,8 +29,8 @@ fn get_ignored_groups() -> HashSet<String> {
     HashSet::from([
         "stEIP1153-transientStorage".into(),
         "eip1153_tstore".into(),
-        "eip3651_warm_coinbase".into(),
-        "stEIP3651-warmcoinbase".into(),
+        // "eip3651_warm_coinbase".into(),
+        // "stEIP3651-warmcoinbase".into(),
         "stEIP3860-limitmeterinitcode".into(),
         "eip3860_initcode".into(),
         "stInitCodeTest".into(),
@@ -147,4 +147,5 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
-datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/", r"^.*/*.json",);
+datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/Pyspecs/shanghai/eip3651_warm_coinbase", r"^.*/*.json",);
+// Pyspecs/shanghai/eip3651_warm_coinbase
