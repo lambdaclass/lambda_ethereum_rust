@@ -9,12 +9,6 @@ use ethereum_rust_rlp::encode::RLPEncode;
 
 use crate::utils::config::prover::ProverConfig;
 
-/// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const VERIFICATION_ELF: &[u8] =
-    include_bytes!("./sp1/verification_program/elf/riscv32im-succinct-zkvm-elf");
-pub const EXECUTION_ELF: &[u8] =
-    include_bytes!("./sp1/execution_program/elf/riscv32im-succinct-zkvm-elf");
-
 pub struct Prover {
     client: ProverClient,
     pk: SP1ProvingKey,
