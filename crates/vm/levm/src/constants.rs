@@ -109,6 +109,7 @@ pub const TX_ACCESS_LIST_ADDRESS_COST: u64 = 2400;
 pub const TX_ACCESS_LIST_STORAGE_KEY_COST: u64 = 1900;
 
 pub const MAX_CODE_SIZE: usize = 0x6000;
+pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
 
 // Costs in gas for init word and init code
 pub const INIT_WORD_COST: i64 = 2;

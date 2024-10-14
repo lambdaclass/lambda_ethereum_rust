@@ -6,8 +6,9 @@ use ethereum_types::{Address, H256, U256};
 use crate::{
     block::{BlockEnv, BLOB_GASPRICE_UPDATE_FRACTION, GAS_PER_BLOB, MIN_BLOB_GASPRICE},
     constants::{
-        init_code_cost, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE, TX_BASE_COST, TX_CREATE_COST,
-        TX_DATA_COST_PER_NON_ZERO, TX_DATA_COST_PER_ZERO, VERSIONED_HASH_VERSION_KZG,
+        init_code_cost, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CREATE_CODE_SIZE, TX_BASE_COST,
+        TX_CREATE_COST, TX_DATA_COST_PER_NON_ZERO, TX_DATA_COST_PER_ZERO,
+        VERSIONED_HASH_VERSION_KZG,
     },
     vm::Account,
     vm_result::{InvalidTx, VMError},
@@ -150,7 +151,7 @@ impl TxEnv {
 
         // if it's a create tx, check max code size
         // https://github.com/ethereum/execution-specs/blob/c854868f4abf2ab0c3e8790d4c40607e0d251147/src/ethereum/cancun/fork.py#L376
-        if is_create && self.data.len() > 2 * MAX_CODE_SIZE {
+        if is_create && self.data.len() > MAX_CREATE_CODE_SIZE {
             return Err(InvalidTx::CreateInitCodeSizeLimit);
         }
 
