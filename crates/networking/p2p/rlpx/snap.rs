@@ -1,5 +1,5 @@
 use bytes::BufMut;
-use ethereum_rust_core::H256;
+use ethereum_rust_core::{types::AccountState, H256};
 use ethereum_rust_rlp::{
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
@@ -73,5 +73,54 @@ impl RLPxMessage for GetAccountRange {
             limit_hash,
             response_bytes,
         ))
+    }
+}
+
+// https://github.com/ethereum/devp2p/blob/master/caps/snap.md#accountrange-0x01
+#[derive(Debug)]
+pub(crate) struct AccountRange {
+    // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
+    // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
+    id: u64,
+    accounts: Vec<(H256, AccountState)>,
+    proof: Vec<u8>,
+}
+
+impl AccountRange {
+    pub fn new(id: u64, accounts: Vec<(H256, AccountState)>, proof: Vec<u8>) -> Self {
+        Self {
+            id,
+            accounts,
+            proof,
+        }
+    }
+}
+
+impl RLPxMessage for AccountRange {
+    fn encode(&self, buf: &mut dyn BufMut) -> Result<(), RLPEncodeError> {
+        let mut encoded_data = vec![];
+        Encoder::new(&mut encoded_data)
+            .encode_field(&self.id)
+            .encode_slim_field(&self.accounts)
+            .encode_field(&self.proof)
+            .finish();
+
+        let msg_data = snappy_encode(encoded_data)?;
+        buf.put_slice(&msg_data);
+        Ok(())
+    }
+
+    fn decode(msg_data: &[u8]) -> Result<Self, RLPDecodeError> {
+        let mut snappy_decoder = SnappyDecoder::new();
+        let decompressed_data = snappy_decoder
+            .decompress_vec(msg_data)
+            .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
+        let decoder = Decoder::new(&decompressed_data)?;
+        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
+        let (accounts, decoder): (Vec<(H256, AccountState)>, _) =
+            decoder.decode_field("accounts")?;
+        let (proof, _): (Vec<u8>, _) = decoder.decode_field("proof")?;
+
+        Ok(Self::new(id, accounts, proof))
     }
 }
