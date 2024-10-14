@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::{cmp, collections::HashMap, path::Path};
 
 use ethereum_rust_levm::{
     block::BlockEnv,
@@ -30,27 +30,43 @@ fn decode_hex(bytes_in_hex: Bytes) -> Option<Bytes> {
     Some(Bytes::from(opcodes))
 }
 
-fn setup_txenv(transaction: &TransactionParts, test: &Test) -> TxEnv {
+fn setup_txenv(transaction: &TransactionParts, env: &Env, test: &Test) -> TxEnv {
     let msg_sender = transaction.sender.unwrap_or_default(); // if not present we derive it from secret key
     let transact_to: TransactTo = match transaction.to {
         Some(to) => TransactTo::Call(to),
         None => TransactTo::Create,
     };
 
+    let priority_fee = if let Some(max_priority_fee_per_gas) = transaction.max_priority_fee_per_gas
+    {
+        cmp::min(
+            max_priority_fee_per_gas,
+            transaction.max_fee_per_gas.unwrap() - env.current_base_fee.unwrap(),
+        )
+    } else {
+        transaction.gas_price.unwrap() - env.current_base_fee.unwrap()
+    };
+
+    let effective_gas_price = if transaction.max_priority_fee_per_gas.is_some() {
+        priority_fee + env.current_base_fee.unwrap()
+    } else {
+        transaction.gas_price.unwrap()
+    };
+
     TxEnv {
-        msg_sender,
+        caller: msg_sender,
         gas_limit: transaction.gas_limit[test.indexes.gas].as_u64(),
-        gas_price: transaction.gas_price,
+        effective_gas_price: effective_gas_price,
         transact_to,
         value: transaction.value[test.indexes.value],
         chain_id: Some(0),
         data: decode_hex(transaction.data[test.indexes.data].clone()).unwrap(),
-        nonce: Some(transaction.nonce.as_u64()),
+        nonce: transaction.nonce.as_u64(),
         // access_list: transaction.access_lists.get(0).cloned().flatten(),
         access_list: None,
-        max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
+        priority_fee,
         blob_hashes: transaction.blob_versioned_hashes.clone(),
-        max_fee_per_blob_gas: transaction.max_fee_per_gas,
+        max_fee_per_blob_gas: None,
     }
 }
 
@@ -71,7 +87,7 @@ fn setup_block_env(env: &Env) -> BlockEnv {
 }
 
 fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
-    let tx_env = setup_txenv(&unit.transaction, test);
+    let tx_env = setup_txenv(&unit.transaction, &unit.env, test);
     let block_env = setup_block_env(&unit.env);
 
     let mut db = Db::default();
@@ -106,7 +122,7 @@ fn setup_vm(test: &Test, unit: &TestUnit) -> VM {
         db.accounts.insert(*address, account.clone());
     }
 
-    VM::new(tx_env, block_env, db)
+    VM::new(ethereum_rust_levm::env::Env { tx_env, block_env }, db)
 }
 
 fn verify_result(
