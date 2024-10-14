@@ -6,13 +6,12 @@ use std::{
 use ethers::utils::keccak256;
 
 use crate::{
-    block::BlockEnv,
     call_frame::CallFrame,
     constants::*,
     env::Env,
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    transaction::{TransactTo, TxEnv},
+    transaction::TransactTo,
     vm_result::{
         AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, OpcodeSuccess, Output,
         ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
@@ -188,20 +187,15 @@ impl Db {
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
     pub warm_addresses: HashSet<Address>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Environment {
-    pub consumed_gas: u64,
-    refunded_gas: u64,
-    /// The block header of the present block.
-    pub block: BlockEnv,
+    pub refund_balance: u64,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub env: Env,
+    pub consumed_gas: u64,
+    pub gas_limit: u64, // TODO: remove
     /// Information that is acted upon immediately following the
     /// transaction.
     pub accrued_substate: Substate,
@@ -222,52 +216,45 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
-        let bytecode = match tx_env.transact_to {
+    pub fn new(env: Env, db: Db) -> Self {
+        let bytecode = match env.tx_env.transact_to {
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
             TransactTo::Create => {
                 todo!()
             }
         };
 
-        let to = match tx_env.transact_to {
+        let to = match env.tx_env.transact_to {
             TransactTo::Call(addr) => addr,
-            TransactTo::Create => tx_env.msg_sender,
+            TransactTo::Create => env.tx_env.caller.clone(),
         };
 
-        let code_addr = match tx_env.transact_to {
+        let code_addr = match env.tx_env.transact_to {
             TransactTo::Call(addr) => addr,
             TransactTo::Create => todo!(),
         };
 
         // TODO: this is mostly placeholder
         let initial_call_frame = CallFrame::new(
-            tx_env.msg_sender,
+            env.tx_env.caller,
             to,
             code_addr,
             None,
             bytecode,
-            tx_env.value,
-            tx_env.data,
+            env.tx_env.value,
+            env.tx_env.data.clone(),
             false,
             U256::zero(),
             0,
         );
-
-        let env = Environment {
-            block: block_env,
-            consumed_gas: TX_BASE_COST,
-            gas_price: tx_env.gas_price.unwrap_or_default(),
-            gas_limit: u64::MAX,
-            origin: tx_env.msg_sender,
-            refunded_gas: 0,
-        };
 
         Self {
             call_frames: vec![initial_call_frame],
             db,
             env,
             accrued_substate: Substate::default(),
+            consumed_gas: TX_BASE_COST,
+            gas_limit: u64::MAX,
         }
     }
 
@@ -293,10 +280,13 @@ impl VM {
     }
 
     pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
-        let gas_used = self.env.consumed_gas;
+        let gas_used = self.consumed_gas;
 
         // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
-        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
+        let gas_refunded = self
+            .accrued_substate
+            .refund_balance
+            .min(gas_used / GAS_REFUND_DENOMINATOR);
 
         let exis_status_code = match res {
             ExecutionResult::Success { reason, .. } => match reason {
@@ -456,14 +446,14 @@ impl VM {
                     return Self::write_success_result(
                         current_call_frame.clone(),
                         r,
-                        self.env.consumed_gas,
-                        self.env.refunded_gas,
+                        self.consumed_gas,
+                        self.accrued_substate.refund_balance,
                     );
                 }
                 Err(e) => {
                     return ExecutionResult::Halt {
                         reason: e,
-                        gas_used: self.env.consumed_gas,
+                        gas_used: self.consumed_gas,
                     }
                 }
             }
@@ -563,7 +553,7 @@ impl VM {
                 current_call_frame.returndata = output;
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 current_call_frame.gas -= U256::from(gas_used);
-                self.env.refunded_gas += gas_used;
+                self.accrued_substate.refund_balance += gas_used;
             }
             ExecutionResult::Halt { reason, gas_used } => {
                 current_call_frame.stack.push(U256::from(reason as u8))?;
@@ -714,9 +704,5 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
-    }
-
-    pub fn new_with_env(env: Env, db: Db) -> Self {
-        todo!()
     }
 }
