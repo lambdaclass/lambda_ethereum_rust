@@ -279,6 +279,8 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
+        // Gets values from stack, calculates gas cost and calls revert function.
+        
         let offset = current_call_frame
             .stack
             .pop()?

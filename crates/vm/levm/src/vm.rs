@@ -558,6 +558,8 @@ impl VM {
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
 
+        // I was thinking of cloning the VM and restoring it if a revert happens.
+
         self.call_frames.push(new_call_frame.clone());
         let result = self.execute();
 
@@ -756,6 +758,8 @@ impl VM {
         // Here I should revert state changes, but I don't know how.
         // The only thing that comes to my mind is to backup (clone) the VM and restore it if a revert happens.
         // Note from evm.codes: If a context is reverted, access warming effects are reverted to their state before the context.
+
+        // self.accrued_substate.warm_addresses = warm addresses backup? // Backup should be done in every generic_call?
 
 
         Ok(()) // Change later
