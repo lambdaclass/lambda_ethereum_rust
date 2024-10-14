@@ -192,7 +192,7 @@ impl StoreEngine for Store {
         block_hash: BlockHash,
     ) -> Result<Option<Vec<Receipt>>, StoreError> {
         let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let mut cursor = txn.cursor::<Receipts>().unwrap();
+        let mut cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
         let mut receipts = Vec::new();
         while let Ok(x) = cursor.next() {
             let (x, y) = match x {
