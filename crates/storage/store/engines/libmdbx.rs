@@ -2,14 +2,14 @@ use super::api::StoreEngine;
 use crate::error::StoreError;
 use crate::rlp::{
     AccountCodeHashRLP, AccountCodeRLP, BlobsBubdleRLP, BlockBodyRLP, BlockHashRLP, BlockHeaderRLP,
-    BlockRLP, BlockTotalDifficultyRLP, ReceiptRLP, Rlp, TransactionHashRLP, TransactionRLP,
+    BlockRLP, BlockTotalDifficultyRLP, MempoolTransactionRLP, ReceiptRLP, Rlp, TransactionHashRLP,
     TupleRLP,
 };
 use anyhow::Result;
 use bytes::Bytes;
 use ethereum_rust_core::types::{
     BlobsBundle, Block, BlockBody, BlockHash, BlockHeader, BlockNumber, ChainConfig, Index,
-    Receipt, Transaction,
+    MempoolTransaction, Receipt, Transaction,
 };
 use ethereum_rust_rlp::decode::RLPDecode;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -21,6 +21,7 @@ use libmdbx::{
     orm::{table, Database},
     table_info,
 };
+use libmdbx::{DatabaseOptions, Mode, ReadWriteOptions};
 use serde_json;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
@@ -219,13 +220,16 @@ impl StoreEngine for Store {
     fn add_transaction_to_pool(
         &self,
         hash: H256,
-        transaction: Transaction,
+        transaction: MempoolTransaction,
     ) -> Result<(), StoreError> {
         self.write::<TransactionPool>(hash.into(), transaction.into())?;
         Ok(())
     }
 
-    fn get_transaction_from_pool(&self, hash: H256) -> Result<Option<Transaction>, StoreError> {
+    fn get_transaction_from_pool(
+        &self,
+        hash: H256,
+    ) -> Result<Option<MempoolTransaction>, StoreError> {
         Ok(self.read::<TransactionPool>(hash.into())?.map(|t| t.to()))
     }
 
@@ -251,25 +255,21 @@ impl StoreEngine for Store {
     fn filter_pool_transactions(
         &self,
         filter: &dyn Fn(&Transaction) -> bool,
-    ) -> Result<HashMap<Address, Vec<Transaction>>, StoreError> {
-        let cursor = self
-            .db
-            .begin_read()
-            .map_err(StoreError::LibmdbxError)?
+    ) -> Result<HashMap<Address, Vec<MempoolTransaction>>, StoreError> {
+        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
+        let cursor = txn
             .cursor::<TransactionPool>()
             .map_err(StoreError::LibmdbxError)?;
-        let mut tx_iter = cursor.walk(None);
-        let mut txs_by_sender: HashMap<Address, Vec<Transaction>> = HashMap::new();
-        while let Some(Ok((_, tx))) = tx_iter.next() {
-            let tx = tx.to();
+        let tx_iter = cursor
+            .walk(None)
+            .map_while(|res| res.ok().map(|(_, tx)| tx.to()));
+        let mut txs_by_sender: HashMap<Address, Vec<MempoolTransaction>> = HashMap::new();
+        for tx in tx_iter {
             if filter(&tx) {
-                // Txs are stored in the DB by order of insertion so they should be innately stored by nonce
-                txs_by_sender
-                    .entry(tx.sender())
-                    .or_default()
-                    .push(tx.clone())
+                txs_by_sender.entry(tx.sender()).or_default().push(tx)
             }
         }
+        txs_by_sender.iter_mut().for_each(|(_, txs)| txs.sort());
         Ok(txs_by_sender)
     }
 
@@ -426,6 +426,48 @@ impl StoreEngine for Store {
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         Ok(self.read::<Payloads>(payload_id)?.map(|b| b.to()))
     }
+
+    fn get_transaction_by_hash(
+        &self,
+        transaction_hash: H256,
+    ) -> std::result::Result<Option<Transaction>, StoreError> {
+        let (_block_number, block_hash, index) =
+            match self.get_transaction_location(transaction_hash)? {
+                Some(location) => location,
+                None => return Ok(None),
+            };
+        self.get_transaction_by_location(block_hash, index)
+    }
+
+    fn get_transaction_by_location(
+        &self,
+        block_hash: H256,
+        index: u64,
+    ) -> std::result::Result<Option<Transaction>, StoreError> {
+        let block_body = match self.get_block_body_by_hash(block_hash)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(index
+            .try_into()
+            .ok()
+            .and_then(|index: usize| block_body.transactions.get(index).cloned()))
+    }
+
+    fn get_block_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> std::result::Result<Option<Block>, StoreError> {
+        let header = match self.get_block_header_by_hash(block_hash)? {
+            Some(header) => header,
+            None => return Ok(None),
+        };
+        let body = match self.get_block_body_by_hash(block_hash)? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        Ok(Some(Block { header, body }))
+    }
 }
 
 impl Debug for Store {
@@ -483,7 +525,7 @@ dupsort!(
 
 table!(
     /// Transaction pool table.
-    ( TransactionPool ) TransactionHashRLP => TransactionRLP
+    ( TransactionPool ) TransactionHashRLP => MempoolTransactionRLP
 );
 
 table!(
@@ -614,7 +656,15 @@ pub fn init_db(path: Option<impl AsRef<Path>>) -> Database {
     .into_iter()
     .collect();
     let path = path.map(|p| p.as_ref().to_path_buf());
-    Database::create(path, &tables).unwrap()
+    let options = DatabaseOptions {
+        mode: Mode::ReadWrite(ReadWriteOptions {
+            // Set max DB size to 1TB
+            max_size: Some(1024_isize.pow(4)),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    Database::create_with_options(path, options, &tables).unwrap()
 }
 
 #[cfg(test)]

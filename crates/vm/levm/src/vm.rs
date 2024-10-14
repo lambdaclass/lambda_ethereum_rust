@@ -119,7 +119,7 @@ impl Db {
             .insert(key, slot);
     }
 
-    fn get_account_bytecode(&self, address: &Address) -> Bytes {
+    pub fn get_account_bytecode(&self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
@@ -278,23 +278,33 @@ impl VM {
     }
 
     pub fn write_success_result(
-        call_frame: CallFrame,
+        current_call_frame: CallFrame,
         reason: ResultReason,
         gas_used: u64,
         gas_refunded: u64,
     ) -> ExecutionResult {
-        let reason = match reason {
-            ResultReason::Stop => SuccessReason::Stop,
-            ResultReason::Return => SuccessReason::Return,
-        };
-
-        ExecutionResult::Success {
-            reason,
-            logs: call_frame.logs.clone(),
-            return_data: call_frame.returndata.clone(),
-            gas_used,
-            output: Output::Call(call_frame.returndata.clone()),
-            gas_refunded,
+        match reason {
+            ResultReason::Stop => ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                logs: current_call_frame.logs.clone(),
+                return_data: current_call_frame.returndata.clone(),
+                gas_used,
+                output: Output::Call(current_call_frame.returndata.clone()),
+                gas_refunded,
+            },
+            ResultReason::Return => ExecutionResult::Success {
+                reason: SuccessReason::Return,
+                logs: current_call_frame.logs.clone(),
+                return_data: current_call_frame.returndata.clone(),
+                gas_used,
+                output: Output::Call(current_call_frame.returndata.clone()),
+                gas_refunded,
+            },
+            ResultReason::Revert => ExecutionResult::Revert {
+                reason: VMError::FatalError,
+                gas_used,
+                output: current_call_frame.returndata.clone(),
+            },
         }
     }
 
@@ -450,12 +460,16 @@ impl VM {
                 Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
                 Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
+                Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
+                Opcode::EXTCODECOPY => self.op_extcodecopy(&mut current_call_frame),
+                Opcode::EXTCODEHASH => self.op_extcodehash(&mut current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(r)) => {
+                    self.call_frames.push(current_call_frame.clone());
                     return Self::write_success_result(
                         current_call_frame.clone(),
                         r,
@@ -464,10 +478,11 @@ impl VM {
                     );
                 }
                 Err(e) => {
+                    self.call_frames.push(current_call_frame.clone());
                     return ExecutionResult::Halt {
                         reason: e,
                         gas_used: self.env.consumed_gas,
-                    }
+                    };
                 }
             }
         }
@@ -482,10 +497,6 @@ impl VM {
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
         self.call_frames.last_mut().unwrap()
-    }
-
-    pub fn current_call_frame(&self) -> &CallFrame {
-        self.call_frames.last().unwrap()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -504,11 +515,11 @@ impl VM {
         args_size: usize,
         ret_offset: usize,
         ret_size: usize,
-    ) -> Result<(), VMError> {
+    ) -> Result<OpcodeSuccess, VMError> {
         // check balance
         if self.db.balance(&current_call_frame.msg_sender) < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Continue);
         }
 
         // transfer value
@@ -516,10 +527,11 @@ impl VM {
 
         let code_address_bytecode = self.db.get_account_bytecode(&code_address);
         if code_address_bytecode.is_empty() {
+            // should stop
             current_call_frame
                 .stack
                 .push(U256::from(SUCCESS_FOR_CALL))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Result(ResultReason::Stop));
         }
 
         self.db.increment_account_nonce(&code_address);
@@ -560,6 +572,7 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
+                Ok(OpcodeSuccess::Continue)
             }
             ExecutionResult::Revert {
                 reason: _,
@@ -571,20 +584,23 @@ impl VM {
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 current_call_frame.gas -= U256::from(gas_used);
                 self.env.refunded_gas += gas_used;
+                Ok(OpcodeSuccess::Continue)
             }
             ExecutionResult::Halt { reason, gas_used } => {
-                current_call_frame.stack.push(U256::from(reason as u8))?;
+                current_call_frame
+                    .stack
+                    .push(U256::from(reason.clone() as u8))?;
                 if U256::from(gas_used) > current_call_frame.gas {
                     current_call_frame.gas = U256::zero();
                 } else {
                     current_call_frame.gas -= U256::from(gas_used);
                 }
+                Err(reason)
             } // WARNING: I commented this because I don't know when this should be executed.
               // Err(_) => {
               //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
               // }
-        };
-        Ok(())
+        }
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
@@ -632,18 +648,18 @@ impl VM {
         code_size_in_memory: usize,
         salt: Option<U256>,
         current_call_frame: &mut CallFrame,
-    ) -> Result<(), VMError> {
+    ) -> Result<OpcodeSuccess, VMError> {
         if code_size_in_memory > MAX_CODE_SIZE * 2 {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
         if current_call_frame.is_static {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
         let sender_account = self
@@ -656,14 +672,14 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
         let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         };
         sender_account.nonce = new_nonce;
         sender_account.balance -= value_in_wei_to_send;
@@ -686,7 +702,7 @@ impl VM {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
-            return Ok(());
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
         let new_account = Account::new(
