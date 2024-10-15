@@ -251,11 +251,6 @@ impl VM {
             }
         };
 
-        let to = match tx_env.transact_to {
-            TransactTo::Call(addr) => addr,
-            TransactTo::Create => tx_env.msg_sender,
-        };
-
         let code_addr = match tx_env.transact_to {
             TransactTo::Call(addr) => addr,
             TransactTo::Create => todo!(),
@@ -264,7 +259,7 @@ impl VM {
         // TODO: this is mostly placeholder
         let initial_call_frame = CallFrame::new(
             tx_env.msg_sender,
-            to,
+            tx_env.transact_to,
             code_addr,
             None,
             bytecode,
@@ -521,7 +516,7 @@ impl VM {
         gas: U256,
         value: U256,
         msg_sender: Address,
-        to: Address,
+        transact_to: TransactTo,
         code_address: Address,
         delegate: Option<Address>,
         _should_transfer_value: bool,
@@ -558,7 +553,7 @@ impl VM {
 
         let new_call_frame = CallFrame::new(
             msg_sender,
-            to,
+            transact_to,
             code_address,
             delegate,
             code_address_bytecode,
@@ -742,7 +737,7 @@ impl VM {
             gas,
             value_in_wei_to_send,
             current_call_frame.msg_sender,
-            new_address,
+            TransactTo::Create,
             new_address,
             None,
             true,

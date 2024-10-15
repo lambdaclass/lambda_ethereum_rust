@@ -5,13 +5,23 @@ type AccessList = Vec<(Address, Vec<U256>)>;
 // type VersionedHash = H32;
 
 /// Transaction destination.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum TransactTo {
     /// Simple call to an address.
     Call(Address),
     /// Contract creation.
     #[default]
     Create,
+}
+
+impl TransactTo {
+    pub fn is_create(&self) -> bool {
+        matches!(self, TransactTo::Create)
+    }
+
+    pub fn is_call(&self) -> bool {
+        matches!(self, TransactTo::Call(_))
+    }
 }
 
 /// The transaction environment.

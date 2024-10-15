@@ -5,6 +5,7 @@ use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
+    transaction::TransactTo,
     vm_result::VMError,
 };
 use std::collections::HashMap;
@@ -62,7 +63,7 @@ pub struct CallFrame {
     pub gas: U256,
     pub pc: usize,
     pub msg_sender: Address,
-    pub to: Address,
+    pub transact_to: TransactTo,
     pub code_address: Address,
     pub delegate: Option<Address>,
     pub bytecode: Bytes,
@@ -91,7 +92,7 @@ impl CallFrame {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         msg_sender: Address,
-        to: Address,
+        transact_to: TransactTo,
         code_address: Address,
         delegate: Option<Address>,
         bytecode: Bytes,
@@ -104,7 +105,7 @@ impl CallFrame {
         Self {
             gas,
             msg_sender,
-            to,
+            transact_to,
             code_address,
             delegate,
             bytecode,

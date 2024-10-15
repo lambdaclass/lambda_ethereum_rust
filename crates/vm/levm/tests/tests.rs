@@ -1846,7 +1846,8 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+    current_call_frame.transact_to =
+        TransactTo::Call(Address::from_low_u64_be(U256::from(5).low_u64()));
 
     vm.execute();
 
@@ -1904,7 +1905,8 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+    current_call_frame.transact_to =
+        TransactTo::Call(Address::from_low_u64_be(U256::from(5).low_u64()));
 
     vm.execute();
 
@@ -1960,7 +1962,8 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
-    current_call_frame.to = Address::from_low_u64_be(U256::from(5).low_u64());
+    current_call_frame.transact_to =
+        TransactTo::Call(Address::from_low_u64_be(U256::from(5).low_u64()));
 
     vm.execute();
 

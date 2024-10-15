@@ -142,7 +142,11 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
     run_test(path, contents)
 }
 
-datatest_stable::harness!(run_ef_test, "ethtests/GeneralStateTests/stCallCreateCallCodeTest", r"^.*/*.json",);
+datatest_stable::harness!(
+    run_ef_test,
+    "ethtests/GeneralStateTests/stCallCreateCallCodeTest",
+    r"^.*/*.json",
+);
 // "stCreate2".into(),
 // "stCreateTest".into(),
 // "stRecursiveCreate".into(),

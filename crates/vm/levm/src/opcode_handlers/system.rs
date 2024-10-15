@@ -1,5 +1,6 @@
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
+    transaction::TransactTo,
     vm_result::ResultReason,
 };
 
@@ -73,7 +74,10 @@ impl VM {
         self.accrued_substate.warm_addresses.insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let transact_to = current_call_frame.transact_to.clone();
+        if transact_to.is_create() {
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+        }
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -81,7 +85,7 @@ impl VM {
             gas,
             value,
             msg_sender,
-            to,
+            transact_to,
             code_address,
             None,
             false,
@@ -107,7 +111,7 @@ impl VM {
         let ret_size = current_call_frame.stack.pop()?.try_into().unwrap();
 
         let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let transact_to = current_call_frame.transact_to.clone();
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -115,7 +119,7 @@ impl VM {
             gas,
             value,
             code_address,
-            to,
+            transact_to,
             code_address,
             Some(msg_sender),
             false,
@@ -172,7 +176,7 @@ impl VM {
 
         let value = current_call_frame.msg_value;
         let msg_sender = current_call_frame.msg_sender;
-        let to = current_call_frame.to;
+        let transact_to = current_call_frame.transact_to.clone();
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -180,7 +184,7 @@ impl VM {
             gas,
             value,
             msg_sender,
-            to,
+            transact_to,
             code_address,
             Some(msg_sender),
             false,
@@ -199,6 +203,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let gas = current_call_frame.stack.pop()?;
         let code_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+        let transact_to = TransactTo::Call(code_address);
         let args_offset = current_call_frame.stack.pop()?.try_into().unwrap();
         let args_size = current_call_frame.stack.pop()?.try_into().unwrap();
         let ret_offset = current_call_frame.stack.pop()?.try_into().unwrap();
@@ -212,7 +217,7 @@ impl VM {
             gas,
             value,
             msg_sender,
-            code_address,
+            transact_to,
             code_address,
             None,
             false,
