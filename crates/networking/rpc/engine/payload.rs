@@ -1,6 +1,6 @@
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::build_payload;
-use ethereum_rust_blockchain::{add_block, latest_valid_hash};
+use ethereum_rust_blockchain::{add_block, latest_canonical_block_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::Store;
@@ -128,8 +128,8 @@ impl RpcHandler for NewPayloadV3Request {
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
-        let latest_valid_hash =
-            latest_valid_hash(&storage).map_err(|error| RpcErr::Internal(error.to_string()))?;
+        let latest_valid_hash = latest_canonical_block_hash(&storage)
+            .map_err(|error| RpcErr::Internal(error.to_string()))?;
 
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
@@ -154,13 +154,7 @@ impl RpcHandler for NewPayloadV3Request {
                 Err(RpcErr::Internal(error.to_string()))
             }
             Ok(()) => {
-                info!("Block with hash {block_hash} executed succesfully");
-                // TODO: We don't have a way to fetch blocks by number if they are not canonical
-                // so we need to set it as canonical in order to run basic test suites
-                // We should remove this line once the issue is solved
-                storage.set_canonical_block(block.header.number, block_hash)?;
-                info!("Block with hash {block_hash} added to storage");
-
+                info!("Block with hash {block_hash} executed and added to storage succesfully");
                 Ok(PayloadStatus::valid_with_hash(block_hash))
             }
         }?;

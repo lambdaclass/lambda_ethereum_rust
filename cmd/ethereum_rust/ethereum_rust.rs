@@ -2,14 +2,15 @@ use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
+use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use k256::ecdsa::SigningKey;
 use std::future::IntoFuture;
 use std::path::Path;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::time::Duration;
 use std::{
     fs::File,
@@ -17,8 +18,9 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
 };
 use tokio_util::task::TaskTracker;
-use tracing::{info, warn, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{info, warn};
+use tracing_subscriber::filter::Directive;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 mod cli;
 mod decode;
 
@@ -43,8 +45,14 @@ async fn main() {
     let log_level = matches
         .get_one::<String>("log.level")
         .expect("shouldn't happen, log.level is used with a default value");
-    let log_level = Level::from_str(log_level).expect("Not supported log level provided");
-    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
+    let log_filter = EnvFilter::builder()
+        .with_default_directive(
+            Directive::from_str(log_level).expect("Not supported log level provided"),
+        )
+        .from_env_lossy();
+    let subscriber = FmtSubscriber::builder()
+        .with_env_filter(log_filter)
+        .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let http_addr = matches
@@ -120,23 +128,23 @@ async fn main() {
                 "Adding block {} with hash {:#x}.",
                 block.header.number, hash
             );
-            match add_block(&block, &store) {
-                Ok(()) => store
-                    .set_canonical_block(block.header.number, hash)
-                    .unwrap(),
-                Err(error) => {
-                    warn!(
-                        "Failed to add block {} with hash {:#x}: {}",
-                        block.header.number, hash, error
-                    );
-                }
+            if add_block(&block, &store).is_err() {
+                warn!(
+                    "Failed to add block {} with hash {:#x}.",
+                    block.header.number, hash
+                );
             }
         }
         info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
-    let signer = SigningKey::random(&mut OsRng);
+    // TODO Learn how should the key be created
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/836
+    //let signer = SigningKey::random(&mut OsRng);
+    let key_bytes =
+        H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3").unwrap();
+    let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
     let local_p2p_node = Node {
@@ -156,6 +164,11 @@ async fn main() {
         local_p2p_node,
     )
     .into_future();
+
+    // TODO Find a proper place to show node information
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/836
+    let enode = local_p2p_node.enode_url();
+    info!("Node: {enode}");
 
     tracker.spawn(rpc_api);
 

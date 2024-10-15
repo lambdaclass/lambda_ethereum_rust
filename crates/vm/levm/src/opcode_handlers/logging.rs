@@ -35,7 +35,7 @@ impl VM {
             + gas_cost::LOGN_DYNAMIC_BASE * number_of_topics as u64
             + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64
             + memory_expansion_cost;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 

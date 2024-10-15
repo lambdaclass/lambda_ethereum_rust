@@ -52,8 +52,7 @@ impl VM {
         } else {
             0
         };
-
-        let account = self.db.accounts.get(&code_address).unwrap(); // if the account doesn't exist, it should be created
+        let account = self.db.get_account(&code_address)?;
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
         } else {
@@ -65,7 +64,7 @@ impl VM {
             + positive_value_cost
             + value_to_empty_account_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -144,7 +143,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size)? as u64;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 

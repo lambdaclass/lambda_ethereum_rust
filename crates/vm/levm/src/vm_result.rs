@@ -1,5 +1,4 @@
-use core::panic;
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
 use serde::{de, Deserialize};
 
@@ -22,6 +21,7 @@ pub enum VMError {
     VeryLargeNumber,
     OverflowInArithmeticOp,
     FatalError,
+    InvalidTransaction,
 }
 
 pub enum OpcodeSuccess {
@@ -185,50 +185,10 @@ impl Output {
     }
 }
 
-/// Main EVM error.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EVMError {
-    /// Transaction validation error.
-    Transaction(InvalidTransaction),
-    /// Header validation error.
-    Header(InvalidHeader),
-    /// Database error.
-    // Database(DatabaseError),
-    /// Custom error.
-    ///
-    /// Useful for handler registers where custom logic would want to return their own custom error.
-    Custom(String),
-    /// Precompile error.
-    Precompile(String),
-}
-
-impl fmt::Display for EVMError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Transaction(e) => write!(f, "transaction validation error: {e}"),
-            Self::Header(e) => write!(f, "header validation error: {e}"),
-            // Self::Database(e) => write!(f, "database error: {e}"),
-            Self::Precompile(e) | Self::Custom(e) => f.write_str(e),
-        }
-    }
-}
-
-impl From<InvalidTransaction> for EVMError {
-    fn from(value: InvalidTransaction) -> Self {
-        Self::Transaction(value)
-    }
-}
-
-impl From<InvalidHeader> for EVMError {
-    fn from(value: InvalidHeader) -> Self {
-        Self::Header(value)
-    }
-}
-
 /// Transaction validation error.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum InvalidTransaction {
+pub enum InvalidTx {
     /// When using the EIP-1559 fee model introduced in the London upgrade, transactions specify two primary fee fields:
     /// - `gas_max_fee`: The maximum total fee a user is willing to pay, inclusive of both base fee and priority fee.
     /// - `gas_priority_fee`: The extra amount a user is willing to give directly to the miner, often referred to as the "tip".
@@ -288,85 +248,10 @@ pub enum InvalidTransaction {
     },
     /// Blob transaction contains a versioned hash with an incorrect version
     BlobVersionNotSupported,
+    // The excess blob gas is not set
+    ExcessBlobGasNotSet,
     /// EOF crate should have `to` address
     EofCrateShouldHaveToAddress,
-}
-
-impl fmt::Display for InvalidTransaction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::PriorityFeeGreaterThanMaxFee => {
-                write!(f, "priority fee is greater than max fee")
-            }
-            Self::GasPriceLessThanBasefee => {
-                write!(f, "gas price is less than basefee")
-            }
-            Self::CallerGasLimitMoreThanBlock => {
-                write!(f, "caller gas limit exceeds the block gas limit")
-            }
-            Self::CallGasCostMoreThanGasLimit => {
-                write!(f, "call gas cost exceeds the gas limit")
-            }
-            Self::RejectCallerWithCode => {
-                write!(f, "reject transactions from senders with deployed code")
-            }
-            Self::LackOfFundForMaxFee { fee, balance } => {
-                write!(f, "lack of funds ({balance}) for max fee ({fee})")
-            }
-            Self::OverflowPaymentInTransaction => {
-                write!(f, "overflow payment in transaction")
-            }
-            Self::NonceOverflowInTransaction => {
-                write!(f, "nonce overflow in transaction")
-            }
-            Self::NonceTooHigh { tx, state } => {
-                write!(f, "nonce {tx} too high, expected {state}")
-            }
-            Self::NonceTooLow { tx, state } => {
-                write!(f, "nonce {tx} too low, expected {state}")
-            }
-            Self::CreateInitCodeSizeLimit => {
-                write!(f, "create initcode size limit")
-            }
-            Self::InvalidChainId => write!(f, "invalid chain ID"),
-            Self::AccessListNotSupported => write!(f, "access list not supported"),
-            Self::MaxFeePerBlobGasNotSupported => {
-                write!(f, "max fee per blob gas not supported")
-            }
-            Self::BlobVersionedHashesNotSupported => {
-                write!(f, "blob versioned hashes not supported")
-            }
-            Self::BlobGasPriceGreaterThanMax => {
-                write!(f, "blob gas price is greater than max fee per blob gas")
-            }
-            Self::EmptyBlobs => write!(f, "empty blobs"),
-            Self::BlobCreateTransaction => write!(f, "blob create transaction"),
-            Self::TooManyBlobs { max, have } => {
-                write!(f, "too many blobs, have {have}, max {max}")
-            }
-            Self::BlobVersionNotSupported => write!(f, "blob version not supported"),
-            Self::EofCrateShouldHaveToAddress => write!(f, "EOF crate should have `to` address"),
-        }
-    }
-}
-
-/// Errors related to misconfiguration of a [`crate::env::BlockEnv`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum InvalidHeader {
-    /// `prevrandao` is not set for Merge and above.
-    PrevrandaoNotSet,
-    /// `excess_blob_gas` is not set for Cancun and above.
-    ExcessBlobGasNotSet,
-}
-
-impl fmt::Display for InvalidHeader {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::PrevrandaoNotSet => write!(f, "`prevrandao` not set"),
-            Self::ExcessBlobGasNotSet => write!(f, "`excess_blob_gas` not set"),
-        }
-    }
 }
 
 /// Reason a transaction successfully completed.

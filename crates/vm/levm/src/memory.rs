@@ -69,11 +69,12 @@ impl Memory {
         if memory_byte_size <= self.data.len() {
             return Ok(0);
         }
+
         let new_memory_size_word = memory_byte_size
             .checked_add(WORD_SIZE - 1)
             .ok_or(VMError::OverflowInArithmeticOp)?
             / WORD_SIZE;
-        // (new_memory_size_word * new_memory_size_word) / 512 + (3 * new_memory_size_word);
+
         let new_memory_cost = new_memory_size_word
             .checked_mul(new_memory_size_word)
             .and_then(|square| square.checked_div(MEMORY_EXPANSION_QUOTIENT))

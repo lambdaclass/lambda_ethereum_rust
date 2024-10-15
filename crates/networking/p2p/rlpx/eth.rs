@@ -38,6 +38,8 @@ pub(crate) struct StatusMessage {
     fork_id: ForkId,
 }
 
+// TODO remove this allow once we construct StatusMessages
+#[allow(unused)]
 impl StatusMessage {
     pub fn new(storage: &Store) -> Result<Self, StoreError> {
         let chain_config = storage.get_chain_config()?;

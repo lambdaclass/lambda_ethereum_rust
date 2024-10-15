@@ -18,8 +18,6 @@ pub enum EthClientError {
     GetBlockNumberError(#[from] GetBlockNumberError),
     #[error("eth_getLogs request error: {0}")]
     GetLogsError(#[from] GetLogsError),
-    #[error("eth_gasPrice request error: {0}")]
-    GasPriceError(#[from] GasPriceError),
     #[error("eth_getTransactionReceipt request error: {0}")]
     GetTransactionReceiptError(#[from] GetTransactionReceiptError),
     #[error("Failed to serialize request body: {0}")]
@@ -90,18 +88,6 @@ pub enum GetBlockNumberError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetLogsError {
-    #[error("{0}")]
-    ReqwestError(#[from] reqwest::Error),
-    #[error("{0}")]
-    SerdeJSONError(#[from] serde_json::Error),
-    #[error("{0}")]
-    RPCError(String),
-    #[error("{0}")]
-    ParseIntError(#[from] std::num::ParseIntError),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum GasPriceError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]
