@@ -276,7 +276,7 @@ impl Operator {
             .await?
             .saturating_add(TX_GAS_COST);
 
-        tx.max_fee_per_gas = self.eth_client.get_gas_price().await?;
+        tx.max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
 
         tx.nonce = self.eth_client.get_nonce(self.l1_address).await?;
 
