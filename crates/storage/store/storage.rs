@@ -604,6 +604,7 @@ impl Store {
 
     /// Marks a block number as not having any canonical blocks associated with it.
     /// Used for reorgs.
+    /// Note: Should we also remove all others up to the head here?
     pub fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError> {
         self.engine.unset_canonical_block(number)
     }
