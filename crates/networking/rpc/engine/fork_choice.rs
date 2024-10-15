@@ -1,7 +1,7 @@
 use ethereum_rust_blockchain::{
-    apply_fork_choice,
     error::{ChainError, InvalidForkChoice},
-    latest_valid_hash,
+    fork_choice::apply_fork_choice,
+    latest_canonical_block_hash,
     payload::{create_payload, BuildPayloadArgs},
 };
 use ethereum_rust_storage::Store;
@@ -63,7 +63,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         let fork_choice_error_to_response = |error| {
             let response = match error {
                 InvalidForkChoice::NewHeadAlreadyCanonical => ForkChoiceResponse::from(
-                    PayloadStatus::valid_with_hash(latest_valid_hash(&storage).unwrap()),
+                    PayloadStatus::valid_with_hash(latest_canonical_block_hash(&storage).unwrap()),
                 ),
                 InvalidForkChoice::Syncing => ForkChoiceResponse::from(PayloadStatus::syncing()),
                 reason => {
