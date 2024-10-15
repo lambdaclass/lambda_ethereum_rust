@@ -19,6 +19,7 @@ pub enum VMError {
     InvalidBytecode,
     OutOfGas,
     VeryLargeNumber,
+    OverflowInArithmeticOp,
     FatalError,
     InvalidTransaction,
 }

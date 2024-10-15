@@ -39,7 +39,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size);
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let address_access_cost = if self.accrued_substate.warm_addresses.contains(&code_address) {
             call_opcode::WARM_ADDRESS_ACCESS_COST
@@ -142,7 +142,7 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
+        let gas_cost = current_call_frame.memory.expansion_cost(offset + size)? as u64;
         if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
             return Err(VMError::OutOfGas);
         }
