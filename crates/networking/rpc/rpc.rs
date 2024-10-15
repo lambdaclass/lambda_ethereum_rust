@@ -1,19 +1,10 @@
 use crate::authentication::authenticate;
-use bytes::Bytes;
-use std::{
-    collections::HashMap,
-    future::IntoFuture,
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-use types::transaction::SendRawTransactionRequest;
-
 use axum::{routing::post, Json, Router};
 use axum_extra::{
     headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
+use bytes::Bytes;
 use engine::{
     exchange_transition_config::ExchangeTransitionConfigV1Req,
     fork_choice::ForkChoiceUpdatedV3,
@@ -41,8 +32,16 @@ use eth::{
     },
 };
 use serde_json::Value;
+use std::{
+    collections::HashMap,
+    future::IntoFuture,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::net::TcpListener;
 use tracing::info;
+use types::transaction::SendRawTransactionRequest;
 use utils::{
     RpcErr, RpcErrorMetadata, RpcErrorResponse, RpcNamespace, RpcRequest, RpcRequestId,
     RpcSuccessResponse,
@@ -53,6 +52,7 @@ pub mod engine;
 mod eth;
 pub mod types;
 pub mod utils;
+mod web3;
 
 use axum::extract::State;
 use ethereum_rust_net::types::Node;
@@ -189,6 +189,7 @@ pub fn map_http_requests(
         Ok(RpcNamespace::Eth) => map_eth_requests(req, storage, filters),
         Ok(RpcNamespace::Admin) => map_admin_requests(req, storage, local_p2p_node),
         Ok(RpcNamespace::Debug) => map_debug_requests(req, storage),
+        Ok(RpcNamespace::Web3) => map_web3_requests(req, storage),
         _ => Err(RpcErr::MethodNotFound(req.method.clone())),
     }
 }
@@ -279,6 +280,13 @@ pub fn map_admin_requests(
     match req.method.as_str() {
         "admin_nodeInfo" => admin::node_info(storage, local_p2p_node),
         unknown_admin_method => Err(RpcErr::MethodNotFound(unknown_admin_method.to_owned())),
+    }
+}
+
+pub fn map_web3_requests(req: &RpcRequest, storage: Store) -> Result<Value, RpcErr> {
+    match req.method.as_str() {
+        "web3_clientVersion" => web3::client_version(req, storage),
+        unknown_web3_method => Err(RpcErr::MethodNotFound(unknown_web3_method.to_owned())),
     }
 }
 
