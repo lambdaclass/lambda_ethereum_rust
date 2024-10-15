@@ -9,8 +9,11 @@ use ethereum_rust_core::types::{BlockBody, BlockHeader, BlockNumber};
 use ethereum_rust_storage::Store;
 use tracing::error;
 
-use crate::utils::{RpcErr, RpcRequest};
 use crate::RpcHandler;
+use crate::{
+    eth::gas_price,
+    utils::{RpcErr, RpcRequest},
+};
 use rand::prelude::*;
 use serde_json::{json, Value};
 
@@ -19,33 +22,28 @@ use super::logs::LogsFilter;
 #[derive(Debug, Clone)]
 pub struct GasPrice {}
 
-// TODO: This should be some kind of configuration.
-// The default limit for a gas estimation.
-pub const DEFAULT_MAX_PRICE_IN_WEI: usize = 500 * (10_usize.pow(9));
-// The limit for a gas estimation
-pub const DEFAULT_IGNORE_PRICE: usize = 500 * (10_usize.pow(9));
-// How many transactions to take as a sample from a block
-// to give a gas price estimation.
-pub const TXS_SAMPLE_SIZE: usize = 3;
-// Determines which transaction from the sample will
-// be taken as a reference for the gas price.
-pub const TXS_SAMPLE_PERCENTILE: usize = 60;
-
+// TODO: Maybe these constants should be some kind of config.
+// How many transactions to take as a price sample from a block.
+const TXS_SAMPLE_SIZE: usize = 3;
 // How many blocks we'll go back to calculate the estimate.
-// pub const BLOCK_RANGE_LOWER_BOUND_DEC: u64 = 20;
-pub const BLOCK_RANGE_LOWER_BOUND_DEC: u64 = 3;
+const BLOCK_RANGE_LOWER_BOUND_DEC: u64 = 20;
 
 impl RpcHandler for GasPrice {
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
         Ok(GasPrice {})
     }
 
-    // TODO: Calculating gas price involves querying multiple blocks
-    // and doing some calculations with each of them, let's consider
-    // caching this result.
-    // FIXME: Check diffs between legacy transaction, eip2930... etc.
     // Disclaimer:
     // This estimation is based on how currently go-ethereum does it currently.
+    // The idea here is to:
+    // - Take the last 20 blocks.
+    // - For each block, take the 3 with the lower gas price.
+    // - Join them all into a single vec and sort it.
+    // - Return the one in the middle (what is also known as the 'median sample')
+    // This specific implementation is probably is not the best way to do this
+    // but it works for now for a simple estimation, in the future
+    // we can look into more sophisticated estimation methods, if needed.
+    /// Estimate Gas Price based on already accepted transactions.
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
         let Some(latest_block_number) = storage.get_latest_block_number()? else {
             error!("FATAL: LATEST BLOCK NUMBER IS MISSING");
@@ -64,59 +62,71 @@ impl RpcHandler for GasPrice {
             return Err(RpcErr::Internal("Error calculating gas price".to_string()));
         }
         let mut results = vec![];
+
+        // TODO: Calculating gas price involves querying multiple blocks
+        // and doing some calculations with each of them, let's consider
+        // caching this result, also we can have a specific DB method
+        // that returns a block range.
         for block_num in block_range {
             let Some(block_body) = storage.get_block_body(block_num)? else {
                 error!("Block body for block number {block_num} is missing but is below the latest known block!");
-                return Err(RpcErr::Internal("Error calculating gas price".to_string()));
+                return Err(RpcErr::Internal(
+                    "Error calculating gas price: missing data".to_string(),
+                ));
             };
             let Some(block_header) = storage.get_block_header(block_num)? else {
                 error!("Block header for block number {block_num} is missing but is below the latest known block!");
-                return Err(RpcErr::Internal("Error calculating gas price".to_string()));
+                return Err(RpcErr::Internal(
+                    "Error calculating gas price: missing data".to_string(),
+                ));
             };
             let base_fee = block_header.base_fee_per_gas;
             let mut txs_tips = block_body
                 .transactions
                 .into_iter()
-                .filter_map(|tx| tx.effective_gas_tip(base_fee))
+                .filter_map(|tx| Some(tx.gas_price()))
                 .collect::<Vec<u64>>();
-
             txs_tips.sort();
-
             results.extend(txs_tips.into_iter().take(TXS_SAMPLE_SIZE));
         }
-        // FIXME: Check for overflow here.
-        // FIXME: Check if we need to add the base fee to this.
-        dbg!(&results);
-        let sample_gas = results
-            .get(((results.len() - 1) * (TXS_SAMPLE_PERCENTILE / 100)))
-            .ok_or(RpcErr::Internal("Error calculating gas price".to_string()))?;
+        results.sort();
+        if results.len() == 0 {
+            return Err(RpcErr::Internal(
+                "Error calculating gas price: could not find samples".to_string(),
+            ));
+        } else {
+            let sample_gas = results
+                .get(results.len() / 2)
+                .ok_or(RpcErr::Internal("Error calculating gas price".to_string()))?;
 
-        // FIXME: Return proper default value here, investigate
-        // which would be appropiate
-        if (*sample_gas as usize) > DEFAULT_MAX_PRICE_IN_WEI {
-            todo!("")
+            // TODO: Investigate which gas price could be an appropiate default here.
+            // if (*sample_gas as usize) > default_max_price_in_wei {
+            //     todo!("")
+            // }
+            let gas_as_hex = format!("0x{:x}", sample_gas);
+            return Ok(serde_json::Value::String(gas_as_hex));
         }
-        let gas_as_hex = format!("0x{:x}", sample_gas);
-        // FIXME: Check gas price unit, should be wei according to the spec.
-        return Ok(serde_json::Value::String(gas_as_hex));
     }
 }
 
 // FIXME: Test this with different block configs
 #[cfg(test)]
 mod tests {
+    use super::GasPrice;
+    use crate::{utils::parse_json_hex, RpcHandler};
     use bytes::Bytes;
     use ethereum_rust_core::{
-        types::{Block, BlockBody, BlockHeader, Genesis, LegacyTransaction, Transaction, TxKind},
+        types::{
+            Block, BlockBody, BlockHeader, EIP1559Transaction, Genesis, LegacyTransaction,
+            Transaction, TxKind,
+        },
         Address, Bloom, H256, U256,
     };
     use ethereum_rust_storage::{EngineType, Store};
     use hex_literal::hex;
     use std::str::FromStr;
-
-    use crate::{utils::parse_json_hex, RpcHandler};
-
-    use super::GasPrice;
+    // Base price for each test transaction.
+    const BASE_PRICE_IN_WEI: u64 = (10_u64.pow(9));
     fn test_header(block_num: u64) -> BlockHeader {
         BlockHeader {
             parent_hash: H256::from_str(
@@ -161,35 +171,83 @@ mod tests {
             parent_beacon_block_root: Some(H256::zero()),
         }
     }
-    #[test]
-    fn test_for_gen() {
+    fn legacy_tx_for_test(nonce: u64) -> Transaction {
+        Transaction::LegacyTransaction(LegacyTransaction {
+            nonce,
+            gas_price: nonce * BASE_PRICE_IN_WEI,
+            gas: 10000,
+            to: TxKind::Create,
+            value: 100.into(),
+            data: Default::default(),
+            v: U256::from(0x1b),
+            r: U256::from(hex!(
+                "7e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37"
+            )),
+            s: U256::from(hex!(
+                "5f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b"
+            )),
+        })
+    }
+    fn eip1559_tx_for_test(nonce: u64) -> Transaction {
+        Transaction::EIP1559Transaction(EIP1559Transaction {
+            chain_id: 1,
+            nonce: nonce,
+            max_fee_per_gas: nonce * BASE_PRICE_IN_WEI,
+            max_priority_fee_per_gas: (nonce * (10_u64.pow(9))).pow(2),
+            gas_limit: 10000,
+            to: TxKind::Create,
+            value: 100.into(),
+            data: Default::default(),
+            access_list: vec![],
+            signature_y_parity: true,
+            signature_r: U256::default(),
+            signature_s: U256::default(),
+        })
+    }
+    fn setup_store() -> Store {
         let genesis: &str = include_str!("../../../../test_data/test-config.json");
         let genesis: Genesis =
             serde_json::from_str(genesis).expect("Fatal: test config is invalid");
         let mut store = Store::new("test-store", EngineType::InMemory)
             .expect("Fail to create in-memory db test");
-        let genesis_block = genesis.get_block();
         store.add_initial_state(genesis);
-        for i in 1..32 {
+        return store;
+    }
+    #[test]
+    fn test_for_legacy_txs() {
+        let mut store = setup_store();
+        for block_num in 1..100 {
             let mut txs = vec![];
-            for j in 0..7 {
-                let legacy_tx = Transaction::LegacyTransaction(LegacyTransaction {
-                    nonce: j,
-                    gas_price: 0xFFF,
-                    gas: 21000,
-                    to: TxKind::Create,
-                    value: 100.into(),
-                    data: Default::default(),
-                    v: U256::from(0x1b),
-                    r: U256::from(hex!(
-                        "7e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37"
-                    )),
-                    s: U256::from(hex!(
-                        "5f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b"
-                    )),
-                });
-                dbg!(legacy_tx.gas_price());
+            for nonce in 1..=3 {
+                let legacy_tx = legacy_tx_for_test(nonce);
                 txs.push(legacy_tx)
+            }
+            let block_body = BlockBody {
+                transactions: txs,
+                ommers: Default::default(),
+                withdrawals: Default::default(),
+            };
+            let block_header = test_header(block_num);
+            let block = Block {
+                body: block_body,
+                header: block_header.clone(),
+            };
+            store.add_block(block).unwrap();
+            store.set_canonical_block(block_num, block_header.compute_block_hash());
+        }
+        let gas_price = GasPrice {};
+        let response = gas_price.handle(store).unwrap();
+        let parsed_result = parse_json_hex(&response).unwrap();
+        assert_eq!(parsed_result, 2000000000);
+    }
+
+    #[test]
+    fn test_for_eip_1559_txs() {
+        let mut store = setup_store();
+        for i in 1..100 {
+            let mut txs = vec![];
+            for nonce in 1..=3 {
+                txs.push(eip1559_tx_for_test(nonce));
             }
             let block_body = BlockBody {
                 transactions: txs,
@@ -206,6 +264,34 @@ mod tests {
         }
         let gas_price = GasPrice {};
         let response = gas_price.handle(store).unwrap();
-        dbg!(parse_json_hex(&response));
+        let parsed_result = parse_json_hex(&response).unwrap();
+        assert_eq!(parsed_result, 2000000000);
+    }
+    #[test]
+    fn test_with_mixed_transactions() {
+        let mut store = setup_store();
+        for i in 1..100 {
+            let mut txs = vec![];
+            txs.push(legacy_tx_for_test(1));
+            txs.push(eip1559_tx_for_test(2));
+            txs.push(legacy_tx_for_test(3));
+            txs.push(eip1559_tx_for_test(3));
+            let block_body = BlockBody {
+                transactions: txs,
+                ommers: Default::default(),
+                withdrawals: Default::default(),
+            };
+            let block_header = test_header(i);
+            let block = Block {
+                body: block_body,
+                header: block_header.clone(),
+            };
+            store.add_block(block).unwrap();
+            store.set_canonical_block(i, block_header.compute_block_hash());
+        }
+        let gas_price = GasPrice {};
+        let response = gas_price.handle(store).unwrap();
+        let parsed_result = parse_json_hex(&response).unwrap();
+        assert_eq!(parsed_result, 2000000000);
     }
 }
