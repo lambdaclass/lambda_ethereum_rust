@@ -26,7 +26,7 @@ impl VM {
         let gas_cost = gas_cost::KECCAK25_STATIC
             + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost as u64;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
