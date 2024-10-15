@@ -1,3 +1,18 @@
+/*
+Original work Copyright (c) 2023 [Succinct Labs]
+Modified work Copyright 2024  Lambdaclass
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+*/
+
 // Types are not compatible with DatabaseRef trait
 //use ethereum_rust_core::{types::AccountInfo, Address, H256, U256};
 
@@ -58,7 +73,7 @@ impl MemoryDB {
 use reth_storage_errors::provider::ProviderError;
 
 // from rsp:
-// https://github.com/lambdaclass/rsp-copy/blob/4d5723494c42119854f22b893708f54ea8424a0f/crates/storage/witness-db/src/lib.rs#L11
+// https://github.com/succinctlabs/rsp/blob/3647076da6580e30384dd911a3fc50d4bcdb5bc1/crates/storage/witness-db/src/lib.rs#L20
 impl DatabaseRef for MemoryDB {
     // Should be a custom error
     type Error = ProviderError;
