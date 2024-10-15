@@ -558,7 +558,7 @@ impl VM {
             .into();
 
         
-        let gas_limit = cmp::min(gas.as_u64(), (current_call_frame.gas_limit - current_call_frame.gas_used) / 64); // Gas limit for new callframe.
+        let gas_limit = cmp::min(gas.as_u64(), (current_call_frame.gas_limit - current_call_frame.gas_used) * 63 / 64); // Gas limit for new callframe.
         let new_call_frame = CallFrame::new(
             msg_sender,
             to,
