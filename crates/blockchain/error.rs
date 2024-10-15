@@ -1,6 +1,3 @@
-use core::fmt;
-use std::fmt::Display;
-
 use thiserror::Error;
 
 use ethereum_rust_core::types::InvalidBlockHeaderError;
@@ -70,18 +67,6 @@ pub enum ForkChoiceElement {
     Finalized,
 }
 
-impl Display for ForkChoiceElement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            ForkChoiceElement::Finalized => "Finalized",
-            ForkChoiceElement::Safe => "Safe",
-            ForkChoiceElement::Head => "Head",
-        };
-
-        write!(f, "{}", s)
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum InvalidForkChoice {
     #[error("DB error: {0}")]
@@ -92,12 +77,12 @@ pub enum InvalidForkChoice {
     InvalidHeadHash,
     #[error("New head block is already canonical. Skipping update.")]
     NewHeadAlreadyCanonical,
-    #[error("A fork choice element ({0}) was not found, but an ancestor was, so it's not a sync problem.")]
+    #[error("A fork choice element ({:?}) was not found, but an ancestor was, so it's not a sync problem.", ._0)]
     ElementNotFound(ForkChoiceElement),
     #[error("Pre merge block can't be a fork choice update.")]
     PreMergeBlock,
     #[error("Safe, finalized and head blocks are not in the correct order.")]
     Unordered,
-    #[error("The following blocks are not connected between each other: {0}, {1}")]
+    #[error("The following blocks are not connected between each other: {:?}, {:?}", ._0, ._1)]
     Disconnected(ForkChoiceElement, ForkChoiceElement),
 }
