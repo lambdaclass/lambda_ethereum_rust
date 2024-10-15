@@ -242,6 +242,9 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
     // Set the canonical block hash for a given block number.
     fn set_canonical_block(&self, number: BlockNumber, hash: BlockHash) -> Result<(), StoreError>;
 
+    // Unsets canonical block for a block number.
+    fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError>;
+
     fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError>;
 
     fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError>;

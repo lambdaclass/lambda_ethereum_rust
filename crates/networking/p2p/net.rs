@@ -13,27 +13,18 @@ use discv4::{
 use ethereum_rust_core::{H256, H512};
 use ethereum_rust_storage::Store;
 use k256::{
-    ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
+    ecdsa::SigningKey,
     elliptic_curve::{sec1::ToEncodedPoint, PublicKey},
-    SecretKey,
 };
 use kademlia::{bucket_number, KademliaTable, MAX_NODES_PER_BUCKET};
 use rand::rngs::OsRng;
-use rlpx::{
-    connection::{RLPxConnection, SUPPORTED_CAPABILITIES},
-    eth::StatusMessage,
-    handshake::RLPxLocalClient,
-    message::Message as RLPxMessage,
-    p2p,
-};
-use sha3::{Digest, Keccak256};
+use rlpx::connection::RLPxConnection;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpSocket, UdpSocket},
+    net::{TcpSocket, TcpStream, UdpSocket},
     sync::Mutex,
     try_join,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use types::{Endpoint, Node};
 
 pub mod bootnode;
@@ -55,7 +46,10 @@ pub async fn start_network(
     info!("Listening for requests at {tcp_addr}");
 
     let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
-    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer, storage));
+    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer.clone(), storage.clone()));
+    // TODO Remove this spawn, it's just for testing
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
+    tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
 
     try_join!(discovery_handle, server_handle).unwrap();
 }
@@ -186,6 +180,17 @@ async fn discover_peers_server(
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
                         table.lock().await.pong_answered(peer.node.node_id);
+                        // TODO: make this work to initiate p2p thread
+                        // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
+                        let _node = peer.node;
+                        let mut msg_buf = vec![0; read - (32 + 65)];
+                        buf[32 + 65..read].clone_into(&mut msg_buf);
+                        let mut sig_bytes = vec![0; 65];
+                        buf[32..32 + 65].clone_into(&mut sig_bytes);
+                        let _signer_clone = signer.clone();
+                        // tokio::spawn(async move {
+                        //     handle_peer_as_initiator(signer_clone, &msg_buf, &node).await;
+                        // });
                     } else {
                         debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -707,25 +712,22 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let _ = socket.send_to(&buf, to_addr).await;
 }
 
-async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
-    let secret_key: SecretKey = signer.clone().into();
-    let tcp_socket = TcpSocket::new_v4().unwrap();
-    tcp_socket.bind(tcp_addr).unwrap();
-
+// TODO: remove this function. It's used for a hardcoded test
+// https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
+async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
     let mut udp_addr = tcp_addr;
     udp_addr.set_port(tcp_addr.port() + 1);
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
 
     // Try contacting a known peer
     // TODO: this is just an example, and we should do this dynamically
-    let str_tcp_addr = "127.0.0.1:30307";
     let str_udp_addr = "127.0.0.1:30307";
 
     let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
 
     let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
 
-    let (msg, sig_bytes, endpoint) = loop {
+    let (msg, endpoint, node_id) = loop {
         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
@@ -735,87 +737,66 @@ async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store
 
         match packet.get_message() {
             Message::Pong(pong) => {
-                break (&buf[32 + 65..read], &buf[32..32 + 65], pong.to);
+                break (&buf[32..read], pong.to, packet.get_node_id());
             }
             Message::Ping(ping) => {
-                break (&buf[32 + 65..read], &buf[32..32 + 65], ping.from);
+                break (&buf[32..read], ping.from, packet.get_node_id());
             }
             _ => {
-                warn!("Unexpected message type");
+                tracing::warn!("Unexpected message type");
             }
         };
     };
 
-    let digest = Keccak256::digest(msg);
-    let signature = &Signature::from_bytes(sig_bytes[..64].into()).unwrap();
-    let rid = RecoveryId::from_byte(sig_bytes[64]).unwrap();
+    let node = Node {
+        ip: endpoint.ip,
+        udp_port: 30307u16, //endpoint.udp_port,
+        tcp_port: 30307u16, //endpoint.tcp_port,
+        node_id,
+    };
+    handle_peer_as_initiator(signer, msg, &node).await;
+}
 
-    let peer_pk = VerifyingKey::recover_from_prehash(&digest, signature, rid).unwrap();
+// TODO build a proper listen loop that receives requests from both
+// peers and business layer and propagate storage to use when required
+// https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
+async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
+    let tcp_socket = TcpSocket::new_v4().unwrap();
+    tcp_socket.bind(tcp_addr).unwrap();
+    let listener = tcp_socket.listen(50).unwrap();
+    loop {
+        let (stream, _peer_addr) = listener.accept().await.unwrap();
 
-    let mut client = RLPxLocalClient::random();
-    let mut auth_message = vec![];
-    client.encode_auth_message(&secret_key, &peer_pk.into(), &mut auth_message);
+        tokio::spawn(handle_peer_as_receiver(signer.clone(), stream));
+    }
+}
 
-    // NOTE: for some reason kurtosis peers don't publish their active TCP port
-    let tcp_addr = endpoint
-        .tcp_address()
-        .unwrap_or(str_tcp_addr.parse().unwrap());
+async fn handle_peer_as_receiver(signer: SigningKey, stream: TcpStream) {
+    let conn = RLPxConnection::receiver(signer, stream);
+    handle_peer(conn).await;
+}
 
-    let mut stream = TcpSocket::new_v4()
+async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
+    info!("Trying RLPx connection with {node:?}");
+    let stream = TcpSocket::new_v4()
         .unwrap()
-        .connect(tcp_addr)
+        .connect(SocketAddr::new(node.ip, node.tcp_port))
         .await
         .unwrap();
+    let conn = RLPxConnection::initiator(signer, msg, stream).await;
+    handle_peer(conn).await;
+}
 
-    stream.write_all(&auth_message).await.unwrap();
-    info!("Sent auth message correctly!");
-    // Read the ack message's size
-    stream.read_exact(&mut buf[..2]).await.unwrap();
-    let auth_data = buf[..2].try_into().unwrap();
-    let msg_size = u16::from_be_bytes(auth_data) as usize;
+async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
+    conn.handshake().await;
+    // TODO react on handshake or capabilities exchange result
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/841
 
-    // Read the rest of the ack message
-    stream.read_exact(&mut buf[2..msg_size + 2]).await.unwrap();
-
-    let msg = &mut buf[2..msg_size + 2];
-    let state = client.decode_ack_message(&secret_key, msg, auth_data);
-    let mut conn = RLPxConnection::new(state, stream);
-    info!("Completed handshake!");
-
-    let hello_msg = RLPxMessage::Hello(p2p::HelloMessage::new(
-        SUPPORTED_CAPABILITIES
-            .into_iter()
-            .map(|(name, version)| (name.to_string(), version))
-            .collect(),
-        PublicKey::from(signer.verifying_key()),
-    ));
-
-    conn.send(hello_msg).await;
-
-    // Receive Hello message
-    conn.receive().await;
-
-    info!("Completed Hello roundtrip!");
-
-    let received_status = conn.receive().await;
-    debug!("Received RLPxMessage: {:?}", received_status);
-    if let RLPxMessage::Status(_received) = received_status {
-        if let Ok(response_status) = StatusMessage::new(&storage) {
-            let response_status = RLPxMessage::Status(response_status);
-            conn.send(response_status).await;
-        }
-    }
-
-    // TODO: implement listen loop instead
-    debug!("Sending Ping RLPxMessage");
-    // Send Ping
-    conn.send(RLPxMessage::Ping(p2p::PingMessage::new())).await;
-
-    debug!("Awaiting Pong RLPxMessage");
-    let pong = conn.receive().await;
-    debug!("Received RLPxMessage: {:?}", pong);
-
-    conn.receive().await;
+    // TODO Properly build listen loop
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
+    // loop {
+    //     conn.await_messages();
+    // }
 }
 
 pub fn node_id_from_signing_key(signer: &SigningKey) -> H512 {

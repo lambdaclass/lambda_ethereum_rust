@@ -17,6 +17,9 @@ ethereum_rust-vm = { path = "../vm", default-features = false }
 
 bytes.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lib]
 path = "./blockchain.rs"
 

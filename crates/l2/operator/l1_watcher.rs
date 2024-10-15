@@ -130,7 +130,7 @@ impl L1Watcher {
                 .map_err(|e| L1WatcherError::FailedToRetrieveDepositorAccountInfo(e.to_string()))?
                 .map(|info| info.nonce)
                 .unwrap_or_default();
-            mint_transaction.max_fee_per_gas = self.eth_client.gas_price().await?.as_u64();
+            mint_transaction.max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
             // TODO(IMPORTANT): gas_limit should come in the log and must
             // not be calculated in here. The reason for this is that the
             // gas_limit for this transaction is payed by the caller in
