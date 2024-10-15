@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use sp1_sdk::SP1ProofWithPublicValues;
 use std::{
     io::{BufReader, BufWriter},
-    net::{IpAddr, TcpListener, TcpStream},
+    net::{IpAddr, Shutdown, TcpListener, TcpStream},
+    sync::mpsc::{self, Receiver},
 };
+use tokio::signal::unix::{signal, SignalKind};
 use tracing::{debug, info, warn};
 
 use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
@@ -14,11 +16,20 @@ use super::errors::ProofDataProviderError;
 
 pub async fn start_proof_data_provider() {
     let config = ProofDataProviderConfig::from_env().expect("ProofDataProviderConfig::from_env()");
-    let proof_data_provider = ProofDataProvider::new_from_config(config);
-    proof_data_provider
-        .start()
-        .await
-        .expect("proof_data_provider.start()");
+    let proof_data_provider = ProofDataProvider::new_from_config(config.clone());
+
+    let (tx, rx) = mpsc::channel();
+
+    let server = tokio::spawn(async move {
+        proof_data_provider
+            .start(rx)
+            .await
+            .expect("proof_data_provider.start()")
+    });
+
+    ProofDataProvider::handle_sigint(tx, config).await;
+
+    tokio::try_join!(server).expect("tokio::try_join!()");
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,13 +60,28 @@ impl ProofDataProvider {
         }
     }
 
-    pub async fn start(&self) -> Result<(), ProofDataProviderError> {
+    async fn handle_sigint(tx: mpsc::Sender<()>, config: ProofDataProviderConfig) {
+        let mut sigint = signal(SignalKind::interrupt()).expect("Failed to create SIGINT stream");
+        sigint.recv().await.expect("signal.recv()");
+        tx.send(()).expect("Failed to send shutdown signal");
+        TcpStream::connect(format!("{}:{}", config.listen_ip, config.listen_port))
+            .expect("TcpStream::connect()")
+            .shutdown(Shutdown::Both)
+            .expect("TcpStream::shutdown()");
+    }
+
+    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProofDataProviderError> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
 
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
+            if let Ok(()) = rx.try_recv() {
+                info!("Shutting down ProofDataProvider server");
+                break;
+            }
+
             debug!("Connection established!");
             self.handle_connection(stream?, &mut last_proved_block)
                 .await;

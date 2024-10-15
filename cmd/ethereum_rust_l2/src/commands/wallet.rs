@@ -148,7 +148,7 @@ impl Command {
                     value: amount,
                     chain_id: cfg.network.l1_chain_id,
                     nonce: eth_client.get_nonce(from).await?,
-                    max_fee_per_gas: eth_client.gas_price().await?.as_u64(),
+                    max_fee_per_gas: eth_client.get_gas_price().await?.as_u64(),
                     ..Default::default()
                 };
 

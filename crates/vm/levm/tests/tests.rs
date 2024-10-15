@@ -1,16 +1,17 @@
 use std::collections::HashMap;
 
 use ethereum_rust_levm::{
-    block::{BlockEnv, TARGET_BLOB_GAS_PER_BLOCK},
+    block::{BlockEnv, GAS_PER_BLOB, TARGET_BLOB_GAS_PER_BLOCK},
     constants::*,
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     transaction::{TransactTo, TxEnv},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
     vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
-    vm_result::{ExecutionResult, VMError},
+    vm_result::{ExecutionResult, InvalidTx, VMError},
 };
 use ethereum_types::H32;
+use std::str::FromStr;
 
 // cargo test -p 'levm'
 
@@ -3686,7 +3687,7 @@ fn create_on_create() {
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
-    assert_eq!(vm.db.accounts.len(), 4);
+    assert_eq!(vm.db.accounts.len(), 5);
 }
 
 #[test]
@@ -3699,6 +3700,7 @@ fn caller_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         msg_sender: caller,
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3731,6 +3733,7 @@ fn origin_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         msg_sender,
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3787,6 +3790,7 @@ fn address_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3818,6 +3822,7 @@ fn selfbalance_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3849,6 +3854,7 @@ fn callvalue_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         value,
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3877,6 +3883,7 @@ fn codesize_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3908,6 +3915,7 @@ fn gasprice_op() {
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
         gas_price: Some(U256::from(0x9876)),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -3955,6 +3963,7 @@ fn codecopy_op() {
 
     let tx_env = TxEnv {
         transact_to: TransactTo::Call(address_that_has_the_code),
+        gas_limit: u64::MAX,
         ..Default::default()
     };
 
@@ -4104,3 +4113,629 @@ fn extcodehash_non_existing_account() {
     );
     assert_eq!(vm.env.consumed_gas, 23603);
 }
+
+#[test]
+fn test_calculate_intrinsic_cost_create_tx() {
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Create,
+        data: vec![0, 1, 2].into(),
+        ..Default::default()
+    };
+    let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+    assert_eq!(
+        intrinsic_cost,
+        TX_BASE_COST
+            + TX_CREATE_COST
+            + init_code_cost(3)
+            + 2 * TX_DATA_COST_PER_NON_ZERO
+            + TX_DATA_COST_PER_ZERO
+    );
+}
+
+#[test]
+fn test_calculate_intrinsic_cost_call_tx() {
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(Address::zero()),
+        data: vec![0, 1, 2].into(),
+        ..Default::default()
+    };
+    let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+    assert_eq!(
+        intrinsic_cost,
+        TX_BASE_COST + 2 * TX_DATA_COST_PER_NON_ZERO + TX_DATA_COST_PER_ZERO
+    );
+}
+
+#[test]
+fn test_consume_intrinsic_cost_sufficient_gas() {
+    let mut tx_env = TxEnv {
+        gas_limit: 100000, // Sufficient gas limit
+        data: vec![0, 1, 2].into(),
+        ..Default::default()
+    };
+    assert!(tx_env.consume_intrinsic_cost().is_ok());
+    assert_eq!(tx_env.gas_limit, 100000 - tx_env.calculate_intrinsic_cost());
+}
+
+#[test]
+fn test_consume_intrinsic_cost_insufficient_gas() {
+    let mut tx_env = TxEnv {
+        gas_limit: 10,
+        data: vec![0, 1, 2].into(),
+        ..Default::default()
+    };
+    assert!(tx_env.consume_intrinsic_cost().is_err());
+}
+
+#[test]
+fn test_validate_tx_env_nonce_too_high() {
+    let tx_env = TxEnv {
+        nonce: Some(2),
+        ..Default::default()
+    };
+    let account = Account {
+        nonce: 1,
+        ..Default::default()
+    };
+    let block_env = BlockEnv::default();
+    assert_eq!(
+        tx_env.validate_tx_env(&account, &block_env),
+        Err(InvalidTx::NonceTooHigh { tx: 2, state: 1 })
+    );
+}
+
+#[test]
+fn test_validate_tx_env_nonce_too_low() {
+    let tx_env = TxEnv {
+        nonce: Some(0),
+        ..Default::default()
+    };
+    let account = Account {
+        nonce: 1,
+        ..Default::default()
+    };
+    let block_env = BlockEnv::default();
+    assert_eq!(
+        tx_env.validate_tx_env(&account, &block_env),
+        Err(InvalidTx::NonceTooLow { tx: 0, state: 1 })
+    );
+}
+
+#[test]
+fn test_validate_tx_env_create_init_code_size_limit() {
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Create,
+        data: vec![0; 2 * MAX_CODE_SIZE + 1].into(),
+        ..Default::default()
+    };
+    let account = Account::default();
+    let block_env = BlockEnv::default();
+    assert_eq!(
+        tx_env.validate_tx_env(&account, &block_env),
+        Err(InvalidTx::CreateInitCodeSizeLimit)
+    );
+}
+
+#[test]
+fn tx_gas_limit_higher_than_block_gas_limit() {
+    let tx_env = TxEnv {
+        gas_limit: TX_BASE_COST + 999,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: (TX_BASE_COST + 998) as usize,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::CallerGasLimitMoreThanBlock))
+}
+
+#[test]
+/// Tx invalid if caller has deployed code
+fn tx_caller_with_code() {
+    let msg_sender = Address::from_low_u64_be(40);
+
+    let tx_env = TxEnv {
+        msg_sender,
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000000,
+        ..Default::default()
+    };
+
+    let mut db = Db::default();
+    let account = Account::new(
+        msg_sender,
+        U256::from(0),
+        Bytes::from("whatever"),
+        0,
+        HashMap::new(),
+    );
+
+    db.add_account(msg_sender, account.clone());
+
+    let tx_result = tx_env.validate_tx_env(&account, &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::RejectCallerWithCode))
+}
+
+#[test]
+fn tx_max_priority_fee_greater_than_max_fee() {
+    let tx_env = TxEnv {
+        max_priority_fee_per_gas: Some(U256::from(101)),
+        max_fee_per_gas: Some(U256::from(100)),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 1000000,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::PriorityFeeGreaterThanMaxFee))
+}
+
+#[test]
+fn tx_max_fee_per_gas_lower_than_base_fee() {
+    let tx_env = TxEnv {
+        gas_price: Some(100.into()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000,
+        base_fee_per_gas: 101.into(),
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::GasPriceLessThanBasefee))
+}
+
+#[test]
+// Blob tx invalid if it's create
+fn tx_blob_is_create() {
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Create,
+        max_fee_per_blob_gas: Some(10.into()),
+        max_fee_per_gas: Some(10.into()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::BlobCreateTransaction))
+}
+
+#[test]
+// Blob tx invalid if empty `blob_hashes`
+fn tx_blob_with_no_hashes() {
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(Address::default()),
+        max_fee_per_blob_gas: Some(10.into()),
+        blob_hashes: Vec::default(),
+        max_fee_per_gas: Some(10.into()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::EmptyBlobs))
+}
+
+#[test]
+// Blob tx invalid if blobhashes length is greater
+// than `MAX_BLOB_NUMBER_PER_BLOCK`
+fn tx_too_many_blobs() {
+    let tx_env = TxEnv {
+        max_fee_per_blob_gas: Some(10.into()),
+        blob_hashes: vec![H256::default(); 7],
+        max_fee_per_gas: Some(10.into()),
+        transact_to: TransactTo::Call(Address::default()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(
+        tx_result,
+        Err(InvalidTx::TooManyBlobs {
+            max: MAX_BLOB_NUMBER_PER_BLOCK,
+            have: 7
+        })
+    )
+}
+
+#[test]
+fn tx_blob_wrong_version_hashes() {
+    let tx_env = TxEnv {
+        max_fee_per_blob_gas: Some(10.into()),
+        blob_hashes: vec![H256::default(); 2],
+        max_fee_per_gas: Some(10.into()),
+        transact_to: TransactTo::Call(Address::default()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::BlobVersionNotSupported))
+}
+
+#[test]
+fn tx_blob_max_fee_per_blob_gas_lower_than_block_blob_gas_fee() {
+    let blobhash_str = "0x01124dee50136f3f93f19667fb4198c6b94eecbacfa300469e5280012757be94";
+    let blobhash = H256::from_str(blobhash_str).expect("Error while converting str to B256");
+
+    let tx_env = TxEnv {
+        max_fee_per_blob_gas: Some(10.into()),
+        blob_hashes: vec![blobhash],
+        max_fee_per_gas: Some(10.into()),
+        transact_to: TransactTo::Call(Address::default()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 1000000,
+        excess_blob_gas: 9999999.into(),
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::BlobGasPriceGreaterThanMax))
+}
+
+#[test]
+fn tx_not_enough_balance_to_cover_fee() {
+    let tx_env = TxEnv {
+        gas_limit: 99_999,
+        gas_price: Some(1.into()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 1000000,
+        ..Default::default()
+    };
+
+    let mut db = Db::default();
+    let account = Account::new(
+        Address::default(),
+        99_998.into(),
+        Bytes::default(),
+        0,
+        HashMap::new(),
+    );
+
+    db.add_account(Address::default(), account.clone());
+
+    let tx_result = tx_env.validate_tx_env(&account, &block_env);
+
+    assert_eq!(
+        tx_result,
+        Err(InvalidTx::LackOfFundForMaxFee {
+            fee: Box::new(99_999.into()),
+            balance: Box::new(99_998.into())
+        })
+    )
+}
+
+#[test]
+fn tx_with_blobs_not_enough_balance_to_cover_fee() {
+    let blobhash_str = "0x01124dee50136f3f93f19667fb4198c6b94eecbacfa300469e5280012757be94";
+    let blobhash = H256::from_str(blobhash_str).expect("Error while converting str to B256");
+
+    let tx_env = TxEnv {
+        gas_limit: 99_999,
+        gas_price: Some(1.into()),
+        max_fee_per_blob_gas: Some(1.into()),
+        blob_hashes: vec![blobhash; 5],
+        transact_to: TransactTo::Call(Address::default()),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 100000,
+        excess_blob_gas: Some(10),
+        ..Default::default()
+    };
+
+    let mut db = Db::default();
+    let account = Account::new(
+        Address::default(),
+        99_998.into(),
+        Bytes::default(),
+        0,
+        HashMap::new(),
+    );
+
+    db.add_account(Address::default(), account.clone());
+
+    let tx_result = tx_env.validate_tx_env(&account, &block_env);
+
+    let expected_fee = U256::from(tx_env.gas_limit) * tx_env.gas_price.unwrap()
+        + tx_env.calculate_total_blob_gas() * tx_env.max_fee_per_blob_gas.unwrap();
+
+    assert_eq!(
+        tx_result,
+        Err(InvalidTx::LackOfFundForMaxFee {
+            fee: Box::new(expected_fee),
+            balance: Box::new(99_998.into())
+        })
+    )
+}
+
+#[test]
+fn tx_with_value_not_enough_balance_to_cover_fee() {
+    let tx_env = TxEnv {
+        gas_limit: 99_999,
+        gas_price: Some(1.into()),
+        value: 1.into(),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: 1000000,
+        ..Default::default()
+    };
+
+    let mut db = Db::default();
+    let account = Account::new(
+        Address::default(),
+        99_999.into(),
+        Bytes::default(),
+        0,
+        HashMap::new(),
+    );
+
+    db.add_account(Address::default(), account.clone());
+
+    let tx_result = tx_env.validate_tx_env(&account, &block_env);
+
+    assert_eq!(
+        tx_result,
+        Err(InvalidTx::LackOfFundForMaxFee {
+            fee: Box::new(100_000.into()),
+            balance: Box::new(99_999.into())
+        })
+    )
+}
+
+#[test]
+fn tx_overflows_fee() {
+    let tx_env = TxEnv {
+        gas_limit: u64::MAX,
+        gas_price: Some(U256::MAX),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: usize::MAX,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::OverflowPaymentInTransaction))
+}
+
+#[test]
+fn tx_with_value_overflows_fee() {
+    let tx_env = TxEnv {
+        gas_limit: u64::MAX,
+        gas_price: Some(U256::MAX / u64::MAX),
+        value: 1.into(),
+        ..Default::default()
+    };
+
+    let block_env = BlockEnv {
+        gas_limit: usize::MAX,
+        ..Default::default()
+    };
+
+    let tx_result = tx_env.validate_tx_env(&Account::default(), &block_env);
+
+    assert_eq!(tx_result, Err(InvalidTx::OverflowPaymentInTransaction))
+}
+
+#[test]
+fn calculate_total_blob_gas_zero() {
+    let tx_env = TxEnv::default();
+
+    let res = tx_env.calculate_total_blob_gas();
+
+    assert_eq!(res, 0.into())
+}
+
+#[test]
+fn calculate_total_blob_gas() {
+    let tx_env = TxEnv {
+        max_fee_per_blob_gas: Some(1.into()),
+        blob_hashes: vec![H256::default(); 5],
+        ..Default::default()
+    };
+
+    let res = tx_env.calculate_total_blob_gas();
+
+    assert_eq!(res, U256::from(GAS_PER_BLOB * 5))
+}
+
+#[test]
+/// Call tx with no data, no access list, should cost `TX_BASE_COST`
+fn intrinsic_cost_base() {
+    let tx_env = TxEnv {
+        transact_to: TransactTo::Call(Address::zero()),
+        ..Default::default()
+    };
+    let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+    assert_eq!(intrinsic_cost, TX_BASE_COST)
+}
+
+#[test]
+/// Call tx with some data zero, no access list, should cost
+/// `TX_BASE_COST` + `TX_DATA_COST_PER_ZERO` * len(data)
+fn intrinsic_cost_data_zero() {
+    let data = Bytes::from(vec![0, 0, 0, 0]);
+
+    let tx_env = TxEnv {
+        data: data.clone(),
+        transact_to: TransactTo::Call(Address::zero()),
+        ..Default::default()
+    };
+
+    let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+
+    assert_eq!(
+        intrinsic_cost,
+        TX_BASE_COST + TX_DATA_COST_PER_ZERO * data.len() as u64
+    )
+}
+
+#[test]
+/// Call tx with some data non zero, no access list, should cost
+/// `TX_BASE_COST` + `TX_DATA_COST_PER_NON_ZERO` * len(data)
+fn intrinsic_cost_data_non_zero() {
+    let data = Bytes::from(vec![1, 2, 3, 4]);
+
+    let tx_env = TxEnv {
+        data: data.clone(),
+        transact_to: TransactTo::Call(Address::zero()),
+        ..Default::default()
+    };
+
+    let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+
+    assert_eq!(
+        intrinsic_cost,
+        TX_BASE_COST + TX_DATA_COST_PER_NON_ZERO * data.len() as u64
+    )
+}
+
+#[test]
+/// Call tx with some data zero and non zero, no access list, should cost
+/// `TX_BASE_COST`
+/// + `TX_DATA_COST_PER_ZERO` * len(data_zero)
+/// + `TX_DATA_COST_PER_NON_ZERO` * len(data_non_zero)
+fn intrinsic_cost_data_zero_non_zero() {
+    let data_zero = vec![0, 0];
+    let data_non_zero = vec![1, 3];
+    let data = Bytes::from([data_zero.clone(), data_non_zero.clone()].concat());
+
+    let tx_env = TxEnv {
+        data: data.clone(),
+        transact_to: TransactTo::Call(Address::zero()),
+        ..Default::default()
+    };
+
+    let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+
+    assert_eq!(
+        intrinsic_cost,
+        TX_BASE_COST
+            + TX_DATA_COST_PER_NON_ZERO * data_non_zero.len() as u64
+            + TX_DATA_COST_PER_ZERO * data_zero.len() as u64
+    )
+}
+
+// TODO: For when we implement access lists
+// #[test]
+// // Call tx with no data, access list, should cost
+// // `TX_BASE_COST`
+// // + access_list_cost(access_list)
+// fn intrinsic_cost_access_list() {
+//     let access_list = vec![
+//         (
+//             Address::from_low_u64_be(40),
+//             vec![U256::from(1), U256::from(2)],
+//         ),
+//         (
+//             Address::from_low_u64_be(60),
+//             vec![U256::from(2), U256::from(3)],
+//         ),
+//     ];
+
+//     let tx_env = TxEnv {
+//         access_list: Some(access_list.clone()),
+//         ..Default::default()
+//     };
+
+//     let intrinsic_cost = tx_env.calculate_intrinsic_cost();
+
+//     assert_eq!(
+//         intrinsic_cost,
+//         TX_BASE_COST + access_list_cost(&access_list)
+//     )
+// }
+
+// TODO: For when we implement access lists
+// #[test]
+// /// Call tx with some data, access list, should cost
+// /// `TX_BASE_COST`
+// /// + `TX_DATA_COST_PER_ZERO` * len(data_zero)
+// /// + `TX_DATA_COST_PER_NON_ZERO` * len(data_non_zero)
+// /// + access_list_cost(access_list)
+// fn intrinsic_cost_data_access_list() {
+//     let data_zero = vec![0, 0];
+//     let data_non_zero = vec![1, 3];
+//     let data = Bytes::from([data_zero.clone(), data_non_zero.clone()].concat());
+
+//     let access_list: AccessList = vec![
+//         (
+//             H160::from_low_u64_be(40),
+//             vec![U256::from(1), U256::from(2)],
+//         ),
+//         (
+//             H160::from_low_u64_be(60),
+//             vec![U256::from(2), U256::from(3)],
+//         ),
+//     ];
+
+//     let tx_env = TxEnv {
+//         data: data.clone(),
+//         access_list: access_list.clone(),
+//         ..Default::default()
+//     };
+
+//     let env = Env {
+//         tx: tx_env,
+//         ..Default::default()
+//     };
+
+//     let intrinsic_cost = env.calculate_intrinsic_cost();
+
+//     assert_eq!(
+//         intrinsic_cost,
+//         TX_BASE_COST
+//             + TX_DATA_COST_PER_NON_ZERO * data_non_zero.len() as u64
+//             + TX_DATA_COST_PER_ZERO * data_zero.len() as u64
+//             + access_list_cost(&access_list)
+//     )
+// }

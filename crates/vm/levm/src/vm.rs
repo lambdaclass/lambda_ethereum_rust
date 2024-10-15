@@ -185,6 +185,23 @@ impl Db {
             })
             .collect()
     }
+
+    /// Returns the account associated with the given address.
+    /// If the account does not exist in the Db, it creates a new one with the given address.
+    pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
+        if self.accounts.contains_key(address) {
+            return Ok(self.accounts.get(address).unwrap());
+        }
+
+        let new_account = Account {
+            address: *address,
+            ..Default::default()
+        };
+
+        self.accounts.insert(*address, new_account);
+
+        Ok(self.accounts.get(address).unwrap())
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -200,14 +217,11 @@ pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
     pub origin: Address,
-    /// The price of gas paid by the signer of the transaction
-    /// that originated this execution.
-    pub gas_price: U256,
-    pub gas_limit: u64,
     pub consumed_gas: u64,
     refunded_gas: u64,
     /// The block header of the present block.
     pub block: BlockEnv,
+    pub tx_env: TxEnv,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -234,7 +248,7 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
+    pub fn new(tx_env: TxEnv, block_env: BlockEnv, mut db: Db) -> Self {
         let bytecode = match tx_env.transact_to {
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
             TransactTo::Create => {
@@ -260,7 +274,7 @@ impl VM {
             None,
             bytecode,
             tx_env.value,
-            tx_env.data,
+            tx_env.data.clone(),
             false,
             u64::MAX,
             0,
@@ -270,18 +284,27 @@ impl VM {
         let env = Environment {
             block: block_env,
             consumed_gas: TX_BASE_COST,
-            gas_price: tx_env.gas_price.unwrap_or_default(),
-            gas_limit: u64::MAX,
             origin: tx_env.msg_sender,
             refunded_gas: 0,
+            tx_env,
         };
+        let mut accrued_substate = Substate::default();
+
+        Self::add_coinbase_to_db(&env.block, &mut db, &mut accrued_substate);
 
         Self {
             call_frames: vec![initial_call_frame],
             db,
             env,
-            accrued_substate: Substate::default(),
+            accrued_substate,
         }
+    }
+
+    fn add_coinbase_to_db(block: &BlockEnv, db: &mut Db, accrued_substate: &mut Substate) {
+        let coinbase = block.coinbase;
+        let account = Account::new(coinbase, U256::zero(), Bytes::new(), 0, Default::default());
+        db.add_account(coinbase, account);
+        accrued_substate.warm_addresses.insert(coinbase);
     }
 
     pub fn write_success_result(
@@ -311,61 +334,6 @@ impl VM {
         }
     }
 
-    pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
-        let gas_used = self.env.consumed_gas;
-
-        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
-        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
-
-        let exis_status_code = match res {
-            ExecutionResult::Success { reason, .. } => match reason {
-                SuccessReason::Stop => ExitStatusCode::Stop,
-                SuccessReason::Return => ExitStatusCode::Return,
-                SuccessReason::SelfDestruct => todo!(),
-                SuccessReason::EofReturnContract => todo!(),
-            },
-            ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
-        };
-
-        let current_call_frame = self.current_call_frame_mut();
-
-        let return_values = current_call_frame.returndata.clone();
-
-        let result = match exis_status_code {
-            ExitStatusCode::Return => ExecutionResult::Success {
-                reason: SuccessReason::Return,
-                gas_used,
-                gas_refunded,
-                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
-                logs: res.logs().to_vec(),
-                return_data: return_values.clone(),
-            },
-            ExitStatusCode::Stop => ExecutionResult::Success {
-                reason: SuccessReason::Stop,
-                gas_used,
-                gas_refunded,
-                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
-                logs: res.logs().to_vec(),
-                return_data: return_values.clone(),
-            },
-            ExitStatusCode::Revert => ExecutionResult::Revert {
-                output: return_values,
-                unused_gas: 0, // TODO: add unused gas
-                reason: res.reason(),
-            },
-            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Revert { // 
-                reason: res.reason(),
-                unused_gas: 0, // TODO: add unused gas
-                output: Bytes::new()
-            },
-        };
-
-        // TODO: Check if this is ok
-        let state = self.db.into_state();
-
-        Ok(ResultAndState { result, state })
-    }
-
     pub fn execute(&mut self) -> ExecutionResult {
         let mut current_call_frame = self
             .call_frames
@@ -374,7 +342,7 @@ impl VM {
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
-                Opcode::STOP => self.op_stop(&mut current_call_frame),
+                Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(&mut current_call_frame),
                 Opcode::MUL => self.op_mul(&mut current_call_frame),
                 Opcode::SUB => self.op_sub(&mut current_call_frame),
@@ -504,9 +472,81 @@ impl VM {
         }
     }
 
+    pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
+        let gas_used = self.env.consumed_gas;
+
+        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
+        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
+
+        let exis_status_code = match res {
+            ExecutionResult::Success { reason, .. } => match reason {
+                SuccessReason::Stop => ExitStatusCode::Stop,
+                SuccessReason::Return => ExitStatusCode::Return,
+                SuccessReason::SelfDestruct => todo!(),
+                SuccessReason::EofReturnContract => todo!(),
+            },
+            ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
+        };
+
+        let current_call_frame = self.current_call_frame_mut();
+
+        let return_values = current_call_frame.returndata.clone();
+
+        let result = match exis_status_code {
+            ExitStatusCode::Return => ExecutionResult::Success {
+                reason: SuccessReason::Return,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
+                logs: res.logs().to_vec(),
+                return_data: return_values.clone(),
+            },
+            ExitStatusCode::Stop => ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                gas_used,
+                gas_refunded,
+                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
+                logs: res.logs().to_vec(),
+                return_data: return_values.clone(),
+            },
+            ExitStatusCode::Revert => ExecutionResult::Revert {
+                output: return_values,
+                unused_gas: 0, //TODO
+                reason: res.reason(),
+            },
+            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Revert { 
+                reason: VMError::FatalError, //TODO, change this  
+                unused_gas: 0, 
+                output: Bytes::new() 
+            }
+        };
+
+        // TODO: Check if this is ok
+        let state = self.db.into_state();
+
+        Ok(ResultAndState { result, state })
+    }
+
     pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
-        // let initial_gas_consumed = self.validate_transaction()?;
-        // let initial_gas_consumed = 0;
+        let account = self.db.accounts.get(&self.env.tx_env.msg_sender).unwrap();
+
+        let initial_gas = match self
+            .env
+            .tx_env
+            .validate_transaction(account, &self.env.block)
+        {
+            Ok(gas) => gas,
+            Err(e) => {
+                return self.get_result(ExecutionResult::Revert {
+                    reason: e,
+                    unused_gas: 0, //TODO
+                    output: Bytes::new(),
+                })
+            }
+        };
+
+        self.env.consumed_gas = initial_gas;
+
         let res = self.execute();
         self.get_result(res)
     }

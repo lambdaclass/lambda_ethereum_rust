@@ -1,18 +1,8 @@
-use crate::vm_result::ResultReason;
-
-// Stop and Arithmetic Operations (12)
-// Opcodes: STOP, ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
+// Arithmetic Operations (11)
+// Opcodes: ADD, SUB, MUL, DIV, SDIV, MOD, SMOD, ADDMOD, MULMOD, EXP, SIGNEXTEND
 use super::*;
 
 impl VM {
-    // STOP operation
-    pub fn op_stop(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
-        self.call_frames.push(current_call_frame.clone());
-        Ok(OpcodeSuccess::Result(ResultReason::Stop))
-    }
     // ADD operation
     pub fn op_add(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::ADD)?;

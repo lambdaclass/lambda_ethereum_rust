@@ -50,7 +50,8 @@ fn setup_txenv(transaction: &TransactionParts, test: &Test) -> TxEnv {
         access_list: None,
         max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
         blob_hashes: transaction.blob_versioned_hashes.clone(),
-        max_fee_per_blob_gas: transaction.max_fee_per_gas,
+        max_fee_per_blob_gas: transaction.max_fee_per_blob_gas,
+        max_fee_per_gas: transaction.max_fee_per_gas,
     }
 }
 
