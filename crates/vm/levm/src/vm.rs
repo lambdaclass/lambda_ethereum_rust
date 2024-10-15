@@ -573,8 +573,7 @@ impl VM {
             current_call_frame.depth + 1,
         );
 
-        current_call_frame.gas_used += gas_limit; // Gas sent to the new callframe is "spent" by the caller. (In some cases it is returned back afterwards)
-
+        self.increase_gas(current_call_frame, gas_limit)?; // Gas sent to the new callframe is "spent" by the caller. (In some cases it is returned back afterwards)
 
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
@@ -597,6 +596,7 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
+                // Here we should return unused gas to the caller
             }
             ExecutionResult::Revert {
                 reason,
@@ -611,8 +611,8 @@ impl VM {
 
                 // If reverted by Revert opcode we should return unused gas to the caller and also store the return data in memory
                 if reason == VMError::RevertOpcode {
-                    // 2. Adding unused gas to the caller (If not exceptional halt)
-                    current_call_frame.gas_used += unused_gas;
+                    // 2. Return the unused gas to the caller (If not exceptional halt)
+                    self.decrease_gas(current_call_frame, unused_gas);
 
                     // 3. Storing in memory the return data of the sub-context (in offset: ret_offset, with size: ret_size)
                     current_call_frame.memory.store_n_bytes(ret_offset, &output, ret_size);
@@ -776,5 +776,11 @@ impl VM {
         current_call_frame.gas_used += gas;
         self.env.consumed_gas += gas;
         Ok(())
+    }
+
+    /// Decreases gas consumption of CallFrame and Environment.
+    pub fn decrease_gas(&mut self, current_call_frame: &mut CallFrame, gas: u64) {
+        current_call_frame.gas_used -= gas;
+        self.env.consumed_gas -= gas;
     }
 }
