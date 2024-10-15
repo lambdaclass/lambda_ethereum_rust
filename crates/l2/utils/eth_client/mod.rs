@@ -141,7 +141,7 @@ impl EthClient {
         }
     }
 
-    pub async fn get_gas_price(&self) -> Result<u64, EthClientError> {
+    pub async fn get_gas_price(&self) -> Result<U256, EthClientError> {
         let request = RpcRequest {
             id: RpcRequestId::Number(1),
             jsonrpc: "2.0".to_string(),
@@ -150,13 +150,9 @@ impl EthClient {
         };
 
         match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => u64::from_str_radix(
-                &serde_json::from_value::<String>(result.result)
-                    .map_err(GetGasPriceError::SerdeJSONError)?[2..],
-                16,
-            )
-            .map_err(GetGasPriceError::ParseIntError)
-            .map_err(EthClientError::from),
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetGasPriceError::SerdeJSONError)
+                .map_err(EthClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
                 Err(GetGasPriceError::RPCError(error_response.error.message).into())
             }
@@ -225,25 +221,6 @@ impl EthClient {
                     "topics": [format!("{:#x}", topic)]
                 }
             )]),
-        };
-
-        match self.send_request(request).await {
-            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
-                .map_err(GetLogsError::SerdeJSONError)
-                .map_err(EthClientError::from),
-            Ok(RpcResponse::Error(error_response)) => {
-                Err(GetLogsError::RPCError(error_response.error.message).into())
-            }
-            Err(error) => Err(error),
-        }
-    }
-
-    pub async fn gas_price(&self) -> Result<U256, EthClientError> {
-        let request = RpcRequest {
-            id: RpcRequestId::Number(1),
-            jsonrpc: "2.0".to_string(),
-            method: "eth_gasPrice".to_string(),
-            params: None,
         };
 
         match self.send_request(request).await {
