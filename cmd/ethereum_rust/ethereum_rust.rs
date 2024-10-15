@@ -18,8 +18,9 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
 };
 use tokio_util::task::TaskTracker;
-use tracing::{info, warn, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{info, warn};
+use tracing_subscriber::filter::Directive;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 mod cli;
 mod decode;
 
@@ -44,8 +45,14 @@ async fn main() {
     let log_level = matches
         .get_one::<String>("log.level")
         .expect("shouldn't happen, log.level is used with a default value");
-    let log_level = Level::from_str(log_level).expect("Not supported log level provided");
-    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
+    let log_filter = EnvFilter::builder()
+        .with_default_directive(
+            Directive::from_str(log_level).expect("Not supported log level provided"),
+        )
+        .from_env_lossy();
+    let subscriber = FmtSubscriber::builder()
+        .with_env_filter(log_filter)
+        .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let http_addr = matches
