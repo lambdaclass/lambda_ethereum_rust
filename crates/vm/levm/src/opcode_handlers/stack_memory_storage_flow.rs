@@ -246,12 +246,11 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        // let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
         let words_copied = size
             .checked_add(WORD_SIZE - 1)
             .ok_or(VMError::OverflowInArithmeticOp)?
             / WORD_SIZE;
-        // let memory_byte_size = (src_offset + size).max(dest_offset + size);
+
         let memory_byte_size = src_offset
             .checked_add(size)
             .and_then(|src_sum| {
