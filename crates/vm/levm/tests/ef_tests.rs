@@ -44,8 +44,6 @@ fn get_ignored_groups() -> HashSet<String> {
         "stEIP158Specific".into(),
         "stEIP4844-blobtransactions".into(),
         "eip4844_blobs".into(),
-        "stEIP5656-MCOPY".into(),
-        "eip5656_mcopy".into(),
         "stEIP2930".into(),
         "stRandom".into(),
         "stRandom2".into(),
@@ -121,11 +119,15 @@ fn get_ignored_groups() -> HashSet<String> {
 // 58 tests
 // - stSLoadTest
 // 1 test
+// - stEIP5656-MCOPY
+// 4 tests
+// - eip5656_mcopy
+// 5 tests
 // - eip3651_warm_coinbase
 // 2 tests
 // - stEIP3651-warmcoinbase
 // 2 tests
-// Total: 124 tests
+// Total: 133 tests
 
 fn get_ignored_suites() -> HashSet<String> {
     HashSet::from([

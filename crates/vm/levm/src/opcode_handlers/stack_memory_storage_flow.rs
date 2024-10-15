@@ -70,7 +70,9 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(offset + WORD_SIZE)?;
         let gas_cost = gas_cost::MLOAD_STATIC + memory_expansion_cost as u64;
 
         if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
@@ -90,7 +92,9 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + WORD_SIZE);
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(offset + WORD_SIZE)?;
         let gas_cost = gas_cost::MSTORE_STATIC + memory_expansion_cost as u64;
 
         if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
@@ -113,7 +117,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let offset = current_call_frame.stack.pop()?.try_into().unwrap();
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + 1);
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + 1)?;
         let gas_cost = gas_cost::MSTORE8_STATIC + memory_expansion_cost as u64;
 
         if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
@@ -242,9 +246,20 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let words_copied = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_byte_size = (src_offset + size).max(dest_offset + size);
-        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size);
+        let words_copied = size
+            .checked_add(WORD_SIZE - 1)
+            .ok_or(VMError::OverflowInArithmeticOp)?
+            / WORD_SIZE;
+
+        let memory_byte_size = src_offset
+            .checked_add(size)
+            .and_then(|src_sum| {
+                dest_offset
+                    .checked_add(size)
+                    .map(|dest_sum| src_sum.max(dest_sum))
+            })
+            .ok_or(VMError::OverflowInArithmeticOp)?;
+        let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
         let gas_cost = gas_cost::MCOPY_STATIC
             + gas_cost::MCOPY_DYNAMIC_BASE * words_copied as u64
             + memory_expansion_cost as u64;
