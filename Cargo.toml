@@ -27,11 +27,12 @@ ethereum_rust-core = { path = "./crates/common" }
 ethereum_rust-net = { path = "./crates/networking/p2p" }
 ethereum_rust-rpc = { path = "./crates/networking/rpc" }
 ethereum_rust-storage = { path = "./crates/storage/store" }
-ethereum_rust-vm = { path = "./crates/vm" }
+ethereum_rust-vm = { path = "./crates/vm", features = ["c-kzg", "blst"] }
 ethereum_rust-trie = { path = "./crates/storage/trie" }
 ethereum_rust-rlp = { path = "./crates/common/rlp" }
 ethereum_rust-l2 = { path = "./crates/l2" }
-ethereum_rust-levm = { path = "./crates/levm" }
+ethereum_rust-levm = { path = "./crates/vm/levm" }
+
 
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"

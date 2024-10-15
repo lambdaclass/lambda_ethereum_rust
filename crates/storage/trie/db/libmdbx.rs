@@ -40,12 +40,12 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "libmdbx"))]
 mod test {
     use std::sync::Arc;
 
     use super::LibmdbxTrieDB;
-    use crate::test_utils::new_db;
+    use crate::test_utils::libmdbx::new_db;
     use libmdbx::{
         orm::{table, Database},
         table_info,

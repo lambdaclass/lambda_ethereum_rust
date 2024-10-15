@@ -1,4 +1,3 @@
-#[cfg(feature = "in_memory")]
 use self::engines::in_memory::Store as InMemoryStore;
 #[cfg(feature = "libmdbx")]
 use self::engines::libmdbx::Store as LibmdbxStore;
@@ -33,7 +32,6 @@ pub struct Store {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum EngineType {
-    #[cfg(feature = "in_memory")]
     InMemory,
     #[cfg(feature = "libmdbx")]
     Libmdbx,
@@ -70,14 +68,13 @@ impl AccountUpdate {
 }
 
 impl Store {
-    pub fn new(path: &str, engine_type: EngineType) -> Result<Self, StoreError> {
+    pub fn new(_path: &str, engine_type: EngineType) -> Result<Self, StoreError> {
         info!("Starting storage engine ({engine_type:?})");
         let store = match engine_type {
             #[cfg(feature = "libmdbx")]
             EngineType::Libmdbx => Self {
-                engine: Arc::new(LibmdbxStore::new(path)?),
+                engine: Arc::new(LibmdbxStore::new(_path)?),
             },
-            #[cfg(feature = "in_memory")]
             EngineType::InMemory => Self {
                 engine: Arc::new(InMemoryStore::new()),
             },
@@ -700,7 +697,6 @@ mod tests {
 
     use super::*;
 
-    #[cfg(feature = "in_memory")]
     #[test]
     fn test_in_memory_store() {
         test_store_suite(EngineType::InMemory);
