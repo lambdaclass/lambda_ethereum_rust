@@ -26,7 +26,7 @@ use ethereum_rust_vm::{
 /// canonical chain/head. Fork choice needs to be updated for that in a separate step.
 ///
 /// Performs pre and post execution validation, and updates the database with the post state.
-pub fn import_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
+pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     // TODO(#438): handle cases where blocks are missing between the canonical chain and the block.
 
     // Validate if it can be the new head and find the parent

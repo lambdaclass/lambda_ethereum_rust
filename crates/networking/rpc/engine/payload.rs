@@ -1,6 +1,6 @@
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::build_payload;
-use ethereum_rust_blockchain::{import_block, latest_valid_hash};
+use ethereum_rust_blockchain::{add_block, latest_valid_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::Store;
@@ -133,7 +133,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
-        let payload_status = match import_block(&block, &storage) {
+        let payload_status = match add_block(&block, &storage) {
             Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
                 "Could not reference parent block with parent_hash",
