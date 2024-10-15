@@ -423,6 +423,7 @@ pub fn validate_block_header(
     if header.gas_used > header.gas_limit {
         return Err(InvalidBlockHeaderError::GasUsedGreaterThanGasLimit);
     }
+
     let expected_base_fee_per_gas = if let Some(base_fee) = calculate_base_fee_per_gas(
         header.gas_limit,
         parent_header.gas_limit,

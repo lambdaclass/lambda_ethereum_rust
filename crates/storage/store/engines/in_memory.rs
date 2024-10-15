@@ -378,6 +378,11 @@ impl StoreEngine for Store {
         Ok(self.inner().canonical_hashes.get(&block_number).cloned())
     }
 
+    fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError> {
+        self.inner().canonical_hashes.remove(&number);
+        Ok(())
+    }
+
     fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
         self.inner().payloads.insert(payload_id, block);
         Ok(())
