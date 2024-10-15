@@ -66,7 +66,7 @@ impl VM {
 
         
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
         self.accrued_substate.warm_addresses.insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
@@ -142,7 +142,7 @@ impl VM {
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
         
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let return_data = current_call_frame.memory.load_range(offset, size).into();
         current_call_frame.returndata = return_data;
@@ -281,7 +281,7 @@ impl VM {
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size) as u64;
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
         
         current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
 
@@ -357,7 +357,7 @@ impl VM {
         }
         // Those accounts should be destroyed at the end of the transaction.
         
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))    
     }

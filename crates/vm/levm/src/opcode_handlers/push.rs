@@ -9,7 +9,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::PUSHN)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::PUSHN)?;
 
         let n_bytes = (op as u8) - (Opcode::PUSH1 as u8) + 1;
 
@@ -33,7 +33,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::PUSH0)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::PUSH0)?;
 
         current_call_frame.stack.push(U256::zero())?;
 

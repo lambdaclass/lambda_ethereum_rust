@@ -36,7 +36,7 @@ impl VM {
             + gas_cost::LOGN_DYNAMIC_BYTE_BASE * size as u64
             + memory_expansion_cost;
             
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let data = current_call_frame.memory.load_range(offset, size);
         let log = Log {

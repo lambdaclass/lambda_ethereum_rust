@@ -9,7 +9,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SWAPN)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SWAPN)?;
         
         let depth = (op as u8) - (Opcode::SWAP1 as u8) + 1;
 

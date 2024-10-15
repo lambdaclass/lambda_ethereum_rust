@@ -7,7 +7,7 @@ use super::*;
 impl VM {
     // LT operation
     pub fn op_lt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::LT)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::LT)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho < rho { U256::one() } else { U256::zero() };
@@ -18,7 +18,7 @@ impl VM {
 
     // GT operation
     pub fn op_gt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::GT)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::GT)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho > rho { U256::one() } else { U256::zero() };
@@ -29,7 +29,7 @@ impl VM {
 
     // SLT operation (signed less than)
     pub fn op_slt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SLT)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SLT)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let lho_is_negative = lho.bit(255);
@@ -56,7 +56,7 @@ impl VM {
 
     // SGT operation (signed greater than)
     pub fn op_sgt(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SGT)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SGT)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let lho_is_negative = lho.bit(255);
@@ -83,7 +83,7 @@ impl VM {
 
     // EQ operation (equality check)
     pub fn op_eq(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::EQ)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::EQ)?;
         let lho = current_call_frame.stack.pop()?;
         let rho = current_call_frame.stack.pop()?;
         let result = if lho == rho {
@@ -101,7 +101,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::ISZERO)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::ISZERO)?;
 
         let operand = current_call_frame.stack.pop()?;
         let result = if operand == U256::zero() {
@@ -116,7 +116,7 @@ impl VM {
 
     // AND operation
     pub fn op_and(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::AND)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::AND)?;
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a & b)?;
@@ -126,7 +126,7 @@ impl VM {
 
     // OR operation
     pub fn op_or(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::OR)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::OR)?;
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a | b)?;
@@ -136,7 +136,7 @@ impl VM {
 
     // XOR operation
     pub fn op_xor(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::XOR)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::XOR)?;
         let a = current_call_frame.stack.pop()?;
         let b = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(a ^ b)?;
@@ -146,7 +146,7 @@ impl VM {
 
     // NOT operation
     pub fn op_not(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::NOT)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::NOT)?;
         let a = current_call_frame.stack.pop()?;
         current_call_frame.stack.push(!a)?;
 
@@ -158,7 +158,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::BYTE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::BYTE)?;
         let op1 = current_call_frame.stack.pop()?;
         let op2 = current_call_frame.stack.pop()?;
         let byte_index = op1.try_into().unwrap_or(usize::MAX);
@@ -176,7 +176,7 @@ impl VM {
 
     // SHL operation (shift left)
     pub fn op_shl(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SHL)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SHL)?;
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
@@ -190,7 +190,7 @@ impl VM {
 
     // SHR operation (shift right)
     pub fn op_shr(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SHR)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SHR)?;
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         if shift < U256::from(256) {
@@ -204,7 +204,7 @@ impl VM {
 
     // SAR operation (arithmetic shift right)
     pub fn op_sar(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SAR)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SAR)?;
         let shift = current_call_frame.stack.pop()?;
         let value = current_call_frame.stack.pop()?;
         let res = if shift < U256::from(256) {

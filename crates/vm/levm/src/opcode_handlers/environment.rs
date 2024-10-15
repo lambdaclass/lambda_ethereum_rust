@@ -11,7 +11,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::CALLDATALOAD)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CALLDATALOAD)?;
 
         let offset: usize = current_call_frame
             .stack
@@ -29,7 +29,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::CALLDATASIZE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CALLDATASIZE)?;
 
         current_call_frame
             .stack
@@ -66,7 +66,7 @@ impl VM {
             + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost;
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         if size == 0 {
             return Ok(OpcodeSuccess::Continue);
@@ -85,7 +85,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::RETURNDATASIZE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::RETURNDATASIZE)?;
 
         current_call_frame
             .stack
@@ -122,7 +122,7 @@ impl VM {
             + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost;
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         if size == 0 {
             return Ok(OpcodeSuccess::Continue);

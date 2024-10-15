@@ -15,7 +15,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::BLOCKHASH)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::BLOCKHASH)?;
 
         let block_number = current_call_frame.stack.pop()?;
 
@@ -48,7 +48,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::COINBASE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::COINBASE)?;
 
         let coinbase = self.env.block.coinbase; // Assuming block_env has been integrated
         current_call_frame.stack.push(address_to_word(coinbase))?;
@@ -61,7 +61,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::TIMESTAMP)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::TIMESTAMP)?;
 
         let timestamp = self.env.block.timestamp; // Assuming block_env has been integrated
         current_call_frame.stack.push(timestamp)?;
@@ -74,7 +74,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::NUMBER)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::NUMBER)?;
 
         let block_number = self.env.block.number; // Assuming block_env has been integrated
         current_call_frame.stack.push(block_number)?;
@@ -87,7 +87,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::PREVRANDAO)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::PREVRANDAO)?;
 
         let randao = self.env.block.prev_randao.unwrap_or_default(); // Assuming block_env has been integrated
         current_call_frame
@@ -102,7 +102,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::GASLIMIT)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::GASLIMIT)?;
 
         let gas_limit = self.env.block.gas_limit; // Assuming block_env has been integrated
         current_call_frame.stack.push(U256::from(gas_limit))?;
@@ -115,7 +115,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::CHAINID)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CHAINID)?;
 
         let chain_id = self.env.block.chain_id; // Assuming block_env has been integrated
         current_call_frame.stack.push(U256::from(chain_id))?;
@@ -128,7 +128,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::SELFBALANCE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::SELFBALANCE)?;
 
         let balance = self.db.balance(&current_call_frame.code_address);
         current_call_frame.stack.push(balance)?;
@@ -142,7 +142,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::BASEFEE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::BASEFEE)?;
 
         let base_fee = self.env.block.base_fee_per_gas; // Assuming block_env has been integrated
         current_call_frame.stack.push(base_fee)?;
@@ -155,7 +155,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::BLOBHASH)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
         unimplemented!("when we have tx implemented");
 
@@ -167,7 +167,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::BLOBBASEFEE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::BLOBBASEFEE)?;
 
         let blob_base_fee = self.env.block.calculate_blob_gas_price(); // Assuming block_env has been integrated
         current_call_frame.stack.push(blob_base_fee)?;
@@ -180,7 +180,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::ADDRESS)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::ADDRESS)?;
 
         let addr = if current_call_frame.delegate.is_some() {
             current_call_frame.msg_sender
@@ -198,7 +198,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::BALANCE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::BALANCE)?;
 
         let addr = current_call_frame.stack.pop()?;
 
@@ -214,7 +214,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::ORIGIN)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::ORIGIN)?;
 
         let origin = self.env.origin;
         current_call_frame
@@ -230,7 +230,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::CALLER)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CALLER)?;
 
         let caller = current_call_frame.msg_sender;
         current_call_frame
@@ -246,7 +246,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::CALLVALUE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CALLVALUE)?;
 
         let callvalue = current_call_frame.msg_value;
 
@@ -261,7 +261,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::CODESIZE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::CODESIZE)?;
 
         current_call_frame
             .stack
@@ -301,7 +301,7 @@ impl VM {
             + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost;
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let code = current_call_frame.bytecode.slice(offset..offset + size);
 
@@ -316,7 +316,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_gas(current_call_frame, gas_cost::GASPRICE)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::GASPRICE)?;
 
         current_call_frame.stack.push(self.env.gas_price)?;
 
@@ -335,7 +335,7 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let code_size = self.db.get_account_bytecode(&address).len();
         current_call_frame.stack.push(code_size.into())?;
@@ -377,7 +377,7 @@ impl VM {
             + memory_expansion_cost
             + address_access_cost;
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let mut code = self.db.get_account_bytecode(&address);
         if code.len() < offset + size {
@@ -404,7 +404,7 @@ impl VM {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
 
-        self.increase_gas(current_call_frame, gas_cost)?;
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let code = self.db.get_account_bytecode(&address);
         let mut hasher = Keccak256::new();
