@@ -2,14 +2,15 @@ use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
 use ethereum_rust_core::types::{Block, Genesis};
+use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
 use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use k256::ecdsa::SigningKey;
 use std::future::IntoFuture;
 use std::path::Path;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::time::Duration;
 use std::{
     fs::File,
@@ -136,7 +137,12 @@ async fn main() {
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
-    let signer = SigningKey::random(&mut OsRng);
+    // TODO Learn how should the key be created
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/836
+    //let signer = SigningKey::random(&mut OsRng);
+    let key_bytes =
+        H256::from_str("577d8278cc7748fad214b5378669b420f8221afb45ce930b7f22da49cbc545f3").unwrap();
+    let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
     let local_p2p_node = Node {
@@ -156,6 +162,11 @@ async fn main() {
         local_p2p_node,
     )
     .into_future();
+
+    // TODO Find a proper place to show node information
+    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/836
+    let enode = local_p2p_node.enode_url();
+    info!("Node: {enode}");
 
     tracker.spawn(rpc_api);
 
