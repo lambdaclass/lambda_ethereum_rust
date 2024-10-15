@@ -7,11 +7,11 @@ use ethereum_rust_rlp::encode::RLPEncode as _;
 use sha3::Digest as _;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use super::connection::RLPxState;
+use super::connection::Established;
 
 pub(crate) async fn write<S: AsyncWrite + std::marker::Unpin>(
     mut frame_data: Vec<u8>,
-    state: &mut RLPxState,
+    state: &mut Established,
     stream: &mut S,
 ) {
     let mac_aes_cipher = Aes256Enc::new_from_slice(&state.mac_key.0).unwrap();
@@ -71,7 +71,7 @@ pub(crate) async fn write<S: AsyncWrite + std::marker::Unpin>(
 }
 
 pub(crate) async fn read<S: AsyncRead + std::marker::Unpin>(
-    state: &mut RLPxState,
+    state: &mut Established,
     stream: &mut S,
 ) -> Vec<u8> {
     let mac_aes_cipher = Aes256Enc::new_from_slice(&state.mac_key.0).unwrap();
