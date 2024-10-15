@@ -23,6 +23,8 @@ The following links, repos, companies and projects have been important in the de
 - [Mina](https://minaprotocol.com/)
 - [Nethermind](https://www.nethermind.io/)
 
+If we forgot to include anyone, please file an issue so we can add you. We always strive to reference the inspirations and code we use, but as an organization with multiple people, mistakes can happen, and someone might forget to include a reference.
+
 ## Philosophy
 
 Many long-established clients accumulate bloat over time. This often occurs due to the need to support legacy features for existing users or through attempts to implement overly ambitious software. The result is often complex, difficult-to-maintain, and error-prone systems.
