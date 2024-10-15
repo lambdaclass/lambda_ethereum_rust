@@ -738,10 +738,6 @@ impl VM {
         self.db.add_account(new_address, new_account);
 
         let gas: U256 = ((current_call_frame.gas_limit - current_call_frame.gas_used) / 64).into();
-        // I commented this because I don't understand it's purpose and it is breaking...
-        //      let mut gas = current_call_frame.gas;
-        //      gas -= gas / 64; // 63/64 of the gas to the call
-        //      current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
 
         current_call_frame
             .stack
