@@ -77,7 +77,7 @@ impl Memory {
 
         let new_memory_cost = new_memory_size_word
             .checked_mul(new_memory_size_word)
-            .and_then(|square| Some(square / MEMORY_EXPANSION_QUOTIENT))
+            .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
             .ok_or(VMError::OverflowInArithmeticOp)?;
         let last_memory_size_word = (self.data.len() + WORD_SIZE - 1) / WORD_SIZE;
