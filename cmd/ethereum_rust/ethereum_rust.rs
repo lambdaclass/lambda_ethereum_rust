@@ -121,16 +121,11 @@ async fn main() {
                 "Adding block {} with hash {:#x}.",
                 block.header.number, hash
             );
-            match add_block(&block, &store) {
-                Ok(()) => store
-                    .set_canonical_block(block.header.number, hash)
-                    .unwrap(),
-                Err(error) => {
-                    warn!(
-                        "Failed to add block {} with hash {:#x}: {}",
-                        block.header.number, hash, error
-                    );
-                }
+            if add_block(&block, &store).is_err() {
+                warn!(
+                    "Failed to add block {} with hash {:#x}.",
+                    block.header.number, hash
+                );
             }
         }
         info!("Added {} blocks to blockchain", size);

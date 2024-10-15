@@ -15,5 +15,8 @@ sha3.workspace = true
 tracing.workspace = true
 bytes.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lib]
 path = "./blockchain.rs"
