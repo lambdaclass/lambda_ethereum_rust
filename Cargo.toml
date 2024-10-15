@@ -1,18 +1,18 @@
 [workspace]
 members = [
-    "crates/blockchain",
-    "crates/common",
-    "crates/networking/p2p",
-    "crates/networking/rpc",
-    "crates/storage/store",
-    "crates/vm",
-    "crates/storage/trie",
-    "crates/common/rlp",
-    "cmd/ethereum_rust",
-    "cmd/ef_tests",
-    "crates/vm/levm",
-    "crates/vm/levm/bench/revm_comparison",
-    "cmd/ethereum_rust_l2",
+  "crates/blockchain",
+  "crates/common",
+  "crates/networking/p2p",
+  "crates/networking/rpc",
+  "crates/storage/store",
+  "crates/vm",
+  "crates/storage/trie",
+  "crates/common/rlp",
+  "cmd/ethereum_rust",
+  "cmd/ef_tests",
+  "crates/vm/levm",
+  "crates/vm/levm/bench/revm_comparison",
+  "cmd/ethereum_rust_l2",
 ]
 resolver = "2"
 default-members = ["cmd/ethereum_rust", "cmd/ethereum_rust_l2"]
@@ -33,9 +33,9 @@ ethereum_rust-rlp = { path = "./crates/common/rlp" }
 ethereum_rust-l2 = { path = "./crates/l2" }
 ethereum_rust-levm = { path = "./crates/vm/levm" }
 
-
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = "0.3.0"
+
 
 ethereum-types = { version = "0.14.1", features = ["serialize"] }
 serde = { version = "1.0.203", features = ["derive"] }

@@ -1,7 +1,25 @@
 [package]
-name = "fibonacci-lib"
+name = "prover-lib"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-sol-types = "0.7.7"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+
+# TODO We need the patch_000_mdbx branch, check how to reference the repo directly (merge the branch?).
+# ethereum_rust
+ethereum_rust-core = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-core", default-features = false, rev = "abc2676" }
+ethereum_rust-rlp = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-rlp", default-features = false, rev = "abc2676" }
+
+# revm
+revm = { version = "14.0.3", features = [
+  "std",
+  "serde",
+  "kzg-rs",
+], default-features = false }
+
+# reth
+# This should be a custom error
+reth-storage-errors = { git = "https://github.com/paradigmxyz/reth", default-features = false, features = [
+  "std",
+] }

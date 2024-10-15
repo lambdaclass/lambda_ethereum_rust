@@ -37,10 +37,13 @@ crates/levm_mlir/*.tar.gz
 # Ethereum Rust L2 stuff
 volumes
 jwt.hex
+**/elf/
+
+# .env files
+.env
+.envrc
 
 # Used by the make test target
 /tmp
 
 tests_v3.0.0.tar.gz
-
-.env

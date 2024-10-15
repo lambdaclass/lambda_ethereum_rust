@@ -1,16 +1,22 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use std::{
-    io::{BufReader, BufWriter},
-    net::TcpStream,
+    any::Any,
+    io::{BufReader, BufWriter, Read},
+    net::{IpAddr, TcpStream},
     time::Duration,
 };
 
 use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
+
+use prover_lib::inputs::{ProverInput, ProverInputNoExecution};
 
 use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
 
-use super::prover::Prover;
+use super::zk_prover::{Prover, ProverMode};
 
 pub async fn start_proof_data_client() {
     let config = ProverConfig::from_env().unwrap();
@@ -33,9 +39,9 @@ impl ProofDataClient {
         let prover = Prover::new_from_config(config);
 
         loop {
-            match self.request_new_data() {
-                Ok(Some(id)) => {
-                    match prover.prove(id) {
+            match self.request_data(prover.mode) {
+                Ok((Some(id), prover_input)) => {
+                    match prover.prove_execution(&prover_input) {
                         Ok(proof) => {
                             if let Err(e) = self.submit_proof(id, proof) {
                                 // TODO: Retry
@@ -45,20 +51,25 @@ impl ProofDataClient {
                         Err(e) => error!(e),
                     };
                 }
-                Ok(None) => sleep(Duration::from_secs(10)).await,
-                Err(e) => warn!("Failed to request new data: {e}"),
+                Ok((None, _)) => sleep(Duration::from_secs(10)).await,
+                Err(e) => {
+                    warn!("Failed to request new data: {e}");
+                    sleep(Duration::from_secs(10)).await;
+                }
             }
+            info!("The Prover has finished the last round.");
+            sleep(Duration::from_secs(30)).await;
         }
     }
 
-    fn request_new_data(&self) -> Result<Option<u64>, String> {
+    fn request_data(&self, mode: ProverMode) -> Result<(Option<u64>, ProverInput), String> {
         let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         debug!("Connection established!");
 
-        let request = ProofData::Request {};
+        let request = ProofData::Request { mode };
         serde_json::ser::to_writer(buf_writer, &request).map_err(|e| e.to_string())?;
         stream
             .shutdown(std::net::Shutdown::Write)
@@ -69,9 +80,15 @@ impl ProofDataClient {
             .map_err(|e| format!("Invalid response format: {e}"))?;
 
         match response {
-            ProofData::Response { id } => {
-                debug!("Received response: {id:?}");
-                Ok(id)
+            ProofData::Response {
+                id: Some(id),
+                prover_inputs_execution: Some(prover_inputs),
+                ..
+            } => {
+                debug!("Received response ID: {id:?}");
+                debug!("Received response block: {:?}", prover_inputs.block);
+
+                Ok((Some(id), prover_inputs))
             }
             _ => Err(format!("Unexpected response {response:?}")),
         }

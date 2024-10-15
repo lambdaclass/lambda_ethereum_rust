@@ -147,7 +147,7 @@ pub enum RpcNamespace {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RpcRequestId {
-    Number(i32),
+    Number(i64),
     String(String),
 }
 
