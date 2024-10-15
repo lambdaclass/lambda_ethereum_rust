@@ -1,7 +1,5 @@
 use crate::{
-    block::BlockEnv,
     operations::Operation,
-    transaction::{TransactTo, TxEnv},
     vm::{Account, Db, VM},
 };
 use bytes::Bytes;
@@ -25,34 +23,6 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
 }
 
 pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256) -> VM {
-    let tx_env = TxEnv {
-        msg_sender: address,
-        chain_id: Some(1),
-        transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
-        gas_limit: u64::MAX,
-        gas_price: Default::default(),
-        value: Default::default(),
-        data: Default::default(),
-        nonce: Default::default(),
-        access_list: Default::default(),
-        max_priority_fee_per_gas: Default::default(),
-        blob_hashes: Default::default(),
-        max_fee_per_blob_gas: Default::default(),
-        max_fee_per_gas: Default::default(),
-    };
-
-    let block_env = BlockEnv {
-        number: Default::default(),
-        coinbase: Default::default(),
-        timestamp: Default::default(),
-        base_fee_per_gas: Default::default(),
-        gas_limit: Default::default(),
-        chain_id: Default::default(),
-        prev_randao: Default::default(),
-        excess_blob_gas: Default::default(),
-        blob_gas_used: Default::default(),
-    };
-
     let accounts = [
         (
             Address::from_low_u64_be(42),
@@ -85,5 +55,19 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
 
     // add the account passed by parameter
 
-    VM::new(tx_env, block_env, state)
+    VM::new(
+        Address::from_low_u64_be(42),
+        address,
+        Default::default(),
+        Default::default(),
+        U256::MAX,
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        U256::one(),
+        Default::default(),
+        Default::default(),
+        state,
+    )
 }

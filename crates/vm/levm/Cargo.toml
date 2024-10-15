@@ -12,7 +12,7 @@ serde = { version = "1.0.203", features = ["derive", "rc"] }
 serde_json = { version = "1.0.117" }
 walkdir = "2.5.0"
 ethereum_rust-rlp.workspace = true
-ethers = "2.0.14"
+keccak-hash = "0.10.0"
 
 [dev-dependencies]
 hex = "0.4.3"

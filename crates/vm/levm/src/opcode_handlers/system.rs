@@ -50,21 +50,21 @@ impl VM {
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
         } else {
-            0
+            U256::zero()
         };
         let account = self.db.get_account(&code_address)?;
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
         } else {
-            0
+            U256::zero()
         };
 
-        let gas_cost = memory_expansion_cost as u64
+        let gas_cost = memory_expansion_cost
             + address_access_cost
             + positive_value_cost
             + value_to_empty_account_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -142,8 +142,8 @@ impl VM {
             .try_into()
             .unwrap_or(usize::MAX);
 
-        let gas_cost = current_call_frame.memory.expansion_cost(offset + size)? as u64;
-        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
+        let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 

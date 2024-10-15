@@ -13,7 +13,7 @@ impl VM {
         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
 
         // Check for gas consumption
-        if self.env.consumed_gas + gas_cost::DUPN > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::DUPN > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 

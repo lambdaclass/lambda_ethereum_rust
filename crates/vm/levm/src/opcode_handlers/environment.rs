@@ -11,7 +11,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::CALLDATALOAD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -32,7 +32,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLDATASIZE > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::CALLDATASIZE > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -68,12 +68,12 @@ impl VM {
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
         let memory_expansion_cost = current_call_frame
             .memory
-            .expansion_cost(dest_offset + size)? as u64;
+            .expansion_cost(dest_offset + size)?;
         let gas_cost = gas_cost::CALLDATACOPY_STATIC
-            + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
+            + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -96,7 +96,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::RETURNDATASIZE > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::RETURNDATASIZE > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -132,12 +132,12 @@ impl VM {
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
         let memory_expansion_cost = current_call_frame
             .memory
-            .expansion_cost(dest_offset + size)? as u64;
+            .expansion_cost(dest_offset + size)?;
         let gas_cost = gas_cost::RETURNDATACOPY_STATIC
-            + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
+            + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 

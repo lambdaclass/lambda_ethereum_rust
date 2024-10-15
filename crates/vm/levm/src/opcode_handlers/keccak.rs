@@ -24,9 +24,9 @@ impl VM {
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;
         let gas_cost = gas_cost::KECCAK25_STATIC
-            + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size as u64
-            + memory_expansion_cost as u64;
-        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
+            + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size
+            + memory_expansion_cost;
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 

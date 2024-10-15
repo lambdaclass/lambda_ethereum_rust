@@ -5,7 +5,7 @@ use super::*;
 impl VM {
     // ADD operation
     pub fn op_add(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ADD > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::ADD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let augend = current_call_frame.stack.pop()?;
@@ -19,7 +19,7 @@ impl VM {
 
     // SUB operation
     pub fn op_sub(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SUB > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::SUB > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let minuend = current_call_frame.stack.pop()?;
@@ -33,7 +33,7 @@ impl VM {
 
     // MUL operation
     pub fn op_mul(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::MUL > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::MUL > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let multiplicand = current_call_frame.stack.pop()?;
@@ -47,7 +47,7 @@ impl VM {
 
     // DIV operation
     pub fn op_div(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::DIV > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::DIV > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let dividend = current_call_frame.stack.pop()?;
@@ -68,7 +68,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SDIV > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::SDIV > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let dividend = current_call_frame.stack.pop()?;
@@ -106,7 +106,7 @@ impl VM {
 
     // MOD operation
     pub fn op_mod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::MOD > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::MOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let dividend = current_call_frame.stack.pop()?;
@@ -127,7 +127,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SMOD > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::SMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -158,7 +158,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ADDMOD > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::ADDMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let augend = current_call_frame.stack.pop()?;
@@ -185,7 +185,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::MULMOD > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::MULMOD > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let multiplicand = U512::from(current_call_frame.stack.pop()?);
@@ -223,7 +223,7 @@ impl VM {
 
         let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
         let gas_cost = gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
-        if self.env.consumed_gas + gas_cost > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -239,7 +239,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.tx_env.gas_limit {
+        if self.env.consumed_gas + gas_cost::SIGNEXTEND > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
         let byte_size = current_call_frame.stack.pop()?;

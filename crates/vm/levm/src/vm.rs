@@ -1,26 +1,19 @@
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-};
-
-use ethers::utils::keccak256;
-
 use crate::{
-    block::BlockEnv,
     call_frame::CallFrame,
     constants::*,
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    transaction::{TransactTo, TxEnv},
-    vm_result::{
-        AccountInfo, AccountStatus, ExecutionResult, ExitStatusCode, OpcodeSuccess, Output,
-        ResultAndState, ResultReason, StateAccount, SuccessReason, VMError,
-    },
+    vm_result::{OpcodeSuccess, ResultReason, VMError},
 };
-extern crate ethereum_rust_rlp;
+use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
+use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Account {
@@ -61,8 +54,7 @@ impl Account {
     }
 
     pub fn bytecode_hash(&self) -> H256 {
-        let hash = keccak256(self.bytecode.as_ref());
-        H256::from(hash)
+        keccak(self.bytecode.as_ref())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -141,47 +133,6 @@ impl Db {
         }
     }
 
-    pub fn into_state(&self) -> HashMap<Address, StateAccount> {
-        self.accounts
-            .iter()
-            .map(|(address, acc)| {
-                let code_hash = if acc.has_code() {
-                    acc.bytecode_hash()
-                } else {
-                    H256::from_str(EMPTY_CODE_HASH_STR).unwrap()
-                };
-
-                let storage: HashMap<U256, StorageSlot> = acc
-                    .storage
-                    .iter()
-                    .map(|(&key, slot)| {
-                        (
-                            key,
-                            StorageSlot {
-                                original_value: slot.original_value,
-                                current_value: slot.current_value,
-                                is_cold: false,
-                            },
-                        )
-                    })
-                    .collect();
-                (
-                    *address,
-                    StateAccount {
-                        info: AccountInfo {
-                            balance: acc.balance,
-                            nonce: acc.nonce,
-                            code_hash,
-                            code: acc.bytecode.clone(),
-                        },
-                        storage,
-                        status: AccountStatus::Loaded,
-                    },
-                )
-            })
-            .collect()
-    }
-
     /// Returns the account associated with the given address.
     /// If the account does not exist in the Db, it creates a new one with the given address.
     pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
@@ -211,11 +162,16 @@ pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
     pub origin: Address,
-    pub consumed_gas: u64,
-    refunded_gas: u64,
-    /// The block header of the present block.
-    pub block: BlockEnv,
-    pub tx_env: TxEnv,
+    pub consumed_gas: U256,
+    refunded_gas: U256,
+    pub gas_limit: U256,
+    pub block_number: U256,
+    pub coinbase: Address,
+    pub timestamp: U256,
+    pub prev_randao: Option<H256>,
+    pub chain_id: U256,
+    pub base_fee_per_gas: U256,
+    pub gas_price: Option<U256>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -242,296 +198,196 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-    pub fn new(tx_env: TxEnv, block_env: BlockEnv, mut db: Db) -> Self {
-        let bytecode = match tx_env.transact_to {
-            TransactTo::Call(addr) => db.get_account_bytecode(&addr),
-            TransactTo::Create => {
-                todo!()
-            }
-        };
+    // TODO: Refactor this.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        to: Address,
+        msg_sender: Address,
+        value: U256,
+        calldata: Bytes,
+        gas_limit: U256,
+        block_number: U256,
+        coinbase: Address,
+        timestamp: U256,
+        prev_randao: Option<H256>,
+        chain_id: U256,
+        base_fee_per_gas: U256,
+        gas_price: Option<U256>,
+        mut db: Db,
+    ) -> Self {
+        // TODO: This handles only CALL transactions.
+        let bytecode = db.get_account_bytecode(&to);
 
-        let to = match tx_env.transact_to {
-            TransactTo::Call(addr) => addr,
-            TransactTo::Create => tx_env.msg_sender,
-        };
+        // TODO: This handles only CALL transactions.
+        // TODO: Remove this allow when CREATE is implemented.
+        #[allow(clippy::redundant_locals)]
+        let to = to;
 
-        let code_addr = match tx_env.transact_to {
-            TransactTo::Call(addr) => addr,
-            TransactTo::Create => todo!(),
-        };
+        // TODO: In CALL this is the `to`, in CREATE it is not.
+        let code_addr = to;
 
         // TODO: this is mostly placeholder
         let initial_call_frame = CallFrame::new(
-            tx_env.msg_sender,
+            msg_sender,
             to,
             code_addr,
             None,
             bytecode,
-            tx_env.value,
-            tx_env.data.clone(),
+            value,
+            calldata.clone(),
             false,
             U256::zero(),
             0,
         );
 
         let env = Environment {
-            block: block_env,
-            consumed_gas: TX_BASE_COST,
-            origin: tx_env.msg_sender,
-            refunded_gas: 0,
-            tx_env,
+            consumed_gas: TX_BASE_COST.into(),
+            origin: msg_sender,
+            refunded_gas: U256::zero(),
+            gas_limit,
+            block_number,
+            coinbase,
+            timestamp,
+            prev_randao,
+            chain_id,
+            base_fee_per_gas,
+            gas_price,
         };
-        let mut accrued_substate = Substate::default();
-
-        Self::add_coinbase_to_db(&env.block, &mut db, &mut accrued_substate);
 
         Self {
             call_frames: vec![initial_call_frame],
             db,
             env,
-            accrued_substate,
+            accrued_substate: Substate::default(),
         }
     }
 
-    fn add_coinbase_to_db(block: &BlockEnv, db: &mut Db, accrued_substate: &mut Substate) {
-        let coinbase = block.coinbase;
-        let account = Account::new(coinbase, U256::zero(), Bytes::new(), 0, Default::default());
-        db.add_account(coinbase, account);
-        accrued_substate.warm_addresses.insert(coinbase);
-    }
-
-    pub fn write_success_result(
-        current_call_frame: CallFrame,
-        reason: ResultReason,
-        gas_used: u64,
-        gas_refunded: u64,
-    ) -> ExecutionResult {
-        match reason {
-            ResultReason::Stop => ExecutionResult::Success {
-                reason: SuccessReason::Stop,
-                logs: current_call_frame.logs.clone(),
-                return_data: current_call_frame.returndata.clone(),
-                gas_used,
-                output: Output::Call(current_call_frame.returndata.clone()),
-                gas_refunded,
-            },
-            ResultReason::Return => ExecutionResult::Success {
-                reason: SuccessReason::Return,
-                logs: current_call_frame.logs.clone(),
-                return_data: current_call_frame.returndata.clone(),
-                gas_used,
-                output: Output::Call(current_call_frame.returndata.clone()),
-                gas_refunded,
-            },
-            ResultReason::Revert => ExecutionResult::Revert {
-                reason: VMError::FatalError,
-                gas_used,
-                output: current_call_frame.returndata.clone(),
-            },
-        }
-    }
-
-    pub fn execute(&mut self) -> ExecutionResult {
-        let mut current_call_frame = self
-            .call_frames
-            .pop()
-            .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
+    pub fn execute(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        // let mut current_call_frame = self
+        //     .call_frames
+        //     .pop()
+        //     .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
-                Opcode::ADD => self.op_add(&mut current_call_frame),
-                Opcode::MUL => self.op_mul(&mut current_call_frame),
-                Opcode::SUB => self.op_sub(&mut current_call_frame),
-                Opcode::DIV => self.op_div(&mut current_call_frame),
-                Opcode::SDIV => self.op_sdiv(&mut current_call_frame),
-                Opcode::MOD => self.op_mod(&mut current_call_frame),
-                Opcode::SMOD => self.op_smod(&mut current_call_frame),
-                Opcode::ADDMOD => self.op_addmod(&mut current_call_frame),
-                Opcode::MULMOD => self.op_mulmod(&mut current_call_frame),
-                Opcode::EXP => self.op_exp(&mut current_call_frame),
-                Opcode::SIGNEXTEND => self.op_signextend(&mut current_call_frame),
-                Opcode::LT => self.op_lt(&mut current_call_frame),
-                Opcode::GT => self.op_gt(&mut current_call_frame),
-                Opcode::SLT => self.op_slt(&mut current_call_frame),
-                Opcode::SGT => self.op_sgt(&mut current_call_frame),
-                Opcode::EQ => self.op_eq(&mut current_call_frame),
-                Opcode::ISZERO => self.op_iszero(&mut current_call_frame),
-                Opcode::KECCAK256 => self.op_keccak256(&mut current_call_frame),
-                Opcode::CALLDATALOAD => self.op_calldataload(&mut current_call_frame),
-                Opcode::CALLDATASIZE => self.op_calldatasize(&mut current_call_frame),
-                Opcode::CALLDATACOPY => self.op_calldatacopy(&mut current_call_frame),
-                Opcode::RETURNDATASIZE => self.op_returndatasize(&mut current_call_frame),
-                Opcode::RETURNDATACOPY => self.op_returndatacopy(&mut current_call_frame),
-                Opcode::JUMP => self.op_jump(&mut current_call_frame),
-                Opcode::JUMPI => self.op_jumpi(&mut current_call_frame),
+                Opcode::ADD => self.op_add(current_call_frame),
+                Opcode::MUL => self.op_mul(current_call_frame),
+                Opcode::SUB => self.op_sub(current_call_frame),
+                Opcode::DIV => self.op_div(current_call_frame),
+                Opcode::SDIV => self.op_sdiv(current_call_frame),
+                Opcode::MOD => self.op_mod(current_call_frame),
+                Opcode::SMOD => self.op_smod(current_call_frame),
+                Opcode::ADDMOD => self.op_addmod(current_call_frame),
+                Opcode::MULMOD => self.op_mulmod(current_call_frame),
+                Opcode::EXP => self.op_exp(current_call_frame),
+                Opcode::SIGNEXTEND => self.op_signextend(current_call_frame),
+                Opcode::LT => self.op_lt(current_call_frame),
+                Opcode::GT => self.op_gt(current_call_frame),
+                Opcode::SLT => self.op_slt(current_call_frame),
+                Opcode::SGT => self.op_sgt(current_call_frame),
+                Opcode::EQ => self.op_eq(current_call_frame),
+                Opcode::ISZERO => self.op_iszero(current_call_frame),
+                Opcode::KECCAK256 => self.op_keccak256(current_call_frame),
+                Opcode::CALLDATALOAD => self.op_calldataload(current_call_frame),
+                Opcode::CALLDATASIZE => self.op_calldatasize(current_call_frame),
+                Opcode::CALLDATACOPY => self.op_calldatacopy(current_call_frame),
+                Opcode::RETURNDATASIZE => self.op_returndatasize(current_call_frame),
+                Opcode::RETURNDATACOPY => self.op_returndatacopy(current_call_frame),
+                Opcode::JUMP => self.op_jump(current_call_frame),
+                Opcode::JUMPI => self.op_jumpi(current_call_frame),
                 Opcode::JUMPDEST => self.op_jumpdest(),
-                Opcode::PC => self.op_pc(&mut current_call_frame),
-                Opcode::BLOCKHASH => self.op_blockhash(&mut current_call_frame),
-                Opcode::COINBASE => self.op_coinbase(&mut current_call_frame),
-                Opcode::TIMESTAMP => self.op_timestamp(&mut current_call_frame),
-                Opcode::NUMBER => self.op_number(&mut current_call_frame),
-                Opcode::PREVRANDAO => self.op_prevrandao(&mut current_call_frame),
-                Opcode::GASLIMIT => self.op_gaslimit(&mut current_call_frame),
-                Opcode::CHAINID => self.op_chainid(&mut current_call_frame),
-                Opcode::BASEFEE => self.op_basefee(&mut current_call_frame),
-                Opcode::BLOBHASH => self.op_blobhash(&mut current_call_frame),
-                Opcode::BLOBBASEFEE => self.op_blobbasefee(&mut current_call_frame),
-                Opcode::PUSH0 => self.op_push0(&mut current_call_frame),
+                Opcode::PC => self.op_pc(current_call_frame),
+                Opcode::BLOCKHASH => self.op_blockhash(current_call_frame),
+                Opcode::COINBASE => self.op_coinbase(current_call_frame),
+                Opcode::TIMESTAMP => self.op_timestamp(current_call_frame),
+                Opcode::NUMBER => self.op_number(current_call_frame),
+                Opcode::PREVRANDAO => self.op_prevrandao(current_call_frame),
+                Opcode::GASLIMIT => self.op_gaslimit(current_call_frame),
+                Opcode::CHAINID => self.op_chainid(current_call_frame),
+                Opcode::BASEFEE => self.op_basefee(current_call_frame),
+                Opcode::BLOBHASH => self.op_blobhash(current_call_frame),
+                Opcode::BLOBBASEFEE => self.op_blobbasefee(current_call_frame),
+                Opcode::PUSH0 => self.op_push0(current_call_frame),
                 // PUSHn
                 op if (Opcode::PUSH1..=Opcode::PUSH32).contains(&op) => {
-                    self.op_push(&mut current_call_frame, op)
+                    self.op_push(current_call_frame, op)
                 }
-                Opcode::AND => self.op_and(&mut current_call_frame),
-                Opcode::OR => self.op_or(&mut current_call_frame),
-                Opcode::XOR => self.op_xor(&mut current_call_frame),
-                Opcode::NOT => self.op_not(&mut current_call_frame),
-                Opcode::BYTE => self.op_byte(&mut current_call_frame),
-                Opcode::SHL => self.op_shl(&mut current_call_frame),
-                Opcode::SHR => self.op_shr(&mut current_call_frame),
-                Opcode::SAR => self.op_sar(&mut current_call_frame),
+                Opcode::AND => self.op_and(current_call_frame),
+                Opcode::OR => self.op_or(current_call_frame),
+                Opcode::XOR => self.op_xor(current_call_frame),
+                Opcode::NOT => self.op_not(current_call_frame),
+                Opcode::BYTE => self.op_byte(current_call_frame),
+                Opcode::SHL => self.op_shl(current_call_frame),
+                Opcode::SHR => self.op_shr(current_call_frame),
+                Opcode::SAR => self.op_sar(current_call_frame),
                 // DUPn
                 op if (Opcode::DUP1..=Opcode::DUP16).contains(&op) => {
-                    self.op_dup(&mut current_call_frame, op)
+                    self.op_dup(current_call_frame, op)
                 }
                 // SWAPn
                 op if (Opcode::SWAP1..=Opcode::SWAP16).contains(&op) => {
-                    self.op_swap(&mut current_call_frame, op)
+                    self.op_swap(current_call_frame, op)
                 }
-                Opcode::POP => self.op_pop(&mut current_call_frame),
+                Opcode::POP => self.op_pop(current_call_frame),
                 op if (Opcode::LOG0..=Opcode::LOG4).contains(&op) => {
-                    self.op_log(&mut current_call_frame, op)
+                    self.op_log(current_call_frame, op)
                 }
-                Opcode::MLOAD => self.op_mload(&mut current_call_frame),
-                Opcode::MSTORE => self.op_mstore(&mut current_call_frame),
-                Opcode::MSTORE8 => self.op_mstore8(&mut current_call_frame),
-                Opcode::SLOAD => self.op_sload(&mut current_call_frame),
-                Opcode::SSTORE => self.op_sstore(&mut current_call_frame),
-                Opcode::MSIZE => self.op_msize(&mut current_call_frame),
-                Opcode::GAS => self.op_gas(&mut current_call_frame),
-                Opcode::MCOPY => self.op_mcopy(&mut current_call_frame),
-                Opcode::CALL => self.op_call(&mut current_call_frame),
-                Opcode::CALLCODE => self.op_callcode(&mut current_call_frame),
-                Opcode::RETURN => self.op_return(&mut current_call_frame),
-                Opcode::DELEGATECALL => self.op_delegatecall(&mut current_call_frame),
-                Opcode::STATICCALL => self.op_staticcall(&mut current_call_frame),
-                Opcode::CREATE => self.op_create(&mut current_call_frame),
-                Opcode::CREATE2 => self.op_create2(&mut current_call_frame),
-                Opcode::TLOAD => self.op_tload(&mut current_call_frame),
-                Opcode::TSTORE => self.op_tstore(&mut current_call_frame),
-                Opcode::SELFBALANCE => self.op_selfbalance(&mut current_call_frame),
-                Opcode::ADDRESS => self.op_address(&mut current_call_frame),
-                Opcode::ORIGIN => self.op_origin(&mut current_call_frame),
-                Opcode::BALANCE => self.op_balance(&mut current_call_frame),
-                Opcode::CALLER => self.op_caller(&mut current_call_frame),
-                Opcode::CALLVALUE => self.op_callvalue(&mut current_call_frame),
-                Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
-                Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
-                Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
-                Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
-                Opcode::EXTCODECOPY => self.op_extcodecopy(&mut current_call_frame),
-                Opcode::EXTCODEHASH => self.op_extcodehash(&mut current_call_frame),
+                Opcode::MLOAD => self.op_mload(current_call_frame),
+                Opcode::MSTORE => self.op_mstore(current_call_frame),
+                Opcode::MSTORE8 => self.op_mstore8(current_call_frame),
+                Opcode::SLOAD => self.op_sload(current_call_frame),
+                Opcode::SSTORE => self.op_sstore(current_call_frame),
+                Opcode::MSIZE => self.op_msize(current_call_frame),
+                Opcode::GAS => self.op_gas(current_call_frame),
+                Opcode::MCOPY => self.op_mcopy(current_call_frame),
+                Opcode::CALL => self.op_call(current_call_frame),
+                Opcode::CALLCODE => self.op_callcode(current_call_frame),
+                Opcode::RETURN => self.op_return(current_call_frame),
+                Opcode::DELEGATECALL => self.op_delegatecall(current_call_frame),
+                Opcode::STATICCALL => self.op_staticcall(current_call_frame),
+                Opcode::CREATE => self.op_create(current_call_frame),
+                Opcode::CREATE2 => self.op_create2(current_call_frame),
+                Opcode::TLOAD => self.op_tload(current_call_frame),
+                Opcode::TSTORE => self.op_tstore(current_call_frame),
+                Opcode::SELFBALANCE => self.op_selfbalance(current_call_frame),
+                Opcode::ADDRESS => self.op_address(current_call_frame),
+                Opcode::ORIGIN => self.op_origin(current_call_frame),
+                Opcode::BALANCE => self.op_balance(current_call_frame),
+                Opcode::CALLER => self.op_caller(current_call_frame),
+                Opcode::CALLVALUE => self.op_callvalue(current_call_frame),
+                Opcode::CODECOPY => self.op_codecopy(current_call_frame),
+                Opcode::CODESIZE => self.op_codesize(current_call_frame),
+                Opcode::GASPRICE => self.op_gasprice(current_call_frame),
+                Opcode::EXTCODESIZE => self.op_extcodesize(current_call_frame),
+                Opcode::EXTCODECOPY => self.op_extcodecopy(current_call_frame),
+                Opcode::EXTCODEHASH => self.op_extcodehash(current_call_frame),
                 _ => Err(VMError::OpcodeNotFound),
             };
 
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
-                Ok(OpcodeSuccess::Result(r)) => {
+                Ok(OpcodeSuccess::Result(_)) | Err(_) => {
                     self.call_frames.push(current_call_frame.clone());
-                    return Self::write_success_result(
-                        current_call_frame.clone(),
-                        r,
-                        self.env.consumed_gas,
-                        self.env.refunded_gas,
-                    );
-                }
-                Err(e) => {
-                    self.call_frames.push(current_call_frame.clone());
-                    return ExecutionResult::Halt {
-                        reason: e,
-                        gas_used: self.env.consumed_gas,
-                    };
+                    return op_result;
                 }
             }
         }
     }
 
-    pub fn get_result(&mut self, res: ExecutionResult) -> Result<ResultAndState, VMError> {
-        let gas_used = self.env.consumed_gas;
+    pub fn transact(&mut self) -> Result<OpcodeSuccess, VMError> {
+        // let account = self.db.accounts.get(&self.env.origin).unwrap();
 
-        // TODO: Probably here we need to add the access_list_cost to gas_used, but we need a refactor of most tests
-        let gas_refunded = self.env.refunded_gas.min(gas_used / GAS_REFUND_DENOMINATOR);
-
-        let exis_status_code = match res {
-            ExecutionResult::Success { reason, .. } => match reason {
-                SuccessReason::Stop => ExitStatusCode::Stop,
-                SuccessReason::Return => ExitStatusCode::Return,
-                SuccessReason::SelfDestruct => todo!(),
-                SuccessReason::EofReturnContract => todo!(),
-            },
-            ExecutionResult::Revert { .. } => ExitStatusCode::Revert,
-            ExecutionResult::Halt { .. } => ExitStatusCode::Error,
-        };
-
-        let current_call_frame = self.current_call_frame_mut();
-
-        let return_values = current_call_frame.returndata.clone();
-
-        let result = match exis_status_code {
-            ExitStatusCode::Return => ExecutionResult::Success {
-                reason: SuccessReason::Return,
-                gas_used,
-                gas_refunded,
-                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
-                logs: res.logs().to_vec(),
-                return_data: return_values.clone(),
-            },
-            ExitStatusCode::Stop => ExecutionResult::Success {
-                reason: SuccessReason::Stop,
-                gas_used,
-                gas_refunded,
-                output: Output::Call(return_values.clone()), // TODO: add case Output::Create
-                logs: res.logs().to_vec(),
-                return_data: return_values.clone(),
-            },
-            ExitStatusCode::Revert => ExecutionResult::Revert {
-                output: return_values,
-                gas_used,
-                reason: res.reason(),
-            },
-            ExitStatusCode::Error | ExitStatusCode::Default => ExecutionResult::Halt {
-                reason: res.reason(),
-                gas_used,
-            },
-        };
-
-        // TODO: Check if this is ok
-        let state = self.db.into_state();
-
-        Ok(ResultAndState { result, state })
-    }
-
-    pub fn transact(&mut self) -> Result<ResultAndState, VMError> {
-        let account = self.db.accounts.get(&self.env.tx_env.msg_sender).unwrap();
-
-        let initial_gas = match self
-            .env
-            .tx_env
-            .validate_transaction(account, &self.env.block)
-        {
-            Ok(gas) => gas,
-            Err(e) => {
-                return self.get_result(ExecutionResult::Halt {
-                    reason: e,
-                    gas_used: 0,
-                })
-            }
-        };
+        // TODO: Add transaction validation.
+        let initial_gas = Default::default();
 
         self.env.consumed_gas = initial_gas;
 
-        let res = self.execute();
-        self.get_result(res)
+        let mut current_call_frame = self.call_frames.pop().unwrap();
+        self.execute(&mut current_call_frame)
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -580,7 +436,7 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
-        let new_call_frame = CallFrame::new(
+        let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
             code_address,
@@ -596,50 +452,92 @@ impl VM {
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
 
-        self.call_frames.push(new_call_frame.clone());
-        let result = self.execute();
+        // self.call_frames.push(new_call_frame.clone());
+        let result = self.execute(&mut new_call_frame);
 
         match result {
-            ExecutionResult::Success {
-                logs, return_data, ..
-            } => {
-                current_call_frame.logs.extend(logs);
-                current_call_frame
-                    .memory
-                    .store_bytes(ret_offset, &return_data);
-                current_call_frame.returndata = return_data;
+            Ok(OpcodeSuccess::Result(reason)) => match reason {
+                ResultReason::Stop | ResultReason::Return => {
+                    let logs = new_call_frame.logs.clone();
+                    let return_data = new_call_frame.returndata.clone();
+
+                    current_call_frame.logs.extend(logs);
+                    current_call_frame
+                        .memory
+                        .store_bytes(ret_offset, &return_data);
+                    current_call_frame.returndata = return_data;
+                    current_call_frame
+                        .stack
+                        .push(U256::from(SUCCESS_FOR_CALL))?;
+                    Ok(OpcodeSuccess::Continue)
+                }
+                ResultReason::Revert => {
+                    let output = new_call_frame.returndata.clone();
+
+                    current_call_frame.memory.store_bytes(ret_offset, &output);
+                    current_call_frame.returndata = output;
+                    current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                    current_call_frame.gas -= U256::from(self.env.consumed_gas);
+                    self.env.refunded_gas += self.env.consumed_gas;
+                    Ok(OpcodeSuccess::Continue)
+                }
+            },
+            Ok(OpcodeSuccess::Continue) => Ok(OpcodeSuccess::Continue),
+            Err(error) => {
                 current_call_frame
                     .stack
-                    .push(U256::from(SUCCESS_FOR_CALL))?;
-                Ok(OpcodeSuccess::Continue)
-            }
-            ExecutionResult::Revert {
-                reason: _,
-                gas_used,
-                output,
-            } => {
-                current_call_frame.memory.store_bytes(ret_offset, &output);
-                current_call_frame.returndata = output;
-                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                current_call_frame.gas -= U256::from(gas_used);
-                self.env.refunded_gas += gas_used;
-                Ok(OpcodeSuccess::Continue)
-            }
-            ExecutionResult::Halt { reason, gas_used } => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(reason.clone() as u8))?;
-                if U256::from(gas_used) > current_call_frame.gas {
+                    .push(U256::from(error.clone() as u8))?;
+                let gas_used = U256::from(self.env.consumed_gas);
+                if gas_used > current_call_frame.gas {
                     current_call_frame.gas = U256::zero();
                 } else {
-                    current_call_frame.gas -= U256::from(gas_used);
+                    current_call_frame.gas -= gas_used;
                 }
-                Err(reason)
-            } // WARNING: I commented this because I don't know when this should be executed.
-              // Err(_) => {
-              //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-              // }
+                Err(error)
+            }
         }
+
+        // match result {
+        //     ExecutionResult::Success {
+        //         logs, return_data, ..
+        //     } => {
+        //         current_call_frame.logs.extend(logs);
+        //         current_call_frame
+        //             .memory
+        //             .store_bytes(ret_offset, &return_data);
+        //         current_call_frame.returndata = return_data;
+        //         current_call_frame
+        //             .stack
+        //             .push(U256::from(SUCCESS_FOR_CALL))?;
+        //         Ok(OpcodeSuccess::Continue)
+        //     }
+        //     ExecutionResult::Revert {
+        //         reason: _,
+        //         gas_used,
+        //         output,
+        //     } => {
+        //         current_call_frame.memory.store_bytes(ret_offset, &output);
+        //         current_call_frame.returndata = output;
+        //         current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+        //         current_call_frame.gas -= U256::from(gas_used);
+        //         self.env.refunded_gas += gas_used;
+        //         Ok(OpcodeSuccess::Continue)
+        //     }
+        //     ExecutionResult::Halt { reason, gas_used } => {
+        //         current_call_frame
+        //             .stack
+        //             .push(U256::from(reason.clone() as u8))?;
+        //         if U256::from(gas_used) > current_call_frame.gas {
+        //             current_call_frame.gas = U256::zero();
+        //         } else {
+        //             current_call_frame.gas -= U256::from(gas_used);
+        //         }
+        //         Err(reason)
+        //     } // WARNING: I commented this because I don't know when this should be executed.
+        //       // Err(_) => {
+        //       //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
+        //       // }
+        // }
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow

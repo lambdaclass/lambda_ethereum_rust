@@ -65,9 +65,9 @@ impl Memory {
         self.data[dest_offset..dest_offset + size].copy_from_slice(&temp);
     }
 
-    pub fn expansion_cost(&self, memory_byte_size: usize) -> Result<usize, VMError> {
+    pub fn expansion_cost(&self, memory_byte_size: usize) -> Result<U256, VMError> {
         if memory_byte_size <= self.data.len() {
-            return Ok(0);
+            return Ok(U256::zero());
         }
 
         let new_memory_size_word = memory_byte_size
@@ -94,6 +94,6 @@ impl Memory {
             .and_then(|cost| cost.checked_add(last_memory_size_word.checked_mul(3)?))
             .ok_or(VMError::OverflowInArithmeticOp)?;
 
-        Ok(new_memory_cost - last_memory_cost)
+        Ok((new_memory_cost - last_memory_cost).into())
     }
 }

@@ -1,7 +1,4 @@
-use ethereum_rust_levm::{
-    call_frame::CallFrame, primitives::Bytes, utils::new_vm_with_bytecode,
-    vm_result::ExecutionResult,
-};
+use ethereum_rust_levm::{call_frame::CallFrame, primitives::Bytes, utils::new_vm_with_bytecode};
 use revm::{
     db::BenchmarkDB,
     primitives::{address, Bytecode, TransactTo},
