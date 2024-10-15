@@ -175,7 +175,7 @@ mod tests {
             for j in 0..7 {
                 let legacy_tx = Transaction::LegacyTransaction(LegacyTransaction {
                     nonce: j,
-                    gas_price: (j + 1) * (10_u64.pow(9)),
+                    gas_price: 0xFFF,
                     gas: 21000,
                     to: TxKind::Create,
                     value: 100.into(),
