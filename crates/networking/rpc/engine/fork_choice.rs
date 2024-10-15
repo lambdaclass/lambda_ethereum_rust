@@ -6,7 +6,7 @@ use ethereum_rust_blockchain::{
 };
 use ethereum_rust_storage::Store;
 use serde_json::Value;
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::{
     types::{
@@ -38,6 +38,7 @@ impl From<ForkChoiceUpdatedV3> for RpcRequest {
 }
 
 impl RpcHandler for ForkChoiceUpdatedV3 {
+    // TODO(#853): Allow fork choice to be executed even if fork choice updated v3 was not correctly parsed.
     fn parse(params: &Option<Vec<Value>>) -> Result<Self, RpcErr> {
         let params = params
             .as_ref()
@@ -53,6 +54,12 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
     }
 
     fn handle(&self, storage: Store) -> Result<Value, RpcErr> {
+        info!(
+            "New fork choice request with head: {}, safe: {}, finalized: {}.",
+            self.fork_choice_state.head_block_hash,
+            self.fork_choice_state.safe_block_hash,
+            self.fork_choice_state.finalized_block_hash
+        );
         let fork_choice_error_to_response = |error| {
             let response = match error {
                 InvalidForkChoice::NewHeadAlreadyCanonical => ForkChoiceResponse::from(
@@ -86,6 +93,7 @@ impl RpcHandler for ForkChoiceUpdatedV3 {
         ));
 
         if let Some(attributes) = &self.payload_attributes {
+            info!("Fork choice updated includes payload attributes. Creating a new payload.");
             let chain_config = storage.get_chain_config()?;
             if !chain_config.is_cancun_activated(attributes.timestamp) {
                 return Err(RpcErr::UnsuportedFork(
