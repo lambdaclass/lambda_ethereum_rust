@@ -60,7 +60,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
                 balance: U256::MAX,
                 bytecode,
                 storage: HashMap::new(),
-                nonce: 0,
+                nonce: U256::zero(),
             },
         ),
         (
@@ -70,7 +70,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
                 balance,
                 bytecode: Bytes::default(),
                 storage: HashMap::new(),
-                nonce: 0,
+                nonce: U256::zero(),
             },
         ),
     ];

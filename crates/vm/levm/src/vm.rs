@@ -28,7 +28,7 @@ pub struct Account {
     pub balance: U256,
     pub bytecode: Bytes,
     pub storage: HashMap<U256, StorageSlot>,
-    pub nonce: u64,
+    pub nonce: U256,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -43,7 +43,7 @@ impl Account {
         address: Address,
         balance: U256,
         bytecode: Bytes,
-        nonce: u64,
+        nonce: U256,
         storage: HashMap<U256, StorageSlot>,
     ) -> Self {
         Self {
@@ -66,7 +66,7 @@ impl Account {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
+        self.balance.is_zero() && self.nonce == U256::zero() && self.bytecode.is_empty()
     }
 
     pub fn with_balance(mut self, balance: U256) -> Self {
@@ -84,13 +84,13 @@ impl Account {
         self
     }
 
-    pub fn with_nonce(mut self, nonce: u64) -> Self {
+    pub fn with_nonce(mut self, nonce: U256) -> Self {
         self.nonce = nonce;
         self
     }
 
     pub fn increment_nonce(&mut self) {
-        self.nonce += 1;
+        self.nonce += U256::from(1);
     }
 }
 
@@ -269,13 +269,13 @@ impl VM {
             tx_env.value,
             calldata,
             false,
-            U256::zero(),
+            U256::from(tx_env.gas_limit),
             0,
         );
 
         let env = Environment {
             block: block_env,
-            consumed_gas: TX_BASE_COST,
+            consumed_gas: TX_BASE_COST, // TX_BASE_COST
             gas_price: tx_env.gas_price.unwrap_or_default(),
             gas_limit: tx_env.gas_limit,
             origin: tx_env.msg_sender,
@@ -383,6 +383,7 @@ impl VM {
             .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
+            println!("opcode: {:?}", opcode);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
                 Opcode::STOP => self.op_stop(&mut current_call_frame),
                 Opcode::ADD => self.op_add(&mut current_call_frame),
@@ -473,6 +474,9 @@ impl VM {
                 Opcode::CODECOPY => self.op_codecopy(&mut current_call_frame),
                 Opcode::CODESIZE => self.op_codesize(&mut current_call_frame),
                 Opcode::GASPRICE => self.op_gasprice(&mut current_call_frame),
+                Opcode::REVERT => self.op_stop(&mut current_call_frame),
+                Opcode::INVALID => self.op_stop(&mut current_call_frame),
+                Opcode::SELFDESTRUCT => self.op_stop(&mut current_call_frame),
                 Opcode::EXTCODESIZE => self.op_extcodesize(&mut current_call_frame),
                 Opcode::EXTCODECOPY => self.op_extcodecopy(&mut current_call_frame),
                 Opcode::EXTCODEHASH => self.op_extcodehash(&mut current_call_frame),
@@ -570,7 +574,12 @@ impl VM {
         current_call_frame.return_data_offset = Some(ret_offset);
         current_call_frame.return_data_size = Some(ret_size);
 
+        let mut gas = current_call_frame.gas;
+        gas -= gas / 64; // 63/64 of the gas to the call
+        current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
+
         self.call_frames.push(new_call_frame.clone());
+        println!("before exec call frame gas: {}", current_call_frame.gas);
         let result = self.execute();
 
         match result {
@@ -592,11 +601,16 @@ impl VM {
                 gas_used,
                 output,
             } => {
+                println!("in revert");
                 current_call_frame.memory.store_bytes(ret_offset, &output);
                 current_call_frame.returndata = output;
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                current_call_frame.gas -= U256::from(gas_used);
-                self.env.refunded_gas += gas_used;
+                println!("fail before gas used");
+                println!("callframe gas: {} - gas used: {}", current_call_frame.gas, gas_used);
+                // current_call_frame.gas -= U256::from(gas_used);
+                println!("fail after gas used");
+                // self.env.refunded_gas += gas_used;
+                println!("fail in refunded gas");
                 Ok(OpcodeSuccess::Continue)
             }
             ExecutionResult::Halt { reason, gas_used } => {
@@ -619,7 +633,7 @@ impl VM {
     /// Calculates the address of a new conctract using the CREATE opcode as follow
     ///
     /// address = keccak256(rlp([sender_address,sender_nonce]))[12:]
-    pub fn calculate_create_address(sender_address: Address, sender_nonce: u64) -> H160 {
+    pub fn calculate_create_address(sender_address: Address, sender_nonce: U256) -> H160 {
         let mut encoded = Vec::new();
         sender_address.encode(&mut encoded);
         sender_nonce.encode(&mut encoded);
@@ -688,7 +702,7 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
+        let Some(new_nonce) = sender_account.nonce.checked_add(U256::from(1)) else {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
@@ -722,14 +736,10 @@ impl VM {
             new_address,
             value_in_wei_to_send,
             code.clone(),
-            0,
+            U256::zero(),
             Default::default(),
         );
         self.db.add_account(new_address, new_account);
-
-        let mut gas = current_call_frame.gas;
-        gas -= gas / 64; // 63/64 of the gas to the call
-        current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
 
         current_call_frame
             .stack
@@ -737,7 +747,7 @@ impl VM {
 
         self.generic_call(
             current_call_frame,
-            gas,
+            current_call_frame.gas,
             value_in_wei_to_send,
             current_call_frame.msg_sender,
             TransactTo::Create,

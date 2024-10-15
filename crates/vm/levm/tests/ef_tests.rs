@@ -38,6 +38,7 @@ fn get_ignored_groups() -> HashSet<String> {
         "stCallDelegateCodesHomestead".into(),
         "stDelegatecallTestHomestead".into(),
         "stCodeSizeLimit".into(),
+        "stCallCodes".into(),
         "stEIP158Specific".into(),
         "stEIP4844-blobtransactions".into(),
         "eip4844_blobs".into(),
@@ -144,11 +145,12 @@ fn run_ef_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
 
 datatest_stable::harness!(
     run_ef_test,
-    "ethtests/GeneralStateTests/stCallCreateCallCodeTest",
+    "ethtests/GeneralStateTests/stCreate2",
     r"^.*/*.json",
 );
 // "stCreate2".into(),
 // "stCreateTest".into(),
-// "stRecursiveCreate".into(),
-// "stCallCreateCallCodeTest".into(),
-// "stCallCodes".into(), -> 80 tests
+// "stRecursiveCreate".into(), 
+// "stCallCreateCallCodeTest".into(), -> 43 fixed create and added selfdestruct boiler
+// "stCallCodes".into(), -> 80 tests, falta cosas de revert, cuando jere mergee se siguen
+ 

@@ -3046,7 +3046,7 @@ fn logs_from_multiple_callers() {
         callee_address,
         U256::from(500000),
         callee_bytecode,
-        0,
+        U256::zero(),
         HashMap::new(),
     );
 
@@ -3388,7 +3388,7 @@ fn create_happy_path() {
     let value_to_transfer = 10;
     let offset = 19;
     let size = 13;
-    let sender_nonce = 0;
+    let sender_nonce = U256::zero();
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3417,11 +3417,11 @@ fn create_happy_path() {
     // check the created account is correct
     let new_account = vm.db.accounts.get(&word_to_address(returned_addr)).unwrap();
     assert_eq!(new_account.balance, U256::from(value_to_transfer));
-    assert_eq!(new_account.nonce, 1);
+    assert_eq!(new_account.nonce, U256::from(1));
 
     // Check that the sender account is updated
     let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
-    assert_eq!(sender_account.nonce, sender_nonce + 1);
+    assert_eq!(sender_account.nonce, sender_nonce + U256::from(1));
     assert_eq!(sender_account.balance, sender_balance - value_to_transfer);
 }
 
@@ -3430,7 +3430,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
     let value_to_transfer = 10;
     let offset = 19;
     let size = MAX_CODE_SIZE * 2 + 1;
-    let sender_nonce = 0;
+    let sender_nonce = U256::zero();
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3456,7 +3456,7 @@ fn cant_create_on_static_contexts() {
     let value_to_transfer = 10;
     let offset = 19;
     let size = 10;
-    let sender_nonce = 0;
+    let sender_nonce = U256::zero();
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3483,7 +3483,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
     let value_to_transfer = 100;
     let offset = 19;
     let size = 10;
-    let sender_nonce = 0;
+    let sender_nonce = U256::zero();
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3509,7 +3509,7 @@ fn cant_create_if_sender_nonce_would_overflow() {
     let value_to_transfer = 10;
     let offset = 19;
     let size = 10;
-    let sender_nonce = u64::MAX;
+    let sender_nonce = U256::MAX;
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3545,7 +3545,7 @@ fn cant_create_accounts_with_same_address() {
     let value_to_transfer = 10;
     let offset = 19;
     let size = 13;
-    let sender_nonce = 1;
+    let sender_nonce = U256::from(1);
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3583,7 +3583,7 @@ fn cant_create_accounts_with_same_address() {
     // check the created account is correct
     let new_account = vm.db.accounts.get(&word_to_address(returned_addr)).unwrap();
     assert_eq!(new_account.balance, U256::from(value_to_transfer));
-    assert_eq!(new_account.nonce, 1);
+    assert_eq!(new_account.nonce, U256::from(1));
 
     // Check that the sender account is updated
     let sender_account = vm.db.accounts.get_mut(&sender_addr).unwrap();
@@ -3610,7 +3610,7 @@ fn create2_happy_path() {
     let offset: u8 = 19;
     let size: u8 = 13;
     let salt: u8 = 4;
-    let sender_nonce = 0;
+    let sender_nonce = U256::zero();
     let sender_balance = U256::from(25);
     let sender_addr = Address::from_low_u64_be(40);
 
@@ -3649,11 +3649,11 @@ fn create2_happy_path() {
     // check the created account is correct
     let new_account = vm.db.accounts.get(&word_to_address(returned_addr)).unwrap();
     assert_eq!(new_account.balance, U256::from(value));
-    assert_eq!(new_account.nonce, 1);
+    assert_eq!(new_account.nonce, U256::from(1));
 
     // Check that the sender account is updated
     let sender_account = vm.db.accounts.get(&sender_addr).unwrap();
-    assert_eq!(sender_account.nonce, sender_nonce + 1);
+    assert_eq!(sender_account.nonce, sender_nonce + U256::from(1));
     assert_eq!(sender_account.balance, sender_balance - value);
 }
 

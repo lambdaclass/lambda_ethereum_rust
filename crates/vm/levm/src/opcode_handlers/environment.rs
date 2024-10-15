@@ -6,6 +6,19 @@ use super::*;
 // Opcodes: ADDRESS, BALANCE, ORIGIN, CALLER, CALLVALUE, CALLDATALOAD, CALLDATASIZE, CALLDATACOPY, CODESIZE, CODECOPY, GASPRICE, EXTCODESIZE, EXTCODECOPY, RETURNDATASIZE, RETURNDATACOPY, EXTCODEHASH
 
 impl VM {
+    pub fn get_value_from_calldata(calldata: &Bytes, offset: usize) -> U256 {
+        let mut buffer = [0u8; 32];
+    
+        let available_len = calldata.len().saturating_sub(offset);
+        let copy_len = available_len.min(32); 
+    
+        if copy_len > 0 {
+            buffer[..copy_len].copy_from_slice(&calldata[offset..offset + copy_len]);
+        }
+    
+        U256::from_big_endian(&buffer)
+    }
+
     // CALLDATALOAD operation
     pub fn op_calldataload(
         &mut self,
@@ -20,7 +33,7 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let value = U256::from_big_endian(&current_call_frame.calldata.slice(offset..offset + 32));
+        let value = Self::get_value_from_calldata(&current_call_frame.calldata, offset);
         current_call_frame.stack.push(value)?;
         self.env.consumed_gas += gas_cost::CALLDATALOAD;
 

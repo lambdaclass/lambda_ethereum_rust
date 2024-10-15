@@ -7,20 +7,6 @@ Models and deserialization functions extracted from REVM revme
 https://github.com/bluealloy/revm/blob/main/bins/revme
 */
 
-pub fn deserialize_str_as_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
-where
-    D: de::Deserializer<'de>,
-{
-    let string = String::deserialize(deserializer)?;
-
-    if let Some(stripped) = string.strip_prefix("0x") {
-        u64::from_str_radix(stripped, 16)
-    } else {
-        string.parse()
-    }
-    .map_err(serde::de::Error::custom)
-}
-
 pub fn deserialize_maybe_empty<'de, D>(deserializer: D) -> Result<Option<Address>, D::Error>
 where
     D: de::Deserializer<'de>,
@@ -57,8 +43,7 @@ pub struct TestUnit {
 pub struct AccountInfo {
     pub balance: U256,
     pub code: Bytes,
-    #[serde(deserialize_with = "deserialize_str_as_u64")]
-    pub nonce: u64,
+    pub nonce: U256,
     pub storage: HashMap<U256, U256>,
 }
 

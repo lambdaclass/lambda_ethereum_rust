@@ -471,7 +471,7 @@ where
 #[derive(Clone, Default, PartialEq, Eq, Debug, Deserialize)]
 pub struct AccountInfo {
     pub balance: U256,
-    pub nonce: u64,
+    pub nonce: U256,
     pub code_hash: H256,
     pub code: Bytes,
 }
