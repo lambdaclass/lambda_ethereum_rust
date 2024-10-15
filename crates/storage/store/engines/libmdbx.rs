@@ -468,6 +468,15 @@ impl StoreEngine for Store {
         };
         Ok(Some(Block { header, body }))
     }
+
+    fn unset_canonical_block(&self, number: BlockNumber) -> Result<(), StoreError> {
+        self.db
+            .begin_readwrite()
+            .map_err(StoreError::LibmdbxError)?
+            .delete::<CanonicalBlockHashes>(number, None)
+            .map(|_| ())
+            .map_err(StoreError::LibmdbxError)
+    }
 }
 
 impl Debug for Store {
