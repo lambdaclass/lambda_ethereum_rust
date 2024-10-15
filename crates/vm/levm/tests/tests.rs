@@ -3941,7 +3941,7 @@ fn address_op() {
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(address_that_has_the_code.as_bytes())
     );
-    assert_eq!(vm.env.consumed_gas, (TX_BASE_COST + gas_cost::ADDRESS).into());
+    assert_eq!(vm.env.consumed_gas, U256::from(TX_BASE_COST) + gas_cost::ADDRESS);
 }
 
 #[test]
@@ -3997,14 +3997,6 @@ fn codesize_op() {
 
     let operations = [Operation::Codesize, Operation::Stop];
 
-    let tx_env = TxEnv {
-        transact_to: TransactTo::Call(address_that_has_the_code),
-        gas_limit: u64::MAX,
-        ..Default::default()
-    };
-
-    let block_env = BlockEnv::default();
-
     let mut db = Db::default();
 
     db.add_account(
@@ -4012,15 +4004,16 @@ fn codesize_op() {
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let mut vm = VM::new(tx_env, block_env, db);
+    let mut vm = VM::new(address_that_has_the_code, Default::default(), Default::default(), Default::default(), U256::MAX, Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), db);
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame).unwrap();
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(2)
     );
-    assert_eq!(vm.env.consumed_gas, (TX_BASE_COST + gas_cost::CODESIZE).into());
+    assert_eq!(vm.env.consumed_gas, U256::from(TX_BASE_COST) + gas_cost::CODESIZE);
 }
 
 #[test]
@@ -4028,15 +4021,6 @@ fn gasprice_op() {
     let address_that_has_the_code = Address::from_low_u64_be(0x42);
     let operations = [Operation::Gasprice, Operation::Stop];
 
-    let tx_env = TxEnv {
-        transact_to: TransactTo::Call(address_that_has_the_code),
-        gas_price: Some(U256::from(0x9876)),
-        gas_limit: u64::MAX,
-        ..Default::default()
-    };
-
-    let block_env = BlockEnv::default();
-
     let mut db = Db::default();
 
     db.add_account(
@@ -4044,15 +4028,16 @@ fn gasprice_op() {
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let mut vm = VM::new(tx_env, block_env, db);
+    let mut vm = VM::new(address_that_has_the_code, Default::default(), Default::default(), Default::default(), U256::MAX, Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), Some(U256::from(0x9876)), db);
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
 
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(0x9876)
     );
-    assert_eq!(vm.env.consumed_gas, (TX_BASE_COST + gas_cost::GASPRICE).into());
+    assert_eq!(vm.env.consumed_gas, U256::from(TX_BASE_COST) + gas_cost::GASPRICE);
 }
 
 #[test]
@@ -4077,14 +4062,6 @@ fn codecopy_op() {
 
     let expected_memory = U256::from_big_endian(&expected_memory_bytes);
 
-    let tx_env = TxEnv {
-        transact_to: TransactTo::Call(address_that_has_the_code),
-        gas_limit: u64::MAX,
-        ..Default::default()
-    };
-
-    let block_env = BlockEnv::default();
-
     let mut db = Db::default();
 
     db.add_account(
@@ -4092,12 +4069,13 @@ fn codecopy_op() {
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    let mut vm = VM::new(tx_env, block_env, db);
+    let mut vm = VM::new(address_that_has_the_code, Default::default(), Default::default(), Default::default(), U256::MAX, Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), Default::default(), db);
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
 
     assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
-    assert_eq!(vm.env.consumed_gas, (TX_BASE_COST + 9 + 3 * gas_cost::PUSHN).into());
+    assert_eq!(vm.env.consumed_gas, (U256::from(TX_BASE_COST) + U256::from(9) + U256::from(3) * gas_cost::PUSHN).into());
 }
 
 #[test]
@@ -4115,9 +4093,10 @@ fn extcodesize_existing_account() {
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 23.into());
-    assert_eq!(vm.env.consumed_gas, 23603);
+    assert_eq!(vm.env.consumed_gas, 23603.into());
 }
 
 #[test]
@@ -4131,9 +4110,10 @@ fn extcodesize_non_existing_account() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
     assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), 0.into());
-    assert_eq!(vm.env.consumed_gas, 23603);
+    assert_eq!(vm.env.consumed_gas, 23603.into());
 }
 
 #[test]
@@ -4156,12 +4136,13 @@ fn extcodecopy_existing_account() {
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
     );
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
     assert_eq!(
         vm.current_call_frame_mut().memory.load_range(0, size),
         vec![0x60]
     );
-    assert_eq!(vm.env.consumed_gas, 23616);
+    assert_eq!(vm.env.consumed_gas, 23616.into());
 }
 
 #[test]
@@ -4180,12 +4161,13 @@ fn extcodecopy_non_existing_account() {
 
     let mut vm = new_vm_with_ops(&operations);
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
     assert_eq!(
         vm.current_call_frame_mut().memory.load_range(0, size),
         vec![0; size]
     );
-    assert_eq!(vm.env.consumed_gas, 23616);
+    assert_eq!(vm.env.consumed_gas, 23616.into());
 }
 
 #[test]
@@ -4203,12 +4185,13 @@ fn extcodehash_account_with_empty_code() {
         Account::default().with_bytecode(Bytes::new()),
     );
 
-    assert!(vm.execute().is_success());
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame);
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470".into()
     );
-    assert_eq!(vm.env.consumed_gas, 23603);
+    assert_eq!(vm.env.consumed_gas, 23603.into());
 }
 
 #[test]
