@@ -53,6 +53,7 @@ impl RpcHandler for GasPrice {
             latest_block_number.saturating_sub(BLOCK_RANGE_LOWER_BOUND_DEC);
         // These are the blocks we'll use to estimate the price.
         let block_range = block_range_lower_bound..=latest_block_number;
+        dbg!(&block_range);
         if block_range.is_empty() {
             error!(
                 "Calculated block range from block {} \
@@ -275,7 +276,7 @@ mod tests {
             txs.push(legacy_tx_for_test(1));
             txs.push(eip1559_tx_for_test(2));
             txs.push(legacy_tx_for_test(3));
-            txs.push(eip1559_tx_for_test(3));
+            txs.push(eip1559_tx_for_test(4));
             let block_body = BlockBody {
                 transactions: txs,
                 ommers: Default::default(),
@@ -293,5 +294,35 @@ mod tests {
         let response = gas_price.handle(store).unwrap();
         let parsed_result = parse_json_hex(&response).unwrap();
         assert_eq!(parsed_result, 2000000000);
+    }
+    #[test]
+    fn test_with_not_enough_blocks_or_transactions() {
+        let mut store = setup_store();
+        for i in 1..10 {
+            let mut txs = vec![];
+            txs.push(legacy_tx_for_test(1));
+            let block_body = BlockBody {
+                transactions: txs,
+                ommers: Default::default(),
+                withdrawals: Default::default(),
+            };
+            let block_header = test_header(i);
+            let block = Block {
+                body: block_body,
+                header: block_header.clone(),
+            };
+            store.add_block(block).unwrap();
+            store.set_canonical_block(i, block_header.compute_block_hash());
+        }
+        let gas_price = GasPrice {};
+        let response = gas_price.handle(store).unwrap();
+        let parsed_result = parse_json_hex(&response).unwrap();
+        assert_eq!(parsed_result, 1000000000);
+    }
+    #[test]
+    fn test_with_no_blocks_but_genesis() {
+        let mut store = setup_store();
+        let gas_price = GasPrice {};
+        assert!(gas_price.handle(store).is_err())
     }
 }
