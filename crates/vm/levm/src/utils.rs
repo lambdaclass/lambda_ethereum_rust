@@ -29,7 +29,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         msg_sender: address,
         chain_id: Some(1),
         transact_to: TransactTo::Call(Address::from_low_u64_be(42)),
-        gas_limit: Default::default(),
+        gas_limit: u64::MAX,
         gas_price: Default::default(),
         value: Default::default(),
         data: Default::default(),
