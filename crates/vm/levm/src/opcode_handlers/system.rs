@@ -112,6 +112,9 @@ impl VM {
 
         let msg_sender = current_call_frame.msg_sender;
         let transact_to = current_call_frame.transact_to.clone();
+        if transact_to.is_create() {
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+        }
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
@@ -177,6 +180,9 @@ impl VM {
         let value = current_call_frame.msg_value;
         let msg_sender = current_call_frame.msg_sender;
         let transact_to = current_call_frame.transact_to.clone();
+        if transact_to.is_create() {
+            return Ok(OpcodeSuccess::Result(ResultReason::Revert));
+        }
         let is_static = current_call_frame.is_static;
 
         self.generic_call(
