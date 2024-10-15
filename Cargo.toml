@@ -22,16 +22,13 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-ethereum_rust-blockchain = { path = "./crates/blockchain", default-features = false }
-ethereum_rust-core = { path = "./crates/common", default-features = false }
+ethereum_rust-blockchain = { path = "./crates/blockchain" }
+ethereum_rust-core = { path = "./crates/common" }
 ethereum_rust-net = { path = "./crates/networking/p2p" }
 ethereum_rust-rpc = { path = "./crates/networking/rpc" }
-ethereum_rust-storage = { path = "./crates/storage/store", default-features = false }
-ethereum_rust-vm = { path = "./crates/vm", features = [
-    "c-kzg",
-    "blst",
-], default-features = false }
-ethereum_rust-trie = { path = "./crates/storage/trie", default-features = false }
+ethereum_rust-storage = { path = "./crates/storage/store" }
+ethereum_rust-vm = { path = "./crates/vm", features = ["c-kzg", "blst"] }
+ethereum_rust-trie = { path = "./crates/storage/trie" }
 ethereum_rust-rlp = { path = "./crates/common/rlp" }
 ethereum_rust-l2 = { path = "./crates/l2" }
 ethereum_rust-levm = { path = "./crates/vm/levm" }

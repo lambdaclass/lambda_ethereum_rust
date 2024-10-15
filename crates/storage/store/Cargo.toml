@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 ethereum_rust-rlp.workspace = true
-ethereum_rust-core.workspace = true
-ethereum_rust-trie.workspace = true
+ethereum_rust-core = { path = "../../common", default-features = false }
+ethereum_rust-trie = { path = "../../storage/trie", default-features = false }
 
 ethereum-types = "0.14.1"
 anyhow = "1.0.86"
