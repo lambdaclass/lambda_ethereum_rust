@@ -80,10 +80,20 @@ impl Memory {
             .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
             .and_then(|cost| cost.checked_add(new_memory_size_word.checked_mul(3)?))
             .ok_or(VMError::OverflowInArithmeticOp)?;
-        let last_memory_size_word = (self.data.len() + WORD_SIZE - 1) / WORD_SIZE;
-        let last_memory_cost = (last_memory_size_word * last_memory_size_word)
-            / MEMORY_EXPANSION_QUOTIENT
-            + (3 * last_memory_size_word);
+
+        let last_memory_size_word = self
+            .data
+            .len()
+            .checked_add(WORD_SIZE - 1)
+            .ok_or(VMError::OverflowInArithmeticOp)?
+            / WORD_SIZE;
+
+        let last_memory_cost = last_memory_size_word
+            .checked_mul(last_memory_size_word)
+            .map(|square| square / MEMORY_EXPANSION_QUOTIENT)
+            .and_then(|cost| cost.checked_add(last_memory_size_word.checked_mul(3)?))
+            .ok_or(VMError::OverflowInArithmeticOp)?;
+
         Ok(new_memory_cost - last_memory_cost)
     }
 }
