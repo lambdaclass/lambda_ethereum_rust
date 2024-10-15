@@ -339,7 +339,7 @@ impl VM {
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
-                Opcode::STOP => self.op_stop(&mut current_call_frame),
+                Opcode::STOP => Ok(OpcodeSuccess::Result(ResultReason::Stop)),
                 Opcode::ADD => self.op_add(&mut current_call_frame),
                 Opcode::MUL => self.op_mul(&mut current_call_frame),
                 Opcode::SUB => self.op_sub(&mut current_call_frame),
