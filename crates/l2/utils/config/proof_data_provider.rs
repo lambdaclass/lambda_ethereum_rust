@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::errors::ConfigError;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct ProofDataProviderConfig {
     pub listen_ip: IpAddr,
     pub listen_port: u16,
