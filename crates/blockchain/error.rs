@@ -101,9 +101,3 @@ pub enum InvalidForkChoice {
     #[error("The following blocks are not connected between each other: {0}, {1}")]
     Disconnected(ForkChoiceElement, ForkChoiceElement),
 }
-
-// impl From<StoreError> for InvalidForkChoice {
-//     fn from(error: StoreError) -> Self {
-//         InvalidForkChoice::StoreError(error)
-//     }
-// }
