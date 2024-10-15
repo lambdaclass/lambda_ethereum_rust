@@ -3681,7 +3681,7 @@ fn create_on_create() {
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     vm.execute();
-    assert_eq!(vm.db.accounts.len(), 4);
+    assert_eq!(vm.db.accounts.len(), 5);
 }
 
 #[test]
