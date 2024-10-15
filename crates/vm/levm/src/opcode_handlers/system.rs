@@ -52,8 +52,7 @@ impl VM {
         } else {
             0
         };
-
-        let account = self.db.accounts.get(&code_address).unwrap(); // if the account doesn't exist, it should be created
+        let account = self.db.get_account(&code_address)?;
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
         } else {

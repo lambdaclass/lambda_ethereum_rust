@@ -181,6 +181,23 @@ impl Db {
             })
             .collect()
     }
+
+    /// Returns the account associated with the given address.
+    /// If the account does not exist in the Db, it creates a new one with the given address.
+    pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
+        if self.accounts.contains_key(address) {
+            return Ok(self.accounts.get(address).unwrap());
+        }
+
+        let new_account = Account {
+            address: *address,
+            ..Default::default()
+        };
+
+        self.accounts.insert(*address, new_account);
+
+        Ok(self.accounts.get(address).unwrap())
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -228,7 +245,7 @@ pub fn word_to_address(word: U256) -> Address {
 }
 
 impl VM {
-    pub fn new(tx_env: TxEnv, block_env: BlockEnv, db: Db) -> Self {
+    pub fn new(tx_env: TxEnv, block_env: BlockEnv, mut db: Db) -> Self {
         let bytecode = match tx_env.transact_to {
             TransactTo::Call(addr) => db.get_account_bytecode(&addr),
             TransactTo::Create => {
@@ -268,13 +285,23 @@ impl VM {
             origin: tx_env.msg_sender,
             refunded_gas: 0,
         };
+        let mut accrued_substate = Substate::default();
+
+        Self::add_coinbase_to_db(&env.block, &mut db, &mut accrued_substate);
 
         Self {
             call_frames: vec![initial_call_frame],
             db,
             env,
-            accrued_substate: Substate::default(),
+            accrued_substate,
         }
+    }
+
+    fn add_coinbase_to_db(block: &BlockEnv, db: &mut Db, accrued_substate: &mut Substate) {
+        let coinbase = block.coinbase;
+        let account = Account::new(coinbase, U256::zero(), Bytes::new(), 0, Default::default());
+        db.add_account(coinbase, account);
+        accrued_substate.warm_addresses.insert(coinbase);
     }
 
     pub fn write_success_result(

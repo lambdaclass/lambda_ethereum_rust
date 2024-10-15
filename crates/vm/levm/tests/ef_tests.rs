@@ -29,8 +29,6 @@ fn get_ignored_groups() -> HashSet<String> {
     HashSet::from([
         "stEIP1153-transientStorage".into(),
         "eip1153_tstore".into(),
-        "eip3651_warm_coinbase".into(),
-        "stEIP3651-warmcoinbase".into(),
         "stEIP3860-limitmeterinitcode".into(),
         "eip3860_initcode".into(),
         "stInitCodeTest".into(),
@@ -123,7 +121,11 @@ fn get_ignored_groups() -> HashSet<String> {
 // 58 tests
 // - stSLoadTest
 // 1 test
-// Total: 120 tests
+// - eip3651_warm_coinbase
+// 2 tests
+// - stEIP3651-warmcoinbase
+// 2 tests
+// Total: 124 tests
 
 fn get_ignored_suites() -> HashSet<String> {
     HashSet::from([
