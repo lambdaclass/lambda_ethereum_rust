@@ -8,7 +8,7 @@ import {Utils} from "./Utils.sol";
 
 contract DeployL1Script is Script {
     /// @notice Address of the deterministic create2 factory.
-    /// @dev This address corresponds to a contracts that is set in the storage
+    /// @dev This address corresponds to a contract that is set in the storage
     /// in the genesis file. The same contract with the same address is deployed
     /// in every testnet, so if this script is run in a testnet instead of in a
     /// local environment, it should work.
