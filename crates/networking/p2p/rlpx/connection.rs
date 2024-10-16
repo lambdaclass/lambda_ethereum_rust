@@ -82,7 +82,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             _ => {
                 return Err(RLPxError::HandshakeError(
-                    format!("Invalid connection state for handshake").to_string(),
+                    "Invalid connection state for handshake".to_string(),
                 ))
             }
         };
@@ -246,9 +246,9 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                     }
                 }
                 // Return error if not
-                return Err(RLPxError::HandshakeError(
+                Err(RLPxError::HandshakeError(
                     "No matching capabilities".to_string(),
-                ));
+                ))
             }
             _ => {
                 // Fail if it is not a hello message
