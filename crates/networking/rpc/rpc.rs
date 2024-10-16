@@ -15,15 +15,22 @@ use eth::{
     account::{
         GetBalanceRequest, GetCodeRequest, GetProofRequest, GetStorageAtRequest,
         GetTransactionCountRequest,
-    }, block::{
+    },
+    block::{
         BlockNumberRequest, GetBlobBaseFee, GetBlockByHashRequest, GetBlockByNumberRequest,
         GetBlockReceiptsRequest, GetBlockTransactionCountRequest, GetRawBlockRequest,
         GetRawHeaderRequest, GetRawReceipts,
-    }, client::{ChainId, Syncing}, fee_market::FeeHistoryRequest, filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest}, gas_price::GasPrice, logs::LogsFilter, transaction::{
+    },
+    client::{ChainId, Syncing},
+    fee_market::FeeHistoryRequest,
+    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
+    gas_price::GasPrice,
+    logs::LogsFilter,
+    transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
         GetTransactionByBlockHashAndIndexRequest, GetTransactionByBlockNumberAndIndexRequest,
         GetTransactionByHashRequest, GetTransactionReceiptRequest,
-    }
+    },
 };
 use serde_json::Value;
 use std::{
