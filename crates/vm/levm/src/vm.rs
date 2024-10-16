@@ -496,48 +496,6 @@ impl VM {
                 Err(error)
             }
         }
-
-        // match result {
-        //     ExecutionResult::Success {
-        //         logs, return_data, ..
-        //     } => {
-        //         current_call_frame.logs.extend(logs);
-        //         current_call_frame
-        //             .memory
-        //             .store_bytes(ret_offset, &return_data);
-        //         current_call_frame.returndata = return_data;
-        //         current_call_frame
-        //             .stack
-        //             .push(U256::from(SUCCESS_FOR_CALL))?;
-        //         Ok(OpcodeSuccess::Continue)
-        //     }
-        //     ExecutionResult::Revert {
-        //         reason: _,
-        //         gas_used,
-        //         output,
-        //     } => {
-        //         current_call_frame.memory.store_bytes(ret_offset, &output);
-        //         current_call_frame.returndata = output;
-        //         current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-        //         current_call_frame.gas -= U256::from(gas_used);
-        //         self.env.refunded_gas += gas_used;
-        //         Ok(OpcodeSuccess::Continue)
-        //     }
-        //     ExecutionResult::Halt { reason, gas_used } => {
-        //         current_call_frame
-        //             .stack
-        //             .push(U256::from(reason.clone() as u8))?;
-        //         if U256::from(gas_used) > current_call_frame.gas {
-        //             current_call_frame.gas = U256::zero();
-        //         } else {
-        //             current_call_frame.gas -= U256::from(gas_used);
-        //         }
-        //         Err(reason)
-        //     } // WARNING: I commented this because I don't know when this should be executed.
-        //       // Err(_) => {
-        //       //     current_call_frame.stack.push(U256::from(HALT_FOR_CALL))?;
-        //       // }
-        // }
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow

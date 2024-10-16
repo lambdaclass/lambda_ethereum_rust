@@ -20,12 +20,6 @@ hex = "0.4.3"
 [features]
 ethereum_foundation_tests = []
 
-[[test]]
-name = "ef_tests"
-path = "tests/ef_tests.rs"
-harness = false
-required-features = ["ethereum_foundation_tests"]
-
 [profile.test]
 opt-level = 3
 debug-assertions = true
