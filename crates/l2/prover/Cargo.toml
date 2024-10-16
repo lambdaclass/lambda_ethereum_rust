@@ -1,0 +1,19 @@
+[package]
+version = "0.1.0"
+name = "ethereum_rust-prover"
+edition = "2021"
+
+[dependencies]
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+tracing = "0.1.40"
+hex = "0.4.3"
+
+ethereum_rust-core = { path = "../../common", package = "ethereum_rust-core" }
+ethereum_rust-rlp = { path = "../../common/rlp", package = "ethereum_rust-rlp" }
+
+sp1-sdk = "2.0.0"
+
+# Some tests need the release profile.
+[profile.test]
+inherits = "release"
