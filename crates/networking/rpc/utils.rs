@@ -142,6 +142,7 @@ pub enum RpcNamespace {
     Eth,
     Admin,
     Debug,
+    Web3,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -168,6 +169,7 @@ impl RpcRequest {
                 "eth" => Ok(RpcNamespace::Eth),
                 "admin" => Ok(RpcNamespace::Admin),
                 "debug" => Ok(RpcNamespace::Debug),
+                "web3" => Ok(RpcNamespace::Web3),
                 _ => Err(RpcErr::MethodNotFound(self.method.clone())),
             }
         } else {
