@@ -1856,7 +1856,7 @@ fn pop_on_empty_stack() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let result = vm.execute(&mut current_call_frame);
 
-    // result should be ExecutionResult::Halt with error VMError::StackUnderflow
+    // result should be a Halt with error VMError::StackUnderflow
 
     assert!(matches!(result, Err(VMError::StackUnderflow)));
     // TODO: assert consumed gas
@@ -2761,24 +2761,23 @@ fn sstore_op() {
     assert_eq!(value, stored_value.current_value);
 }
 
-// Test not valid anymore because we can use unwrap on vm.execute()
-// #[test]
-// #[should_panic]
-// fn sstore_reverts_when_called_in_static() {
-//     let key = U256::from(80);
-//     let value = U256::from(100);
-//     let operations = vec![
-//         Operation::Push((1, value)),
-//         Operation::Push((1, key)),
-//         Operation::Sstore,
-//         Operation::Stop,
-//     ];
+#[test]
+#[should_panic]
+fn sstore_reverts_when_called_in_static() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Stop,
+    ];
 
-//     let mut vm = new_vm_with_ops(&operations);
-//     vm.current_call_frame_mut().is_static = true;
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     vm.execute(&mut current_call_frame).unwrap();
-// }
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().is_static = true;
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame).unwrap();
+}
 
 #[test]
 fn sload_op() {
@@ -3048,36 +3047,30 @@ fn log_with_0_data_size() {
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 393);
 }
 
-// TODO: Fix
-// #[test]
-// fn cant_create_log_in_static_context() {
-//     let data: [u8; 32] = [0xff; 32];
-//     let size = 0_u8;
-//     let memory_offset = 0;
-//     let mut operations = store_data_in_memory_operations(&data, memory_offset);
-//     let mut log_operations = vec![
-//         Operation::Push((1_u8, U256::from(size))),
-//         Operation::Push((1_u8, U256::from(memory_offset))),
-//         Operation::Log(0),
-//         Operation::Stop,
-//     ];
-//     operations.append(&mut log_operations);
+#[test]
+fn cant_create_log_in_static_context() {
+    let data: [u8; 32] = [0xff; 32];
+    let size = 0_u8;
+    let memory_offset = 0;
+    let mut operations = store_data_in_memory_operations(&data, memory_offset);
+    let mut log_operations = vec![
+        Operation::Push((1_u8, U256::from(size))),
+        Operation::Push((1_u8, U256::from(memory_offset))),
+        Operation::Log(0),
+        Operation::Stop,
+    ];
+    operations.append(&mut log_operations);
 
-//     let mut vm: VM = new_vm_with_ops(&operations);
-//     vm.current_call_frame_mut().is_static = true;
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     let result = vm.execute(&mut current_call_frame).unwrap();
+    let mut vm: VM = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().is_static = true;
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let result = vm.execute(&mut current_call_frame);
 
-//     match result {
-//         ExecutionResult::Halt {
-//             reason: VMError::OpcodeNotAllowedInStaticContext,
-//             gas_used: _,
-//         } => {
-//             // Test passes
-//         }
-//         _ => panic!("Expected ExecutionResult::Halt with OpcodeNotAllowedInStaticContext"),
-//     }
-// }
+    assert!(matches!(
+        result,
+        Err(VMError::OpcodeNotAllowedInStaticContext)
+    ));
+}
 
 #[test]
 fn log_with_data_in_memory_smaller_than_size() {
@@ -3361,25 +3354,16 @@ fn dup16_ok() {
     );
 }
 
-// TODO: Fix
-// #[test]
-// fn dup_halts_if_stack_underflow() {
-//     let operations = [Operation::Dup(5), Operation::Stop];
-//     let mut vm = new_vm_with_ops(&operations);
+#[test]
+fn dup_halts_if_stack_underflow() {
+    let operations = [Operation::Dup(5), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
 
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     let result = vm.execute(&mut current_call_frame).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let result = vm.execute(&mut current_call_frame);
 
-//     match result {
-//         ExecutionResult::Halt {
-//             reason: VMError::StackUnderflow,
-//             gas_used: _,
-//         } => {
-//             // Test passes
-//         }
-//         _ => panic!("Expected ExecutionResult::Halt with StackUnderflow"),
-//     }
-// }
+    assert!(matches!(result, Err(VMError::StackUnderflow)));
+}
 
 #[test]
 fn swap1_ok() {
@@ -3428,25 +3412,16 @@ fn swap16_ok() {
     );
 }
 
-// TODO: Fix
-// #[test]
-// fn swap_halts_if_stack_underflow() {
-//     let operations = [Operation::Swap(5), Operation::Stop];
-//     let mut vm = new_vm_with_ops(&operations);
+#[test]
+fn swap_halts_if_stack_underflow() {
+    let operations = [Operation::Swap(5), Operation::Stop];
+    let mut vm = new_vm_with_ops(&operations);
 
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     let result = vm.execute(&mut current_call_frame).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let result = vm.execute(&mut current_call_frame);
 
-//     match result {
-//         ExecutionResult::Halt {
-//             reason: VMError::StackUnderflow,
-//             gas_used: _,
-//         } => {
-//             // Test passes
-//         }
-//         _ => panic!("Expected ExecutionResult::Halt with StackUnderflow"),
-//     }
-// }
+    assert!(matches!(result, Err(VMError::StackUnderflow)));
+}
 
 #[test]
 fn transient_store() {
@@ -3480,18 +3455,17 @@ fn transient_store() {
     )
 }
 
-// Test not valid anymore because we can't use unwrap on vm.execute()
-// #[test]
-// #[should_panic]
-// fn transient_store_no_values_panics() {
-//     let operations = [Operation::Tstore, Operation::Stop];
+#[test]
+#[should_panic]
+fn transient_store_no_values_panics() {
+    let operations = [Operation::Tstore, Operation::Stop];
 
-//     let mut vm = new_vm_with_ops(&operations);
-//     assert!(vm.current_call_frame_mut().transient_storage.is_empty());
+    let mut vm = new_vm_with_ops(&operations);
+    assert!(vm.current_call_frame_mut().transient_storage.is_empty());
 
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     vm.execute(&mut current_call_frame).unwrap();
-// }
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame).unwrap();
+}
 
 #[test]
 fn transient_load() {
