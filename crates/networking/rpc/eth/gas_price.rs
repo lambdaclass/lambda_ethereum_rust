@@ -199,7 +199,7 @@ mod tests {
         let store = Store::new("test-store", EngineType::InMemory)
             .expect("Fail to create in-memory db test");
         store.add_initial_state(genesis).unwrap();
-        return store;
+        store
     }
     #[test]
     fn test_for_legacy_txs() {
@@ -265,11 +265,12 @@ mod tests {
     fn test_with_mixed_transactions() {
         let store = setup_store();
         for block_num in 1..100 {
-            let mut txs = vec![];
-            txs.push(legacy_tx_for_test(1));
-            txs.push(eip1559_tx_for_test(2));
-            txs.push(legacy_tx_for_test(3));
-            txs.push(eip1559_tx_for_test(4));
+            let txs = vec![
+                legacy_tx_for_test(1),
+                eip1559_tx_for_test(2),
+                legacy_tx_for_test(3),
+                eip1559_tx_for_test(4),
+            ];
             let block_body = BlockBody {
                 transactions: txs,
                 ommers: Default::default(),
@@ -295,8 +296,7 @@ mod tests {
     fn test_with_not_enough_blocks_or_transactions() {
         let store = setup_store();
         for block_num in 1..10 {
-            let mut txs = vec![];
-            txs.push(legacy_tx_for_test(1));
+            let txs = vec![legacy_tx_for_test(1)];
             let block_body = BlockBody {
                 transactions: txs,
                 ommers: Default::default(),
@@ -337,8 +337,7 @@ mod tests {
         let storage = setup_store();
 
         for block_num in 1..100 {
-            let mut txs = vec![];
-            txs.push(legacy_tx_for_test(1));
+            let txs = vec![legacy_tx_for_test(1)];
             let block_body = BlockBody {
                 transactions: txs,
                 ommers: Default::default(),
