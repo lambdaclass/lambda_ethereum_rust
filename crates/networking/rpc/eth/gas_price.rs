@@ -58,7 +58,6 @@ impl RpcHandler for GasPrice {
             return Err(RpcErr::Internal("Error calculating gas price".to_string()));
         }
         let mut results = vec![];
-
         // TODO: Estimating gas price involves querying multiple blocks
         // and doing some calculations with each of them, let's consider
         // caching this result, also we can have a specific DB method
@@ -115,7 +114,7 @@ mod tests {
     use serde_json::json;
     use std::str::FromStr;
     // Base price for each test transaction.
-    const BASE_PRICE_IN_WEI: u64 = (10_u64.pow(9));
+    const BASE_PRICE_IN_WEI: u64 = 10_u64.pow(9);
     fn test_header(block_num: u64) -> BlockHeader {
         BlockHeader {
             parent_hash: H256::from_str(
@@ -194,17 +193,17 @@ mod tests {
         })
     }
     fn setup_store() -> Store {
-        let genesis: &str = include_str!("../../../../test_data/test-config.json");
+        let genesis: &str = include_str!("../../../../test_data/genesis-l1.json");
         let genesis: Genesis =
             serde_json::from_str(genesis).expect("Fatal: test config is invalid");
-        let mut store = Store::new("test-store", EngineType::InMemory)
+        let store = Store::new("test-store", EngineType::InMemory)
             .expect("Fail to create in-memory db test");
-        store.add_initial_state(genesis);
+        store.add_initial_state(genesis).unwrap();
         return store;
     }
     #[test]
     fn test_for_legacy_txs() {
-        let mut store = setup_store();
+        let store = setup_store();
         for block_num in 1..100 {
             let mut txs = vec![];
             for nonce in 1..=3 {
@@ -222,7 +221,10 @@ mod tests {
                 header: block_header.clone(),
             };
             store.add_block(block).unwrap();
-            store.set_canonical_block(block_num, block_header.compute_block_hash());
+            store
+                .set_canonical_block(block_num, block_header.compute_block_hash())
+                .unwrap();
+            store.update_latest_block_number(block_num).unwrap();
         }
         let gas_price = GasPrice {};
         let response = gas_price.handle(store).unwrap();
@@ -232,8 +234,8 @@ mod tests {
 
     #[test]
     fn test_for_eip_1559_txs() {
-        let mut store = setup_store();
-        for i in 1..100 {
+        let store = setup_store();
+        for block_num in 1..100 {
             let mut txs = vec![];
             for nonce in 1..=3 {
                 txs.push(eip1559_tx_for_test(nonce));
@@ -243,13 +245,16 @@ mod tests {
                 ommers: Default::default(),
                 withdrawals: Default::default(),
             };
-            let block_header = test_header(i);
+            let block_header = test_header(block_num);
             let block = Block {
                 body: block_body,
                 header: block_header.clone(),
             };
             store.add_block(block).unwrap();
-            store.set_canonical_block(i, block_header.compute_block_hash());
+            store
+                .set_canonical_block(block_num, block_header.compute_block_hash())
+                .unwrap();
+            store.update_latest_block_number(block_num).unwrap();
         }
         let gas_price = GasPrice {};
         let response = gas_price.handle(store).unwrap();
@@ -258,8 +263,8 @@ mod tests {
     }
     #[test]
     fn test_with_mixed_transactions() {
-        let mut store = setup_store();
-        for i in 1..100 {
+        let store = setup_store();
+        for block_num in 1..100 {
             let mut txs = vec![];
             txs.push(legacy_tx_for_test(1));
             txs.push(eip1559_tx_for_test(2));
@@ -270,13 +275,16 @@ mod tests {
                 ommers: Default::default(),
                 withdrawals: Default::default(),
             };
-            let block_header = test_header(i);
+            let block_header = test_header(block_num);
             let block = Block {
                 body: block_body,
                 header: block_header.clone(),
             };
             store.add_block(block).unwrap();
-            store.set_canonical_block(i, block_header.compute_block_hash());
+            store
+                .set_canonical_block(block_num, block_header.compute_block_hash())
+                .unwrap();
+            store.update_latest_block_number(block_num).unwrap();
         }
         let gas_price = GasPrice {};
         let response = gas_price.handle(store).unwrap();
@@ -285,8 +293,8 @@ mod tests {
     }
     #[test]
     fn test_with_not_enough_blocks_or_transactions() {
-        let mut store = setup_store();
-        for i in 1..10 {
+        let store = setup_store();
+        for block_num in 1..10 {
             let mut txs = vec![];
             txs.push(legacy_tx_for_test(1));
             let block_body = BlockBody {
@@ -294,13 +302,16 @@ mod tests {
                 ommers: Default::default(),
                 withdrawals: Default::default(),
             };
-            let block_header = test_header(i);
+            let block_header = test_header(block_num);
             let block = Block {
                 body: block_body,
                 header: block_header.clone(),
             };
             store.add_block(block).unwrap();
-            store.set_canonical_block(i, block_header.compute_block_hash());
+            store
+                .set_canonical_block(block_num, block_header.compute_block_hash())
+                .unwrap();
+            store.update_latest_block_number(block_num).unwrap();
         }
         let gas_price = GasPrice {};
         let response = gas_price.handle(store).unwrap();
@@ -309,7 +320,7 @@ mod tests {
     }
     #[test]
     fn test_with_no_blocks_but_genesis() {
-        let mut store = setup_store();
+        let store = setup_store();
         let gas_price = GasPrice {};
         assert!(gas_price.handle(store).is_err())
     }
@@ -325,7 +336,7 @@ mod tests {
         let request: RpcRequest = serde_json::from_value(raw_json).expect("Test json is not valid");
         let storage = setup_store();
 
-        for i in 1..100 {
+        for block_num in 1..100 {
             let mut txs = vec![];
             txs.push(legacy_tx_for_test(1));
             let block_body = BlockBody {
@@ -333,13 +344,16 @@ mod tests {
                 ommers: Default::default(),
                 withdrawals: Default::default(),
             };
-            let block_header = test_header(i);
+            let block_header = test_header(block_num);
             let block = Block {
                 body: block_body,
                 header: block_header.clone(),
             };
             storage.add_block(block).unwrap();
-            storage.set_canonical_block(i, block_header.compute_block_hash());
+            storage
+                .set_canonical_block(block_num, block_header.compute_block_hash())
+                .unwrap();
+            storage.update_latest_block_number(block_num).unwrap();
         }
         let response =
             map_http_requests(&request, storage, example_p2p_node(), Default::default()).unwrap();
