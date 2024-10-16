@@ -8,7 +8,7 @@ use serde_json::Value;
 // TODO: This does not need a struct,
 // but I'm leaving it like this for consistency
 // with the other RPC endpoints.
-// The handle function could be simple
+// The handle function could simply be
 // a function called 'estimate'.
 #[derive(Debug, Clone)]
 pub struct GasPrice;
@@ -33,8 +33,8 @@ impl RpcHandler for GasPrice {
     // - For each block, take the 3 txs with the lowest gas price (100% arbitrary)
     // - Join every fetched tx into a single vec and sort it.
     // - Return the one in the middle (what is also known as the 'median sample')
-    // The intuition here is we're sampling already accepted transactions,
-    // fetched from recent blocks, so they should real, representative values.
+    // The intuition here is that we're sampling already accepted transactions,
+    // fetched from recent blocks, so they should be real, representative values.
     // This specific implementation probably is not the best way to do this
     // but it works for now for a simple estimation, in the future
     // we can look into more sophisticated estimation methods, if needed.
