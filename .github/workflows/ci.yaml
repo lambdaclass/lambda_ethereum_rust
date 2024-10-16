@@ -42,7 +42,7 @@ jobs:
         run: |
           cargo fmt --all -- --check
 
-  test:
+  prover:
     name: Test
     runs-on: ubuntu-latest
     steps:
@@ -76,7 +76,7 @@ jobs:
           file: ./Dockerfile
           load: true # Important for building without pushing
 
-  prover:
+  test:
     name: Build RISC-V zkVM program
     runs-on: ubuntu-latest
     steps:
