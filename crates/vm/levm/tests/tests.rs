@@ -3830,7 +3830,7 @@ fn create_on_create() {
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
-    assert_eq!(vm.db.accounts.len(), 5);
+    assert_eq!(vm.db.accounts.len(), 4);
 }
 
 #[test]
