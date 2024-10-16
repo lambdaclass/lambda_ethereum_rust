@@ -85,7 +85,7 @@ impl EngineClient {
     ) -> Result<ForkChoiceResponse, EngineClientError> {
         let request = ForkChoiceUpdatedV3 {
             fork_choice_state: state,
-            payload_attributes: Some(payload_attributes),
+            payload_attributes: Ok(Some(payload_attributes)),
         }
         .into();
 
