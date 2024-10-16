@@ -146,6 +146,7 @@ fn run_evm(
                     let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
                     evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
                     evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
+                    evm_handler.execution.last_frame_return = Arc::new(mods::last_frame_return::<CancunSpec, _, _>);
                     // TODO: Override `end` function. We should deposit even if we revert.
                     // evm_handler.pre_execution.end
                     evm_handler
