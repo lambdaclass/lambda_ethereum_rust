@@ -15,7 +15,7 @@ use crate::{
     constants::gas_cost,
     opcodes::Opcode,
     vm::VM,
-    vm_result::*,
+    errors::*,
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H32, U256, U512};

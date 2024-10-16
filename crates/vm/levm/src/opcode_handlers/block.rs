@@ -28,7 +28,7 @@ impl VM {
                 .env
                 .block_number
                 .saturating_sub(LAST_AVAILABLE_BLOCK_LIMIT)
-            || block_number >= self.env.block_number.into()
+            || block_number >= self.env.block_number
         {
             current_call_frame.stack.push(U256::zero())?;
             return Ok(OpcodeSuccess::Continue);
@@ -69,7 +69,7 @@ impl VM {
         if self.env.consumed_gas + gas_cost::TIMESTAMP > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        current_call_frame.stack.push(self.env.timestamp.into())?;
+        current_call_frame.stack.push(self.env.timestamp)?;
         self.env.consumed_gas += gas_cost::TIMESTAMP;
 
         Ok(OpcodeSuccess::Continue)
@@ -84,9 +84,7 @@ impl VM {
             return Err(VMError::OutOfGas);
         }
 
-        current_call_frame
-            .stack
-            .push(self.env.block_number.into())?;
+        current_call_frame.stack.push(self.env.block_number)?;
         self.env.consumed_gas += gas_cost::NUMBER;
 
         Ok(OpcodeSuccess::Continue)
@@ -117,7 +115,7 @@ impl VM {
         if self.env.consumed_gas + gas_cost::GASLIMIT > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        current_call_frame.stack.push(self.env.gas_limit.into())?;
+        current_call_frame.stack.push(self.env.gas_limit)?;
         self.env.consumed_gas += gas_cost::GASLIMIT;
 
         Ok(OpcodeSuccess::Continue)
@@ -131,7 +129,7 @@ impl VM {
         if self.env.consumed_gas + gas_cost::CHAINID > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        current_call_frame.stack.push(self.env.chain_id.into())?;
+        current_call_frame.stack.push(self.env.chain_id)?;
         self.env.consumed_gas += gas_cost::CHAINID;
 
         Ok(OpcodeSuccess::Continue)
@@ -162,9 +160,7 @@ impl VM {
         if self.env.consumed_gas + gas_cost::BASEFEE > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        current_call_frame
-            .stack
-            .push(self.env.base_fee_per_gas.into())?;
+        current_call_frame.stack.push(self.env.base_fee_per_gas)?;
         self.env.consumed_gas += gas_cost::BASEFEE;
 
         Ok(OpcodeSuccess::Continue)
@@ -370,9 +366,7 @@ impl VM {
         }
         // TODO: if not legacy or access list, then gas price is max_fee_per_gas
         // TODO: Why do we unwrap here?
-        current_call_frame
-            .stack
-            .push(self.env.gas_price.unwrap().into())?;
+        current_call_frame.stack.push(self.env.gas_price.unwrap())?;
 
         self.env.consumed_gas += gas_cost::GASPRICE;
 

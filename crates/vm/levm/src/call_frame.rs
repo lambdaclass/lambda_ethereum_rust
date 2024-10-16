@@ -5,7 +5,7 @@ use crate::{
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
-    vm_result::VMError,
+    errors::VMError,
 };
 use std::collections::HashMap;
 

@@ -3,7 +3,7 @@ use crate::{
     constants::*,
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    vm_result::{OpcodeSuccess, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, VMError},
 };
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -213,7 +213,7 @@ impl VM {
         chain_id: U256,
         base_fee_per_gas: U256,
         gas_price: Option<U256>,
-        mut db: Db,
+        db: Db,
     ) -> Self {
         // TODO: This handles only CALL transactions.
         let bytecode = db.get_account_bytecode(&to);

@@ -1,6 +1,6 @@
 use crate::constants::{MEMORY_EXPANSION_QUOTIENT, WORD_SIZE};
 use crate::primitives::U256;
-use crate::vm_result::VMError;
+use crate::errors::VMError;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Memory {
