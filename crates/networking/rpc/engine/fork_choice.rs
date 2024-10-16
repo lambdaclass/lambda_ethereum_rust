@@ -24,18 +24,20 @@ pub struct ForkChoiceUpdatedV3 {
     pub payload_attributes: Result<Option<PayloadAttributesV3>, String>,
 }
 
-impl From<ForkChoiceUpdatedV3> for RpcRequest {
-    fn from(val: ForkChoiceUpdatedV3) -> Self {
-        RpcRequest {
-            method: "engine_forkchoiceUpdatedV3".to_string(),
-            params: Some(vec![
-                serde_json::json!(val.fork_choice_state),
-                // We add this unwrap because we should NEVER build an outgoing request
-                // with an error. It only represents errors from incoming requests
-                // that we need to handle.
-                serde_json::json!(val.payload_attributes.unwrap()),
-            ]),
-            ..Default::default()
+impl TryFrom<ForkChoiceUpdatedV3> for RpcRequest {
+    type Error = String;
+
+    fn try_from(val: ForkChoiceUpdatedV3) -> Result<Self, Self::Error> {
+        match val.payload_attributes {
+            Ok(attrs) => Ok(RpcRequest {
+                method: "engine_forkchoiceUpdatedV3".to_string(),
+                params: Some(vec![
+                    serde_json::json!(val.fork_choice_state),
+                    serde_json::json!(attrs),
+                ]),
+                ..Default::default()
+            }),
+            Err(err) => Err(err),
         }
     }
 }
