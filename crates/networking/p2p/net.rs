@@ -106,7 +106,7 @@ async fn discover_peers_server(
 
     loop {
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        info!("Received {read} bytes from {from}");
+        debug!("Received {read} bytes from {from}");
 
         let packet = Packet::decode(&buf[..read]);
         if packet.is_err() {
@@ -116,7 +116,7 @@ async fn discover_peers_server(
         let packet = packet.unwrap();
 
         let msg = packet.get_message();
-        info!("Message: {:?} from {}", msg, packet.get_node_id());
+        debug!("Message: {:?} from {}", msg, packet.get_node_id());
 
         match msg {
             Message::Ping(msg) => {
@@ -731,9 +731,9 @@ async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _s
         ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
 
         let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        info!("RLPx: Received {read} bytes from {from}");
+        debug!("RLPx: Received {read} bytes from {from}");
         let packet = Packet::decode(&buf[..read]).unwrap();
-        info!("RLPx: Message: {:?}", packet);
+        debug!("RLPx: Message: {:?}", packet);
 
         match packet.get_message() {
             Message::Pong(pong) => {
