@@ -7,15 +7,14 @@ edition = "2021"
 
 [dependencies]
 thiserror.workspace = true
-ethereum_rust-rlp.workspace = true
 sha3.workspace = true
 tracing.workspace = true
+bytes.workspace = true
 
+ethereum_rust-rlp.workspace = true
 ethereum_rust-core = { path = "../common", default-features = false }
 ethereum_rust-storage = { path = "../storage/store", default-features = false }
 ethereum_rust-vm = { path = "../vm", default-features = false }
-
-bytes.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
