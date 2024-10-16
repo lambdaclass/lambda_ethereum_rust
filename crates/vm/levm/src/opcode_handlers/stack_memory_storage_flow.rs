@@ -219,7 +219,7 @@ impl VM {
         }
 
         let remaining_gas = self.env.gas_limit - self.env.consumed_gas - gas_cost::GAS;
-        current_call_frame.stack.push(remaining_gas.into())?;
+        current_call_frame.stack.push(remaining_gas)?;
         self.env.consumed_gas += gas_cost::GAS;
 
         Ok(OpcodeSuccess::Continue)

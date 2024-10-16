@@ -4198,7 +4198,7 @@ fn codecopy_op() {
     assert_eq!(vm.current_call_frame_mut().memory.load(0), expected_memory);
     assert_eq!(
         vm.env.consumed_gas,
-        (U256::from(TX_BASE_COST) + U256::from(9) + U256::from(3) * gas_cost::PUSHN).into()
+        U256::from(TX_BASE_COST) + U256::from(9) + U256::from(3) * gas_cost::PUSHN
     );
 }
 

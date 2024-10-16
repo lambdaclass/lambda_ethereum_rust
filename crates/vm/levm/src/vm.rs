@@ -1,9 +1,9 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
+    errors::{OpcodeSuccess, ResultReason, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    errors::{OpcodeSuccess, ResultReason, VMError},
 };
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -477,7 +477,7 @@ impl VM {
                     current_call_frame.memory.store_bytes(ret_offset, &output);
                     current_call_frame.returndata = output;
                     current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    current_call_frame.gas -= U256::from(self.env.consumed_gas);
+                    current_call_frame.gas -= self.env.consumed_gas;
                     self.env.refunded_gas += self.env.consumed_gas;
                     Ok(OpcodeSuccess::Continue)
                 }
@@ -487,7 +487,7 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(error.clone() as u8))?;
-                let gas_used = U256::from(self.env.consumed_gas);
+                let gas_used = self.env.consumed_gas;
                 if gas_used > current_call_frame.gas {
                     current_call_frame.gas = U256::zero();
                 } else {
