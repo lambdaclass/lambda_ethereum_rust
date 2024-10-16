@@ -2587,7 +2587,7 @@ fn prevrandao_op() {
 
 #[test]
 fn gaslimit_op() {
-    let gas_limit = U256::from(1000);
+    let gas_limit = TX_BASE_COST * 2;
 
     let operations = [Operation::Gaslimit, Operation::Stop];
 
