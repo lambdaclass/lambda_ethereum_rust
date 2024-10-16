@@ -1,14 +1,10 @@
 use ethereum_types::U256;
 
 pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
+
 // EIP-4844 constants.
-/// Minimum gas price for data blobs.
-pub const MIN_BLOB_GASPRICE: u64 = 1;
-/// Controls the maximum rate of change for blob gas price.
-pub const BLOB_GASPRICE_UPDATE_FRACTION: u64 = 3338477;
-/// Gas consumption of a single data blob (== blob byte size).
-pub const GAS_PER_BLOB: u64 = 1 << 17;
-/// Target number of the blob per block.
-pub const TARGET_BLOB_NUMBER_PER_BLOCK: u64 = 3;
-/// Target consumable blob gas for data blobs per block (for 1559-like pricing).
-pub const TARGET_BLOB_GAS_PER_BLOCK: u64 = TARGET_BLOB_NUMBER_PER_BLOCK * GAS_PER_BLOB;
+pub const MIN_BLOB_GASPRICE: U256 = U256([1, 0, 0, 0]);
+pub const BLOB_GASPRICE_UPDATE_FRACTION: U256 = U256([3338477, 0, 0, 0]);
+pub const GAS_PER_BLOB: U256 = U256([131072, 0, 0, 0]); // 1 << 17
+pub const TARGET_BLOB_NUMBER_PER_BLOCK: U256 = U256([3, 0, 0, 0]);
+pub const TARGET_BLOB_GAS_PER_BLOCK: U256 = U256([393216, 0, 0, 0]); // TARGET_BLOB_NUMBER_PER_BLOCK * GAS_PER_BLOB
