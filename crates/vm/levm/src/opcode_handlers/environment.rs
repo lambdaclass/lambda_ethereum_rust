@@ -66,8 +66,9 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost =
-            current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(dest_offset + size)? as u64;
         let gas_cost = gas_cost::CALLDATACOPY_STATIC
             + gas_cost::CALLDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost;
@@ -129,8 +130,9 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let minimum_word_size = (size + WORD_SIZE - 1) / WORD_SIZE;
-        let memory_expansion_cost =
-            current_call_frame.memory.expansion_cost(dest_offset + size) as u64;
+        let memory_expansion_cost = current_call_frame
+            .memory
+            .expansion_cost(dest_offset + size)? as u64;
         let gas_cost = gas_cost::RETURNDATACOPY_STATIC
             + gas_cost::RETURNDATACOPY_DYNAMIC_BASE * minimum_word_size as u64
             + memory_expansion_cost;

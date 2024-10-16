@@ -6,6 +6,25 @@
 [tg-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Frust_ethereum%2F&logo=telegram&label=chat&color=neon
 [tg-url]: https://t.me/rust_ethereum
 
+## 📚 References and acknowledgements
+
+The following links, repos, companies and projects have been important in the development of this repo, we have learned a lot from them and want to thank and acknowledge them.
+
+- [Ethereum](https://ethereum.org/en/)
+- [ZKsync](https://zksync.io/)
+- [Starkware](https://starkware.co/)
+- [Polygon](https://polygon.technology/)
+- [Optimism](https://www.optimism.io/)
+- [Arbitrum](https://arbitrum.io/)
+- [Geth](https://github.com/ethereum/go-ethereum)
+- [SP1](https://github.com/succinctlabs/sp1)
+- [Aleo](https://aleo.org/)
+- [Neptune](https://neptune.cash/)
+- [Mina](https://minaprotocol.com/)
+- [Nethermind](https://www.nethermind.io/)
+
+If we forgot to include anyone, please file an issue so we can add you. We always strive to reference the inspirations and code we use, but as an organization with multiple people, mistakes can happen, and someone might forget to include a reference.
+
 ## Philosophy
 
 Many long-established clients accumulate bloat over time. This often occurs due to the need to support legacy features for existing users or through attempts to implement overly ambitious software. The result is often complex, difficult-to-maintain, and error-prone systems.
