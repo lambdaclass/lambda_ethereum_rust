@@ -1,6 +1,6 @@
 use ethereum_types::U256;
 
-pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([0, 0, 0, 256]);
+pub const LAST_AVAILABLE_BLOCK_LIMIT: U256 = U256([256, 0, 0, 0]);
 // EIP-4844 constants.
 /// Minimum gas price for data blobs.
 pub const MIN_BLOB_GASPRICE: u64 = 1;
