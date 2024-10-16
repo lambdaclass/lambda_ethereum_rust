@@ -86,7 +86,7 @@ The main differences between this mode and regular Ethereum Rust are:
 
 An Ethereum execution client consists roughly of the following parts:
 
-- A storage component, in charge of persisting the chain's  data. This requires, at the very least, storing it in a Merkle Patricia Tree data structure to calculate state roots. It also requires some on-disk database; we currently use [libmdbx](https://github.com/erthink/libmdbx) but intend to change that in the future.
+- A storage component, in charge of persisting the chain's data. This requires, at the very least, storing it in a Merkle Patricia Tree data structure to calculate state roots. It also requires some on-disk database; we currently use [libmdbx](https://github.com/erthink/libmdbx) but intend to change that in the future.
 - A JSON RPC API. A set of HTTP endpoints meant to provide access to the data above and also interact with the network by sending transactions. Also included here is the `Engine API`, used for communication between the execution and consensus layers.
 - A Networking layer implementing the peer to peer protocols used by the Ethereum Network. The most important ones are:
     - The `disc` protocol for peer discovery, using a Kademlia DHT for efficient searches.
@@ -112,7 +112,7 @@ In a bit more detail:
 |  Add `libmdbx` bindings and basic API, create tables for state (blocks, transactions, etc)                                               | ✅     
 |   EVM wrapper for block execution                                                       | ✅     |
 |    JSON RPC API server setup                                                      | ✅     |
-|    RPC State-serving endpoints                                                     | 🏗️  (almost done, a few endpoint are left)   |
+|    RPC State-serving endpoints                                                     | 🏗️  (almost done, a few endpoints are left)  |
 |    Basic Engine API implementation. Set new chain head (`forkchoiceUpdated`) and new block (`newPayload`).                                                   | ✅   
 
 See detailed issues and progress for this milestone [here](https://github.com/lambdaclass/ethereum_rust/milestone/1).
