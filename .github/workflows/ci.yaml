@@ -77,11 +77,8 @@ jobs:
           load: true # Important for building without pushing
 
   prover:
-    strategy:
-      fail-fast: true
-
     name: Build RISC-V zkVM program
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
       - uses: actions/checkout@v3
@@ -97,6 +94,6 @@ jobs:
           ~/.config/.sp1/bin/sp1up
 
       - name: Build program
-        working-directory: ./crates/l2
         run: |
+          cd crates/l2
           make setup-prover
