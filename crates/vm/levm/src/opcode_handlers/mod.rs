@@ -13,9 +13,9 @@ pub mod system;
 use crate::{
     call_frame::{CallFrame, Log},
     constants::gas_cost,
+    errors::*,
     opcodes::Opcode,
     vm::VM,
-    errors::*,
 };
 use bytes::Bytes;
 use ethereum_types::{Address, H32, U256, U512};

@@ -2,10 +2,10 @@ use ethereum_types::H32;
 
 use crate::{
     constants::STACK_LIMIT,
+    errors::VMError,
     memory::Memory,
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
-    errors::VMError,
 };
 use std::collections::HashMap;
 
