@@ -22,8 +22,7 @@ serde_json = "1.0.117"
 libmdbx = { workspace = true, optional = true }
 
 [features]
-default = ["libmdbx", "in_memory"]
-in_memory = []
+default = ["libmdbx"]
 libmdbx = [
     "dep:libmdbx",
     "ethereum_rust-trie/libmdbx",
