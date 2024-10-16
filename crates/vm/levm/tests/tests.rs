@@ -3742,7 +3742,7 @@ fn cant_create_accounts_with_same_address() {
     new_vm.db.accounts = vm.db.accounts.clone();
     new_vm.current_call_frame_mut().msg_sender = sender_addr;
 
-    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let mut current_call_frame = new_vm.call_frames.pop().unwrap();
     new_vm.execute(&mut current_call_frame).unwrap();
     let call_frame = new_vm.current_call_frame_mut();
     let return_of_created_callframe = call_frame.stack.pop().unwrap();
