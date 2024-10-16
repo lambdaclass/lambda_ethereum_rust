@@ -108,7 +108,7 @@ pub const EMPTY_CODE_HASH_STR: &str =
 pub const MEMORY_EXPANSION_QUOTIENT: usize = 512;
 
 // Transaction costs in gas (in wei)
-pub const TX_BASE_COST: u64 = 21000;
+pub const TX_BASE_COST: U256 = U256([21000, 0, 0, 0]);
 pub const TX_DATA_COST_PER_NON_ZERO: u64 = 16;
 pub const TX_DATA_COST_PER_ZERO: u64 = 4;
 pub const TX_CREATE_COST: u64 = 32000;

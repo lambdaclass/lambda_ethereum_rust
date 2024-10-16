@@ -241,7 +241,7 @@ impl VM {
         );
 
         let env = Environment {
-            consumed_gas: TX_BASE_COST.into(),
+            consumed_gas: TX_BASE_COST,
             origin: msg_sender,
             refunded_gas: U256::zero(),
             gas_limit,
