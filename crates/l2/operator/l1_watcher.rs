@@ -133,7 +133,7 @@ impl L1Watcher {
             mint_transaction.max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
             // TODO(IMPORTANT): gas_limit should come in the log and must
             // not be calculated in here. The reason for this is that the
-            // gas_limit for this transaction is payed by the caller in
+            // gas_limit for this transaction is paid by the caller in
             // the L1 as part of the deposited funds.
             mint_transaction.gas_limit = TX_GAS_COST.mul(2);
             mint_transaction.value = mint_value;
