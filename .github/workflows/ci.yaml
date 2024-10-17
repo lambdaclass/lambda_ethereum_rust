@@ -95,5 +95,5 @@ jobs:
 
       - name: Build program
         run: |
-          cd crates/l2
-          make setup-prover
+          cd crates/l2/prover/sp1/program
+          ~/.sp1/bin/cargo-prove prove build
