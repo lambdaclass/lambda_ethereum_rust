@@ -8,7 +8,9 @@ use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
-use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
+use ethereum_rust_l2::{
+    operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig,
+};
 
 use super::prover::Prover;
 
