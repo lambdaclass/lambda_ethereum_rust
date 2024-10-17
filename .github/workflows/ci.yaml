@@ -88,7 +88,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
-      - name: SP1 toolchain install
+      - name: RISC-V zkVM toolchain install
         run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up
