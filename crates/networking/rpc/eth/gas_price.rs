@@ -1,3 +1,4 @@
+use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
 use ethereum_rust_storage::Store;
 use tracing::error;
 
@@ -78,18 +79,11 @@ impl RpcHandler for GasPrice {
             results.extend(gas_price_samples.into_iter().take(TXS_SAMPLE_SIZE));
         }
         results.sort();
-        if results.is_empty() {
-            Err(RpcErr::Internal(
-                "Error calculating gas price: could not find samples".to_string(),
-            ))
-        } else {
-            let sample_gas = results
-                .get(results.len() / 2)
-                .ok_or(RpcErr::Internal("Error calculating gas price".to_string()))?;
 
-            let gas_as_hex = format!("0x{:x}", sample_gas);
-            Ok(serde_json::Value::String(gas_as_hex))
-        }
+        let sample_gas = results.get(results.len() / 2).unwrap_or(&MIN_GAS_LIMIT);
+
+        let gas_as_hex = format!("0x{:x}", sample_gas);
+        Ok(serde_json::Value::String(gas_as_hex))
     }
 }
 
