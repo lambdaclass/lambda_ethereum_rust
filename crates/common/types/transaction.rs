@@ -1100,7 +1100,9 @@ mod serde_impl {
                     signature_r: r,
                     signature_s: s,
                 }),
-                TxType::EIP4844 => todo!("EIP4844 transaction deserialization"),
+                TxType::EIP4844 => Err(serde::de::Error::custom(
+                    "EIP4844 transaction deserialization",
+                ))?,
             };
             Ok(tx)
         }
