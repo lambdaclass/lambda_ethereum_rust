@@ -9,7 +9,8 @@ use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
 use ethereum_rust_l2::{
-    operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig,
+    operator::proof_data_provider::{ProofData, ProverInputData},
+    utils::config::prover::ProverConfig,
 };
 
 use super::prover::Prover;
@@ -32,14 +33,14 @@ impl ProofDataClient {
     }
 
     pub async fn start(&self, config: ProverConfig) {
-        let prover = Prover::new_from_config(config);
+        let mut prover = Prover::new_from_config(config);
 
         loop {
             match self.request_new_data() {
-                Ok(Some(id)) => {
-                    match prover.prove(id) {
+                Ok((Some(block_number), input)) => {
+                    match prover.set_input(input).prove() {
                         Ok(proof) => {
-                            if let Err(e) = self.submit_proof(id, proof) {
+                            if let Err(e) = self.submit_proof(block_number, proof) {
                                 // TODO: Retry
                                 warn!("Failed to submit proof: {e}");
                             }
@@ -47,13 +48,13 @@ impl ProofDataClient {
                         Err(e) => error!(e),
                     };
                 }
-                Ok(None) => sleep(Duration::from_secs(10)).await,
+                Ok((None, _)) => sleep(Duration::from_secs(10)).await,
                 Err(e) => warn!("Failed to request new data: {e}"),
             }
         }
     }
 
-    fn request_new_data(&self) -> Result<Option<u64>, String> {
+    fn request_new_data(&self) -> Result<(Option<u64>, ProverInputData), String> {
         let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
@@ -71,21 +72,25 @@ impl ProofDataClient {
             .map_err(|e| format!("Invalid response format: {e}"))?;
 
         match response {
-            ProofData::Response { id } => {
-                debug!("Received response: {id:?}");
-                Ok(id)
-            }
+            ProofData::Response {
+                block_number,
+                input,
+            } => Ok((block_number, input)),
             _ => Err(format!("Unexpected response {response:?}")),
         }
     }
 
-    fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
+    fn submit_proof(
+        &self,
+        block_number: u64,
+        proof: SP1ProofWithPublicValues,
+    ) -> Result<(), String> {
         let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {
-            id,
+            block_number,
             proof: Box::new(proof),
         };
         serde_json::ser::to_writer(buf_writer, &submit).map_err(|e| e.to_string())?;
@@ -97,7 +102,9 @@ impl ProofDataClient {
         let response: ProofData = serde_json::de::from_reader(buf_reader)
             .map_err(|e| format!("Invalid response format: {e}"))?;
         match response {
-            ProofData::SubmitAck { id: res_id } => {
+            ProofData::SubmitAck {
+                block_number: res_id,
+            } => {
                 debug!("Received submit ack: {res_id}");
                 Ok(())
             }

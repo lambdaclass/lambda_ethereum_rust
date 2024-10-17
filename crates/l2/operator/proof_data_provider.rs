@@ -10,6 +10,21 @@ use std::{
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{debug, info, warn};
 
+use ethereum_rust_core::types::{Block, BlockHeader};
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ProverInputData {
+    pub db: MemoryDB,
+    pub parent_block_header: BlockHeader,
+    pub block: Block,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+// wip
+pub struct MemoryDB {
+    data: u64,
+}
+
 use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
 
 use super::errors::ProofDataProviderError;
@@ -36,14 +51,15 @@ pub async fn start_proof_data_provider() {
 pub enum ProofData {
     Request {},
     Response {
-        id: Option<u64>,
+        block_number: Option<u64>,
+        input: ProverInputData,
     },
     Submit {
-        id: u64,
+        block_number: u64,
         proof: Box<SP1ProofWithPublicValues>,
     },
     SubmitAck {
-        id: u64,
+        block_number: u64,
     },
 }
 
@@ -99,8 +115,11 @@ impl ProofDataProvider {
                     warn!("Failed to handle request: {e}");
                 }
             }
-            Ok(ProofData::Submit { id, proof }) => {
-                if let Err(e) = self.handle_submit(&mut stream, id, proof) {
+            Ok(ProofData::Submit {
+                block_number,
+                proof,
+            }) => {
+                if let Err(e) = self.handle_submit(&mut stream, block_number, proof) {
                     warn!("Failed to handle submit: {e}");
                 }
                 *last_proved_block += 1;
@@ -161,10 +180,14 @@ impl ProofDataProvider {
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
-                id: Some(last_proved_block + 1),
+                block_number: Some(last_proved_block + 1),
+                input: ProverInputData::default(),
             }
         } else {
-            ProofData::Response { id: None }
+            ProofData::Response {
+                block_number: None,
+                input: ProverInputData::default(),
+            }
         };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
@@ -173,12 +196,15 @@ impl ProofDataProvider {
     fn handle_submit(
         &self,
         stream: &mut TcpStream,
-        id: u64,
+        block_number: u64,
         proof: Box<SP1ProofWithPublicValues>,
     ) -> Result<(), String> {
-        debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
+        debug!(
+            "Submit received. ID: {block_number}, proof: {:?}",
+            proof.proof
+        );
 
-        let response = ProofData::SubmitAck { id };
+        let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }
