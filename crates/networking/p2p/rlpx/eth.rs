@@ -17,6 +17,8 @@ pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
 
 use super::message::RLPxMessage;
 
+mod transactions;
+
 fn snappy_encode(encoded_data: Vec<u8>) -> Result<Vec<u8>, RLPEncodeError> {
     let mut snappy_encoder = SnappyEncoder::new();
     let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
