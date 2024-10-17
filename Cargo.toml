@@ -6,6 +6,7 @@ members = [
     "crates/networking/p2p",
     "crates/networking/rpc",
     "crates/storage/store",
+    "crates/storage/cache",
     "crates/vm",
     "crates/storage/trie",
     "crates/common/rlp",

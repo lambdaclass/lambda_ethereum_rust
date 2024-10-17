@@ -40,6 +40,11 @@ type AccessList = Vec<(Address, Vec<H256>)>;
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
 pub struct EvmState(revm::db::State<StoreWrapper>);
 
+pub enum EvmState_ {
+    Store(revm::db::State<StoreWrapper>),
+    Cache(revm::db::CacheDB),
+}
+
 impl EvmState {
     /// Get a reference to inner `Store` database
     pub fn database(&self) -> &Store {
