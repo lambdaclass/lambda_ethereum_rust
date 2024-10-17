@@ -130,6 +130,12 @@ pub trait StoreEngine: Debug + Send + Sync + RefUnwindSafe {
         index: Index,
     ) -> Result<Option<Receipt>, StoreError>;
 
+    /// Obtain all receipts for a canonical block represented by the block hash
+    fn get_all_receipts_by_hash(
+        &self,
+        block_hash: BlockHash,
+    ) -> Result<Option<Vec<Receipt>>, StoreError>;
+
     /// Add account code
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError>;
 
