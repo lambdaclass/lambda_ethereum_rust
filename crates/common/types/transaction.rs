@@ -4,7 +4,7 @@ use bytes::Bytes;
 use ethereum_types::{Address, H256, U256};
 pub use mempool::MempoolTransaction;
 use secp256k1::{ecdsa::RecoveryId, Message, SECP256K1};
-use serde::{ser::SerializeStruct, Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Serialize};
 pub use serde_impl::{AccessListEntry, GenericTransaction};
 use sha3::{Digest, Keccak256};
 
@@ -55,7 +55,7 @@ pub struct EIP2930Transaction {
     pub signature_s: U256,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct EIP1559Transaction {
     pub chain_id: u64,
     pub nonce: u64,
