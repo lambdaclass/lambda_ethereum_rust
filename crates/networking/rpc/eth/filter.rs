@@ -1,6 +1,5 @@
 use ethereum_rust_core::types::BlockNumber;
 use ethereum_rust_storage::Store;
-use std::iter::Filter;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -13,7 +12,7 @@ use crate::RpcHandler;
 use rand::prelude::*;
 use serde_json::{json, Value};
 
-use super::logs::{AddressFilter, LogsFilter, TopicFilter};
+use super::logs::{fetch_logs_with_filter, AddressFilter, LogsFilter, TopicFilter};
 
 #[derive(Debug, Clone)]
 pub struct NewFilterRequest {
@@ -37,7 +36,7 @@ pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: Duration)
     active_filters_guard
         .retain(|_, (filter_timestamp, _)| filter_timestamp.elapsed() <= filter_duration);
 }
-/// Maps IDs to active log filters and their timestamps.
+/// Maps IDs to active pollable filters and their timestamps.
 pub type ActiveFilters = Arc<Mutex<HashMap<u64, (Instant, PollableFilter)>>>;
 
 // FIXME: Check how we can merge this with LogsFilter, before PR review.
@@ -46,8 +45,8 @@ pub struct PollableFilter {
     /// Last block number from when this
     /// filter was requested or created.
     /// i.e. if this filter is requested,
-    /// the log will be applied from this block
-    /// number up to the latest one.
+    /// the log will be applied from this
+    /// block number up to the latest one.
     pub last_block_number: BlockNumber,
     /// The addresses from where the logs origin from.
     pub address_filters: Option<AddressFilter>,
@@ -82,11 +81,12 @@ impl NewFilterRequest {
         storage: ethereum_rust_storage::Store,
         filters: ActiveFilters,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
-        let from = self
-            .request_data
-            .from_block
-            .resolve_block_number(&storage)?
-            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        // FIXME: Maybe remove this
+        // let from = self
+        //     .request_data
+        //     .from_block
+        //     .resolve_block_number(&storage)?
+        //     .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
         // FIXME: Maybe remove this
         // let to = self
         //     .request_data
@@ -209,14 +209,19 @@ impl FilterChangesRequest {
             poisoned_guard.into_inner()
         });
         if let Some((timestamp, filter)) = active_filters_guard.get_mut(&self.id) {
-            let filter: LogsFilter = filter.clone().into();
+            // Since the filter was polled, updated its timestamp, so
+            // it does not expire.
             *timestamp = Instant::now();
+            let filter = filter.clone();
             // FIXME: Ask if this approach is right.
             // Drop the lock early to process this filter's query
             // and not keep the lock more than we should.
             drop(active_filters_guard);
-            // FIXME: Turn this into a separate function before PR review.
-            return filter.handle(storage);
+            let logs = fetch_logs_with_filter(&filter.clone().into(), storage)?;
+            return serde_json::to_value(logs).map_err(|error| {
+                tracing::error!("Log filtering request failed with: {error}");
+                RpcErr::Internal("Failed to filter logs".to_string())
+            })
         } else {
             return Err(RpcErr::BadParams(
                 "No matching filter for given id".to_string(),
