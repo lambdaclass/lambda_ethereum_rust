@@ -5,6 +5,7 @@ mod execution_result;
 mod mods;
 
 use db::StoreWrapper;
+use ethereum_rust_cache::MemoryDB;
 use std::cmp::min;
 
 use ethereum_rust_core::{
@@ -22,7 +23,7 @@ use revm::{
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, U256 as RevmU256},
-    Database, DatabaseCommit, Evm,
+    Database, DatabaseCommit, Evm, InMemoryDB,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
@@ -40,9 +41,9 @@ type AccessList = Vec<(Address, Vec<H256>)>;
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
 pub struct EvmState(revm::db::State<StoreWrapper>);
 
-pub enum EvmState_ {
+pub enum _EvmState {
     Store(revm::db::State<StoreWrapper>),
-    Cache(revm::db::CacheDB),
+    Cache(revm::db::CacheDB<MemoryDB>),
 }
 
 impl EvmState {
