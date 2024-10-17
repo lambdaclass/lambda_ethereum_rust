@@ -1,11 +1,15 @@
 use std::str::FromStr;
 
+use bytes::Bytes;
 use revm::{
     primitives::{EVMError, Spec},
     Context, Database, FrameResult,
 };
 use revm_primitives::{Address, TxKind};
 use tracing::info;
+
+pub const WITHDRAWAL_MAGIC_DATA: &[u8] = b"burn";
+pub const DEPOSIT_MAGIC_DATA: &[u8] = b"mint";
 
 pub fn deduct_caller<SPEC: Spec, EXT, DB: Database>(
     context: &mut revm::Context<EXT, DB>,
@@ -50,22 +54,20 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     frame_result: &mut FrameResult,
 ) -> Result<(), EVMError<DB::Error>> {
     match context.evm.inner.env.tx.transact_to {
-        TxKind::Call(address)
-            if address
-                == Address::from_str("0x0007a881CD95B1484fca47615B64803dad620C8d").unwrap() =>
-        {
+        TxKind::Call(address) if address == Address::ZERO => {
             if frame_result.interpreter_result().is_ok()
-                && context.evm.inner.env.tx.data == *b"burn".as_slice()
+                && context.evm.inner.env.tx.data == Bytes::from(WITHDRAWAL_MAGIC_DATA)
             {
                 info!("TX to privileged account with `burn` data");
-                let value = context.evm.inner.env.tx.value;
                 let (destination_account, _) = context
                     .evm
                     .inner
                     .journaled_state
                     .load_account(address, &mut context.evm.inner.db)?;
-                destination_account.info.balance =
-                    destination_account.info.balance.saturating_sub(value);
+                destination_account.info.balance = destination_account
+                    .info
+                    .balance
+                    .saturating_sub(context.evm.inner.env.tx.value);
             }
         }
         _ => {}
