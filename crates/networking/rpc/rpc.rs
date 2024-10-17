@@ -23,7 +23,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
+    filter::{self, ActiveFilters, DeleteFilterRequest, FilterChangesRequest, NewFilterRequest},
     logs::LogsFilter,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -243,6 +243,7 @@ pub fn map_eth_requests(
         "eth_getLogs" => LogsFilter::call(req, storage),
         "eth_newFilter" => NewFilterRequest::stateful_call(req, storage, filters),
         "eth_uninstallFilter" => DeleteFilterRequest::stateful_call(req, storage, filters),
+        "eth_getFilterChanges" => FilterChangesRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
         unknown_eth_method => Err(RpcErr::MethodNotFound(unknown_eth_method.to_owned())),

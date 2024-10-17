@@ -1,10 +1,11 @@
+use ethereum_rust_core::types::BlockNumber;
+use ethereum_rust_storage::Store;
+use std::iter::Filter;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-
-use ethereum_rust_storage::Store;
 use tracing::error;
 
 use crate::utils::{parse_json_hex, RpcErr, RpcRequest};
@@ -12,7 +13,7 @@ use crate::RpcHandler;
 use rand::prelude::*;
 use serde_json::{json, Value};
 
-use super::logs::LogsFilter;
+use super::logs::{AddressFilter, LogsFilter, TopicFilter};
 
 #[derive(Debug, Clone)]
 pub struct NewFilterRequest {
@@ -37,7 +38,36 @@ pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: Duration)
         .retain(|_, (filter_timestamp, _)| filter_timestamp.elapsed() <= filter_duration);
 }
 /// Maps IDs to active log filters and their timestamps.
-pub type ActiveFilters = Arc<Mutex<HashMap<u64, (Instant, LogsFilter)>>>;
+pub type ActiveFilters = Arc<Mutex<HashMap<u64, (Instant, PollableFilter)>>>;
+
+// FIXME: Check how we can merge this with LogsFilter, before PR review.
+#[derive(Debug, Clone)]
+pub struct PollableFilter {
+    /// Last block number from when this
+    /// filter was requested or created.
+    /// i.e. if this filter is requested,
+    /// the log will be applied from this block
+    /// number up to the latest one.
+    pub last_block_number: BlockNumber,
+    /// The addresses from where the logs origin from.
+    pub address_filters: Option<AddressFilter>,
+    /// Which topics to filter.
+    pub topics: Vec<TopicFilter>,
+}
+impl From<PollableFilter> for LogsFilter {
+    fn from(f: PollableFilter) -> LogsFilter {
+        LogsFilter {
+            from_block: crate::types::block_identifier::BlockIdentifier::Number(
+                f.last_block_number,
+            ),
+            to_block: crate::types::block_identifier::BlockIdentifier::Tag(
+                crate::types::block_identifier::BlockTag::Latest,
+            ),
+            address_filters: f.address_filters,
+            topics: f.topics,
+        }
+    }
+}
 
 impl NewFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
@@ -57,15 +87,17 @@ impl NewFilterRequest {
             .from_block
             .resolve_block_number(&storage)?
             .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
-        let to = self
-            .request_data
-            .to_block
-            .resolve_block_number(&storage)?
-            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+        // FIXME: Maybe remove this
+        // let to = self
+        //     .request_data
+        //     .to_block
+        //     .resolve_block_number(&storage)?
+        //     .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
-        if (from..=to).is_empty() {
-            return Err(RpcErr::BadParams("Invalid block range".to_string()));
-        }
+        // FIXME: Maybe remove this
+        // if (from..=to).is_empty() {
+        //     return Err(RpcErr::BadParams("Invalid block range".to_string()));
+        // }
 
         let id: u64 = random();
         let timestamp = Instant::now();
@@ -75,8 +107,19 @@ impl NewFilterRequest {
             filters.clear_poison();
             poisoned_guard.into_inner()
         });
-
-        active_filters_guard.insert(id, (timestamp, self.request_data.clone()));
+        active_filters_guard.insert(
+            id,
+            (
+                timestamp,
+                PollableFilter {
+                    // FIXME: Remove these unwraps before PR review
+                    last_block_number: storage.get_latest_block_number().unwrap().unwrap(),
+                    // FIXME: Check If we can avoid these clones before PR review.
+                    address_filters: self.request_data.address_filters.clone(),
+                    topics: self.request_data.topics.clone(),
+                },
+            ),
+        );
         let as_hex = json!(format!("0x{:x}", id));
         Ok(as_hex)
     }
@@ -126,6 +169,60 @@ impl DeleteFilterRequest {
         }
     }
 
+    pub fn stateful_call(
+        req: &RpcRequest,
+        storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
+    ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        let request = Self::parse(&req.params)?;
+        request.handle(storage, filters)
+    }
+}
+
+// FIXME: Merge this with delete filter request before PR review
+pub struct FilterChangesRequest {
+    pub id: u64,
+}
+
+impl FilterChangesRequest {
+    pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
+        match params.as_deref() {
+            Some([param]) => {
+                let id = parse_json_hex(param).map_err(|_err| RpcErr::BadHexFormat(0))?;
+                Ok(FilterChangesRequest { id })
+            }
+            Some(_) => Err(RpcErr::BadParams(
+                "Expected an array with a single hex encoded id".to_string(),
+            )),
+            None => Err(RpcErr::MissingParam("0".to_string())),
+        }
+    }
+    pub fn handle(
+        &self,
+        storage: ethereum_rust_storage::Store,
+        filters: ActiveFilters,
+    ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
+            error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
+            **poisoned_guard.get_mut() = HashMap::new();
+            filters.clear_poison();
+            poisoned_guard.into_inner()
+        });
+        if let Some((timestamp, filter)) = active_filters_guard.get_mut(&self.id) {
+            let filter: LogsFilter = filter.clone().into();
+            *timestamp = Instant::now();
+            // FIXME: Ask if this approach is right.
+            // Drop the lock early to process this filter's query
+            // and not keep the lock more than we should.
+            drop(active_filters_guard);
+            // FIXME: Turn this into a separate function before PR review.
+            return filter.handle(storage);
+        } else {
+            return Err(RpcErr::BadParams(
+                "No matching filter for given id".to_string(),
+            ));
+        }
+    }
     pub fn stateful_call(
         req: &RpcRequest,
         storage: ethereum_rust_storage::Store,
