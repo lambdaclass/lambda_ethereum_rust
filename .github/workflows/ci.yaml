@@ -42,7 +42,7 @@ jobs:
         run: |
           cargo fmt --all -- --check
 
-  prover:
+  test:
     name: Test
     runs-on: ubuntu-latest
     steps:
@@ -76,24 +76,24 @@ jobs:
           file: ./Dockerfile
           load: true # Important for building without pushing
 
-  test:
+  prover:
     name: Build RISC-V zkVM program
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-      - uses: actions/checkout@v3
+        uses: actions/checkout@v3
 
       - name: Rust toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
 
-      - name: SP1 toolchain install
+      - name: RISC-V zkVM toolchain install
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          ~/.config/.sp1/bin/sp1up
+          ~/.sp1/bin/sp1up
 
       - name: Build program
         run: |
-          cd crates/l2
-          make setup-prover
+          cd crates/l2/prover/sp1/program
+          ~/.sp1/bin/cargo-prove prove build

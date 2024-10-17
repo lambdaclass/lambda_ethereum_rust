@@ -484,8 +484,7 @@ fn tx_env_from_generic(tx: &GenericTransaction, basefee: u64) -> TxEnv {
         chain_id: tx.chain_id,
         access_list: tx
             .access_list
-            .clone()
-            .into_iter()
+            .iter()
             .map(|list| {
                 let (address, storage_keys) = (
                     RevmAddress::from_slice(list.address.as_bytes()),
