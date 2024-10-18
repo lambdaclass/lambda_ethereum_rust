@@ -8,14 +8,14 @@ use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
-use crate::{operator::prover_server::ProofData, utils::config::prover::ProverConfig};
+use crate::{operator::prover_server::ProofData, utils::config::prover_client::ProverClientConfig};
 
 use super::prover::Prover;
 
-pub async fn start_proof_data_client() {
-    let config = ProverConfig::from_env().unwrap();
-    let proof_data_client = ProofDataClient::new(config.prover_server_endpoint.clone());
-    proof_data_client.start(config).await;
+pub async fn start_prover_client() {
+    let config = ProverClientConfig::from_env().unwrap();
+    let prover_client = ProofDataClient::new(config.prover_server_endpoint.clone());
+    prover_client.start(config).await;
 }
 
 struct ProofDataClient {
@@ -29,7 +29,7 @@ impl ProofDataClient {
         }
     }
 
-    pub async fn start(&self, config: ProverConfig) {
+    pub async fn start(&self, config: ProverClientConfig) {
         let prover = Prover::new_from_config(config);
 
         loop {
