@@ -90,16 +90,7 @@ impl RLPxMessage for DisconnectMessage {
                 .finish(),
             None => Vec::<u8>::new().encode(&mut encoded_data),
         }
-
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .map_err(|_| RLPEncodeError::InvalidCompression)?;
-
-        msg_data.truncate(compressed_size);
-
+        let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
@@ -142,16 +133,7 @@ impl RLPxMessage for PingMessage {
         let mut encoded_data = vec![];
         // Ping msg_data is only []
         Vec::<u8>::new().encode(&mut encoded_data);
-
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .map_err(|_| RLPEncodeError::InvalidCompression)?;
-
-        msg_data.truncate(compressed_size);
-
+        let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
@@ -184,15 +166,7 @@ impl RLPxMessage for PongMessage {
         let mut encoded_data = vec![];
         // Pong msg_data is only []
         Vec::<u8>::new().encode(&mut encoded_data);
-
-        let mut snappy_encoder = SnappyEncoder::new();
-        let mut msg_data = vec![0; max_compress_len(encoded_data.len()) + 1];
-
-        let compressed_size = snappy_encoder
-            .compress(&encoded_data, &mut msg_data)
-            .map_err(|_| RLPEncodeError::InvalidCompression)?;
-
-        msg_data.truncate(compressed_size);
+        let msg_data = snappy_encode(encoded_data)?;
         buf.put_slice(&msg_data);
         Ok(())
     }
