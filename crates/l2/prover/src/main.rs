@@ -1,7 +1,7 @@
-use ethereum_rust_l2::utils::config::prover::ProverConfig;
+use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 use ethereum_rust_prover_lib::init_client;
 
-use tracing::{self, Level};
+use tracing::{self, debug, warn, Level};
 
 #[tokio::main]
 async fn main() {
@@ -10,5 +10,6 @@ async fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
     let config = ProverClientConfig::from_env().unwrap();
+    debug!("Prover Client has started");
     init_client(config).await;
 }

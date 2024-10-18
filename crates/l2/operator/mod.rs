@@ -75,7 +75,7 @@ impl Operator {
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
-            block_executor_address: operator_config.block_executor_address,
+            block_executor_address: operator_config.on_chain_operator_address,
             l1_address: operator_config.l1_address,
             l1_private_key: operator_config.l1_private_key,
             block_production_interval: Duration::from_millis(operator_config.interval_ms),
