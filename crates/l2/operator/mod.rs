@@ -80,7 +80,7 @@ impl Operator {
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
-            block_executor_address: operator_config.block_executor_address,
+            block_executor_address: operator_config.on_chain_operator_address,
             common_bridge_address: operator_config.common_bridge_address,
             l1_address: operator_config.l1_address,
             l1_private_key: operator_config.l1_private_key,
@@ -335,9 +335,12 @@ impl Operator {
             ..Default::default()
         };
 
+        let mut generic_tx = GenericTransaction::from(tx.clone());
+        generic_tx.from = self.l1_address;
+
         tx.gas_limit = self
             .eth_client
-            .estimate_gas(GenericTransaction::from(tx.clone()))
+            .estimate_gas(generic_tx)
             .await?
             .saturating_add(TX_GAS_COST);
 

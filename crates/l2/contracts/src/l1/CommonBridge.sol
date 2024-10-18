@@ -14,7 +14,7 @@ contract CommonBridge is ICommonBridge, Ownable {
         uint256 amount;
     }
 
-    mapping(bytes32 l2TxHash => WithdrawalData) private pendingWithdrawals;
+    mapping(bytes32 l2TxHash => WithdrawalData) public pendingWithdrawals;
 
     /// @inheritdoc ICommonBridge
     function deposit(address to) public payable {

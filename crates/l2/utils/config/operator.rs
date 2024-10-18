@@ -7,7 +7,7 @@ use super::errors::ConfigError;
 
 #[derive(Deserialize)]
 pub struct OperatorConfig {
-    pub block_executor_address: Address,
+    pub on_chain_operator_address: Address,
     pub common_bridge_address: Address,
     pub l1_address: Address,
     #[serde(deserialize_with = "secret_key_deserializer")]
