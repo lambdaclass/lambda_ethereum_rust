@@ -16,6 +16,12 @@ pub enum EvmError {
     Precompile(String),
 }
 
+#[derive(Debug, Error)]
+pub enum ExecutionDBError {
+    #[error("{0}")]
+    Custom(String),
+}
+
 impl From<RevmError<StoreError>> for EvmError {
     fn from(value: RevmError<StoreError>) -> Self {
         match value {
