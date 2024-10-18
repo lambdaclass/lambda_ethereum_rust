@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use super::errors::ConfigError;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct ProverConfig {
     pub elf_path: String,
     pub proof_data_provider_endpoint: String,

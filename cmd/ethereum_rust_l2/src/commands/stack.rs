@@ -3,7 +3,6 @@ use clap::Subcommand;
 use eyre::ContextCompat;
 use libsecp256k1::SecretKey;
 use std::path::{Path, PathBuf};
-use tracing::info;
 
 pub const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
@@ -254,6 +253,7 @@ fn docker_compose_l2_up(ethereum_rust_dev_path: &Path) -> eyre::Result<()> {
 async fn start_l2(root: PathBuf, l2_rpc_url: &str) -> eyre::Result<()> {
     let l2_genesis_file_path = root.join("test_data/genesis-l2.json");
     let l2_rpc_url_owned = l2_rpc_url.to_owned();
+    let root_clone = root.clone();
     let l2_start_cmd = std::thread::spawn(move || {
         let status = std::process::Command::new("cargo")
             .arg("run")
@@ -277,14 +277,14 @@ async fn start_l2(root: PathBuf, l2_rpc_url: &str) -> eyre::Result<()> {
         }
     });
 
-    let prover_start_cmd = std::thread::spawn(move || {
+    let prover_start_cmd = std::thread::spawn(|| {
         let status = std::process::Command::new("cargo")
             .arg("run")
             .arg("--release")
             .arg("--bin")
             .arg("ethereum_rust_prover")
-            .current_dir(root)
-            .status(); // Use status() instead of spawn()
+            .current_dir(root_clone)
+            .status();
 
         match status {
             Ok(s) if s.success() => Ok(()),

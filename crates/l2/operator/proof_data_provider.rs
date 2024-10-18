@@ -1,4 +1,5 @@
 use crate::utils::eth_client::RpcResponse;
+use ethereum_rust_storage::Store;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::SP1ProofWithPublicValues;
@@ -29,9 +30,9 @@ use crate::utils::config::proof_data_provider::ProofDataProviderConfig;
 
 use super::errors::ProofDataProviderError;
 
-pub async fn start_proof_data_provider() {
+pub async fn start_proof_data_provider(store: Store) {
     let config = ProofDataProviderConfig::from_env().expect("ProofDataProviderConfig::from_env()");
-    let proof_data_provider = ProofDataProvider::new_from_config(config.clone());
+    let proof_data_provider = ProofDataProvider::new_from_config(config.clone(), store);
 
     let (tx, rx) = mpsc::channel();
 
@@ -66,13 +67,15 @@ pub enum ProofData {
 struct ProofDataProvider {
     ip: IpAddr,
     port: u16,
+    store: Store,
 }
 
 impl ProofDataProvider {
-    pub fn new_from_config(config: ProofDataProviderConfig) -> Self {
+    pub fn new_from_config(config: ProofDataProviderConfig, store: Store) -> Self {
         Self {
             ip: config.listen_ip,
             port: config.listen_port,
+            store,
         }
     }
 
@@ -176,11 +179,16 @@ impl ProofDataProvider {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        let last_block_number = Self::get_last_block_number().await?;
+        //let last_block_number = Self::get_last_block_number().await?;
+        let last_block_number = self
+            .store
+            .get_latest_block_number()
+            .map_err(|e| e.to_string())?
+            .unwrap();
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
-                block_number: Some(last_proved_block + 1),
+                block_number: Some(last_block_number),
                 input: ProverInputData::default(),
             }
         } else {

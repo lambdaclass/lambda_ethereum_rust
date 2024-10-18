@@ -6,7 +6,7 @@ use std::{
 
 use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use ethereum_rust_l2::{
     operator::proof_data_provider::{ProofData, ProverInputData},
@@ -15,8 +15,7 @@ use ethereum_rust_l2::{
 
 use super::prover::Prover;
 
-pub async fn start_proof_data_client() {
-    let config = ProverConfig::from_env().unwrap();
+pub async fn start_proof_data_client(config: ProverConfig) {
     let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
     proof_data_client.start(config).await;
 }
@@ -105,7 +104,7 @@ impl ProofDataClient {
             ProofData::SubmitAck {
                 block_number: res_id,
             } => {
-                debug!("Received submit ack: {res_id}");
+                info!("Received submit ack: {res_id}");
                 Ok(())
             }
             _ => Err(format!("Unexpected response {response:?}")),
