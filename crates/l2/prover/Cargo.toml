@@ -30,7 +30,18 @@ revm = { version = "14.0.3", features = [
     "kzg-rs",
 ], default-features = false }
 
+[build-dependencies]
+sp1-helper = "2.0.0"
+
 
 # Some tests need the release profile.
 [profile.test]
 inherits = "release"
+
+[lib]
+name = "ethereum_rust_prover_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ethereum_rust_prover"
+path = "src/main.rs"

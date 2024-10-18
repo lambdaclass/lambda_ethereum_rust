@@ -13,6 +13,8 @@ ethereum_rust-vm = { path = "../../../vm", default-features = false }
 ethereum_rust-rlp = { path = "../../../common/rlp", default-features = false }
 ethereum_rust-core = { path = "../../../common", default-features = false }
 ethereum_rust-blockchain = { path = "../../../blockchain", default-features = false }
+# we have the inputs defined here, we cannot import this crate due to the libmdbx crate
+#ethereum_rust-l2 = { path = "../../../l2", default-features = false }
 
 # revm
 revm = { version = "14.0.3", features = [

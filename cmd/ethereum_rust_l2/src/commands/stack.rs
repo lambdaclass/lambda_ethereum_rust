@@ -3,6 +3,7 @@ use clap::Subcommand;
 use eyre::ContextCompat;
 use libsecp256k1::SecretKey;
 use std::path::{Path, PathBuf};
+use tracing::info;
 
 pub const CARGO_MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
@@ -252,23 +253,50 @@ fn docker_compose_l2_up(ethereum_rust_dev_path: &Path) -> eyre::Result<()> {
 
 async fn start_l2(root: PathBuf, l2_rpc_url: &str) -> eyre::Result<()> {
     let l2_genesis_file_path = root.join("test_data/genesis-l2.json");
-    let cmd = std::process::Command::new("cargo")
-        .arg("run")
-        .arg("--release")
-        .arg("--bin")
-        .arg("ethereum_rust")
-        .arg("--features")
-        .arg("l2")
-        .arg("--")
-        .arg("--network")
-        .arg(l2_genesis_file_path)
-        .arg("--http.port")
-        .arg(l2_rpc_url.split(':').last().unwrap())
-        .current_dir(root)
-        .spawn()?
-        .wait()?;
-    if !cmd.success() {
-        eyre::bail!("Failed to run L2 node");
-    }
+    let l2_rpc_url_owned = l2_rpc_url.to_owned();
+    let l2_start_cmd = std::thread::spawn(move || {
+        let status = std::process::Command::new("cargo")
+            .arg("run")
+            .arg("--release")
+            .arg("--bin")
+            .arg("ethereum_rust")
+            .arg("--features")
+            .arg("l2")
+            .arg("--")
+            .arg("--network")
+            .arg(l2_genesis_file_path)
+            .arg("--http.port")
+            .arg(l2_rpc_url_owned.split(':').last().unwrap())
+            .current_dir(root)
+            .status();
+
+        match status {
+            Ok(s) if s.success() => Ok(()),
+            Ok(_) => Err(eyre::eyre!("Failed to run L2 node")),
+            Err(e) => Err(eyre::eyre!(e)),
+        }
+    });
+
+    let prover_start_cmd = std::thread::spawn(move || {
+        let status = std::process::Command::new("cargo")
+            .arg("run")
+            .arg("--release")
+            .arg("--bin")
+            .arg("ethereum_rust_prover")
+            .current_dir(root)
+            .status(); // Use status() instead of spawn()
+
+        match status {
+            Ok(s) if s.success() => Ok(()),
+            Ok(_) => Err(eyre::eyre!("Failed to Initialize Prover")),
+            Err(e) => Err(eyre::eyre!(e)),
+        }
+    });
+
+    let l2_result = l2_start_cmd.join().expect("L2 thread panicked");
+    let prover_result = prover_start_cmd.join().expect("Prover thread panicked");
+
+    l2_result?;
+    prover_result?;
     Ok(())
 }

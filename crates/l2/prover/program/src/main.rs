@@ -2,8 +2,8 @@
 
 //use ethereum_rust_blockchain::validate_gas_used;
 use ethereum_rust_core::types::{Receipt, Transaction};
+//use ethereum_rust_l2::proof_data_provider::MemoryDB;
 use ethereum_rust_vm::{block_env, tx_env};
-use utils::db_memorydb::MemoryDB;
 
 use revm::{
     db::CacheDB, inspectors::TracerEip3155, primitives::ResultAndState as RevmResultAndState,
@@ -15,7 +15,7 @@ sp1_zkvm::entrypoint!(main);
 pub fn main() {
     let head_block_bytes = sp1_zkvm::io::read::<Vec<u8>>();
     let parent_header_bytes = sp1_zkvm::io::read::<Vec<u8>>();
-    let memory_db = sp1_zkvm::io::read::<MemoryDB>();
+    //let memory_db = sp1_zkvm::io::read::<MemoryDB>();
 
     // SetUp data from inputs
     let block = <ethereum_rust_core::types::Block as ethereum_rust_rlp::decode::RLPDecode>::decode(
@@ -32,23 +32,24 @@ pub fn main() {
     // Make DataInputs public.
     sp1_zkvm::io::commit(&block);
     sp1_zkvm::io::commit(&parent_header);
-    sp1_zkvm::io::commit(&memory_db);
+    //sp1_zkvm::io::commit(&memory_db);
 
     // SetUp CacheDB in order to use execute_block()
-    let mut cache_db = CacheDB::new(memory_db);
+    //let mut cache_db = CacheDB::new(memory_db);
     println!("executing block");
 
-    let block_receipts = execute_block(&block, &mut cache_db).unwrap();
+    //let block_receipts = execute_block(&block, &mut cache_db).unwrap();
     // TODO
     // Handle the case in which the gas used differs and throws an error.
     // Should the zkVM panic? Should it generate a dummy proof?
     // Private function
     //let _ = validate_gas_used(&block_receipts, &block.header);
 
-    sp1_zkvm::io::commit(&block_receipts);
+    //sp1_zkvm::io::commit(&block_receipts);
 }
 
 // Modified from ethereum_rust-vm
+/*
 fn execute_block(
     block: &ethereum_rust_core::types::Block,
     db: &mut CacheDB<MemoryDB>,
@@ -108,3 +109,4 @@ fn run_evm(
     let RevmResultAndState { result, state: _ } = evm.transact().unwrap();
     Ok(result.into())
 }
+*/
