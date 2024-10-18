@@ -9,7 +9,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
         op: Opcode,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::PUSHN > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost::PUSHN > self.env.tx_gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -36,7 +36,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::PUSH0 > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost::PUSH0 > self.env.tx_gas_limit {
             return Err(VMError::OutOfGas);
         }
 
