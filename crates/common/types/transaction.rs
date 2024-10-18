@@ -1141,7 +1141,7 @@ mod serde_impl {
 
     /// Unsigned Transaction struct generic to all types which may not contain all required transaction fields
     /// Used to perform gas estimations and access list creation
-    #[derive(Deserialize, Debug, PartialEq, Clone)]
+    #[derive(Deserialize, Debug, PartialEq, Clone, Default)]
     #[serde(rename_all = "camelCase")]
     pub struct GenericTransaction {
         #[serde(default)]
@@ -1172,6 +1172,32 @@ mod serde_impl {
         pub blobs: Vec<Bytes>,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub chain_id: Option<u64>,
+    }
+
+    impl From<EIP1559Transaction> for GenericTransaction {
+        fn from(value: EIP1559Transaction) -> Self {
+            Self {
+                r#type: TxType::EIP1559,
+                nonce: value.nonce,
+                to: value.to,
+                gas: Some(value.gas_limit),
+                value: value.value,
+                input: value.data,
+                gas_price: value.max_fee_per_gas,
+                max_priority_fee_per_gas: Some(value.max_priority_fee_per_gas),
+                max_fee_per_gas: Some(value.max_fee_per_gas),
+                max_fee_per_blob_gas: None,
+                access_list: value
+                    .access_list
+                    .iter()
+                    .map(AccessListEntry::from)
+                    .collect(),
+                blob_versioned_hashes: vec![],
+                blobs: vec![],
+                chain_id: Some(value.chain_id),
+                ..Default::default()
+            }
+        }
     }
 }
 

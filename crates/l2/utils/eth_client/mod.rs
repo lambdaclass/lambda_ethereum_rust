@@ -3,7 +3,9 @@ use errors::{
     EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError, GetGasPriceError,
     GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
 };
-use ethereum_rust_core::types::{EIP1559Transaction, PriviligedL2Transaction, TxKind, TxType};
+use ethereum_rust_core::types::{
+    EIP1559Transaction, GenericTransaction, PriviligedL2Transaction, TxKind, TxType,
+};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
     types::receipt::{RpcLog, RpcReceipt},
@@ -130,7 +132,7 @@ impl EthClient {
 
     pub async fn estimate_gas(
         &self,
-        transaction: EIP1559Transaction,
+        transaction: GenericTransaction,
     ) -> Result<u64, EthClientError> {
         let to = match transaction.to {
             TxKind::Call(addr) => addr,
@@ -138,7 +140,8 @@ impl EthClient {
         };
         let data = json!({
             "to": format!("{to:#x}"),
-            "input": format!("{:#x}", transaction.data),
+            "input": format!("{:#x}", transaction.input),
+            "from": format!("{:#x}", transaction.from),
         });
 
         let request = RpcRequest {
