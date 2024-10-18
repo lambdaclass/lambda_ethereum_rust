@@ -2,13 +2,13 @@ use serde::Deserialize;
 
 use super::errors::ConfigError;
 
-#[derive(Deserialize, Debug)]
-pub struct ProverConfig {
+#[derive(Deserialize)]
+pub struct ProverClientConfig {
     pub elf_path: String,
-    pub proof_data_provider_endpoint: String,
+    pub prover_server_endpoint: String,
 }
 
-impl ProverConfig {
+impl ProverClientConfig {
     pub fn from_env() -> Result<Self, ConfigError> {
         envy::prefixed("PROVER_")
             .from_env::<Self>()

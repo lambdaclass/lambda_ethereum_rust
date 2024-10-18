@@ -3,8 +3,8 @@ use tracing::info;
 
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
-use ethereum_rust_l2::operator::proof_data_provider::ProverInputData;
-use ethereum_rust_l2::utils::config::prover::ProverConfig;
+use ethereum_rust_l2::operator::prover_server::ProverInputData;
+use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 
 pub struct Prover {
     client: ProverClient,
@@ -16,13 +16,13 @@ pub struct Prover {
 
 impl Default for Prover {
     fn default() -> Self {
-        let config = ProverConfig::from_env().unwrap();
+        let config = ProverClientConfig::from_env().unwrap();
         Self::new_from_config(config)
     }
 }
 
 impl Prover {
-    pub fn new_from_config(config: ProverConfig) -> Self {
+    pub fn new_from_config(config: ProverClientConfig) -> Self {
         let elf = std::fs::read(config.elf_path).unwrap();
 
         info!("Setting up prover...");
@@ -48,7 +48,7 @@ impl Prover {
         self.stdin.write(&head_block_rlp);
         self.stdin.write(&parent_block_header_rlp);
         self.stdin.write(&input.db);
-        
+
         self
     }
 

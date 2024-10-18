@@ -9,6 +9,6 @@ async fn main() {
         .with_max_level(Level::DEBUG)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-    let config = ProverConfig::from_env().unwrap();
+    let config = ProverClientConfig::from_env().unwrap();
     init_client(config).await;
 }

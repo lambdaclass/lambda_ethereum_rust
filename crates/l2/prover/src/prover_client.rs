@@ -9,29 +9,29 @@ use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
 use ethereum_rust_l2::{
-    operator::proof_data_provider::{ProofData, ProverInputData},
-    utils::config::prover::ProverConfig,
+    operator::prover_server::{ProofData, ProverInputData},
+    utils::config::prover_client::ProverClientConfig,
 };
 
 use super::prover::Prover;
 
-pub async fn start_proof_data_client(config: ProverConfig) {
-    let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
+pub async fn start_proof_data_client(config: ProverClientConfig) {
+    let proof_data_client = ProofDataClient::new(config.prover_server_endpoint.clone());
     proof_data_client.start(config).await;
 }
 
 struct ProofDataClient {
-    proof_data_provider_endpoint: String,
+    prover_server_endpoint: String,
 }
 
 impl ProofDataClient {
-    pub fn new(proof_data_provider_endpoint: String) -> Self {
+    pub fn new(prover_server_endpoint: String) -> Self {
         Self {
-            proof_data_provider_endpoint,
+            prover_server_endpoint,
         }
     }
 
-    pub async fn start(&self, config: ProverConfig) {
+    pub async fn start(&self, config: ProverClientConfig) {
         let mut prover = Prover::new_from_config(config);
 
         loop {
@@ -54,7 +54,7 @@ impl ProofDataClient {
     }
 
     fn request_new_data(&self) -> Result<(Option<u64>, ProverInputData), String> {
-        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
+        let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
@@ -84,7 +84,7 @@ impl ProofDataClient {
         block_number: u64,
         proof: SP1ProofWithPublicValues,
     ) -> Result<(), String> {
-        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
+        let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 

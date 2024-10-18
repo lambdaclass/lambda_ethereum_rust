@@ -1,10 +1,10 @@
-pub mod client;
 pub mod prover;
+pub mod prover_client;
 
-use ethereum_rust_l2::utils::config::prover::ProverConfig;
+use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 use tracing::warn;
 
-pub async fn init_client(config: ProverConfig) {
-    client::start_proof_data_client(config).await;
+pub async fn init_client(config: ProverClientConfig) {
+    prover_client::start_proof_data_client(config).await;
     warn!("Prover finished!");
 }
