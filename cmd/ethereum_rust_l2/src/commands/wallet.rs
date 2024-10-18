@@ -1,6 +1,8 @@
 use crate::config::EthereumRustL2Config;
 use clap::Subcommand;
-use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
+use ethereum_rust_core::types::{
+    EIP1559Transaction, PrivilegedTxType, PriviligedL2Transaction, TxKind,
+};
 use ethereum_rust_l2::utils::eth_client::EthClient;
 use ethereum_types::{Address, H256, U256};
 
@@ -61,6 +63,8 @@ pub(crate) enum Command {
         // TODO: Parse ether instead.
         #[clap(long = "amount", value_parser = U256::from_dec_str)]
         amount: U256,
+        #[clap(long = "to")]
+        to: Option<Address>,
         #[clap(
             long = "token",
             help = "Specify the token address, the base token is used as default."
@@ -174,11 +178,27 @@ impl Command {
                 );
             }
             Command::Withdraw {
-                amount: _,
+                amount,
+                to,
                 token_address: _,
                 explorer_url: _,
             } => {
-                todo!()
+                let withdraw_transaction = PriviligedL2Transaction {
+                    to: TxKind::Call(to.unwrap_or(cfg.wallet.address)),
+                    value: amount,
+                    chain_id: cfg.network.l2_chain_id,
+                    nonce: rollup_client.get_nonce(from).await?,
+                    max_fee_per_gas: 800000000,
+                    tx_type: PrivilegedTxType::Withdrawal,
+                    gas_limit: 21000 * 2,
+                    ..Default::default()
+                };
+
+                let tx_hash = rollup_client
+                    .send_privileged_l2_transaction(withdraw_transaction, cfg.wallet.private_key)
+                    .await?;
+
+                println!("Withdrawal sent: {tx_hash:#x}");
             }
             Command::Address => {
                 todo!()

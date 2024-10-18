@@ -3,7 +3,7 @@ use errors::{
     EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError, GetGasPriceError,
     GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
 };
-use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
+use ethereum_rust_core::types::{EIP1559Transaction, PriviligedL2Transaction, TxKind, TxType};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
     types::receipt::{RpcLog, RpcReceipt},
@@ -31,8 +31,6 @@ pub struct EthClient {
     client: Client,
     url: String,
 }
-
-const EIP1559_TX_TYPE: u8 = 2;
 
 impl EthClient {
     pub fn new(url: &str) -> Self {
@@ -87,7 +85,7 @@ impl EthClient {
         mut tx: EIP1559Transaction,
         private_key: SecretKey,
     ) -> Result<H256, EthClientError> {
-        let mut payload = vec![EIP1559_TX_TYPE];
+        let mut payload = vec![TxType::EIP1559 as u8];
         payload.append(tx.encode_payload_to_vec().as_mut());
 
         let data = Message::parse(&keccak(payload).0);
@@ -100,7 +98,31 @@ impl EthClient {
         let mut encoded_tx = Vec::new();
         tx.encode(&mut encoded_tx);
 
-        let mut data = vec![EIP1559_TX_TYPE];
+        let mut data = vec![TxType::EIP1559 as u8];
+        data.append(&mut encoded_tx);
+
+        self.send_raw_transaction(data.as_slice()).await
+    }
+
+    pub async fn send_privileged_l2_transaction(
+        &self,
+        mut tx: PriviligedL2Transaction,
+        private_key: SecretKey,
+    ) -> Result<H256, EthClientError> {
+        let mut payload = vec![TxType::Privileged as u8];
+        payload.append(tx.encode_payload_to_vec().as_mut());
+
+        let data = Message::parse(&keccak(payload).0);
+        let signature = sign(&data, &private_key);
+
+        tx.signature_r = U256::from(signature.0.r.b32());
+        tx.signature_s = U256::from(signature.0.s.b32());
+        tx.signature_y_parity = signature.1.serialize() != 0;
+
+        let mut encoded_tx = Vec::new();
+        tx.encode(&mut encoded_tx);
+
+        let mut data = vec![TxType::Privileged as u8];
         data.append(&mut encoded_tx);
 
         self.send_raw_transaction(data.as_slice()).await
