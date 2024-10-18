@@ -96,6 +96,7 @@ mod tests {
         RpcHandler,
     };
     use bytes::Bytes;
+    use ethereum_rust_blockchain::constants::MIN_GAS_LIMIT;
     use ethereum_rust_core::{
         types::{
             Block, BlockBody, BlockHeader, EIP1559Transaction, Genesis, LegacyTransaction,
@@ -316,7 +317,10 @@ mod tests {
     fn test_with_no_blocks_but_genesis() {
         let store = setup_store();
         let gas_price = GasPrice {};
-        assert!(gas_price.handle(store).is_err())
+        let expected_gas_price = MIN_GAS_LIMIT;
+        let response = gas_price.handle(store).unwrap();
+        let parsed_result = parse_json_hex(&response).unwrap();
+        assert_eq!(parsed_result, expected_gas_price);
     }
     #[test]
     fn request_smoke_test() {
