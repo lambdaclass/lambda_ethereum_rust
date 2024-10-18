@@ -103,26 +103,21 @@ impl RpcHandler for NewPayloadV3Request {
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
+
+        // Return the valid message directly if we have it.
+        if storage.get_block_header_by_hash(block_hash)?.is_some() {
+            let result = PayloadStatus::valid_with_hash(block_hash);
+            return serde_json::to_value(result)
+                .map_err(|error| RpcErr::Internal(error.to_string()));
+        }
+
         // Check that the incoming block extends the current chain
         let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal(
             "Could not get latest block number".to_owned(),
         ))?;
-        if block.header.number <= last_block_number {
-            // Check if we already have this block stored
-            if storage
-                .get_block_number(block_hash)
-                .map_err(|error| RpcErr::Internal(error.to_string()))?
-                .is_some_and(|num| num == block.header.number)
-            {
-                let result = PayloadStatus::valid_with_hash(block_hash);
-                return serde_json::to_value(result)
-                    .map_err(|error| RpcErr::Internal(error.to_string()));
-            }
-            warn!("Should start reorg but it is not supported yet");
-            return Err(RpcErr::Internal(
-                "Block reorg is not supported yet".to_owned(),
-            ));
-        } else if block.header.number != last_block_number + 1 {
+
+        // NOTE: We should check if it's connected instead of future.
+        if block.header.number >= last_block_number + 1 {
             let result = PayloadStatus::syncing();
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
@@ -135,9 +130,7 @@ impl RpcHandler for NewPayloadV3Request {
         info!("Executing payload with block hash: {block_hash:#x}");
         let payload_status = match add_block(&block, &storage) {
             Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
-            Err(ChainError::ParentNotFound) => Ok(PayloadStatus::invalid_with_err(
-                "Could not reference parent block with parent_hash",
-            )),
+            Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
             Err(ChainError::InvalidBlock(error)) => {
                 warn!("Error adding block: {error}");
                 Ok(PayloadStatus::invalid_with(
