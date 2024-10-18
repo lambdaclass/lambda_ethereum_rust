@@ -51,7 +51,7 @@ The following environment variables are available to configure the operator:
 - `ENGINE_API_JWT_PATH`: Path to the JWT authentication file, required to connect to the EngineAPI.
 - `PROVER_SERVER_LISTEN_IP`: IP to listen for proof data requests.
 - `PROVER_SERVER_LISTEN_PORT`: Port to listen for proof data requests.
-- `OPERATOR_BLOCK_EXECUTOR_ADDRESS`: Address of the block executor contract on L1.
+- `OPERATOR_ON_CHAIN_OPERATOR_ADDRESS`: Address of the block executor contract on L1.
 - `OPERATOR_L1_ADDRESS`: Address of the L1 operator.
 - `OPERATOR_L1_PRIVATE_KEY`: Private key of the L1 operator.
 - `OPERATOR_INTERVAL_MS`: Interval in milliseconds to produce new blocks.
