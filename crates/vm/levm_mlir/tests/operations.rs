@@ -1822,7 +1822,7 @@ fn test_exp_dynamic_gas_with_exponent_lower_than_256() {
             output: Bytes::default(),
             logs: vec![],
             created_address: None,
-            new_state: None
+            new_state: HashMap::new()
         }
     );
 }
@@ -1847,7 +1847,7 @@ fn test_exp_dynamic_gas_with_exponent_greater_than_256() {
             output: Bytes::default(),
             logs: vec![],
             created_address: None,
-            new_state: None
+            new_state: HashMap::new()
         }
     );
 }
@@ -1872,7 +1872,7 @@ fn test_exp_dynamic_gas_with_exponent_lower_than_65536() {
             output: Bytes::default(),
             logs: vec![],
             created_address: None,
-            new_state: None
+            new_state: HashMap::new()
         }
     );
 }
@@ -1897,7 +1897,7 @@ fn test_exp_dynamic_gas_with_exponent_greater_than_65536() {
             output: Bytes::default(),
             logs: vec![],
             created_address: None,
-            new_state: None
+            new_state: HashMap::new()
         }
     );
 }
@@ -2682,7 +2682,7 @@ fn invalid_gas_check() {
 
     let expected_result = TransactionReport {
         result: TxResult::ExceptionalHalt(VmError::UnknownError),
-        new_state: None,
+        new_state: HashMap::new(),
         gas_used: gas,
         gas_refunded: 0,
         output: Bytes::default(),

@@ -26,7 +26,7 @@ pub enum VmError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransactionReport {
     pub result: TxResult,
-    pub new_state: Option<HashMap<Address, Account>>,
+    pub new_state: HashMap<Address, Account>,
     pub gas_used: u64,
     pub gas_refunded: u64,
     pub output: Bytes,

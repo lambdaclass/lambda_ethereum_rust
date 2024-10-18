@@ -267,7 +267,7 @@ impl<'c> SyscallContext<'c> {
                 output: return_values.into(),
                 logs: self.logs(),
                 result: TxResult::Success,
-                new_state: Some(state),
+                new_state: state,
                 // TODO: Handle this?
                 created_address: None,
             },
@@ -277,7 +277,7 @@ impl<'c> SyscallContext<'c> {
                 output: return_values.into(),
                 logs: self.logs(),
                 result: TxResult::Success,
-                new_state: Some(state),
+                new_state: state,
                 // TODO: Handle this?
                 created_address: None,
             },
@@ -285,7 +285,7 @@ impl<'c> SyscallContext<'c> {
                 output: return_values.into(),
                 gas_used,
                 result: TxResult::Revert,
-                new_state: None,
+                new_state: HashMap::new(),
                 gas_refunded: 0,
                 logs: vec![],
                 created_address: None,
@@ -293,7 +293,7 @@ impl<'c> SyscallContext<'c> {
             ExitStatusCode::Error | ExitStatusCode::Default => TransactionReport {
                 gas_used,
                 result: TxResult::ExceptionalHalt(halt_reason),
-                new_state: None,
+                new_state: HashMap::new(),
                 gas_refunded: 0,
                 output: Bytes::default(),
                 logs: vec![],

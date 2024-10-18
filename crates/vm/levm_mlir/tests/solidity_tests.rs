@@ -26,7 +26,7 @@ fn factorial_contract() {
     let mut evm = default_evm_with_bytecode(bytes, address);
     let result = evm.transact().unwrap();
     assert!(result.is_success());
-    let state = result.new_state.unwrap().get(&address).unwrap().clone();
+    let state = result.new_state.get(&address).unwrap().clone();
     assert_eq!(
         state
             .storage
@@ -44,7 +44,7 @@ fn fibonacci_contract() {
     let mut evm = default_evm_with_bytecode(bytes, address);
     let result = evm.transact().unwrap();
     assert!(result.is_success());
-    let state = result.new_state.unwrap().get(&address).unwrap().clone();
+    let state = result.new_state.get(&address).unwrap().clone();
     assert_eq!(
         state
             .storage
@@ -62,7 +62,7 @@ fn recursive_fibonacci_contract() {
     let mut evm = default_evm_with_bytecode(bytes, address);
     let result = evm.transact().unwrap();
     assert!(result.is_success());
-    let state = result.new_state.unwrap().get(&address).unwrap().clone();
+    let state = result.new_state.get(&address).unwrap().clone();
     assert_eq!(
         state
             .storage

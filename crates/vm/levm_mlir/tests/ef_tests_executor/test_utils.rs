@@ -168,9 +168,7 @@ pub fn run_test(path: &Path, contents: String) -> datatest_stable::Result<()> {
             // TODO: use rlp and hash to check logs
 
             if let Ok(res) = res {
-                if let Some(new_state) = res.new_state {
-                    verify_storage(&test.post_state, new_state);
-                }
+                verify_storage(&test.post_state, res.new_state);
             }
         }
     }

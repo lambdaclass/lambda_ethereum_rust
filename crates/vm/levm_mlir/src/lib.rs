@@ -124,9 +124,7 @@ impl Evm<Db> {
 
     pub fn transact_commit(&mut self) -> Result<TransactionReport, InvalidTransaction> {
         let report = self.transact()?;
-        if let Some(new_state) = report.new_state.clone() {
-            self.db.commit(new_state);
-        }
+        self.db.commit(report.new_state.clone());
 
         Ok(report)
     }
