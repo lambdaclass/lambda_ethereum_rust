@@ -8,24 +8,24 @@ use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
-use crate::{operator::proof_data_provider::ProofData, utils::config::prover::ProverConfig};
+use crate::{operator::prover_server::ProofData, utils::config::prover::ProverConfig};
 
 use super::prover::Prover;
 
 pub async fn start_proof_data_client() {
     let config = ProverConfig::from_env().unwrap();
-    let proof_data_client = ProofDataClient::new(config.proof_data_provider_endpoint.clone());
+    let proof_data_client = ProofDataClient::new(config.prover_server_endpoint.clone());
     proof_data_client.start(config).await;
 }
 
 struct ProofDataClient {
-    proof_data_provider_endpoint: String,
+    prover_server_endpoint: String,
 }
 
 impl ProofDataClient {
-    pub fn new(proof_data_provider_endpoint: String) -> Self {
+    pub fn new(prover_server_endpoint: String) -> Self {
         Self {
-            proof_data_provider_endpoint,
+            prover_server_endpoint,
         }
     }
 
@@ -52,7 +52,7 @@ impl ProofDataClient {
     }
 
     fn request_new_data(&self) -> Result<Option<u64>, String> {
-        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
+        let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
@@ -78,7 +78,7 @@ impl ProofDataClient {
     }
 
     fn submit_proof(&self, id: u64, proof: SP1ProofWithPublicValues) -> Result<(), String> {
-        let stream = TcpStream::connect(&self.proof_data_provider_endpoint)
+        let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 

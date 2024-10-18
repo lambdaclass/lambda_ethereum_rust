@@ -5,7 +5,7 @@ use super::errors::ConfigError;
 #[derive(Deserialize)]
 pub struct ProverConfig {
     pub elf_path: String,
-    pub proof_data_provider_endpoint: String,
+    pub prover_server_endpoint: String,
 }
 
 impl ProverConfig {

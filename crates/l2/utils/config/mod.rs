@@ -5,7 +5,7 @@ use tracing::debug;
 pub mod eth;
 pub mod l1_watcher;
 pub mod operator;
-pub mod proof_data_provider;
+pub mod prover_server;
 pub mod prover;
 
 pub mod errors;
