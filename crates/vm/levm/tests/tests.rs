@@ -3834,6 +3834,8 @@ fn caller_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3873,6 +3875,8 @@ fn origin_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3938,6 +3942,8 @@ fn address_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3979,6 +3985,8 @@ fn selfbalance_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4016,6 +4024,8 @@ fn callvalue_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4052,6 +4062,8 @@ fn codesize_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4090,6 +4102,8 @@ fn gasprice_op() {
         Default::default(),
         Some(U256::from(0x9876)),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4145,6 +4159,8 @@ fn codecopy_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
