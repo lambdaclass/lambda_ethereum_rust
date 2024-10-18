@@ -8,7 +8,7 @@ library Utils {
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
     Vm internal constant vm = Vm(VM_ADDRESS);
 
-    function deployWithCreate2(bytes memory bytecode, bytes32 salt, address create2Factory) internal returns (address) {
+    function deployWithCreate2(bytes memory bytecode, bytes32 salt, address create2Factory, bytes memory args) internal returns (address) {
         if (bytecode.length == 0) {
             revert("Bytecode is not set");
         }
@@ -18,7 +18,7 @@ library Utils {
         }
 
         vm.broadcast();
-        (bool success, bytes memory data) = create2Factory.call(abi.encodePacked(salt, bytecode));
+        (bool success, bytes memory data) = create2Factory.call(abi.encodePacked(salt, bytecode, args));
         contractAddress = bytesToAddress(data);
 
         if (!success) {

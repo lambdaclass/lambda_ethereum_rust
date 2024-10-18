@@ -153,6 +153,20 @@ fn contract_deps(contracts_path: &PathBuf) -> eyre::Result<()> {
             eyre::bail!("Failed to install forge-std");
         }
     }
+    if !contracts_path.join("lib/forge-std").exists() {
+        let cmd = std::process::Command::new("forge")
+            .arg("install")
+            .arg("OpenZeppelin/openzeppelin-contracts")
+            .arg("--no-git")
+            .arg("--root")
+            .arg(contracts_path)
+            .current_dir(contracts_path)
+            .spawn()?
+            .wait()?;
+        if !cmd.success() {
+            eyre::bail!("Failed to install OpenZeppelin");
+        }
+    }
     Ok(())
 }
 

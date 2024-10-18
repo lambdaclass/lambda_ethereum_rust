@@ -20,20 +20,20 @@ contract DeployL1Script is Script {
         console.log("Deploying L1 contracts");
 
         deployBlockExecutor();
-        deployCommonBridge();
+        deployCommonBridge(msg.sender);
     }
 
     function deployBlockExecutor() internal {
         bytes memory bytecode = type(BlockExecutor).creationCode;
         bytes32 salt = bytes32(0);
-        address contractAddress = Utils.deployWithCreate2(bytecode, salt, DETERMINISTIC_CREATE2_ADDRESS);
+        address contractAddress = Utils.deployWithCreate2(bytecode, salt, DETERMINISTIC_CREATE2_ADDRESS, "");
         console.log("BlockExecutor deployed at:", contractAddress);
     }
 
-    function deployCommonBridge() internal {
+    function deployCommonBridge(address owner) internal {
         bytes memory bytecode = type(CommonBridge).creationCode;
         bytes32 salt = bytes32(0);
-        address contractAddress = Utils.deployWithCreate2(bytecode, salt, DETERMINISTIC_CREATE2_ADDRESS);
+        address contractAddress = Utils.deployWithCreate2(bytecode, salt, DETERMINISTIC_CREATE2_ADDRESS, abi.encode(owner));
         console.log("CommonBridge deployed at:", contractAddress);
     }
 }
