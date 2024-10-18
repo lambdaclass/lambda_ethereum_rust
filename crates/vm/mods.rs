@@ -14,7 +14,7 @@ pub fn deduct_caller<SPEC: Spec, EXT, DB: Database>(
     context: &mut revm::Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
     // load caller's account.
-    let (caller_account, _) = context
+    let mut caller_account = context
         .evm
         .inner
         .journaled_state
@@ -33,7 +33,10 @@ pub fn deduct_caller<SPEC: Spec, EXT, DB: Database>(
             .saturating_add(context.evm.inner.env.tx.value);
     }
     // deduct gas cost from caller's account.
-    revm::handler::mainnet::deduct_caller_inner::<SPEC>(caller_account, &context.evm.inner.env);
+    revm::handler::mainnet::deduct_caller_inner::<SPEC>(
+        &mut caller_account,
+        &context.evm.inner.env,
+    );
     Ok(())
 }
 
@@ -64,7 +67,7 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
                 && frame_result.interpreter_result().is_ok()
             {
                 info!("TX to privileged account with `burn` data");
-                let (destination_account, _) = context
+                let mut destination_account = context
                     .evm
                     .inner
                     .journaled_state

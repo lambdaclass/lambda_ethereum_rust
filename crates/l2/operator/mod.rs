@@ -1,15 +1,14 @@
 use crate::utils::{
-    config::{
-        engine_api::EngineApiConfig, eth::EthConfig, operator::OperatorConfig, read_env_file,
-    },
-    engine_client::EngineClient,
+    config::{eth::EthConfig, operator::OperatorConfig, read_env_file},
     eth_client::EthClient,
 };
+use bytes::Bytes;
 use errors::OperatorError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{
     Block, EIP1559Transaction, GenericTransaction, PrivilegedTxType, Transaction, TxKind,
 };
+use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_rust_storage::Store;
@@ -21,7 +20,7 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 pub mod l1_watcher;
-pub mod proof_data_provider;
+pub mod prover_server;
 
 pub mod errors;
 
@@ -47,7 +46,7 @@ pub async fn start_operator(store: Store) {
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
-    let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
+    let prover_server = tokio::spawn(prover_server::start_prover_server());
     let operator = tokio::spawn(async move {
         let eth_config = EthConfig::from_env().expect("EthConfig::from_env");
         let operator_config = OperatorConfig::from_env().expect("OperatorConfig::from_env");
@@ -69,7 +68,7 @@ pub async fn start_operator(store: Store) {
             .await
             .expect("Operator::start");
     });
-    tokio::try_join!(l1_watcher, proof_data_provider, operator).expect("tokio::try_join");
+    tokio::try_join!(l1_watcher, prover_server, operator).expect("tokio::try_join");
 }
 
 impl Operator {
@@ -175,7 +174,7 @@ impl Operator {
         };
         let fork_choice_response = match self
             .engine_client
-            .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
+            .engine_forkchoice_updated_v3(fork_choice_state, Some(payload_attributes))
             .await
         {
             Ok(response) => response,
@@ -240,16 +239,11 @@ impl Operator {
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
         calldata.extend(commitment.0);
 
-        let tx = EIP1559Transaction {
-            to: TxKind::Call(self.block_executor_address),
-            data: calldata.into(),
-            chain_id: 3151908,
-            ..Default::default()
-        };
+        let commit_tx_hash = self
+            .send_transaction_with_calldata(self.block_executor_address, calldata.into())
+            .await?;
 
-        let commit_tx_hash = self.send_transaction(tx).await?;
-
-        info!("Commitment sent: {commit_tx_hash:#?}");
+        info!("Commitment sent: {commit_tx_hash:#x}");
 
         while self
             .eth_client
@@ -273,16 +267,11 @@ impl Operator {
         let leading_zeros = 32 - (calldata.len() % 32);
         calldata.extend(vec![0; leading_zeros]);
 
-        let tx = EIP1559Transaction {
-            to: TxKind::Call(self.block_executor_address),
-            data: calldata.into(),
-            chain_id: 3151908,
-            ..Default::default()
-        };
+        let verify_tx_hash = self
+            .send_transaction_with_calldata(self.block_executor_address, calldata.into())
+            .await?;
 
-        let verify_tx_hash = self.send_transaction(tx).await?;
-
-        info!("Proof sent: {verify_tx_hash:#?}");
+        info!("Proof sent: {verify_tx_hash:#x}");
 
         while self
             .eth_client
@@ -314,14 +303,9 @@ impl Operator {
             calldata.extend(tx.compute_hash().0);
         });
 
-        let tx = EIP1559Transaction {
-            to: TxKind::Call(self.common_bridge_address),
-            data: calldata.into(),
-            chain_id: 3151908,
-            ..Default::default()
-        };
-
-        let withdrawals_tx_hash = self.send_transaction(tx).await?;
+        let withdrawals_tx_hash = self
+            .send_transaction_with_calldata(self.common_bridge_address, calldata.into())
+            .await?;
 
         info!("Withdrawals sent to L1 in TX {withdrawals_tx_hash:#?}");
 
@@ -337,16 +321,25 @@ impl Operator {
         Ok(withdrawals_tx_hash)
     }
 
-    async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, OperatorError> {
+    async fn send_transaction_with_calldata(
+        &self,
+        to: Address,
+        calldata: Bytes,
+    ) -> Result<H256, OperatorError> {
+        let mut tx = EIP1559Transaction {
+            to: TxKind::Call(to),
+            data: calldata,
+            max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
+            nonce: self.eth_client.get_nonce(self.l1_address).await?,
+            chain_id: self.eth_client.get_chain_id().await?.as_u64(),
+            ..Default::default()
+        };
+
         tx.gas_limit = self
             .eth_client
             .estimate_gas(GenericTransaction::from(tx.clone()))
             .await?
             .saturating_add(TX_GAS_COST);
-
-        tx.max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
-
-        tx.nonce = self.eth_client.get_nonce(self.l1_address).await?;
 
         self.eth_client
             .send_eip1559_transaction(tx, self.l1_private_key)
