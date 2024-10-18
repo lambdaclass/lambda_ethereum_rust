@@ -8,7 +8,7 @@ use crate::utils::{
 use errors::OperatorError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{
-    Block, EIP1559Transaction, GenericTransaction, PrivilegedTxType, Transaction, TxKind, TxType,
+    Block, EIP1559Transaction, GenericTransaction, PrivilegedTxType, Transaction, TxKind,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
