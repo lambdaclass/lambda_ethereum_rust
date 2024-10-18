@@ -768,6 +768,7 @@ mod canonic_encoding {
 }
 
 // Serialization
+// This is used for RPC messaging and passing data into a RISC-V zkVM
 
 mod serde_impl {
     use serde::Deserialize;
@@ -1243,6 +1244,7 @@ mod serde_impl {
         #[serde(default, with = "crate::serde_utils::u64::hex_str")]
         pub nonce: u64,
         pub to: TxKind,
+        #[serde(default)]
         pub from: Address,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub gas: Option<u64>,

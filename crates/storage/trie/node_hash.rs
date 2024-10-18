@@ -122,7 +122,6 @@ impl Encodable for NodeHash {
 }
 
 #[cfg(feature = "libmdbx")]
-
 impl Decodable for NodeHash {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(match b.len() {
