@@ -5,6 +5,8 @@ use crate::{
 };
 use sha3::{Digest, Keccak256};
 
+use super::super::constants::*;
+
 // Block Information (11)
 // Opcodes: BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO, GASLIMIT, CHAINID, SELFBALANCE, BASEFEE, BLOBHASH, BLOBBASEFEE
 use super::*;
@@ -177,9 +179,19 @@ impl VM {
 
         self.env.consumed_gas += gas_cost::BLOBHASH;
 
+        // Should push in stack the blob hash
         unimplemented!("when we have tx implemented");
 
         // Ok(OpcodeSuccess::Continue)
+    }
+
+    fn get_blob_gasprice(&mut self) -> u64 {
+        fake_exponential(
+            MIN_BASE_FEE_PER_BLOB_GAS,
+            // Use unwrap because env should have a Some value in excess_blob_gas attribute
+            self.env.excess_blob_gas.unwrap(),
+            BLOB_BASE_FEE_UPDATE_FRACTION,
+        )
     }
 
     // BLOBBASEFEE operation
@@ -190,8 +202,9 @@ impl VM {
         if self.env.consumed_gas + gas_cost::BLOBBASEFEE > self.env.gas_limit {
             return Err(VMError::OutOfGas);
         }
-        // TODO: Calculate blob gas price.
-        let blob_base_fee = U256::zero();
+
+        let blob_base_fee = U256::from(self.get_blob_gasprice());
+
         current_call_frame.stack.push(blob_base_fee)?;
         self.env.consumed_gas += gas_cost::BLOBBASEFEE;
 
@@ -478,4 +491,17 @@ use std::str::FromStr;
 fn address_to_word(address: Address) -> U256 {
     // This unwrap can't panic, as Address are 20 bytes long and U256 use 32 bytes
     U256::from_str(&format!("{address:?}")).unwrap()
+}
+
+// Fuction inspired in EIP 4844 helpers. Link: https://eips.ethereum.org/EIPS/eip-4844#helpers
+fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u64 {
+    let mut i = 1;
+    let mut output = 0;
+    let mut numerator_accum = factor * denominator;
+    while numerator_accum > 0 {
+        output += numerator_accum;
+        numerator_accum = (numerator_accum * numerator) / (denominator * i);
+        i += 1;
+    }
+    output / denominator
 }

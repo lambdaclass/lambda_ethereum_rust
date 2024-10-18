@@ -129,3 +129,8 @@ pub fn init_code_cost(init_code_length: usize) -> u64 {
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
 pub const MAX_BLOB_NUMBER_PER_BLOCK: usize = 6;
+
+// Blob consts
+pub const TARGET_BLOB_GAS_PER_BLOCK: u64 = 393216;
+pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
+pub const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = 3338477;
