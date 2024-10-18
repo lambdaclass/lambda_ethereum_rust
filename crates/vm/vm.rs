@@ -3,6 +3,9 @@ mod errors;
 mod execution_result;
 #[cfg(feature = "l2")]
 mod mods;
+// TODO: add a way to use levm instead of revm as a feature
+// #[cfg(feature = "levm")]
+pub mod levm;
 
 use db::StoreWrapper;
 use std::cmp::min;
