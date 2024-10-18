@@ -1,13 +1,12 @@
 mod db;
 mod errors;
+mod execution_db;
 mod execution_result;
 #[cfg(feature = "l2")]
 mod mods;
 
-pub mod cache;
-
-use cache::ExecutionDB;
 use db::StoreWrapper;
+use execution_db::ExecutionDB;
 use std::cmp::min;
 
 use ethereum_rust_core::{
@@ -25,7 +24,7 @@ use revm::{
     inspectors::TracerEip3155,
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{BlobExcessGasAndPrice, BlockEnv, TxEnv, B256, U256 as RevmU256},
-    Database, DatabaseCommit, Evm, InMemoryDB,
+    Database, DatabaseCommit, Evm,
 };
 use revm_inspectors::access_list::AccessListInspector;
 // Rename imported types for clarity
