@@ -4,8 +4,10 @@ mod execution_result;
 #[cfg(feature = "l2")]
 mod mods;
 
+pub mod cache;
+
+use cache::ExecutionDB;
 use db::StoreWrapper;
-use ethereum_rust_cache::MemoryDB;
 use std::cmp::min;
 
 use ethereum_rust_core::{
@@ -43,7 +45,7 @@ pub struct EvmState(revm::db::State<StoreWrapper>);
 
 pub enum _EvmState {
     Store(revm::db::State<StoreWrapper>),
-    Cache(revm::db::CacheDB<MemoryDB>),
+    Execution(revm::db::CacheDB<ExecutionDB>),
 }
 
 impl EvmState {
