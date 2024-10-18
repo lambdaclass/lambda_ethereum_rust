@@ -176,6 +176,7 @@ impl RLPDecode for Transaction {
                 // EIP4844
                 0x3 => EIP4844Transaction::decode_unfinished(tx_encoding)
                     .map(|(tx, rem)| (Transaction::EIP4844Transaction(tx), rem)),
+                // PriviligedL2
                 0x7e => PriviligedL2Transaction::decode_unfinished(tx_encoding)
                     .map(|(tx, rem)| (Transaction::PrivilegedL2Transaction(tx), rem)),
                 ty => Err(RLPDecodeError::Custom(format!(

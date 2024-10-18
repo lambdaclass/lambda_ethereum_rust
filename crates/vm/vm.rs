@@ -5,7 +5,6 @@ mod execution_result;
 mod mods;
 
 use db::StoreWrapper;
-use mods::{DEPOSIT_MAGIC_DATA, WITHDRAWAL_MAGIC_DATA};
 use std::cmp::min;
 
 use ethereum_rust_core::{
@@ -37,6 +36,9 @@ pub use execution_result::*;
 pub use revm::primitives::{Address as RevmAddress, SpecId};
 
 type AccessList = Vec<(Address, Vec<H256>)>;
+
+pub const WITHDRAWAL_MAGIC_DATA: &[u8] = b"burn";
+pub const DEPOSIT_MAGIC_DATA: &[u8] = b"mint";
 
 /// State used when running the EVM
 // Encapsulates state behaviour to be agnostic to the evm implementation for crate users
@@ -438,9 +440,7 @@ fn tx_env(tx: &Transaction) -> TxEnv {
     };
     TxEnv {
         caller: match tx {
-            Transaction::PrivilegedL2Transaction(tx)
-                if tx.tx_type == PrivilegedTxType::Withdrawal =>
-            {
+            Transaction::PrivilegedL2Transaction(tx) if tx.tx_type == PrivilegedTxType::Deposit => {
                 RevmAddress::ZERO
             }
             _ => RevmAddress(tx.sender().0.into()),
