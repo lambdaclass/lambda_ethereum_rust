@@ -117,7 +117,7 @@ impl RpcHandler for NewPayloadV3Request {
         ))?;
 
         // NOTE: We should check if it's connected instead of future.
-        if block.header.number >= last_block_number + 1 {
+        if block.header.number > last_block_number + 1 {
             let result = PayloadStatus::syncing();
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
