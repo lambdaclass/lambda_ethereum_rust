@@ -359,7 +359,7 @@ impl Command {
                     input: calldata,
                     value,
                     from: from.unwrap_or(Default::default()),
-                    gas_limit,
+                    gas: gas_limit,
                     max_fee_per_gas: gas_price,
                     ..Default::default()
                 };
