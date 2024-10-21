@@ -20,11 +20,9 @@ pub struct ProverInputData {
     pub block: Block,
 }
 
+// Placeholder structure until we have ExecutionDB on L1
 #[derive(Debug, Serialize, Deserialize, Default)]
-// wip
-pub struct MemoryDB {
-    data: u64,
-}
+pub struct MemoryDB;
 
 use crate::utils::config::prover_server::ProverServerConfig;
 
