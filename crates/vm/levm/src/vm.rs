@@ -491,12 +491,6 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(error.clone() as u8))?;
-                let gas_used = self.env.consumed_gas;
-                // if gas_used > current_call_frame.gas {
-                //     current_call_frame.gas = U256::zero();
-                // } else {
-                //     current_call_frame.gas -= gas_used;
-                // }
                 Err(error)
             }
         }
