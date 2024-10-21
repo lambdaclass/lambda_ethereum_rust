@@ -97,7 +97,7 @@ impl VM {
     // MOD operation
     pub fn op_mod(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::MOD)?;
-        
+
         let dividend = current_call_frame.stack.pop()?;
         let divisor = current_call_frame.stack.pop()?;
         if divisor.is_zero() {
@@ -133,7 +133,6 @@ impl VM {
 
             current_call_frame.stack.push(remainder)?;
         }
-
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -204,7 +203,7 @@ impl VM {
 
         let exponent_byte_size = (exponent.bits() as u64 + 7) / 8;
         let gas_cost = gas_cost::EXP_STATIC + gas_cost::EXP_DYNAMIC_BASE * exponent_byte_size;
-        
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let power = base.overflowing_pow(exponent).0;

@@ -129,7 +129,6 @@ impl VM {
         let balance = self.db.balance(&current_call_frame.code_address);
         current_call_frame.stack.push(balance)?;
 
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -151,7 +150,6 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
-
 
         unimplemented!("when we have tx implemented");
 
@@ -202,7 +200,6 @@ impl VM {
         let balance = self.db.balance(&word_to_address(addr));
         current_call_frame.stack.push(balance)?;
 
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -218,7 +215,6 @@ impl VM {
             .stack
             .push(U256::from(origin.as_bytes()))?;
 
-        
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -234,7 +230,6 @@ impl VM {
             .stack
             .push(U256::from(caller.as_bytes()))?;
 
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -249,7 +244,6 @@ impl VM {
 
         current_call_frame.stack.push(callvalue)?;
 
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -263,7 +257,6 @@ impl VM {
         current_call_frame
             .stack
             .push(U256::from(current_call_frame.bytecode.len()))?;
-
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -305,7 +298,6 @@ impl VM {
 
         current_call_frame.memory.store_bytes(dest_offset, &code);
 
-
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -319,7 +311,6 @@ impl VM {
         // TODO: if not legacy or access list, then gas price is max_fee_per_gas
         // TODO: Why do we unwrap here?
         current_call_frame.stack.push(self.env.gas_price.unwrap())?;
-
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -335,7 +326,7 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let code_size = self.db.get_account_bytecode(&address).len();

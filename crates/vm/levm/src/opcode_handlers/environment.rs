@@ -12,7 +12,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::CALLDATALOAD)?;
-        
+
         let offset: usize = current_call_frame
             .stack
             .pop()?
@@ -30,7 +30,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::CALLDATASIZE)?;
-        
+
         current_call_frame
             .stack
             .push(U256::from(current_call_frame.calldata.len()))?;
@@ -87,7 +87,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::RETURNDATASIZE)?;
-        
+
         current_call_frame
             .stack
             .push(U256::from(current_call_frame.returndata.len()))?;

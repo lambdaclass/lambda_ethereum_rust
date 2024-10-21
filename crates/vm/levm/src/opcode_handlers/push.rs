@@ -35,7 +35,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::PUSH0)?;
 
         current_call_frame.stack.push(U256::zero())?;
-        
+
         Ok(OpcodeSuccess::Continue)
     }
 }

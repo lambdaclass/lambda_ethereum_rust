@@ -140,7 +140,7 @@ impl VM {
             .unwrap_or(usize::MAX);
 
         let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
-        
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let return_data = current_call_frame.memory.load_range(offset, size).into();

@@ -26,7 +26,7 @@ impl VM {
         let gas_cost = gas_cost::KECCAK25_STATIC
             + gas_cost::KECCAK25_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
-        
+
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let value_bytes = current_call_frame.memory.load_range(offset, size);
