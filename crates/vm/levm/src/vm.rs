@@ -381,8 +381,6 @@ impl VM {
 
     /// Based on ethereum yellowpaper initial tests of intrinsic validity (Section 6), which last version is
     /// Shanghai, so there are probably missing cancun validations.
-    /// Possible cancun tests:
-    /// -
     fn validate_transaction(&self) -> Result<(), VMError> {
         // Validations (1), (2), (3) and (5) are done in upper layers.
 
