@@ -94,10 +94,9 @@ If we turn the first one into a polynomial commitment, we can take a random eval
 
 TODO: Explain this in more detail, show with an example what the polynomials P and Q would be and all that.
 
-### How do deposits and withdrawals work?
+## How do deposits and withdrawals work?
 
 TODO: Explain Withdrawal Logs merkle tree among other things.
-
 
 ## Recap
 
