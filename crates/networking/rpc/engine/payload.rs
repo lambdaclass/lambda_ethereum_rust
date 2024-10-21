@@ -1,6 +1,6 @@
+use ethereum_rust_blockchain::add_block;
 use ethereum_rust_blockchain::error::ChainError;
 use ethereum_rust_blockchain::payload::build_payload;
-use ethereum_rust_blockchain::{add_block, latest_canonical_block_hash};
 use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::Store;
