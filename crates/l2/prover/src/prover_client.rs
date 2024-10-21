@@ -16,15 +16,15 @@ use ethereum_rust_l2::{
 use super::prover::Prover;
 
 pub async fn start_proof_data_client(config: ProverClientConfig) {
-    let proof_data_client = ProofDataClient::new(config.prover_server_endpoint.clone());
+    let proof_data_client = ProverClient::new(config.prover_server_endpoint.clone());
     proof_data_client.start(config).await;
 }
 
-struct ProofDataClient {
+struct ProverClient {
     prover_server_endpoint: String,
 }
 
-impl ProofDataClient {
+impl ProverClient {
     pub fn new(prover_server_endpoint: String) -> Self {
         Self {
             prover_server_endpoint,
@@ -55,7 +55,7 @@ impl ProofDataClient {
 
     fn request_new_data(&self) -> Result<(Option<u64>, ProverInputData), String> {
         let stream = TcpStream::connect(&self.prover_server_endpoint)
-            .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
+            .map_err(|e| format!("Failed to connect to ProverClient: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         debug!("Connection established!");
@@ -85,7 +85,7 @@ impl ProofDataClient {
         proof: SP1ProofWithPublicValues,
     ) -> Result<(), String> {
         let stream = TcpStream::connect(&self.prover_server_endpoint)
-            .map_err(|e| format!("Failed to connect to ProofDataProvider: {e}"))?;
+            .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {

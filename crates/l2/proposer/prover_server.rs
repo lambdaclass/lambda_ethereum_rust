@@ -28,7 +28,7 @@ pub struct MemoryDB {
 
 use crate::utils::config::prover_server::ProverServerConfig;
 
-use super::errors::ProofDataProviderError;
+use super::errors::ProverServerError;
 
 pub async fn start_prover_server(store: Store) {
     let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
@@ -89,7 +89,7 @@ impl ProverServer {
             .expect("TcpStream::shutdown()");
     }
 
-    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProofDataProviderError> {
+    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProverServerError> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
@@ -97,7 +97,7 @@ impl ProverServer {
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
             if let Ok(()) = rx.try_recv() {
-                info!("Shutting down ProofDataProvider server");
+                info!("Shutting down Prover Server");
                 break;
             }
 
