@@ -75,7 +75,7 @@ impl RpcHandler for NewPayloadV3Request {
 
         // Payload Validation
 
-        // Check timestamp does not fall within the time frame of the Cancun fork
+        // Check timestamp is post Cancun fork
         let chain_config = storage.get_chain_config()?;
         let current_fork = chain_config.get_fork(block.header.timestamp);
         if current_fork < Fork::Cancun {
@@ -89,6 +89,7 @@ impl RpcHandler for NewPayloadV3Request {
             return serde_json::to_value(result)
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
+
         info!("Block hash {block_hash} is valid");
         // Concatenate blob versioned hashes lists (tx.blob_versioned_hashes) of each blob transaction included in the payload, respecting the order of inclusion
         // and check that the resulting array matches expected_blob_versioned_hashes
@@ -123,9 +124,6 @@ impl RpcHandler for NewPayloadV3Request {
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
-        let latest_valid_hash = latest_canonical_block_hash(&storage)
-            .map_err(|error| RpcErr::Internal(error.to_string()))?;
-
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
         let payload_status = match add_block(&block, &storage) {
@@ -133,8 +131,10 @@ impl RpcHandler for NewPayloadV3Request {
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
             Err(ChainError::InvalidBlock(error)) => {
                 warn!("Error adding block: {error}");
+                // If we got to this point it means that the parent is present and valid, as we
+                // only save valid blocks. That means that the parent is the latest valid hash.
                 Ok(PayloadStatus::invalid_with(
-                    latest_valid_hash,
+                    block.header.parent_hash,
                     error.to_string(),
                 ))
             }
