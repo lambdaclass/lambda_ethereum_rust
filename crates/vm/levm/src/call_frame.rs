@@ -85,6 +85,7 @@ impl CallFrame {
     pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         Self {
             bytecode,
+            gas_limit: U256::MAX,
             ..Default::default()
         }
     }
