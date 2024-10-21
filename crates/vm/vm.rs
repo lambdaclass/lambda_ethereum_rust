@@ -38,11 +38,12 @@ pub use revm::primitives::{Address as RevmAddress, SpecId};
 
 type AccessList = Vec<(Address, Vec<H256>)>;
 
-/// State used when running the EVM
-// Encapsulates state behaviour to be agnostic to the evm implementation for crate users
-pub struct EvmState(revm::db::State<StoreWrapper>);
-
-pub enum _EvmState {
+/// State used when running the EVM. The state can be represented with a [StoreWrapper] database, or
+/// with a [ExecutionDB] in case we only want to store the necessary data for some particular
+/// execution, for example when proving in L2 mode.
+///
+/// Encapsulates state behaviour to be agnostic to the evm implementation for crate users.
+pub enum EvmState {
     Store(revm::db::State<StoreWrapper>),
     Execution(revm::db::CacheDB<ExecutionDB>),
 }
@@ -50,7 +51,8 @@ pub enum _EvmState {
 impl EvmState {
     /// Get a reference to inner `Store` database
     pub fn database(&self) -> &Store {
-        &self.0.database.store
+        //&self.0.database.store
+        todo!()
     }
 }
 
@@ -134,32 +136,66 @@ fn run_evm(
     let tx_result = {
         let chain_spec = state.database().get_chain_config()?;
         #[allow(unused_mut)]
-        let mut evm_builder = Evm::builder()
-            .with_db(&mut state.0)
-            .with_block_env(block_env)
-            .with_tx_env(tx_env)
-            .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
-            .with_spec_id(spec_id)
-            .with_external_context(
-                TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
-            );
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "l2")] {
-                use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
-                use std::sync::Arc;
+        match state {
+            EvmState::Store(db) => {
+                let mut evm_builder = Evm::builder()
+                    .with_db(db)
+                    .with_block_env(block_env)
+                    .with_tx_env(tx_env)
+                    .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
+                    .with_spec_id(spec_id)
+                    .with_external_context(
+                        TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
+                    );
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "l2")] {
+                        use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
+                        use std::sync::Arc;
 
-                evm_builder = evm_builder.with_handler({
-                    let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
-                    evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
-                    evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
-                    // TODO: Override `end` function. We should deposit even if we revert.
-                    // evm_handler.pre_execution.end
-                    evm_handler
-                });
+                        evm_builder = evm_builder.with_handler({
+                            let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
+                            evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
+                            evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
+                            // TODO: Override `end` function. We should deposit even if we revert.
+                            // evm_handler.pre_execution.end
+                            evm_handler
+                        });
+                    }
+                }
+
+                let mut evm = evm_builder.build();
+                evm.transact_commit().map_err(EvmError::from)?
+            }
+            EvmState::Execution(db) => {
+                let mut evm_builder = Evm::builder()
+                    .with_db(db)
+                    .with_block_env(block_env)
+                    .with_tx_env(tx_env)
+                    .modify_cfg_env(|cfg| cfg.chain_id = chain_spec.chain_id)
+                    .with_spec_id(spec_id)
+                    .with_external_context(
+                        TracerEip3155::new(Box::new(std::io::stderr())).without_summary(),
+                    );
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "l2")] {
+                        use revm::{Handler, primitives::{CancunSpec, HandlerCfg}};
+                        use std::sync::Arc;
+
+                        evm_builder = evm_builder.with_handler({
+                            let mut evm_handler = Handler::new(HandlerCfg::new(SpecId::LATEST));
+                            evm_handler.pre_execution.deduct_caller = Arc::new(mods::deduct_caller::<CancunSpec, _, _>);
+                            evm_handler.validation.tx_against_state = Arc::new(mods::validate_tx_against_state::<CancunSpec, _, _>);
+                            // TODO: Override `end` function. We should deposit even if we revert.
+                            // evm_handler.pre_execution.end
+                            evm_handler
+                        });
+                    }
+                }
+
+                let mut evm = evm_builder.build();
+                evm.transact_commit().map_err(EvmError::from)?
             }
         }
-        let mut evm = evm_builder.build();
-        evm.transact_commit().map_err(EvmError::from)?
     };
     Ok(tx_result.into())
 }
@@ -210,19 +246,38 @@ fn create_access_list_inner(
 ) -> Result<(ExecutionResult, RevmAccessList), EvmError> {
     let mut access_list_inspector = access_list_inspector(&tx_env, state, spec_id)?;
     let tx_result = {
-        let mut evm = Evm::builder()
-            .with_db(&mut state.0)
-            .with_block_env(block_env)
-            .with_tx_env(tx_env)
-            .with_spec_id(spec_id)
-            .modify_cfg_env(|env| {
-                env.disable_base_fee = true;
-                env.disable_block_gas_limit = true
-            })
-            .with_external_context(&mut access_list_inspector)
-            .append_handler_register(inspector_handle_register)
-            .build();
-        evm.transact().map_err(EvmError::from)?
+        match state {
+            EvmState::Store(db) => {
+                let mut evm = Evm::builder()
+                    .with_db(db)
+                    .with_block_env(block_env)
+                    .with_tx_env(tx_env)
+                    .with_spec_id(spec_id)
+                    .modify_cfg_env(|env| {
+                        env.disable_base_fee = true;
+                        env.disable_block_gas_limit = true
+                    })
+                    .with_external_context(&mut access_list_inspector)
+                    .append_handler_register(inspector_handle_register)
+                    .build();
+                evm.transact().map_err(EvmError::from)?
+            }
+            EvmState::Execution(db) => {
+                let mut evm = Evm::builder()
+                    .with_db(db)
+                    .with_block_env(block_env)
+                    .with_tx_env(tx_env)
+                    .with_spec_id(spec_id)
+                    .modify_cfg_env(|env| {
+                        env.disable_base_fee = true;
+                        env.disable_block_gas_limit = true
+                    })
+                    .with_external_context(&mut access_list_inspector)
+                    .append_handler_register(inspector_handle_register)
+                    .build();
+                evm.transact().map_err(EvmError::from)?
+            }
+        }
     };
 
     let access_list = access_list_inspector.into_access_list();
@@ -242,87 +297,112 @@ fn run_without_commit(
         tx_env.max_fee_per_blob_gas,
     );
     let chain_config = state.database().get_chain_config()?;
-    let mut evm = Evm::builder()
-        .with_db(&mut state.0)
-        .with_block_env(block_env)
-        .with_tx_env(tx_env)
-        .with_spec_id(spec_id)
-        .modify_cfg_env(|env| {
-            env.disable_base_fee = true;
-            env.disable_block_gas_limit = true;
-            env.chain_id = chain_config.chain_id;
-        })
-        .build();
-    let tx_result = evm.transact().map_err(EvmError::from)?;
+    let tx_result = match state {
+        EvmState::Store(db) => {
+            let mut evm = Evm::builder()
+                .with_db(db)
+                .with_block_env(block_env)
+                .with_tx_env(tx_env)
+                .with_spec_id(spec_id)
+                .modify_cfg_env(|env| {
+                    env.disable_base_fee = true;
+                    env.disable_block_gas_limit = true;
+                    env.chain_id = chain_config.chain_id;
+                })
+                .build();
+            evm.transact().map_err(EvmError::from)?
+        }
+        EvmState::Execution(db) => {
+            let mut evm = Evm::builder()
+                .with_db(db)
+                .with_block_env(block_env)
+                .with_tx_env(tx_env)
+                .with_spec_id(spec_id)
+                .modify_cfg_env(|env| {
+                    env.disable_base_fee = true;
+                    env.disable_block_gas_limit = true;
+                    env.chain_id = chain_config.chain_id;
+                })
+                .build();
+            evm.transact().map_err(EvmError::from)?
+        }
+    };
     Ok(tx_result.result.into())
 }
 
 /// Merges transitions stored when executing transactions and returns the resulting account updates
 /// Doesn't update the DB
 pub fn get_state_transitions(state: &mut EvmState) -> Vec<AccountUpdate> {
-    state.0.merge_transitions(BundleRetention::PlainState);
-    let bundle = state.0.take_bundle();
-    // Update accounts
-    let mut account_updates = Vec::new();
-    for (address, account) in bundle.state() {
-        if account.status.is_not_modified() {
-            continue;
-        }
-        let address = Address::from_slice(address.0.as_slice());
-        // Remove account from DB if destroyed (Process DestroyedChanged as changed account)
-        if matches!(
-            account.status,
-            AccountStatus::Destroyed | AccountStatus::DestroyedAgain
-        ) {
-            account_updates.push(AccountUpdate::removed(address));
-            continue;
-        }
+    match state {
+        EvmState::Store(db) => {
+            db.merge_transitions(BundleRetention::PlainState);
+            let bundle = db.take_bundle();
+            // Update accounts
+            let mut account_updates = Vec::new();
+            for (address, account) in bundle.state() {
+                if account.status.is_not_modified() {
+                    continue;
+                }
+                let address = Address::from_slice(address.0.as_slice());
+                // Remove account from DB if destroyed (Process DestroyedChanged as changed account)
+                if matches!(
+                    account.status,
+                    AccountStatus::Destroyed | AccountStatus::DestroyedAgain
+                ) {
+                    account_updates.push(AccountUpdate::removed(address));
+                    continue;
+                }
 
-        // If account is empty, do not add to the database
-        if account
-            .account_info()
-            .is_some_and(|acc_info| acc_info.is_empty())
-        {
-            continue;
-        }
+                // If account is empty, do not add to the database
+                if account
+                    .account_info()
+                    .is_some_and(|acc_info| acc_info.is_empty())
+                {
+                    continue;
+                }
 
-        // Apply account changes to DB
-        let mut account_update = AccountUpdate::new(address);
-        // If the account was changed then both original and current info will be present in the bundle account
-        if account.is_info_changed() {
-            // Update account info in DB
-            if let Some(new_acc_info) = account.account_info() {
-                let code_hash = H256::from_slice(new_acc_info.code_hash.as_slice());
-                let account_info = AccountInfo {
-                    code_hash,
-                    balance: U256::from_little_endian(new_acc_info.balance.as_le_slice()),
-                    nonce: new_acc_info.nonce,
-                };
-                account_update.info = Some(account_info);
-                if account.is_contract_changed() {
-                    // Update code in db
-                    if let Some(code) = new_acc_info.code {
-                        account_update.code = Some(code.original_bytes().clone().0);
+                // Apply account changes to DB
+                let mut account_update = AccountUpdate::new(address);
+                // If the account was changed then both original and current info will be present in the bundle account
+                if account.is_info_changed() {
+                    // Update account info in DB
+                    if let Some(new_acc_info) = account.account_info() {
+                        let code_hash = H256::from_slice(new_acc_info.code_hash.as_slice());
+                        let account_info = AccountInfo {
+                            code_hash,
+                            balance: U256::from_little_endian(new_acc_info.balance.as_le_slice()),
+                            nonce: new_acc_info.nonce,
+                        };
+                        account_update.info = Some(account_info);
+                        if account.is_contract_changed() {
+                            // Update code in db
+                            if let Some(code) = new_acc_info.code {
+                                account_update.code = Some(code.original_bytes().clone().0);
+                            }
+                        }
                     }
                 }
+                // Update account storage in DB
+                for (key, slot) in account.storage.iter() {
+                    if slot.is_changed() {
+                        // TODO check if we need to remove the value from our db when value is zero
+                        // if slot.present_value().is_zero() {
+                        //     account_update.removed_keys.push(H256::from_uint(&U256::from_little_endian(key.as_le_slice())))
+                        // }
+                        account_update.added_storage.insert(
+                            H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
+                            U256::from_little_endian(slot.present_value().as_le_slice()),
+                        );
+                    }
+                }
+                account_updates.push(account_update)
             }
+            account_updates
         }
-        // Update account storage in DB
-        for (key, slot) in account.storage.iter() {
-            if slot.is_changed() {
-                // TODO check if we need to remove the value from our db when value is zero
-                // if slot.present_value().is_zero() {
-                //     account_update.removed_keys.push(H256::from_uint(&U256::from_little_endian(key.as_le_slice())))
-                // }
-                account_update.added_storage.insert(
-                    H256::from_uint(&U256::from_little_endian(key.as_le_slice())),
-                    U256::from_little_endian(slot.present_value().as_le_slice()),
-                );
-            }
-        }
-        account_updates.push(account_update)
+        // TODO: replace with error. We can't obtain account updates for a CacheDB the same way we
+        // do for a Store, so this is a prolem to solve that isn't a priority right now.
+        EvmState::Execution(_) => unimplemented!(),
     }
-    account_updates
 }
 
 /// Processes a block's withdrawals, updating the account balances in the state
@@ -330,25 +410,34 @@ pub fn process_withdrawals(
     state: &mut EvmState,
     withdrawals: &[Withdrawal],
 ) -> Result<(), StoreError> {
-    //balance_increments is a vector of tuples (Address, increment as u128)
-    let balance_increments = withdrawals
-        .iter()
-        .filter(|withdrawal| withdrawal.amount > 0)
-        .map(|withdrawal| {
-            (
-                RevmAddress::from_slice(withdrawal.address.as_bytes()),
-                (withdrawal.amount as u128 * GWEI_TO_WEI as u128),
-            )
-        })
-        .collect::<Vec<_>>();
+    match state {
+        EvmState::Store(db) => {
+            //balance_increments is a vector of tuples (Address, increment as u128)
+            let balance_increments = withdrawals
+                .iter()
+                .filter(|withdrawal| withdrawal.amount > 0)
+                .map(|withdrawal| {
+                    (
+                        RevmAddress::from_slice(withdrawal.address.as_bytes()),
+                        (withdrawal.amount as u128 * GWEI_TO_WEI as u128),
+                    )
+                })
+                .collect::<Vec<_>>();
 
-    state.0.increment_balances(balance_increments)?;
+            db.increment_balances(balance_increments)?;
+        }
+        EvmState::Execution(_) => {
+            // TODO: We should check withdrawals are valid
+            // (by checking that accounts exist if this is the only error) but there's no state to
+            // change.
+        }
+    }
     Ok(())
 }
 
 /// Builds EvmState from a Store
 pub fn evm_state(store: Store, block_hash: BlockHash) -> EvmState {
-    EvmState(
+    EvmState::Store(
         revm::db::State::builder()
             .with_database(StoreWrapper { store, block_hash })
             .with_bundle_update()
@@ -392,21 +481,37 @@ pub fn beacon_root_contract_call(
     block_env.basefee = RevmU256::ZERO;
     block_env.gas_limit = RevmU256::from(30_000_000);
 
-    let mut evm = Evm::builder()
-        .with_db(&mut state.0)
-        .with_block_env(block_env)
-        .with_tx_env(tx_env)
-        .with_spec_id(spec_id)
-        .build();
+    match state {
+        EvmState::Store(db) => {
+            let mut evm = Evm::builder()
+                .with_db(db)
+                .with_block_env(block_env)
+                .with_tx_env(tx_env)
+                .with_spec_id(spec_id)
+                .build();
 
-    let transaction_result = evm.transact()?;
-    let mut result_state = transaction_result.state;
-    result_state.remove(&*SYSTEM_ADDRESS);
-    result_state.remove(&evm.block().coinbase);
+            let transaction_result = evm.transact()?;
+            let mut result_state = transaction_result.state;
+            result_state.remove(&*SYSTEM_ADDRESS);
+            result_state.remove(&evm.block().coinbase);
 
-    evm.context.evm.db.commit(result_state);
+            evm.context.evm.db.commit(result_state);
 
-    Ok(transaction_result.result.into())
+            Ok(transaction_result.result.into())
+        }
+        EvmState::Execution(db) => {
+            let mut evm = Evm::builder()
+                .with_db(db)
+                .with_block_env(block_env)
+                .with_tx_env(tx_env)
+                .with_spec_id(spec_id)
+                .build();
+
+            // Not necessary to commit to DB
+            let transaction_result = evm.transact()?;
+            Ok(transaction_result.result.into())
+        }
+    }
 }
 
 pub fn block_env(header: &BlockHeader) -> BlockEnv {
@@ -535,11 +640,12 @@ fn access_list_inspector(
     let to = match tx_env.transact_to {
         RevmTxKind::Call(address) => address,
         RevmTxKind::Create => {
-            let nonce = state
-                .0
-                .basic(tx_env.caller)?
-                .map(|info| info.nonce)
-                .unwrap_or_default();
+            let nonce = match state {
+                EvmState::Store(db) => db.basic(tx_env.caller)?,
+                EvmState::Execution(db) => db.basic(tx_env.caller)?,
+            }
+            .map(|info| info.nonce)
+            .unwrap_or_default();
             tx_env.caller.create(nonce)
         }
     };
