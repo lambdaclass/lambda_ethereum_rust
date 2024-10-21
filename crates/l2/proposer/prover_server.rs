@@ -136,7 +136,7 @@ impl ProverServer {
         debug!("Connection closed");
     }
 
-    async fn get_last_block_number() -> Result<u64, String> {
+    async fn _get_last_block_number() -> Result<u64, String> {
         let response = Client::new()
             .post("http://localhost:8551")
             .header("content-type", "application/json")
