@@ -1,4 +1,5 @@
 use crate::utils::eth_client::RpcResponse;
+use ethereum_rust_storage::Store;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::SP1ProofWithPublicValues;
@@ -10,13 +11,28 @@ use std::{
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{debug, info, warn};
 
+use ethereum_rust_core::types::{Block, BlockHeader};
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ProverInputData {
+    pub db: MemoryDB,
+    pub parent_block_header: BlockHeader,
+    pub block: Block,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+// wip
+pub struct MemoryDB {
+    data: u64,
+}
+
 use crate::utils::config::prover_server::ProverServerConfig;
 
-use super::errors::ProofDataProviderError;
+use super::errors::ProverServerError;
 
-pub async fn start_prover_server() {
-    let config = ProverServerConfig::from_env().expect("ProofDataProviderConfig::from_env()");
-    let prover_server = ProofDataProvider::new_from_config(config.clone());
+pub async fn start_prover_server(store: Store) {
+    let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
+    let prover_server = ProverServer::new_from_config(config.clone(), store);
 
     let (tx, rx) = mpsc::channel();
 
@@ -27,7 +43,7 @@ pub async fn start_prover_server() {
             .expect("prover_server.start()")
     });
 
-    ProofDataProvider::handle_sigint(tx, config).await;
+    ProverServer::handle_sigint(tx, config).await;
 
     tokio::try_join!(server).expect("tokio::try_join!()");
 }
@@ -36,27 +52,30 @@ pub async fn start_prover_server() {
 pub enum ProofData {
     Request {},
     Response {
-        id: Option<u64>,
+        block_number: Option<u64>,
+        input: ProverInputData,
     },
     Submit {
-        id: u64,
+        block_number: u64,
         proof: Box<SP1ProofWithPublicValues>,
     },
     SubmitAck {
-        id: u64,
+        block_number: u64,
     },
 }
 
-struct ProofDataProvider {
+struct ProverServer {
     ip: IpAddr,
     port: u16,
+    store: Store,
 }
 
-impl ProofDataProvider {
-    pub fn new_from_config(config: ProverServerConfig) -> Self {
+impl ProverServer {
+    pub fn new_from_config(config: ProverServerConfig, store: Store) -> Self {
         Self {
             ip: config.listen_ip,
             port: config.listen_port,
+            store,
         }
     }
 
@@ -70,7 +89,7 @@ impl ProofDataProvider {
             .expect("TcpStream::shutdown()");
     }
 
-    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProofDataProviderError> {
+    pub async fn start(&self, rx: Receiver<()>) -> Result<(), ProverServerError> {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port))?;
 
         let mut last_proved_block = 0;
@@ -78,7 +97,7 @@ impl ProofDataProvider {
         info!("Starting TCP server at {}:{}", self.ip, self.port);
         for stream in listener.incoming() {
             if let Ok(()) = rx.try_recv() {
-                info!("Shutting down ProofDataProvider server");
+                info!("Shutting down Prover Server");
                 break;
             }
 
@@ -99,8 +118,11 @@ impl ProofDataProvider {
                     warn!("Failed to handle request: {e}");
                 }
             }
-            Ok(ProofData::Submit { id, proof }) => {
-                if let Err(e) = self.handle_submit(&mut stream, id, proof) {
+            Ok(ProofData::Submit {
+                block_number,
+                proof,
+            }) => {
+                if let Err(e) = self.handle_submit(&mut stream, block_number, proof) {
                     warn!("Failed to handle submit: {e}");
                 }
                 *last_proved_block += 1;
@@ -157,14 +179,23 @@ impl ProofDataProvider {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        let last_block_number = Self::get_last_block_number().await?;
+        //let last_block_number = Self::get_last_block_number().await?;
+        let last_block_number = self
+            .store
+            .get_latest_block_number()
+            .map_err(|e| e.to_string())?
+            .unwrap();
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
-                id: Some(last_proved_block + 1),
+                block_number: Some(last_block_number),
+                input: ProverInputData::default(),
             }
         } else {
-            ProofData::Response { id: None }
+            ProofData::Response {
+                block_number: None,
+                input: ProverInputData::default(),
+            }
         };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
@@ -173,12 +204,15 @@ impl ProofDataProvider {
     fn handle_submit(
         &self,
         stream: &mut TcpStream,
-        id: u64,
+        block_number: u64,
         proof: Box<SP1ProofWithPublicValues>,
     ) -> Result<(), String> {
-        debug!("Submit received. ID: {id}, proof: {:?}", proof.proof);
+        debug!(
+            "Submit received. ID: {block_number}, proof: {:?}",
+            proof.proof
+        );
 
-        let response = ProofData::SubmitAck { id };
+        let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
     }

@@ -1,0 +1,47 @@
+[package]
+version = "0.1.0"
+name = "ethereum_rust-prover"
+edition = "2021"
+
+[dependencies]
+serde_json.workspace = true
+serde.workspace = true
+bytes.workspace = true
+ethereum-types.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing.workspace = true
+hex.workspace = true
+
+# ethereum_rust
+ethereum_rust-core.workspace = true
+ethereum_rust-rlp.workspace = true
+
+# l2
+ethereum_rust-l2.workspace = true
+
+sp1-sdk = "2.0.0"
+
+# revm
+revm = { version = "14.0.3", features = [
+    "std",
+    "serde",
+    "kzg-rs",
+], default-features = false }
+
+[build-dependencies]
+sp1-helper = "2.0.0"
+
+
+# Some tests need the release profile.
+[profile.test]
+inherits = "release"
+
+[lib]
+name = "ethereum_rust_prover_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ethereum_rust_prover"
+path = "src/main.rs"
