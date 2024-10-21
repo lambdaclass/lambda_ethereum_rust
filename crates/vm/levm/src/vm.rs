@@ -299,7 +299,7 @@ impl VM {
                 Opcode::RETURNDATACOPY => self.op_returndatacopy(current_call_frame),
                 Opcode::JUMP => self.op_jump(current_call_frame),
                 Opcode::JUMPI => self.op_jumpi(current_call_frame),
-                Opcode::JUMPDEST => self.op_jumpdest(),
+                Opcode::JUMPDEST => self.op_jumpdest(current_call_frame),
                 Opcode::PC => self.op_pc(current_call_frame),
                 Opcode::BLOCKHASH => self.op_blockhash(current_call_frame),
                 Opcode::COINBASE => self.op_coinbase(current_call_frame),
