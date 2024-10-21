@@ -156,7 +156,7 @@ fn decode_hex(s: &str) -> Result<Bytes, FromHexError> {
 }
 
 async fn make_eip1559_transaction(
-    client: EthClient,
+    client: &EthClient,
     to: TxKind,
     from: Address,
     data: Bytes,
@@ -318,7 +318,7 @@ impl Command {
                 };
 
                 let tx = make_eip1559_transaction(
-                    client,
+                    &client,
                     TxKind::Call(to),
                     from,
                     calldata,
@@ -385,7 +385,7 @@ impl Command {
 
                 let nonce = nonce.unwrap_or(client.get_nonce(from).await?);
                 let tx = make_eip1559_transaction(
-                    client,
+                    &client,
                     TxKind::Create,
                     from,
                     bytecode,
