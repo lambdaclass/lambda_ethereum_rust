@@ -59,7 +59,8 @@ impl Stack {
 /// A call frame, or execution environment, is the context in which
 /// the EVM is currently executing.
 pub struct CallFrame {
-    pub gas: U256,
+    pub gas_limit: U256,
+    pub gas_used: U256,
     pub pc: usize,
     pub msg_sender: Address,
     pub to: Address,
@@ -98,11 +99,11 @@ impl CallFrame {
         msg_value: U256,
         calldata: Bytes,
         is_static: bool,
-        gas: U256,
+        gas_limit: U256,
         depth: usize,
     ) -> Self {
         Self {
-            gas,
+            gas_limit,
             msg_sender,
             to,
             code_address,

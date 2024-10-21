@@ -398,7 +398,7 @@ impl VM {
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
-        gas: U256,
+        gas_limit: U256,
         value: U256,
         msg_sender: Address,
         to: Address,
@@ -445,7 +445,7 @@ impl VM {
             value,
             calldata,
             is_static,
-            gas,
+            gas_limit,
             current_call_frame.depth + 1,
         );
 
@@ -477,7 +477,7 @@ impl VM {
                     current_call_frame.memory.store_bytes(ret_offset, &output);
                     current_call_frame.returndata = output;
                     current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    current_call_frame.gas -= self.env.consumed_gas;
+                    // current_call_frame.gas -= self.env.consumed_gas;
                     self.env.refunded_gas += self.env.consumed_gas;
                     Ok(OpcodeSuccess::Continue)
                 }
@@ -488,11 +488,11 @@ impl VM {
                     .stack
                     .push(U256::from(error.clone() as u8))?;
                 let gas_used = self.env.consumed_gas;
-                if gas_used > current_call_frame.gas {
-                    current_call_frame.gas = U256::zero();
-                } else {
-                    current_call_frame.gas -= gas_used;
-                }
+                // if gas_used > current_call_frame.gas {
+                //     current_call_frame.gas = U256::zero();
+                // } else {
+                //     current_call_frame.gas -= gas_used;
+                // }
                 Err(error)
             }
         }
