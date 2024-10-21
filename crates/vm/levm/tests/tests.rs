@@ -7,9 +7,7 @@ use ethereum_rust_levm::{
     vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
 };
 use ethereum_types::H32;
-use std::{collections::HashMap, u64};
-
-// cargo test -p 'levm'
+use std::collections::HashMap;
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
