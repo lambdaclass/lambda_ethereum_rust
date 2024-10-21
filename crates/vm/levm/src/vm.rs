@@ -379,10 +379,39 @@ impl VM {
         }
     }
 
-    pub fn transact(&mut self) -> Result<OpcodeSuccess, VMError> {
-        // let account = self.db.accounts.get(&self.env.origin).unwrap();
+    /// Based on ethereum yellowpaper initial tests of intrinsic validity (Section 6), which last version is 
+    /// Shanghai, so there are probably missing cancun validations.
+    /// Possible cancun tests:
+    /// - 
+    fn validate_transaction(&self) -> Result<(), VMError> {
+        // Validations (1), (2), (3) and (5) are done in upper layers.
 
-        // TODO: Add transaction validation.
+        let sender_account = match self.db.accounts.get(&self.env.origin) {
+            Some(acc) => acc,
+            None => return Err(VMError::SenderAccountDoesNotExist)
+        };        
+
+        // (4) the sender account has no contract code deployed (see EIP-3607 by Feist et al. [2021]);
+        if sender_account.has_code() {
+            return Err(VMError::SenderAccountShouldNotHaveBytecode);
+        }
+
+        // (6) the sender account balance contains at least the cost, v0, required in up-front payment;
+        if sender_account.balance < self.call_frames[0].msg_value {
+            return Err(VMError::SenderBalanceShouldContainTransferValue);
+        }
+
+        //(7) maxFeePerGas (t2 transactions) or gasPrice (t0 or y1 transactions), is greater than or equal to the block’s base fee
+        if self.env.gas_price < self.env.base_fee_per_gas {
+            return Err(VMError::GasPriceIsLowerThanBaseFee);
+        }
+
+        Ok(())
+    }
+
+    pub fn transact(&mut self) -> Result<OpcodeSuccess, VMError> {
+        self.validate_transaction()?;
+
         let initial_gas = Default::default();
 
         self.env.consumed_gas = initial_gas;
