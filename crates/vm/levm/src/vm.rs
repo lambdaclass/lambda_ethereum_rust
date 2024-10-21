@@ -457,6 +457,8 @@ impl VM {
         // self.call_frames.push(new_call_frame.clone());
         let result = self.execute(&mut new_call_frame);
 
+        // After this we should do current_call_frame.gas_used += new_call_frame.gas_used. Instead of consuming all gas and then returning unused gas, we just consume all gas the sub-context used. If an error happened then we consume all gas.
+
         match result {
             Ok(OpcodeSuccess::Result(reason)) => match reason {
                 ResultReason::Stop | ResultReason::Return => {
