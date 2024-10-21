@@ -436,7 +436,7 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
-        let gas_limit = std::cmp::min(gas_limit, (current_call_frame.gas_limit - current_call_frame.gas_used) * (63/64));
+        let gas_limit = std::cmp::min(gas_limit, (current_call_frame.gas_limit - current_call_frame.gas_used) / 64 * 63);
 
         let mut new_call_frame = CallFrame::new(
             msg_sender,
@@ -634,7 +634,7 @@ impl VM {
     
     /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.
     pub fn increase_consumed_gas(&mut self, current_call_frame: &mut CallFrame, gas: U256) -> Result<(), VMError>{
-        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {
+        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {    
             return Err(VMError::OutOfGas);
         }
         current_call_frame.gas_used += gas;
