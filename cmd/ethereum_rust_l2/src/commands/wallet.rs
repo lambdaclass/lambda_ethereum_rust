@@ -104,6 +104,14 @@ pub(crate) enum Command {
             help = "If set it will do an L1 transfer, defaults to an L2 transfer"
         )]
         l1: bool,
+        #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
+        value: U256,
+        #[clap(long = "from", required = false)]
+        from: Option<Address>,
+        #[clap(long = "gas", required = false)]
+        gas: Option<u64>,
+        #[clap(long = "gas-price", required = false)]
+        gas_price: Option<u64>,
     },
     #[clap(about = "Deploy a contract")]
     Deploy {
@@ -276,7 +284,15 @@ impl Command {
                     if l1 { "L1" } else { "L2" }
                 );
             }
-            Command::Call { to, calldata, l1 } => {
+            Command::Call {
+                to,
+                calldata,
+                l1,
+                value,
+                from,
+                gas,
+                gas_price,
+            } => {
                 let client = match l1 {
                     true => eth_client,
                     false => rollup_client,
@@ -285,6 +301,10 @@ impl Command {
                 let call_tx = GenericTransaction {
                     to: TxKind::Call(to),
                     input: calldata,
+                    value,
+                    from: from.unwrap_or(Default::default()),
+                    max_fee_per_gas: gas,
+                    gas_price: gas_price.unwrap_or(Default::default()),
                     ..Default::default()
                 };
 
