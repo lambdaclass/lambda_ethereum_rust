@@ -436,6 +436,8 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
+        let gas_limit = std::cmp::min(gas_limit, (current_call_frame.gas_limit - current_call_frame.gas_used) * (63/64));
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
