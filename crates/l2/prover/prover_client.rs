@@ -9,7 +9,7 @@ use tokio::time::sleep;
 use tracing::{debug, error, warn};
 
 use crate::{
-    sequencer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
+    proposer::prover_server::ProofData, utils::config::prover_client::ProverClientConfig,
 };
 
 use super::prover::Prover;

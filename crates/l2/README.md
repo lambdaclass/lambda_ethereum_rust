@@ -52,7 +52,7 @@ Users can deposit Eth in the L1 (Ethereum) and receive the corresponding funds o
 | Contracts | `CommonBridge`                | Deposit method implementation                                               | ✅      |
 |           | `OnChainOperator`             | Commit and verify methods (placeholders for this stage)                     | ✅      |
 | VM        |                               | Adapt EVM to handle deposits                                                | ✅      |
-| Sequencer | `Sequencer`                   | Proposes new blocks to be executed                                          | ✅      |
+| Proposer  | `Proposer`                    | Proposes new blocks to be executed                                          | ✅      |
 |           | `L1Watcher`                   | Listens for and handles L1 deposits                                         | ✅      |
 |           | `L1TxSender`                  | commits new block proposals and sends block execution proofs to be verified | ✅      |
 |           | Deposit transactions handling | new transaction type for minting funds corresponding to deposits            | ✅      |
@@ -73,7 +73,7 @@ The network supports basic L2 functionality, allowing users to deposit and withd
 | Contracts | `CommonBridge`                 | Withdraw method implementation                                                                                     | ❌      |
 |           | `OnChainOperator`              | Commit and verify implementation                                                                                   | 🏗️      |
 |           | `Verifier`                     | verifier                                                                                                           | 🏗️      |
-| Sequencer | `Prover Server`                | Feeds the `Prover Client` with block data to be proven and delivers proofs to the `L1TxSender` for L1 verification | 🏗️      |
+| Proposer  | `Prover Server`                | Feeds the `Prover Client` with block data to be proven and delivers proofs to the `L1TxSender` for L1 verification | 🏗️      |
 |           | Withdraw transactions handling | New transaction type for burning funds on L2 and unlock funds on L1                                                | 🏗️      |
 | Prover    | `Prover Client`                | Asks for block execution data to prove, generates proofs of execution and submits proofs to the `Prover Server`    | 🏗️      |
 
@@ -91,7 +91,7 @@ It also supports EIP 4844 for L1 commit transactions, which means state diffs ar
 | Prover    | RISC-V zkVM         | Prove state diffs compression                                               | ❌      |
 |           | RISC-V zkVM         | Adapt state proofs                                                          | ❌      |
 | VM        |                     | The VM should return which storage slots were modified                      | ❌      |
-| Sequencer | ProofDataProvider   | Sends state diffs to the prover                                             | ❌      |
+| Proposer  | Prover Server       | Sends state diffs to the prover                                             | ❌      |
 |           | L1TxSender          | Differentiate whether to send the commit transaction with calldata or blobs | ❌      |
 |           |                     | Add program for proving blobs                                               | ❌      |
 | CLI       | `reconstruct-state` | Add a command for reconstructing the state                                  | ❌      |
@@ -151,7 +151,7 @@ The L2 can be initialized in Validium Mode, meaning the Data Availability layer 
 |           | Name          | Description                                          | Status |
 | --------- | ------------- | ---------------------------------------------------- | ------ |
 | Contracts | BlockExecutor | Do not check data availability in Validium mode      | ❌      |
-| Sequencer | L1TxSender    | Do not send data in commit transactions              | ❌      |
+| Proposer  | L1TxSender    | Do not send data in commit transactions              | ❌      |
 | CLI       | `init`        | Adapt network initialization to support Validium L2s | ❌      |
 | Misc      |               | Add a DA integration example for Validium mode       | ❌      |
 

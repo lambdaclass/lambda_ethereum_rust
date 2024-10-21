@@ -1,6 +1,6 @@
 pub mod prover;
-pub mod sequencer;
+pub mod proposer;
 pub mod utils;
 
 pub use prover::start_prover;
-pub use sequencer::start_sequencer;
+pub use proposer::start_proposer;
