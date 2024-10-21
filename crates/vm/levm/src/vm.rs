@@ -171,7 +171,7 @@ pub struct Environment {
     pub prev_randao: Option<H256>,
     pub chain_id: U256,
     pub base_fee_per_gas: U256,
-    pub gas_price: Option<U256>,
+    pub gas_price: U256,
     pub blk_excess_blob_gas: Option<U256>,
     pub blk_blob_gas_used: Option<U256>,
 }
@@ -214,7 +214,7 @@ impl VM {
         prev_randao: Option<H256>,
         chain_id: U256,
         base_fee_per_gas: U256,
-        gas_price: Option<U256>,
+        gas_price: U256,
         db: Db,
         blk_blob_gas_used: Option<U256>,
         blk_excess_blob_gas: Option<U256>,
