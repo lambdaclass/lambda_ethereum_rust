@@ -18,8 +18,6 @@ ethereum_rust-rlp.workspace = true
 ethereum_rust-rpc.workspace = true
 ethereum_rust-blockchain.workspace = true
 ethereum_rust-storage.workspace = true
-# cyclic package dependency
-#ethereum_rust-prover.workspace = true
 ethereum_rust-dev = { path = "../../crates/blockchain/dev" }
 hex.workspace = true
 bytes.workspace = true
