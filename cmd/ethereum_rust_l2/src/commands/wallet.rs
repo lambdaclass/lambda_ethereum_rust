@@ -1,7 +1,7 @@
 use crate::config::EthereumRustL2Config;
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
+use ethereum_rust_core::types::{EIP1559Transaction, GenericTransaction, TxKind};
 use ethereum_rust_l2::utils::eth_client::EthClient;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::{Address, H256, U256};
@@ -83,6 +83,19 @@ pub(crate) enum Command {
         to: Address,
         #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
         value: U256,
+        #[clap(long = "calldata", value_parser = decode_hex, required = false, default_value = "")]
+        calldata: Bytes,
+        #[clap(
+            long = "l1",
+            required = false,
+            help = "If set it will do an L1 transfer, defaults to an L2 transfer"
+        )]
+        l1: bool,
+    },
+    #[clap(about = "Make a call to a contract")]
+    Call {
+        #[clap(long = "to")]
+        to: Address,
         #[clap(long = "calldata", value_parser = decode_hex, required = false, default_value = "")]
         calldata: Bytes,
         #[clap(
@@ -262,6 +275,22 @@ impl Command {
                     "[{}] Transaction sent: {tx_hash:#x}",
                     if l1 { "L1" } else { "L2" }
                 );
+            }
+            Command::Call { to, calldata, l1 } => {
+                let client = match l1 {
+                    true => eth_client,
+                    false => rollup_client,
+                };
+
+                let call_tx = GenericTransaction {
+                    to: TxKind::Call(to),
+                    input: calldata,
+                    ..Default::default()
+                };
+
+                let result = client.call(call_tx).await?;
+
+                println!("{result:#x}");
             }
             Command::Deploy { bytecode, l1 } => {
                 let client = match l1 {
