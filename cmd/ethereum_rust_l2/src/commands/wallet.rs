@@ -3,7 +3,10 @@ use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_rust_l2::utils::eth_client::EthClient;
+use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::{Address, H256, U256};
+use hex::FromHexError;
+use keccak_hash::keccak;
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
@@ -80,7 +83,7 @@ pub(crate) enum Command {
         to: Address,
         #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
         value: U256,
-        #[clap(long = "calldata", required = false, default_value = "")]
+        #[clap(long = "calldata", value_parser = decode_hex, required = false, default_value = "")]
         calldata: Bytes,
         #[clap(
             long = "l1",
@@ -89,6 +92,24 @@ pub(crate) enum Command {
         )]
         l1: bool,
     },
+    #[clap(about = "Deploy a contract")]
+    Deploy {
+        #[clap(long = "bytecode", value_parser = decode_hex)]
+        bytecode: Bytes,
+        #[clap(
+            long = "l1",
+            required = false,
+            help = "If set it will do an L1 transfer, defaults to an L2 transfer"
+        )]
+        l1: bool,
+    },
+}
+
+pub fn decode_hex(s: &str) -> Result<Bytes, FromHexError> {
+    if s.starts_with("0x") {
+        return hex::decode(&s[2..]).map(Into::into);
+    }
+    return hex::decode(s).map(Into::into);
 }
 
 impl Command {
@@ -226,6 +247,8 @@ impl Command {
                         .get_gas_price()
                         .await?
                         .as_u64()
+                        // TODO: Check this multiplier. Without it, the transaction
+                        // fail with error "gas price is less than basefee"
                         .saturating_mul(10000000),
                     ..Default::default()
                 };
@@ -239,6 +262,49 @@ impl Command {
                     "[{}] Transaction sent: {tx_hash:#x}",
                     if l1 { "L1" } else { "L2" }
                 );
+            }
+            Command::Deploy { bytecode, l1 } => {
+                let client = match l1 {
+                    true => eth_client,
+                    false => rollup_client,
+                };
+
+                let nonce = client.get_nonce(from).await?;
+                let mut tx = EIP1559Transaction {
+                    to: TxKind::Create,
+                    chain_id: match l1 {
+                        true => cfg.network.l1_chain_id,
+                        false => cfg.network.l2_chain_id,
+                    },
+                    nonce,
+                    max_fee_per_gas: client
+                        .get_gas_price()
+                        .await?
+                        .as_u64()
+                        // TODO: Check this multiplier. Without it, the transaction
+                        // fail with error "gas price is less than basefee"
+                        .saturating_mul(10000000),
+                    data: bytecode.into(),
+                    ..Default::default()
+                };
+
+                tx.gas_limit = client.estimate_gas(tx.clone()).await?.saturating_mul(500);
+                tx.gas_limit = 10000000;
+                tx.max_fee_per_gas = 3000011820;
+
+                let hash = client
+                    .send_eip1559_transaction(tx, cfg.wallet.private_key)
+                    .await?;
+
+                let encoded_from = from.encode_to_vec();
+                let encoded_nonce = nonce.encode_to_vec();
+                let mut encoded = vec![(0xc0 + encoded_from.len() + encoded_nonce.len()) as u8];
+                encoded.extend(encoded_from.clone());
+                encoded.extend(encoded_nonce.clone());
+                let deployed_address = Address::from(keccak(encoded));
+
+                println!("Contract deployed in tx: {hash:#x}");
+                println!("Contract address: {deployed_address:#x}");
             }
         };
         Ok(())
