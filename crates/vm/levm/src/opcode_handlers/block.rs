@@ -187,7 +187,7 @@ impl VM {
         fake_exponential(
             MIN_BASE_FEE_PER_BLOB_GAS,
             // Use unwrap because env should have a Some value in excess_blob_gas attribute
-            self.env.blk_excess_blob_gas.unwrap(),
+            self.env.block_excess_blob_gas.unwrap(),
             BLOB_BASE_FEE_UPDATE_FRACTION,
         )
     }
