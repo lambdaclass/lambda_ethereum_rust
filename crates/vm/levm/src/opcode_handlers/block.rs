@@ -201,7 +201,7 @@ impl VM {
             return Err(VMError::OutOfGas);
         }
 
-        let blob_base_fee = U256::from(self.get_blob_gasprice());
+        let blob_base_fee = self.get_blob_gasprice();
 
         current_call_frame.stack.push(blob_base_fee)?;
         self.env.consumed_gas += gas_cost::BLOBBASEFEE;
