@@ -1,4 +1,5 @@
 use crate::config::EthereumRustL2Config;
+use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
 use ethereum_rust_l2::utils::eth_client::EthClient;
@@ -73,6 +74,21 @@ pub(crate) enum Command {
     Address,
     #[clap(about = "Get the wallet private key.")]
     PrivateKey,
+    #[clap(about = "Send a transaction")]
+    Send {
+        #[clap(long = "to")]
+        to: Address,
+        #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
+        value: U256,
+        #[clap(long = "calldata", required = false, default_value = "")]
+        calldata: Bytes,
+        #[clap(
+            long = "l1",
+            required = false,
+            help = "If set it will do an L1 transfer, defaults to an L2 transfer"
+        )]
+        l1: bool,
+    },
 }
 
 impl Command {
@@ -185,6 +201,44 @@ impl Command {
             }
             Command::PrivateKey => {
                 todo!()
+            }
+            Command::Send {
+                to,
+                value,
+                calldata,
+                l1,
+            } => {
+                let client = match l1 {
+                    true => eth_client,
+                    false => rollup_client,
+                };
+
+                let mut tx = EIP1559Transaction {
+                    to: TxKind::Call(to),
+                    value,
+                    chain_id: match l1 {
+                        true => cfg.network.l1_chain_id,
+                        false => cfg.network.l2_chain_id,
+                    },
+                    data: calldata,
+                    nonce: client.get_nonce(from).await?,
+                    max_fee_per_gas: client
+                        .get_gas_price()
+                        .await?
+                        .as_u64()
+                        .saturating_mul(10000000),
+                    ..Default::default()
+                };
+                tx.gas_limit = client.estimate_gas(tx.clone()).await?;
+
+                let tx_hash = client
+                    .send_eip1559_transaction(tx, cfg.wallet.private_key)
+                    .await?;
+
+                println!(
+                    "[{}] Transaction sent: {tx_hash:#x}",
+                    if l1 { "L1" } else { "L2" }
+                );
             }
         };
         Ok(())
