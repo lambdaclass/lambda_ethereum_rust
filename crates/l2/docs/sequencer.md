@@ -1,17 +1,18 @@
-# Ethereum Rust L2 Operator
+# Ethereum Rust L2 Sequencer
 
 ## ToC
 
+- [ToC](#toc)
 - [Components](#components)
-    - [L1 Watcher](#l1-watcher)
-    - [L1 Transaction Sender](#l1-transaction-sender)
-    - [Block Producer](#block-producer)
-    - [Proof Data Provider](#proof-data-provider)
+  - [L1 Watcher](#l1-watcher)
+  - [L1 Transaction Sender](#l1-transaction-sender)
+  - [Block Producer](#block-producer)
+  - [Proof Data Provider](#proof-data-provider)
 - [Configuration](#configuration)
 
 ## Components
 
-The L2 operator is composed of the following components:
+The L2 Sequencer is composed of the following components:
 
 ### L1 Watcher
 
@@ -23,9 +24,9 @@ In the future, it will also be watching for other L1->L2 messages.
 
 As the name suggests, this component sends transactions to the L1. But not any transaction, only commit and verify transactions.
 
-Commit transactions are sent when the operator wants to commit to a new block. These transactions contain the block data to be committed in the L1.
+Commit transactions are sent when the Sequencer wants to commit to a new block. These transactions contain the block data to be committed in the L1.
 
-Verify transactions are sent by the operator after the prover has successfully generated a proof of block execution to verify it. These transactions contain the proof to be verified in the L1.
+Verify transactions are sent by the Sequencer after the prover has successfully generated a proof of block execution to verify it. These transactions contain the proof to be verified in the L1.
 
 ### Block Producer
 
@@ -37,23 +38,25 @@ TODO
 
 ## Configuration
 
-Configuration is done through environment variables. The easiest way to configure the operator is by creating a `.env` file and setting the variables there. Then, at start, it will read the file and set the variables.
+Configuration is done through environment variables. The easiest way to configure the Sequencer is by creating a `.env` file and setting the variables there. Then, at start, it will read the file and set the variables.
 
-The following environment variables are available to configure the operator:
+The following environment variables are available to configure the Sequencer:
 
 - `ETH_RPC_URL`: URL of the L1 RPC.
 - `L1_WATCHER_BRIDGE_ADDRESS`: Address of the bridge contract on L1.
 - `L1_WATCHER_TOPICS`: Topics to filter the L1 events.
 - `L1_WATCHER_CHECK_INTERVAL_MS`: Interval in milliseconds to check for new events.
 - `L1_WATCHER_MAX_BLOCK_STEP`: Maximum number of blocks to look for when checking for new events.
-- `L1_WATCHER_L2_OPERATOR_PRIVATE_KEY`: Private key of the L2 operator.
+- `L1_WATCHER_L2_SEQUENCER_PRIVATE_KEY`: Private key of the L2 sequencer.
 - `ENGINE_API_RPC_URL`: URL of the EngineAPI.
 - `ENGINE_API_JWT_PATH`: Path to the JWT authentication file, required to connect to the EngineAPI.
 - `PROVER_SERVER_LISTEN_IP`: IP to listen for proof data requests.
 - `PROVER_SERVER_LISTEN_PORT`: Port to listen for proof data requests.
-- `OPERATOR_ON_CHAIN_OPERATOR_ADDRESS`: Address of the block executor contract on L1.
-- `OPERATOR_L1_ADDRESS`: Address of the L1 operator.
-- `OPERATOR_L1_PRIVATE_KEY`: Private key of the L1 operator.
-- `OPERATOR_INTERVAL_MS`: Interval in milliseconds to produce new blocks.
+- `PROVER_PROVER_SERVER_ENDPOINT`: Endpoint for the prover server.
+- `PROVER_ELF_PATH`: Path to the ELF file for the prover.
+- `SEQUENCER_ON_CHAIN_SEQUENCER_ADDRESS`: Address of the on-chain sequencer.
+- `SEQUENCER_L1_ADDRESS`: Address of the L1 sequencer.
+- `SEQUENCER_L1_PRIVATE_KEY`: Private key of the L1 sequencer.
+- `SEQUENCER_INTERVAL_MS`: Interval in milliseconds to produce new blocks for the sequencer.
 
 If you want to use a different configuration file, you can set the `ENV_FILE` environment variable to the path of the file.
