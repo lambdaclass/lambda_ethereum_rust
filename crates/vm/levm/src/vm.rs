@@ -379,17 +379,17 @@ impl VM {
         }
     }
 
-    /// Based on ethereum yellowpaper initial tests of intrinsic validity (Section 6), which last version is 
+    /// Based on ethereum yellowpaper initial tests of intrinsic validity (Section 6), which last version is
     /// Shanghai, so there are probably missing cancun validations.
     /// Possible cancun tests:
-    /// - 
+    /// -
     fn validate_transaction(&self) -> Result<(), VMError> {
         // Validations (1), (2), (3) and (5) are done in upper layers.
 
         let sender_account = match self.db.accounts.get(&self.env.origin) {
             Some(acc) => acc,
-            None => return Err(VMError::SenderAccountDoesNotExist)
-        };        
+            None => return Err(VMError::SenderAccountDoesNotExist),
+        };
 
         // (4) the sender account has no contract code deployed (see EIP-3607 by Feist et al. [2021]);
         if sender_account.has_code() {
