@@ -31,8 +31,8 @@ use crate::utils::config::prover_server::ProverServerConfig;
 use super::errors::ProofDataProviderError;
 
 pub async fn start_prover_server(store: Store) {
-    let config = ProverServerConfig::from_env().expect("ProofDataProviderConfig::from_env()");
-    let prover_server = ProofDataProvider::new_from_config(config.clone(), store);
+    let config = ProverServerConfig::from_env().expect("ProverServerConfig::from_env()");
+    let prover_server = ProverServer::new_from_config(config.clone(), store);
 
     let (tx, rx) = mpsc::channel();
 
@@ -43,7 +43,7 @@ pub async fn start_prover_server(store: Store) {
             .expect("prover_server.start()")
     });
 
-    ProofDataProvider::handle_sigint(tx, config).await;
+    ProverServer::handle_sigint(tx, config).await;
 
     tokio::try_join!(server).expect("tokio::try_join!()");
 }
@@ -64,13 +64,13 @@ pub enum ProofData {
     },
 }
 
-struct ProofDataProvider {
+struct ProverServer {
     ip: IpAddr,
     port: u16,
     store: Store,
 }
 
-impl ProofDataProvider {
+impl ProverServer {
     pub fn new_from_config(config: ProverServerConfig, store: Store) -> Self {
         Self {
             ip: config.listen_ip,

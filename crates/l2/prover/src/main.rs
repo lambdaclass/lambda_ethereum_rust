@@ -1,7 +1,7 @@
 use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 use ethereum_rust_prover_lib::init_client;
 
-use tracing::{self, debug, warn, Level};
+use tracing::{self, debug, Level};
 
 #[tokio::main]
 async fn main() {

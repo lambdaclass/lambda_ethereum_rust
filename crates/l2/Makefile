@@ -60,6 +60,9 @@ down-l2:
 
 restart-l2: down-l2 init-l2
 
+l2-stack-init:
+	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust_l2 stack init
+
 # Prover
 
 SP1_PROGRAM_PATH=$(shell pwd)/prover/sp1/program
