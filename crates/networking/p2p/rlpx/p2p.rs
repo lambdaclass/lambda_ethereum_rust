@@ -10,7 +10,7 @@ use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEnc
 
 use crate::rlpx::utils::id2pubkey;
 
-use super::{message::RLPxMessage, utils::pubkey2id};
+use super::{message::RLPxMessage, utils::{pubkey2id, snappy_encode}};
 
 #[derive(Debug)]
 pub(crate) struct HelloMessage {
