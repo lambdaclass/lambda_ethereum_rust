@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.27;
 
-import "./interfaces/IBlockExecutor.sol";
+import "./interfaces/IOnChainProposer.sol";
 
-/// @title BlockExecutor contract.
+/// @title OnChainProposer contract.
 /// @author LambdaClass
-contract BlockExecutor is IBlockExecutor {
-    /// @inheritdoc IBlockExecutor
+contract OnChainProposer is IOnChainProposer {
+    /// @inheritdoc IOnChainProposer
     function commit(bytes32 currentBlockCommitment) external override {
         emit BlockCommitted(currentBlockCommitment);
     }
 
-    /// @inheritdoc IBlockExecutor
+    /// @inheritdoc IOnChainProposer
     function verify(bytes calldata blockProof) external override {
         bytes32 blockHash = keccak256(abi.encode(blockProof));
         emit BlockVerified(blockHash);

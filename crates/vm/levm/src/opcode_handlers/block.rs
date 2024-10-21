@@ -372,7 +372,7 @@ impl VM {
         // TODO: Why do we unwrap here?
         current_call_frame
             .stack
-            .push(self.env.tx_gas_price.unwrap())?;
+            .push(self.env.tx_gas_price)?;
 
         self.env.consumed_gas += gas_cost::GASPRICE;
 

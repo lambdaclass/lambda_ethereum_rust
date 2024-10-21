@@ -168,7 +168,8 @@ pub struct Environment {
     /// The sender address of the transaction that originated
     /// this execution.
     pub tx_origin: Address,
-    pub tx_gas_price: Option<U256>,
+    /// this attr can represent gas_price or max_fee_per_gas depending on transaction type
+    pub tx_gas_price: U256,
     pub tx_chain_id: U256,
     pub tx_gas_limit: U256, // TODO: change this to u64?
     pub consumed_gas: U256,
@@ -214,7 +215,7 @@ impl VM {
         prev_randao: Option<H256>,
         chain_id: U256,
         base_fee_per_gas: U256,
-        gas_price: Option<U256>,
+        gas_price: U256,
         db: Db,
     ) -> Self {
         // TODO: This handles only CALL transactions.

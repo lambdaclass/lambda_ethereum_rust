@@ -4098,7 +4098,7 @@ fn gasprice_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        Some(U256::from(0x9876)),
+        U256::from(0x9876),
         db,
     );
 
