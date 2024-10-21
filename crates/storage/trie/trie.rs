@@ -5,6 +5,7 @@ mod node;
 mod node_hash;
 mod rlp;
 mod state;
+mod trie_iter;
 
 #[cfg(test)]
 mod test_utils;
@@ -20,6 +21,7 @@ pub use self::db::{
     TrieDB,
 };
 pub use self::error::TrieError;
+pub use self::trie_iter::TrieIterator;
 use self::{nibble::NibbleSlice, node::LeafNode, state::TrieState};
 
 use lazy_static::lazy_static;
@@ -180,6 +182,10 @@ impl Trie {
             .as_ref()
             .map(|root| root.clone().finalize())
             .unwrap_or(*EMPTY_TRIE_HASH)
+    }
+
+    pub fn iter(&self) -> TrieIterator {
+        TrieIterator::new(self)
     }
 
     #[cfg(test)]
