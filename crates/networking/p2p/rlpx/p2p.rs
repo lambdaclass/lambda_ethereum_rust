@@ -6,7 +6,7 @@ use ethereum_rust_rlp::{
     structs::{Decoder, Encoder},
 };
 use k256::PublicKey;
-use snap::raw::{max_compress_len, Decoder as SnappyDecoder, Encoder as SnappyEncoder};
+use snap::raw::Decoder as SnappyDecoder;
 
 use crate::rlpx::utils::id2pubkey;
 
