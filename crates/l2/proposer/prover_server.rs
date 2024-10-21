@@ -182,7 +182,7 @@ impl ProverServer {
             .store
             .get_latest_block_number()
             .map_err(|e| e.to_string())?
-            .unwrap();
+            .ok_or("missing latest block number".to_string())?;
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
