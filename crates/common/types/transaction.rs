@@ -1244,12 +1244,13 @@ mod serde_impl {
         #[serde(default, with = "crate::serde_utils::u64::hex_str")]
         pub nonce: u64,
         pub to: TxKind,
+        #[serde(default)]
         pub from: Address,
         #[serde(default, with = "crate::serde_utils::u64::hex_str_opt")]
         pub gas: Option<u64>,
         #[serde(default)]
         pub value: U256,
-        #[serde(default, with = "crate::serde_utils::bytes")]
+        #[serde(default, with = "crate::serde_utils::bytes", alias = "data")]
         pub input: Bytes,
         #[serde(default, with = "crate::serde_utils::u64::hex_str")]
         pub gas_price: u64,
