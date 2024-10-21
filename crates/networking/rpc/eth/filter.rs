@@ -7,12 +7,15 @@ use std::{
 };
 use tracing::error;
 
-use crate::utils::{parse_json_hex, RpcErr, RpcRequest};
 use crate::RpcHandler;
+use crate::{
+    types::block_identifier::{BlockIdentifier, BlockTag},
+    utils::{parse_json_hex, RpcErr, RpcRequest},
+};
 use rand::prelude::*;
 use serde_json::{json, Value};
 
-use super::logs::{fetch_logs_with_filter, AddressFilter, LogsFilter, TopicFilter};
+use super::logs::{fetch_logs_with_filter, LogsFilter};
 
 #[derive(Debug, Clone)]
 pub struct NewFilterRequest {
@@ -48,26 +51,13 @@ pub struct PollableFilter {
     /// the log will be applied from this
     /// block number up to the latest one.
     pub last_block_number: BlockNumber,
-    /// The addresses from where the logs origin from.
-    pub address_filters: Option<AddressFilter>,
-    /// Which topics to filter.
-    pub topics: Vec<TopicFilter>,
-}
-impl From<PollableFilter> for LogsFilter {
-    fn from(f: PollableFilter) -> LogsFilter {
-        LogsFilter {
-            from_block: crate::types::block_identifier::BlockIdentifier::Number(
-                f.last_block_number,
-            ),
-            to_block: crate::types::block_identifier::BlockIdentifier::Tag(
-                crate::types::block_identifier::BlockTag::Latest,
-            ),
-            address_filters: f.address_filters,
-            topics: f.topics,
-        }
-    }
+    pub filter_data: LogsFilter,
 }
 
+// Useful reference: https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
+// FIXME: The spec states that this receives a block range, but this endpoint
+// is used to poll state changes (i.e. when new blocks arrive with new logs),
+// so then why would a block range be needed?
 impl NewFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         let filter = LogsFilter::parse(params)?;
@@ -81,24 +71,20 @@ impl NewFilterRequest {
         storage: ethereum_rust_storage::Store,
         filters: ActiveFilters,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
-        // FIXME: Maybe remove this
-        // let from = self
-        //     .request_data
-        //     .from_block
-        //     .resolve_block_number(&storage)?
-        //     .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
-        // FIXME: Maybe remove this
-        // let to = self
-        //     .request_data
-        //     .to_block
-        //     .resolve_block_number(&storage)?
-        //     .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
+        let from = self
+            .request_data
+            .from_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("fromBlock".to_string()))?;
+        let to = self
+            .request_data
+            .to_block
+            .resolve_block_number(&storage)?
+            .ok_or(RpcErr::WrongParam("toBlock".to_string()))?;
 
-        // FIXME: Maybe remove this
-        // if (from..=to).is_empty() {
-        //     return Err(RpcErr::BadParams("Invalid block range".to_string()));
-        // }
-
+        if (from..=to).is_empty() {
+            return Err(RpcErr::BadParams("Invalid block range".to_string()));
+        }
         let id: u64 = random();
         let timestamp = Instant::now();
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
@@ -115,8 +101,7 @@ impl NewFilterRequest {
                     // FIXME: Remove these unwraps before PR review
                     last_block_number: storage.get_latest_block_number().unwrap().unwrap(),
                     // FIXME: Check If we can avoid these clones before PR review.
-                    address_filters: self.request_data.address_filters.clone(),
-                    topics: self.request_data.topics.clone(),
+                    filter_data: self.request_data.clone(),
                 },
             ),
         );
@@ -202,6 +187,8 @@ impl FilterChangesRequest {
         storage: ethereum_rust_storage::Store,
         filters: ActiveFilters,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
+        // FIXME: Remove these unwraps.
+        let latest_block_number = storage.get_latest_block_number().unwrap().unwrap();
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
             error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
             **poisoned_guard.get_mut() = HashMap::new();
@@ -209,19 +196,33 @@ impl FilterChangesRequest {
             poisoned_guard.into_inner()
         });
         if let Some((timestamp, filter)) = active_filters_guard.get_mut(&self.id) {
-            // Since the filter was polled, updated its timestamp, so
-            // it does not expire.
-            *timestamp = Instant::now();
-            let filter = filter.clone();
-            // FIXME: Ask if this approach is right.
-            // Drop the lock early to process this filter's query
-            // and not keep the lock more than we should.
-            drop(active_filters_guard);
-            let logs = fetch_logs_with_filter(&filter.clone().into(), storage)?;
-            return serde_json::to_value(logs).map_err(|error| {
-                tracing::error!("Log filtering request failed with: {error}");
-                RpcErr::Internal("Failed to filter logs".to_string())
-            })
+            match filter.filter_data.to_block {
+                BlockIdentifier::Tag(BlockTag::Latest) => {
+                    // Since the filter was polled, updated its timestamp, so
+                    // it does not expire.
+                    *timestamp = Instant::now();
+                    filter.filter_data.from_block =
+                        BlockIdentifier::Number(filter.last_block_number);
+                    filter.last_block_number = latest_block_number;
+                    let filter = filter.clone();
+                    // FIXME: Ask if this approach is right.
+                    // Drop the lock early to process this filter's query
+                    // and not keep the lock more than we should.
+                    drop(active_filters_guard);
+                    let logs = fetch_logs_with_filter(&filter.filter_data, storage)?;
+                    return serde_json::to_value(logs).map_err(|error| {
+                        tracing::error!("Log filtering request failed with: {error}");
+                        RpcErr::Internal("Failed to filter logs".to_string())
+                    });
+                }
+                _ => {
+                    // FIXME: Use a proper alternative to this vec here.
+                    return serde_json::to_value(Vec::<u8>::new()).map_err(|error| {
+                        tracing::error!("Log filtering request failed with: {error}");
+                        RpcErr::Internal("Failed to filter logs".to_string())
+                    });
+                }
+            }
         } else {
             return Err(RpcErr::BadParams(
                 "No matching filter for given id".to_string(),
@@ -247,18 +248,22 @@ mod tests {
     };
 
     use crate::{
-        eth::logs::{AddressFilter, LogsFilter, TopicFilter},
+        eth::{
+            filter::PollableFilter,
+            logs::{AddressFilter, LogsFilter, TopicFilter},
+        },
         map_http_requests,
-        utils::test_utils::start_test_api,
+        utils::test_utils::{self, start_test_api},
         FILTER_DURATION,
     };
     use crate::{
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
+    use ethereum_rust_core::types::{Block, Genesis};
     use ethereum_rust_storage::{EngineType, Store};
     use serde_json::{json, Value};
-
+    use test_utils::TEST_GENESIS;
     use super::ActiveFilters;
 
     #[test]
@@ -286,10 +291,19 @@ mod tests {
         let filters = filters.lock().unwrap();
         assert!(filters.len() == 1);
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
-        assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
-        assert!(matches!(filter.to_block, BlockIdentifier::Number(2)));
-        assert!(filter.address_filters.is_none());
-        assert!(matches!(&filter.topics[..], [TopicFilter::Topic(_)]));
+        assert!(matches!(
+            filter.filter_data.from_block,
+            BlockIdentifier::Number(1)
+        ));
+        assert!(matches!(
+            filter.filter_data.to_block,
+            BlockIdentifier::Number(2)
+        ));
+        assert!(filter.filter_data.address_filters.is_none());
+        assert!(matches!(
+            &filter.filter_data.topics[..],
+            [TopicFilter::Topic(_)]
+        ));
     }
 
     #[test]
@@ -314,10 +328,16 @@ mod tests {
         let filters = filters.lock().unwrap();
         assert!(filters.len() == 1);
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
-        assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
-        assert!(matches!(filter.to_block, BlockIdentifier::Number(255)));
-        assert!(filter.address_filters.is_none());
-        assert!(matches!(&filter.topics[..], []));
+        assert!(matches!(
+            filter.filter_data.from_block,
+            BlockIdentifier::Number(1)
+        ));
+        assert!(matches!(
+            filter.filter_data.to_block,
+            BlockIdentifier::Number(255)
+        ));
+        assert!(filter.filter_data.address_filters.is_none());
+        assert!(matches!(&filter.filter_data.topics[..], []));
     }
 
     #[test]
@@ -342,13 +362,19 @@ mod tests {
         let filters = filters.lock().unwrap();
         assert!(filters.len() == 1);
         let (_, filter) = filters.clone().get(&id).unwrap().clone();
-        assert!(matches!(filter.from_block, BlockIdentifier::Number(1)));
-        assert!(matches!(filter.to_block, BlockIdentifier::Number(255)));
         assert!(matches!(
-            filter.address_filters.unwrap(),
+            filter.filter_data.from_block,
+            BlockIdentifier::Number(1)
+        ));
+        assert!(matches!(
+            filter.filter_data.to_block,
+            BlockIdentifier::Number(255)
+        ));
+        assert!(matches!(
+            filter.filter_data.address_filters.unwrap(),
             AddressFilter::Many(_)
         ));
-        assert!(matches!(&filter.topics[..], []));
+        assert!(matches!(&filter.filter_data.topics[..], []));
     }
 
     #[test]
@@ -400,9 +426,12 @@ mod tests {
     ) -> u64 {
         let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
+        let genesis_config: Genesis = serde_json::from_str(TEST_GENESIS).expect("Fatal: non-valid genesis test config");
+        let mut store = Store::new("in-mem", EngineType::InMemory).expect("Fatal: could not create in memory test db");
+        store.add_initial_state(genesis_config).expect("Fatal: could not add test genesis in test");
         let response = map_http_requests(
             &request,
-            Store::new("in-mem", EngineType::InMemory).unwrap(),
+            store,
             node,
             filters_pointer.clone(),
         )
@@ -433,11 +462,14 @@ mod tests {
             0xFF,
             (
                 Instant::now(),
-                LogsFilter {
-                    from_block: BlockIdentifier::Number(1),
-                    to_block: BlockIdentifier::Number(2),
-                    address_filters: None,
-                    topics: vec![],
+                PollableFilter {
+                    last_block_number: 0,
+                    filter_data: LogsFilter {
+                        from_block: BlockIdentifier::Number(1),
+                        to_block: BlockIdentifier::Number(2),
+                        address_filters: None,
+                        topics: vec![],
+                    },
                 },
             ),
         );

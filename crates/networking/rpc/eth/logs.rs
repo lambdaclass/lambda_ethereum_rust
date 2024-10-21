@@ -1,3 +1,5 @@
+// A really useful reference on how this works is found here:
+// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
 use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
@@ -98,8 +100,6 @@ impl RpcHandler for LogsFilter {
 //   then we simply could retrieve each log from the receipt and add the info
 //   needed for the RPCLog struct.
 
-// A really useful reference on how this works is found here:
-// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
 pub(crate) fn fetch_logs_with_filter(
     filter: &LogsFilter,
     storage: Store,
