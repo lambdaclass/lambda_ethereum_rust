@@ -370,9 +370,7 @@ impl VM {
         }
         // TODO: if not legacy or access list, then gas price is max_fee_per_gas
         // TODO: Why do we unwrap here?
-        current_call_frame
-            .stack
-            .push(self.env.tx_gas_price)?;
+        current_call_frame.stack.push(self.env.tx_gas_price)?;
 
         self.env.consumed_gas += gas_cost::GASPRICE;
 

@@ -22,7 +22,7 @@ pub fn execute_block(block: &Block, _state: &mut EvmState) -> Result<Vec<Receipt
             Some(block.header.prev_randao),
             transaction.chain_id().unwrap().into(),
             block.header.base_fee_per_gas.unwrap().into(),
-            Some(transaction.gas_price().into()),
+            transaction.gas_price().into(),
             Db::default(),
         );
         let _result = vm.transact();
