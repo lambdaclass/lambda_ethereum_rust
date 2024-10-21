@@ -81,7 +81,13 @@ pub(crate) enum Command {
     Send {
         #[clap(long = "to")]
         to: Address,
-        #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
+        #[clap(
+            long = "value",
+            value_parser = U256::from_dec_str,
+            default_value = "0",
+            required = false,
+            help = "Value to send in wei"
+        )]
         value: U256,
         #[clap(long = "calldata", value_parser = decode_hex, required = false, default_value = "")]
         calldata: Bytes,
@@ -114,7 +120,13 @@ pub(crate) enum Command {
             help = "If set it will do an L1 transfer, defaults to an L2 transfer"
         )]
         l1: bool,
-        #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
+        #[clap(
+            long = "value",
+            value_parser = U256::from_dec_str,
+            default_value = "0",
+            required = false,
+            help = "Value to send in wei"
+        )]
         value: U256,
         #[clap(long = "from", required = false)]
         from: Option<Address>,
@@ -133,7 +145,13 @@ pub(crate) enum Command {
             help = "If set it will do an L1 transfer, defaults to an L2 transfer"
         )]
         l1: bool,
-        #[clap(long = "value", value_parser = U256::from_dec_str, default_value = "0", required = false)]
+        #[clap(
+            long = "value",
+            value_parser = U256::from_dec_str,
+            default_value = "0",
+            required = false,
+            help = "Value to send in wei"
+        )]
         value: U256,
         #[clap(long = "chain-id", required = false)]
         chain_id: Option<u64>,
