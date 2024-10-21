@@ -3,7 +3,7 @@ use tracing::info;
 
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
 
-use ethereum_rust_l2::operator::prover_server::ProverInputData;
+use ethereum_rust_l2::proposer::prover_server::ProverInputData;
 use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 
 pub struct Prover {
