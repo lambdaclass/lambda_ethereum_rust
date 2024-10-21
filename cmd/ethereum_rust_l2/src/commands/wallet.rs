@@ -161,7 +161,7 @@ async fn make_eip1559_transaction(
     from: Address,
     data: Bytes,
     value: U256,
-    chain_id: Option<u64>,
+    chain_id: u64,
     nonce: Option<u64>,
     gas_limit: Option<u64>,
     gas_price: Option<u64>,
@@ -171,7 +171,7 @@ async fn make_eip1559_transaction(
         to,
         data,
         value,
-        chain_id: chain_id.unwrap_or(Default::default()),
+        chain_id,
         nonce: match nonce {
             Some(nonce) => nonce,
             None => client.get_nonce(from).await?,
@@ -323,7 +323,10 @@ impl Command {
                     from,
                     calldata,
                     value,
-                    chain_id,
+                    chain_id.unwrap_or_else(|| match l1 {
+                        true => cfg.network.l1_chain_id,
+                        false => cfg.network.l2_chain_id,
+                    }),
                     nonce,
                     gas_limit,
                     gas_price,
@@ -360,13 +363,13 @@ impl Command {
                     value,
                     from: from.unwrap_or(Default::default()),
                     gas: gas_limit,
-                    max_fee_per_gas: gas_price,
+                    gas_price: gas_price.unwrap_or(Default::default()),
                     ..Default::default()
                 };
 
                 let result = client.call(call_tx).await?;
 
-                println!("{result:#x}");
+                println!("{result}");
             }
             Command::Deploy {
                 bytecode,
@@ -390,7 +393,10 @@ impl Command {
                     from,
                     bytecode,
                     value,
-                    chain_id,
+                    chain_id.unwrap_or_else(|| match l1 {
+                        true => cfg.network.l1_chain_id,
+                        false => cfg.network.l2_chain_id,
+                    }),
                     Some(nonce),
                     gas_limit,
                     gas_price,
