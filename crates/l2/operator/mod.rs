@@ -5,7 +5,9 @@ use crate::utils::{
 use bytes::Bytes;
 use errors::OperatorError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
-use ethereum_rust_core::types::{Block, EIP1559Transaction, TxKind};
+use ethereum_rust_core::types::{
+    Block, EIP1559Transaction, GenericTransaction, PrivilegedTxType, Transaction, TxKind,
+};
 use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
@@ -24,10 +26,13 @@ pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
+const START_WITHDRAWAL_FUNCTION_SELECTOR: [u8; 4] = [193, 162, 125, 121];
+
 pub struct Operator {
     eth_client: EthClient,
     engine_client: EngineClient,
     block_executor_address: Address,
+    common_bridge_address: Address,
     l1_address: Address,
     l1_private_key: SecretKey,
     block_production_interval: Duration,
@@ -75,7 +80,8 @@ impl Operator {
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
-            block_executor_address: operator_config.block_executor_address,
+            block_executor_address: operator_config.on_chain_operator_address,
+            common_bridge_address: operator_config.common_bridge_address,
             l1_address: operator_config.l1_address,
             l1_private_key: operator_config.l1_private_key,
             block_production_interval: Duration::from_millis(operator_config.interval_ms),
@@ -101,6 +107,27 @@ impl Operator {
                 .ok_or(OperatorError::FailedToProduceBlock(
                     "Failed to get block by hash from storage".to_string(),
                 ))?;
+
+            let withdrawal_txs: Vec<&Transaction> = block
+                .body
+                .transactions
+                .iter()
+                .filter(|tx| match tx {
+                    Transaction::PrivilegedL2Transaction(tx) => {
+                        tx.tx_type == PrivilegedTxType::Withdrawal
+                    }
+                    _ => false,
+                })
+                .collect();
+            if !withdrawal_txs.is_empty() {
+                match self.send_withdrawals(withdrawal_txs).await {
+                    Ok(tx_hash) => info!("Sent withdrawals with transaction hash {tx_hash:#x}"),
+                    Err(error) => {
+                        error!("Failed to send withdrawals. Manual intervention required: {error}");
+                        panic!("Failed to send withdrawals. Manual intervention required: {error}");
+                    }
+                };
+            }
 
             let commitment = keccak(block.encode_to_vec());
 
@@ -212,7 +239,9 @@ impl Operator {
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
         calldata.extend(commitment.0);
 
-        let commit_tx_hash = self.send_transaction_with_calldata(calldata.into()).await?;
+        let commit_tx_hash = self
+            .send_transaction_with_calldata(self.block_executor_address, calldata.into())
+            .await?;
 
         info!("Commitment sent: {commit_tx_hash:#x}");
 
@@ -238,7 +267,9 @@ impl Operator {
         let leading_zeros = 32 - (calldata.len() % 32);
         calldata.extend(vec![0; leading_zeros]);
 
-        let verify_tx_hash = self.send_transaction_with_calldata(calldata.into()).await?;
+        let verify_tx_hash = self
+            .send_transaction_with_calldata(self.block_executor_address, calldata.into())
+            .await?;
 
         info!("Proof sent: {verify_tx_hash:#x}");
 
@@ -254,9 +285,49 @@ impl Operator {
         Ok(verify_tx_hash)
     }
 
-    async fn send_transaction_with_calldata(&self, calldata: Bytes) -> Result<H256, OperatorError> {
+    async fn send_withdrawals(&self, txs: Vec<&Transaction>) -> Result<H256, OperatorError> {
+        let mut calldata = Vec::new();
+        calldata.extend(START_WITHDRAWAL_FUNCTION_SELECTOR);
+        calldata.extend(H256::from_low_u64_be(0x20).0);
+        calldata.extend(H256::from_low_u64_be(txs.len() as u64).0);
+        txs.iter().for_each(|tx| {
+            match tx.to() {
+                TxKind::Call(to) => calldata.extend(H256::from(to).0),
+                TxKind::Create => calldata.extend(H256::zero().0),
+            }
+
+            let mut buf = [0u8; 32];
+            tx.value().to_big_endian(&mut buf);
+            calldata.extend(buf);
+
+            calldata.extend(tx.compute_hash().0);
+        });
+
+        let withdrawals_tx_hash = self
+            .send_transaction_with_calldata(self.common_bridge_address, calldata.into())
+            .await?;
+
+        info!("Withdrawals sent to L1 in TX {withdrawals_tx_hash:#?}");
+
+        while self
+            .eth_client
+            .get_transaction_receipt(withdrawals_tx_hash)
+            .await?
+            .is_none()
+        {
+            sleep(Duration::from_secs(1)).await;
+        }
+
+        Ok(withdrawals_tx_hash)
+    }
+
+    async fn send_transaction_with_calldata(
+        &self,
+        to: Address,
+        calldata: Bytes,
+    ) -> Result<H256, OperatorError> {
         let mut tx = EIP1559Transaction {
-            to: TxKind::Call(self.block_executor_address),
+            to: TxKind::Call(to),
             data: calldata,
             max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
             nonce: self.eth_client.get_nonce(self.l1_address).await?,
@@ -264,9 +335,12 @@ impl Operator {
             ..Default::default()
         };
 
+        let mut generic_tx = GenericTransaction::from(tx.clone());
+        generic_tx.from = self.l1_address;
+
         tx.gas_limit = self
             .eth_client
-            .estimate_gas(tx.clone())
+            .estimate_gas(generic_tx)
             .await?
             .saturating_add(TX_GAS_COST);
 

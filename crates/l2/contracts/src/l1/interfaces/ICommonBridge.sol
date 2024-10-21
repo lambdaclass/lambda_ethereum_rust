@@ -6,6 +6,12 @@ pragma solidity 0.8.27;
 /// @notice A CommonBridge contract is a contract that allows L1<->L2 communication
 /// from L1. It both sends messages from L1 to L2 and receives messages from L2.
 interface ICommonBridge {
+    struct WithdrawalTransaction {
+        address to;
+        uint256 amount;
+        bytes32 l2TxHash;
+    }
+
     /// @notice A deposit to L2 has initiated.
     /// @dev Event emitted when a deposit is initiated.
     /// @param amount the amount of tokens being deposited.
@@ -18,11 +24,20 @@ interface ICommonBridge {
 
     /// @notice Error for when the deposit amount is 0.
     error AmountToDepositIsZero();
-    
+
     /// @notice Method that starts an L2 ETH deposit process.
     /// @dev The deposit process starts here by emitting a DepositInitiated
     /// event. This event will later be intercepted by the L2 operator to
     /// finalize the deposit.
     /// @param to, the address in L2 to which the tokens will be minted to.
     function deposit(address to) external payable;
+
+    /// @notice Method that starts an L2 ETH withdrawal process.
+    /// @param transactions the withdrawal transactions including beneficiary, amount
+    /// and L2 transaction hash.
+    function startWithdrawal(WithdrawalTransaction[] calldata transactions) external;
+
+    /// @notice Method that finalizes an L2 ETH withdrawal process.
+    /// @param l2TxHash the hash of the transaction in L2 that requests the withdrawal.
+    function finalizeWithdrawal(bytes32 l2TxHash) external;
 }
