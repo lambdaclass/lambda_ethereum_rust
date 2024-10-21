@@ -7,7 +7,7 @@ use ethereum_rust_levm::{
     vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
 };
 use ethereum_types::H32;
-use std::collections::HashMap;
+use std::{collections::HashMap, u64};
 
 // cargo test -p 'levm'
 
@@ -2438,7 +2438,7 @@ fn blockhash_op() {
     vm.db
         .block_hashes
         .insert(block_number, H256::from_low_u64_be(block_hash));
-    vm.env.block_number = current_block_number;
+    vm.env.blk_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2470,7 +2470,7 @@ fn blockhash_same_block_number() {
     //     Address::default(),
     //     Account::new(U256::MAX, Bytes::default(), 0, storage),
     // );
-    vm.env.block_number = current_block_number;
+    vm.env.blk_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2500,7 +2500,7 @@ fn blockhash_block_number_not_from_recent_256() {
     vm.db
         .block_hashes
         .insert(block_number, H256::from_low_u64_be(block_hash));
-    vm.env.block_number = current_block_number;
+    vm.env.blk_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2519,7 +2519,7 @@ fn coinbase_op() {
     let operations = [Operation::Coinbase, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.coinbase = Address::from_low_u64_be(coinbase_address);
+    vm.env.blk_coinbase = Address::from_low_u64_be(coinbase_address);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2538,7 +2538,7 @@ fn timestamp_op() {
     let operations = [Operation::Timestamp, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.timestamp = timestamp;
+    vm.env.blk_timestamp = timestamp;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2554,7 +2554,7 @@ fn number_op() {
     let operations = [Operation::Number, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.block_number = block_number;
+    vm.env.blk_number = block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2573,7 +2573,7 @@ fn prevrandao_op() {
     let operations = [Operation::Prevrandao, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.prev_randao = Some(prevrandao);
+    vm.env.blk_prev_randao = Some(prevrandao);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2587,17 +2587,20 @@ fn prevrandao_op() {
 
 #[test]
 fn gaslimit_op() {
-    let gas_limit = TX_BASE_COST * 2;
+    let gas_limit = 100_u64;
 
     let operations = [Operation::Gaslimit, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.gas_limit = gas_limit;
+    vm.env.blk_gas_limit = gas_limit;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), gas_limit);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        gas_limit.into()
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
@@ -2608,7 +2611,7 @@ fn chain_id_op() {
     let operations = [Operation::Chainid, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.chain_id = chain_id;
+    vm.env.tx_chain_id = chain_id;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2624,7 +2627,7 @@ fn basefee_op() {
     let operations = [Operation::Basefee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.base_fee_per_gas = base_fee_per_gas;
+    vm.env.blk_base_fee_per_gas = base_fee_per_gas;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -3825,6 +3828,7 @@ fn caller_op() {
         caller,
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -3864,6 +3868,7 @@ fn origin_op() {
         msg_sender,
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -3929,6 +3934,7 @@ fn address_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -3970,6 +3976,7 @@ fn selfbalance_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4007,6 +4014,7 @@ fn callvalue_op() {
         Default::default(),
         value,
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4043,6 +4051,7 @@ fn codesize_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4081,6 +4090,7 @@ fn gasprice_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4136,6 +4146,7 @@ fn codecopy_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),

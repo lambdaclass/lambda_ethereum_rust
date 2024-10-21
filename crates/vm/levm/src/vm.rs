@@ -159,20 +159,21 @@ pub struct Substate {
 
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
+    pub blk_coinbase: Address,
+    pub blk_timestamp: U256,
+    pub blk_number: U256,
+    pub blk_prev_randao: Option<H256>,
+    pub blk_gas_limit: u64,
+    pub blk_base_fee_per_gas: U256,
     /// The sender address of the transaction that originated
     /// this execution.
-    pub origin: Address,
+    pub tx_origin: Address,
+    /// this attr can represent gas_price or max_fee_per_gas depending on transaction type
+    pub tx_gas_price: U256,
+    pub tx_chain_id: U256,
+    pub tx_gas_limit: U256, // TODO: change this to u64?
     pub consumed_gas: U256,
     refunded_gas: U256,
-    pub gas_limit: U256,
-    pub block_number: U256,
-    pub coinbase: Address,
-    pub timestamp: U256,
-    pub prev_randao: Option<H256>,
-    pub chain_id: U256,
-    pub base_fee_per_gas: U256,
-    /// this attr is gas_price or max_fee_per_gas depending on transaction type
-    pub gas_price: U256,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -206,7 +207,8 @@ impl VM {
         msg_sender: Address,
         value: U256,
         calldata: Bytes,
-        gas_limit: U256,
+        blk_gas_limit: u64,
+        tx_gas_limit: U256,
         block_number: U256,
         coinbase: Address,
         timestamp: U256,
@@ -243,16 +245,17 @@ impl VM {
 
         let env = Environment {
             consumed_gas: TX_BASE_COST,
-            origin: msg_sender,
+            tx_origin: msg_sender,
             refunded_gas: U256::zero(),
-            gas_limit,
-            block_number,
-            coinbase,
-            timestamp,
-            prev_randao,
-            chain_id,
-            base_fee_per_gas,
-            gas_price,
+            tx_gas_limit,
+            blk_number: block_number,
+            blk_coinbase: coinbase,
+            blk_timestamp: timestamp,
+            blk_prev_randao: prev_randao,
+            tx_chain_id: chain_id,
+            blk_base_fee_per_gas: base_fee_per_gas,
+            tx_gas_price: gas_price,
+            blk_gas_limit,
         };
 
         Self {
