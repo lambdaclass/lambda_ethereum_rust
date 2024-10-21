@@ -49,7 +49,7 @@ pub async fn start_network(
     let server_handle = tokio::spawn(serve_requests(tcp_addr, signer.clone(), storage.clone()));
     // TODO Remove this spawn, it's just for testing
     // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
-    tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
+    //tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
 
     try_join!(discovery_handle, server_handle).unwrap();
 }
@@ -145,10 +145,12 @@ async fn discover_peers_server(
                     // send a ping to get the endpoint proof from our end
                     let (peer, inserted_to_table) = {
                         let mut table = table.lock().await;
+                        info!("Insert Node 3");
                         table.insert_node(Node {
                             ip: from.ip(),
                             udp_port: from.port(),
-                            tcp_port: 0,
+                            // TODO: Check how to obtain proper tcp port
+                            tcp_port: from.port(),
                             node_id: packet.get_node_id(),
                         })
                     };
@@ -180,17 +182,13 @@ async fn discover_peers_server(
                     }
                     if peer.last_ping_hash.unwrap() == msg.ping_hash {
                         table.lock().await.pong_answered(peer.node.node_id);
-                        // TODO: make this work to initiate p2p thread
-                        // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
-                        let _node = peer.node;
-                        let mut msg_buf = vec![0; read - (32 + 65)];
-                        buf[32 + 65..read].clone_into(&mut msg_buf);
-                        let mut sig_bytes = vec![0; 65];
-                        buf[32..32 + 65].clone_into(&mut sig_bytes);
-                        let _signer_clone = signer.clone();
-                        // tokio::spawn(async move {
-                        //     handle_peer_as_initiator(signer_clone, &msg_buf, &node).await;
-                        // });
+
+                        let mut msg_buf = vec![0; read - 32];
+                        buf[32..read].clone_into(&mut msg_buf);
+                        let signer_clone = signer.clone();
+                        tokio::spawn(async move {
+                            handle_peer_as_initiator(signer_clone, &msg_buf, &peer.node).await;
+                        });
                     } else {
                         debug!(
                             "Discarding pong as the hash did not match the last corresponding ping"
@@ -276,6 +274,7 @@ async fn discover_peers_server(
 
                 if let Some(nodes) = nodes_to_insert {
                     for node in nodes {
+                        info!("Insert Node 2");
                         let (peer, inserted_to_table) = table.insert_node(node);
                         if inserted_to_table && peer.is_some() {
                             let peer = peer.unwrap();
@@ -303,10 +302,13 @@ async fn discovery_startup(
     bootnodes: Vec<BootNode>,
 ) {
     for bootnode in bootnodes {
+        info!("Insert Node 1");
         table.lock().await.insert_node(Node {
             ip: bootnode.socket_address.ip(),
             udp_port: bootnode.socket_address.port(),
-            tcp_port: 0,
+            // TODO: udp port can differ from tcp port.
+            // see https://github.com/lambdaclass/lambda_ethereum_rust/issues/905
+            tcp_port: bootnode.socket_address.port(),
             node_id: bootnode.node_id,
         });
         let ping_hash = ping(&udp_socket, udp_addr, bootnode.socket_address, &signer).await;
