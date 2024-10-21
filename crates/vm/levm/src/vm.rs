@@ -236,7 +236,7 @@ impl VM {
             value,
             calldata.clone(),
             false,
-            U256::zero(),
+            gas_limit,
             0,
         );
 
