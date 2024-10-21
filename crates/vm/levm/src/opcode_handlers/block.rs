@@ -309,8 +309,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost::GASPRICE)?;
 
         // TODO: if not legacy or access list, then gas price is max_fee_per_gas
-        // TODO: Why do we unwrap here?
-        current_call_frame.stack.push(self.env.gas_price.unwrap())?;
+        current_call_frame.stack.push(self.env.gas_price)?;
 
         Ok(OpcodeSuccess::Continue)
     }
