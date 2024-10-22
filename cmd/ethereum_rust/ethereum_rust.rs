@@ -175,10 +175,21 @@ async fn main() {
     // We do not want to start the networking module if the l2 feature is enabled.
     cfg_if::cfg_if! {
         if #[cfg(feature = "l2")] {
-            let l2_operator = ethereum_rust_l2::start_operator(store.clone()).into_future();
-            tracker.spawn(l2_operator);
+            let l2_proposer = ethereum_rust_l2::start_proposer(store.clone()).into_future();
+            tracker.spawn(l2_proposer);
             // let l2_prover = ethereum_rust_l2::start_prover().into_future();
             // tracker.spawn(l2_prover);
+        } else if #[cfg(feature = "dev")] {
+            use ethereum_rust_dev;
+
+            let authrpc_jwtsecret = std::fs::read(authrpc_jwtsecret).expect("Failed to read JWT secret");
+            let head_block_hash = {
+                let current_block_number = store.get_latest_block_number().unwrap().unwrap();
+                store.get_canonical_block_hash(current_block_number).unwrap().unwrap()
+            };
+            let max_tries = 3;
+            let block_producer_engine = ethereum_rust_dev::block_producer::start_block_producer(authrpc_socket_addr, authrpc_jwtsecret.into(), head_block_hash, max_tries);
+            tracker.spawn(block_producer_engine);
         } else {
             let networking = ethereum_rust_net::start_network(
                 udp_socket_addr,
