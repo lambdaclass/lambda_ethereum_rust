@@ -210,6 +210,8 @@ impl FilterChangesRequest {
                 // Since the filter was polled, updated its timestamp, so
                 // it does not expire.
                 *timestamp = Instant::now();
+                // Update this filter so the current query
+                // starts from the last polled block.
                 filter.filter_data.from_block = BlockIdentifier::Number(filter.last_block_number);
                 filter.last_block_number = latest_block_num;
                 let mut filter = filter.clone();
