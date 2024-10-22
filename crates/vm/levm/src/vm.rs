@@ -510,7 +510,7 @@ impl VM {
             },
             TxResult::Revert(error) => {               
                 // Behavior for revert goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
-
+                
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                 // current_call_frame.gas -= self.env.consumed_gas;
                 self.env.refunded_gas += self.env.consumed_gas;

@@ -1686,11 +1686,12 @@ fn call_changes_callframe_and_stores() {
     let success = current_call_frame.stack.pop().unwrap() == U256::one();
     assert!(success);
 
+    // These are ret_offset and ret_size used in CALL operation before.
     let ret_offset = 0;
     let ret_size = 32;
-    let return_data = current_call_frame
-        .returndata
-        .slice(ret_offset..ret_offset + ret_size);
+
+    // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
+    let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
 }
