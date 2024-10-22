@@ -49,9 +49,9 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
             "CommonBridge: withdrawal not found"
         );
 
+        delete pendingWithdrawals[l2TxHash];
         payable(msg.sender).call{value: pendingWithdrawals[l2TxHash].amount}(
             ""
         );
-        pendingWithdrawals[l2TxHash] = WithdrawalData(address(0), 0);
     }
 }
