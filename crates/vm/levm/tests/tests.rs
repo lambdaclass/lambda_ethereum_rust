@@ -2344,7 +2344,7 @@ fn returndatasize() {
     let ops = vec![Operation::ReturnDataSize, Operation::Stop];
     let mut vm = new_vm_with_ops(&ops);
 
-    vm.current_call_frame_mut().returndata = returndata;
+    vm.current_call_frame_mut().sub_return_data = returndata;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2367,7 +2367,7 @@ fn returndatacopy() {
     ];
     let mut vm = new_vm_with_ops(&ops);
 
-    vm.current_call_frame_mut().returndata = returndata;
+    vm.current_call_frame_mut().sub_return_data = returndata;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);

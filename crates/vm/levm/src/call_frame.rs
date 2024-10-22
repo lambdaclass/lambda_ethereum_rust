@@ -74,7 +74,9 @@ pub struct CallFrame {
     pub calldata: Bytes,
     /// Return data of the CURRENT CONTEXT
     pub returndata: Bytes,
-    /// where to store return data of sub-context
+    /// Return data of the SUB-CONTEXT
+    pub sub_return_data: Bytes,
+    /// where to store return data of sub-context in memory
     pub sub_return_data_offset: usize,
     pub sub_return_data_size: usize,
     pub is_static: bool,
