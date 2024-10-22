@@ -1,5 +1,5 @@
 id: el-stability-check
-name: "Check chain stability"
+name: "Check Execution Stability"
 timeout: 2h
 tasks:
 - name: check_clients_are_healthy

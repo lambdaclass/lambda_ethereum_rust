@@ -11,4 +11,8 @@ additional_services:
   - dora
 
 assertoor_params:
-  test: './test_data/el-stability-check.yml'
+  run_stability_check: false
+  run_block_proposal_check: false
+  tests:
+    - 'https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_rust/refs/heads/assertoor-run-on-cd/test_data/el-stability-check.yml'
+  
