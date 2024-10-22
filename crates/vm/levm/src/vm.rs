@@ -494,16 +494,16 @@ impl VM {
         current_call_frame.sub_return_data_size = ret_size;
 
         // self.call_frames.push(new_call_frame.clone());
-        let transaction_report = self.execute(&mut new_call_frame);
+        let tx_report = self.execute(&mut new_call_frame);
 
         // Things that do not depend on the result of sub-context execution
-        current_call_frame.gas_used += transaction_report.gas_used.into(); // We don't refund gas, we add the gas used of the sub-context to the current one after it's execution.
-        current_call_frame.logs.extend(transaction_report.logs);
-        current_call_frame.memory.store_n_bytes(ret_offset, &transaction_report.output, ret_size);
-        current_call_frame.sub_return_data = transaction_report.output;
+        current_call_frame.gas_used += tx_report.gas_used.into(); // We don't refund gas, we add the gas used of the sub-context to the current one after it's execution.
+        current_call_frame.logs.extend(tx_report.logs);
+        current_call_frame.memory.store_n_bytes(ret_offset, &tx_report.output, ret_size);
+        current_call_frame.sub_return_data = tx_report.output;
         
         // What to do, depending on TxResult
-        match transaction_report.result {
+        match tx_report.result {
             TxResult::Success => {
                 current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
             },
