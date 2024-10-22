@@ -504,16 +504,19 @@ impl VM {
         // What to do, depending on TxResult
         match tx_report.result {
             TxResult::Success => {
+                current_call_frame.gas_refunded += tx_report.gas_refunded.into();
+
                 current_call_frame
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            TxResult::Revert(_error) => {
+            TxResult::Revert(error) => {
                 // Behavior for revert between contexts goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
+                if error == VMError::RevertOpcode {
+                    current_call_frame.gas_refunded += tx_report.gas_refunded.into();
+                }
 
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                // current_call_frame.gas -= self.env.consumed_gas;
-                self.env.refunded_gas += self.env.consumed_gas;
             }
         }
 
