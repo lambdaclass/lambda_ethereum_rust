@@ -23,7 +23,7 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
+    filter::{self, ActiveFilters, DeleteFilterRequest, FilterChangesRequest, NewFilterRequest},
     gas_price::GasPrice,
     logs::LogsFilter,
     transaction::{
