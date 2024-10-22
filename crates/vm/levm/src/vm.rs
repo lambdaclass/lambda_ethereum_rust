@@ -493,8 +493,7 @@ impl VM {
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
 
-        // Things that do not depend on the result of sub-context execution
-        current_call_frame.gas_used += tx_report.gas_used.into(); // We don't refund gas, we add the gas used of the sub-context to the current one after it's execution.
+        current_call_frame.gas_used += tx_report.gas_used.into(); // We add the gas used by the sub-context to the current one after it's execution.
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -509,7 +508,8 @@ impl VM {
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             TxResult::Revert(_error) => {
-                // Behavior for revert between contexts goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
+                // Behavior for revert between contexts goes here if necessary
+                // It is also possible to differentiate between RevertOpcode error and other kinds of revert.
 
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
