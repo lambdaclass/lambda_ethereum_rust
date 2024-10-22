@@ -11,5 +11,4 @@ additional_services:
   - dora
 
 assertoor_params:
-  run_stability_check: true
-  run_block_proposal_check: false
+  test: './test_data/el-stability-check.yml'
