@@ -201,7 +201,6 @@ impl FilterChangesRequest {
             filters.clear_poison();
             poisoned_guard.into_inner()
         });
-        dbg!(active_filters_guard.get_mut(&self.id));
         if let Some((timestamp, filter)) = active_filters_guard.get_mut(&self.id) {
             // We'll only get changes for a filter that either has a block
             // range for upcoming blocks, or for the 'latest' tag.
@@ -210,7 +209,6 @@ impl FilterChangesRequest {
                 BlockIdentifier::Number(block_num) if block_num >= latest_block_num => true,
                 _ => false,
             };
-            dbg!(valid_block_range);
             if valid_block_range {
                 // Since the filter was polled, updated its timestamp, so
                 // it does not expire.
@@ -253,10 +251,7 @@ impl FilterChangesRequest {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::HashMap,
-        str::FromStr,
-        sync::{Arc, Mutex},
-        time::{Duration, Instant},
+        collections::HashMap, future::{Future, IntoFuture}, str::FromStr, sync::{Arc, Mutex}, time::{Duration, Instant}
     };
 
     use super::ActiveFilters;
@@ -280,7 +275,7 @@ mod tests {
         },
         H160, U256,
     };
-    use ethereum_rust_storage::{new_for_tests, EngineType, Store};
+    use ethereum_rust_storage::{engines::api::StoreEngine, new_for_tests, EngineType, Store};
     use serde_json::{json, Value};
     use test_utils::TEST_GENESIS;
 
@@ -528,12 +523,19 @@ mod tests {
         assert!(matches!(res, serde_json::Value::Bool(false)));
     }
 
-    // FIXME: Restore this test when finished with the one below
-    // #[tokio::test]
-    async fn background_job_removes_filter_smoke_test() {
+    #[tokio::test]
+    async fn run_tests_with_server() {
+        let (db_pointer, store) = test_store();
+        let server_handle = tokio::spawn(async move { start_test_api_with_storage(store.clone()).await });
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        background_job_removes_filter_smoke_test(db_pointer.clone()).await;
+        smoke_test_get_filter_changes(db_pointer.clone()).await;
+        server_handle.abort();
+    }
+
+    async fn background_job_removes_filter_smoke_test(_store: Arc<dyn StoreEngine>) {
         // Start a test server to start the cleanup
         // task in the background
-        let server_handle = tokio::spawn(async move { start_test_api().await });
 
         // Give the server some time to start
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -602,17 +604,11 @@ mod tests {
             "Filter was expected to be deleted by background job, but it still exists"
         );
 
-        server_handle.abort();
     }
 
-    #[tokio::test]
-    async fn smoke_test_get_filter_changes() {
+    async fn smoke_test_get_filter_changes(db_pointer: Arc<dyn StoreEngine>) {
         // Start a test server to start the cleanup
         // task in the background
-        let (db_pointer, store) = test_store();
-        let server_handle = tokio::spawn(async move { start_test_api_with_storage(store).await });
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
 
         // Install the filter, we'll listen for address
         let raw_json = json!(
@@ -651,7 +647,6 @@ mod tests {
         let contract_address =
             H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap();
         tx.to = TxKind::Call(contract_address);
-        dbg!(tx.clone());
         body.transactions = vec![Transaction::LegacyTransaction(tx)];
         let logs = vec![Log {
             address: contract_address,
@@ -698,6 +693,7 @@ mod tests {
             .await
             .unwrap();
         let result: Vec<Log> = serde_json::from_value(response.get("result").unwrap().clone()).unwrap();
-        assert_eq!(result.first().unwrap().address, H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap())
+        assert_eq!(result.first().unwrap().address, H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap());
+
     }
 }
