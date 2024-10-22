@@ -510,7 +510,6 @@ impl VM {
             }
             TxResult::Revert(_error) => {
                 // Behavior for revert between contexts goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
-                
 
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
