@@ -158,26 +158,6 @@ impl StoreEngine for Store {
             .map(|b| b.to()))
     }
 
-    fn get_all_receipts_by_hash(
-        &self,
-        block_hash: BlockHash,
-    ) -> Result<Option<Vec<Receipt>>, StoreError> {
-        let txn = self.db.begin_read().map_err(StoreError::LibmdbxError)?;
-        let mut cursor = txn.cursor::<Receipts>().map_err(StoreError::LibmdbxError)?;
-        let mut receipts = Vec::new();
-        while let Ok(key_value_pair) = cursor.next() {
-            let (key, value) = match key_value_pair {
-                Some((key, value)) => (key, value),
-                None => break,
-            };
-            if key.to().0 != block_hash {
-                continue;
-            }
-            receipts.push(value.to());
-        }
-        Ok(Some(receipts))
-    }
-
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.write::<AccountCodes>(code_hash.into(), code.into())
     }

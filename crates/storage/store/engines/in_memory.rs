@@ -246,17 +246,6 @@ impl StoreEngine for Store {
         }
     }
 
-    fn get_all_receipts_by_hash(
-        &self,
-        block_hash: BlockHash,
-    ) -> Result<Option<Vec<Receipt>>, StoreError> {
-        let store = self.inner();
-        Ok(store
-            .receipts
-            .get(&block_hash)
-            .map(|map| map.values().cloned().collect()))
-    }
-
     fn add_account_code(&self, code_hash: H256, code: Bytes) -> Result<(), StoreError> {
         self.inner().account_codes.insert(code_hash, code);
         Ok(())

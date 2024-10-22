@@ -1,13 +1,12 @@
 use crate::utils::{
-    config::{
-        engine_api::EngineApiConfig, eth::EthConfig, operator::OperatorConfig, read_env_file,
-    },
-    engine_client::EngineClient,
+    config::{eth::EthConfig, proposer::ProposerConfig, read_env_file},
     eth_client::EthClient,
 };
-use errors::OperatorError;
+use bytes::Bytes;
+use errors::ProposerError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{Block, EIP1559Transaction, TxKind};
+use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_rust_storage::Store;
@@ -19,36 +18,36 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 pub mod l1_watcher;
-pub mod proof_data_provider;
+pub mod prover_server;
 
 pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
-pub struct Operator {
+pub struct Proposer {
     eth_client: EthClient,
     engine_client: EngineClient,
-    block_executor_address: Address,
+    on_chain_proposer_address: Address,
     l1_address: Address,
     l1_private_key: SecretKey,
     block_production_interval: Duration,
 }
 
-pub async fn start_operator(store: Store) {
-    info!("Starting Operator");
+pub async fn start_proposer(store: Store) {
+    info!("Starting Proposer");
 
     if let Err(e) = read_env_file() {
         warn!("Failed to read .env file: {e}");
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
-    let proof_data_provider = tokio::spawn(proof_data_provider::start_proof_data_provider());
-    let operator = tokio::spawn(async move {
+    let prover_server = tokio::spawn(prover_server::start_prover_server());
+    let proposer = tokio::spawn(async move {
         let eth_config = EthConfig::from_env().expect("EthConfig::from_env");
-        let operator_config = OperatorConfig::from_env().expect("OperatorConfig::from_env");
+        let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env");
         let engine_config = EngineApiConfig::from_env().expect("EngineApiConfig::from_env");
-        let operator = Operator::new_from_config(&operator_config, eth_config, engine_config)
-            .expect("Operator::new_from_config");
+        let proposer = Proposer::new_from_config(&proposer_config, eth_config, engine_config)
+            .expect("Proposer::new_from_config");
         let head_block_hash = {
             let current_block_number = store
                 .get_latest_block_number()
@@ -59,31 +58,31 @@ pub async fn start_operator(store: Store) {
                 .expect("store.get_canonical_block_hash")
                 .expect("store.get_canonical_block_hash returned None")
         };
-        operator
+        proposer
             .start(head_block_hash, store)
             .await
-            .expect("Operator::start");
+            .expect("Proposer::start");
     });
-    tokio::try_join!(l1_watcher, proof_data_provider, operator).expect("tokio::try_join");
+    tokio::try_join!(l1_watcher, prover_server, proposer).expect("tokio::try_join");
 }
 
-impl Operator {
+impl Proposer {
     pub fn new_from_config(
-        operator_config: &OperatorConfig,
+        proposer_config: &ProposerConfig,
         eth_config: EthConfig,
         engine_config: EngineApiConfig,
-    ) -> Result<Self, OperatorError> {
+    ) -> Result<Self, ProposerError> {
         Ok(Self {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
-            block_executor_address: operator_config.block_executor_address,
-            l1_address: operator_config.l1_address,
-            l1_private_key: operator_config.l1_private_key,
-            block_production_interval: Duration::from_millis(operator_config.interval_ms),
+            on_chain_proposer_address: proposer_config.on_chain_proposer_address,
+            l1_address: proposer_config.l1_address,
+            l1_private_key: proposer_config.l1_private_key,
+            block_production_interval: Duration::from_millis(proposer_config.interval_ms),
         })
     }
 
-    pub async fn start(&self, head_block_hash: H256, store: Store) -> Result<(), OperatorError> {
+    pub async fn start(&self, head_block_hash: H256, store: Store) -> Result<(), ProposerError> {
         let mut head_block_hash = head_block_hash;
         loop {
             head_block_hash = self.produce_block(head_block_hash).await?;
@@ -97,9 +96,9 @@ impl Operator {
             let block = store
                 .get_block_by_hash(head_block_hash)
                 .map_err(|error| {
-                    OperatorError::FailedToRetrieveBlockFromStorage(error.to_string())
+                    ProposerError::FailedToRetrieveBlockFromStorage(error.to_string())
                 })?
-                .ok_or(OperatorError::FailedToProduceBlock(
+                .ok_or(ProposerError::FailedToProduceBlock(
                     "Failed to get block by hash from storage".to_string(),
                 ))?;
 
@@ -135,7 +134,7 @@ impl Operator {
         }
     }
 
-    pub async fn produce_block(&self, head_block_hash: H256) -> Result<H256, OperatorError> {
+    pub async fn produce_block(&self, head_block_hash: H256) -> Result<H256, ProposerError> {
         info!("Producing block");
         let fork_choice_state = ForkChoiceState {
             head_block_hash,
@@ -148,13 +147,13 @@ impl Operator {
         };
         let fork_choice_response = match self
             .engine_client
-            .engine_forkchoice_updated_v3(fork_choice_state, payload_attributes)
+            .engine_forkchoice_updated_v3(fork_choice_state, Some(payload_attributes))
             .await
         {
             Ok(response) => response,
             Err(error) => {
                 error!("Error sending forkchoiceUpdateV3: {error}");
-                return Err(OperatorError::FailedToProduceBlock(format!(
+                return Err(ProposerError::FailedToProduceBlock(format!(
                     "forkchoiceUpdateV3: {error}",
                 )));
             }
@@ -162,7 +161,7 @@ impl Operator {
         let payload_id =
             fork_choice_response
                 .payload_id
-                .ok_or(OperatorError::FailedToProduceBlock(
+                .ok_or(ProposerError::FailedToProduceBlock(
                     "payload_id is None in ForkChoiceResponse".to_string(),
                 ))?;
         let execution_payload_response =
@@ -170,7 +169,7 @@ impl Operator {
                 Ok(response) => response,
                 Err(error) => {
                     error!("Error sending getPayloadV3: {error}");
-                    return Err(OperatorError::FailedToProduceBlock(format!(
+                    return Err(ProposerError::FailedToProduceBlock(format!(
                         "getPayloadV3: {error}"
                     )));
                 }
@@ -187,7 +186,7 @@ impl Operator {
             Ok(response) => response,
             Err(error) => {
                 error!("Error sending newPayloadV3: {error}");
-                return Err(OperatorError::FailedToProduceBlock(format!(
+                return Err(ProposerError::FailedToProduceBlock(format!(
                     "newPayloadV3: {error}"
                 )));
             }
@@ -195,7 +194,7 @@ impl Operator {
         let produced_block_hash =
             payload_status
                 .latest_valid_hash
-                .ok_or(OperatorError::FailedToProduceBlock(
+                .ok_or(ProposerError::FailedToProduceBlock(
                     "latest_valid_hash is None in PayloadStatus".to_string(),
                 ))?;
         info!("Produced block {produced_block_hash:#x}");
@@ -207,22 +206,15 @@ impl Operator {
         keccak(block.encode_to_vec())
     }
 
-    pub async fn send_commitment(&self, commitment: H256) -> Result<H256, OperatorError> {
+    pub async fn send_commitment(&self, commitment: H256) -> Result<H256, ProposerError> {
         info!("Sending commitment");
         let mut calldata = Vec::with_capacity(68);
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
         calldata.extend(commitment.0);
 
-        let tx = EIP1559Transaction {
-            to: TxKind::Call(self.block_executor_address),
-            data: calldata.into(),
-            chain_id: 3151908,
-            ..Default::default()
-        };
+        let commit_tx_hash = self.send_transaction_with_calldata(calldata.into()).await?;
 
-        let commit_tx_hash = self.send_transaction(tx).await?;
-
-        info!("Commitment sent: {commit_tx_hash:#?}");
+        info!("Commitment sent: {commit_tx_hash:#x}");
 
         while self
             .eth_client
@@ -236,7 +228,7 @@ impl Operator {
         Ok(commit_tx_hash)
     }
 
-    pub async fn send_proof(&self, block_proof: &[u8]) -> Result<H256, OperatorError> {
+    pub async fn send_proof(&self, block_proof: &[u8]) -> Result<H256, ProposerError> {
         info!("Sending proof");
         let mut calldata = Vec::new();
         calldata.extend(VERIFY_FUNCTION_SELECTOR);
@@ -246,16 +238,9 @@ impl Operator {
         let leading_zeros = 32 - (calldata.len() % 32);
         calldata.extend(vec![0; leading_zeros]);
 
-        let tx = EIP1559Transaction {
-            to: TxKind::Call(self.block_executor_address),
-            data: calldata.into(),
-            chain_id: 3151908,
-            ..Default::default()
-        };
+        let verify_tx_hash = self.send_transaction_with_calldata(calldata.into()).await?;
 
-        let verify_tx_hash = self.send_transaction(tx).await?;
-
-        info!("Proof sent: {verify_tx_hash:#?}");
+        info!("Proof sent: {verify_tx_hash:#x}");
 
         while self
             .eth_client
@@ -269,20 +254,25 @@ impl Operator {
         Ok(verify_tx_hash)
     }
 
-    async fn send_transaction(&self, mut tx: EIP1559Transaction) -> Result<H256, OperatorError> {
+    async fn send_transaction_with_calldata(&self, calldata: Bytes) -> Result<H256, ProposerError> {
+        let mut tx = EIP1559Transaction {
+            to: TxKind::Call(self.on_chain_proposer_address),
+            data: calldata,
+            max_fee_per_gas: self.eth_client.get_gas_price().await?.as_u64(),
+            nonce: self.eth_client.get_nonce(self.l1_address).await?,
+            chain_id: self.eth_client.get_chain_id().await?.as_u64(),
+            ..Default::default()
+        };
+
         tx.gas_limit = self
             .eth_client
             .estimate_gas(tx.clone())
             .await?
             .saturating_add(TX_GAS_COST);
 
-        tx.max_fee_per_gas = self.eth_client.get_gas_price().await?.as_u64();
-
-        tx.nonce = self.eth_client.get_nonce(self.l1_address).await?;
-
         self.eth_client
             .send_eip1559_transaction(tx, self.l1_private_key)
             .await
-            .map_err(OperatorError::from)
+            .map_err(ProposerError::from)
     }
 }
