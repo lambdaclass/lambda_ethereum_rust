@@ -2762,7 +2762,6 @@ fn sstore_op() {
 }
 
 #[test]
-#[should_panic]
 fn sstore_reverts_when_called_in_static() {
     let key = U256::from(80);
     let value = U256::from(100);
@@ -2776,7 +2775,9 @@ fn sstore_reverts_when_called_in_static() {
     let mut vm = new_vm_with_ops(&operations);
     vm.current_call_frame_mut().is_static = true;
     let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert!(matches!(tx_report.result, TxResult::Revert(VMError::OpcodeNotAllowedInStaticContext)));
 }
 
 #[test]
