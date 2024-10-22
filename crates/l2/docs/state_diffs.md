@@ -1,0 +1,54 @@
+# State diffs
+
+To provide data availability for our network, we need to publish enough information on every commit transaction to be able to reconstruct the entire state of the L2 from the beginning by querying the L1.
+
+The data needed is:
+
+- The nonce and balance of every `EOA`.
+- The nonce, balance, and storage of every contract account. Note that storage here is a mapping `(U256 → U256)`, so there are a lot of values inside it.
+- The bytecode of every contract deployed on the network.
+- All withdrawal Logs.
+
+After executing each L2 block, the EVM will return the following data:
+
+- A list of every storage slot modified in the block, with their previous and next values. A storage slot is a mapping `(address, slot) -> value`. Note that, on a block, there could be repeated writes to the same slot. In that case, we keep only the latest write; all the others are discarded since they are not needed for state reconstruction.
+- The bytecode of every newly deployed contract. Every contract deployed is then a pair `(address, bytecode)`.
+- A list of withdrawal logs (as explained in milestone 1 we already collect these and publish a merkle root of their values as calldata, but we still need to send them as the state diff).
+- A list of triples `(address, nonce_increase, balance)` for every modified account. The `nonce_increase` is a value that says by how much the nonce of the account was increased on the block (this could be more than one as there can be multiple transactions for the account on the block). The balance is just the new balance value for the account.
+
+The full state diff sent on every block will then be a sequence of bytes encoded as follows. We use the notation `un` for a sequence of `n` bits, so `u16` is a 16-bit sequence and `u12` a 12-bit one, we don’t really care about signedness here; if we don’t specify it, the value is of variable length and a field before it specifies it.
+
+- The first 2 bytes are a `u16`: the version header. For now it should always be zero, but we reserve it for future changes to the encoding/compression format.
+- Next come the `StorageSlotsModified`:
+    - The first 2 bytes is a `u16` with the number of entries; then come the entries. We group entries by contract address, so the first 20 bytes of an entry are the address of the contract; the next 12 bytes are the number of storage slots modified for that account, then come the sequence of `(key_u256, new_value_u256)` key value pairs with the modified slots.
+- Next the `DeployedContracts` field:
+    - The first 2 bytes is the number of entries; each entry is a tuple `(code_hash_u256, bytecode_len_u32, bytecode)` (bytecode length is in bytes). If the code hash is a previously published code hash, the `bytecode_len` will be zero and there will be no bytecode, since the code was already published.
+- Next the `WithdrawalLogs` field:
+    - First two bytes are the number of entries, then come the tuples `(to_u20, amount_u256, tx_index_u32)`.
+- Finally, the `ModifiedAccounts` field:
+    - First two bytes for the number of entries, then a list of tuples `(address_u20, nonce_increase_u16, balance_u256)`
+
+To recap, using `||` for byte concatenation, the full encoding for state diffs is:
+
+```jsx
+version_header_u16 ||
+// Storage Slots
+number_of_modified_storage_slots_u16 ||
+contract_address_u20 || number_of_slots_for_address_u12 || key_u256 || value_u256 ...
+// Deployed contracts
+number_of_deployed_contracts_u16 ||
+code_hash_u256 || bytecode_len_u32 || bytecode ...
+// Withdraw Logs
+number_of_withdraw_logs_u16 ||
+to_u20 || amount_u256 || tx_index_u32 || ...
+// Modified Accounts (balances and nonces)
+number_of_modified_accounts_u16 ||
+address_u20 || nonce_increase_u16 || balance_u256 ...
+```
+
+ 
+
+The sequencer will then make a commitment to this encoded state diff (explained in the EIP 4844 section how this is done) and send on the `commit` transaction:
+
+- Through calldata, the state diff commitment (which is part of the public input to the proof).
+- Through the blob, the encoded state diff.
