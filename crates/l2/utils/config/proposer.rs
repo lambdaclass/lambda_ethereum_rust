@@ -6,18 +6,18 @@ use serde::Deserialize;
 use super::errors::ConfigError;
 
 #[derive(Deserialize)]
-pub struct OperatorConfig {
-    pub on_chain_operator_address: Address,
+pub struct ProposerConfig {
     pub common_bridge_address: Address,
+    pub on_chain_proposer_address: Address,
     pub l1_address: Address,
     #[serde(deserialize_with = "secret_key_deserializer")]
     pub l1_private_key: SecretKey,
     pub interval_ms: u64,
 }
 
-impl OperatorConfig {
+impl ProposerConfig {
     pub fn from_env() -> Result<Self, ConfigError> {
-        envy::prefixed("OPERATOR_")
+        envy::prefixed("PROPOSER_")
             .from_env::<Self>()
             .map_err(ConfigError::from)
     }

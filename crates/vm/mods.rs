@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use bytes::Bytes;
 use revm::{
     primitives::{EVMError, Spec},
