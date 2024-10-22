@@ -163,7 +163,7 @@ pub struct Environment {
     /// this execution.
     pub origin: Address,
     pub consumed_gas: U256,
-    refunded_gas: U256,
+    pub refunded_gas: U256,
     pub gas_limit: U256,
     pub block_number: U256,
     pub coinbase: Address,
@@ -381,7 +381,7 @@ impl VM {
                         result: TxResult::Success,
                         new_state: self.db.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: current_call_frame.gas_refunded.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
                         output: current_call_frame.returndata.clone(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
@@ -401,7 +401,7 @@ impl VM {
                         result: TxResult::Revert(error),
                         new_state: self.db.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
-                        gas_refunded: current_call_frame.gas_refunded.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
                         output: current_call_frame.returndata.clone(),
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
@@ -504,17 +504,13 @@ impl VM {
         // What to do, depending on TxResult
         match tx_report.result {
             TxResult::Success => {
-                current_call_frame.gas_refunded += tx_report.gas_refunded.into();
-
                 current_call_frame
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            TxResult::Revert(error) => {
+            TxResult::Revert(_error) => {
                 // Behavior for revert between contexts goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
-                if error == VMError::RevertOpcode {
-                    current_call_frame.gas_refunded += tx_report.gas_refunded.into();
-                }
+                
 
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }

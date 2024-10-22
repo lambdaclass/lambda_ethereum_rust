@@ -61,7 +61,6 @@ impl Stack {
 pub struct CallFrame {
     pub gas_limit: U256,
     pub gas_used: U256,
-    pub gas_refunded: U256,
     pub pc: usize,
     pub msg_sender: Address, // Origin address?
     pub to: Address,
