@@ -247,7 +247,11 @@ impl FilterChangesRequest {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::HashMap, future::{Future, IntoFuture}, str::FromStr, sync::{Arc, Mutex}, time::{Duration, Instant}
+        collections::HashMap,
+        future::{Future, IntoFuture},
+        str::FromStr,
+        sync::{Arc, Mutex},
+        time::{Duration, Instant},
     };
 
     use super::ActiveFilters;
@@ -522,7 +526,8 @@ mod tests {
     #[tokio::test]
     async fn run_tests_with_server() {
         let (db_pointer, store) = test_store();
-        let server_handle = tokio::spawn(async move { start_test_api_with_storage(store.clone()).await });
+        let server_handle =
+            tokio::spawn(async move { start_test_api_with_storage(store.clone()).await });
         tokio::time::sleep(Duration::from_secs(1)).await;
         background_job_removes_filter_smoke_test(db_pointer.clone()).await;
         smoke_test_get_filter_changes(db_pointer.clone()).await;
@@ -599,7 +604,6 @@ mod tests {
             ),
             "Filter was expected to be deleted by background job, but it still exists"
         );
-
     }
 
     async fn smoke_test_get_filter_changes(db_pointer: Arc<dyn StoreEngine>) {
@@ -688,8 +692,11 @@ mod tests {
             .json()
             .await
             .unwrap();
-        let result: Vec<Log> = serde_json::from_value(response.get("result").unwrap().clone()).unwrap();
-        assert_eq!(result.first().unwrap().address, H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap());
-
+        let result: Vec<Log> =
+            serde_json::from_value(response.get("result").unwrap().clone()).unwrap();
+        assert_eq!(
+            result.first().unwrap().address,
+            H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap()
+        );
     }
 }
