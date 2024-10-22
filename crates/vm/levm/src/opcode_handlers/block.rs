@@ -3,6 +3,7 @@ use crate::{
     constants::{call_opcode, BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS, WORD_SIZE},
     vm::word_to_address,
 };
+use keccak_hash::H256;
 use sha3::{Digest, Keccak256};
 
 // Block Information (11)
@@ -151,10 +152,30 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        // Should push in stack the blob hash
-        unimplemented!("when we have tx implemented");
+        let index = current_call_frame.stack.pop()?;
 
-        // Ok(OpcodeSuccess::Continue)
+        let index = index.as_usize();
+        
+        let blob_hash: H256 = match &self.env.tx_blob_hashes {
+            Some(vec) => {
+                match vec.get(index) {
+                    Some(el) => el.clone(),
+                    None => {
+                        return Err(VMError::TransactionDoesNotHaveABlobHashVector);
+                    }
+                }
+            },
+            None => {
+                return Err(VMError::NotEnoughBlobHashes);
+            },
+        };
+        
+        // Could not find a better way to translate from H256 to U256
+        let u256_blob = U256::from(blob_hash.as_bytes());
+
+        current_call_frame.stack.push(u256_blob)?;
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     fn get_blob_gasprice(&mut self) -> U256 {
