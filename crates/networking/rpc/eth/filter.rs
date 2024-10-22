@@ -206,6 +206,10 @@ impl FilterChangesRequest {
                 BlockIdentifier::Number(block_num) if block_num >= latest_block_num => true,
                 _ => false,
             };
+            // This filter has a valid block range, so here's what we'll do:
+            // - Update the filter's timestamp and block number from the last poll.
+            // - Do the query to fetch logs in range last_block_number..=to_block for
+            //   this filter.
             if valid_block_range {
                 // Since the filter was polled, updated its timestamp, so
                 // it does not expire.
