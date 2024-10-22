@@ -171,8 +171,9 @@ pub struct Environment {
     pub prev_randao: Option<H256>,
     pub chain_id: U256,
     pub base_fee_per_gas: U256,
-    /// this attr is gas_price or max_fee_per_gas depending on transaction type
     pub gas_price: U256,
+    pub block_excess_blob_gas: Option<U256>,
+    pub block_blob_gas_used: Option<U256>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -215,6 +216,8 @@ impl VM {
         base_fee_per_gas: U256,
         gas_price: U256,
         db: Db,
+        block_blob_gas_used: Option<U256>,
+        block_excess_blob_gas: Option<U256>,
     ) -> Self {
         // TODO: This handles only CALL transactions.
         let bytecode = db.get_account_bytecode(&to);
@@ -237,7 +240,7 @@ impl VM {
             value,
             calldata.clone(),
             false,
-            U256::zero(),
+            gas_limit,
             0,
         );
 
@@ -253,6 +256,8 @@ impl VM {
             chain_id,
             base_fee_per_gas,
             gas_price,
+            block_blob_gas_used,
+            block_excess_blob_gas,
         };
 
         Self {
@@ -300,7 +305,7 @@ impl VM {
                 Opcode::RETURNDATACOPY => self.op_returndatacopy(current_call_frame),
                 Opcode::JUMP => self.op_jump(current_call_frame),
                 Opcode::JUMPI => self.op_jumpi(current_call_frame),
-                Opcode::JUMPDEST => self.op_jumpdest(),
+                Opcode::JUMPDEST => self.op_jumpdest(current_call_frame),
                 Opcode::PC => self.op_pc(current_call_frame),
                 Opcode::BLOCKHASH => self.op_blockhash(current_call_frame),
                 Opcode::COINBASE => self.op_coinbase(current_call_frame),
@@ -399,7 +404,7 @@ impl VM {
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
-        gas: U256,
+        gas_limit: U256,
         value: U256,
         msg_sender: Address,
         to: Address,
@@ -437,6 +442,11 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
+        let gas_limit = std::cmp::min(
+            gas_limit,
+            (current_call_frame.gas_limit - current_call_frame.gas_used) / 64 * 63,
+        );
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -446,7 +456,7 @@ impl VM {
             value,
             calldata,
             is_static,
-            gas,
+            gas_limit,
             current_call_frame.depth + 1,
         );
 
@@ -455,6 +465,8 @@ impl VM {
 
         // self.call_frames.push(new_call_frame.clone());
         let result = self.execute(&mut new_call_frame);
+
+        // After this we should do current_call_frame.gas_used += new_call_frame.gas_used. Instead of consuming all gas and then returning unused gas, we just consume all gas the sub-context used. If an error happened then we consume all gas.
 
         match result {
             Ok(OpcodeSuccess::Result(reason)) => match reason {
@@ -478,7 +490,7 @@ impl VM {
                     current_call_frame.memory.store_bytes(ret_offset, &output);
                     current_call_frame.returndata = output;
                     current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    current_call_frame.gas -= self.env.consumed_gas;
+                    // current_call_frame.gas -= self.env.consumed_gas;
                     self.env.refunded_gas += self.env.consumed_gas;
                     Ok(OpcodeSuccess::Continue)
                 }
@@ -488,12 +500,6 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(error.clone() as u8))?;
-                let gas_used = self.env.consumed_gas;
-                if gas_used > current_call_frame.gas {
-                    current_call_frame.gas = U256::zero();
-                } else {
-                    current_call_frame.gas -= gas_used;
-                }
                 Err(error)
             }
         }
@@ -610,17 +616,13 @@ impl VM {
         );
         self.db.add_account(new_address, new_account);
 
-        let mut gas = current_call_frame.gas;
-        gas -= gas / 64; // 63/64 of the gas to the call
-        current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
-
         current_call_frame
             .stack
             .push(address_to_word(new_address))?;
 
         self.generic_call(
             current_call_frame,
-            gas,
+            U256::MAX,
             value_in_wei_to_send,
             current_call_frame.msg_sender,
             new_address,
@@ -633,5 +635,19 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
+    }
+
+    /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.
+    pub fn increase_consumed_gas(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        gas: U256,
+    ) -> Result<(), VMError> {
+        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+        current_call_frame.gas_used += gas;
+        self.env.consumed_gas += gas;
+        Ok(())
     }
 }
