@@ -218,20 +218,20 @@ impl FilterChangesRequest {
                 // and not keep the lock more than we should.
                 drop(active_filters_guard);
                 let logs = fetch_logs_with_filter(&filter.filter_data, storage)?;
-                return serde_json::to_value(logs).map_err(|error| {
+                serde_json::to_value(logs).map_err(|error| {
                     tracing::error!("Log filtering request failed with: {error}");
                     RpcErr::Internal("Failed to filter logs".to_string())
-                });
+                })
             } else {
-                return serde_json::to_value(Vec::<u8>::new()).map_err(|error| {
+                serde_json::to_value(Vec::<u8>::new()).map_err(|error| {
                     tracing::error!("Log filtering request failed with: {error}");
                     RpcErr::Internal("Failed to filter logs".to_string())
-                });
+                })
             }
         } else {
-            return Err(RpcErr::BadParams(
+            Err(RpcErr::BadParams(
                 "No matching filter for given id".to_string(),
-            ));
+            ))
         }
     }
     pub fn stateful_call(
@@ -248,7 +248,6 @@ impl FilterChangesRequest {
 mod tests {
     use std::{
         collections::HashMap,
-        future::{Future, IntoFuture},
         str::FromStr,
         sync::{Arc, Mutex},
         time::{Duration, Instant},
@@ -261,7 +260,7 @@ mod tests {
             logs::{AddressFilter, LogsFilter, TopicFilter},
         },
         map_http_requests,
-        utils::test_utils::{self, start_test_api, start_test_api_with_storage, test_store},
+        utils::test_utils::{self, start_test_api_with_storage, test_store},
         FILTER_DURATION,
     };
     use crate::{
@@ -270,12 +269,14 @@ mod tests {
     };
     use ethereum_rust_core::{
         types::{
-            Block, BlockBody, BlockHeader, Genesis, LegacyTransaction, Log, Receipt, Transaction,
+            BlockHeader, Genesis, LegacyTransaction, Log, Receipt, Transaction,
             TxKind, TxType,
         },
-        H160, U256,
+        H160,
     };
-    use ethereum_rust_storage::{engines::api::StoreEngine, new_for_tests, EngineType, Store};
+    use ethereum_rust_core::types::BlockBody;
+    use ethereum_rust_storage::{engines::api::StoreEngine, EngineType, Store};
+
     use serde_json::{json, Value};
     use test_utils::TEST_GENESIS;
 
@@ -441,7 +442,7 @@ mod tests {
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
         let genesis_config: Genesis =
             serde_json::from_str(TEST_GENESIS).expect("Fatal: non-valid genesis test config");
-        let mut store = Store::new("in-mem", EngineType::InMemory)
+        let store = Store::new("in-mem", EngineType::InMemory)
             .expect("Fatal: could not create in memory test db");
         store
             .add_initial_state(genesis_config)
@@ -610,7 +611,7 @@ mod tests {
         // Start a test server to start the cleanup
         // task in the background
 
-        // Install the filter, we'll listen for address
+        // Install the filter, we'll listen for this address
         let raw_json = json!(
         {
             "jsonrpc":"2.0",
@@ -641,6 +642,10 @@ mod tests {
         let filter_id = response
             .get("result")
             .expect("eth_newFilter did not return an expected id");
+
+
+
+        // Simulate a new block arriving by adding it to the store.
         let header = BlockHeader::default();
         let mut body = BlockBody::empty();
         let mut tx = LegacyTransaction::default();
@@ -673,6 +678,10 @@ mod tests {
             .add_block_header(header.compute_block_hash(), header)
             .unwrap();
         db_pointer.update_latest_block_number(1).unwrap();
+
+        // Fetch the new changes, there should
+        // be a log from the address we were filtering.
+
         let raw_json = json!(
         {
             "jsonrpc":"2.0",
