@@ -1687,8 +1687,8 @@ fn call_changes_callframe_and_stores() {
     assert!(success);
 
     // These are ret_offset and ret_size used in CALL operation before.
-    let ret_offset = 0;
-    let ret_size = 32;
+    let ret_offset = current_call_frame.sub_return_data_offset;
+    let ret_size = current_call_frame.sub_return_data_size;
 
     // Return data of the sub-context will be in the memory position of the current context reserved for that purpose (ret_offset and ret_size)
     let return_data = current_call_frame.memory.load_range(ret_offset, ret_size);

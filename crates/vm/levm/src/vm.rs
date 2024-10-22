@@ -490,8 +490,8 @@ impl VM {
             current_call_frame.depth + 1,
         );
 
-        current_call_frame.return_data_offset = Some(ret_offset);
-        current_call_frame.return_data_size = Some(ret_size);
+        current_call_frame.sub_return_data_offset = ret_offset;
+        current_call_frame.sub_return_data_size = ret_size;
 
         // self.call_frames.push(new_call_frame.clone());
         let transaction_report = self.execute(&mut new_call_frame);

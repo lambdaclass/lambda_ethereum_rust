@@ -72,11 +72,11 @@ pub struct CallFrame {
     pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
-    /// Return data of the  CURRENT CONTEXT (it is ambiguous)
+    /// Return data of the CURRENT CONTEXT
     pub returndata: Bytes,
     /// where to store return data of sub-context
-    pub return_data_offset: Option<usize>,
-    pub return_data_size: Option<usize>,
+    pub sub_return_data_offset: usize,
+    pub sub_return_data_size: usize,
     pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
