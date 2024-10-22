@@ -3453,15 +3453,16 @@ fn transient_store() {
 }
 
 #[test]
-#[should_panic]
-fn transient_store_no_values_panics() {
+fn transient_store_stack_underflow() {
     let operations = [Operation::Tstore, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
     assert!(vm.current_call_frame_mut().transient_storage.is_empty());
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
-    vm.execute(&mut current_call_frame);
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert!(matches!(tx_report.result, TxResult::Revert(VMError::StackUnderflow)));
 }
 
 #[test]
