@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
-    errors::{OpcodeSuccess, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
 };
@@ -9,7 +9,7 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
-use sha3::{Digest, Keccak256};
+use sha3::{digest::Output, Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
@@ -271,7 +271,7 @@ impl VM {
     pub fn execute(
         &mut self,
         current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
+    ) -> TransactionReport {
         // let mut current_call_frame = self
         //     .call_frames
         //     .pop()
@@ -374,17 +374,47 @@ impl VM {
                 _ => Err(VMError::OpcodeNotFound),
             };
 
+            // Gas refunds are applied at the end of a transaction. Should it be implemented here?
+
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
-                Ok(OpcodeSuccess::Result(_)) | Err(_) => {
+                Ok(OpcodeSuccess::Result(_)) => {
                     self.call_frames.push(current_call_frame.clone());
-                    return op_result;
+                    TransactionReport {
+                        result: TxResult::Success,
+                        new_state: self.db.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: current_call_frame.gas_refunded.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
+                }
+                Err(error) => {
+                    self.call_frames.push(current_call_frame.clone());
+
+                    // CONSUME ALL GAS UNLESS THE ERROR IS FROM REVERT OPCODE
+                    if error != VMError::RevertOpcode {
+                        let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
+                        current_call_frame.gas_used += left_gas;
+                        self.env.consumed_gas += left_gas;
+                    }
+
+                    TransactionReport {
+                        result: TxResult::Revert(error),
+                        new_state: self.db.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: current_call_frame.gas_refunded.low_u64(),
+                        output: current_call_frame.returndata.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
                 }
             }
         }
     }
 
-    pub fn transact(&mut self) -> Result<OpcodeSuccess, VMError> {
+    pub fn transact(&mut self) -> TransactionReport {
         // let account = self.db.accounts.get(&self.env.origin).unwrap();
 
         // TODO: Add transaction validation.
@@ -464,46 +494,32 @@ impl VM {
         current_call_frame.return_data_size = Some(ret_size);
 
         // self.call_frames.push(new_call_frame.clone());
-        let result = self.execute(&mut new_call_frame);
+        let transaction_report = self.execute(&mut new_call_frame);
 
-        // After this we should do current_call_frame.gas_used += new_call_frame.gas_used. Instead of consuming all gas and then returning unused gas, we just consume all gas the sub-context used. If an error happened then we consume all gas.
+        // Things that do not depend on the result of sub-context execution
+        current_call_frame.gas_used += transaction_report.gas_used.into(); // We don't refund gas, we add the gas used of the sub-context to the current one after it's execution.
+        current_call_frame.logs.extend(transaction_report.logs);
+        current_call_frame.memory.store_n_bytes(ret_offset, &transaction_report.output, ret_size);
+        
+        // What to do, depending on TxResult
+        match transaction_report.result {
+            TxResult::Success => {
+                
 
-        match result {
-            Ok(OpcodeSuccess::Result(reason)) => match reason {
-                ResultReason::Stop | ResultReason::Return => {
-                    let logs = new_call_frame.logs.clone();
-                    let return_data = new_call_frame.returndata.clone();
-
-                    current_call_frame.logs.extend(logs);
-                    current_call_frame
-                        .memory
-                        .store_bytes(ret_offset, &return_data);
-                    current_call_frame.returndata = return_data;
-                    current_call_frame
-                        .stack
-                        .push(U256::from(SUCCESS_FOR_CALL))?;
-                    Ok(OpcodeSuccess::Continue)
-                }
-                ResultReason::Revert => {
-                    let output = new_call_frame.returndata.clone();
-
-                    current_call_frame.memory.store_bytes(ret_offset, &output);
-                    current_call_frame.returndata = output;
-                    current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    // current_call_frame.gas -= self.env.consumed_gas;
-                    self.env.refunded_gas += self.env.consumed_gas;
-                    Ok(OpcodeSuccess::Continue)
-                }
+                current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
             },
-            Ok(OpcodeSuccess::Continue) => Ok(OpcodeSuccess::Continue),
-            Err(error) => {
-                current_call_frame
-                    .stack
-                    .push(U256::from(error.clone() as u8))?;
-                Err(error)
-            }
+            TxResult::Revert(error) => {               
+                // Behavior for revert goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
+
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
+                // current_call_frame.gas -= self.env.consumed_gas;
+                self.env.refunded_gas += self.env.consumed_gas;
+            }   
         }
+        
+        Ok(OpcodeSuccess::Continue)
     }
+
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow
     ///

@@ -61,8 +61,9 @@ impl Stack {
 pub struct CallFrame {
     pub gas_limit: U256,
     pub gas_used: U256,
+    pub gas_refunded: U256,
     pub pc: usize,
-    pub msg_sender: Address,
+    pub msg_sender: Address, // Origin address?
     pub to: Address,
     pub code_address: Address,
     pub delegate: Option<Address>,
@@ -71,8 +72,9 @@ pub struct CallFrame {
     pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
+    /// Return data of the  CURRENT CONTEXT (it is ambiguous)
     pub returndata: Bytes,
-    // where to store return data of subcall
+    /// where to store return data of sub-context
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
     pub is_static: bool,
