@@ -9,7 +9,7 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
-use sha3::{digest::Output, Digest, Keccak256};
+use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
@@ -507,7 +507,7 @@ impl VM {
             TxResult::Success => {
                 current_call_frame.stack.push(U256::from(SUCCESS_FOR_CALL))?;
             },
-            TxResult::Revert(error) => {               
+            TxResult::Revert(_error) => {               
                 // Behavior for revert between contexts goes here, if necessary differentiate between RevertOpcode error and other kinds of revert.
                 
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
