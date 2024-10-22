@@ -51,7 +51,7 @@ restart-contract-deps: clean-contract-deps contract-deps ## 🔄 Restarts the de
 
 deploy-l1: ## 📜 Deploys the L1 contracts
 	cd ${FOUNDRY_PROJECT_HOME} && \
-	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast
+	forge script script/DeployL1.s.sol:DeployL1Script --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY} --broadcast --use $$(which solc)
 
 deploy-on-chain-operator: ## 📜 Deploys the OnChainOperator contract in L1
 	forge create ${FOUNDRY_PROJECT_HOME}/src/l1/OnChainOperator.sol:OnChainOperator --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
