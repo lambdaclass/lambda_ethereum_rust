@@ -23,7 +23,8 @@ use eth::{
     },
     client::{ChainId, Syncing},
     fee_market::FeeHistoryRequest,
-    filter::{self, ActiveFilters, DeleteFilterRequest, FilterChangesRequest, NewFilterRequest},
+    filter::{self, ActiveFilters, DeleteFilterRequest, NewFilterRequest},
+    gas_price::GasPrice,
     logs::LogsFilter,
     transaction::{
         CallRequest, CreateAccessListRequest, EstimateGasRequest, GetRawTransaction,
@@ -246,6 +247,7 @@ pub fn map_eth_requests(
         "eth_getFilterChanges" => FilterChangesRequest::stateful_call(req, storage, filters),
         "eth_sendRawTransaction" => SendRawTransactionRequest::call(req, storage),
         "eth_getProof" => GetProofRequest::call(req, storage),
+        "eth_gasPrice" => GasPrice::call(req, storage),
         unknown_eth_method => Err(RpcErr::MethodNotFound(unknown_eth_method.to_owned())),
     }
 }

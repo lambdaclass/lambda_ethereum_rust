@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/blockchain",
+    "crates/blockchain/dev",
     "crates/common",
     "crates/networking/p2p",
     "crates/networking/rpc",
@@ -11,6 +12,8 @@ members = [
     "cmd/ethereum_rust",
     "cmd/ef_tests",
     "cmd/ethereum_rust_l2",
+    "crates/vm/levm",
+    "crates/vm/levm/bench/revm_comparison",
 ]
 resolver = "2"
 default-members = ["cmd/ethereum_rust", "cmd/ethereum_rust_l2"]

@@ -1,5 +1,6 @@
 use ethereum_rust_rlp::{decode::RLPDecode, encode::RLPEncode};
 use ethereum_types::H256;
+#[cfg(feature = "libmdbx")]
 use libmdbx::orm::{Decodable, Encodable};
 use sha3::{Digest, Keccak256};
 
@@ -111,6 +112,7 @@ impl From<&NodeHash> for Vec<u8> {
     }
 }
 
+#[cfg(feature = "libmdbx")]
 impl Encodable for NodeHash {
     type Encoded = Vec<u8>;
 
@@ -119,6 +121,7 @@ impl Encodable for NodeHash {
     }
 }
 
+#[cfg(feature = "libmdbx")]
 impl Decodable for NodeHash {
     fn decode(b: &[u8]) -> anyhow::Result<Self> {
         Ok(match b.len() {
@@ -186,7 +189,7 @@ impl NodeEncoder {
             l => {
                 let l_len = compute_byte_usage(l);
                 self.write_raw(&[long_base + l_len as u8]);
-                self.write_raw(&l.to_be_bytes()[size_of::<usize>() - l_len..]);
+                self.write_raw(&l.to_be_bytes()[core::mem::size_of::<usize>() - l_len..]);
             }
         }
     }
