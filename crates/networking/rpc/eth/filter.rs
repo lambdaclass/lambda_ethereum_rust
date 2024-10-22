@@ -57,9 +57,6 @@ pub struct PollableFilter {
     pub filter_data: LogsFilter,
 }
 
-// FIXME: The spec states that this receives a block range, but this endpoint
-// is used to poll state changes (i.e. when new blocks arrive with new logs),
-// so then why would a block range be needed?
 impl NewFilterRequest {
     pub fn parse(params: &Option<Vec<serde_json::Value>>) -> Result<Self, RpcErr> {
         let filter = LogsFilter::parse(params)?;
@@ -217,7 +214,6 @@ impl FilterChangesRequest {
                 filter.last_block_number = latest_block_num;
                 let mut filter = filter.clone();
                 filter.filter_data.to_block = BlockIdentifier::Number(latest_block_num);
-                // FIXME: Ask if this approach is right.
                 // Drop the lock early to process this filter's query
                 // and not keep the lock more than we should.
                 drop(active_filters_guard);
