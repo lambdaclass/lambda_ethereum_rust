@@ -2,11 +2,12 @@
 pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/ICommonBridge.sol";
 
 /// @title CommonBridge contract.
 /// @author LambdaClass
-contract CommonBridge is ICommonBridge, Ownable {
+contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     constructor(address owner) Ownable(owner) {}
 
     struct WithdrawalData {
@@ -42,13 +43,15 @@ contract CommonBridge is ICommonBridge, Ownable {
         }
     }
 
-    function finalizeWithdrawal(bytes32 l2TxHash) public {
+    function finalizeWithdrawal(bytes32 l2TxHash) public nonReentrant {
         require(
             msg.sender == pendingWithdrawals[l2TxHash].to,
             "CommonBridge: withdrawal not found"
         );
 
-        payable(msg.sender).transfer(pendingWithdrawals[l2TxHash].amount);
+        payable(msg.sender).call{value: pendingWithdrawals[l2TxHash].amount}(
+            ""
+        );
         pendingWithdrawals[l2TxHash] = WithdrawalData(address(0), 0);
     }
 }
