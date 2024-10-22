@@ -5,10 +5,9 @@ use crate::{
         eth_client::{transaction::PayloadRLPEncode, EthClient},
     },
 };
-use bytes::Bytes;
 use ethereum_rust_blockchain::{constants::TX_GAS_COST, mempool};
 use ethereum_rust_core::types::{
-    EIP1559Transaction, PrivilegedTxType, PriviligedL2Transaction, Transaction, TxKind, TxType,
+    PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::types::receipt::RpcLog;
@@ -114,7 +113,7 @@ impl L1Watcher {
 
             info!("Initiating mint transaction for {beneficiary:#x} with value {mint_value:#x}",);
 
-            let mut mint_transaction = PriviligedL2Transaction {
+            let mut mint_transaction = PrivilegedL2Transaction {
                 tx_type: PrivilegedTxType::Deposit,
                 to: TxKind::Call(beneficiary),
                 chain_id: store

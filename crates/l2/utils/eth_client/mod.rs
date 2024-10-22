@@ -4,7 +4,7 @@ use errors::{
     GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
 };
 use ethereum_rust_core::types::{
-    EIP1559Transaction, GenericTransaction, PriviligedL2Transaction, TxKind, TxType,
+    EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
@@ -108,7 +108,7 @@ impl EthClient {
 
     pub async fn send_privileged_l2_transaction(
         &self,
-        mut tx: PriviligedL2Transaction,
+        mut tx: PrivilegedL2Transaction,
         private_key: SecretKey,
     ) -> Result<H256, EthClientError> {
         let mut payload = vec![TxType::Privileged as u8];

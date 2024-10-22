@@ -23,7 +23,7 @@ pub enum Transaction {
     EIP2930Transaction(EIP2930Transaction),
     EIP1559Transaction(EIP1559Transaction),
     EIP4844Transaction(EIP4844Transaction),
-    PrivilegedL2Transaction(PriviligedL2Transaction),
+    PrivilegedL2Transaction(PrivilegedL2Transaction),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -91,7 +91,7 @@ pub struct EIP4844Transaction {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct PriviligedL2Transaction {
+pub struct PrivilegedL2Transaction {
     pub chain_id: u64,
     pub nonce: u64,
     pub max_priority_fee_per_gas: u64,
@@ -177,7 +177,7 @@ impl RLPDecode for Transaction {
                 0x3 => EIP4844Transaction::decode_unfinished(tx_encoding)
                     .map(|(tx, rem)| (Transaction::EIP4844Transaction(tx), rem)),
                 // PriviligedL2
-                0x7e => PriviligedL2Transaction::decode_unfinished(tx_encoding)
+                0x7e => PrivilegedL2Transaction::decode_unfinished(tx_encoding)
                     .map(|(tx, rem)| (Transaction::PrivilegedL2Transaction(tx), rem)),
                 ty => Err(RLPDecodeError::Custom(format!(
                     "Invalid transaction type: {ty}"
@@ -310,7 +310,7 @@ impl RLPEncode for EIP4844Transaction {
     }
 }
 
-impl RLPEncode for PriviligedL2Transaction {
+impl RLPEncode for PrivilegedL2Transaction {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.chain_id)
@@ -464,8 +464,8 @@ impl RLPDecode for EIP4844Transaction {
     }
 }
 
-impl RLPDecode for PriviligedL2Transaction {
-    fn decode_unfinished(rlp: &[u8]) -> Result<(PriviligedL2Transaction, &[u8]), RLPDecodeError> {
+impl RLPDecode for PrivilegedL2Transaction {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(PrivilegedL2Transaction, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
         let (chain_id, decoder) = decoder.decode_field("chain_id")?;
         let (nonce, decoder) = decoder.decode_field("nonce")?;
@@ -482,7 +482,7 @@ impl RLPDecode for PriviligedL2Transaction {
         let (signature_r, decoder) = decoder.decode_field("signature_r")?;
         let (signature_s, decoder) = decoder.decode_field("signature_s")?;
 
-        let tx = PriviligedL2Transaction {
+        let tx = PrivilegedL2Transaction {
             chain_id,
             nonce,
             max_priority_fee_per_gas,
@@ -877,7 +877,7 @@ mod canonic_encoding {
                         // EIP4844
                         0x3 => EIP4844Transaction::decode(tx_bytes)
                             .map(Transaction::EIP4844Transaction),
-                        0x7e => PriviligedL2Transaction::decode(tx_bytes)
+                        0x7e => PrivilegedL2Transaction::decode(tx_bytes)
                             .map(Transaction::PrivilegedL2Transaction),
                         ty => Err(RLPDecodeError::Custom(format!(
                             "Invalid transaction type: {ty}"

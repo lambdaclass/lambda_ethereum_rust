@@ -1,4 +1,4 @@
-use ethereum_rust_core::types::{EIP1559Transaction, PriviligedL2Transaction};
+use ethereum_rust_core::types::{EIP1559Transaction, PrivilegedL2Transaction};
 use ethereum_rust_rlp::structs::Encoder;
 
 pub trait PayloadRLPEncode {
@@ -26,7 +26,7 @@ impl PayloadRLPEncode for EIP1559Transaction {
     }
 }
 
-impl PayloadRLPEncode for PriviligedL2Transaction {
+impl PayloadRLPEncode for PrivilegedL2Transaction {
     fn encode_payload(&self, buf: &mut dyn bytes::BufMut) {
         Encoder::new(buf)
             .encode_field(&self.chain_id)

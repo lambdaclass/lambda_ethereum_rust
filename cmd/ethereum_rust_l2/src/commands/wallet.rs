@@ -1,7 +1,7 @@
 use crate::config::EthereumRustL2Config;
 use clap::Subcommand;
 use ethereum_rust_core::types::{
-    EIP1559Transaction, PrivilegedTxType, PriviligedL2Transaction, TxKind,
+    EIP1559Transaction, PrivilegedL2Transaction, PrivilegedTxType, TxKind,
 };
 use ethereum_rust_l2::utils::eth_client::EthClient;
 use ethereum_types::{Address, H256, U256};
@@ -183,7 +183,7 @@ impl Command {
                 token_address: _,
                 explorer_url: _,
             } => {
-                let withdraw_transaction = PriviligedL2Transaction {
+                let withdraw_transaction = PrivilegedL2Transaction {
                     to: TxKind::Call(to.unwrap_or(cfg.wallet.address)),
                     value: amount,
                     chain_id: cfg.network.l2_chain_id,
