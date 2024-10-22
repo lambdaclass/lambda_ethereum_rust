@@ -677,6 +677,25 @@ impl Store {
         Ok(trie.get_proof(&hash_key(storage_key))?)
     }
 
+    // Returns an iterator across all accounts in the state trie given by the state_root
+    // Does not check that the state_root is valid
+    pub fn iter_accounts(
+        &self,
+        state_root: H256,
+    ) -> Result<impl Iterator<Item = (H256, AccountState)>, StoreError> {
+        Ok(self
+            .engine
+            .open_state_trie(state_root)
+            .into_iter()
+            .content()
+            .map_while(|(path, value)| {
+                Some((
+                    H256::decode(&path).ok()?,
+                    AccountState::decode(&value).ok()?,
+                ))
+            }))
+    }
+
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
         self.engine.add_payload(payload_id, block)
     }
