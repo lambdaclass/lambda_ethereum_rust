@@ -20,7 +20,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
 
-mod engines;
+pub mod engines;
 pub mod error;
 mod rlp;
 
@@ -699,6 +699,22 @@ fn hash_key(key: &H256) -> Vec<u8> {
     Keccak256::new_with_prefix(key.to_fixed_bytes())
         .finalize()
         .to_vec()
+}
+
+/// USED ONLY FOR TESTS.
+/// This function is useful when you want to test
+/// logic that expects a state change (like the filter endpoints),
+/// do NOT use it to test the DB.
+/// This function returns a tuple where each coordinate is:
+/// - Pointer to the actual in memory store.
+/// - The storage structure.
+/// You can then use the pointer to modify the store as needed
+/// for testing.
+#[cfg(feature = "test")]
+pub fn new_for_tests() -> (Arc<dyn StoreEngine>, Store) {
+    let store = Store::new("in-mem-db", EngineType::InMemory).unwrap();
+    let db_pointer = store.engine.clone();
+    return (db_pointer, store);
 }
 
 #[cfg(test)]

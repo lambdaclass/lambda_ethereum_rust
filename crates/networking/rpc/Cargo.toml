@@ -14,7 +14,7 @@ bytes.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 ethereum_rust-core.workspace = true
-ethereum_rust-storage.workspace = true
+ethereum_rust-storage = { path = "../../storage/store" }
 ethereum_rust-vm.workspace = true
 ethereum_rust-blockchain.workspace = true
 ethereum_rust-net.workspace = true
@@ -28,6 +28,8 @@ reqwest.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"
+ethereum_rust-storage = { path = "../../storage/store", features = ["test"] }
+
 
 [lib]
 path = "./rpc.rs"

@@ -25,6 +25,7 @@ libmdbx = { workspace = true, optional = true }
 default = ["in_memory", "libmdbx"]
 in_memory = []
 libmdbx = ["dep:libmdbx"]
+test = [ "in_memory" ]
 
 [dev-dependencies]
 hex.workspace = true

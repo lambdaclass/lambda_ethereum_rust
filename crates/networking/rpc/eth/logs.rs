@@ -1,5 +1,7 @@
-// A really useful reference on how this works is found here:
-// https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
+// The behaviour of the filtering endpoints is based on:
+// - Manually testing the behaviour deploying contracts on the Sepolia test network.
+// - Go-Ethereum, specifically: https://github.com/ethereum/go-ethereum/blob/368e16f39d6c7e5cce72a92ec289adbfbaed4854/eth/filters/filter.go
+// - Ethereum's reference: https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
 use crate::{
     types::{block_identifier::BlockIdentifier, receipt::RpcLog},
     RpcErr, RpcHandler,
@@ -104,6 +106,7 @@ pub(crate) fn fetch_logs_with_filter(
     filter: &LogsFilter,
     storage: Store,
 ) -> Result<Vec<RpcLog>, RpcErr> {
+    dbg!("DOING FILTERING");
     let from = filter
         .from_block
         .resolve_block_number(&storage)?
@@ -121,12 +124,14 @@ pub(crate) fn fetch_logs_with_filter(
         None => HashSet::new(),
     };
 
+    dbg!("BEFORE LOGS");
     let mut logs: Vec<RpcLog> = Vec::new();
     // The idea here is to fetch every log and filter by address, if given.
     // For that, we'll need each block in range, and its transactions,
     // and for each transaction, we'll need its receipts, which
     // contain the actual logs we want.
     for block_num in from..=to {
+        dbg!("LOOPING: {block_num}");
         // Take the header of the block, we
         // will use it to access the transactions.
         let block_body = storage
@@ -146,6 +151,7 @@ pub(crate) fn fetch_logs_with_filter(
         // Since transactions share indices with their receipts,
         // we'll use them to fetch their receipts, which have the actual logs.
         for (tx_index, tx) in block_body.transactions.iter().enumerate() {
+            dbg!(&block_body.transactions);
             let tx_hash = tx.compute_hash();
             let receipt = storage
                 .get_receipt(block_num, tx_index as u64)?

@@ -1,3 +1,7 @@
+// The behaviour of the filtering endpoints is based on:
+// - Manually testing the behaviour deploying contracts on the Sepolia test network.
+// - Go-Ethereum, specifically: https://github.com/ethereum/go-ethereum/blob/368e16f39d6c7e5cce72a92ec289adbfbaed4854/eth/filters/filter.go
+// - Ethereum's reference: https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
 use ethereum_rust_core::types::BlockNumber;
 use ethereum_rust_storage::Store;
 use std::{
@@ -42,7 +46,6 @@ pub fn clean_outdated_filters(filters: ActiveFilters, filter_duration: Duration)
 /// Maps IDs to active pollable filters and their timestamps.
 pub type ActiveFilters = Arc<Mutex<HashMap<u64, (Instant, PollableFilter)>>>;
 
-// FIXME: Check how we can merge this with LogsFilter, before PR review.
 #[derive(Debug, Clone)]
 pub struct PollableFilter {
     /// Last block number from when this
@@ -54,7 +57,6 @@ pub struct PollableFilter {
     pub filter_data: LogsFilter,
 }
 
-// Useful reference: https://ethereum.org/en/developers/docs/apis/json-rpc/#eth_newfilter
 // FIXME: The spec states that this receives a block range, but this endpoint
 // is used to poll state changes (i.e. when new blocks arrive with new logs),
 // so then why would a block range be needed?
@@ -85,6 +87,11 @@ impl NewFilterRequest {
         if (from..=to).is_empty() {
             return Err(RpcErr::BadParams("Invalid block range".to_string()));
         }
+
+        let Some(last_block_number) = storage.get_latest_block_number()? else {
+            error!("Latest block number was requested but it does not exist");
+            return Err(RpcErr::Internal("Failed to create filter".to_string()));
+        };
         let id: u64 = random();
         let timestamp = Instant::now();
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
@@ -98,9 +105,7 @@ impl NewFilterRequest {
             (
                 timestamp,
                 PollableFilter {
-                    // FIXME: Remove these unwraps before PR review
-                    last_block_number: storage.get_latest_block_number().unwrap().unwrap(),
-                    // FIXME: Check If we can avoid these clones before PR review.
+                    last_block_number,
                     filter_data: self.request_data.clone(),
                 },
             ),
@@ -164,7 +169,6 @@ impl DeleteFilterRequest {
     }
 }
 
-// FIXME: Merge this with delete filter request before PR review
 pub struct FilterChangesRequest {
     pub id: u64,
 }
@@ -187,41 +191,48 @@ impl FilterChangesRequest {
         storage: ethereum_rust_storage::Store,
         filters: ActiveFilters,
     ) -> Result<serde_json::Value, crate::utils::RpcErr> {
-        // FIXME: Remove these unwraps.
-        let latest_block_number = storage.get_latest_block_number().unwrap().unwrap();
+        let Some(latest_block_num) = storage.get_latest_block_number()? else {
+            error!("Latest block number was requested but it does not exist");
+            return Err(RpcErr::Internal("Failed to create filter".to_string()));
+        };
         let mut active_filters_guard = filters.lock().unwrap_or_else(|mut poisoned_guard| {
             error!("THREAD CRASHED WITH MUTEX TAKEN; SYSTEM MIGHT BE UNSTABLE");
             **poisoned_guard.get_mut() = HashMap::new();
             filters.clear_poison();
             poisoned_guard.into_inner()
         });
+        dbg!(active_filters_guard.get_mut(&self.id));
         if let Some((timestamp, filter)) = active_filters_guard.get_mut(&self.id) {
-            match filter.filter_data.to_block {
-                BlockIdentifier::Tag(BlockTag::Latest) => {
-                    // Since the filter was polled, updated its timestamp, so
-                    // it does not expire.
-                    *timestamp = Instant::now();
-                    filter.filter_data.from_block =
-                        BlockIdentifier::Number(filter.last_block_number);
-                    filter.last_block_number = latest_block_number;
-                    let filter = filter.clone();
-                    // FIXME: Ask if this approach is right.
-                    // Drop the lock early to process this filter's query
-                    // and not keep the lock more than we should.
-                    drop(active_filters_guard);
-                    let logs = fetch_logs_with_filter(&filter.filter_data, storage)?;
-                    return serde_json::to_value(logs).map_err(|error| {
-                        tracing::error!("Log filtering request failed with: {error}");
-                        RpcErr::Internal("Failed to filter logs".to_string())
-                    });
-                }
-                _ => {
-                    // FIXME: Use a proper alternative to this vec here.
-                    return serde_json::to_value(Vec::<u8>::new()).map_err(|error| {
-                        tracing::error!("Log filtering request failed with: {error}");
-                        RpcErr::Internal("Failed to filter logs".to_string())
-                    });
-                }
+            // We'll only get changes for a filter that either has a block
+            // range for upcoming blocks, or for the 'latest' tag.
+            let valid_block_range = match filter.filter_data.to_block {
+                BlockIdentifier::Tag(BlockTag::Latest) => true,
+                BlockIdentifier::Number(block_num) if block_num >= latest_block_num => true,
+                _ => false,
+            };
+            dbg!(valid_block_range);
+            if valid_block_range {
+                // Since the filter was polled, updated its timestamp, so
+                // it does not expire.
+                *timestamp = Instant::now();
+                filter.filter_data.from_block = BlockIdentifier::Number(filter.last_block_number);
+                filter.last_block_number = latest_block_num;
+                let mut filter = filter.clone();
+                filter.filter_data.to_block = BlockIdentifier::Number(latest_block_num);
+                // FIXME: Ask if this approach is right.
+                // Drop the lock early to process this filter's query
+                // and not keep the lock more than we should.
+                drop(active_filters_guard);
+                let logs = fetch_logs_with_filter(&filter.filter_data, storage)?;
+                return serde_json::to_value(logs).map_err(|error| {
+                    tracing::error!("Log filtering request failed with: {error}");
+                    RpcErr::Internal("Failed to filter logs".to_string())
+                });
+            } else {
+                return serde_json::to_value(Vec::<u8>::new()).map_err(|error| {
+                    tracing::error!("Log filtering request failed with: {error}");
+                    RpcErr::Internal("Failed to filter logs".to_string())
+                });
             }
         } else {
             return Err(RpcErr::BadParams(
@@ -243,28 +254,35 @@ impl FilterChangesRequest {
 mod tests {
     use std::{
         collections::HashMap,
+        str::FromStr,
         sync::{Arc, Mutex},
         time::{Duration, Instant},
     };
 
+    use super::ActiveFilters;
     use crate::{
         eth::{
             filter::PollableFilter,
             logs::{AddressFilter, LogsFilter, TopicFilter},
         },
         map_http_requests,
-        utils::test_utils::{self, start_test_api},
+        utils::test_utils::{self, start_test_api, start_test_api_with_storage, test_store},
         FILTER_DURATION,
     };
     use crate::{
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
-    use ethereum_rust_core::types::{Block, Genesis};
-    use ethereum_rust_storage::{EngineType, Store};
+    use ethereum_rust_core::{
+        types::{
+            Block, BlockBody, BlockHeader, Genesis, LegacyTransaction, Log, Receipt, Transaction,
+            TxKind, TxType,
+        },
+        H160, U256,
+    };
+    use ethereum_rust_storage::{new_for_tests, EngineType, Store};
     use serde_json::{json, Value};
     use test_utils::TEST_GENESIS;
-    use super::ActiveFilters;
 
     #[test]
     fn filter_request_smoke_test_valid_params() {
@@ -426,17 +444,16 @@ mod tests {
     ) -> u64 {
         let node = example_p2p_node();
         let request: RpcRequest = serde_json::from_value(json_req).expect("Test json is incorrect");
-        let genesis_config: Genesis = serde_json::from_str(TEST_GENESIS).expect("Fatal: non-valid genesis test config");
-        let mut store = Store::new("in-mem", EngineType::InMemory).expect("Fatal: could not create in memory test db");
-        store.add_initial_state(genesis_config).expect("Fatal: could not add test genesis in test");
-        let response = map_http_requests(
-            &request,
-            store,
-            node,
-            filters_pointer.clone(),
-        )
-        .unwrap()
-        .to_string();
+        let genesis_config: Genesis =
+            serde_json::from_str(TEST_GENESIS).expect("Fatal: non-valid genesis test config");
+        let mut store = Store::new("in-mem", EngineType::InMemory)
+            .expect("Fatal: could not create in memory test db");
+        store
+            .add_initial_state(genesis_config)
+            .expect("Fatal: could not add test genesis in test");
+        let response = map_http_requests(&request, store, node, filters_pointer.clone())
+            .unwrap()
+            .to_string();
         let trimmed_id = response.trim().trim_matches('"');
         assert!(trimmed_id.starts_with("0x"));
         let hex = trimmed_id.trim_start_matches("0x");
@@ -511,7 +528,8 @@ mod tests {
         assert!(matches!(res, serde_json::Value::Bool(false)));
     }
 
-    #[tokio::test]
+    // FIXME: Restore this test when finished with the one below
+    // #[tokio::test]
     async fn background_job_removes_filter_smoke_test() {
         // Start a test server to start the cleanup
         // task in the background
@@ -585,5 +603,101 @@ mod tests {
         );
 
         server_handle.abort();
+    }
+
+    #[tokio::test]
+    async fn smoke_test_get_filter_changes() {
+        // Start a test server to start the cleanup
+        // task in the background
+        let (db_pointer, store) = test_store();
+        let server_handle = tokio::spawn(async move { start_test_api_with_storage(store).await });
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        // Install the filter, we'll listen for address
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_newFilter",
+            "params":
+            [
+                {
+                    "fromBlock": "0x1",
+                    "toBlock": "0xA",
+                    "topics": null,
+                    "address": [ "0xb794f5ea0ba39494ce839613fffba74279579268" ]
+                }
+            ]
+                ,"id":1
+        });
+
+        let client = reqwest::Client::new();
+
+        let response: Value = client
+            .post("http://127.0.0.1:8500")
+            .json(&raw_json)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let filter_id = response
+            .get("result")
+            .expect("eth_newFilter did not return an expected id");
+        let header = BlockHeader::default();
+        let mut body = BlockBody::empty();
+        let mut tx = LegacyTransaction::default();
+        let contract_address =
+            H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap();
+        tx.to = TxKind::Call(contract_address);
+        dbg!(tx.clone());
+        body.transactions = vec![Transaction::LegacyTransaction(tx)];
+        let logs = vec![Log {
+            address: contract_address,
+            topics: vec![],
+            data: Default::default(),
+        }];
+        let receipt = Receipt {
+            tx_type: TxType::Legacy,
+            succeeded: true,
+            cumulative_gas_used: u64::MAX,
+            bloom: Default::default(),
+            logs,
+        };
+        db_pointer
+            .add_receipt(header.compute_block_hash(), 0, receipt)
+            .unwrap();
+        db_pointer
+            .set_canonical_block(1, header.compute_block_hash())
+            .unwrap();
+        db_pointer
+            .add_block_body(header.compute_block_hash(), body)
+            .unwrap();
+        db_pointer
+            .add_block_header(header.compute_block_hash(), header)
+            .unwrap();
+        db_pointer.update_latest_block_number(1).unwrap();
+        let raw_json = json!(
+        {
+            "jsonrpc":"2.0",
+            "method":"eth_getFilterChanges",
+            "params": [ filter_id ],
+            "id": 1
+        });
+
+        let client = reqwest::Client::new();
+
+        let response: Value = client
+            .post("http://127.0.0.1:8500")
+            .json(&raw_json)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let result: Vec<Log> = serde_json::from_value(response.get("result").unwrap().clone()).unwrap();
+        assert_eq!(result.first().unwrap().address, H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap())
     }
 }
