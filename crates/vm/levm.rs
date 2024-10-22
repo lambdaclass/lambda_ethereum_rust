@@ -6,7 +6,6 @@ use ethereum_rust_core::{
 };
 use ethereum_rust_levm::{
     report::TransactionReport,
-    report::VmError as LevmError,
     vm::{Db, VM},
 };
 
@@ -60,20 +59,6 @@ pub fn execute_tx(
         tx.gas_price().into(),
         state.database().clone(), // shouldn't clone here
     );
-    let _result = vm.transact();
-    Ok(TransactionReport {
-        result: todo!(),
-        new_state: todo!(),
-        gas_used: todo!(),
-        gas_refunded: todo!(),
-        output: todo!(),
-        logs: todo!(),
-        created_address: todo!(),
-    })
-}
-
-impl From<LevmError> for EvmError {
-    fn from(_value: LevmError) -> Self {
-        EvmError::Transaction("Levm error".to_string())
-    }
+    vm.transact()
+        .map_err(|_| EvmError::Transaction("Levm error".to_string()))
 }

@@ -4,6 +4,7 @@ use crate::{
     errors::{OpcodeSuccess, ResultReason, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
+    report::{TransactionReport, TxResult},
 };
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -171,8 +172,8 @@ pub struct Environment {
     /// this attr can represent gas_price or max_fee_per_gas depending on transaction type
     pub tx_gas_price: U256,
     pub tx_chain_id: U256,
-    pub tx_gas_limit: U256, // TODO: change this to u64?
-    pub consumed_gas: U256,
+    pub tx_gas_limit: U256,
+    pub consumed_gas: U256, // TODO: move this 2 to VM
     refunded_gas: U256,
 }
 
@@ -382,7 +383,7 @@ impl VM {
         }
     }
 
-    pub fn transact(&mut self) -> Result<OpcodeSuccess, VMError> {
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
         // let account = self.db.accounts.get(&self.env.origin).unwrap();
 
         // TODO: Add transaction validation.
@@ -391,7 +392,29 @@ impl VM {
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        self.execute(&mut current_call_frame)
+        let result = self.execute(&mut current_call_frame)?;
+
+        match result {
+            OpcodeSuccess::Continue => {
+                panic!("should never reach this point") // remove this in the future
+            }
+            OpcodeSuccess::Result(reason) => {
+                let report = TransactionReport {
+                    result: if reason == ResultReason::Stop || reason == ResultReason::Return {
+                        TxResult::Success
+                    } else {
+                        TxResult::Revert
+                    },
+                    new_state: self.db.accounts.clone(),
+                    gas_used: self.env.consumed_gas.as_u64(), // TODO: check these conversions
+                    gas_refunded: self.env.refunded_gas.as_u64(),
+                    output: current_call_frame.return_data,
+                    logs: current_call_frame.logs, // TODO: accumulate all call frames' logs in VM
+                    created_address: None,
+                };
+                return Ok(report);
+            }
+        }
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -463,23 +486,23 @@ impl VM {
             Ok(OpcodeSuccess::Result(reason)) => match reason {
                 ResultReason::Stop | ResultReason::Return => {
                     let logs = new_call_frame.logs.clone();
-                    let return_data = new_call_frame.returndata.clone();
+                    let return_data = new_call_frame.return_data.clone();
 
                     current_call_frame.logs.extend(logs);
                     current_call_frame
                         .memory
                         .store_bytes(ret_offset, &return_data);
-                    current_call_frame.returndata = return_data;
+                    current_call_frame.return_data = return_data;
                     current_call_frame
                         .stack
                         .push(U256::from(SUCCESS_FOR_CALL))?;
                     Ok(OpcodeSuccess::Continue)
                 }
                 ResultReason::Revert => {
-                    let output = new_call_frame.returndata.clone();
+                    let output = new_call_frame.return_data.clone();
 
                     current_call_frame.memory.store_bytes(ret_offset, &output);
-                    current_call_frame.returndata = output;
+                    current_call_frame.return_data = output;
                     current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
                     current_call_frame.gas -= self.env.consumed_gas;
                     self.env.refunded_gas += self.env.consumed_gas;

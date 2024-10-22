@@ -4,7 +4,7 @@ mod block;
 mod constants;
 mod fork_id;
 mod genesis;
-mod receipt;
+pub mod receipt;
 pub mod transaction;
 
 pub use account::*;

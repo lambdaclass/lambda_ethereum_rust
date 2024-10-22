@@ -102,7 +102,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(U256::from(current_call_frame.returndata.len()))?;
+            .push(U256::from(current_call_frame.return_data.len()))?;
         self.env.consumed_gas += gas_cost::RETURNDATASIZE;
 
         Ok(OpcodeSuccess::Continue)
@@ -148,7 +148,7 @@ impl VM {
         }
 
         let data = current_call_frame
-            .returndata
+            .return_data
             .slice(returndata_offset..returndata_offset + size);
         current_call_frame.memory.store_bytes(dest_offset, &data);
 

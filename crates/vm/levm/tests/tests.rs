@@ -1687,7 +1687,7 @@ fn call_changes_callframe_and_stores() {
     let ret_offset = 0;
     let ret_size = 32;
     let return_data = current_call_frame
-        .returndata
+        .return_data
         .slice(ret_offset..ret_offset + ret_size);
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
@@ -1775,7 +1775,7 @@ fn nested_calls() {
     let ret_offset = 0;
     let ret_size = 64;
     let return_data = current_call_frame
-        .returndata
+        .return_data
         .slice(ret_offset..ret_offset + ret_size);
 
     let mut expected_bytes = vec![0u8; 64];
@@ -2341,7 +2341,7 @@ fn returndatasize() {
     let ops = vec![Operation::ReturnDataSize, Operation::Stop];
     let mut vm = new_vm_with_ops(&ops);
 
-    vm.current_call_frame_mut().returndata = returndata;
+    vm.current_call_frame_mut().return_data = returndata;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2364,7 +2364,7 @@ fn returndatacopy() {
     ];
     let mut vm = new_vm_with_ops(&ops);
 
-    vm.current_call_frame_mut().returndata = returndata;
+    vm.current_call_frame_mut().return_data = returndata;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();

@@ -1,25 +1,16 @@
-use ethereum_rust_core::types::Log;
 use crate::{
+    errors::VMError,
     primitives::{Address, Bytes},
     vm::Account,
 };
+use ethereum_rust_core::types::Log;
 use std::{collections::HashMap, vec::Vec};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TxResult {
     Success,
     Revert,
-    ExceptionalHalt(VmError),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VmError {
-    UnknownError,
-    OutOfGas,
-    MemoryOverflow,
-    ContractSizeLimit,
-    NonceOverflow,
-    ContractAlreadyExists,
+    ExceptionalHalt(VMError),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

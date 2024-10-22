@@ -1,4 +1,3 @@
-use ethereum_rust_core::types::Log;
 use crate::{
     constants::STACK_LIMIT,
     errors::VMError,
@@ -6,6 +5,7 @@ use crate::{
     opcodes::Opcode,
     primitives::{Address, Bytes, U256},
 };
+use ethereum_rust_core::types::receipt::Log;
 use std::collections::HashMap;
 
 /// [EIP-1153]: https://eips.ethereum.org/EIPS/eip-1153#reference-implementation
@@ -61,7 +61,7 @@ pub struct CallFrame {
     pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
-    pub returndata: Bytes,
+    pub return_data: Bytes,
     // where to store return data of subcall
     pub return_data_offset: Option<usize>,
     pub return_data_size: Option<usize>,
