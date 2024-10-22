@@ -2934,9 +2934,9 @@ fn log2() {
 
 #[test]
 fn log3() {
-    let mut topic1= [0x00; 32];
+    let mut topic1 = [0x00; 32];
     topic1[31] = 1;
-    let mut topic2= [0x00; 32];
+    let mut topic2 = [0x00; 32];
     topic2[31] = 2;
     let mut topic3 = [0x00; 32];
     topic3[31] = 3;
@@ -2977,13 +2977,13 @@ fn log3() {
 
 #[test]
 fn log4() {
-    let mut topic1= [0x00; 32];
+    let mut topic1 = [0x00; 32];
     topic1[31] = 1;
-    let mut topic2= [0x00; 32];
+    let mut topic2 = [0x00; 32];
     topic2[31] = 2;
     let mut topic3 = [0x00; 32];
     topic3[31] = 3;
-    let mut topic4= [0x00; 32];
+    let mut topic4 = [0x00; 32];
     topic4[31] = 4;
 
     let data: [u8; 32] = [0xff; 32];
@@ -3102,7 +3102,7 @@ fn log_with_data_in_memory_smaller_than_size() {
 
 #[test]
 fn multiple_logs_of_different_types() {
-    let mut topic1= [0x00; 32];
+    let mut topic1 = [0x00; 32];
     topic1[31] = 1;
 
     let data: [u8; 32] = [0xff; 32];
