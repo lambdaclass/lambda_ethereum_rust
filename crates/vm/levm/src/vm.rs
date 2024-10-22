@@ -380,7 +380,7 @@ impl VM {
                 Ok(OpcodeSuccess::Continue) => {}
                 Ok(OpcodeSuccess::Result(_)) => {
                     self.call_frames.push(current_call_frame.clone());
-                    TransactionReport {
+                    return TransactionReport {
                         result: TxResult::Success,
                         new_state: self.db.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
@@ -400,7 +400,7 @@ impl VM {
                         self.env.consumed_gas += left_gas;
                     }
 
-                    TransactionReport {
+                    return TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.db.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
