@@ -1,5 +1,5 @@
+use ethereum_rust_core::types::Log;
 use crate::{
-    call_frame::Log,
     primitives::{Address, Bytes},
     vm::Account,
 };

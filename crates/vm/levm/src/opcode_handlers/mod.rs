@@ -10,12 +10,13 @@ pub mod push;
 pub mod stack_memory_storage_flow;
 pub mod system;
 
+use ethereum_rust_core::types::Log;
 use crate::{
-    call_frame::{CallFrame, Log},
+    call_frame::CallFrame,
     constants::gas_cost,
     errors::*,
     opcodes::Opcode,
     vm::VM,
 };
 use bytes::Bytes;
-use ethereum_types::{Address, H32, U256, U512};
+use ethereum_types::{Address, U256, U512};
