@@ -14,9 +14,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ADDRESS > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::ADDRESS)?;
 
         let addr = if current_call_frame.delegate.is_some() {
             current_call_frame.msg_sender
@@ -25,7 +23,6 @@ impl VM {
         };
 
         current_call_frame.stack.push(U256::from(addr.as_bytes()))?;
-        self.env.consumed_gas += gas_cost::ADDRESS;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -35,16 +32,12 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::BALANCE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::BALANCE)?;
 
         let addr = current_call_frame.stack.pop()?;
 
         let balance = self.db.balance(&word_to_address(addr));
         current_call_frame.stack.push(balance)?;
-
-        self.env.consumed_gas += gas_cost::BALANCE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -54,16 +47,12 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::ORIGIN > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::ORIGIN)?;
 
         let origin = self.env.origin;
         current_call_frame
             .stack
             .push(U256::from(origin.as_bytes()))?;
-
-        self.env.consumed_gas += gas_cost::ORIGIN;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -73,16 +62,12 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLER > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::CALLER)?;
 
         let caller = current_call_frame.msg_sender;
         current_call_frame
             .stack
             .push(U256::from(caller.as_bytes()))?;
-
-        self.env.consumed_gas += gas_cost::CALLER;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -92,15 +77,11 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CALLVALUE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost::CALLVALUE)?;
 
         let callvalue = current_call_frame.msg_value;
 
         current_call_frame.stack.push(callvalue)?;
-
-        self.env.consumed_gas += gas_cost::CALLVALUE;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -229,15 +210,11 @@ impl VM {
             + gas_cost::CODECOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
 
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let code = current_call_frame.bytecode.slice(offset..offset + size);
 
         current_call_frame.memory.store_bytes(dest_offset, &code);
-
-        self.env.consumed_gas += gas_cost;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -247,14 +224,9 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::GASPRICE > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
-        // TODO: if not legacy or access list, then gas price is max_fee_per_gas
-        // TODO: Why do we unwrap here?
-        current_call_frame.stack.push(self.env.gas_price.unwrap())?;
+        self.increase_consumed_gas(current_call_frame, gas_cost::GASPRICE)?;
 
-        self.env.consumed_gas += gas_cost::GASPRICE;
+        current_call_frame.stack.push(self.env.gas_price)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -270,13 +242,12 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
         let code_size = self.db.get_account_bytecode(&address).len();
         current_call_frame.stack.push(code_size.into())?;
 
-        self.env.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -314,9 +285,8 @@ impl VM {
         let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost
             + address_access_cost;
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let mut code = self.db.get_account_bytecode(&address);
         if code.len() < offset + size {
@@ -328,7 +298,6 @@ impl VM {
             .memory
             .store_bytes(dest_offset, &code[offset..offset + size]);
 
-        self.env.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
     }
 
@@ -400,9 +369,8 @@ impl VM {
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
         };
-        if self.env.consumed_gas + gas_cost > self.env.gas_limit {
-            return Err(VMError::OutOfGas);
-        }
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let code = self.db.get_account_bytecode(&address);
         let mut hasher = Keccak256::new();
@@ -412,7 +380,6 @@ impl VM {
             .stack
             .push(U256::from_big_endian(&result))?;
 
-        self.env.consumed_gas += gas_cost;
         Ok(OpcodeSuccess::Continue)
-    }    
+    }
 }
