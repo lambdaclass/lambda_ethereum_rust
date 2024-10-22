@@ -1778,7 +1778,7 @@ fn nested_calls() {
     let ret_offset = 0;
     let ret_size = 64;
     let return_data = current_call_frame
-        .returndata
+        .sub_return_data
         .slice(ret_offset..ret_offset + ret_size);
 
     let mut expected_bytes = vec![0u8; 64];
