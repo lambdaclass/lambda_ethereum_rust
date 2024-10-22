@@ -44,20 +44,32 @@ pub async fn start_network(
 ) {
     info!("Starting discovery service at {udp_addr}");
     info!("Listening for requests at {tcp_addr}");
+    let local_node_id = node_id_from_signing_key(&signer);
+    let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
-    let discovery_handle = tokio::spawn(discover_peers(udp_addr, signer.clone(), bootnodes));
-    let server_handle = tokio::spawn(serve_requests(tcp_addr, signer.clone(), storage.clone()));
-    // TODO Remove this spawn, it's just for testing
-    // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
-    //tokio::spawn(start_hardcoded_connection(tcp_addr, signer, storage));
+    let discovery_handle = tokio::spawn(discover_peers(
+        udp_addr,
+        signer.clone(),
+        table.clone(),
+        bootnodes,
+    ));
+    let server_handle = tokio::spawn(serve_requests(
+        tcp_addr,
+        signer.clone(),
+        storage.clone(),
+        table.clone(),
+    ));
 
     try_join!(discovery_handle, server_handle).unwrap();
 }
 
-async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec<BootNode>) {
+async fn discover_peers(
+    udp_addr: SocketAddr,
+    signer: SigningKey,
+    table: Arc<Mutex<KademliaTable>>,
+    bootnodes: Vec<BootNode>,
+) {
     let udp_socket = Arc::new(UdpSocket::bind(udp_addr).await.unwrap());
-    let local_node_id = node_id_from_signing_key(&signer);
-    let table = Arc::new(Mutex::new(KademliaTable::new(local_node_id)));
 
     let server_handler = tokio::spawn(discover_peers_server(
         udp_addr,
@@ -89,7 +101,7 @@ async fn discover_peers(udp_addr: SocketAddr, signer: SigningKey, bootnodes: Vec
         udp_socket.clone(),
         table.clone(),
         signer.clone(),
-        local_node_id,
+        node_id_from_signing_key(&signer),
         PEERS_RANDOM_LOOKUP_TIME_IN_MIN as u64 * 60,
     ));
 
@@ -145,7 +157,6 @@ async fn discover_peers_server(
                     // send a ping to get the endpoint proof from our end
                     let (peer, inserted_to_table) = {
                         let mut table = table.lock().await;
-                        info!("Insert Node 3");
                         table.insert_node(Node {
                             ip: from.ip(),
                             udp_port: from.port(),
@@ -167,6 +178,7 @@ async fn discover_peers_server(
                 }
             }
             Message::Pong(msg) => {
+                let table = table.clone();
                 if is_expired(msg.expiration) {
                     debug!("Ignoring pong as it is expired.");
                     continue;
@@ -187,7 +199,8 @@ async fn discover_peers_server(
                         buf[32..read].clone_into(&mut msg_buf);
                         let signer_clone = signer.clone();
                         tokio::spawn(async move {
-                            handle_peer_as_initiator(signer_clone, &msg_buf, &peer.node).await;
+                            handle_peer_as_initiator(signer_clone, &msg_buf, &peer.node, table)
+                                .await;
                         });
                     } else {
                         debug!(
@@ -274,7 +287,6 @@ async fn discover_peers_server(
 
                 if let Some(nodes) = nodes_to_insert {
                     for node in nodes {
-                        info!("Insert Node 2");
                         let (peer, inserted_to_table) = table.insert_node(node);
                         if inserted_to_table && peer.is_some() {
                             let peer = peer.unwrap();
@@ -302,7 +314,6 @@ async fn discovery_startup(
     bootnodes: Vec<BootNode>,
 ) {
     for bootnode in bootnodes {
-        info!("Insert Node 1");
         table.lock().await.insert_node(Node {
             ip: bootnode.socket_address.ip(),
             udp_port: bootnode.socket_address.port(),
@@ -714,71 +725,44 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
     let _ = socket.send_to(&buf, to_addr).await;
 }
 
-// TODO: remove this function. It's used for a hardcoded test
-// https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
-async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
-    let mut udp_addr = tcp_addr;
-    udp_addr.set_port(tcp_addr.port() + 1);
-    let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
-
-    // Try contacting a known peer
-    // TODO: this is just an example, and we should do this dynamically
-    let str_udp_addr = "127.0.0.1:30307";
-
-    let udp_addr: SocketAddr = str_udp_addr.parse().unwrap();
-
-    let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-
-    let (msg, endpoint, node_id) = loop {
-        ping(&udp_socket, tcp_addr, udp_addr, &signer).await;
-
-        let (read, from) = udp_socket.recv_from(&mut buf).await.unwrap();
-        debug!("RLPx: Received {read} bytes from {from}");
-        let packet = Packet::decode(&buf[..read]).unwrap();
-        debug!("RLPx: Message: {:?}", packet);
-
-        match packet.get_message() {
-            Message::Pong(pong) => {
-                break (&buf[32..read], pong.to, packet.get_node_id());
-            }
-            Message::Ping(ping) => {
-                break (&buf[32..read], ping.from, packet.get_node_id());
-            }
-            _ => {
-                tracing::warn!("Unexpected message type");
-            }
-        };
-    };
-
-    let node = Node {
-        ip: endpoint.ip,
-        udp_port: 30307u16, //endpoint.udp_port,
-        tcp_port: 30307u16, //endpoint.tcp_port,
-        node_id,
-    };
-    handle_peer_as_initiator(signer, msg, &node).await;
-}
-
 // TODO build a proper listen loop that receives requests from both
 // peers and business layer and propagate storage to use when required
 // https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
-async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
+async fn serve_requests(
+    tcp_addr: SocketAddr,
+    signer: SigningKey,
+    _storage: Store,
+    table: Arc<Mutex<KademliaTable>>,
+) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
     let listener = tcp_socket.listen(50).unwrap();
     loop {
         let (stream, _peer_addr) = listener.accept().await.unwrap();
 
-        tokio::spawn(handle_peer_as_receiver(signer.clone(), stream));
+        tokio::spawn(handle_peer_as_receiver(
+            signer.clone(),
+            stream,
+            table.clone(),
+        ));
     }
 }
 
-async fn handle_peer_as_receiver(signer: SigningKey, stream: TcpStream) {
+async fn handle_peer_as_receiver(
+    signer: SigningKey,
+    stream: TcpStream,
+    table: Arc<Mutex<KademliaTable>>,
+) {
     let conn = RLPxConnection::receiver(signer, stream);
-    handle_peer(conn).await;
+    handle_peer(conn, table).await;
 }
 
-async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
+async fn handle_peer_as_initiator(
+    signer: SigningKey,
+    msg: &[u8],
+    node: &Node,
+    table: Arc<Mutex<KademliaTable>>,
+) {
     info!("Trying RLPx connection with {node:?}");
     let stream = TcpSocket::new_v4()
         .unwrap()
@@ -786,10 +770,10 @@ async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
         .await
         .unwrap();
     let conn = RLPxConnection::initiator(signer, msg, stream).await;
-    handle_peer(conn).await;
+    handle_peer(conn, table).await;
 }
 
-async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
+async fn handle_peer(mut conn: RLPxConnection<TcpStream>, table: Arc<Mutex<KademliaTable>>) {
     match conn.handshake().await {
         Ok(_) => {
             // TODO Properly build listen loop
@@ -799,8 +783,9 @@ async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
             // }
         }
         Err(e) => {
-            // TODO propagate error to eventually discard peer from kademlia table
+            // Discard peer from kademlia table
             info!("Handshake failed, discarding peer: ({e})");
+            table.lock().await.replace_peer(conn.get_remote_node_id());
         }
     }
 }
