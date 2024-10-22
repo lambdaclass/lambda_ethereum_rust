@@ -1,9 +1,9 @@
+use super::*;
 use crate::{
     constants::{call_opcode, WORD_SIZE},
     vm::word_to_address,
 };
 use sha3::{Digest, Keccak256};
-use super::*;
 
 // Environmental Information (16)
 // Opcodes: ADDRESS, BALANCE, ORIGIN, CALLER, CALLVALUE, CALLDATALOAD, CALLDATASIZE, CALLDATACOPY, CODESIZE, CODECOPY, GASPRICE, EXTCODESIZE, EXTCODECOPY, RETURNDATASIZE, RETURNDATACOPY, EXTCODEHASH
