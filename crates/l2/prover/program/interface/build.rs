@@ -1,3 +1,6 @@
 fn main() {
-    risc0_build::embed_methods();
+    #[cfg(not(clippy))]
+    {
+        risc0_build::embed_methods();
+    }
 }

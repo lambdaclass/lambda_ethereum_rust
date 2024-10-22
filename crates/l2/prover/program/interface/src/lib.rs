@@ -1,4 +1,7 @@
-include!(concat!(env!("OUT_DIR"), "/methods.rs"));
+#[cfg(not(clippy))]
+pub mod methods {
+    include!(concat!(env!("OUT_DIR"), "/methods.rs"));
+}
 
 use std::collections::HashMap;
 

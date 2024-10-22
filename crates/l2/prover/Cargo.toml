@@ -23,7 +23,7 @@ ethereum_rust-l2.workspace = true
 
 # risc0
 # Cannot compile (investigate)
-# program_interface = { path = "./program/interface" }
+program_interface = { path = "./program/interface" }
 risc0-zkvm = { version = "1.1.2" }
 
 # revm (this dep is temporary, should be replaced with ethereum_rust-vm after ExecutionDB is completely integrated into the L1)

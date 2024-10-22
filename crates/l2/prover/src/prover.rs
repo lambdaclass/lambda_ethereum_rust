@@ -1,9 +1,13 @@
 use tracing::info;
 
 // risc0
-//use program_interface::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
-const ZKVM_PROGRAM_ELF: &[u8] = &[0, 0, 0];
+#[cfg(not(clippy))]
+use program_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
+#[cfg(clippy)]
+const ZKVM_PROGRAM_ELF: &[u8] = &[0];
+#[cfg(clippy)]
 const ZKVM_PROGRAM_ID: [u32; 8] = [0_u32; 8];
+
 use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder};
 
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -19,14 +23,14 @@ pub struct Prover<'a> {
 
 impl<'a> Default for Prover<'a> {
     fn default() -> Self {
-        let config = ProverClientConfig::from_env().unwrap();
-        Self::new_from_config(config)
+        let _config = ProverClientConfig::from_env().unwrap();
+        Self::new()
     }
 }
 
 impl<'a> Prover<'a> {
-    pub fn new_from_config(config: ProverClientConfig) -> Self {
-        let _elf = std::fs::read(config.elf_path).unwrap();
+    pub fn new() -> Self {
+        //let _elf = std::fs::read(config.elf_path).unwrap();
 
         Self {
             env_builder: ExecutorEnv::builder(),
