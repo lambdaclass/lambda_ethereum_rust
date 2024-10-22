@@ -146,6 +146,7 @@ impl VM {
     }
 
     // BLOBHASH operation
+    /// Currently not tested
     pub fn op_blobhash(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -155,21 +156,19 @@ impl VM {
         let index = current_call_frame.stack.pop()?;
 
         let index = index.as_usize();
-        
+
         let blob_hash: H256 = match &self.env.tx_blob_hashes {
-            Some(vec) => {
-                match vec.get(index) {
-                    Some(el) => el.clone(),
-                    None => {
-                        return Err(VMError::TransactionDoesNotHaveABlobHashVector);
-                    }
+            Some(vec) => match vec.get(index) {
+                Some(el) => *el,
+                None => {
+                    return Err(VMError::TransactionDoesNotHaveABlobHashVector);
                 }
             },
             None => {
                 return Err(VMError::NotEnoughBlobHashes);
-            },
+            }
         };
-        
+
         // Could not find a better way to translate from H256 to U256
         let u256_blob = U256::from(blob_hash.as_bytes());
 
