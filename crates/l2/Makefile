@@ -43,6 +43,7 @@ restart-local-l1: down-local-l1 init-local-l1 ## 🔄 Restarts the L1 Lambda Eth
 contract-deps: ## 📦 Installs the dependencies for the L1 contracts
 	mkdir -p ${FOUNDRY_PROJECT_HOME}
 	forge install foundry-rs/forge-std --no-git --root ${FOUNDRY_PROJECT_HOME} || exit 0
+	forge install OpenZeppelin/openzeppelin-contracts --no-git --root ${FOUNDRY_PROJECT_HOME} || exit 0
 
 clean-contract-deps: ## 🧹 Cleans the dependencies for the L1 contracts.
 	rm -rf contracts/lib
