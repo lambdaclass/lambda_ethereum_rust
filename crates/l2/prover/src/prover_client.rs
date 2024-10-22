@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
@@ -79,18 +78,14 @@ impl ProverClient {
         }
     }
 
-    fn submit_proof(
-        &self,
-        block_number: u64,
-        proof: SP1ProofWithPublicValues,
-    ) -> Result<(), String> {
+    fn submit_proof(&self, block_number: u64, receipt: risc0_zkvm::Receipt) -> Result<(), String> {
         let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {
             block_number,
-            proof: Box::new(proof),
+            receipt: Box::new(receipt),
         };
         serde_json::ser::to_writer(buf_writer, &submit).map_err(|e| e.to_string())?;
         stream

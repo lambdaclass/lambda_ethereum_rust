@@ -1,98 +1,80 @@
-use ethereum_rust_rlp::encode::RLPEncode;
 use tracing::info;
 
-use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey};
+// risc0
+//use program_interface::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
+const ZKVM_PROGRAM_ELF: &[u8] = &[0, 0, 0];
+const ZKVM_PROGRAM_ID: [u32; 8] = [0_u32; 8];
+use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder};
+
+use ethereum_rust_rlp::encode::RLPEncode;
 
 use ethereum_rust_l2::proposer::prover_server::ProverInputData;
 use ethereum_rust_l2::utils::config::prover_client::ProverClientConfig;
 
-pub struct Prover {
-    client: ProverClient,
-    stdin: SP1Stdin,
-    elf: Vec<u8>,
-    pk: SP1ProvingKey,
-    vk: SP1VerifyingKey,
+pub struct Prover<'a> {
+    env_builder: ExecutorEnvBuilder<'a>,
+    elf: &'a [u8],
+    id: [u32; 8],
 }
 
-impl Default for Prover {
+impl<'a> Default for Prover<'a> {
     fn default() -> Self {
         let config = ProverClientConfig::from_env().unwrap();
         Self::new_from_config(config)
     }
 }
 
-impl Prover {
+impl<'a> Prover<'a> {
     pub fn new_from_config(config: ProverClientConfig) -> Self {
-        let elf = std::fs::read(config.elf_path).unwrap();
-
-        info!("Setting up prover...");
-        let client = ProverClient::new();
-        let (pk, vk) = client.setup(elf.as_slice());
-        info!("Prover setup complete!");
+        let _elf = std::fs::read(config.elf_path).unwrap();
 
         Self {
-            client,
-            stdin: SP1Stdin::new(),
-            elf,
-            pk,
-            vk,
+            env_builder: ExecutorEnv::builder(),
+            elf: ZKVM_PROGRAM_ELF,
+            id: ZKVM_PROGRAM_ID,
         }
     }
 
-    pub fn set_input(&mut self, input: ProverInputData) -> &Self {
-        self.stdin = SP1Stdin::new();
+    pub fn set_input(&mut self, input: ProverInputData) -> &mut Self {
         let head_block_rlp = input.block.encode_to_vec();
         let parent_block_header_rlp = input.parent_block_header.encode_to_vec();
 
         // We should pass the inputs as a whole struct
-        self.stdin.write(&head_block_rlp);
-        self.stdin.write(&parent_block_header_rlp);
-        self.stdin.write(&input.db);
+        self.env_builder.write(&head_block_rlp).unwrap();
+        self.env_builder.write(&parent_block_header_rlp).unwrap();
+        self.env_builder.write(&input.db).unwrap();
 
         self
     }
 
     /// Example:
     /// let prover = Prover::new_from_config(prover_config);
-    /// let proof = prover.set_input(inputs).execute().unwrap();
-    pub fn execute(&self) -> Result<(), String> {
-        let (mut raw_computed_public_inputs, report) = self
-            .client
-            .execute(&self.elf, self.stdin.clone())
-            .run()
-            .unwrap();
-        println!("Program executed successfully.");
-
-        let computed_public_inputs = raw_computed_public_inputs.read::<ProverInputData>();
-
-        println!("Computed Public Inputs: {computed_public_inputs:#?}");
-        println!("Instruction Count: {}", report.total_instruction_count());
-
-        Ok(())
-    }
-
-    /// Example:
-    /// let prover = Prover::new_from_config(prover_config);
     /// let proof = prover.set_input(inputs).prove().unwrap();
-    pub fn prove(&self) -> Result<SP1ProofWithPublicValues, String> {
-        // Generate the proof
-        let proof = self
-            .client
-            .prove(&self.pk, self.stdin.clone())
-            .plonk()
-            .run()
-            .map_err(|_| "Failed to generate proof".to_string())?;
+    pub fn prove(&mut self) -> Result<risc0_zkvm::Receipt, String> {
+        let env = self
+            .env_builder
+            .build()
+            .map_err(|_| "Failed to Build env".to_string())?;
 
-        info!("Successfully generated proof!");
-        Ok(proof)
+        // Generate the Receipt
+        let prover = default_prover();
+
+        // Proof information by proving the specified ELF binary.
+        // This struct contains the receipt along with statistics about execution of the guest
+        let prove_info = prover
+            .prove(env, self.elf)
+            .map_err(|_| "Failed to prove".to_string())?;
+
+        // extract the receipt.
+        let receipt = prove_info.receipt;
+
+        info!("Successfully generated Receipt!");
+        Ok(receipt)
     }
 
-    pub fn verify(&self, proof: &SP1ProofWithPublicValues) -> Result<(), String> {
+    pub fn verify(&self, receipt: &risc0_zkvm::Receipt) -> Result<(), String> {
         // Verify the proof.
-        self.client
-            .verify(proof, &self.vk)
-            .map_err(|_| "Failed to verify proof".to_string())?;
-        info!("Successfully verified proof!");
+        receipt.verify(self.id).unwrap();
         Ok(())
     }
 }

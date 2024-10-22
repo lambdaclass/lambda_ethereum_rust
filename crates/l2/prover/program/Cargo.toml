@@ -1,32 +1,11 @@
-[package]
-version = "0.1.0"
-name = "ethereum_rust_prover-program"
-edition = "2021"
-
 [workspace]
+resolver = "2"
+members = ["interface"]
 
-[dependencies]
-sp1-zkvm = "2.0.0"
+# Always optimize; building and running the guest takes much longer without optimization.
+[profile.dev]
+opt-level = 3
 
-# ethereum_rust
-ethereum_rust-vm = { path = "../../../vm", default-features = false }
-ethereum_rust-rlp = { path = "../../../common/rlp", default-features = false }
-ethereum_rust-core = { path = "../../../common", default-features = false }
-ethereum_rust-blockchain = { path = "../../../blockchain", default-features = false }
-# we have the inputs defined here, we cannot import this crate due to the libmdbx crate
-#ethereum_rust-l2 = { path = "../../../l2", default-features = false }
-
-# revm (this dep is temporary, should be replaced with ethereum_rust-vm after ExecutionDB is completely integrated into the L1)
-revm = { version = "14.0.3", features = [
-  "std",
-  "serde",
-  "kzg-rs",
-], default-features = false }
-
-[patch.crates-io]
-sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-sha3-v0.10.8", package = "sha3" }
-crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", branch = "patch-v0.5.5" }
-secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
-ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
+[profile.release]
+debug = 1
+lto = true

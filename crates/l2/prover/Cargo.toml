@@ -21,7 +21,10 @@ ethereum_rust-rlp.workspace = true
 # l2
 ethereum_rust-l2.workspace = true
 
-sp1-sdk = "2.0.0"
+# risc0
+# Cannot compile (investigate)
+# program_interface = { path = "./program/interface" }
+risc0-zkvm = { version = "1.1.2" }
 
 # revm (this dep is temporary, should be replaced with ethereum_rust-vm after ExecutionDB is completely integrated into the L1)
 revm = { version = "14.0.3", features = [
@@ -29,10 +32,6 @@ revm = { version = "14.0.3", features = [
   "serde",
   "kzg-rs",
 ], default-features = false }
-
-[build-dependencies]
-sp1-helper = "2.0.0"
-
 
 # Some tests need the release profile.
 [profile.test]
