@@ -139,12 +139,21 @@ impl RLPEncode for AccountState {
 
 impl RLPEncodeSlim for AccountState {
     fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        // TODO: check if it's okay to use RLP_EMPTY_LIST
+        let root = if self.storage_root == EMPTY_TRIE_HASH {
+            &[]
+        } else {
+            self.storage_root.as_bytes()
+        };
+        let code_hash = if self.code_hash == EMPTY_KECCACK_HASH {
+            &[]
+        } else {
+            self.code_hash.as_bytes()
+        };
         Encoder::new(buf)
             .encode_field(&self.nonce)
             .encode_field(&self.balance)
-            .encode_field(&RLP_EMPTY_LIST)
-            .encode_field(&self.code_hash)
+            .encode_field(root)
+            .encode_field(code_hash)
             .finish();
     }
 }
