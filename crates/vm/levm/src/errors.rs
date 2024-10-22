@@ -34,7 +34,6 @@ pub enum ResultReason {
     Return,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TxResult {
     Success,

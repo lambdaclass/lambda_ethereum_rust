@@ -1859,7 +1859,10 @@ fn pop_on_empty_stack() {
 
     // result should be a Halt with error VMError::StackUnderflow
 
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::StackUnderflow)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::StackUnderflow)
+    ));
     // TODO: assert consumed gas
 }
 
@@ -2145,7 +2148,10 @@ fn jump_position_bigger_than_program_bytecode_size() {
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::InvalidJump)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::InvalidJump)
+    ));
     // TODO: assert consumed gas
 }
 
@@ -2734,7 +2740,10 @@ fn jump_not_jumpdest_position() {
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::InvalidJump)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::InvalidJump)
+    ));
     // TODO: assert consumed gas
 }
 
@@ -2778,7 +2787,10 @@ fn sstore_reverts_when_called_in_static() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
 
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::OpcodeNotAllowedInStaticContext)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::OpcodeNotAllowedInStaticContext)
+    ));
 }
 
 #[test]
@@ -3068,7 +3080,10 @@ fn cant_create_log_in_static_context() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
 
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::OpcodeNotAllowedInStaticContext)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::OpcodeNotAllowedInStaticContext)
+    ));
 }
 
 #[test]
@@ -3361,7 +3376,10 @@ fn dup_halts_if_stack_underflow() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
 
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::StackUnderflow)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::StackUnderflow)
+    ));
 }
 
 #[test]
@@ -3419,7 +3437,10 @@ fn swap_halts_if_stack_underflow() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
 
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::StackUnderflow)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::StackUnderflow)
+    ));
 }
 
 #[test]
@@ -3464,7 +3485,10 @@ fn transient_store_stack_underflow() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     let tx_report = vm.execute(&mut current_call_frame);
 
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::StackUnderflow)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::StackUnderflow)
+    ));
 }
 
 #[test]
