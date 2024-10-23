@@ -3,7 +3,6 @@ use std::str::FromStr;
 use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_types::{Address, H32, U256};
-use itertools::Itertools;
 use keccak_hash::{keccak, H256};
 
 #[derive(Subcommand)]
@@ -14,6 +13,8 @@ pub(crate) enum Command {
         signature: String,
         #[clap(long)]
         args: String,
+        #[clap(long, required = false, default_value = "false")]
+        only_args: bool,
     },
 }
 
@@ -122,7 +123,11 @@ fn parse_vec_arg(arg_type: &str, arg: &str) -> Vec<u8> {
 impl Command {
     pub async fn run(self) -> eyre::Result<()> {
         match self {
-            Command::Calldata { signature, args } => {
+            Command::Calldata {
+                signature,
+                args,
+                only_args,
+            } => {
                 let (name, params) = parse_signature(&signature);
                 let function_selector = compute_function_selector(&name, params.clone());
 
@@ -137,8 +142,11 @@ impl Command {
                     return Ok(());
                 }
 
-                let mut calldata: Vec<u8> = function_selector.as_bytes().to_vec();
+                let mut calldata: Vec<u8> = vec![];
                 let mut dynamic_calldata: Vec<u8> = vec![];
+                if !only_args {
+                    calldata.extend(function_selector.as_bytes().to_vec());
+                };
                 for (param, arg) in params.iter().zip(args.clone()) {
                     if param.as_str().ends_with("[]") {
                         let offset: &mut [u8] = &mut [0u8; 32];
