@@ -196,13 +196,32 @@ mod tests {
     #[test]
     fn hive_account_range_g() {
         // Here we request range where both bounds are before the first available account key.
-        // This should return the first account (even though it's out of bounds).`
+        // This should return the first account (even though it's out of bounds).
         let (store, root) = setup_initial_state();
         let request = GetAccountRange {
             id: 0,
             root_hash: root,
             starting_hash: *HASH_FIRST_MINUS_500,
             limit_hash: *HASH_FIRST_MINUS_450,
+            response_bytes: 4000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 1);
+        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+    }
+
+    #[test]
+    fn hive_account_range_h() {
+        // In this test, both startingHash and limitHash are zero.
+        // The server should return the first available account.
+        let (store, root) = setup_initial_state();
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: *HASH_MIN,
+            limit_hash: *HASH_MIN,
             response_bytes: 4000,
         };
         let res = process_account_range_request(request, store).unwrap();
