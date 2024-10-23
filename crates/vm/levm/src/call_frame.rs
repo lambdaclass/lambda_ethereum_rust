@@ -71,9 +71,9 @@ pub struct CallFrame {
     pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
-    /// Return data of the CURRENT CONTEXT
+    /// Return data of the CURRENT CONTEXT (see docs for more details)
     pub returndata: Bytes,
-    /// Return data of the SUB-CONTEXT
+    /// Return data of the SUB-CONTEXT (see docs for more details)
     pub sub_return_data: Bytes,
     /// where to store return data of sub-context in memory
     pub sub_return_data_offset: usize,
