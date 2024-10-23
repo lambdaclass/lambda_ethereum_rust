@@ -155,6 +155,8 @@ impl Db {
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
     pub warm_addresses: HashSet<Address>,
+    pub created_contract_addresses: HashSet<Address>,
+    pub self_destruct_set: HashSet<Address>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -368,6 +370,11 @@ impl VM {
                 Opcode::EXTCODESIZE => self.op_extcodesize(current_call_frame),
                 Opcode::EXTCODECOPY => self.op_extcodecopy(current_call_frame),
                 Opcode::EXTCODEHASH => self.op_extcodehash(current_call_frame),
+                // opcodes Revert, Invalid and Selfdestruct
+                Opcode::REVERT => self.op_revert(current_call_frame),
+                Opcode::INVALID => self.op_invalid(),
+                Opcode::SELFDESTRUCT => self.op_selfdestruct(current_call_frame),
+
                 _ => Err(VMError::OpcodeNotFound),
             };
 

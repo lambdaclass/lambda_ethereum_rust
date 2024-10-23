@@ -1,6 +1,6 @@
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason,
+    errors::ResultReason, vm::Account,
 };
 
 use super::*;
@@ -253,5 +253,111 @@ impl VM {
             Some(salt),
             current_call_frame,
         )
+    }
+
+    // REVERT operation
+    pub fn op_revert(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        // Description: Gets values from stack, calculates gas cost and sets return data.
+        // Returns: Revert as Result Reason. VMError otherwise. 
+        // Notes:
+        //      The reversion of changes is made in the generic_call(). 
+        //      Changes are not "reverted" if it is the first callframe, they are just not commited.
+
+        let offset = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        let size = current_call_frame
+            .stack
+            .pop()?
+            .try_into()
+            .map_err(|_| VMError::VeryLargeNumber)?;
+
+        let gas_cost = current_call_frame.memory.expansion_cost(offset + size)?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+        
+        current_call_frame.returndata = current_call_frame.memory.load_range(offset, size).into();
+
+        Err(VMError::RevertOpcode)
+    }
+
+    /// ### INVALID operation
+    /// Reverts consuming all gas, no return data.
+    pub fn op_invalid(
+        &mut self
+    ) -> Result<OpcodeSuccess, VMError> {
+        Err(VMError::InvalidOpcode)
+    }
+
+
+    // selfdestruct(address). Agarra todo el ether de un contrato y se lo da a un address.
+    // SELFDESTRUCT operation
+    pub fn op_selfdestruct(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+    ) -> Result<OpcodeSuccess, VMError> {
+        // Sends all ether in the account to the target address
+        // Steps:
+        // 1. Pop the target address from the stack
+        // 2. Get current account and: Store the balance in a variable, set it's balance to 0
+        // 3. Get the target account, checking if it is empty and if it is cold. Update gas cost accordingly.
+        // 4. Add the balance of the current account to the target account
+        // 5. Register account to be destroyed in accrued substate.
+
+        // Notes: 
+        //      If context is Static, return error.
+        //      If executed in the same transaction a contract was created, the current account is registered to be destroyed
+        if current_call_frame.is_static {
+            return Err(VMError::OpcodeNotAllowedInStaticContext);
+        }
+
+        // Gas costs variables
+        let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
+        let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_BASE;
+        let cold_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_COLD;
+        let mut gas_cost = static_gas_cost; // This will be updated later
+
+        
+        // 1. Pop the target address from the stack
+        let target_address = Address::from_low_u64_be(current_call_frame.stack.pop()?.low_u64());
+
+        // 2. Get current account and: Store the balance in a variable, set it's balance to 0
+        let current_account_balance = self.db.accounts.get(&current_call_frame.to).unwrap().balance;
+        self.db.accounts.get_mut(&current_call_frame.to).unwrap().balance = U256::zero();
+
+        
+        // 3. Get the target account, checking if it is empty and if it is cold. Update gas cost accordingly.
+
+        // If address is cold, there is an additional cost of 2600. AFAIK accessList has not been implemented yet.
+
+        // If a positive balance is sent to an empty account, the dynamic gas is 25000.
+        let target_account = match self.db.accounts.get_mut(&target_address) {
+            Some(acc) => acc,
+            None => {
+                // I'm considering that if address is not in the database, it means that it is an empty account.
+                gas_cost += dynamic_gas_cost;
+                self.db.accounts.insert(target_address, Account::default());
+                self.db.accounts.get_mut(&target_address).unwrap()
+            }
+        };
+        
+        // 4. Add the balance of the current account to the target account
+        target_account.balance += current_account_balance;
+        
+        // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
+        if self.accrued_substate.created_contract_addresses.contains(&current_call_frame.to) {
+           self.accrued_substate.self_destruct_set.insert(current_call_frame.to);
+        }
+        // Those accounts should be destroyed at the end of the transaction.
+        
+        self.increase_consumed_gas(current_call_frame, gas_cost)?;
+
+        Ok(OpcodeSuccess::Result(ResultReason::SelfDestruct))    
     }
 }

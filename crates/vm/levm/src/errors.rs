@@ -20,7 +20,7 @@ pub enum VMError {
     FatalError,
     InvalidTransaction,
     RevertOpcode,
-    InvaildOpcode,
+    InvalidOpcode,
     SenderAccountDoesNotExist,
     SenderAccountShouldNotHaveBytecode,
     SenderBalanceShouldContainTransferValue,
@@ -37,6 +37,7 @@ pub enum ResultReason {
     Stop,
     Revert,
     Return,
+    SelfDestruct,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
