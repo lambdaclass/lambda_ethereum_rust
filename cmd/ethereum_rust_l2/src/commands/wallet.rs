@@ -1,11 +1,8 @@
-use crate::{
-    config::EthereumRustL2Config,
-    utils::wallet::{call, deploy, send, Overrides},
-};
+use crate::config::EthereumRustL2Config;
 use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
-use ethereum_rust_l2::utils::eth_client::EthClient;
+use ethereum_rust_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
 use ethereum_types::{Address, H256, U256};
 use hex::FromHexError;
 
@@ -301,23 +298,23 @@ impl Command {
                     false => rollup_client,
                 };
 
-                let tx_hash = send(
-                    from,
-                    to,
-                    calldata,
-                    cfg.wallet.private_key,
-                    Overrides {
-                        value: value.into(),
-                        nonce,
-                        chain_id,
-                        gas_limit,
-                        gas_price,
-                        priority_gas_price,
-                        ..Default::default()
-                    },
-                    &client,
-                )
-                .await?;
+                let tx_hash = client
+                    .send(
+                        calldata,
+                        from,
+                        TxKind::Call(to),
+                        cfg.wallet.private_key,
+                        Overrides {
+                            value: value.into(),
+                            nonce,
+                            chain_id,
+                            gas_limit,
+                            gas_price,
+                            priority_gas_price,
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
 
                 println!(
                     "[{}] Transaction sent: {tx_hash:#x}",
@@ -338,19 +335,19 @@ impl Command {
                     false => rollup_client,
                 };
 
-                let result = call(
-                    to,
-                    calldata,
-                    Overrides {
-                        from,
-                        value: value.into(),
-                        gas_limit,
-                        gas_price,
-                        ..Default::default()
-                    },
-                    &client,
-                )
-                .await?;
+                let result = client
+                    .call(
+                        to,
+                        calldata,
+                        Overrides {
+                            from,
+                            value: value.into(),
+                            gas_limit,
+                            gas_price,
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
 
                 println!("{result}");
             }
@@ -369,22 +366,22 @@ impl Command {
                     false => rollup_client,
                 };
 
-                let (deployment_tx_hash, deployed_contract_address) = deploy(
-                    from,
-                    cfg.wallet.private_key,
-                    bytecode,
-                    Overrides {
-                        value: value.into(),
-                        nonce,
-                        chain_id,
-                        gas_limit,
-                        gas_price,
-                        priority_gas_price,
-                        ..Default::default()
-                    },
-                    client,
-                )
-                .await?;
+                let (deployment_tx_hash, deployed_contract_address) = client
+                    .deploy(
+                        from,
+                        cfg.wallet.private_key,
+                        bytecode,
+                        Overrides {
+                            value: value.into(),
+                            nonce,
+                            chain_id,
+                            gas_limit,
+                            gas_price,
+                            priority_gas_price,
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
 
                 println!("Contract deployed in tx: {deployment_tx_hash:#x}");
                 println!("Contract address: {deployed_contract_address:#x}");
