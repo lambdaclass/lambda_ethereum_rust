@@ -1,6 +1,7 @@
 use crate::utils::{
     config::{eth::EthConfig, proposer::ProposerConfig, read_env_file},
     eth_client::EthClient,
+    merkle_tree::merkelize,
 };
 use bytes::Bytes;
 use errors::ProposerError;
@@ -26,13 +27,11 @@ pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [28, 217, 139, 206];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
-const START_WITHDRAWAL_FUNCTION_SELECTOR: [u8; 4] = [193, 162, 125, 121];
 
 pub struct Proposer {
     eth_client: EthClient,
     engine_client: EngineClient,
     on_chain_proposer_address: Address,
-    common_bridge_address: Address,
     l1_address: Address,
     l1_private_key: SecretKey,
     block_production_interval: Duration,
@@ -81,7 +80,6 @@ impl Proposer {
             eth_client: EthClient::new(&eth_config.rpc_url),
             engine_client: EngineClient::new_from_config(engine_config)?,
             on_chain_proposer_address: proposer_config.on_chain_proposer_address,
-            common_bridge_address: proposer_config.common_bridge_address,
             l1_address: proposer_config.l1_address,
             l1_private_key: proposer_config.l1_private_key,
             block_production_interval: Duration::from_millis(proposer_config.interval_ms),
@@ -108,26 +106,28 @@ impl Proposer {
                     "Failed to get block by hash from storage".to_string(),
                 ))?;
 
-            let withdrawal_txs: Vec<&Transaction> = block
+            let withdrawal_txs: Vec<H256> = block
                 .body
                 .transactions
                 .iter()
-                .filter(|tx| match tx {
-                    Transaction::PrivilegedL2Transaction(tx) => {
-                        tx.tx_type == PrivilegedTxType::Withdrawal
+                .filter_map(|tx| match tx {
+                    Transaction::PrivilegedL2Transaction(priv_tx)
+                        if priv_tx.tx_type == PrivilegedTxType::Withdrawal =>
+                    {
+                        let to = match priv_tx.to {
+                            TxKind::Call(to) => to,
+                            _ => panic!("Withdrawal transaction should be a Call"),
+                        };
+                        let value = &mut [0u8; 32];
+                        priv_tx.value.to_big_endian(value);
+                        Some(keccak(
+                            vec![to.as_bytes(), value, tx.compute_hash().as_bytes()].concat(),
+                        ))
                     }
-                    _ => false,
+                    _ => None,
                 })
                 .collect();
-            if !withdrawal_txs.is_empty() {
-                match self.send_withdrawals(withdrawal_txs).await {
-                    Ok(tx_hash) => info!("Sent withdrawals with transaction hash {tx_hash:#x}"),
-                    Err(error) => {
-                        error!("Failed to send withdrawals. Manual intervention required: {error}");
-                        panic!("Failed to send withdrawals. Manual intervention required: {error}");
-                    }
-                };
-            }
+            let withdrawals_logs_merkle_root = merkelize(withdrawal_txs);
 
             let new_state_root_hash = store
                 .state_trie(block.header.compute_block_hash())
@@ -137,7 +137,11 @@ impl Proposer {
                 .unwrap();
 
             match self
-                .send_commitment(block.header.number, new_state_root_hash, H256::random())
+                .send_commitment(
+                    block.header.number,
+                    new_state_root_hash,
+                    withdrawals_logs_merkle_root,
+                )
                 .await
             {
                 Ok(commit_tx_hash) => {
@@ -307,42 +311,6 @@ impl Proposer {
         }
 
         Ok(verify_tx_hash)
-    }
-
-    async fn send_withdrawals(&self, txs: Vec<&Transaction>) -> Result<H256, ProposerError> {
-        let mut calldata = Vec::new();
-        calldata.extend(START_WITHDRAWAL_FUNCTION_SELECTOR);
-        calldata.extend(H256::from_low_u64_be(0x20).0);
-        calldata.extend(H256::from_low_u64_be(txs.len() as u64).0);
-        txs.iter().for_each(|tx| {
-            match tx.to() {
-                TxKind::Call(to) => calldata.extend(H256::from(to).0),
-                TxKind::Create => calldata.extend(H256::zero().0),
-            }
-
-            let mut buf = [0u8; 32];
-            tx.value().to_big_endian(&mut buf);
-            calldata.extend(buf);
-
-            calldata.extend(tx.compute_hash().0);
-        });
-
-        let withdrawals_tx_hash = self
-            .send_transaction_with_calldata(self.common_bridge_address, calldata.into())
-            .await?;
-
-        info!("Withdrawals sent to L1 in TX {withdrawals_tx_hash:#?}");
-
-        while self
-            .eth_client
-            .get_transaction_receipt(withdrawals_tx_hash)
-            .await?
-            .is_none()
-        {
-            sleep(Duration::from_secs(1)).await;
-        }
-
-        Ok(withdrawals_tx_hash)
     }
 
     async fn send_transaction_with_calldata(
