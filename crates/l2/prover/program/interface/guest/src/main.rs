@@ -31,7 +31,7 @@ fn main() {
     // Make DataInputs public.
     env::commit(&block);
     env::commit(&parent_header);
-    //env::commit(&executor_db);
+    //env::commit(&execution_db);
 
     // SetUp CacheDB in order to use execute_block()
     //let mut cache_db = CacheDB::new(execution_db);
@@ -76,7 +76,7 @@ fn execute_block(
 fn execute_tx(
     transaction: &Transaction,
     block_header: &ethereum_rust_core::types::BlockHeader,
-    db: &mut CacheDB<MemoryDB>,
+    db: &mut CacheDB<ExecutionDB>,
     spec_id: revm::primitives::SpecId,
 ) -> Result<ethereum_rust_vm::ExecutionResult, ethereum_rust_vm::EvmError> {
     let block_env = block_env(block_header);
@@ -90,7 +90,7 @@ fn execute_tx(
 fn run_evm(
     tx_env: revm::primitives::TxEnv,
     block_env: revm::primitives::BlockEnv,
-    db: &mut CacheDB<MemoryDB>,
+    db: &mut CacheDB<ExecutionDB>,
     spec_id: revm::primitives::SpecId,
 ) -> Result<ethereum_rust_vm::ExecutionResult, ethereum_rust_vm::EvmError> {
     // let chain_spec = db.get_chain_config()?;
