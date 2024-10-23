@@ -1,3 +1,12 @@
+# This file is based upon `assertoor-tests` stability check file:
+#   https://github.com/ethpandaops/assertoor-test/blob/master/assertoor-tests/stability-check.yaml
+#
+# We removed the consensus checks to keep it minimal. The checks removed were:
+#   - check_consensus_finality
+#   - check_consensus_finality
+#   - check_consensus_reorgs
+#   - check_consensus_forks
+
 id: el-stability-check
 name: "Check Execution Stability"
 timeout: 2h
