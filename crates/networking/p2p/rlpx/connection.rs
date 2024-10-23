@@ -1,5 +1,7 @@
 use crate::{
-    rlpx::{handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
+    rlpx::{
+        eth::StatusMessage, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey,
+    },
     MAX_DISC_PACKET_SIZE,
 };
 
@@ -14,6 +16,7 @@ use aes::cipher::KeyIvInit;
 use bytes::BufMut as _;
 use ethereum_rust_core::{H256, H512};
 use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_storage::Store;
 use k256::{
     ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey},
     PublicKey, SecretKey,
@@ -31,20 +34,22 @@ pub(crate) struct RLPxConnection<S> {
     signer: SigningKey,
     state: RLPxConnectionState,
     stream: S,
+    storage: Store,
     capabilities: Vec<(String, u8)>,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
-    fn new(signer: SigningKey, stream: S, state: RLPxConnectionState) -> Self {
+    fn new(signer: SigningKey, stream: S, state: RLPxConnectionState, storage: Store) -> Self {
         Self {
             signer,
             state,
             stream,
+            storage,
             capabilities: vec![],
         }
     }
 
-    pub fn receiver(signer: SigningKey, stream: S) -> Self {
+    pub fn receiver(signer: SigningKey, stream: S, storage: Store) -> Self {
         let mut rng = rand::thread_rng();
         Self::new(
             signer,
@@ -53,10 +58,11 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 H256::random_using(&mut rng),
                 SecretKey::random(&mut rng),
             )),
+            storage,
         )
     }
 
-    pub async fn initiator(signer: SigningKey, msg: &[u8], stream: S) -> Self {
+    pub async fn initiator(signer: SigningKey, msg: &[u8], stream: S, storage: Store) -> Self {
         let mut rng = rand::thread_rng();
         let digest = Keccak256::digest(&msg[65..]);
         let signature = &Signature::from_bytes(msg[..64].into()).unwrap();
@@ -67,7 +73,33 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             SecretKey::random(&mut rng),
             pubkey2id(&peer_pk.into()),
         ));
-        RLPxConnection::new(signer, stream, state)
+        RLPxConnection::new(signer, stream, state, storage)
+    }
+
+    pub async fn main_loop(&mut self) -> Result<(), RLPxError> {
+        match &self.state {
+            RLPxConnectionState::Established(_) => {
+                info!("Started peer main loop");
+                loop {
+                    match self.receive().await {
+                        Message::Disconnect(_) => info!("Received Disconnect"),
+                        Message::Ping(_) => info!("Received Ping"),
+                        Message::Pong(_) => info!("Received Pong"),
+                        Message::Status(_) => {
+                            info!("Received Status");
+                            let message =
+                                Message::Status(StatusMessage::new(&self.storage).unwrap());
+                            self.send(message).await;
+                            info!("Sent Status");
+                        }
+                        message => return Err(RLPxError::UnexpectedMessage(message)),
+                    };
+                }
+            }
+            _ => Err(RLPxError::InvalidState(
+                "Invalid connection state".to_string(),
+            )),
+        }
     }
 
     pub async fn handshake(&mut self) -> Result<(), RLPxError> {
@@ -90,6 +122,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
         self.exchange_hello_messages().await?;
         info!("Completed Hello roundtrip!");
+        // let message = Message::Status(StatusMessage::new(&self.storage).unwrap());
+        // self.send(message);
         Ok(())
     }
 

@@ -714,7 +714,7 @@ async fn pong(socket: &UdpSocket, to_addr: SocketAddr, ping_hash: H256, signer: 
 
 // TODO: remove this function. It's used for a hardcoded test
 // https://github.com/lambdaclass/lambda_ethereum_rust/issues/837
-async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
+async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
     let mut udp_addr = tcp_addr;
     udp_addr.set_port(tcp_addr.port() + 1);
     let udp_socket = UdpSocket::bind(udp_addr).await.unwrap();
@@ -754,48 +754,49 @@ async fn start_hardcoded_connection(tcp_addr: SocketAddr, signer: SigningKey, _s
         tcp_port: 30307u16, //endpoint.tcp_port,
         node_id,
     };
-    handle_peer_as_initiator(signer, msg, &node).await;
+    handle_peer_as_initiator(signer, msg, &node, storage).await;
 }
 
 // TODO build a proper listen loop that receives requests from both
 // peers and business layer and propagate storage to use when required
 // https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
-async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, _storage: Store) {
+async fn serve_requests(tcp_addr: SocketAddr, signer: SigningKey, storage: Store) {
     let tcp_socket = TcpSocket::new_v4().unwrap();
     tcp_socket.bind(tcp_addr).unwrap();
     let listener = tcp_socket.listen(50).unwrap();
     loop {
         let (stream, _peer_addr) = listener.accept().await.unwrap();
 
-        tokio::spawn(handle_peer_as_receiver(signer.clone(), stream));
+        tokio::spawn(handle_peer_as_receiver(
+            signer.clone(),
+            stream,
+            storage.clone(),
+        ));
     }
 }
 
-async fn handle_peer_as_receiver(signer: SigningKey, stream: TcpStream) {
-    let conn = RLPxConnection::receiver(signer, stream);
+async fn handle_peer_as_receiver(signer: SigningKey, stream: TcpStream, storage: Store) {
+    let conn = RLPxConnection::receiver(signer, stream, storage);
     handle_peer(conn).await;
 }
 
-async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node) {
+async fn handle_peer_as_initiator(signer: SigningKey, msg: &[u8], node: &Node, storage: Store) {
     info!("Trying RLPx connection with {node:?}");
     let stream = TcpSocket::new_v4()
         .unwrap()
         .connect(SocketAddr::new(node.ip, node.tcp_port))
         .await
         .unwrap();
-    let conn = RLPxConnection::initiator(signer, msg, stream).await;
+    let conn = RLPxConnection::initiator(signer, msg, stream, storage).await;
     handle_peer(conn).await;
 }
 
 async fn handle_peer(mut conn: RLPxConnection<TcpStream>) {
     match conn.handshake().await {
-        Ok(_) => {
-            // TODO Properly build listen loop
-            // https://github.com/lambdaclass/lambda_ethereum_rust/issues/840
-            // loop {
-            //     conn.await_messages();
-            // }
-        }
+        Ok(_) => match conn.main_loop().await {
+            Ok(_) => unreachable!(),
+            Err(e) => info!("Error during RLPx connection: ({e})"),
+        },
         Err(e) => {
             // TODO propagate error to eventually discard peer from kademlia table
             info!("Handshake failed, discarding peer: ({e})");
