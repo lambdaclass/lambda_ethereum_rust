@@ -271,11 +271,6 @@ impl VM {
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
-        // let mut current_call_frame = self
-        //     .call_frames
-        //     .pop()
-        //     .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
-
         // Backup of Database, Substate and Gas Refunds if sub-context is reverted
         let (backup_db, backup_substate, backup_refunded_gas) = (
             self.db.clone(),
