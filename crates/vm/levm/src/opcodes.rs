@@ -321,6 +321,9 @@ impl From<u8> for Opcode {
             0xF5 => Opcode::CREATE2,
             0xF4 => Opcode::DELEGATECALL,
             0xFA => Opcode::STATICCALL,
+            0xFD => Opcode::REVERT,
+            0xFE => Opcode::INVALID,
+            0xFF => Opcode::SELFDESTRUCT,
             _ => panic!("Unknown opcode: 0x{:02X}", byte),
         }
     }

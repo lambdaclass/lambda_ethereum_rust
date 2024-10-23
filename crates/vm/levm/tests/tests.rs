@@ -4332,3 +4332,18 @@ fn extcodehash_non_existing_account() {
     );
     assert_eq!(vm.env.consumed_gas, 23603.into());
 }
+
+#[test]
+fn invalid_opcode() {
+    let operations = [Operation::Invalid, Operation::Stop];
+
+    let mut vm = new_vm_with_ops(&operations);
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::InvalidOpcode)
+    ));
+}
