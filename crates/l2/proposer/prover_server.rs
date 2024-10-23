@@ -2,7 +2,6 @@ use crate::utils::eth_client::RpcResponse;
 use ethereum_rust_storage::Store;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::SP1ProofWithPublicValues;
 use std::{
     io::{BufReader, BufWriter},
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
@@ -55,7 +54,8 @@ pub enum ProofData {
     },
     Submit {
         block_number: u64,
-        proof: Box<SP1ProofWithPublicValues>,
+        // zk Proof
+        receipt: Box<risc0_zkvm::Receipt>,
     },
     SubmitAck {
         block_number: u64,
@@ -118,9 +118,9 @@ impl ProverServer {
             }
             Ok(ProofData::Submit {
                 block_number,
-                proof,
+                receipt,
             }) => {
-                if let Err(e) = self.handle_submit(&mut stream, block_number, proof) {
+                if let Err(e) = self.handle_submit(&mut stream, block_number, receipt) {
                     warn!("Failed to handle submit: {e}");
                 }
                 *last_proved_block += 1;
@@ -203,12 +203,9 @@ impl ProverServer {
         &self,
         stream: &mut TcpStream,
         block_number: u64,
-        proof: Box<SP1ProofWithPublicValues>,
+        receipt: Box<risc0_zkvm::Receipt>,
     ) -> Result<(), String> {
-        debug!(
-            "Submit received. ID: {block_number}, proof: {:?}",
-            proof.proof
-        );
+        debug!("Submit received. ID: {block_number}, proof: {:?}", receipt);
 
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);

@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use sp1_sdk::SP1ProofWithPublicValues;
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
@@ -17,7 +16,7 @@ use super::prover::Prover;
 
 pub async fn start_proof_data_client(config: ProverClientConfig) {
     let proof_data_client = ProverClient::new(config.prover_server_endpoint.clone());
-    proof_data_client.start(config).await;
+    proof_data_client.start().await;
 }
 
 struct ProverClient {
@@ -31,8 +30,8 @@ impl ProverClient {
         }
     }
 
-    pub async fn start(&self, config: ProverClientConfig) {
-        let mut prover = Prover::new_from_config(config);
+    pub async fn start(&self) {
+        let mut prover = Prover::new();
 
         loop {
             match self.request_new_data() {
@@ -48,14 +47,17 @@ impl ProverClient {
                     };
                 }
                 Ok((None, _)) => sleep(Duration::from_secs(10)).await,
-                Err(e) => warn!("Failed to request new data: {e}"),
+                Err(e) => {
+                    sleep(Duration::from_secs(10)).await;
+                    warn!("Failed to request new data: {e}");
+                }
             }
         }
     }
 
     fn request_new_data(&self) -> Result<(Option<u64>, ProverInputData), String> {
         let stream = TcpStream::connect(&self.prover_server_endpoint)
-            .map_err(|e| format!("Failed to connect to ProverClient: {e}"))?;
+            .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         debug!("Connection established!");
@@ -79,18 +81,14 @@ impl ProverClient {
         }
     }
 
-    fn submit_proof(
-        &self,
-        block_number: u64,
-        proof: SP1ProofWithPublicValues,
-    ) -> Result<(), String> {
+    fn submit_proof(&self, block_number: u64, receipt: risc0_zkvm::Receipt) -> Result<(), String> {
         let stream = TcpStream::connect(&self.prover_server_endpoint)
             .map_err(|e| format!("Failed to connect to Prover Server: {e}"))?;
         let buf_writer = BufWriter::new(&stream);
 
         let submit = ProofData::Submit {
             block_number,
-            proof: Box::new(proof),
+            receipt: Box::new(receipt),
         };
         serde_json::ser::to_writer(buf_writer, &submit).map_err(|e| e.to_string())?;
         stream
