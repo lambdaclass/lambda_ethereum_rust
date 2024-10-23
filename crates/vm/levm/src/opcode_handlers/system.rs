@@ -318,8 +318,8 @@ impl VM {
 
         // Gas costs variables
         let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
-        let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_BASE;
-        let cold_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC_COLD;
+        let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC;
+        let cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
         let mut gas_cost = static_gas_cost; // This will be updated later
 
         
