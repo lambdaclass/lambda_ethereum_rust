@@ -1,7 +1,7 @@
 use ethereum_rust_levm::{
     constants::*,
     errors::{TxResult, VMError},
-    operations::{self, Operation},
+    operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
     vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
