@@ -28,6 +28,10 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
 
     function initialize(address bridge) public nonReentrant {
         require(
+            BRIDGE == address(0),
+            "OnChainProposer: contract already initialized"
+        );
+        require(
             bridge != address(0),
             "OnChainProposer: bridge is the zero address"
         );

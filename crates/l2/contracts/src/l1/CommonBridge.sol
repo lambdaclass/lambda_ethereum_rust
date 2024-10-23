@@ -37,6 +37,10 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
 
     function initialize(address onChainProposer) public nonReentrant {
         require(
+            ON_CHAIN_PROPOSER == address(0),
+            "CommonBridge: contract already initialized"
+        );
+        require(
             onChainProposer != address(0),
             "CommonBridge: onChainProposer is the zero address"
         );
