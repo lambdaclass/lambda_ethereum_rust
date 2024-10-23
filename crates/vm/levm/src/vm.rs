@@ -243,6 +243,7 @@ impl VM {
             calldata.clone(),
             false,
             gas_limit,
+            TX_BASE_COST,
             0,
         );
 
@@ -464,15 +465,15 @@ impl VM {
         Ok(())
     }
 
-    pub fn transact(&mut self) -> TransactionReport {
-        self.validate_transaction().unwrap();
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
+        self.validate_transaction()?;
 
         let initial_gas = Default::default();
 
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        self.execute(&mut current_call_frame)
+        Ok(self.execute(&mut current_call_frame))
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -536,6 +537,7 @@ impl VM {
             calldata,
             is_static,
             gas_limit,
+            U256::zero(),
             current_call_frame.depth + 1,
         );
 
