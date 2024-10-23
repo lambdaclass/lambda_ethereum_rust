@@ -1,12 +1,67 @@
-use bytes::BufMut;
-use ethereum_rust_core::{types::AccountState, H256};
+use bytes::{BufMut, Bytes};
+use ethereum_rust_core::{
+    types::{AccountState, EMPTY_KECCACK_HASH, EMPTY_TRIE_HASH},
+    H256, U256,
+};
 use ethereum_rust_rlp::{
+    decode::RLPDecode,
+    encode::RLPEncode,
     error::{RLPDecodeError, RLPEncodeError},
     structs::{Decoder, Encoder},
 };
 use snap::raw::Decoder as SnappyDecoder;
 
 use super::{message::RLPxMessage, utils::snappy_encode};
+
+#[derive(Debug)]
+pub struct AccountStateSlim {
+    pub nonce: u64,
+    pub balance: U256,
+    pub storage_root: Bytes,
+    pub code_hash: Bytes,
+}
+
+impl From<AccountState> for AccountStateSlim {
+    fn from(value: AccountState) -> Self {
+        let storage_root = if value.storage_root == *EMPTY_TRIE_HASH {
+            Bytes::new()
+        } else {
+            Bytes::copy_from_slice(value.storage_root.as_bytes())
+        };
+        let code_hash = if value.code_hash == *EMPTY_KECCACK_HASH {
+            Bytes::new()
+        } else {
+            Bytes::copy_from_slice(value.code_hash.as_bytes())
+        };
+        Self {
+            nonce: value.nonce,
+            balance: value.balance,
+            storage_root,
+            code_hash,
+        }
+    }
+}
+
+impl From<AccountStateSlim> for AccountState {
+    fn from(value: AccountStateSlim) -> Self {
+        let storage_root = if value.storage_root.is_empty() {
+            *EMPTY_TRIE_HASH
+        } else {
+            H256::from_slice(value.storage_root.as_ref())
+        };
+        let code_hash = if value.code_hash.is_empty() {
+            *EMPTY_KECCACK_HASH
+        } else {
+            H256::from_slice(value.code_hash.as_ref())
+        };
+        Self {
+            nonce: value.nonce,
+            balance: value.balance,
+            storage_root,
+            code_hash,
+        }
+    }
+}
 
 // https://github.com/ethereum/devp2p/blob/master/caps/snap.md#getaccountrange-0x00
 #[derive(Debug)]
@@ -82,7 +137,7 @@ pub(crate) struct AccountRange {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     pub id: u64,
-    pub accounts: Vec<(H256, AccountState)>,
+    pub accounts: Vec<(H256, AccountStateSlim)>,
     pub proof: Vec<Vec<u8>>,
 }
 
@@ -91,7 +146,7 @@ impl RLPxMessage for AccountRange {
         let mut encoded_data = vec![];
         Encoder::new(&mut encoded_data)
             .encode_field(&self.id)
-            .encode_slim_field(&self.accounts)
+            .encode_field(&self.accounts)
             .encode_field(&self.proof)
             .finish();
 
@@ -106,9 +161,8 @@ impl RLPxMessage for AccountRange {
             .decompress_vec(msg_data)
             .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
-        let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
-        let (accounts, decoder): (Vec<(H256, AccountState)>, _) =
-            decoder.decode_field("accounts")?;
+        let (id, decoder) = decoder.decode_field("request-id")?;
+        let (accounts, decoder) = decoder.decode_field("accounts")?;
         let (proof, decoder) = decoder.decode_field("proof")?;
         decoder.finish()?;
 
@@ -117,5 +171,34 @@ impl RLPxMessage for AccountRange {
             accounts,
             proof,
         })
+    }
+}
+impl RLPEncode for AccountStateSlim {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.nonce)
+            .encode_field(&self.balance)
+            .encode_field(&self.storage_root)
+            .encode_field(&self.code_hash)
+            .finish();
+    }
+}
+
+impl RLPDecode for AccountStateSlim {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (nonce, decoder) = decoder.decode_field("nonce")?;
+        let (balance, decoder) = decoder.decode_field("balance")?;
+        let (storage_root, decoder) = decoder.decode_field("storage_root")?;
+        let (code_hash, decoder) = decoder.decode_field("code_hash")?;
+        Ok((
+            Self {
+                nonce,
+                balance,
+                storage_root,
+                code_hash,
+            },
+            decoder.finish()?,
+        ))
     }
 }

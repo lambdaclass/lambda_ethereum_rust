@@ -6,9 +6,9 @@ use ethereum_types::{H256, U256};
 use sha3::{Digest as _, Keccak256};
 
 use ethereum_rust_rlp::{
-    constants::{RLP_EMPTY_LIST, RLP_NULL},
+    constants::RLP_NULL,
     decode::RLPDecode,
-    encode::{RLPEncode, RLPEncodeSlim},
+    encode::RLPEncode,
     error::RLPDecodeError,
     structs::{Decoder, Encoder},
 };
@@ -100,17 +100,6 @@ impl RLPEncode for AccountInfo {
     }
 }
 
-impl RLPEncodeSlim for AccountInfo {
-    fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        // TODO: check if it's okay to use RLP_EMPTY_LIST
-        Encoder::new(buf)
-            .encode_field(&RLP_EMPTY_LIST)
-            .encode_field(&self.balance)
-            .encode_field(&self.nonce)
-            .finish();
-    }
-}
-
 impl RLPDecode for AccountInfo {
     fn decode_unfinished(rlp: &[u8]) -> Result<(AccountInfo, &[u8]), RLPDecodeError> {
         let decoder = Decoder::new(rlp)?;
@@ -133,27 +122,6 @@ impl RLPEncode for AccountState {
             .encode_field(&self.balance)
             .encode_field(&self.storage_root)
             .encode_field(&self.code_hash)
-            .finish();
-    }
-}
-
-impl RLPEncodeSlim for AccountState {
-    fn encode(&self, buf: &mut dyn bytes::BufMut) {
-        let root = if self.storage_root == *EMPTY_TRIE_HASH {
-            Bytes::new()
-        } else {
-            Bytes::copy_from_slice(self.storage_root.as_bytes())
-        };
-        let code_hash = if self.code_hash == *EMPTY_KECCACK_HASH {
-            Bytes::new()
-        } else {
-            Bytes::copy_from_slice(self.code_hash.as_bytes())
-        };
-        Encoder::new(buf)
-            .encode_field(&self.nonce)
-            .encode_field(&self.balance)
-            .encode_field(&root)
-            .encode_field(&code_hash)
             .finish();
     }
 }

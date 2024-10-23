@@ -18,7 +18,7 @@ pub fn process_account_range_request(
             start_found = true;
         }
         if start_found {
-            accounts.push((k, v))
+            accounts.push((k, v.into()))
         }
     }
     let proof = store.get_account_range_proof(request.root_hash, request.starting_hash)?;
