@@ -20,6 +20,7 @@ pub enum VMError {
     FatalError,
     InvalidTransaction,
     RevertOpcode,
+    InvaildOpcode,
 }
 
 pub enum OpcodeSuccess {
