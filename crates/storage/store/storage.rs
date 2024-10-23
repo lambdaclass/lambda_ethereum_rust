@@ -708,6 +708,11 @@ impl Store {
     pub fn get_payload(&self, payload_id: u64) -> Result<Option<Block>, StoreError> {
         self.engine.get_payload(payload_id)
     }
+
+    /// Creates a new state trie with an empty state root, for testing purposes only
+    pub fn new_state_trie_for_test(&self) -> Trie {
+        self.engine.open_state_trie(*EMPTY_TRIE_HASH)
+    }
 }
 
 fn hash_address(address: &Address) -> Vec<u8> {
