@@ -1,5 +1,6 @@
 use crate::utils::eth_client::RpcResponse;
 use ethereum_rust_storage::Store;
+use ethereum_rust_vm::execution_db::ExecutionDB;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -7,21 +8,20 @@ use std::{
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver},
 };
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::{
+    join,
+    signal::unix::{signal, SignalKind},
+};
 use tracing::{debug, info, warn};
 
 use ethereum_rust_core::types::{Block, BlockHeader};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
-    pub db: MemoryDB,
+    pub db: ExecutionDB,
     pub parent_block_header: BlockHeader,
     pub block: Block,
 }
-
-// Placeholder structure until we have ExecutionDB on L1
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct MemoryDB;
 
 use crate::utils::config::prover_server::ProverServerConfig;
 
@@ -177,7 +177,6 @@ impl ProverServer {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        //let last_block_number = Self::get_last_block_number().await?;
         let last_block_number = self
             .store
             .get_latest_block_number()
