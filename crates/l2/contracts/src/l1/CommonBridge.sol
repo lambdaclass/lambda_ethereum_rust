@@ -8,7 +8,7 @@ import "./interfaces/ICommonBridge.sol";
 /// @title CommonBridge contract.
 /// @author LambdaClass
 contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
-    /// @notice Mapping of unclaimed withdrawals. A withdrawal is unclaimed if
+    /// @notice Mapping of unclaimed withdrawals. A withdrawal is claimed if
     /// there is a non-zero value in the mapping (a merkle root) for the hash
     /// of the L2 transaction that requested the withdrawal.
     /// @dev The key is the hash of the L2 transaction that requested the
@@ -23,7 +23,7 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     /// that the logs were published on L1, and that that block was committed.
     mapping(uint256 => bytes32) public blockWithdrawalsLogs;
 
-    address public immutable ON_CHAIN_PROPOSER;
+    address public ON_CHAIN_PROPOSER;
 
     modifier onlyOnChainProposer() {
         require(
@@ -33,7 +33,21 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address owner, address onChainProposer) Ownable(owner) {
+    constructor(address owner) Ownable(owner) {}
+
+    function initialize(address onChainProposer) public nonReentrant {
+        require(
+            ON_CHAIN_PROPOSER == address(0),
+            "CommonBridge: contract already initialized"
+        );
+        require(
+            onChainProposer != address(0),
+            "CommonBridge: onChainProposer is the zero address"
+        );
+        require(
+            onChainProposer != address(this),
+            "CommonBridge: onChainProposer is the contract address"
+        );
         ON_CHAIN_PROPOSER = onChainProposer;
     }
 

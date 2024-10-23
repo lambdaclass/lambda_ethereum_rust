@@ -260,13 +260,6 @@ impl Proposer {
         calldata.extend(new_l2_state_root.0);
         calldata.extend(withdrawal_logs_merkle_root.0);
 
-        println!("BLOCK NUMBER: {:?}", hex::encode(block_number_bytes));
-        println!("NEW L2 STATE ROOT: {:?}", hex::encode(new_l2_state_root));
-        println!(
-            "WITHDRAWAL LOGS MERKLE ROOT: {:?}",
-            hex::encode(withdrawal_logs_merkle_root)
-        );
-
         let commit_tx_hash = self
             .send_transaction_with_calldata(self.on_chain_proposer_address, calldata.into())
             .await?;

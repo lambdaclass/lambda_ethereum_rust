@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.27;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IOnChainProposer.sol";
 import {CommonBridge} from "./CommonBridge.sol";
 import {ICommonBridge} from "./interfaces/ICommonBridge.sol";
 
 /// @title OnChainProposer contract.
 /// @author LambdaClass
-contract OnChainProposer is IOnChainProposer {
+contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     /// @notice The commitments of the committed blocks.
     /// @dev If a block is committed, the commitment is stored here.
     /// @dev If a block was not committed yet, it won't be here.
@@ -20,9 +22,23 @@ contract OnChainProposer is IOnChainProposer {
     /// @dev It is used by other contracts to verify if a block was verified.
     mapping(uint256 => bool) public verifiedBlocks;
 
-    address public immutable BRIDGE;
+    address public BRIDGE;
 
-    constructor(address bridge) {
+    constructor() {}
+
+    function initialize(address bridge) public nonReentrant {
+        require(
+            BRIDGE == address(0),
+            "OnChainProposer: contract already initialized"
+        );
+        require(
+            bridge != address(0),
+            "OnChainProposer: bridge is the zero address"
+        );
+        require(
+            bridge != address(this),
+            "OnChainProposer: bridge is the contract address"
+        );
         BRIDGE = bridge;
     }
 
