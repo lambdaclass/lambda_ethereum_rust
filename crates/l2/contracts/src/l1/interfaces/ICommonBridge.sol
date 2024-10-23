@@ -50,6 +50,10 @@ interface ICommonBridge {
     /// @notice Error for when the deposit amount is 0.
     error AmountToDepositIsZero();
 
+    /// @notice Initializes the contract.
+    /// @dev This method is called only once after the contract is deployed.
+    /// @dev It sets the OnChainProposer address.
+    /// @param onChainProposer the address of the OnChainProposer contract.
     function initialize(address onChainProposer) external;
 
     /// @notice Method that starts an L2 ETH deposit process.

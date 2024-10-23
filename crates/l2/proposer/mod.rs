@@ -12,7 +12,7 @@ use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineCli
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::types::fork_choice::{ForkChoiceState, PayloadAttributesV3};
 use ethereum_rust_storage::Store;
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
 use libsecp256k1::SecretKey;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -24,7 +24,7 @@ pub mod prover_server;
 
 pub mod errors;
 
-const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [241, 79, 203, 200];
+const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [28, 217, 139, 206];
 const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
 const START_WITHDRAWAL_FUNCTION_SELECTOR: [u8; 4] = [193, 162, 125, 121];
 
@@ -129,9 +129,17 @@ impl Proposer {
                 };
             }
 
-            let commitment = keccak(block.encode_to_vec());
+            let new_state_root_hash = store
+                .state_trie(block.header.compute_block_hash())
+                .unwrap()
+                .unwrap()
+                .hash()
+                .unwrap();
 
-            match self.send_commitment(commitment).await {
+            match self
+                .send_commitment(block.header.number, new_state_root_hash, H256::random())
+                .await
+            {
                 Ok(commit_tx_hash) => {
                     info!(
                     "Sent commitment to block {head_block_hash:#x}, with transaction hash {commit_tx_hash:#x}"
@@ -233,11 +241,20 @@ impl Proposer {
         keccak(block.encode_to_vec())
     }
 
-    pub async fn send_commitment(&self, commitment: H256) -> Result<H256, ProposerError> {
+    pub async fn send_commitment(
+        &self,
+        block_number: u64,
+        new_l2_state_root: H256,
+        withdrawal_logs_merkle_root: H256,
+    ) -> Result<H256, ProposerError> {
         info!("Sending commitment");
         let mut calldata = Vec::with_capacity(68);
         calldata.extend(COMMIT_FUNCTION_SELECTOR);
-        calldata.extend(commitment.0);
+        let mut block_number_bytes = [0_u8; 32];
+        U256::from(block_number).to_big_endian(&mut block_number_bytes);
+        calldata.extend(block_number_bytes);
+        calldata.extend(new_l2_state_root.0);
+        calldata.extend(withdrawal_logs_merkle_root.0);
 
         let commit_tx_hash = self
             .send_transaction_with_calldata(self.on_chain_proposer_address, calldata.into())

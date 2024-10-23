@@ -14,6 +14,10 @@ interface IOnChainProposer {
     /// @dev Event emitted when a block is verified.
     event BlockVerified(bytes32 indexed blockHash);
 
+    /// @notice Initializes the contract.
+    /// @dev This method is called only once after the contract is deployed.
+    /// @dev It sets the bridge address.
+    /// @param bridge the address of the bridge contract.
     function initialize(address bridge) external;
 
     /// @notice Commits to an L2 block.
