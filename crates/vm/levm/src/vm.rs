@@ -155,7 +155,7 @@ impl Db {
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
     pub warm_addresses: HashSet<Address>,
-    pub created_contract_addresses: HashSet<Address>,
+    pub created_contract_addresses: HashSet<Address>, // Maybe not necessary
     pub self_destruct_set: HashSet<Address>,
 }
 

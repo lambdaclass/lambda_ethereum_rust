@@ -355,6 +355,7 @@ impl VM {
         target_account.balance += current_account_balance;
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
+        // This is temporary because it is not necessarily right but we should just check if the current account was created in this transaction. 
         if self
             .accrued_substate
             .created_contract_addresses
