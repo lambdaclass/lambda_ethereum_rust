@@ -161,11 +161,11 @@ impl VM {
             Some(vec) => match vec.get(index) {
                 Some(el) => *el,
                 None => {
-                    return Err(VMError::TransactionDoesNotHaveABlobHashVector);
+                    return Err(VMError::BlobHashIndexOutOfBounds);
                 }
             },
             None => {
-                return Err(VMError::NotEnoughBlobHashes);
+                return Err(VMError::MissingBlobHashes);
             }
         };
 

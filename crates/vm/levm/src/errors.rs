@@ -12,8 +12,8 @@ pub enum VMError {
     OverflowInArithmeticOp,
     FatalError,
     InvalidTransaction,
-    TransactionDoesNotHaveABlobHashVector,
-    NotEnoughBlobHashes,
+    MissingBlobHashes,
+    BlobHashIndexOutOfBounds,
 }
 
 pub enum OpcodeSuccess {
