@@ -2199,8 +2199,132 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 86);
-        assert_eq!(res.accounts.first().unwrap().0, H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6").unwrap());
-        assert_eq!(res.accounts.last().unwrap().0, H256::from_str("0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099").unwrap());
+        assert_eq!(
+            res.accounts.first().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099")
+                .unwrap()
+        );
         // Check proofs against geth values
+    }
+
+    #[test]
+    fn hive_account_range_b() {
+        let (store, root) = setup_initial_state();
+        // First request in test list: https://github.com/ethereum/go-ethereum/blob/3e567b8b2901611f004b5a6070a9b6d286be128d/cmd/devp2p/internal/ethtest/snap.go#L84
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: H256::zero(),
+            limit_hash: H256::from_str(
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            )
+            .unwrap(),
+            response_bytes: 3000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 65);
+        assert_eq!(
+            res.accounts.first().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x2e6fe1362b3e388184fd7bf08e99e74170b26361624ffd1c5f646da7067b58b6")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn hive_account_range_c() {
+        let (store, root) = setup_initial_state();
+        // First request in test list: https://github.com/ethereum/go-ethereum/blob/3e567b8b2901611f004b5a6070a9b6d286be128d/cmd/devp2p/internal/ethtest/snap.go#L84
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: H256::zero(),
+            limit_hash: H256::from_str(
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            )
+            .unwrap(),
+            response_bytes: 2000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 44);
+        assert_eq!(
+            res.accounts.first().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x1c3f74249a4892081ba0634a819aec9ed25f34c7653f5719b9098487e65ab595")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn hive_account_range_d() {
+        let (store, root) = setup_initial_state();
+        // First request in test list: https://github.com/ethereum/go-ethereum/blob/3e567b8b2901611f004b5a6070a9b6d286be128d/cmd/devp2p/internal/ethtest/snap.go#L84
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: H256::zero(),
+            limit_hash: H256::from_str(
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            )
+            .unwrap(),
+            response_bytes: 1,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 1);
+        assert_eq!(
+            res.accounts.first().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn hive_account_range_e() {
+        let (store, root) = setup_initial_state();
+        // First request in test list: https://github.com/ethereum/go-ethereum/blob/3e567b8b2901611f004b5a6070a9b6d286be128d/cmd/devp2p/internal/ethtest/snap.go#L84
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: H256::zero(),
+            limit_hash: H256::from_str(
+                "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            )
+            .unwrap(),
+            response_bytes: 0,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 1);
+        assert_eq!(
+            res.accounts.first().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6")
+                .unwrap()
+        );
     }
 }
