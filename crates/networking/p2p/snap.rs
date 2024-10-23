@@ -28,7 +28,11 @@ pub fn process_account_range_request(
             break;
         }
     }
-    let proof = store.get_account_range_proof(request.root_hash, request.starting_hash)?;
+    let proof = store.get_account_range_proof(
+        request.root_hash,
+        request.starting_hash,
+        request.limit_hash,
+    )?;
 
     Ok(AccountRange {
         id: request.id,

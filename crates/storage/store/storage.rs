@@ -696,9 +696,12 @@ impl Store {
         &self,
         state_root: H256,
         starting_hash: H256,
+        limit_hash: H256,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let state_trie = self.engine.open_state_trie(state_root);
-        Ok(state_trie.get_proof(&starting_hash.encode_to_vec())?)
+        let mut proof = state_trie.get_proof(&starting_hash.encode_to_vec())?;
+        proof.extend_from_slice(&state_trie.get_proof(&limit_hash.encode_to_vec())?);
+        Ok(proof)
     }
 
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
