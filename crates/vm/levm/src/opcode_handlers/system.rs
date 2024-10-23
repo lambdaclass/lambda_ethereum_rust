@@ -144,7 +144,7 @@ impl VM {
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
         let return_data = current_call_frame.memory.load_range(offset, size).into();
-        current_call_frame.returndata = return_data;
+        current_call_frame.return_data = return_data;
         current_call_frame
             .stack
             .push(U256::from(SUCCESS_FOR_RETURN))?;

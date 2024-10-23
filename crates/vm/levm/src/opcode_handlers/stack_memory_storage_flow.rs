@@ -184,7 +184,7 @@ impl VM {
     pub fn op_gas(&mut self, current_call_frame: &mut CallFrame) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GAS)?;
 
-        let remaining_gas = self.env.gas_limit - self.env.consumed_gas - gas_cost::GAS;
+        let remaining_gas = self.env.tx_gas_limit - self.env.consumed_gas - gas_cost::GAS;
         current_call_frame.stack.push(remaining_gas)?;
 
         Ok(OpcodeSuccess::Continue)

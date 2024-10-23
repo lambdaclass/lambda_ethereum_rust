@@ -1,3 +1,5 @@
+use keccak_hash::H256;
+
 // Logging Operations (5)
 // Opcodes: LOG0 ... LOG4
 use super::*;
@@ -26,8 +28,10 @@ impl VM {
             .unwrap_or(usize::MAX);
         let mut topics = Vec::new();
         for _ in 0..number_of_topics {
-            let topic = current_call_frame.stack.pop()?.as_u32();
-            topics.push(H32::from_slice(topic.to_be_bytes().as_ref()));
+            let topic = current_call_frame.stack.pop()?;
+            let mut bytes = [0u8; 32];
+            topic.to_big_endian(&mut bytes);
+            topics.push(H256::from(bytes));
         }
 
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(offset + size)?;

@@ -49,7 +49,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::ORIGIN)?;
 
-        let origin = self.env.origin;
+        let origin = self.env.tx_origin;
         current_call_frame
             .stack
             .push(U256::from(origin.as_bytes()))?;
@@ -166,7 +166,7 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.gas_limit {
+        if self.env.consumed_gas + gas_cost::CODESIZE > self.env.tx_gas_limit {
             return Err(VMError::OutOfGas);
         }
 
@@ -226,7 +226,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GASPRICE)?;
 
-        current_call_frame.stack.push(self.env.gas_price)?;
+        current_call_frame.stack.push(self.env.tx_gas_price)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -310,7 +310,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(U256::from(current_call_frame.returndata.len()))?;
+            .push(U256::from(current_call_frame.return_data.len()))?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -325,7 +325,7 @@ impl VM {
             .pop()?
             .try_into()
             .unwrap_or(usize::MAX);
-        let returndata_offset: usize = current_call_frame
+        let return_data_offset: usize = current_call_frame
             .stack
             .pop()?
             .try_into()
@@ -351,8 +351,8 @@ impl VM {
         }
 
         let data = current_call_frame
-            .returndata
-            .slice(returndata_offset..returndata_offset + size);
+            .return_data
+            .slice(return_data_offset..return_data_offset + size);
         current_call_frame.memory.store_bytes(dest_offset, &data);
 
         Ok(OpcodeSuccess::Continue)

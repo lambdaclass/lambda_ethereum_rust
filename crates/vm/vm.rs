@@ -1,6 +1,7 @@
 mod db;
 mod errors;
 mod execution_result;
+pub mod levm;
 #[cfg(feature = "l2")]
 mod mods;
 

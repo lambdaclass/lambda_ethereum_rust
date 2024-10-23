@@ -49,7 +49,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(address_to_word(self.env.coinbase))?;
+            .push(address_to_word(self.env.block_coinbase))?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -61,7 +61,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::TIMESTAMP)?;
 
-        current_call_frame.stack.push(self.env.timestamp)?;
+        current_call_frame.stack.push(self.env.block_timestamp)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -85,7 +85,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::PREVRANDAO)?;
 
-        let randao = self.env.prev_randao.unwrap_or_default(); // Assuming block_env has been integrated
+        let randao = self.env.block_prev_randao.unwrap_or_default(); // Assuming block_env has been integrated
         current_call_frame
             .stack
             .push(U256::from_big_endian(randao.0.as_slice()))?;
@@ -100,7 +100,9 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::GASLIMIT)?;
 
-        current_call_frame.stack.push(self.env.gas_limit)?;
+        current_call_frame
+            .stack
+            .push(self.env.block_gas_limit.into())?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -112,7 +114,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::CHAINID)?;
 
-        current_call_frame.stack.push(self.env.chain_id)?;
+        current_call_frame.stack.push(self.env.tx_chain_id)?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -137,7 +139,9 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BASEFEE)?;
 
-        current_call_frame.stack.push(self.env.base_fee_per_gas)?;
+        current_call_frame
+            .stack
+            .push(self.env.block_base_fee_per_gas)?;
 
         Ok(OpcodeSuccess::Continue)
     }

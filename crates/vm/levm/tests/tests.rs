@@ -6,10 +6,7 @@ use ethereum_rust_levm::{
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
     vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
 };
-use ethereum_types::H32;
 use std::collections::HashMap;
-
-// cargo test -p 'levm'
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -1689,7 +1686,7 @@ fn call_changes_callframe_and_stores() {
     let ret_offset = 0;
     let ret_size = 32;
     let return_data = current_call_frame
-        .returndata
+        .return_data
         .slice(ret_offset..ret_offset + ret_size);
 
     assert_eq!(U256::from_big_endian(&return_data), U256::from(0xAAAAAAA));
@@ -1777,7 +1774,7 @@ fn nested_calls() {
     let ret_offset = 0;
     let ret_size = 64;
     let return_data = current_call_frame
-        .returndata
+        .return_data
         .slice(ret_offset..ret_offset + ret_size);
 
     let mut expected_bytes = vec![0u8; 64];
@@ -2343,7 +2340,7 @@ fn returndatasize() {
     let ops = vec![Operation::ReturnDataSize, Operation::Stop];
     let mut vm = new_vm_with_ops(&ops);
 
-    vm.current_call_frame_mut().returndata = returndata;
+    vm.current_call_frame_mut().return_data = returndata;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2366,7 +2363,7 @@ fn returndatacopy() {
     ];
     let mut vm = new_vm_with_ops(&ops);
 
-    vm.current_call_frame_mut().returndata = returndata;
+    vm.current_call_frame_mut().return_data = returndata;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2519,7 +2516,7 @@ fn coinbase_op() {
     let operations = [Operation::Coinbase, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.coinbase = Address::from_low_u64_be(coinbase_address);
+    vm.env.block_coinbase = Address::from_low_u64_be(coinbase_address);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2538,7 +2535,7 @@ fn timestamp_op() {
     let operations = [Operation::Timestamp, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.timestamp = timestamp;
+    vm.env.block_timestamp = timestamp;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2573,7 +2570,7 @@ fn prevrandao_op() {
     let operations = [Operation::Prevrandao, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.prev_randao = Some(prevrandao);
+    vm.env.block_prev_randao = Some(prevrandao);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2587,17 +2584,20 @@ fn prevrandao_op() {
 
 #[test]
 fn gaslimit_op() {
-    let gas_limit = TX_BASE_COST * 2;
+    let gas_limit = 100_u64;
 
     let operations = [Operation::Gaslimit, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.gas_limit = gas_limit;
+    vm.env.block_gas_limit = gas_limit;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
 
-    assert_eq!(vm.current_call_frame_mut().stack.pop().unwrap(), gas_limit);
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        gas_limit.into()
+    );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
 }
 
@@ -2608,7 +2608,7 @@ fn chain_id_op() {
     let operations = [Operation::Chainid, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.chain_id = chain_id;
+    vm.env.tx_chain_id = chain_id;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2624,7 +2624,7 @@ fn basefee_op() {
     let operations = [Operation::Basefee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.base_fee_per_gas = base_fee_per_gas;
+    vm.env.block_base_fee_per_gas = base_fee_per_gas;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2868,8 +2868,8 @@ fn log0() {
 
 #[test]
 fn log1() {
-    let mut topic1: [u8; 4] = [0x00; 4];
-    topic1[3] = 1;
+    let mut topic1 = [0x00; 32];
+    topic1[31] = 1;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -2892,16 +2892,16 @@ fn log1() {
     let data = [0xff_u8; 32].as_slice();
     assert_eq!(logs.len(), 1);
     assert_eq!(logs[0].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H256::from_slice(&topic1)]);
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1027);
 }
 
 #[test]
 fn log2() {
-    let mut topic1: [u8; 4] = [0x00; 4];
-    topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
-    topic2[3] = 2;
+    let mut topic1 = [0x00; 32];
+    topic1[31] = 1;
+    let mut topic2 = [0x00; 32];
+    topic2[31] = 2;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -2927,19 +2927,19 @@ fn log2() {
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(
         logs[0].topics,
-        vec![H32::from_slice(&topic1), H32::from_slice(&topic2)]
+        vec![H256::from_slice(&topic1), H256::from_slice(&topic2)]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1405);
 }
 
 #[test]
 fn log3() {
-    let mut topic1: [u8; 4] = [0x00; 4];
-    topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
-    topic2[3] = 2;
-    let mut topic3: [u8; 4] = [0x00; 4];
-    topic3[3] = 3;
+    let mut topic1 = [0x00; 32];
+    topic1[31] = 1;
+    let mut topic2 = [0x00; 32];
+    topic2[31] = 2;
+    let mut topic3 = [0x00; 32];
+    topic3[31] = 3;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -2967,9 +2967,9 @@ fn log3() {
     assert_eq!(
         logs[0].topics,
         vec![
-            H32::from_slice(&topic1),
-            H32::from_slice(&topic2),
-            H32::from_slice(&topic3)
+            H256::from_slice(&topic1),
+            H256::from_slice(&topic2),
+            H256::from_slice(&topic3)
         ]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 1783);
@@ -2977,14 +2977,14 @@ fn log3() {
 
 #[test]
 fn log4() {
-    let mut topic1: [u8; 4] = [0x00; 4];
-    topic1[3] = 1;
-    let mut topic2: [u8; 4] = [0x00; 4];
-    topic2[3] = 2;
-    let mut topic3: [u8; 4] = [0x00; 4];
-    topic3[3] = 3;
-    let mut topic4: [u8; 4] = [0x00; 4];
-    topic4[3] = 4;
+    let mut topic1 = [0x00; 32];
+    topic1[31] = 1;
+    let mut topic2 = [0x00; 32];
+    topic2[31] = 2;
+    let mut topic3 = [0x00; 32];
+    topic3[31] = 3;
+    let mut topic4 = [0x00; 32];
+    topic4[31] = 4;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -3013,10 +3013,10 @@ fn log4() {
     assert_eq!(
         logs[0].topics,
         vec![
-            H32::from_slice(&topic1),
-            H32::from_slice(&topic2),
-            H32::from_slice(&topic3),
-            H32::from_slice(&topic4)
+            H256::from_slice(&topic1),
+            H256::from_slice(&topic2),
+            H256::from_slice(&topic3),
+            H256::from_slice(&topic4)
         ]
     );
     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2161);
@@ -3102,8 +3102,8 @@ fn log_with_data_in_memory_smaller_than_size() {
 
 #[test]
 fn multiple_logs_of_different_types() {
-    let mut topic1: [u8; 4] = [0x00; 4];
-    topic1[3] = 1;
+    let mut topic1 = [0x00; 32];
+    topic1[31] = 1;
 
     let data: [u8; 32] = [0xff; 32];
     let size = 32_u8;
@@ -3130,7 +3130,7 @@ fn multiple_logs_of_different_types() {
     assert_eq!(logs.len(), 2);
     assert_eq!(logs[0].data, data.to_vec());
     assert_eq!(logs[1].data, data.to_vec());
-    assert_eq!(logs[0].topics, vec![H32::from_slice(&topic1)]);
+    assert_eq!(logs[0].topics, vec![H256::from_slice(&topic1)]);
     assert_eq!(logs[1].topics.len(), 0);
 }
 
@@ -3713,7 +3713,7 @@ fn cant_create_accounts_with_same_address() {
     sender_account.nonce = sender_nonce;
     let mut new_vm = new_vm_with_ops(&operations);
     new_vm.db = vm.db.clone();
-    new_vm.db.accounts = vm.db.accounts.clone();
+    new_vm.db.accounts.clone_from(&vm.db.accounts);
     new_vm.current_call_frame_mut().msg_sender = sender_addr;
 
     let mut current_call_frame = new_vm.call_frames.pop().unwrap();
@@ -3825,6 +3825,7 @@ fn caller_op() {
         caller,
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -3866,6 +3867,7 @@ fn origin_op() {
         msg_sender,
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -3933,6 +3935,7 @@ fn address_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -3976,6 +3979,7 @@ fn selfbalance_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4015,6 +4019,7 @@ fn callvalue_op() {
         Default::default(),
         value,
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4053,6 +4058,7 @@ fn codesize_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4093,6 +4099,7 @@ fn gasprice_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),
@@ -4150,6 +4157,7 @@ fn codecopy_op() {
         Default::default(),
         Default::default(),
         Default::default(),
+        u64::MAX,
         U256::MAX,
         Default::default(),
         Default::default(),

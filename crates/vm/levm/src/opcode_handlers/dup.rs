@@ -12,7 +12,6 @@ impl VM {
         // Calculate the depth based on the opcode
         let depth = (op as u8) - (Opcode::DUP1 as u8) + 1;
 
-        // Increase the consumed gas
         self.increase_consumed_gas(current_call_frame, gas_cost::DUPN)?;
 
         // Ensure the stack has enough elements to duplicate
