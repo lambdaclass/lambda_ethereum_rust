@@ -14,6 +14,10 @@ pub enum VMError {
     InvalidTransaction,
     MissingBlobHashes,
     BlobHashIndexOutOfBounds,
+    SenderAccountDoesNotExist,
+    SenderAccountShouldNotHaveBytecode,
+    SenderBalanceShouldContainTransferValue,
+    GasPriceIsLowerThanBaseFee,
 }
 
 pub enum OpcodeSuccess {
