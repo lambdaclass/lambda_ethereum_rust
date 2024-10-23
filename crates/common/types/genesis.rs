@@ -187,6 +187,10 @@ impl Genesis {
             }
         }
 
+        let base_fee_per_gas = if self.base_fee_per_gas.is_none() && self.config.london_block.is_some_and(|n| n == 0) {
+            Some(INITIAL_BASE_FEE)
+        } else {self.base_fee_per_gas};
+
         BlockHeader {
             parent_hash: H256::zero(),
             ommers_hash: *DEFAULT_OMMERS_HASH,
@@ -203,7 +207,7 @@ impl Genesis {
             extra_data: self.extra_data.clone(),
             prev_randao: self.mix_hash,
             nonce: self.nonce,
-            base_fee_per_gas: self.base_fee_per_gas.or(Some(INITIAL_BASE_FEE)),
+            base_fee_per_gas: base_fee_per_gas,
             withdrawals_root: self
                 .config
                 .is_shanghai_activated(self.timestamp)
