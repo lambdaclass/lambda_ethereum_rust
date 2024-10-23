@@ -4371,3 +4371,31 @@ fn revert_opcode() {
         TxResult::Revert(VMError::RevertOpcode)
     ));
 }
+
+
+// Store something in the database, then revert. Database should be like it was before the store.
+#[test]
+fn revert_sstore() {
+    let key = U256::from(80);
+    let value = U256::from(100);
+    let sender_address = Address::from_low_u64_be(3000);
+    let operations = vec![
+        Operation::Push((1, value)),
+        Operation::Push((1, key)),
+        Operation::Sstore,
+        Operation::Revert,
+    ];
+
+    let mut vm = new_vm_with_ops(&operations);
+    vm.current_call_frame_mut().code_address = sender_address;
+    vm.db.accounts.insert(sender_address, Account::default());
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+
+    // Db state before the SSTORE
+    let db_backup = vm.db.clone();
+
+    vm.execute(&mut current_call_frame);
+
+    assert_eq!(vm.db, db_backup);
+}

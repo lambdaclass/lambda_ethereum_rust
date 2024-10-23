@@ -88,7 +88,7 @@ impl Account {
 
 pub type Storage = HashMap<U256, H256>;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
     // contracts: HashMap<B256, Bytecode>,
