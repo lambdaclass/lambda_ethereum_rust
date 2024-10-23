@@ -11,8 +11,8 @@ use std::cmp::min;
 
 use ethereum_rust_core::{
     types::{
-        AccountInfo, Block, BlockHash, BlockHeader, Fork, GenericTransaction, Receipt, Transaction,
-        TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
+        AccountInfo, Block, BlockHash, BlockHeader, ChainConfig, Fork, GenericTransaction, Receipt,
+        Transaction, TxKind, Withdrawal, GWEI_TO_WEI, INITIAL_BASE_FEE,
     },
     Address, BigEndianHash, H256, U256,
 };
@@ -50,16 +50,27 @@ pub enum EvmState {
 
 impl EvmState {
     /// Get a reference to inner `Store` database
-    pub fn database(&self) -> &Store {
-        //&self.0.database.store
-        todo!()
+    pub fn database(&self) -> Option<&Store> {
+        if let EvmState::Store(db) = self {
+            Some(&db.database.store)
+        } else {
+            None
+        }
+    }
+
+    /// Gets the stored chain config
+    pub fn chain_config(&self) -> Result<ChainConfig, EvmError> {
+        match self {
+            EvmState::Store(db) => db.database.store.get_chain_config().map_err(EvmError::from),
+            EvmState::Execution(db) => Ok(db.db.get_chain_config()),
+        }
     }
 }
 
 /// Executes all transactions in a block and returns their receipts.
 pub fn execute_block(block: &Block, state: &mut EvmState) -> Result<Vec<Receipt>, EvmError> {
     let block_header = &block.header;
-    let spec_id = spec_id(state.database(), block_header.timestamp)?;
+    let spec_id = spec_id(&state.chain_config()?, block_header.timestamp);
     //eip 4788: execute beacon_root_contract_call before block transactions
     if block_header.parent_beacon_block_root.is_some() && spec_id == SpecId::CANCUN {
         beacon_root_contract_call(state, block_header, spec_id)?;
@@ -134,7 +145,7 @@ fn run_evm(
     spec_id: SpecId,
 ) -> Result<ExecutionResult, EvmError> {
     let tx_result = {
-        let chain_spec = state.database().get_chain_config()?;
+        let chain_spec = state.chain_config()?;
         #[allow(unused_mut)]
         match state {
             EvmState::Store(db) => {
@@ -296,7 +307,7 @@ fn run_without_commit(
         tx_env.gas_price,
         tx_env.max_fee_per_blob_gas,
     );
-    let chain_config = state.database().get_chain_config()?;
+    let chain_config = state.chain_config()?;
     let tx_result = match state {
         EvmState::Store(db) => {
             let mut evm = Evm::builder()
@@ -661,15 +672,12 @@ fn access_list_inspector(
 
 /// Returns the spec id according to the block timestamp and the stored chain config
 /// WARNING: Assumes at least Merge fork is active
-pub fn spec_id(store: &Store, block_timestamp: u64) -> Result<SpecId, StoreError> {
-    let chain_config = store.get_chain_config()?;
-    let spec = match chain_config.get_fork(block_timestamp) {
+pub fn spec_id(chain_config: &ChainConfig, block_timestamp: u64) -> SpecId {
+    match chain_config.get_fork(block_timestamp) {
         Fork::Cancun => SpecId::CANCUN,
         Fork::Shanghai => SpecId::SHANGHAI,
         Fork::Paris => SpecId::MERGE,
-    };
-
-    Ok(spec)
+    }
 }
 
 /// Calculating gas_price according to EIP-1559 rules

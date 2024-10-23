@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethereum_rust_core::types::Block;
+use ethereum_rust_core::types::{Block, ChainConfig};
 use ethereum_rust_storage::Store;
 use revm::{
     primitives::{
@@ -29,6 +29,8 @@ pub struct ExecutionDB {
     storage: HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
     /// indexed by block number
     block_hashes: HashMap<u64, RevmB256>,
+    /// stored chain config
+    chain_config: ChainConfig,
 }
 
 impl ExecutionDB {
@@ -41,6 +43,8 @@ impl ExecutionDB {
             store: store.clone(),
             block_hash: block.header.parent_hash,
         };
+
+        let chain_config = store.get_chain_config()?;
 
         execute_block(block, &mut state).map_err(Box::new)?;
 
@@ -96,7 +100,12 @@ impl ExecutionDB {
             code,
             storage,
             block_hashes,
+            chain_config,
         })
+    }
+
+    pub fn get_chain_config(&self) -> ChainConfig {
+        self.chain_config
     }
 }
 
