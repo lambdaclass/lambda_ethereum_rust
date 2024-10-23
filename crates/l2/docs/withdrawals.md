@@ -7,11 +7,11 @@ A new `Withdraw` type of transaction on L2 is introduced, where users send a cer
 In more detail, the full changes/additions are:
 
 - A `Withdraw` transaction type is introduced, comprised of the regular fields in an EIP-1559 transaction.
-- On every block, each `Withdraw` transaction will burn (i.e. deduct from the sender) the value attached to it. Withdraw transactions will also emit a `WithdrawLog` coming from a privileged address (for now the zero address). This log will contain the following information:
+- On every block, each `Withdraw` transaction will burn (i.e. deduct from the sender) the value attached to it.
+- After executing the block, the sequencer will collect all `Withdraw` transactions, will generate a `WithdrawLog` for each, will build a merkle tree from them and calculate the corresponding root, which we call `WithdrawLogsRoot`. The `WithdrawLog` contains the following fields:
     - `to`: the address in L1 that is allowed to claim the funds (this is decided by the user as part of a withdraw transaction. This comes from the regular `to` field on the Withdraw transaction (i.e. we are reusing that field with a slightly different meaning; what it means here is “the address that can claim the funds on L1”).
     - `amount`: the amount of money withdrawn (i.e. the `msg.value` of the transaction).
     - `tx_hash`: the transaction hash in the L2 block it was included in. This will be important for claiming the withdrawal as it will require a merkle proof to be provided along with the index on the tree.
-- After executing the block, the sequencer will collect all `WithdrawLog`s emitted by withdraw transactions, will build a merkle tree from them and calculate the corresponding root, which we call `WithdrawLogsRoot`.
 - As part of the L1 `commit` transaction, the sequencer will send the list of all `WithdrawLog`s on the EIP 4844 blob (i.e. as a section of the state diffs) and the `WithdrawLogsRoot` as calldata as part of the public input to the proof. The contract will then:
     - Verify that the withdraw logs passed on the blob are the correct ones (this is done as part of the proof of equivalence protocol explained below).
     - Store the `WithdrawLogsRoot` on a mapping `(blockNumber -> LogsRoot)`
