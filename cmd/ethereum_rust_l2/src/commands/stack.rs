@@ -309,6 +309,8 @@ async fn start_l2(root: PathBuf, l2_rpc_url: &str, start_prover: bool) -> eyre::
             let status = std::process::Command::new("cargo")
                 .arg("run")
                 .arg("--release")
+                .arg("--features")
+                .arg("build_zkvm")
                 .arg("--bin")
                 .arg("ethereum_rust_prover")
                 .current_dir(root_clone)
