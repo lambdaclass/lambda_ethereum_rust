@@ -160,12 +160,14 @@ pub struct Substate {
 
 #[derive(Debug, Default, Clone)]
 pub struct Environment {
-    pub blk_coinbase: Address,
-    pub blk_timestamp: U256,
-    pub blk_number: U256,
-    pub blk_prev_randao: Option<H256>,
-    pub blk_gas_limit: u64,
-    pub blk_base_fee_per_gas: U256,
+    pub block_coinbase: Address,
+    pub block_timestamp: U256,
+    pub block_number: U256,
+    pub block_prev_randao: Option<H256>,
+    pub block_gas_limit: u64,
+    pub block_base_fee_per_gas: U256,
+    pub block_blob_gas_used: Option<U256>,
+    pub block_excess_blob_gas: Option<U256>,
     /// The sender address of the transaction that originated
     /// this execution.
     pub tx_origin: Address,
@@ -208,16 +210,18 @@ impl VM {
         msg_sender: Address,
         value: U256,
         calldata: Bytes,
-        blk_gas_limit: u64,
+        block_gas_limit: u64,
         tx_gas_limit: U256,
-        blk_number: U256,
-        coinbase: Address,
-        timestamp: U256,
-        prev_randao: Option<H256>,
-        chain_id: U256,
-        base_fee_per_gas: U256,
-        gas_price: U256,
+        block_number: U256,
+        block_coinbase: Address,
+        block_timestamp: U256,
+        block_prev_randao: Option<H256>,
+        tx_chain_id: U256,
+        block_base_fee_per_gas: U256,
+        tx_gas_price: U256,
         db: Db,
+        block_blob_gas_used: Option<U256>,
+        block_excess_blob_gas: Option<U256>,
     ) -> Self {
         // TODO: This handles only CALL transactions.
         let bytecode = db.get_account_bytecode(&to);
@@ -240,23 +244,25 @@ impl VM {
             value,
             calldata.clone(),
             false,
-            U256::zero(),
+            tx_gas_limit,
             0,
         );
 
         let env = Environment {
-            consumed_gas: TX_BASE_COST,
+            block_coinbase,
+            block_timestamp,
+            block_number,
+            block_prev_randao,
+            block_gas_limit,
+            block_base_fee_per_gas,
+            block_blob_gas_used,
+            block_excess_blob_gas,
             tx_origin: msg_sender,
-            refunded_gas: U256::zero(),
+            tx_gas_price,
+            tx_chain_id,
             tx_gas_limit,
-            blk_number,
-            blk_coinbase: coinbase,
-            blk_timestamp: timestamp,
-            blk_prev_randao: prev_randao,
-            tx_chain_id: chain_id,
-            blk_base_fee_per_gas: base_fee_per_gas,
-            tx_gas_price: gas_price,
-            blk_gas_limit,
+            consumed_gas: TX_BASE_COST,
+            refunded_gas: U256::zero(),
         };
 
         Self {
@@ -304,7 +310,7 @@ impl VM {
                 Opcode::RETURNDATACOPY => self.op_returndatacopy(current_call_frame),
                 Opcode::JUMP => self.op_jump(current_call_frame),
                 Opcode::JUMPI => self.op_jumpi(current_call_frame),
-                Opcode::JUMPDEST => self.op_jumpdest(),
+                Opcode::JUMPDEST => self.op_jumpdest(current_call_frame),
                 Opcode::PC => self.op_pc(current_call_frame),
                 Opcode::BLOCKHASH => self.op_blockhash(current_call_frame),
                 Opcode::COINBASE => self.op_coinbase(current_call_frame),
@@ -383,10 +389,47 @@ impl VM {
         }
     }
 
-    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        // let account = self.db.accounts.get(&self.env.origin).unwrap();
+    /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
+    /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
+    ///
+    /// (1) The transaction is well-formed RLP, with no additional trailing bytes;
+    /// (2) The transaction signature is valid;
+    /// (3) The transaction nonce is valid (equivalent to the sender account's
+    /// current nonce);
+    /// (4) The sender account has no contract code deployed (see EIP-3607).
+    /// (5) The gas limit is no smaller than the intrinsic gas, used by the
+    /// transaction;
+    /// (6) The sender account balance contains at least the cost, required in
+    /// up-front payment;
+    /// (7) The max fee per gas, in the case of type 2 transactions, or gasPrice,
+    /// in the case of type 0 and type 1 transactions, is greater than or equal to
+    /// the block’s base fee;
+    /// (8) For type 2 transactions, max priority fee per fas, must be no larger
+    /// than max fee per fas.
+    fn validate_transaction(&self) -> Result<(), VMError> {
+        // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
+        let sender_account = match self.db.accounts.get(&self.env.tx_origin) {
+            Some(acc) => acc,
+            None => return Err(VMError::SenderAccountDoesNotExist),
+        };
+        // (4)
+        if sender_account.has_code() {
+            return Err(VMError::SenderAccountShouldNotHaveBytecode);
+        }
+        // (6)
+        if sender_account.balance < self.call_frames[0].msg_value {
+            return Err(VMError::SenderBalanceShouldContainTransferValue);
+        }
+        // (7)
+        if self.env.tx_gas_price < self.env.block_base_fee_per_gas {
+            return Err(VMError::GasPriceIsLowerThanBaseFee);
+        }
+        Ok(())
+    }
 
-        // TODO: Add transaction validation.
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
+        self.validate_transaction()?;
+
         let initial_gas = Default::default();
 
         self.env.consumed_gas = initial_gas;
@@ -412,7 +455,7 @@ impl VM {
                     logs: current_call_frame.logs, // TODO: accumulate all call frames' logs in VM
                     created_address: None,
                 };
-                return Ok(report);
+                Ok(report)
             }
         }
     }
@@ -425,7 +468,7 @@ impl VM {
     pub fn generic_call(
         &mut self,
         current_call_frame: &mut CallFrame,
-        gas: U256,
+        gas_limit: U256,
         value: U256,
         msg_sender: Address,
         to: Address,
@@ -463,6 +506,11 @@ impl VM {
             .load_range(args_offset, args_size)
             .into();
 
+        let gas_limit = std::cmp::min(
+            gas_limit,
+            (current_call_frame.gas_limit - current_call_frame.gas_used) / 64 * 63,
+        );
+
         let mut new_call_frame = CallFrame::new(
             msg_sender,
             to,
@@ -472,7 +520,7 @@ impl VM {
             value,
             calldata,
             is_static,
-            gas,
+            gas_limit,
             current_call_frame.depth + 1,
         );
 
@@ -481,6 +529,8 @@ impl VM {
 
         // self.call_frames.push(new_call_frame.clone());
         let result = self.execute(&mut new_call_frame);
+
+        // After this we should do current_call_frame.gas_used += new_call_frame.gas_used. Instead of consuming all gas and then returning unused gas, we just consume all gas the sub-context used. If an error happened then we consume all gas.
 
         match result {
             Ok(OpcodeSuccess::Result(reason)) => match reason {
@@ -504,7 +554,7 @@ impl VM {
                     current_call_frame.memory.store_bytes(ret_offset, &output);
                     current_call_frame.return_data = output;
                     current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    current_call_frame.gas -= self.env.consumed_gas;
+                    // current_call_frame.gas -= self.env.consumed_gas;
                     self.env.refunded_gas += self.env.consumed_gas;
                     Ok(OpcodeSuccess::Continue)
                 }
@@ -514,12 +564,6 @@ impl VM {
                 current_call_frame
                     .stack
                     .push(U256::from(error.clone() as u8))?;
-                let gas_used = self.env.consumed_gas;
-                if gas_used > current_call_frame.gas {
-                    current_call_frame.gas = U256::zero();
-                } else {
-                    current_call_frame.gas -= gas_used;
-                }
                 Err(error)
             }
         }
@@ -636,17 +680,13 @@ impl VM {
         );
         self.db.add_account(new_address, new_account);
 
-        let mut gas = current_call_frame.gas;
-        gas -= gas / 64; // 63/64 of the gas to the call
-        current_call_frame.gas -= gas; // leaves 1/64  of the gas to current call frame
-
         current_call_frame
             .stack
             .push(address_to_word(new_address))?;
 
         self.generic_call(
             current_call_frame,
-            gas,
+            U256::MAX,
             value_in_wei_to_send,
             current_call_frame.msg_sender,
             new_address,
@@ -659,5 +699,19 @@ impl VM {
             code_offset_in_memory,
             code_size_in_memory,
         )
+    }
+
+    /// Increases gas consumption of CallFrame and Environment, returning an error if the callframe gas limit is reached.
+    pub fn increase_consumed_gas(
+        &mut self,
+        current_call_frame: &mut CallFrame,
+        gas: U256,
+    ) -> Result<(), VMError> {
+        if current_call_frame.gas_used + gas > current_call_frame.gas_limit {
+            return Err(VMError::OutOfGas);
+        }
+        current_call_frame.gas_used += gas;
+        self.env.consumed_gas += gas;
+        Ok(())
     }
 }

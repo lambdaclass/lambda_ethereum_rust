@@ -17,6 +17,8 @@ The following links, repos, companies and projects have been important in the de
 - [Optimism](https://www.optimism.io/)
 - [Arbitrum](https://arbitrum.io/)
 - [Geth](https://github.com/ethereum/go-ethereum)
+- [Taiko](https://taiko.xyz/)
+- [RISC Zero](https://risczero.com/)
 - [SP1](https://github.com/succinctlabs/sp1)
 - [Aleo](https://aleo.org/)
 - [Neptune](https://neptune.cash/)
@@ -71,16 +73,33 @@ The main differences between this mode and regular Ethereum Rust are:
 
 ### Table of Contents
 
-- [Roadmap](#roadmap)
+- [Lambda Ethereum Rust Execution Client](#lambda-ethereum-rust-execution-client)
+  - [📚 References and acknowledgements](#-references-and-acknowledgements)
+  - [Philosophy](#philosophy)
+  - [Design Principles](#design-principles)
+- [L1 and L2 support](#l1-and-l2-support)
+- [Lambda Ethereum Rust L2](#lambda-ethereum-rust-l2)
+- [Lambda Ethereum Rust L1](#lambda-ethereum-rust-l1)
+    - [Table of Contents](#table-of-contents)
+  - [Roadmap](#roadmap)
     - [Milestone 1: Read-only RPC Node Support](#milestone-1-read-only-rpc-node-support)
-    - [Milestone 2: History & Reorgs](#milestone-2-history--reorgs)
+    - [Milestone 2: History \& Reorgs](#milestone-2-history--reorgs)
     - [Milestone 3: Block building](#milestone-3-block-building)
     - [Milestone 4: P2P Network](#milestone-4-p2p-network)
-    - [Milestone 5: Syncing](#milestone-5-syncing)
-- [Quick Start](#quick-start-l1-localnet)
-- [Dev Setup](#dev-setup)
-- [CLI Commands](#cli-commands)
-- [Documentation](#crates-documentation)
+    - [Milestone 5: State Sync](#milestone-5-state-sync)
+  - [Quick Start (L1 localnet)](#quick-start-l1-localnet)
+    - [Prerequisites](#prerequisites)
+  - [Dev Setup](#dev-setup)
+    - [Build](#build)
+      - [Rust](#rust)
+    - [Database](#database)
+    - [Test](#test)
+        - [Ethereum Foundation Tests](#ethereum-foundation-tests)
+        - [Crate Specific Tests](#crate-specific-tests)
+        - [Hive Tests](#hive-tests)
+    - [Run](#run)
+    - [CLI Commands](#cli-commands)
+- [Crates documentation](#crates-documentation)
 
 ## Roadmap
 
@@ -250,6 +269,23 @@ make test CRATE="ethereum_rust-blockchain"
 Finally, we have End-to-End tests with hive.
 Hive is a system which simply sends RPC commands to our node,
 and expects a certain response. You can read more about it [here](https://github.com/ethereum/hive/blob/master/docs/overview.md).
+
+###### Prereqs
+We need to have go installed for the first time we run hive, an easy way to do this is adding the asdf go plugin:
+
+```shell
+asdf plugin add golang https://github.com/asdf-community/asdf-golang.git
+
+# If you need to se GOROOT please follow: https://github.com/asdf-community/asdf-golang?tab=readme-ov-file#goroot
+```
+
+And uncommenting the golang line in the asdf `.tool-versions` file:
+```
+rust 1.80.1
+golang 1.23.2
+```
+
+###### Running Simulations
 Hive tests are categorized by "simulations', and test instances can be filtered with a regex:
 ```bash
 make run-hive-debug SIMULATION=<simulation> TEST_PATTERN=<test-regex>

@@ -1,9 +1,9 @@
 mod db;
 mod errors;
 mod execution_result;
+pub mod levm;
 #[cfg(feature = "l2")]
 mod mods;
-pub mod levm;
 
 use db::StoreWrapper;
 use std::cmp::min;

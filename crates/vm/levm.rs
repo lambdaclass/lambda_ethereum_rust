@@ -1,7 +1,7 @@
 use crate::EvmError;
 use ethereum_rust_core::{
     types::{Block, BlockHeader, Receipt, Transaction, TxKind},
-    Address,
+    Address, U256,
 };
 use ethereum_rust_levm::{
     report::TransactionReport,
@@ -58,12 +58,11 @@ pub fn execute_tx(
         block_header.timestamp.into(),
         Some(block_header.prev_randao),
         tx.chain_id().unwrap().into(),
-        block_header
-            .base_fee_per_gas
-            .unwrap_or(Default::default())
-            .into(), // TODO: check this
+        block_header.base_fee_per_gas.unwrap_or_default().into(), // TODO: check this
         tx.gas_price().into(),
         state.database().clone(),
+        block_header.blob_gas_used.map(U256::from),
+        block_header.excess_blob_gas.map(U256::from),
     );
     vm.transact()
         .map_err(|_| EvmError::Transaction("Levm error".to_string()))

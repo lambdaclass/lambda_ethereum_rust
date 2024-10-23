@@ -2435,7 +2435,7 @@ fn blockhash_op() {
     vm.db
         .block_hashes
         .insert(block_number, H256::from_low_u64_be(block_hash));
-    vm.env.blk_number = current_block_number;
+    vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2467,7 +2467,7 @@ fn blockhash_same_block_number() {
     //     Address::default(),
     //     Account::new(U256::MAX, Bytes::default(), 0, storage),
     // );
-    vm.env.blk_number = current_block_number;
+    vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2497,7 +2497,7 @@ fn blockhash_block_number_not_from_recent_256() {
     vm.db
         .block_hashes
         .insert(block_number, H256::from_low_u64_be(block_hash));
-    vm.env.blk_number = current_block_number;
+    vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2516,7 +2516,7 @@ fn coinbase_op() {
     let operations = [Operation::Coinbase, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.blk_coinbase = Address::from_low_u64_be(coinbase_address);
+    vm.env.block_coinbase = Address::from_low_u64_be(coinbase_address);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2535,7 +2535,7 @@ fn timestamp_op() {
     let operations = [Operation::Timestamp, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.blk_timestamp = timestamp;
+    vm.env.block_timestamp = timestamp;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2551,7 +2551,7 @@ fn number_op() {
     let operations = [Operation::Number, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.blk_number = block_number;
+    vm.env.block_number = block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2570,7 +2570,7 @@ fn prevrandao_op() {
     let operations = [Operation::Prevrandao, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.blk_prev_randao = Some(prevrandao);
+    vm.env.block_prev_randao = Some(prevrandao);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2589,7 +2589,7 @@ fn gaslimit_op() {
     let operations = [Operation::Gaslimit, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.blk_gas_limit = gas_limit;
+    vm.env.block_gas_limit = gas_limit;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2624,7 +2624,7 @@ fn basefee_op() {
     let operations = [Operation::Basefee, Operation::Stop];
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.env.blk_base_fee_per_gas = base_fee_per_gas;
+    vm.env.block_base_fee_per_gas = base_fee_per_gas;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame).unwrap();
@@ -2637,42 +2637,42 @@ fn basefee_op() {
 }
 
 // TODO: Add excess_blob_gas and blob_gas_used to env
-// #[test]
-// fn blobbasefee_op() {
-//     let operations = [Operation::BlobBaseFee, Operation::Stop];
+#[test]
+fn blobbasefee_op() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
 
-//     let mut vm = new_vm_with_ops(&operations);
-//     vm.env.excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
-//     vm.env.blob_gas_used = Some(0);
+    let mut vm = new_vm_with_ops(&operations);
+    vm.env.block_excess_blob_gas = Some(TARGET_BLOB_GAS_PER_BLOCK * 8);
+    vm.env.block_blob_gas_used = Some(U256::zero());
 
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     vm.execute(&mut current_call_frame).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame).unwrap();
 
-//     assert_eq!(
-//         vm.current_call_frame_mut().stack.pop().unwrap(),
-//         U256::from(2)
-//     );
-//     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
-// }
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::from(2)
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
+}
 
 // TODO: Add excess_blob_gas and blob_gas_used to env
-// #[test]
-// fn blobbasefee_minimum_cost() {
-//     let operations = [Operation::BlobBaseFee, Operation::Stop];
+#[test]
+fn blobbasefee_minimum_cost() {
+    let operations = [Operation::BlobBaseFee, Operation::Stop];
 
-//     let mut vm = new_vm_with_ops(&operations);
-//     vm.env.excess_blob_gas = Some(0);
-//     vm.env.blob_gas_used = Some(0);
+    let mut vm = new_vm_with_ops(&operations);
+    vm.env.block_excess_blob_gas = Some(U256::zero());
+    vm.env.block_blob_gas_used = Some(U256::zero());
 
-//     let mut current_call_frame = vm.call_frames.pop().unwrap();
-//     vm.execute(&mut current_call_frame).unwrap();
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    vm.execute(&mut current_call_frame).unwrap();
 
-//     assert_eq!(
-//         vm.current_call_frame_mut().stack.pop().unwrap(),
-//         U256::one()
-//     );
-//     assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
-// }
+    assert_eq!(
+        vm.current_call_frame_mut().stack.pop().unwrap(),
+        U256::one()
+    );
+    assert_eq!(vm.env.consumed_gas, TX_BASE_COST + 2);
+}
 
 #[test]
 fn pop_op() {
@@ -3713,7 +3713,7 @@ fn cant_create_accounts_with_same_address() {
     sender_account.nonce = sender_nonce;
     let mut new_vm = new_vm_with_ops(&operations);
     new_vm.db = vm.db.clone();
-    new_vm.db.accounts = vm.db.accounts.clone();
+    new_vm.db.accounts.clone_from(&vm.db.accounts);
     new_vm.current_call_frame_mut().msg_sender = sender_addr;
 
     let mut current_call_frame = new_vm.call_frames.pop().unwrap();
@@ -3835,6 +3835,8 @@ fn caller_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3875,6 +3877,8 @@ fn origin_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3941,6 +3945,8 @@ fn address_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3983,6 +3989,8 @@ fn selfbalance_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4021,6 +4029,8 @@ fn callvalue_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4058,6 +4068,8 @@ fn codesize_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4097,6 +4109,8 @@ fn gasprice_op() {
         Default::default(),
         U256::from(0x9876),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -4153,6 +4167,8 @@ fn codecopy_op() {
         Default::default(),
         Default::default(),
         db,
+        Default::default(),
+        Default::default(),
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
