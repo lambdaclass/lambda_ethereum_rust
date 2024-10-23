@@ -1,21 +1,25 @@
 use std::collections::HashMap;
 
+use ethereum_rust_core::types::Block;
+use ethereum_rust_storage::Store;
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
         B256 as RevmB256, U256 as RevmU256,
     },
-    DatabaseRef,
+    Database, DatabaseRef,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::errors::ExecutionDBError;
+use crate::{
+    db::StoreWrapper, errors::ExecutionDBError, evm_state, execute_block, get_state_transitions,
+};
 
 /// In-memory EVM database for caching execution data.
 ///
 /// This is mainly used to store the relevant state data for executing a particular block and then
 /// feeding the DB into a zkVM program to prove the execution.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExecutionDB {
     /// indexed by account address
     accounts: HashMap<RevmAddress, RevmAccountInfo>,
@@ -25,6 +29,75 @@ pub struct ExecutionDB {
     storage: HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
     /// indexed by block number
     block_hashes: HashMap<u64, RevmB256>,
+}
+
+impl ExecutionDB {
+    /// Creates a database by executing a block, without performing any validation.
+    pub fn from_exec(block: &Block, store: &Store) -> Result<Self, ExecutionDBError> {
+        // TODO(#): perform validation to exit early
+
+        let mut state = evm_state(store.clone(), block.header.parent_hash);
+        let mut store_wrapper = StoreWrapper {
+            store: store.clone(),
+            block_hash: block.header.parent_hash,
+        };
+
+        execute_block(block, &mut state).map_err(Box::new)?;
+
+        let account_updates = get_state_transitions(&mut state);
+
+        let mut accounts = HashMap::new();
+        let code = HashMap::new(); // TODO(#): `code` remains empty for now
+        let mut storage = HashMap::new();
+        let mut block_hashes = HashMap::new();
+
+        for account_update in account_updates {
+            let address = RevmAddress::from_slice(account_update.address.as_bytes());
+            let account_info = store_wrapper
+                .basic(address)?
+                .ok_or(ExecutionDBError::NewMissingAccountInfo(address))?;
+            accounts.insert(address, account_info);
+
+            let account_storage = account_update
+                .added_storage
+                .iter()
+                .map(|(slot, value)| {
+                    let mut value_bytes = Vec::new();
+                    value.to_big_endian(&mut value_bytes);
+                    (
+                        RevmU256::from_be_bytes(slot.to_fixed_bytes()),
+                        RevmU256::from_be_slice(&value_bytes),
+                    )
+                })
+                .collect();
+
+            storage.insert(address, account_storage);
+        }
+
+        let earliest_number = store_wrapper
+            .store
+            .get_earliest_block_number()?
+            .ok_or(ExecutionDBError::NewMissingBlockNumber())?;
+        let latest_number = store_wrapper
+            .store
+            .get_latest_block_number()?
+            .ok_or(ExecutionDBError::NewMissingBlockNumber())?;
+
+        let numbers = earliest_number..=latest_number;
+        let hashes = numbers
+            .clone()
+            .map(|number| store_wrapper.block_hash(number))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter();
+        block_hashes.extend(numbers.zip(hashes));
+
+        Ok(Self {
+            accounts,
+            code,
+            storage,
+            block_hashes,
+        })
+    }
 }
 
 impl DatabaseRef for ExecutionDB {

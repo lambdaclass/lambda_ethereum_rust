@@ -22,6 +22,10 @@ pub enum EvmError {
 
 #[derive(Debug, Error)]
 pub enum ExecutionDBError {
+    #[error("Store error: {0}")]
+    Store(#[from] StoreError),
+    #[error("Evm error: {0}")]
+    Evm(#[from] Box<EvmError>),
     #[error("Account {0} not found")]
     AccountNotFound(RevmAddress),
     #[error("Code by hash {0} not found")]
@@ -30,6 +34,10 @@ pub enum ExecutionDBError {
     StorageNotFound(RevmAddress, RevmU256),
     #[error("Hash of block with number {0} not found")]
     BlockHashNotFound(u64),
+    #[error("Missing account {0} info while trying to create ExecutionDB")]
+    NewMissingAccountInfo(RevmAddress),
+    #[error("Missing earliest or latest block number while trying to create ExecutionDB")]
+    NewMissingBlockNumber(),
     #[error("{0}")]
     Custom(String),
 }
