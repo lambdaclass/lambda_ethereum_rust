@@ -167,12 +167,13 @@ pub(crate) enum Command {
 }
 
 fn decode_hex(s: &str) -> Result<Bytes, FromHexError> {
-    if s.starts_with("0x") {
-        return hex::decode(&s[2..]).map(Into::into);
+    if let Some(stripped) = s.strip_prefix("0x") {
+        return hex::decode(stripped).map(Into::into);
     }
-    return hex::decode(s).map(Into::into);
+    hex::decode(s).map(Into::into)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn make_eip1559_transaction(
     client: &EthClient,
     to: TxKind,
@@ -198,7 +199,7 @@ async fn make_eip1559_transaction(
             Some(price) => price,
             None => client.get_gas_price().await?.as_u64(),
         },
-        max_priority_fee_per_gas: priority_gas_price.unwrap_or(Default::default()),
+        max_priority_fee_per_gas: priority_gas_price.unwrap_or_default(),
         ..Default::default()
     };
     tx.gas_limit = match gas_limit {
@@ -341,7 +342,7 @@ impl Command {
                     from,
                     calldata,
                     value,
-                    chain_id.unwrap_or_else(|| match l1 {
+                    chain_id.unwrap_or(match l1 {
                         true => cfg.network.l1_chain_id,
                         false => cfg.network.l2_chain_id,
                     }),
@@ -411,7 +412,7 @@ impl Command {
                     from,
                     bytecode,
                     value,
-                    chain_id.unwrap_or_else(|| match l1 {
+                    chain_id.unwrap_or(match l1 {
                         true => cfg.network.l1_chain_id,
                         false => cfg.network.l2_chain_id,
                     }),
