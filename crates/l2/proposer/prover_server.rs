@@ -182,16 +182,17 @@ impl ProverServer {
             .get_latest_block_number()
             .map_err(|e| e.to_string())?
             .ok_or("missing latest block number".to_string())?;
+        let input = self.create_prover_input(last_block_number)?;
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
                 block_number: Some(last_block_number),
-                input: ProverInputData::default(),
+                input,
             }
         } else {
             ProofData::Response {
                 block_number: None,
-                input: ProverInputData::default(),
+                input,
             }
         };
         let writer = BufWriter::new(stream);
@@ -209,5 +210,32 @@ impl ProverServer {
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+    }
+
+    fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, String> {
+        let block = Block {
+            header: self
+                .store
+                .get_block_header(block_number)
+                .map_err(|err| err.to_string())?
+                .ok_or("block header not found")?,
+            body: self
+                .store
+                .get_block_body(block_number)
+                .map_err(|err| err.to_string())?
+                .ok_or("block body not found")?,
+        };
+        let parent_block_header = self
+            .store
+            .get_block_header(block_number - 1)
+            .map_err(|err| err.to_string())?
+            .ok_or("parent block header not found")?;
+        let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
+
+        Ok(ProverInputData {
+            db,
+            parent_block_header,
+            block,
+        })
     }
 }
