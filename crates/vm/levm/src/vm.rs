@@ -451,15 +451,15 @@ impl VM {
         Ok(())
     }
 
-    pub fn transact(&mut self) -> TransactionReport {
-        self.validate_transaction().unwrap();
+    pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
+        self.validate_transaction()?;
 
         let initial_gas = Default::default();
 
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        self.execute(&mut current_call_frame)
+        Ok(self.execute(&mut current_call_frame))
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
