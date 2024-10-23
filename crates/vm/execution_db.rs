@@ -34,7 +34,7 @@ pub struct ExecutionDB {
 impl ExecutionDB {
     /// Creates a database by executing a block, without performing any validation.
     pub fn from_exec(block: &Block, store: &Store) -> Result<Self, ExecutionDBError> {
-        // TODO(#): perform validation to exit early
+        // TODO: perform validation to exit early
 
         let mut state = evm_state(store.clone(), block.header.parent_hash);
         let mut store_wrapper = StoreWrapper {
@@ -47,7 +47,7 @@ impl ExecutionDB {
         let account_updates = get_state_transitions(&mut state);
 
         let mut accounts = HashMap::new();
-        let code = HashMap::new(); // TODO(#): `code` remains empty for now
+        let code = HashMap::new(); // TODO: `code` remains empty for now
         let mut storage = HashMap::new();
         let mut block_hashes = HashMap::new();
 

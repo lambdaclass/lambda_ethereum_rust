@@ -25,7 +25,7 @@ pub enum ExecutionDBError {
     #[error("Store error: {0}")]
     Store(#[from] StoreError),
     #[error("Evm error: {0}")]
-    Evm(#[from] Box<EvmError>),
+    Evm(#[from] Box<EvmError>), // boxed to avoid cyclic definition
     #[error("Account {0} not found")]
     AccountNotFound(RevmAddress),
     #[error("Code by hash {0} not found")]
