@@ -11,10 +11,11 @@ pub fn process_account_range_request(
     let mut iter = store.iter_accounts(request.root_hash);
     let mut start_found = false;
     while let Some((k, v)) = iter.next() {
-        if k == request.limit_hash {
+        dbg!(&k);
+        if k >= request.limit_hash {
             break;
         }
-        if k == request.starting_hash {
+        if k >= request.starting_hash {
             start_found = true;
         }
         if start_found {

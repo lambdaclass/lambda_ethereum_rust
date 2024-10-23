@@ -48,7 +48,9 @@ impl Iterator for TrieIterator {
 impl TrieIterator {
     pub fn content(self) -> impl Iterator<Item = (PathRLP, ValueRLP)> {
         self.filter_map(|n| match n {
-            Node::Branch(branch_node) => Some((branch_node.path, branch_node.value)),
+            Node::Branch(branch_node) => {
+                (!branch_node.path.is_empty()).then_some((branch_node.path, branch_node.value))
+            }
             Node::Extension(_) => None,
             Node::Leaf(leaf_node) => Some((leaf_node.path, leaf_node.value)),
         })
