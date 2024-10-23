@@ -409,7 +409,7 @@ impl VM {
                         new_state: self.db.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(),
+                        output: current_call_frame.returndata.clone(), // Bytes::new() if error is not RevertOpcode
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     };
@@ -535,10 +535,14 @@ impl VM {
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
 
+
+        // Backup of Database, Substate and Gas Refunds if sub-context is reverted
+        let (backup_db, backup_substate, backup_refunded_gas) = (self.db.clone(), self.accrued_substate.clone(), self.env.refunded_gas); 
+
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
 
-        current_call_frame.gas_used += tx_report.gas_used.into(); // We add the gas used by the sub-context to the current one after it's execution.
+        current_call_frame.gas_used += tx_report.gas_used.into(); // Add gas used by the sub-context to the current one after it's execution.
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -552,10 +556,13 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            TxResult::Revert(_error) => {
-                // Behavior for revert between contexts goes here if necessary
-                // It is also possible to differentiate between RevertOpcode error and other kinds of revert.
+            TxResult::Revert(_) => {
+                // Restore previous state
+                self.accrued_substate = backup_substate;
+                self.db = backup_db;
+                self.env.refunded_gas = backup_refunded_gas;
 
+                // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
         }
