@@ -50,6 +50,8 @@ interface ICommonBridge {
     /// @notice Error for when the deposit amount is 0.
     error AmountToDepositIsZero();
 
+    function initialize(address onChainProposer) external;
+
     /// @notice Method that starts an L2 ETH deposit process.
     /// @dev The deposit process starts here by emitting a DepositInitiated
     /// event. This event will later be intercepted by the L2 operator to

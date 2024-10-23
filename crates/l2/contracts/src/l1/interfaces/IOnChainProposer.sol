@@ -14,6 +14,8 @@ interface IOnChainProposer {
     /// @dev Event emitted when a block is verified.
     event BlockVerified(bytes32 indexed blockHash);
 
+    function initialize(address bridge) external;
+
     /// @notice Commits to an L2 block.
     /// @dev Committing to an L2 block means to store the block's commitment
     /// and to publish withdrawals if any.

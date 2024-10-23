@@ -23,7 +23,7 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
     /// that the logs were published on L1, and that that block was committed.
     mapping(uint256 => bytes32) public blockWithdrawalsLogs;
 
-    address public immutable ON_CHAIN_PROPOSER;
+    address public ON_CHAIN_PROPOSER;
 
     modifier onlyOnChainProposer() {
         require(
@@ -33,7 +33,17 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address owner, address onChainProposer) Ownable(owner) {
+    constructor(address owner) Ownable(owner) {}
+
+    function initialize(address onChainProposer) public nonReentrant {
+        require(
+            onChainProposer != address(0),
+            "CommonBridge: onChainProposer is the zero address"
+        );
+        require(
+            onChainProposer != address(this),
+            "CommonBridge: onChainProposer is the contract address"
+        );
         ON_CHAIN_PROPOSER = onChainProposer;
     }
 
