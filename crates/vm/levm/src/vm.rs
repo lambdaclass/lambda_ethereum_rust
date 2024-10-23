@@ -275,6 +275,10 @@ impl VM {
         //     .call_frames
         //     .pop()
         //     .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
+
+        // Backup of Database, Substate and Gas Refunds if sub-context is reverted
+        let (backup_db, backup_substate, backup_refunded_gas) = (self.db.clone(), self.accrued_substate.clone(), self.env.refunded_gas); 
+
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -397,12 +401,17 @@ impl VM {
                 Err(error) => {
                     self.call_frames.push(current_call_frame.clone());
 
-                    // CONSUME ALL GAS UNLESS THE ERROR IS FROM REVERT OPCODE
+                    // Unless error is from Revert opcode, all gas is consumed
                     if error != VMError::RevertOpcode {
                         let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
                         current_call_frame.gas_used += left_gas;
                         self.env.consumed_gas += left_gas;
                     }
+
+                    // Restore previous state
+                    self.accrued_substate = backup_substate;
+                    self.db = backup_db;
+                    self.env.refunded_gas = backup_refunded_gas;
 
                     return TransactionReport {
                         result: TxResult::Revert(error),
@@ -536,8 +545,7 @@ impl VM {
         current_call_frame.sub_return_data_size = ret_size;
 
 
-        // Backup of Database, Substate and Gas Refunds if sub-context is reverted
-        let (backup_db, backup_substate, backup_refunded_gas) = (self.db.clone(), self.accrued_substate.clone(), self.env.refunded_gas); 
+        
 
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
@@ -557,11 +565,6 @@ impl VM {
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
             TxResult::Revert(_) => {
-                // Restore previous state
-                self.accrued_substate = backup_substate;
-                self.db = backup_db;
-                self.env.refunded_gas = backup_refunded_gas;
-
                 // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
