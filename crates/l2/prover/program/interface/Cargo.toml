@@ -7,7 +7,7 @@ edition = "2021"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror = "1.0.64"
 
-ethereum_rust-storage = { git = "https://github.com/lambdaclass/ethereum_rust", package = "ethereum_rust-storage", branch = "patches/patch_003_core", default-features = false }
+ethereum_rust-storage = { path = "../../../../storage/store" }
 
 # revm
 revm = { version = "14.0.3", features = [
