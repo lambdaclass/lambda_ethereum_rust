@@ -104,6 +104,7 @@ impl CallFrame {
         calldata: Bytes,
         is_static: bool,
         gas_limit: U256,
+        gas_used: U256,
         depth: usize,
     ) -> Self {
         Self {
@@ -117,6 +118,7 @@ impl CallFrame {
             calldata,
             is_static,
             depth,
+            gas_used,
             ..Default::default()
         }
     }

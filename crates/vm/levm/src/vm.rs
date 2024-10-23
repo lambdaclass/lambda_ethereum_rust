@@ -241,6 +241,7 @@ impl VM {
             calldata.clone(),
             false,
             gas_limit,
+            TX_BASE_COST,
             0,
         );
 
@@ -522,6 +523,7 @@ impl VM {
             calldata,
             is_static,
             gas_limit,
+            U256::zero(),
             current_call_frame.depth + 1,
         );
 
