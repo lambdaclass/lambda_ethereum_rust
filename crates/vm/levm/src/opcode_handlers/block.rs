@@ -153,9 +153,7 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         self.increase_consumed_gas(current_call_frame, gas_cost::BLOBHASH)?;
 
-        let index = current_call_frame.stack.pop()?;
-
-        let index = index.as_usize();
+        let index = current_call_frame.stack.pop()?.as_usize();
 
         let blob_hash: H256 = match &self.env.tx_blob_hashes {
             Some(vec) => match vec.get(index) {
