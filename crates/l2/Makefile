@@ -13,7 +13,7 @@ down: down-local-l1 down-l2 ## 🛑 Shuts down the localnet
 
 clean: clean-contract-deps ## 🧹 Cleans the localnet
 
-restart: restart-local-l1 restart-contract-deps restart-l2 ## 🔄 Restarts the localnet
+restart: restart-local-l1 deploy-l1 restart-contract-deps restart-l2 ## 🔄 Restarts the localnet
 
 cli: ## 🛠️ Builds the L2 Lambda Ethereum Rust CLI
 	cargo build --release --manifest-path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust/Cargo.toml
