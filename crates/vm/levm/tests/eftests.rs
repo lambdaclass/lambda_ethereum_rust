@@ -44,7 +44,6 @@ struct Transaction {
     value: Vec<u64>,
 }
 
-
 /// Contains the necessary elements to run a test
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -120,10 +119,10 @@ fn ethereum_foundation_general_state_tests() {
     let tests_cases: Vec<HashMap<String, TestArgs>> = json_contents
         .into_iter()
         .map(|json_content| {
-            println!("{}",&json_content[..55]);
+            println!("{}", &json_content[..55]);
             serde_json::from_str(&json_content).expect("Unable to parse JSON")
         })
-            .collect();
+        .collect();
 
     for test_case in tests_cases {
         //Maybe there are more than one test per hashmap, so should iterate each hashmap too
@@ -134,7 +133,6 @@ fn ethereum_foundation_general_state_tests() {
         // Verify
 
         println!("{:?}", test_case);
-
     }
 
     unimplemented!();
