@@ -30,8 +30,6 @@ impl<'a> Default for Prover<'a> {
 
 impl<'a> Prover<'a> {
     pub fn new() -> Self {
-        //let _elf = std::fs::read(config.elf_path).unwrap();
-
         Self {
             env_builder: ExecutorEnv::builder(),
             elf: ZKVM_PROGRAM_ELF,
@@ -52,7 +50,7 @@ impl<'a> Prover<'a> {
     }
 
     /// Example:
-    /// let prover = Prover::new_from_config(prover_config);
+    /// let prover = Prover::new();
     /// let proof = prover.set_input(inputs).prove().unwrap();
     pub fn prove(&mut self) -> Result<risc0_zkvm::Receipt, String> {
         let env = self
