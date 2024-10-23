@@ -14,11 +14,20 @@ interface IOnChainProposer {
     /// @dev Event emitted when a block is verified.
     event BlockVerified(bytes32 indexed blockHash);
 
-    /// @notice Method used to commit an L2 block to be proved.
-    /// @dev This method is used by the operator when a block is ready to be
-    /// proved.
-    /// @param currentBlockCommitment is the committment to the block to be proved.
-    function commit(bytes32 currentBlockCommitment) external;
+    function initialize(address bridge) external;
+
+    /// @notice Commits to an L2 block.
+    /// @dev Committing to an L2 block means to store the block's commitment
+    /// and to publish withdrawals if any.
+    /// @param blockNumber the number of the block to be committed.
+    /// @param newL2StateRoot the new L2 state root of the block to be committed.
+    /// @param withdrawalsLogsMerkleRoot the merkle root of the withdrawal logs
+    /// of the block to be committed.
+    function commit(
+        uint256 blockNumber,
+        bytes32 newL2StateRoot,
+        bytes32 withdrawalsLogsMerkleRoot
+    ) external;
 
     /// @notice Method used to verify an L2 block proof.
     /// @dev This method is used by the operator when a block is ready to be

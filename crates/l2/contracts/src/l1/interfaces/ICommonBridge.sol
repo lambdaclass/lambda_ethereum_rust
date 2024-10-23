@@ -20,10 +20,37 @@ interface ICommonBridge {
     /// deposit in L2. Could be used to track the status of the deposit finalization
     /// on L2. You can use this hash to retrive the tx data.
     /// It is the result of keccak(abi.encode(transaction)).
-    event DepositInitiated(uint256 indexed amount, address indexed to, bytes32 indexed l2MintTxHash);
+    event DepositInitiated(
+        uint256 indexed amount,
+        address indexed to,
+        bytes32 indexed l2MintTxHash
+    );
+
+    /// @notice L2 withdrawals have been published on L1.
+    /// @dev Event emitted when the L2 withdrawals are published on L1.
+    /// @param withdrawalLogsBlockNumber the block number in L2 where the
+    /// withdrawal logs were emitted.
+    /// @param withdrawalsLogsMerkleRoot the merkle root of the withdrawal logs.
+    event WithdrawalsPublished(
+        uint256 indexed withdrawalLogsBlockNumber,
+        bytes32 indexed withdrawalsLogsMerkleRoot
+    );
+
+    /// @notice A withdrawal has been claimed.
+    /// @dev Event emitted when a withdrawal is claimed.
+    /// @param l2WithdrawalTxHash the hash of the L2 withdrawal transaction.
+    /// @param claimee the address that claimed the withdrawal.
+    /// @param claimedAmount the amount that was claimed.
+    event WithdrawalClaimed(
+        bytes32 indexed l2WithdrawalTxHash,
+        address indexed claimee,
+        uint256 indexed claimedAmount
+    );
 
     /// @notice Error for when the deposit amount is 0.
     error AmountToDepositIsZero();
+
+    function initialize(address onChainProposer) external;
 
     /// @notice Method that starts an L2 ETH deposit process.
     /// @dev The deposit process starts here by emitting a DepositInitiated
@@ -32,12 +59,39 @@ interface ICommonBridge {
     /// @param to, the address in L2 to which the tokens will be minted to.
     function deposit(address to) external payable;
 
-    /// @notice Method that starts an L2 ETH withdrawal process.
-    /// @param transactions the withdrawal transactions including beneficiary, amount
-    /// and L2 transaction hash.
-    function startWithdrawal(WithdrawalTransaction[] calldata transactions) external;
+    /// @notice Publishes the L2 withdrawals on L1.
+    /// @dev This method is used by the L2 OnChainOperator to publish the L2
+    /// withdrawals when an L2 block is committed.
+    /// @param withdrawalLogsBlockNumber the block number in L2 where the
+    /// withdrawal logs were emitted.
+    /// @param withdrawalsLogsMerkleRoot the merkle root of the withdrawal logs.
+    function publishWithdrawals(
+        uint256 withdrawalLogsBlockNumber,
+        bytes32 withdrawalsLogsMerkleRoot
+    ) external;
 
-    /// @notice Method that finalizes an L2 ETH withdrawal process.
-    /// @param l2TxHash the hash of the transaction in L2 that requests the withdrawal.
-    function finalizeWithdrawal(bytes32 l2TxHash) external;
+    /// @notice Method that claims an L2 withdrawal.
+    /// @dev For a user to claim a withdrawal, this method verifies:
+    /// - The l2WithdrawalBlockNumber was committed. If the given block was not
+    /// committed, this means that the withdrawal was not published on L1.
+    /// - The l2WithdrawalBlockNumber was verified. If the given block was not
+    /// verified, this means that the withdrawal claim was not enabled.
+    /// - The withdrawal was not claimed yet. This is to avoid double claims.
+    /// - The withdrawal proof is valid. This is, there exists a merkle path
+    /// from the withdrawal log to the withdrawal root, hence the claimed
+    /// withdrawal exists.
+    /// @dev We do not need to check that the claimee is the same as the
+    /// beneficiary of the withdrawal, because the withdrawal proof already
+    /// contains the beneficiary.
+    /// @param l2WithdrawalTxHash the hash of the L2 withdrawal transaction.
+    /// @param claimedAmount the amount that will be claimed.
+    /// @param withdrawalProof the merkle path to the withdrawal log.
+    /// @param l2WithdrawalBlockNumber the block number where the withdrawal log
+    /// was emitted.
+    function claimWithdrawal(
+        bytes32 l2WithdrawalTxHash,
+        uint256 claimedAmount,
+        uint256 l2WithdrawalBlockNumber,
+        bytes32[] calldata withdrawalProof
+    ) external;
 }
