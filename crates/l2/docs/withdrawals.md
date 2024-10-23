@@ -16,8 +16,9 @@ In more detail, the full changes/additions are:
     - Verify that the withdraw logs passed on the blob are the correct ones (this is done as part of the proof of equivalence protocol explained below).
     - Store the `WithdrawLogsRoot` on a mapping `(blockNumber -> LogsRoot)`
 - For users to complete their withdraw process and receive funds on the L1, they need to call a `claimWithdraw(withdrawLog, merkleProof, blockNumber)` function on the common bridge, where `merkleProof` is an inclusion proof of the withdraw log to the root of the merkle tree the contract has stored. The contract will then do the following:
-    - Check that the `blockNumber` corresponds to a committed block and verified block.
-    - Check that this withdrawal has note been already claimed.
+    - Check that the `blockNumber` corresponds to a committed and verified block.
+    - Check that this withdrawal has not been already claimed.
     - Retrieve the `withdrawLogsRoot` from the given `blockNumber`.
-    - Verify the merkle proof given by the user, passing the proof, the root, and the `tx_index`.
+    - Verify the merkle proof given by the user, passing the proof, the root, and the `tx_hash`.
     - If any check above failed, revert. If all checks passed, send the appropriate funds to the user, then set the `withdrawLog` as claimed.
+    - After the withdrawal is sent, we mark it as claimed so it cannot be claimed twice.
