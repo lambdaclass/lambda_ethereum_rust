@@ -90,21 +90,21 @@ impl Account {
 pub type Storage = HashMap<U256, H256>;
 
 #[derive(Clone, Debug, Default)]
-pub struct Db {
+pub struct LevmDb {
     pub accounts: HashMap<Address, Account>,
     // contracts: HashMap<B256, Bytecode>,
     pub block_hashes: HashMap<U256, H256>,
 }
 
-impl Db {
-    pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+impl Db for LevmDb {
+    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
         self.accounts
             .get(address)
             .and_then(|account| account.storage.get(key))
             .cloned()
     }
 
-    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
         self.accounts
             .entry(*address)
             .or_default()
@@ -112,23 +112,23 @@ impl Db {
             .insert(key, slot);
     }
 
-    pub fn get_account_bytecode(&self, address: &Address) -> Bytes {
+    fn get_account_bytecode(&self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
-    pub fn balance(&mut self, address: &Address) -> U256 {
+    fn balance(&mut self, address: &Address) -> U256 {
         self.accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
-    pub fn add_account(&mut self, address: Address, account: Account) {
+    fn add_account(&mut self, address: Address, account: Account) {
         self.accounts.insert(address, account);
     }
 
-    pub fn increment_account_nonce(&mut self, address: &Address) {
+    fn increment_account_nonce(&mut self, address: &Address) {
         if let Some(acc) = self.accounts.get_mut(address) {
             acc.increment_nonce()
         }
@@ -136,7 +136,7 @@ impl Db {
 
     /// Returns the account associated with the given address.
     /// If the account does not exist in the Db, it creates a new one with the given address.
-    pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
+    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
         if self.accounts.contains_key(address) {
             return Ok(self.accounts.get(address).unwrap());
         }
@@ -188,7 +188,7 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    pub db: Db,
+    pub db: LevmDb,
 }
 
 fn address_to_word(address: Address) -> U256 {
@@ -219,7 +219,7 @@ impl VM {
         tx_chain_id: U256,
         block_base_fee_per_gas: U256,
         tx_gas_price: U256,
-        db: Db,
+        db: LevmDb,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
     ) -> Self {
@@ -453,7 +453,6 @@ impl VM {
                     gas_refunded: self.env.refunded_gas.as_u64(),
                     output: current_call_frame.return_data,
                     logs: current_call_frame.logs, // TODO: accumulate all call frames' logs in VM
-                    created_address: None,
                 };
                 Ok(report)
             }

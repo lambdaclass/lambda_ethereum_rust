@@ -4,7 +4,7 @@ use ethereum_rust_levm::{
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
-    vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
+    vm::{word_to_address, Account, LevmDb, Storage, StorageSlot, VM},
 };
 use std::collections::HashMap;
 
@@ -3814,7 +3814,7 @@ fn caller_op() {
 
     let operations = [Operation::Caller, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
     db.add_account(
         address_that_has_the_code,
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
@@ -3856,7 +3856,7 @@ fn origin_op() {
 
     let operations = [Operation::Origin, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
     db.add_account(
         address_that_has_the_code,
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
@@ -3924,7 +3924,7 @@ fn address_op() {
 
     let operations = [Operation::Address, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
     db.add_account(
         address_that_has_the_code,
         Account::default().with_bytecode(ops_to_bytecde(&operations)),
@@ -3966,7 +3966,7 @@ fn selfbalance_op() {
 
     let operations = [Operation::SelfBalance, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
     db.add_account(
         address_that_has_the_code,
         Account::default()
@@ -4007,7 +4007,7 @@ fn callvalue_op() {
 
     let operations = [Operation::Callvalue, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
 
     db.add_account(
         address_that_has_the_code,
@@ -4046,7 +4046,7 @@ fn codesize_op() {
 
     let operations = [Operation::Codesize, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
 
     db.add_account(
         address_that_has_the_code,
@@ -4087,7 +4087,7 @@ fn gasprice_op() {
     let address_that_has_the_code = Address::from_low_u64_be(0x42);
     let operations = [Operation::Gasprice, Operation::Stop];
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
 
     db.add_account(
         address_that_has_the_code,
@@ -4145,7 +4145,7 @@ fn codecopy_op() {
 
     let expected_memory = U256::from_big_endian(&expected_memory_bytes);
 
-    let mut db = Db::default();
+    let mut db = LevmDb::default();
 
     db.add_account(
         address_that_has_the_code,

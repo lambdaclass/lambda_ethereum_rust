@@ -1,6 +1,6 @@
 use crate::{
     operations::Operation,
-    vm::{Account, Db, VM},
+    vm::{Account, LevmDb, VM},
 };
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
@@ -46,7 +46,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         ),
     ];
 
-    let state = Db {
+    let state = LevmDb {
         accounts: accounts.into(),
         block_hashes: Default::default(),
     };
