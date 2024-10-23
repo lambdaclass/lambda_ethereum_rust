@@ -72,6 +72,7 @@ mod tests {
                 .unwrap();
         static ref HASH_FIRST_MINUS_500: H256 = H256::from_uint(&((*HASH_FIRST).into_uint() - 500));
         static ref HASH_FIRST_MINUS_450: H256 = H256::from_uint(&((*HASH_FIRST).into_uint() - 450));
+        static ref HASH_FIRST_MINUS_ONE: H256 = H256::from_uint(&((*HASH_FIRST).into_uint() - 1));
         static ref HASH_FIRST_PLUS_ONE: H256 = H256::from_uint(&((*HASH_FIRST).into_uint() + 1));
     }
 
@@ -222,6 +223,71 @@ mod tests {
             root_hash: root,
             starting_hash: *HASH_MIN,
             limit_hash: *HASH_MIN,
+            response_bytes: 4000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 1);
+        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+    }
+
+    #[test]
+    fn hive_account_range_i() {
+        let (store, root) = setup_initial_state();
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: *HASH_FIRST,
+            limit_hash: *HASH_MAX,
+            response_bytes: 4000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 86);
+        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn hive_account_range_j() {
+        let (store, root) = setup_initial_state();
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: *HASH_FIRST_PLUS_ONE,
+            limit_hash: *HASH_MAX,
+            response_bytes: 4000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 86);
+        assert_eq!(res.accounts.first().unwrap().0, *HASH_SECOND);
+        assert_eq!(
+            res.accounts.last().unwrap().0,
+            H256::from_str("0x4615e5f5df5b25349a00ad313c6cd0436b6c08ee5826e33a018661997f85ebaa")
+                .unwrap()
+        );
+    }
+
+    // Tests for different roots skipped (we don't have other state's data loaded)
+
+    // Non-sensical requests
+
+    #[test]
+    fn hive_account_range_k() {
+        // In this test, the startingHash is the first available key, and limitHash is
+        // a key before startingHash (wrong order). The server should return the first available key.
+        let (store, root) = setup_initial_state();
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: *HASH_FIRST,
+            limit_hash: *HASH_FIRST_MINUS_ONE,
             response_bytes: 4000,
         };
         let res = process_account_range_request(request, store).unwrap();
