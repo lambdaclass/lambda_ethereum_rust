@@ -91,7 +91,7 @@ jobs:
       - name: RISC-V zkVM toolchain install
         run: |
           curl -L https://risczero.com/install | bash
-          ~/.risc0/bin/rzup
+          ~/.risc0/bin/rzup install
 
       - name: Build prover and zkVM
         run: |
