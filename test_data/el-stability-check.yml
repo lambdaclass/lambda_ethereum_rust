@@ -3,7 +3,7 @@
 #
 # We removed the consensus checks to keep it minimal. The checks removed were:
 #   - check_consensus_finality
-#   - check_consensus_finality
+#   - check_consensus_attestation_stats
 #   - check_consensus_reorgs
 #   - check_consensus_forks
 
