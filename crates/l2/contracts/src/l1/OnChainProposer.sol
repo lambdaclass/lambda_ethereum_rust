@@ -29,11 +29,11 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     function initialize(address bridge) public nonReentrant {
         require(
             bridge != address(0),
-            "CommonBridge: bridge is the zero address"
+            "OnChainProposer: bridge is the zero address"
         );
         require(
             bridge != address(this),
-            "CommonBridge: bridge is the contract address"
+            "OnChainProposer: bridge is the contract address"
         );
         BRIDGE = bridge;
     }
