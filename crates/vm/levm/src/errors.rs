@@ -20,6 +20,10 @@ pub enum VMError {
     FatalError,
     InvalidTransaction,
     RevertOpcode,
+    SenderAccountDoesNotExist,
+    SenderAccountShouldNotHaveBytecode,
+    SenderBalanceShouldContainTransferValue,
+    GasPriceIsLowerThanBaseFee,
 }
 
 pub enum OpcodeSuccess {
