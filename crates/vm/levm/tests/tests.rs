@@ -4354,10 +4354,10 @@ fn invalid_opcode() {
 fn revert_opcode() {
     let ops = vec![
         Operation::Push((32, U256::from(0xA))), // value
-        Operation::Push((32, U256::zero())), // offset
+        Operation::Push((32, U256::from(0xFF))), // offset
         Operation::Mstore,
         Operation::Push((32, U256::from(32))), // size
-        Operation::Push((32, U256::zero())),   // offset
+        Operation::Push((32, U256::from(0xFF))),   // offset
         Operation::Revert,
     ];
 
