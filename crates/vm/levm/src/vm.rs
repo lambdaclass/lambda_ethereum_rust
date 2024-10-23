@@ -277,7 +277,11 @@ impl VM {
         //     .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
 
         // Backup of Database, Substate and Gas Refunds if sub-context is reverted
-        let (backup_db, backup_substate, backup_refunded_gas) = (self.db.clone(), self.accrued_substate.clone(), self.env.refunded_gas); 
+        let (backup_db, backup_substate, backup_refunded_gas) = (
+            self.db.clone(),
+            self.accrued_substate.clone(),
+            self.env.refunded_gas,
+        );
 
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
@@ -409,9 +413,8 @@ impl VM {
                     }
 
                     // Restore previous state
-                    self.accrued_substate = backup_substate;
-                    self.db = backup_db;
-                    self.env.refunded_gas = backup_refunded_gas;
+                    (self.accrued_substate, self.db, self.env.refunded_gas) =
+                        (backup_substate, backup_db, backup_refunded_gas);
 
                     return TransactionReport {
                         result: TxResult::Revert(error),
@@ -543,9 +546,6 @@ impl VM {
 
         current_call_frame.sub_return_data_offset = ret_offset;
         current_call_frame.sub_return_data_size = ret_size;
-
-
-        
 
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);

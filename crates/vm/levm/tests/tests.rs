@@ -4348,16 +4348,15 @@ fn invalid_opcode() {
     ));
 }
 
-
 // Revert Opcode has correct output and result
 #[test]
 fn revert_opcode() {
     let ops = vec![
-        Operation::Push((32, U256::from(0xA))), // value
+        Operation::Push((32, U256::from(0xA))),  // value
         Operation::Push((32, U256::from(0xFF))), // offset
         Operation::Mstore,
-        Operation::Push((32, U256::from(32))), // size
-        Operation::Push((32, U256::from(0xFF))),   // offset
+        Operation::Push((32, U256::from(32))),   // size
+        Operation::Push((32, U256::from(0xFF))), // offset
         Operation::Revert,
     ];
 
@@ -4367,5 +4366,8 @@ fn revert_opcode() {
     let tx_report = vm.execute(&mut current_call_frame);
 
     assert_eq!(U256::from_big_endian(&tx_report.output), U256::from(0xA));
-    assert!(matches!(tx_report.result, TxResult::Revert(VMError::RevertOpcode)));
+    assert!(matches!(
+        tx_report.result,
+        TxResult::Revert(VMError::RevertOpcode)
+    ));
 }
