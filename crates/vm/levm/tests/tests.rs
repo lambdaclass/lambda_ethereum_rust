@@ -1,7 +1,7 @@
 use ethereum_rust_levm::{
     constants::*,
     errors::{TxResult, VMError},
-    operations::Operation,
+    operations::{self, Operation},
     primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
     vm::{word_to_address, Account, Db, Storage, StorageSlot, VM},
@@ -4346,4 +4346,26 @@ fn invalid_opcode() {
         tx_report.result,
         TxResult::Revert(VMError::InvalidOpcode)
     ));
+}
+
+
+// Revert Opcode has correct output and result
+#[test]
+fn revert_opcode() {
+    let ops = vec![
+        Operation::Push((32, U256::from(0xA))), // value
+        Operation::Push((32, U256::zero())), // offset
+        Operation::Mstore,
+        Operation::Push((32, U256::from(32))), // size
+        Operation::Push((32, U256::zero())),   // offset
+        Operation::Revert,
+    ];
+
+    let mut vm = new_vm_with_ops(&ops);
+
+    let mut current_call_frame = vm.call_frames.pop().unwrap();
+    let tx_report = vm.execute(&mut current_call_frame);
+
+    assert_eq!(U256::from_big_endian(&tx_report.output), U256::from(0xA));
+    assert!(matches!(tx_report.result, TxResult::Revert(VMError::RevertOpcode)));
 }
