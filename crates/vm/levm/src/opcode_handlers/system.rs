@@ -261,7 +261,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         // Description: Gets values from stack, calculates gas cost and sets return data.
-        // Returns: Revert as Result Reason. VMError otherwise. 
+        // Returns: VMError RevertOpcode if executed correctly. 
         // Notes:
         //      The reversion of changes is made in the generic_call(). 
         //      Changes are not "reverted" if it is the first callframe, they are just not commited.
@@ -296,7 +296,6 @@ impl VM {
     }
 
 
-    // selfdestruct(address). Agarra todo el ether de un contrato y se lo da a un address.
     // SELFDESTRUCT operation
     pub fn op_selfdestruct(
         &mut self,
