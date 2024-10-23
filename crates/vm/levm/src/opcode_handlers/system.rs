@@ -317,7 +317,7 @@ impl VM {
         // Gas costs variables
         let static_gas_cost = gas_cost::SELFDESTRUCT_STATIC;
         let dynamic_gas_cost = gas_cost::SELFDESTRUCT_DYNAMIC;
-        let cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
+        let _cold_gas_cost = gas_cost::COLD_ADDRESS_ACCESS_COST;
         let mut gas_cost = static_gas_cost; // This will be updated later
 
         // 1. Pop the target address from the stack
@@ -355,7 +355,7 @@ impl VM {
         target_account.balance += current_account_balance;
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
-        // This is temporary because it is not necessarily right but we should just check if the current account was created in this transaction. 
+        // This is temporary because it is not necessarily right but we should just check if the current account was created in this transaction.
         if self
             .accrued_substate
             .created_contract_addresses

@@ -4372,7 +4372,6 @@ fn revert_opcode() {
     ));
 }
 
-
 // Store something in the database, then revert. Database should be like it was before the store.
 #[test]
 fn revert_sstore() {
