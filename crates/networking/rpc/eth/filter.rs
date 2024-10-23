@@ -273,14 +273,13 @@ mod tests {
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
+    use ethereum_rust_core::types::BlockBody;
     use ethereum_rust_core::{
         types::{
-            BlockHeader, Genesis, LegacyTransaction, Log, Receipt, Transaction,
-            TxKind, TxType,
+            BlockHeader, Genesis, LegacyTransaction, Log, Receipt, Transaction, TxKind, TxType,
         },
         H160,
     };
-    use ethereum_rust_core::types::BlockBody;
     use ethereum_rust_storage::{engines::api::StoreEngine, EngineType, Store};
 
     use serde_json::{json, Value};
@@ -648,8 +647,6 @@ mod tests {
         let filter_id = response
             .get("result")
             .expect("eth_newFilter did not return an expected id");
-
-
 
         // Simulate a new block arriving by adding it to the store.
         let header = BlockHeader::default();
