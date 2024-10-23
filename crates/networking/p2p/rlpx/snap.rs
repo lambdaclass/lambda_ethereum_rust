@@ -13,11 +13,11 @@ use super::{message::RLPxMessage, utils::snappy_encode};
 pub(crate) struct GetAccountRange {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    root_hash: H256,
-    starting_hash: H256,
-    limit_hash: H256,
-    response_bytes: u64,
+    pub id: u64,
+    pub root_hash: H256,
+    pub starting_hash: H256,
+    pub limit_hash: H256,
+    pub response_bytes: u64,
 }
 
 impl GetAccountRange {
@@ -81,19 +81,9 @@ impl RLPxMessage for GetAccountRange {
 pub(crate) struct AccountRange {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
-    id: u64,
-    accounts: Vec<(H256, AccountState)>,
-    proof: Vec<u8>,
-}
-
-impl AccountRange {
-    pub fn new(id: u64, accounts: Vec<(H256, AccountState)>, proof: Vec<u8>) -> Self {
-        Self {
-            id,
-            accounts,
-            proof,
-        }
-    }
+    pub id: u64,
+    pub accounts: Vec<(H256, AccountState)>,
+    pub proof: Vec<Vec<u8>>,
 }
 
 impl RLPxMessage for AccountRange {
@@ -119,8 +109,13 @@ impl RLPxMessage for AccountRange {
         let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
         let (accounts, decoder): (Vec<(H256, AccountState)>, _) =
             decoder.decode_field("accounts")?;
-        let (proof, _): (Vec<u8>, _) = decoder.decode_field("proof")?;
+        let (proof, decoder) = decoder.decode_field("proof")?;
+        decoder.finish()?;
 
-        Ok(Self::new(id, accounts, proof))
+        Ok(Self {
+            id,
+            accounts,
+            proof,
+        })
     }
 }

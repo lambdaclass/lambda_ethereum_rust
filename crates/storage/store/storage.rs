@@ -679,12 +679,8 @@ impl Store {
 
     // Returns an iterator across all accounts in the state trie given by the state_root
     // Does not check that the state_root is valid
-    pub fn iter_accounts(
-        &self,
-        state_root: H256,
-    ) -> Result<impl Iterator<Item = (H256, AccountState)>, StoreError> {
-        Ok(self
-            .engine
+    pub fn iter_accounts(&self, state_root: H256) -> impl Iterator<Item = (H256, AccountState)> {
+        self.engine
             .open_state_trie(state_root)
             .into_iter()
             .content()
@@ -693,7 +689,16 @@ impl Store {
                     H256::decode(&path).ok()?,
                     AccountState::decode(&value).ok()?,
                 ))
-            }))
+            })
+    }
+
+    pub fn get_account_range_proof(
+        &self,
+        state_root: H256,
+        starting_hash: H256,
+    ) -> Result<Vec<Vec<u8>>, StoreError> {
+        let state_trie = self.engine.open_state_trie(state_root);
+        Ok(state_trie.get_proof(&starting_hash.encode_to_vec())?)
     }
 
     pub fn add_payload(&self, payload_id: u64, block: Block) -> Result<(), StoreError> {
