@@ -85,7 +85,7 @@ impl EthClient {
 
     pub async fn send_eip1559_transaction(
         &self,
-        mut tx: EIP1559Transaction,
+        tx: &mut EIP1559Transaction,
         private_key: SecretKey,
     ) -> Result<H256, EthClientError> {
         let mut payload = vec![EIP1559_TX_TYPE];
