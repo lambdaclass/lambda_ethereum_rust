@@ -232,6 +232,8 @@ impl ProverServer {
             .ok_or("parent block header not found")?;
         let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
 
+        debug!("Created prover input for block {block_number}");
+
         Ok(ProverInputData {
             db,
             parent_block_header,
