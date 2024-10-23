@@ -2,9 +2,8 @@ use risc0_zkvm::guest::env;
 
 //use ethereum_rust_blockchain::validate_gas_used;
 use ethereum_rust_core::types::{Receipt, Transaction};
-//use ethereum_rust_l2::proof_data_provider::MemoryDB;
+// We have to import the ExecutionDB.
 use ethereum_rust_vm::{block_env, tx_env};
-//use methods::ExecutionDB;
 
 use revm::{
     db::CacheDB, inspectors::TracerEip3155, primitives::ResultAndState as RevmResultAndState,
@@ -15,7 +14,7 @@ fn main() {
     // Read the input
     let head_block_bytes = env::read::<Vec<u8>>();
     let parent_header_bytes = env::read::<Vec<u8>>();
-    //let executor_db = env::read::<ExecutionDB>();
+    //let execution_db = env::read::<ExecutionDB>();
 
     // SetUp data from inputs
     let block = <ethereum_rust_core::types::Block as ethereum_rust_rlp::decode::RLPDecode>::decode(
@@ -35,7 +34,7 @@ fn main() {
     //env::commit(&executor_db);
 
     // SetUp CacheDB in order to use execute_block()
-    //let mut cache_db = CacheDB::new(executor_db);
+    //let mut cache_db = CacheDB::new(execution_db);
     println!("executing block");
 
     //let block_receipts = execute_block(&block, &mut cache_db).unwrap();
