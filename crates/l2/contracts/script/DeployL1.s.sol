@@ -2,8 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
-import {OnChainProposer} from "../src/l1/OnChainProposer.sol";
-import {CommonBridge} from "../src/l1/CommonBridge.sol";
+import {OnChainProposer, IOnChainProposer} from "../src/l1/OnChainProposer.sol";
+import {CommonBridge, ICommonBridge} from "../src/l1/CommonBridge.sol";
 import {Utils} from "./Utils.sol";
 
 contract DeployL1Script is Script {
@@ -22,47 +22,39 @@ contract DeployL1Script is Script {
 
         bytes32 salt = bytes32(0);
 
-        address commonBridge = vm.computeCreate2Address(
-            salt,
-            keccak256(type(CommonBridge).creationCode),
-            DETERMINISTIC_CREATE2_ADDRESS
-        );
-        address onChainProposer = vm.computeCreate2Address(
-            salt,
-            keccak256(type(OnChainProposer).creationCode),
-            DETERMINISTIC_CREATE2_ADDRESS
-        );
+        address onChainProposer = deployOnChainProposer(salt);
+        address commonBridge = deployCommonBridge(msg.sender, salt);
 
-        deployOnChainProposer(commonBridge, salt);
-        deployCommonBridge(msg.sender, onChainProposer, salt);
+        vm.startBroadcast();
+        IOnChainProposer(onChainProposer).initialize(commonBridge);
+        ICommonBridge(commonBridge).initialize(onChainProposer);
+        vm.stopBroadcast();
     }
 
-    function deployOnChainProposer(
-        address commonBridge,
-        bytes32 salt
-    ) internal {
+    function deployOnChainProposer(bytes32 salt) internal returns (address) {
         bytes memory bytecode = type(OnChainProposer).creationCode;
         address contractAddress = Utils.deployWithCreate2(
             bytecode,
             salt,
             DETERMINISTIC_CREATE2_ADDRESS,
-            abi.encode(commonBridge)
+            ""
         );
         console.log("OnChainProposer deployed at:", contractAddress);
+        return contractAddress;
     }
 
     function deployCommonBridge(
         address owner,
-        address onChainProposer,
         bytes32 salt
-    ) internal {
+    ) internal returns (address) {
         bytes memory bytecode = type(CommonBridge).creationCode;
         address contractAddress = Utils.deployWithCreate2(
             bytecode,
             salt,
             DETERMINISTIC_CREATE2_ADDRESS,
-            abi.encode(owner, onChainProposer)
+            abi.encode(owner)
         );
         console.log("CommonBridge deployed at:", contractAddress);
+        return contractAddress;
     }
 }
