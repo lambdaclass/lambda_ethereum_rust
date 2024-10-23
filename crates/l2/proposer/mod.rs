@@ -116,12 +116,12 @@ impl Proposer {
                     {
                         let to = match priv_tx.to {
                             TxKind::Call(to) => to,
-                            _ => panic!("Withdrawal transaction should be a Call"),
+                            _ => return None,
                         };
                         let value = &mut [0u8; 32];
                         priv_tx.value.to_big_endian(value);
                         Some(keccak(
-                            vec![to.as_bytes(), value, tx.compute_hash().as_bytes()].concat(),
+                            [to.as_bytes(), value, tx.compute_hash().as_bytes()].concat(),
                         ))
                     }
                     _ => None,

@@ -8,7 +8,7 @@ pub fn merkelize(data: Vec<H256>) -> H256 {
             .map(|chunk| {
                 let left = chunk[0];
                 let right = if chunk.len() == 2 { chunk[1] } else { left };
-                keccak(vec![keccak(left.0).as_bytes(), keccak(right.0).as_bytes()].concat())
+                keccak([keccak(left.0).as_bytes(), keccak(right.0).as_bytes()].concat())
             })
             .collect();
     }
