@@ -30,6 +30,7 @@ ethereum_rust-l2.workspace = true
 ethereum_rust-core.workspace = true
 ethereum_rust-blockchain.workspace = true
 ethereum_rust-prover.workspace = true
+ethereum_rust-rlp.workspace = true
 
 [[bin]]
 name = "ethereum_rust_l2"
