@@ -297,6 +297,25 @@ mod tests {
         assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
     }
 
+    #[test]
+    fn hive_account_range_m() {
+        // In this test, the startingHash is the first available key and limitHash is zero.
+        // (wrong order). The server should return the first available key.
+        let (store, root) = setup_initial_state();
+        let request = GetAccountRange {
+            id: 0,
+            root_hash: root,
+            starting_hash: *HASH_FIRST,
+            limit_hash: *HASH_MIN,
+            response_bytes: 4000,
+        };
+        let res = process_account_range_request(request, store).unwrap();
+        // Check test invariants
+        assert_eq!(res.accounts.len(), 1);
+        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+    }
+
     // Initial state setup for hive snap tests
 
     fn setup_initial_state() -> (Store, H256) {
