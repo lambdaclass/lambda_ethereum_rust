@@ -70,23 +70,47 @@ fn parse_vec_arg(arg_type: &str, arg: &str) -> Vec<u8> {
     let args = arg.split(',');
     match arg_type {
         "address[]" => {
-            let mut addresses =
-                args.map(|arg| Address::from_str(arg).expect("Cannot parse address[]"));
-            println!("Encoded address: {}", addresses.join(" - "));
+            return args
+                .map(|arg| {
+                    H256::from(Address::from_str(arg).expect("Cannot parse address[]"))
+                        .0
+                        .to_vec()
+                })
+                .collect::<Vec<Vec<u8>>>()
+                .concat();
         }
         "uint8[]" => {
-            let mut numbers = args.map(|arg| u8::from_str(arg).expect("Cannot parse number[]"));
-            println!("Number: {}", numbers.join(" - "));
+            return args
+                .map(|arg| {
+                    let buf: &mut [u8] = &mut [0u8; 32];
+                    U256::from(u8::from_str(arg).expect("Cannot parse u8[]")).to_big_endian(buf);
+                    buf.to_vec()
+                })
+                .collect::<Vec<Vec<u8>>>()
+                .concat();
         }
         "uint256[]" => {
-            let mut numbers =
-                args.map(|arg| U256::from_dec_str(arg).expect("Cannot parse number[]"));
-            println!("Number: {}", numbers.join(" - "));
+            return args
+                .map(|arg| {
+                    let buf: &mut [u8] = &mut [0u8; 32];
+                    U256::from_dec_str(arg)
+                        .expect("Cannot parse u256[]")
+                        .to_big_endian(buf);
+                    buf.to_vec()
+                })
+                .collect::<Vec<Vec<u8>>>()
+                .concat();
         }
         "bytes32[]" => {
-            let mut bytes_array =
-                args.map(|arg| H256::from_str(arg).expect("Cannot parse bytes32[]"));
-            println!("Bytes: {}", bytes_array.join(" - "));
+            return args
+                .map(|arg| {
+                    H256::from_str(arg)
+                        .expect("Cannot parse bytes32[]")
+                        .0
+                        .to_vec()
+                })
+                .collect::<Vec<Vec<u8>>>()
+                .concat();
         }
         _ => {
             println!("Unsupported type: {arg_type}");
@@ -114,14 +138,27 @@ impl Command {
                 }
 
                 let mut calldata: Vec<u8> = function_selector.as_bytes().to_vec();
-                for (param, arg) in params.iter().zip(args) {
+                let mut dynamic_calldata: Vec<u8> = vec![];
+                for (param, arg) in params.iter().zip(args.clone()) {
                     if param.as_str().ends_with("[]") {
-                        calldata.extend(parse_vec_arg(param, arg));
+                        let offset: &mut [u8] = &mut [0u8; 32];
+                        (U256::from(args.len())
+                            .checked_mul(U256::from(32))
+                            .expect("Calldata too long")
+                            .checked_add(U256::from(dynamic_calldata.len()))
+                            .expect("Calldata too long"))
+                        .to_big_endian(offset);
+                        calldata.extend(offset.to_vec());
+                        dynamic_calldata.extend(parse_vec_arg(param, arg));
                     } else {
                         calldata.extend(parse_arg(param, arg));
                     }
                 }
-                println!("0x{}", hex::encode(calldata));
+                println!(
+                    "0x{}{}",
+                    hex::encode(calldata),
+                    hex::encode(dynamic_calldata)
+                );
             }
         };
         Ok(())
