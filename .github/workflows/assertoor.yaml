@@ -19,10 +19,9 @@ env:
   RUST_VERSION: 1.80.1
 
 jobs:
-  assertoor:
+  test-run:
     name: Stability Check
     runs-on: ubuntu-latest
-    needs: docker-build
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
