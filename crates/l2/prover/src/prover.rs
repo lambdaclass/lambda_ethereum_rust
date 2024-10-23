@@ -1,12 +1,7 @@
 use tracing::info;
 
 // risc0
-#[cfg(not(clippy))]
-use program_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
-#[cfg(clippy)]
-const ZKVM_PROGRAM_ELF: &[u8] = &[0];
-#[cfg(clippy)]
-const ZKVM_PROGRAM_ID: [u32; 8] = [0_u32; 8];
+use zkvm_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
 
 use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder};
 

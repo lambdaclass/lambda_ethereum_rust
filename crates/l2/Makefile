@@ -70,4 +70,4 @@ down-l2: ## 🛑 Shuts down the L2 Lambda Ethereum Rust Client
 restart-l2: down-l2 init-l2 ## 🔄 Restarts the L2 Lambda Ethereum Rust Client
 
 init-l2-prover: ## 🚀 Initializes the Prover
-	cargo run --release --manifest-path ../../Cargo.toml --bin ethereum_rust_prover
+	cargo run --release --features build_zkvm --manifest-path ../../Cargo.toml --bin ethereum_rust_prover

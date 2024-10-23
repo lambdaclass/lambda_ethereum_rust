@@ -1,5 +1,5 @@
 [package]
-name = "program_interface"
+name = "zkvm_interface"
 version = "0.1.0"
 edition = "2021"
 
@@ -21,3 +21,7 @@ risc0-build = { version = "1.1.2" }
 
 [package.metadata.risc0]
 methods = ["guest"]
+
+[features]
+default = []
+build_zkvm = []

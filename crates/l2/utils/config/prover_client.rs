@@ -4,7 +4,6 @@ use super::errors::ConfigError;
 
 #[derive(Deserialize, Debug)]
 pub struct ProverClientConfig {
-    pub elf_path: String,
     pub prover_server_endpoint: String,
 }
 
