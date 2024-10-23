@@ -160,8 +160,7 @@ async fn discover_peers_server(
                         table.insert_node(Node {
                             ip: from.ip(),
                             udp_port: from.port(),
-                            // TODO: Check how to obtain proper tcp port
-                            tcp_port: from.port(),
+                            tcp_port: 0,
                             node_id: packet.get_node_id(),
                         })
                     };
