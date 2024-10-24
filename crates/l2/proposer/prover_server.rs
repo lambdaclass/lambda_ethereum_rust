@@ -8,18 +8,14 @@ use std::{
     net::{IpAddr, Shutdown, TcpListener, TcpStream},
     sync::mpsc::{self, Receiver},
 };
-use tokio::{
-    join,
-    signal::unix::{signal, SignalKind},
-};
+use tokio::signal::unix::{signal, SignalKind};
 use tracing::{debug, info, warn};
 
-use ethereum_rust_core::types::{Block, BlockHeader};
+use ethereum_rust_core::types::Block;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
     pub db: ExecutionDB,
-    pub parent_block_header: BlockHeader,
     pub block: Block,
 }
 
@@ -225,19 +221,10 @@ impl ProverServer {
                 .map_err(|err| err.to_string())?
                 .ok_or("block body not found")?,
         };
-        let parent_block_header = self
-            .store
-            .get_block_header(block_number - 1)
-            .map_err(|err| err.to_string())?
-            .ok_or("parent block header not found")?;
         let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
 
         debug!("Created prover input for block {block_number}");
 
-        Ok(ProverInputData {
-            db,
-            parent_block_header,
-            block,
-        })
+        Ok(ProverInputData { db, block })
     }
 }

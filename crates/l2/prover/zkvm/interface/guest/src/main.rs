@@ -5,17 +5,14 @@ use ethereum_rust_core::types::Block;
 use ethereum_rust_vm::{execute_block, execution_db::ExecutionDB, EvmState};
 
 fn main() {
-    // Read the input
+    // Read inputs
     let head_block_bytes = env::read::<Vec<u8>>();
-    // let parent_header_bytes = env::read::<Vec<u8>>();
     let execution_db = env::read::<ExecutionDB>();
 
-    // SetUp data from inputs
     let block = Block::decode(&head_block_bytes).unwrap();
 
-    // Make DataInputs public.
+    // Make inputs public
     env::commit(&block);
-    //env::commit(&parent_header);
     env::commit(&execution_db);
 
     // Execute block

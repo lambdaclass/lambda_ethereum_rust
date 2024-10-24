@@ -34,11 +34,9 @@ impl<'a> Prover<'a> {
 
     pub fn set_input(&mut self, input: ProverInputData) -> &mut Self {
         let head_block_rlp = input.block.encode_to_vec();
-        let parent_block_header_rlp = input.parent_block_header.encode_to_vec();
 
         // We should pass the inputs as a whole struct
         self.env_builder.write(&head_block_rlp).unwrap();
-        // self.env_builder.write(&parent_block_header_rlp).unwrap();
         self.env_builder.write(&input.db).unwrap();
 
         self
