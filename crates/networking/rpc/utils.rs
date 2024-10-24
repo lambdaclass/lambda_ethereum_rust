@@ -279,7 +279,9 @@ pub mod test_utils {
         let authrpc_addr: SocketAddr = "127.0.0.1:8501".parse().unwrap();
         let storage =
             Store::new("", EngineType::InMemory).expect("Failed to create in-memory storage");
-        storage.add_initial_state(serde_json::from_str(TEST_GENESIS).unwrap()).expect("Failed to build test genesis");
+        storage
+            .add_initial_state(serde_json::from_str(TEST_GENESIS).unwrap())
+            .expect("Failed to build test genesis");
 
         let jwt_secret = Default::default();
         let local_p2p_node = example_p2p_node();
