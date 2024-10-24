@@ -26,8 +26,6 @@
   - [Prerequisites](#prerequisites)
     - [Foundry](#foundry)
   - [How to run](#how-to-run)
-    - [Install `ethereum_rust_l2` CLI](#install-ethereum_rust_l2-cli)
-    - [Configure your network](#configure-your-network)
     - [Initialize the network](#initialize-the-network)
     - [Restarting the network](#restarting-the-network)
   - [Local L1 Rich Wallets](#local-l1-rich-wallets)
@@ -45,7 +43,7 @@
 | 4         | The L2 can also be deployed using a custom native token, meaning that a certain ERC20 can be the common currency that's used for paying network fees.                                                                                                                                                             | ❌      |
 | 5         | The network can be run as a Based Contestable Rollup, meaning sequencing is done by the Ethereum Validator set; transactions are sent to a private mempool and L1 Validators that opt into the L2 sequencing propose blocks for the L2 on every L1 block.                                                         | ❌      |
 | 6         | The L2 has added security mechanisms in place, running on Trusted Execution Environments and Multi Prover setup where multiple guarantees (Execution on TEEs, zkVMs/proving systems) are required for settlement on the L1. This better protects against possible security bugs on implementations.               | ❌      |
-| 7         | The L2 supports native account abstraction following EIP 4337, allowing for custom transaction validation logic and paymaster flows.                             | ❌      |
+| 7         | The L2 supports native account abstraction following EIP 7702, allowing for custom transaction validation logic and paymaster flows.                             | ❌      |
 | 8         | The L2 can be initialized in Validium Mode, meaning the Data Availability layer is no longer the L1, but rather a DA layer of the user's choice.                             | ❌      |
 
 ### Milestone 0
@@ -197,41 +195,16 @@ The L2 can be initialized in Validium Mode, meaning the Data Availability layer 
 
 ## How to run
 
-### Install `ethereum_rust_l2` CLI
-
-First of all, you need to install the `ethereum_rust_l2` CLI. You can do that by running the command below at the root of this repo:
-
-```
-cargo install --path cmd/ethereum_rust_l2
-```
-
-> [!IMPORTANT]
-> Most of the CLI interaction needs a configuration to be set. You can set a configuration with the `config` command.
-
-### Configure your network
-
-> [!TIP]
-> You can create multiple configurations and switch between them.
-
-```
-ethereum_rust_l2 config create <config_name>
-```
-
-![](../../cmd/ethereum_rust_l2/assets/config_create.cast.gif)
-
 ### Initialize the network
 
 > [!IMPORTANT]
-> Before this step, make sure the Docker daemon is running.
-
-> [!IMPORTANT]
-> Add the SPI_PROVER=mock env variable to the command (to run the prover you need ).
+> Before this step:
+> 1. make sure the Docker daemon is running.
+> 2. make sure you have created a `.env` file following the `.env.example` file.
 
 ```
-ethereum_rust_l2 stack init
+make
 ```
-
-![](../../cmd/ethereum_rust_l2/assets/stack_init.cast.gif)
 
 This will setup a local Ethereum network as the L1, deploy all the needed contracts on it, then start an Ethereum Rust L2 node pointing to it.
 
@@ -241,10 +214,8 @@ This will setup a local Ethereum network as the L1, deploy all the needed contra
 > This command will cleanup your running L1 and L2 nodes.
 
 ```
-ethereum_rust_l2 stack restart
+make restart
 ```
-
-![](../../cmd/ethereum_rust_l2/assets/stack_restart.cast.gif)
 
 ## Local L1 Rich Wallets
 
