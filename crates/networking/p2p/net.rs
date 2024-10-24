@@ -779,7 +779,7 @@ async fn handle_peer_as_initiator(
 
 async fn handle_peer(mut conn: RLPxConnection<TcpStream>, table: Arc<Mutex<KademliaTable>>) {
     match conn.handshake().await {
-        Ok(_) => match conn.main_loop().await {
+        Ok(_) => match conn.handle_peer().await {
             Ok(_) => unreachable!(),
             Err(e) => info!("Error during RLPx connection: ({e})"),
         },

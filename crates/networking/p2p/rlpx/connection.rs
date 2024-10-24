@@ -76,32 +76,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         RLPxConnection::new(signer, stream, state, storage)
     }
 
-    pub async fn main_loop(&mut self) -> Result<(), RLPxError> {
-        match &self.state {
-            RLPxConnectionState::Established(_) => {
-                info!("Started peer main loop");
-                loop {
-                    match self.receive().await {
-                        Message::Disconnect(_) => info!("Received Disconnect"),
-                        Message::Ping(_) => info!("Received Ping"),
-                        Message::Pong(_) => info!("Received Pong"),
-                        Message::Status(_) => {
-                            info!("Received Status");
-                            let message =
-                                Message::Status(StatusMessage::new(&self.storage).unwrap());
-                            self.send(message).await;
-                            info!("Sent Status");
-                        }
-                        message => return Err(RLPxError::UnexpectedMessage(message)),
-                    };
-                }
-            }
-            _ => Err(RLPxError::InvalidState(
-                "Invalid connection state".to_string(),
-            )),
-        }
-    }
-
     pub async fn handshake(&mut self) -> Result<(), RLPxError> {
         match &self.state {
             RLPxConnectionState::Initiator(_) => {
@@ -122,136 +96,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
         self.exchange_hello_messages().await?;
         info!("Completed Hello roundtrip!");
-        // let message = Message::Status(StatusMessage::new(&self.storage).unwrap());
-        // self.send(message);
         Ok(())
-    }
-
-    pub async fn send_auth(&mut self) {
-        match &self.state {
-            RLPxConnectionState::Initiator(initiator_state) => {
-                let secret_key: SecretKey = self.signer.clone().into();
-                let peer_pk = id2pubkey(initiator_state.remote_node_id).unwrap();
-
-                let mut auth_message = vec![];
-                let msg = encode_auth_message(
-                    &secret_key,
-                    initiator_state.nonce,
-                    &peer_pk,
-                    &initiator_state.ephemeral_key,
-                );
-
-                auth_message.put_slice(&msg);
-                self.stream.write_all(&auth_message).await.unwrap();
-                info!("Sent auth message correctly!");
-
-                self.state = RLPxConnectionState::InitiatedAuth(InitiatedAuth::new(
-                    initiator_state,
-                    auth_message,
-                ))
-            }
-            // TODO proper error
-            _ => panic!("Invalid state to send auth message"),
-        };
-    }
-
-    pub async fn send_ack(&mut self) {
-        match &self.state {
-            RLPxConnectionState::ReceivedAuth(received_auth_state) => {
-                let secret_key: SecretKey = self.signer.clone().into();
-                let peer_pk = id2pubkey(received_auth_state.remote_node_id).unwrap();
-
-                let mut ack_message = vec![];
-                let msg = encode_ack_message(
-                    &secret_key,
-                    &received_auth_state.local_ephemeral_key,
-                    received_auth_state.local_nonce,
-                    &peer_pk,
-                    &received_auth_state.remote_ephemeral_key,
-                );
-
-                ack_message.put_slice(&msg);
-                self.stream.write_all(&ack_message).await.unwrap();
-                info!("Sent ack message correctly!");
-
-                self.state = RLPxConnectionState::Established(Box::new(Established::for_receiver(
-                    received_auth_state,
-                    ack_message,
-                )))
-            }
-            // TODO proper error
-            _ => panic!("Invalid state to send ack message"),
-        };
-    }
-
-    pub async fn receive_auth(&mut self) {
-        match &self.state {
-            RLPxConnectionState::Receiver(receiver_state) => {
-                let secret_key: SecretKey = self.signer.clone().into();
-                let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-
-                // Read the auth message's size
-                self.stream.read_exact(&mut buf[..2]).await.unwrap();
-                let auth_data = buf[..2].try_into().unwrap();
-                let msg_size = u16::from_be_bytes(auth_data) as usize;
-
-                // Read the rest of the auth message
-                self.stream
-                    .read_exact(&mut buf[2..msg_size + 2])
-                    .await
-                    .unwrap();
-                let auth_bytes = &buf[..msg_size + 2];
-                let msg = &buf[2..msg_size + 2];
-                let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
-                info!("Received auth message correctly!");
-
-                // Build next state
-                self.state = RLPxConnectionState::ReceivedAuth(ReceivedAuth::new(
-                    receiver_state,
-                    auth.node_id,
-                    auth_bytes.to_owned(),
-                    auth.nonce,
-                    remote_ephemeral_key,
-                ))
-            }
-            // TODO proper error
-            _ => panic!("Received an unexpected auth message"),
-        };
-    }
-
-    pub async fn receive_ack(&mut self) {
-        match &self.state {
-            RLPxConnectionState::InitiatedAuth(initiated_auth_state) => {
-                let secret_key: SecretKey = self.signer.clone().into();
-                let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
-
-                // Read the ack message's size
-                self.stream.read_exact(&mut buf[..2]).await.unwrap();
-                let ack_data = buf[..2].try_into().unwrap();
-                let msg_size = u16::from_be_bytes(ack_data) as usize;
-
-                // Read the rest of the ack message
-                self.stream
-                    .read_exact(&mut buf[2..msg_size + 2])
-                    .await
-                    .unwrap();
-                let ack_bytes = &buf[..msg_size + 2];
-                let msg = &buf[2..msg_size + 2];
-                let ack = decode_ack_message(&secret_key, msg, ack_data);
-                let remote_ephemeral_key = ack.get_ephemeral_pubkey().unwrap();
-                info!("Received ack message correctly!");
-
-                // Build next state
-                self.state = RLPxConnectionState::Established(Box::new(Established::for_initiator(
-                    initiated_auth_state,
-                    ack_bytes.to_owned(),
-                    ack.nonce,
-                    remote_ephemeral_key,
-                )))
-            }
-            // TODO proper error
-            _ => panic!("Received an unexpected ack message"),
-        };
     }
 
     pub async fn exchange_hello_messages(&mut self) -> Result<(), RLPxError> {
@@ -293,7 +138,173 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn send(&mut self, message: rlpx::Message) {
+    pub async fn handle_peer(&mut self) -> Result<(), RLPxError> {
+        self.start_capabilities().await?;
+        match &self.state {
+            RLPxConnectionState::Established(_) => {
+                info!("Started peer main loop");
+                loop {
+                    match self.receive().await {
+                        Message::Disconnect(_) => info!("Received Disconnect"),
+                        Message::Ping(_) => info!("Received Ping"),
+                        Message::Pong(_) => info!("Received Pong"),
+                        Message::Status(_) => {
+                            info!("Received Status");
+                            info!("Sent Status");
+                        }
+                        message => return Err(RLPxError::UnexpectedMessage(message)),
+                    };
+                }
+            }
+            _ => Err(RLPxError::InvalidState(
+                "Invalid connection state".to_string(),
+            )),
+        }
+    }
+
+    pub fn get_remote_node_id(&self) -> H512 {
+        match &self.state {
+            RLPxConnectionState::Established(state) => state.remote_node_id,
+            // TODO proper error
+            _ => panic!("Invalid state"),
+        }
+    }
+
+    async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
+        // Sending eth Status if peer supports it
+        if self.capabilities.contains(&("eth".to_string(), 68u8)) {
+            let status = StatusMessage::new(&self.storage).unwrap();
+            info!("Status message sent: {status:?}");
+            self.send(Message::Status(status)).await;
+        }
+        Ok(())
+    }
+
+    async fn send_auth(&mut self) {
+        match &self.state {
+            RLPxConnectionState::Initiator(initiator_state) => {
+                let secret_key: SecretKey = self.signer.clone().into();
+                let peer_pk = id2pubkey(initiator_state.remote_node_id).unwrap();
+
+                let mut auth_message = vec![];
+                let msg = encode_auth_message(
+                    &secret_key,
+                    initiator_state.nonce,
+                    &peer_pk,
+                    &initiator_state.ephemeral_key,
+                );
+
+                auth_message.put_slice(&msg);
+                self.stream.write_all(&auth_message).await.unwrap();
+                info!("Sent auth message correctly!");
+
+                self.state = RLPxConnectionState::InitiatedAuth(InitiatedAuth::new(
+                    initiator_state,
+                    auth_message,
+                ))
+            }
+            // TODO proper error
+            _ => panic!("Invalid state to send auth message"),
+        };
+    }
+
+    async fn send_ack(&mut self) {
+        match &self.state {
+            RLPxConnectionState::ReceivedAuth(received_auth_state) => {
+                let peer_pk = id2pubkey(received_auth_state.remote_node_id).unwrap();
+
+                let mut ack_message = vec![];
+                let msg = encode_ack_message(
+                    &received_auth_state.local_ephemeral_key,
+                    received_auth_state.local_nonce,
+                    &peer_pk,
+                );
+
+                ack_message.put_slice(&msg);
+                self.stream.write_all(&ack_message).await.unwrap();
+                info!("Sent ack message correctly!");
+
+                self.state = RLPxConnectionState::Established(Box::new(Established::for_receiver(
+                    received_auth_state,
+                    ack_message,
+                )))
+            }
+            // TODO proper error
+            _ => panic!("Invalid state to send ack message"),
+        };
+    }
+
+    async fn receive_auth(&mut self) {
+        match &self.state {
+            RLPxConnectionState::Receiver(receiver_state) => {
+                let secret_key: SecretKey = self.signer.clone().into();
+                let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
+
+                // Read the auth message's size
+                self.stream.read_exact(&mut buf[..2]).await.unwrap();
+                let auth_data = buf[..2].try_into().unwrap();
+                let msg_size = u16::from_be_bytes(auth_data) as usize;
+
+                // Read the rest of the auth message
+                self.stream
+                    .read_exact(&mut buf[2..msg_size + 2])
+                    .await
+                    .unwrap();
+                let auth_bytes = &buf[..msg_size + 2];
+                let msg = &buf[2..msg_size + 2];
+                let (auth, remote_ephemeral_key) = decode_auth_message(&secret_key, msg, auth_data);
+                info!("Received auth message correctly!");
+
+                // Build next state
+                self.state = RLPxConnectionState::ReceivedAuth(ReceivedAuth::new(
+                    receiver_state,
+                    auth.node_id,
+                    auth_bytes.to_owned(),
+                    auth.nonce,
+                    remote_ephemeral_key,
+                ))
+            }
+            // TODO proper error
+            _ => panic!("Received an unexpected auth message"),
+        };
+    }
+
+    async fn receive_ack(&mut self) {
+        match &self.state {
+            RLPxConnectionState::InitiatedAuth(initiated_auth_state) => {
+                let secret_key: SecretKey = self.signer.clone().into();
+                let mut buf = vec![0; MAX_DISC_PACKET_SIZE];
+
+                // Read the ack message's size
+                self.stream.read_exact(&mut buf[..2]).await.unwrap();
+                let ack_data = buf[..2].try_into().unwrap();
+                let msg_size = u16::from_be_bytes(ack_data) as usize;
+
+                // Read the rest of the ack message
+                self.stream
+                    .read_exact(&mut buf[2..msg_size + 2])
+                    .await
+                    .unwrap();
+                let ack_bytes = &buf[..msg_size + 2];
+                let msg = &buf[2..msg_size + 2];
+                let ack = decode_ack_message(&secret_key, msg, ack_data);
+                let remote_ephemeral_key = ack.get_ephemeral_pubkey().unwrap();
+                info!("Received ack message correctly!");
+
+                // Build next state
+                self.state = RLPxConnectionState::Established(Box::new(Established::for_initiator(
+                    initiated_auth_state,
+                    ack_bytes.to_owned(),
+                    ack.nonce,
+                    remote_ephemeral_key,
+                )))
+            }
+            // TODO proper error
+            _ => panic!("Received an unexpected ack message"),
+        };
+    }
+
+    async fn send(&mut self, message: rlpx::Message) {
         match &mut self.state {
             RLPxConnectionState::Established(state) => {
                 let mut frame_buffer = vec![];
@@ -311,7 +322,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
         }
     }
 
-    pub async fn receive(&mut self) -> rlpx::Message {
+    async fn receive(&mut self) -> rlpx::Message {
         match &mut self.state {
             RLPxConnectionState::Established(state) => {
                 let frame_data = frame::read(state, &mut self.stream).await;
@@ -321,14 +332,6 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             }
             // TODO proper error
             _ => panic!("Received an unexpected message"),
-        }
-    }
-
-    pub fn get_remote_node_id(&self) -> H512 {
-        match &self.state {
-            RLPxConnectionState::Established(state) => state.remote_node_id,
-            // TODO proper error
-            _ => panic!("Invalid state"),
         }
     }
 }

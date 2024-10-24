@@ -2,7 +2,7 @@ use super::{message::RLPxMessage, utils::snappy_encode};
 use bytes::BufMut;
 use ethereum_rust_core::{
     types::{BlockHash, ForkId},
-    U256,
+    H256, U256,
 };
 use ethereum_rust_rlp::{
     encode::RLPEncode,
@@ -11,6 +11,7 @@ use ethereum_rust_rlp::{
 };
 use ethereum_rust_storage::{error::StoreError, Store};
 use snap::raw::Decoder as SnappyDecoder;
+use tracing::info;
 
 pub const ETH_VERSION: u32 = 68;
 pub const HASH_FIRST_BYTE_DECODER: u8 = 160;
@@ -41,7 +42,8 @@ impl StatusMessage {
         // These blocks must always be available
         let genesis_header = storage.get_block_header(0)?.unwrap();
         let block_number = storage.get_latest_block_number()?.unwrap();
-        let block_header = storage.get_block_header(block_number)?.unwrap();
+        info!("last block number {block_number}");
+        let block_header = storage.get_block_header(500)?.unwrap();
 
         let genesis = genesis_header.compute_block_hash();
         let block_hash = block_header.compute_block_hash();
