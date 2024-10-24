@@ -50,12 +50,6 @@ restart-contract-deps: clean-contract-deps ## 🔄 Restarts the dependencies for
 deploy-l1: ## 📜 Deploys the L1 contracts
 	cargo run --release --bin ethereum_rust_l2_l1_deployer --manifest-path ${ETHEREUM_RUST_L2_CONTRACTS_PATH}/Cargo.toml
 
-deploy-on-chain-operator: ## 📜 Deploys the OnChainOperator contract in L1
-	forge create ${FOUNDRY_PROJECT_HOME}/src/l1/OnChainOperator.sol:OnChainOperator --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
-
-deploy-bridge: ## 📜 Deploys the CommonBridge contract in L1
-	forge create ${FOUNDRY_PROJECT_HOME}/src/l1/CommonBridge.sol:CommonBridge --rpc-url ${L1_RPC_URL} --private-key ${L1_PRIVATE_KEY}
-
 # L2
 
 init-l2: ## 🚀 Initializes an L2 Lambda Ethereum Rust Client
