@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use ethereum_types::{Address, U256, U512, H256};
+use ethereum_types::{Address, H256, U256, U512};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,7 +53,7 @@ struct Transaction {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AccesList {
     address: Address,
-    storage_keys: Vec<U256> // U256 or Address?
+    storage_keys: Vec<U256>, // U256 or Address?
 }
 
 /// To cover the case when 'to' field is an empty string
@@ -100,7 +100,6 @@ struct Index {
     value: u16,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 struct TransactionResults {
     /// define an index of the transaction in txs vector that has been used for this result
@@ -110,7 +109,7 @@ struct TransactionResults {
     /// log hash of the transaction logs
     logs: H256,
     /// the transaction bytes of the generated transaction
-    txbytes: Bytes,	
+    txbytes: Bytes,
     //expect // Exception	for a transaction that is supposed to fail, the exception
 }
 
@@ -146,7 +145,11 @@ fn directory_contents(path: &PathBuf, contents: &mut Vec<String>) {
         if sub_path.is_dir() {
             directory_contents(sub_path, contents);
         } else {
-            if sub_path.extension().map(|ext| ext == "json").unwrap_or(false) {
+            if sub_path
+                .extension()
+                .map(|ext| ext == "json")
+                .unwrap_or(false)
+            {
                 let file_content = fs::read_to_string(sub_path).unwrap();
                 contents.push(file_content);
             }
