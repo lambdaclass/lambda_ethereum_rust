@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{self, read_dir},
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -129,6 +129,9 @@ struct TestArgs {
     transaction: Transaction,
 }
 
+fn file_extension_is_json(path: &Path) -> bool {
+    path.extension().map(|ext| ext == "json").unwrap_or(false)
+}
 fn directory_contents(path: &PathBuf, contents: &mut Vec<String>) {
     let sub_paths: Vec<PathBuf> = read_dir(path)
         .unwrap()
@@ -144,15 +147,9 @@ fn directory_contents(path: &PathBuf, contents: &mut Vec<String>) {
     for sub_path in &sub_paths {
         if sub_path.is_dir() {
             directory_contents(sub_path, contents);
-        } else {
-            if sub_path
-                .extension()
-                .map(|ext| ext == "json")
-                .unwrap_or(false)
-            {
-                let file_content = fs::read_to_string(sub_path).unwrap();
-                contents.push(file_content);
-            }
+        } else if file_extension_is_json(sub_path) {
+            let file_content = fs::read_to_string(sub_path).unwrap();
+            contents.push(file_content);
         }
     }
 }
@@ -189,9 +186,8 @@ fn parse_contents(json_contents: Vec<String>) -> Vec<HashMap<String, TestArgs>> 
     json_contents
         .into_iter()
         .map(|json_content| {
-            println!("{}", &json_content[..55]);
-            let res = serde_json::from_str(&json_content).expect("Unable to parse JSON");
-            res
+            // println!("{}", &json_content[..55]);
+            serde_json::from_str(&json_content).expect("Unable to parse JSON")
         })
         .collect()
 }
@@ -203,18 +199,22 @@ fn ethereum_foundation_general_state_tests() {
 
     let json_contents = parse_files();
 
-    let tests_cases = parse_contents(json_contents);
+    let tests_cases: Vec<HashMap<String, TestArgs>> = parse_contents(json_contents);
+
+    let tests_cases = &tests_cases[0..1];
 
     for test_case in tests_cases {
         //Maybe there are more than one test per hashmap, so should iterate each hashmap too
-        // Initialize
 
-        // Execute
+        for (test_name, test_args) in test_case {
+            // Initialize
 
-        // Verify
+            // Execute
 
-        println!("{:?}", test_case);
+            // Verify
+            println!("Test name: {}, Arg: {:#?}", test_name, test_args.env);
+        }
     }
 
-    unimplemented!();
+    // unimplemented!();
 }
