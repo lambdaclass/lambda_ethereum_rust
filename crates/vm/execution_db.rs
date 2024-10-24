@@ -66,7 +66,7 @@ impl ExecutionDB {
                 .added_storage
                 .iter()
                 .map(|(slot, value)| {
-                    let mut value_bytes = Vec::new();
+                    let mut value_bytes = [0u8; 32];
                     value.to_big_endian(&mut value_bytes);
                     (
                         RevmU256::from_be_bytes(slot.to_fixed_bytes()),

@@ -6,6 +6,7 @@ use ethereum_rust_l2::proposer::prover_server::ProverInputData;
 use ethereum_rust_prover_lib::prover::Prover;
 use ethereum_rust_storage::{EngineType, Store};
 use ethereum_rust_vm::execution_db::ExecutionDB;
+use tracing::info;
 
 #[tokio::test]
 async fn test_performance_zkvm() {
@@ -29,7 +30,7 @@ async fn test_performance_zkvm() {
     let blocks = ethereum_rust_l2::utils::test_files_read::read_chain_file(
         chain_file_path.to_str().unwrap(),
     );
-    println!("Number of blocks to insert: {}", blocks.len());
+    info!("Number of blocks to insert: {}", blocks.len());
 
     let mut last_block = Block::default();
     for (i, block) in blocks.iter().enumerate() {
@@ -50,11 +51,11 @@ async fn test_performance_zkvm() {
 
     let start = std::time::Instant::now();
 
-    let receipt = prover.prove();
+    let receipt = prover.prove().unwrap();
 
     let duration = start.elapsed();
-    println!("[SECONDS] Proving Took: {:?}", duration);
-    println!("[MINUTES] Proving Took: {}[m]", duration.as_secs() / 60);
+    info!("[SECONDS] Proving Took: {:?}", duration);
+    info!("[MINUTES] Proving Took: {}[m]", duration.as_secs() / 60);
 
-    prover.verify(&receipt.unwrap()).unwrap();
+    prover.verify(&receipt).unwrap();
 }
