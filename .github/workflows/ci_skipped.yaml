@@ -14,23 +14,27 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: false
     steps:
       - run: 'echo "No lint required" '
 
   test:
     name: Test
     runs-on: ubuntu-latest
+    if: false
     steps:
       - run: 'echo "No test required" '
 
   docker-build:
     name: Build Docker image
     runs-on: ubuntu-latest
+    if: false
     steps:
       - run: 'echo "No docker build required" '
 
   prover:
     name: Build RISC-V zkVM program
     runs-on: ubuntu-latest
+    if: false
     steps:
-      - run: 'echo No RISC-V zkVM build required" '
+      - run: 'echo "No RISC-V zkVM build required" '
