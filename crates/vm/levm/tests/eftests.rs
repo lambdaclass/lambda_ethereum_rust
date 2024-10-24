@@ -26,22 +26,92 @@ pub struct Env {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
     pub balance: U256,
-    //#[serde(with = "ethereum_rust_core::serde_utils::bytes")]
-    //pub code: Bytes,
+    pub code: Bytes,
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Transaction {
-    data: Bytes,
-    gas_limit: u64,
-    gas_price: u64,
-    nonce: u64,
-    secret_key: u64,
+    data: Vec<Bytes>,
+    gas_limit: Vec<U256>,
+    gas_price: Option<U256>,
+    nonce: U256,
+    secret_key: H256,
     sender: Address,
-    to: Address,
-    value: Vec<u64>,
+    to: TxDestination,
+    value: Vec<U512>,
+    access_lists: Option<Vec<Option<Vec<AccesList>>>>,
+    blob_versioned_hashes: Option<Vec<H256>>,
+    max_fee_per_blob_gas: Option<U256>,
+    max_fee_per_gas: Option<U256>,
+    max_priority_fee_per_gas: Option<U256>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AccesList {
+    address: Address,
+    storage_keys: Vec<U256> // U256 or Address?
+}
+
+/// To cover the case when 'to' field is an empty string
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum TxDestination {
+    Some(Address),
+    #[default]
+    None,
+}
+
+impl Serialize for TxDestination {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            TxDestination::Some(address) => serializer.serialize_str(&format!("{:#x}", address)),
+            TxDestination::None => serializer.serialize_none(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for TxDestination {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str_option = Option::<String>::deserialize(deserializer)?;
+        match str_option {
+            Some(str) if !str.is_empty() => Ok(TxDestination::Some(
+                Address::from_str(str.trim_start_matches("0x")).map_err(|_| {
+                    serde::de::Error::custom(format!("Failed to deserialize hex value {str}"))
+                })?,
+            )),
+            _ => Ok(TxDestination::None),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Index {
+    data: u16, // Maybe could be u64, but biggest value i've seen is 452
+    gas: u16,
+    value: u16,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TransactionResults {
+    /// define an index of the transaction in txs vector that has been used for this result
+    indexes: Index,
+    /// hash of the post state after transaction execution
+    hash: H256,
+    /// log hash of the transaction logs
+    logs: H256,
+    /// the transaction bytes of the generated transaction
+    txbytes: Bytes,	
+    //expect // Exception	for a transaction that is supposed to fail, the exception
 }
 
 /// Contains the necessary elements to run a test
@@ -52,10 +122,10 @@ struct TestArgs {
     pub info: Option<serde_json::Value>,
     /// Contains the environment, the block just before the one that runs the VM or executes the transaction
     env: Env,
-    /// Contains the state of the environment and db before the transaction execution
+    /// Contains the state of the accounts before the transaction execution
     pre: HashMap<Address, Account>,
     /// Contains the state of the environment and db after the transaction execution
-    post: HashMap<Address, Account>,
+    post: HashMap<String, Vec<TransactionResults>>,
     /// Contains the transaction to execute
     transaction: Transaction,
 }
