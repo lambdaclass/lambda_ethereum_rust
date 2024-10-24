@@ -94,7 +94,6 @@ impl Command {
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
                 if !skip_l1_deployment {
-                    contract_deps(&contracts_path)?;
                     deploy_l1(&l1_rpc_url, &cfg.wallet.private_key, &contracts_path)?;
                 }
                 start_l2(root.to_path_buf(), &l2_rpc_url, start_prover).await?;
@@ -168,38 +167,6 @@ impl Command {
         }
         Ok(())
     }
-}
-
-fn contract_deps(contracts_path: &PathBuf) -> eyre::Result<()> {
-    if !contracts_path.join("lib/forge-std").exists() {
-        let cmd = std::process::Command::new("forge")
-            .arg("install")
-            .arg("foundry-rs/forge-std")
-            .arg("--no-git")
-            .arg("--root")
-            .arg(contracts_path)
-            .current_dir(contracts_path)
-            .spawn()?
-            .wait()?;
-        if !cmd.success() {
-            eyre::bail!("Failed to install forge-std");
-        }
-    }
-    if !contracts_path.join("lib/openzeppelin-contracts").exists() {
-        let cmd = std::process::Command::new("forge")
-            .arg("install")
-            .arg("OpenZeppelin/openzeppelin-contracts")
-            .arg("--no-git")
-            .arg("--root")
-            .arg(contracts_path)
-            .current_dir(contracts_path)
-            .spawn()?
-            .wait()?;
-        if !cmd.success() {
-            eyre::bail!("Failed to install OpenZeppelin");
-        }
-    }
-    Ok(())
 }
 
 fn deploy_l1(
