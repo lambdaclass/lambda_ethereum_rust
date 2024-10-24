@@ -9,13 +9,14 @@ use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
 use keccak_hash::keccak;
+use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
 };
 
-#[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Account {
     pub address: Address,
     pub balance: U256,
@@ -24,7 +25,7 @@ pub struct Account {
     pub nonce: u64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
