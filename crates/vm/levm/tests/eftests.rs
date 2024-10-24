@@ -256,8 +256,30 @@ fn ethereum_foundation_general_state_tests() {
             );
 
             // Execute
+            let _result = vm.transact();
 
             // Verify
+            /*
+            Possible tests:
+            - Verify the result of the execution
+            - Verify the hash state
+            - Verify the result of the accounts individually (possibly require equal )
+             */
+
+            /*
+                       if let Err(e) = result {
+                           if e.into() == test_args.post.get("Cancun").unwrap().get(0).unwrap().expect_exception.unwrap() {
+                               println!("El error es el esperado: {:?}", e);
+                           }
+                       }
+            */
+            /*
+               // See if vm.call_frames.len() is equivalent to the amount of logs
+               for i in 0..vm.call_frames.len() {
+                   assert_eq!(test_args.post.get("Cancun").unwrap().get(i).unwrap().log, from(vm.call_frames[0].logs[i].data));
+               }
+            */
+
             println!("Test name: {}, Arg: {:#?}", test_name, test_args.env);
         }
     }
