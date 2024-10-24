@@ -18,8 +18,58 @@ const SALT: H256 = H256::zero();
 
 #[tokio::main]
 async fn main() {
-    read_env_file().unwrap();
+    read_env_file().expect("Failed to read .env file");
+    download_contract_deps();
+    compile_contracts();
+    deploy_contracts().await;
+}
 
+fn download_contract_deps() {
+    std::fs::create_dir_all("contracts/lib").expect("Failed to create contracts/lib");
+    Command::new("git")
+        .arg("clone")
+        .arg("https://github.com/OpenZeppelin/openzeppelin-contracts.git")
+        .arg("contracts/lib/openzeppelin-contracts")
+        .spawn()
+        .expect("Failed to spawn git")
+        .wait()
+        .expect("Failed to wait for git");
+}
+
+fn compile_contracts() {
+    // Both the contract path and the output path are relative to where the Makefile is.
+    assert!(
+        Command::new("solc")
+            .arg("--bin")
+            .arg("./contracts/src/l1/OnChainProposer.sol")
+            .arg("-o")
+            .arg("contracts/solc_out")
+            .arg("--overwrite")
+            .spawn()
+            .expect("Failed to spawn solc")
+            .wait()
+            .expect("Failed to wait for solc")
+            .success(),
+        "Failed to compile OnChainProposer.sol"
+    );
+
+    assert!(
+        Command::new("solc")
+            .arg("--bin")
+            .arg("./contracts/src/l1/CommonBridge.sol")
+            .arg("-o")
+            .arg("contracts/solc_out")
+            .arg("--overwrite")
+            .spawn()
+            .expect("Failed to spawn solc")
+            .wait()
+            .expect("Failed to wait for solc")
+            .success(),
+        "Failed to compile CommonBridge.sol"
+    );
+}
+
+async fn deploy_contracts() {
     let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
 
     let deployer = std::env::var("DEPLOYER_ADDRESS")
@@ -37,10 +87,6 @@ async fn main() {
         .as_fixed_bytes(),
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
-
-    if std::fs::exists("solc_out").expect("Could not determine if solc_out exists") {
-        std::fs::remove_dir_all("solc_out").expect("Failed to remove solc_out");
-    }
 
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
@@ -75,21 +121,6 @@ async fn deploy_on_chain_proposer(
     overrides: Overrides,
     eth_client: &EthClient,
 ) -> (H256, Address) {
-    // Both the contract path and the output path are relative to where the Makefile is.
-    assert!(
-        Command::new("solc")
-            .arg("--bin")
-            .arg("./contracts/src/l1/OnChainProposer.sol")
-            .arg("-o")
-            .arg("contracts/solc_out")
-            .spawn()
-            .expect("Failed to spawn solc")
-            .wait()
-            .expect("Failed to wait for solc")
-            .success(),
-        "Failed to compile OnChainProposer.sol"
-    );
-
     let on_chain_proposer_init_code = hex::decode(
         std::fs::read_to_string("./contracts/solc_out/OnChainProposer.bin")
             .expect("Failed to read on_chain_proposer_init_code"),
@@ -115,20 +146,6 @@ async fn deploy_bridge(
     overrides: Overrides,
     eth_client: &EthClient,
 ) -> (H256, Address) {
-    assert!(
-        Command::new("solc")
-            .arg("--bin")
-            .arg("./contracts/src/l1/CommonBridge.sol")
-            .arg("-o")
-            .arg("contracts/solc_out")
-            .spawn()
-            .expect("Failed to spawn solc")
-            .wait()
-            .expect("Failed to wait for solc")
-            .success(),
-        "Failed to compile CommonBridge.sol"
-    );
-
     let bridge_init_code = hex::decode(
         std::fs::read_to_string("./contracts/solc_out/CommonBridge.bin")
             .expect("Failed to read bridge_init_code"),

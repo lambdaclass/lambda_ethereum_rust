@@ -1,10 +1,18 @@
-use crate::config::EthereumRustL2Config;
+use crate::{commands::utils::encode_calldata, config::EthereumRustL2Config};
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
-use ethereum_rust_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
+use ethereum_rust_core::types::{
+    EIP1559Transaction, PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+};
+use ethereum_rust_l2::utils::{
+    eth_client::{eth_sender::Overrides, EthClient},
+    merkle_tree::merkle_proof,
+};
 use ethereum_types::{Address, H256, U256};
+use eyre::OptionExt;
 use hex::FromHexError;
+
+const CLAIM_WITHDRAWAL_SIGNATURE: &str = "claimWithdrawal(bytes32 l2WithdrawalTxHash, uint256 claimedAmount, uint256 l2WithdrawalBlockNumber, bytes32[] calldata withdrawalProof)";
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
@@ -36,9 +44,13 @@ pub(crate) enum Command {
         explorer_url: bool,
     },
     #[clap(about = "Finalize a pending withdrawal.")]
-    FinalizeWithdraw {
+    ClaimWithdraw {
         #[clap(long = "hash")]
         l2_withdrawal_tx_hash: H256,
+        #[clap(long = "amount", value_parser = U256::from_dec_str)]
+        claimed_amount: U256,
+        #[clap(long = "block-number", value_parser = U256::from_dec_str)]
+        withdrawal_l2_block_number: U256,
     },
     #[clap(about = "Transfer funds to another wallet.")]
     Transfer {
@@ -63,6 +75,10 @@ pub(crate) enum Command {
         // TODO: Parse ether instead.
         #[clap(long = "amount", value_parser = U256::from_dec_str)]
         amount: U256,
+        #[clap(long = "to")]
+        to: Option<Address>,
+        #[clap(long = "nonce")]
+        nonce: Option<u64>,
         #[clap(
             long = "token",
             help = "Specify the token address, the base token is used as default."
@@ -70,6 +86,11 @@ pub(crate) enum Command {
         token_address: Option<Address>,
         #[clap(long, short = 'e', required = false)]
         explorer_url: bool,
+    },
+    #[clap(about = "Get the withdrawal merkle proof of a transaction.")]
+    WithdrawalProof {
+        #[clap(long = "hash")]
+        tx_hash: H256,
     },
     #[clap(about = "Get the wallet address.")]
     Address,
@@ -223,10 +244,31 @@ impl Command {
                 })
                 .await?;
             }
-            Command::FinalizeWithdraw {
-                l2_withdrawal_tx_hash: _,
+            Command::ClaimWithdraw {
+                l2_withdrawal_tx_hash,
+                claimed_amount,
+                withdrawal_l2_block_number,
             } => {
-                todo!()
+                let claim_withdrawal_data = encode_calldata(
+                    CLAIM_WITHDRAWAL_SIGNATURE,
+                    &format!("{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {l2_withdrawal_tx_hash:#x}"),
+                    false
+                )?;
+
+                let tx_hash = eth_client
+                    .send(
+                        claim_withdrawal_data.into(),
+                        from,
+                        TxKind::Call(cfg.contracts.common_bridge),
+                        cfg.wallet.private_key,
+                        Overrides {
+                            chain_id: Some(cfg.network.l1_chain_id),
+                            ..Default::default()
+                        },
+                    )
+                    .await?;
+
+                println!("Withdrawal claim sent: {tx_hash:#x}");
             }
             Command::Transfer {
                 amount,
@@ -270,11 +312,70 @@ impl Command {
                 );
             }
             Command::Withdraw {
-                amount: _,
+                amount,
+                to,
+                nonce,
                 token_address: _,
                 explorer_url: _,
             } => {
-                todo!()
+                let withdraw_transaction = PrivilegedL2Transaction {
+                    to: TxKind::Call(to.unwrap_or(cfg.wallet.address)),
+                    value: amount,
+                    chain_id: cfg.network.l2_chain_id,
+                    nonce: nonce.unwrap_or(rollup_client.get_nonce(from).await?),
+                    max_fee_per_gas: 800000000,
+                    tx_type: PrivilegedTxType::Withdrawal,
+                    gas_limit: 21000 * 2,
+                    ..Default::default()
+                };
+
+                let tx_hash = rollup_client
+                    .send_privileged_l2_transaction(withdraw_transaction, cfg.wallet.private_key)
+                    .await?;
+
+                println!("Withdrawal sent: {tx_hash:#x}");
+            }
+            Command::WithdrawalProof { tx_hash } => {
+                let tx_receipt = rollup_client
+                    .get_transaction_receipt(tx_hash)
+                    .await?
+                    .ok_or_eyre("Transaction receipt not found")?;
+
+                let transactions = rollup_client
+                    .get_block_by_hash(tx_receipt.block_info.block_hash)
+                    .await?
+                    .transactions;
+
+                let tx_withdrawal_hash = transactions
+                    .iter()
+                    .find_map(|tx| {
+                        if tx.compute_hash() != tx_hash {
+                            return None;
+                        }
+                        match tx {
+                            Transaction::PrivilegedL2Transaction(tx) => {
+                                Some(tx.get_withdrawal_hash())
+                            }
+                            _ => None,
+                        }
+                    })
+                    .flatten()
+                    .ok_or_eyre("Transaction is not a Withdrawal")?;
+
+                let path = merkle_proof(
+                    transactions
+                        .iter()
+                        .filter_map(|tx| match tx {
+                            Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
+                            _ => None,
+                        })
+                        .collect(),
+                    tx_withdrawal_hash,
+                )
+                .ok_or_eyre(
+                    "Transaction's WithdrawalData is not in block's WithdrawalDataMerkleRoot",
+                )?;
+                println!("{path:?}");
             }
             Command::Address => {
                 todo!()

@@ -18,6 +18,8 @@ pub enum EthClientError {
     GetNonceError(#[from] GetNonceError),
     #[error("eth_blockNumber request error: {0}")]
     GetBlockNumberError(#[from] GetBlockNumberError),
+    #[error("eth_getBlockByHash request error: {0}")]
+    GetBlockByHashError(#[from] GetBlockByHashError),
     #[error("eth_getLogs request error: {0}")]
     GetLogsError(#[from] GetLogsError),
     #[error("eth_getTransactionReceipt request error: {0}")]
@@ -90,6 +92,18 @@ pub enum GetNonceError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetBlockNumberError {
+    #[error("{0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    SerdeJSONError(#[from] serde_json::Error),
+    #[error("{0}")]
+    RPCError(String),
+    #[error("{0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetBlockByHashError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]
