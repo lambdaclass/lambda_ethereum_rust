@@ -5,8 +5,9 @@ use std::{
     str::FromStr,
 };
 
-use bytes::Bytes;
-use ethereum_types::{Address, H256, U256, U512};
+use bytes::Bytes; 
+use ethereum_rust_levm::vm::{Account, Db, VM};
+use ethereum_types::{Address, H256, U256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
