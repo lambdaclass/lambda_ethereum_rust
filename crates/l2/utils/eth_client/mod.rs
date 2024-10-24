@@ -1,11 +1,11 @@
 use crate::utils::config::eth::EthConfig;
 use errors::{
-    CallError, EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError,
-    GetGasPriceError, GetLogsError, GetNonceError, GetTransactionReceiptError,
+    CallError, EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockByHashError,
+    GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError, GetTransactionReceiptError,
     SendRawTransactionError,
 };
 use ethereum_rust_core::types::{
-    EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
+    BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
 };
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
@@ -254,6 +254,25 @@ impl EthClient {
                 .map_err(EthClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
                 Err(GetBlockNumberError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn get_block_by_hash(&self, block_hash: H256) -> Result<BlockBody, EthClientError> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getBlockByHash".to_string(),
+            params: Some(vec![json!(format!("{block_hash:#x}")), json!(true)]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetBlockByHashError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetBlockByHashError::RPCError(error_response.error.message).into())
             }
             Err(error) => Err(error),
         }

@@ -842,6 +842,30 @@ impl PrivilegedTxType {
     }
 }
 
+impl PrivilegedL2Transaction {
+    pub fn get_withdrawal_hash(&self) -> Option<H256> {
+        match self.tx_type {
+            PrivilegedTxType::Withdrawal => {
+                let to = match self.to {
+                    TxKind::Call(to) => to,
+                    _ => return None,
+                };
+
+                let value = &mut [0u8; 32];
+                self.value.to_big_endian(value);
+
+                let mut encoded = self.encode_to_vec();
+                encoded.insert(0, TxType::Privileged as u8);
+                let tx_hash = keccak_hash::keccak(encoded);
+                Some(keccak_hash::keccak(
+                    [to.as_bytes(), value, tx_hash.as_bytes()].concat(),
+                ))
+            }
+            _ => None,
+        }
+    }
+}
+
 /// Canonical Transaction Encoding
 /// Based on [EIP-2718]
 /// Transactions can be encoded in the following formats:

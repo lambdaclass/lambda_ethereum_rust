@@ -7,7 +7,7 @@ use bytes::Bytes;
 use errors::ProposerError;
 use ethereum_rust_blockchain::constants::TX_GAS_COST;
 use ethereum_rust_core::types::{
-    Block, EIP1559Transaction, GenericTransaction, PrivilegedTxType, Transaction, TxKind,
+    Block, EIP1559Transaction, GenericTransaction, Transaction, TxKind,
 };
 use ethereum_rust_dev::utils::engine_client::{config::EngineApiConfig, EngineClient};
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -106,28 +106,21 @@ impl Proposer {
                     "Failed to get block by hash from storage".to_string(),
                 ))?;
 
-            let withdrawal_txs: Vec<H256> = block
+            let withdrawal_data_hashes: Vec<H256> = block
                 .body
                 .transactions
                 .iter()
                 .filter_map(|tx| match tx {
-                    Transaction::PrivilegedL2Transaction(priv_tx)
-                        if priv_tx.tx_type == PrivilegedTxType::Withdrawal =>
-                    {
-                        let to = match priv_tx.to {
-                            TxKind::Call(to) => to,
-                            _ => return None,
-                        };
-                        let value = &mut [0u8; 32];
-                        priv_tx.value.to_big_endian(value);
-                        Some(keccak(
-                            [to.as_bytes(), value, tx.compute_hash().as_bytes()].concat(),
-                        ))
-                    }
+                    Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
                     _ => None,
                 })
                 .collect();
-            let withdrawals_logs_merkle_root = merkelize(withdrawal_txs);
+
+            let withdrawals_logs_merkle_root = if withdrawal_data_hashes.len() > 0 {
+                merkelize(withdrawal_data_hashes.clone())
+            } else {
+                H256::zero()
+            };
 
             let new_state_root_hash = store
                 .state_trie(block.header.compute_block_hash())
