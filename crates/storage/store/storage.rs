@@ -19,7 +19,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
 
-pub mod engines;
+mod engines;
 pub mod error;
 mod rlp;
 
