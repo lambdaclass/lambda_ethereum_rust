@@ -118,22 +118,32 @@ async fn main() {
     store
         .add_initial_state(genesis.clone())
         .expect("Failed to create genesis block");
-
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
-        for block in blocks {
+        for block in &blocks {
             let hash = block.header.compute_block_hash();
             info!(
                 "Adding block {} with hash {:#x}.",
                 block.header.number, hash
             );
-            if add_block(&block, &store).is_err() {
+            if add_block(block, &store).is_err() {
                 warn!(
                     "Failed to add block {} with hash {:#x}.",
                     block.header.number, hash
                 );
             }
+        }
+        if let Some(last_block) = &blocks.last() {
+            store
+                .update_latest_block_number(last_block.header.number)
+                .expect("Failed to update latest block number");
+            store
+                .set_canonical_block(
+                    last_block.header.number,
+                    last_block.header.compute_block_hash(),
+                )
+                .expect("Failed to set canonical block");
         }
         info!("Added {} blocks to blockchain", size);
     }
