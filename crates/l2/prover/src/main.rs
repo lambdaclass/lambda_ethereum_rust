@@ -6,7 +6,7 @@ use tracing::{self, debug, warn, Level};
 #[tokio::main]
 async fn main() {
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(Level::INFO)
+        .with_max_level(Level::ERROR)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
