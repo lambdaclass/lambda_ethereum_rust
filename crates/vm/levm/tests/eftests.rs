@@ -10,7 +10,7 @@ use ethereum_types::{Address, H256, U256, U512};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct Env {
     current_base_fee: Option<U256>,
     current_coinbase: Address,
@@ -20,8 +20,10 @@ pub struct Env {
     current_number: U256,
     current_random: Option<H256>,
     current_timestamp: U256,
+    previous_hash: Option<H256>,
 }
 
+/*
 // Taken from cmd/ef_tests/types.rs
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Account {
@@ -30,9 +32,10 @@ pub struct Account {
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
 }
+*/
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 struct Transaction {
     data: Vec<Bytes>,
     gas_limit: Vec<U256>,
@@ -41,7 +44,7 @@ struct Transaction {
     secret_key: H256,
     sender: Address,
     to: TxDestination,
-    value: Vec<U512>,
+    value: Vec<U256>, // Using serde_json::Value does not rise an error, but, works?
     access_lists: Option<Vec<Option<Vec<AccesList>>>>,
     blob_versioned_hashes: Option<Vec<H256>>,
     max_fee_per_blob_gas: Option<U256>,
@@ -50,7 +53,7 @@ struct Transaction {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 struct AccesList {
     address: Address,
     storage_keys: Vec<U256>, // U256 or Address?
@@ -110,12 +113,13 @@ struct TransactionResults {
     logs: H256,
     /// the transaction bytes of the generated transaction
     txbytes: Bytes,
-    //expect // Exception	for a transaction that is supposed to fail, the exception
+    /// For a transaction that is supposed to fail, the exception
+    expect_exception: Option<String>,
 }
 
 /// Contains the necessary elements to run a test
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 struct TestArgs {
     #[serde(default, rename = "_info")]
     pub info: Option<serde_json::Value>,
