@@ -1,8 +1,5 @@
 name: CI Skipped
 on:
-  merge_group:
-  push:
-    branches: [main]
   pull_request:
     branches: ["*"]
     paths:
