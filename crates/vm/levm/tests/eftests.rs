@@ -179,6 +179,18 @@ fn parse_files() -> Vec<String> {
     contents
 }
 
+/// Note: This behaviour is not the complex that should be to have it's own function
+fn parse_contents(json_contents: Vec<String>) -> Vec<HashMap<String, TestArgs>> {
+    json_contents
+        .into_iter()
+        .map(|json_content| {
+            println!("{}", &json_content[..55]);
+            let res = serde_json::from_str(&json_content).expect("Unable to parse JSON");
+            res
+        })
+        .collect()
+}
+
 #[test]
 fn ethereum_foundation_general_state_tests() {
     // At this point Ethereum foundation tests should be already downloaded.
@@ -186,13 +198,7 @@ fn ethereum_foundation_general_state_tests() {
 
     let json_contents = parse_files();
 
-    let tests_cases: Vec<HashMap<String, TestArgs>> = json_contents
-        .into_iter()
-        .map(|json_content| {
-            println!("{}", &json_content[..55]);
-            serde_json::from_str(&json_content).expect("Unable to parse JSON")
-        })
-        .collect();
+    let tests_cases = parse_contents(json_contents);
 
     for test_case in tests_cases {
         //Maybe there are more than one test per hashmap, so should iterate each hashmap too
