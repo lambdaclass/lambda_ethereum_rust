@@ -8,10 +8,8 @@ pub fn process_account_range_request(
     store: Store,
 ) -> Result<AccountRange, StoreError> {
     let mut accounts = vec![];
-    // Fetch account range
-    let mut iter = store.iter_accounts(request.root_hash);
     let mut bytes_used = 0;
-    while let Some((k, v)) = iter.next() {
+    for (k, v) in store.iter_accounts(request.root_hash) {
         if k >= request.starting_hash {
             let account = AccountStateSlim::from(v).encode_to_vec();
             // size of hash + size of account
