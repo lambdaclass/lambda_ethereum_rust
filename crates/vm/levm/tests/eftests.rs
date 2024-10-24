@@ -146,8 +146,10 @@ fn directory_contents(path: &PathBuf, contents: &mut Vec<String>) {
         if sub_path.is_dir() {
             directory_contents(sub_path, contents);
         } else {
-            let file_content = fs::read_to_string(sub_path).unwrap();
-            contents.push(file_content);
+            if sub_path.extension().map(|ext| ext == "json").unwrap_or(false) {
+                let file_content = fs::read_to_string(sub_path).unwrap();
+                contents.push(file_content);
+            }
         }
     }
 }
