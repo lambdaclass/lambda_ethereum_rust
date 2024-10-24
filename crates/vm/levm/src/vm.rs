@@ -176,6 +176,7 @@ pub struct Environment {
     pub gas_price: U256,
     pub block_excess_blob_gas: Option<U256>,
     pub block_blob_gas_used: Option<U256>,
+    pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -220,6 +221,7 @@ impl VM {
         db: Db,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
+        tx_blob_hashes: Option<Vec<H256>>,
     ) -> Self {
         // TODO: This handles only CALL transactions.
         let bytecode = db.get_account_bytecode(&to);
@@ -261,6 +263,7 @@ impl VM {
             gas_price,
             block_blob_gas_used,
             block_excess_blob_gas,
+            tx_blob_hashes,
         };
 
         Self {

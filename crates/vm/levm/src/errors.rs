@@ -21,6 +21,8 @@ pub enum VMError {
     InvalidTransaction,
     RevertOpcode,
     InvalidOpcode,
+    MissingBlobHashes,
+    BlobHashIndexOutOfBounds,
     SenderAccountDoesNotExist,
     SenderAccountShouldNotHaveBytecode,
     SenderBalanceShouldContainTransferValue,
