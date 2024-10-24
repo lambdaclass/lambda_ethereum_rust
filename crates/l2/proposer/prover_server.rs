@@ -11,12 +11,13 @@ use std::{
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{debug, info, warn};
 
-use ethereum_rust_core::types::Block;
+use ethereum_rust_core::types::{Block, BlockHeader};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
     pub db: ExecutionDB,
     pub block: Block,
+    pub parent_header: BlockHeader,
 }
 
 use crate::utils::config::prover_server::ProverServerConfig;
@@ -223,8 +224,18 @@ impl ProverServer {
         };
         let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
 
+        let parent_header = self
+            .store
+            .get_block_header_by_hash(block.header.parent_hash)
+            .map_err(|err| err.to_string())?
+            .ok_or("missing parent header".to_string())?;
+
         debug!("Created prover input for block {block_number}");
 
-        Ok(ProverInputData { db, block })
+        Ok(ProverInputData {
+            db,
+            block,
+            parent_header,
+        })
     }
 }
