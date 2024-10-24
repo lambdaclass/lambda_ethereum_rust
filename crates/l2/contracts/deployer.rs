@@ -41,32 +41,6 @@ async fn main() {
     compile_contracts();
 
     deploy_contracts().await;
-
-    let overrides = Overrides {
-        gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
-        gas_price: Some(1_000_000_000),
-        ..Default::default()
-    };
-
-    let (on_chain_proposer_deployment_tx_hash, on_chain_proposer_address) =
-        deploy_on_chain_proposer(
-            deployer,
-            deployer_private_key,
-            overrides.clone(),
-            &eth_client,
-        )
-        .await;
-    println!(
-        "OnChainProposer deployed at address {:#x} with tx hash {:#x}",
-        on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
-    );
-
-    let (bridge_deployment_tx_hash, bridge_address) =
-        deploy_bridge(deployer, deployer_private_key, overrides, &eth_client).await;
-    println!(
-        "Bridge deployed at address {:#x} with tx hash {:#x}",
-        bridge_address, bridge_deployment_tx_hash
-    );
 }
 
 fn download_contract_deps() {
@@ -117,7 +91,31 @@ fn compile_contracts() {
 }
 
 async fn deploy_contract() {
-    unimplemented!();
+    let overrides = Overrides {
+        gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
+        gas_price: Some(1_000_000_000),
+        ..Default::default()
+    };
+
+    let (on_chain_proposer_deployment_tx_hash, on_chain_proposer_address) =
+        deploy_on_chain_proposer(
+            deployer,
+            deployer_private_key,
+            overrides.clone(),
+            &eth_client,
+        )
+        .await;
+    println!(
+        "OnChainProposer deployed at address {:#x} with tx hash {:#x}",
+        on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
+    );
+
+    let (bridge_deployment_tx_hash, bridge_address) =
+        deploy_bridge(deployer, deployer_private_key, overrides, &eth_client).await;
+    println!(
+        "Bridge deployed at address {:#x} with tx hash {:#x}",
+        bridge_address, bridge_deployment_tx_hash
+    );
 }
 
 async fn deploy_on_chain_proposer(
