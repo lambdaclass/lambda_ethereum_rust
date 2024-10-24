@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{TxKind, GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
 use ethereum_rust_l2::utils::{
     config::read_env_file,
-    eth_client::{eth_sender::Overrides, EthClient},
+    eth_client::{self, eth_sender::Overrides, EthClient},
 };
 use ethereum_types::{Address, H160, H256};
 use keccak_hash::keccak;
@@ -21,7 +21,8 @@ async fn main() {
     read_env_file().expect("Failed to read .env file");
     download_contract_deps();
     compile_contracts();
-    deploy_contracts().await;
+    let (on_chain_proposer_address, bridge_address) = deploy_contracts().await;
+    initialize_contracts(bridge_address, on_chain_proposer_address).await;
 }
 
 fn download_contract_deps() {
@@ -69,7 +70,7 @@ fn compile_contracts() {
     );
 }
 
-async fn deploy_contracts() {
+async fn deploy_contracts() -> (Address, Address) {
     let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
 
     let deployer = std::env::var("DEPLOYER_ADDRESS")
@@ -103,16 +104,18 @@ async fn deploy_contracts() {
         )
         .await;
     println!(
-        "OnChainProposer deployed at address {:#x} with tx hash {:#x}",
+        "OnChainProposer deployed at address {:#x} with tx hash {:#x}\n",
         on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
     );
 
     let (bridge_deployment_tx_hash, bridge_address) =
         deploy_bridge(deployer, deployer_private_key, overrides, &eth_client).await;
     println!(
-        "Bridge deployed at address {:#x} with tx hash {:#x}",
+        "Bridge deployed at address {:#x} with tx hash {:#x}\n",
         bridge_address, bridge_deployment_tx_hash
     );
+
+    (on_chain_proposer_address, bridge_address)
 }
 
 async fn deploy_on_chain_proposer(
@@ -146,17 +149,25 @@ async fn deploy_bridge(
     overrides: Overrides,
     eth_client: &EthClient,
 ) -> (H256, Address) {
-    let bridge_init_code = hex::decode(
+    let mut bridge_init_code = hex::decode(
         std::fs::read_to_string("./contracts/solc_out/CommonBridge.bin")
             .expect("Failed to read bridge_init_code"),
     )
-    .expect("Failed to decode bridge_init_code")
-    .into();
+    .expect("Failed to decode bridge_init_code");
+
+    let encoded_owner = {
+        let offset = 32 - deployer.as_bytes().len() % 32;
+        let mut encoded_owner = vec![0; offset];
+        encoded_owner.extend_from_slice(deployer.as_bytes());
+        encoded_owner
+    };
+
+    bridge_init_code.extend_from_slice(&encoded_owner);
 
     let (deploy_tx_hash, bridge_address) = create2_deploy(
         deployer,
         deployer_private_key,
-        &bridge_init_code,
+        &bridge_init_code.into(),
         overrides,
         eth_client,
     )
@@ -213,4 +224,54 @@ fn create2_address(init_code_hash: H256) -> Address {
         .get(12..)
         .expect("Failed to get create2 address"),
     )
+}
+
+async fn initialize_contracts(bridge: Address, on_chain_proposer_address: Address) {
+    let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
+
+    let deployer = std::env::var("DEPLOYER_ADDRESS")
+        .expect("DEPLOYER_ADDRESS not set")
+        .parse()
+        .expect("Malformed DEPLOYER_ADDRESS");
+
+    let deployer_private_key = SecretKey::parse(
+        H256::from_str(
+            std::env::var("DEPLOYER_PRIVATE_KEY")
+                .expect("DEPLOYER_PRIVATE_KEY not set")
+                .strip_prefix("0x")
+                .expect("Malformed DEPLOYER_ADDRESS (strip_prefix(\"0x\"))"),
+        )
+        .expect("Malformed DEPLOYER_ADDRESS (H256::from_str)")
+        .as_fixed_bytes(),
+    )
+    .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
+
+    let bridge_initialize_selector = keccak(b"initialize(address)")
+        .as_bytes()
+        .get(..4)
+        .expect("Failed to get initialize selector")
+        .to_vec();
+    let encoded_on_chain_proposer = {
+        let offset = 32 - on_chain_proposer_address.as_bytes().len() % 32;
+        let mut encoded_owner = vec![0; offset];
+        encoded_owner.extend_from_slice(on_chain_proposer_address.as_bytes());
+        encoded_owner
+    };
+
+    let mut bridge_initialization_calldata = Vec::new();
+    bridge_initialization_calldata.extend_from_slice(&bridge_initialize_selector);
+    bridge_initialization_calldata.extend_from_slice(&encoded_on_chain_proposer);
+
+    let initialize_tx_hash = eth_client
+        .send(
+            bridge_initialization_calldata.into(),
+            deployer,
+            TxKind::Call(bridge),
+            deployer_private_key,
+            Overrides::default(),
+        )
+        .await
+        .expect("Failed to send initialize transaction");
+
+    println!("Bridge initialized with tx hash {initialize_tx_hash:#x}\n");
 }

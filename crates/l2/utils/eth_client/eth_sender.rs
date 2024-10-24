@@ -123,19 +123,10 @@ impl EthClient {
     ) -> Result<EIP1559Transaction, EthClientError> {
         let generic_transaction = GenericTransaction {
             r#type: TxType::EIP1559,
+            from,
             to: to.clone(),
             input: data.clone(),
-            value: overrides.value.unwrap_or_default(),
-            chain_id: overrides
-                .chain_id
-                .or(self.get_chain_id().await.ok().map(|t| t.as_u64())),
             nonce: overrides.nonce.unwrap_or(self.get_nonce(from).await?),
-            max_fee_per_gas: overrides.gas_price.or(self
-                .get_gas_price()
-                .await
-                .ok()
-                .map(|t| t.as_u64())),
-            max_priority_fee_per_gas: overrides.priority_gas_price,
             ..Default::default()
         };
 
