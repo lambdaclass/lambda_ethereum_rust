@@ -10,7 +10,7 @@
 
 This client supports running in two different modes:
 
-- As a regular Ethereum execution client, like `geth`.
+- As a regular Ethereum execution client, like [Geth](https://github.com/ethereum/go-ethereum).
 - As a ZK-Rollup, where block execution is proven and the proof sent to an L1 network for verification, thus inheriting the L1's security.
 
 We call the first one Lambda Ethereum Rust L1 and the second one Lambda Ethereum Rust L2.
