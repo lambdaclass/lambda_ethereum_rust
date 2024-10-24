@@ -1,18 +1,21 @@
+use std::collections::HashMap;
+
 use crate::{db::StoreWrapper, EvmError};
 use ethereum_rust_core::{
-    types::{Account, AccountInfo, Block, BlockHeader, Receipt, Transaction, TxKind},
-    Address, U256,
+    types::{Block, BlockHeader, Receipt, Transaction, TxKind},
+    Address, H256, U256,
 };
 use ethereum_rust_levm::{
+    errors::VMError,
     report::TransactionReport,
-    vm::{Account as LevmAccount, Db, StorageSlot, VM},
+    vm::{Account as LevmAccount, Db, LevmDb, StorageSlot, VM},
 };
-use ethereum_rust_storage::AccountUpdate;
 
 impl Db for StoreWrapper {
-    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
-        let value = self.store
-            .get_storage_at_hash(self.block_hash, address, key)
+    fn read_account_storage(&self, address: &Address, _key: &U256) -> Option<StorageSlot> {
+        let value = self
+            .store
+            .get_storage_at_hash(self.block_hash, *address, H256::zero()) // TODO: fix this
             .unwrap()
             .unwrap();
         let storage_slot = StorageSlot {
@@ -28,16 +31,27 @@ impl Db for StoreWrapper {
     }
 
     fn get_account_bytecode(&self, address: &Address) -> bytes::Bytes {
-        let block_number = self.store.get_block_number(self.block_hash);
-        self.store.get_code_by_account_address(block_number, address).unwrap().unwrap()
+        let block_number = self
+            .store
+            .get_block_number(self.block_hash)
+            .unwrap()
+            .unwrap();
+        self.store
+            .get_code_by_account_address(block_number, *address)
+            .unwrap()
+            .unwrap()
     }
 
     fn balance(&mut self, address: &Address) -> U256 {
-        let acc_info = self.store.get_account_info_by_hash(self.block_hash, address).unwrap().unwrap();
+        let acc_info = self
+            .store
+            .get_account_info_by_hash(self.block_hash, *address)
+            .unwrap()
+            .unwrap();
         acc_info.balance
     }
 
-    fn add_account(&mut self, address: Address, account: LevmAccount) {
+    fn add_account(&mut self, _address: Address, _account: LevmAccount) {
         // let new_acc = AccountUpdate {
         //     address,
         //     removed: false,
@@ -62,19 +76,29 @@ impl Db for StoreWrapper {
         &mut self,
         address: &Address,
     ) -> Result<&LevmAccount, ethereum_rust_levm::errors::VMError> {
-        let block_number = self.store.get_block_number(self.block_hash);
-        let acc_info = self.store.get_account_info_by_hash(self.block_hash, address).unwrap().unwrap();
-        Ok(&LevmAccount {
-            address,
+        let block_number = self
+            .store
+            .get_block_number(self.block_hash)
+            .unwrap()
+            .unwrap();
+        let acc_info = self
+            .store
+            .get_account_info_by_hash(self.block_hash, *address)
+            .unwrap()
+            .unwrap();
+        let _account = LevmAccount {
+            address: *address,
             balance: acc_info.balance,
-            bytecode: self.store.get_code_by_account_address(block_number, address),
-            storage: StorageSlot {
-                original_value: todo!(),
-                current_value: todo!(),
-                is_cold: todo!(),
-            },
+            bytecode: self
+                .store
+                .get_code_by_account_address(block_number, *address)
+                .unwrap()
+                .unwrap(),
+            storage: HashMap::new(),
             nonce: acc_info.nonce,
-        })
+        };
+        // Ok(&account) // TODO: fix this
+        Err(VMError::FatalError)
     }
 }
 
@@ -100,7 +124,7 @@ pub fn execute_block(block: &Block, state: impl Db) -> Result<Vec<Receipt>, EvmE
 pub fn execute_tx(
     tx: &Transaction,
     block_header: &BlockHeader,
-    state: &impl Db,
+    _state: &impl Db,
 ) -> Result<TransactionReport, EvmError> {
     let to = match tx.to() {
         TxKind::Call(address) => address,
@@ -121,7 +145,7 @@ pub fn execute_tx(
         tx.chain_id().unwrap().into(),
         block_header.base_fee_per_gas.unwrap_or_default().into(), // TODO: check this
         tx.gas_price().into(),
-        state, // TODO: change this
+        LevmDb::default(), // TODO: change this
         block_header.blob_gas_used.map(U256::from),
         block_header.excess_blob_gas.map(U256::from),
     );

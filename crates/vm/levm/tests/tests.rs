@@ -4,7 +4,7 @@ use ethereum_rust_levm::{
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
-    vm::{word_to_address, Account, LevmDb, Storage, StorageSlot, VM},
+    vm::{word_to_address, Account, Db, LevmDb, Storage, StorageSlot, VM},
 };
 use std::collections::HashMap;
 

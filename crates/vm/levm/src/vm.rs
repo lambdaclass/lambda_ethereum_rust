@@ -206,7 +206,7 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    pub db: Box<dyn Db>,
+    pub db: LevmDb,
 }
 
 fn address_to_word(address: Address) -> U256 {
