@@ -38,7 +38,7 @@ impl<'a> Prover<'a> {
 
         // We should pass the inputs as a whole struct
         self.env_builder.write(&head_block_rlp).unwrap();
-        self.env_builder.write(&parent_block_header_rlp).unwrap();
+        // self.env_builder.write(&parent_block_header_rlp).unwrap();
         self.env_builder.write(&input.db).unwrap();
 
         self
