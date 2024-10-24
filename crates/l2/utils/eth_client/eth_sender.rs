@@ -11,7 +11,7 @@ use keccak_hash::{keccak, H256};
 use libsecp256k1::SecretKey;
 use serde_json::json;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Overrides {
     pub from: Option<Address>,
     pub value: Option<U256>,
