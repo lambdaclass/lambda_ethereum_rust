@@ -4,7 +4,7 @@ use tracing::info;
 // risc0
 use zkvm_interface::methods::{ZKVM_PROGRAM_ELF, ZKVM_PROGRAM_ID};
 
-use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder};
+use risc0_zkvm::{default_prover, ExecutorEnv, ExecutorEnvBuilder, ProverOpts};
 
 use ethereum_rust_rlp::encode::RLPEncode;
 
@@ -58,7 +58,7 @@ impl<'a> Prover<'a> {
         // Proof information by proving the specified ELF binary.
         // This struct contains the receipt along with statistics about execution of the guest
         let prove_info = prover
-            .prove(env, self.elf)
+            .prove_with_opts(env, self.elf, &ProverOpts::groth16())
             .map_err(|_| "Failed to prove".to_string())?;
 
         // extract the receipt.
