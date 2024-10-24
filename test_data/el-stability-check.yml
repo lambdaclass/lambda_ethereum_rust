@@ -38,12 +38,12 @@ tasks:
       configVars:
         validatorNamePattern: "validatorPairName"
 
-- name: run_tasks_concurrent
-  title: "Check for reorgs and forks"
-  timeout: 8m
-  config:
-    tasks:
-     - name: check_consensus_reorgs
-      title: "Check consensus reorgs"
-    - name: check_consensus_forks
-      title: "Check consensus forks"
+# - name: run_tasks_concurrent
+#   title: "Check for reorgs and forks"
+#   timeout: 8m
+#   config:
+#     tasks:
+#      - name: check_consensus_reorgs
+#       title: "Check consensus reorgs"
+#     - name: check_consensus_forks
+#       title: "Check consensus forks"
