@@ -1,4 +1,4 @@
-use crate::config::EthereumRustL2Config;
+use crate::{commands::utils::encode_calldata, config::EthereumRustL2Config};
 use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_rust_core::types::{
@@ -14,6 +14,8 @@ use ethereum_types::{Address, H256, U256};
 use eyre::OptionExt;
 use hex::FromHexError;
 use keccak_hash::keccak;
+
+const CLAIM_WITHDRAWAL_SIGNATURE: &str = "claimWithdrawal(bytes32 l2WithdrawalTxHash, uint256 claimedAmount, uint256 l2WithdrawalBlockNumber, bytes32[] calldata withdrawalProof)";
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
@@ -285,22 +287,11 @@ impl Command {
                 claimed_amount,
                 withdrawal_l2_block_number,
             } => {
-                let claim_withdrawal_selector: [u8; 4] =
-                    keccak(b"function claimWithdrawal(bytes32,uint256,uint256,bytes32[])")
-                        .as_bytes()[..4]
-                        .try_into()
-                        .unwrap();
-                let mut amount = [0u8; 32];
-                claimed_amount.to_big_endian(&mut amount);
-                let mut l2_block_number = [0u8; 32];
-                withdrawal_l2_block_number.to_big_endian(&mut l2_block_number);
-
-                let mut claim_withdrawal_data = Vec::new();
-                claim_withdrawal_data.extend_from_slice(&claim_withdrawal_selector);
-                claim_withdrawal_data.extend_from_slice(l2_withdrawal_tx_hash.as_bytes());
-                claim_withdrawal_data.extend_from_slice(&amount);
-                claim_withdrawal_data.extend_from_slice(&l2_block_number);
-                claim_withdrawal_data.extend_from_slice(l2_withdrawal_tx_hash.as_bytes());
+                let claim_withdrawal_data = encode_calldata(
+                    CLAIM_WITHDRAWAL_SIGNATURE,
+                    &format!("{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {l2_withdrawal_tx_hash}"),
+                    false
+                )?;
 
                 println!("{}", hex::encode(&claim_withdrawal_data));
 

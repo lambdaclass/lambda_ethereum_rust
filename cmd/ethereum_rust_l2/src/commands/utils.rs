@@ -3,6 +3,7 @@ use std::str::FromStr;
 use bytes::Bytes;
 use clap::Subcommand;
 use ethereum_types::{Address, H32, U256};
+use eyre::eyre;
 use keccak_hash::{keccak, H256};
 
 #[derive(Subcommand)]
@@ -120,6 +121,49 @@ fn parse_vec_arg(arg_type: &str, arg: &str) -> Vec<u8> {
     vec![]
 }
 
+pub fn encode_calldata(
+    signature: &str,
+    args: &str,
+    only_args: bool,
+) -> Result<Vec<u8>, eyre::Error> {
+    let (name, params) = parse_signature(&signature);
+    let function_selector = compute_function_selector(&name, params.clone());
+
+    let args: Vec<&str> = args.split(' ').collect();
+
+    if params.len() != args.len() {
+        println!(
+            "Number of arguments does not match ({} != {})",
+            params.len(),
+            args.len()
+        );
+        return Err(eyre!("Number of arguments does not match"));
+    }
+
+    let mut calldata: Vec<u8> = vec![];
+    let mut dynamic_calldata: Vec<u8> = vec![];
+    if !only_args {
+        calldata.extend(function_selector.as_bytes().to_vec());
+    };
+    for (param, arg) in params.iter().zip(args.clone()) {
+        if param.as_str().ends_with("[]") {
+            let offset: &mut [u8] = &mut [0u8; 32];
+            (U256::from(args.len())
+                .checked_mul(U256::from(32))
+                .expect("Calldata too long")
+                .checked_add(U256::from(dynamic_calldata.len()))
+                .expect("Calldata too long"))
+            .to_big_endian(offset);
+            calldata.extend(offset.to_vec());
+            dynamic_calldata.extend(parse_vec_arg(param, arg));
+        } else {
+            calldata.extend(parse_arg(param, arg));
+        }
+    }
+
+    Ok([calldata, dynamic_calldata].concat())
+}
+
 impl Command {
     pub async fn run(self) -> eyre::Result<()> {
         match self {
@@ -128,45 +172,8 @@ impl Command {
                 args,
                 only_args,
             } => {
-                let (name, params) = parse_signature(&signature);
-                let function_selector = compute_function_selector(&name, params.clone());
-
-                let args: Vec<&str> = args.split(' ').collect();
-
-                if params.len() != args.len() {
-                    println!(
-                        "Number of arguments does not match ({} != {})",
-                        params.len(),
-                        args.len()
-                    );
-                    return Ok(());
-                }
-
-                let mut calldata: Vec<u8> = vec![];
-                let mut dynamic_calldata: Vec<u8> = vec![];
-                if !only_args {
-                    calldata.extend(function_selector.as_bytes().to_vec());
-                };
-                for (param, arg) in params.iter().zip(args.clone()) {
-                    if param.as_str().ends_with("[]") {
-                        let offset: &mut [u8] = &mut [0u8; 32];
-                        (U256::from(args.len())
-                            .checked_mul(U256::from(32))
-                            .expect("Calldata too long")
-                            .checked_add(U256::from(dynamic_calldata.len()))
-                            .expect("Calldata too long"))
-                        .to_big_endian(offset);
-                        calldata.extend(offset.to_vec());
-                        dynamic_calldata.extend(parse_vec_arg(param, arg));
-                    } else {
-                        calldata.extend(parse_arg(param, arg));
-                    }
-                }
-                println!(
-                    "0x{}{}",
-                    hex::encode(calldata),
-                    hex::encode(dynamic_calldata)
-                );
+                let calldata = encode_calldata(&signature, &args, only_args)?;
+                println!("0x{}", hex::encode(calldata));
             }
         };
         Ok(())
