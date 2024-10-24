@@ -1,4 +1,4 @@
-mod db;
+pub mod db;
 mod errors;
 mod execution_result;
 pub mod levm;

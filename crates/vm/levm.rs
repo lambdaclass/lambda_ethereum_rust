@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{db::StoreWrapper, EvmError};
 use ethereum_rust_core::{
-    types::{Block, BlockHeader, Receipt, Transaction, TxKind},
+    types::{Block, BlockHash, BlockHeader, Receipt, Transaction, TxKind},
     Address, H256, U256,
 };
 use ethereum_rust_levm::{
@@ -10,6 +10,7 @@ use ethereum_rust_levm::{
     report::TransactionReport,
     vm::{Account as LevmAccount, Db, LevmDb, StorageSlot, VM},
 };
+use ethereum_rust_storage::Store;
 
 impl Db for StoreWrapper {
     fn read_account_storage(&self, address: &Address, _key: &U256) -> Option<StorageSlot> {
@@ -103,11 +104,11 @@ impl Db for StoreWrapper {
 }
 
 /// Executes all transactions in a block and returns their receipts.
-pub fn execute_block(block: &Block, state: impl Db) -> Result<Vec<Receipt>, EvmError> {
+pub fn execute_block(block: &Block, state: &mut impl Db) -> Result<Vec<Receipt>, EvmError> {
     let mut receipts = Vec::new();
     let mut cumulative_gas_used = 0;
     for tx in block.body.transactions.iter() {
-        let report = execute_tx(tx, &block.header, &state)?;
+        let report = execute_tx(tx, &block.header, state)?;
         cumulative_gas_used += report.gas_used;
         let receipt = Receipt::new(
             tx.tx_type(),
@@ -124,7 +125,7 @@ pub fn execute_block(block: &Block, state: impl Db) -> Result<Vec<Receipt>, EvmE
 pub fn execute_tx(
     tx: &Transaction,
     block_header: &BlockHeader,
-    _state: &impl Db,
+    _state: &mut impl Db,
 ) -> Result<TransactionReport, EvmError> {
     let to = match tx.to() {
         TxKind::Call(address) => address,
@@ -151,4 +152,12 @@ pub fn execute_tx(
     );
     vm.transact()
         .map_err(|_| EvmError::Transaction("Levm error".to_string()))
+}
+
+/// Builds StoreWrapper from a Store
+pub fn levm_state(store: &Store, block_hash: BlockHash) -> StoreWrapper {
+    StoreWrapper {
+        store: store.clone(),
+        block_hash,
+    }
 }

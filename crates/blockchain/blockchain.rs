@@ -15,9 +15,7 @@ use ethereum_rust_core::H256;
 
 use ethereum_rust_storage::error::StoreError;
 use ethereum_rust_storage::Store;
-use ethereum_rust_vm::{
-    evm_state, execute_block, get_state_transitions, spec_id, EvmState, SpecId,
-};
+use ethereum_rust_vm::{db::StoreWrapper, levm::execute_block, levm::levm_state, spec_id, SpecId};
 
 //TODO: Implement a struct Chain or BlockChain to encapsulate
 //functionality and canonical chain state and config
@@ -32,7 +30,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     // Validate if it can be the new head and find the parent
     let parent_header = find_parent_header(&block.header, storage)?;
-    let mut state = evm_state(storage.clone(), block.header.parent_hash);
+    let mut state = levm_state(storage, block.header.parent_hash);
 
     // Validate the block pre-execution
     validate_block(block, &parent_header, &state)?;
@@ -41,11 +39,12 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
 
     validate_gas_used(&receipts, &block.header)?;
 
-    let account_updates = get_state_transitions(&mut state);
+    // let account_updates = get_state_transitions(&mut state);
+    let account_updates = Vec::new(); // ignoring updates
 
     // Apply the account updates over the last block's state and compute the new state root
     let new_state_root = state
-        .database()
+        .store
         .apply_account_updates(block.header.parent_hash, &account_updates)?
         .unwrap_or_default();
 
@@ -122,9 +121,9 @@ pub fn find_parent_header(
 pub fn validate_block(
     block: &Block,
     parent_header: &BlockHeader,
-    state: &EvmState,
+    state: &StoreWrapper,
 ) -> Result<(), ChainError> {
-    let spec = spec_id(state.database(), block.header.timestamp).unwrap();
+    let spec = spec_id(&state.store, block.header.timestamp).unwrap();
 
     // Verify initial header validity against parent
     validate_block_header(&block.header, parent_header).map_err(InvalidBlockError::from)?;
