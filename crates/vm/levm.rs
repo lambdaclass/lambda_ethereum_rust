@@ -1,30 +1,13 @@
 use crate::{db::StoreWrapper, EvmError};
 use ethereum_rust_core::{
-    types::{Block, BlockHeader, Receipt, Transaction, TxKind},
+    types::{Account, AccountInfo, Block, BlockHeader, Receipt, Transaction, TxKind},
     Address, U256,
 };
 use ethereum_rust_levm::{
     report::TransactionReport,
-    vm::{Db, StorageSlot, VM},
+    vm::{Account as LevmAccount, Db, StorageSlot, VM},
 };
-
-pub trait Db {
-    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
-
-    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot);
-
-    fn get_account_bytecode(&self, address: &Address) -> Bytes;
-
-    fn balance(&mut self, address: &Address) -> U256;
-
-    fn add_account(&mut self, address: Address, account: Account);
-
-    fn increment_account_nonce(&mut self, address: &Address);
-
-    /// Returns the account associated with the given address.
-    /// If the account does not exist in the Db, it creates a new one with the given address.
-    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError>;
-}
+use ethereum_rust_storage::AccountUpdate;
 
 impl Db for StoreWrapper {
     fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
@@ -33,11 +16,11 @@ impl Db for StoreWrapper {
             .unwrap()
             .unwrap();
         let storage_slot = StorageSlot {
-            original_value: todo!(),
-            current_value: todo!(),
-            is_cold: todo!(),
+            original_value: value,
+            current_value: value,
+            is_cold: false,
         };
-        Ok(storage_slot)
+        Some(storage_slot)
     }
 
     fn write_account_storage(&mut self, _address: &Address, _key: U256, _slot: StorageSlot) {
@@ -49,24 +32,49 @@ impl Db for StoreWrapper {
         self.store.get_code_by_account_address(block_number, address).unwrap().unwrap()
     }
 
-    fn balance(&mut self, _address: &Address) -> U256 {
-        // self.get_account_info(block_number, address).unwrap().unwrap().balance
-        todo!()
+    fn balance(&mut self, address: &Address) -> U256 {
+        let acc_info = self.store.get_account_info_by_hash(self.block_hash, address).unwrap().unwrap();
+        acc_info.balance
     }
 
-    fn add_account(&mut self, _address: Address, _account: ethereum_rust_levm::vm::Account) {
+    fn add_account(&mut self, address: Address, account: LevmAccount) {
+        // let new_acc = AccountUpdate {
+        //     address,
+        //     removed: false,
+        //     info: Some(AccountInfo {
+        //         code_hash: account.bytecode,
+        //         balance: account.balance,
+        //         nonce: account.nonce,
+        //     }),
+        //     code: Some(account.bytecode),
+        //     added_storage: todo!(),
+        // };
+        // self.store.apply_account_updates(self.block_hash, account_updates)
         todo!()
     }
 
     fn increment_account_nonce(&mut self, _address: &Address) {
         // self.apply_account_updates(block_hash, account_updates)
+        todo!()
     }
 
     fn get_account(
         &mut self,
-        _address: &Address,
-    ) -> Result<&ethereum_rust_levm::vm::Account, ethereum_rust_levm::errors::VMError> {
-        todo!()
+        address: &Address,
+    ) -> Result<&LevmAccount, ethereum_rust_levm::errors::VMError> {
+        let block_number = self.store.get_block_number(self.block_hash);
+        let acc_info = self.store.get_account_info_by_hash(self.block_hash, address).unwrap().unwrap();
+        Ok(&LevmAccount {
+            address,
+            balance: acc_info.balance,
+            bytecode: self.store.get_code_by_account_address(block_number, address),
+            storage: StorageSlot {
+                original_value: todo!(),
+                current_value: todo!(),
+                is_cold: todo!(),
+            },
+            nonce: acc_info.nonce,
+        })
     }
 }
 

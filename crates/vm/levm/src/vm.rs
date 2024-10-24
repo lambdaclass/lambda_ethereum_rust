@@ -89,6 +89,24 @@ impl Account {
 
 pub type Storage = HashMap<U256, H256>;
 
+pub trait Db {
+    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
+
+    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot);
+
+    fn get_account_bytecode(&self, address: &Address) -> Bytes;
+
+    fn balance(&mut self, address: &Address) -> U256;
+
+    fn add_account(&mut self, address: Address, account: Account);
+
+    fn increment_account_nonce(&mut self, address: &Address);
+
+    /// Returns the account associated with the given address.
+    /// If the account does not exist in the Db, it creates a new one with the given address.
+    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError>;
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct LevmDb {
     pub accounts: HashMap<Address, Account>,
@@ -188,7 +206,7 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    pub db: LevmDb,
+    pub db: Box<dyn Db>,
 }
 
 fn address_to_word(address: Address) -> U256 {
