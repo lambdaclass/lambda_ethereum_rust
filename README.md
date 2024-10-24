@@ -1,4 +1,4 @@
-# Lambda Ethereum Rust Execution Client
+# Lambda Ethereum Rust
 
 [![Telegram Chat][tg-badge]][tg-url]
 [![license](https://img.shields.io/github/license/lambdaclass/ethereum_rust)](/LICENSE)
@@ -50,7 +50,7 @@ The main differences between this mode and regular Ethereum Rust are:
 
 ### Table of Contents
 
-- [Lambda Ethereum Rust Execution Client](#lambda-ethereum-rust-execution-client)
+- [Lambda Ethereum Rust](#lambda-ethereum-rust)
 - [L1 and L2 support](#l1-and-l2-support)
   - [Philosophy](#philosophy)
   - [Design Principles](#design-principles)
