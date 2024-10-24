@@ -3,6 +3,7 @@ use ethereum_rust_storage::{error::StoreError, Store};
 
 use crate::rlpx::snap::{AccountRange, AccountStateSlim, GetAccountRange};
 
+#[allow(unused)]
 pub fn process_account_range_request(
     request: GetAccountRange,
     store: Store,
