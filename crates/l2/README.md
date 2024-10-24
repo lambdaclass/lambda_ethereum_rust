@@ -24,7 +24,6 @@
     - [Milestone 8: Validium](#milestone-8-validium)
       - [Status](#status-8)
   - [Prerequisites](#prerequisites)
-    - [Foundry](#foundry)
   - [How to run](#how-to-run)
     - [Initialize the network](#initialize-the-network)
     - [Restarting the network](#restarting-the-network)
@@ -54,18 +53,17 @@ Users can deposit Eth in the L1 (Ethereum) and receive the corresponding funds o
 
 |           | Name                          | Description                                                                 | Status |
 | --------- | ----------------------------- | --------------------------------------------------------------------------- | ------ |
-| Contracts | `CommonBridge`                | Deposit method implementation                                               | ✅      |
-|           | `OnChainOperator`             | Commit and verify methods (placeholders for this stage)                     | ✅      |
-| VM        |                               | Adapt EVM to handle deposits                                                | ✅      |
-| Proposer  | `Proposer`                    | Proposes new blocks to be executed                                          | ✅      |
-|           | `L1Watcher`                   | Listens for and handles L1 deposits                                         | ✅      |
-|           | `L1TxSender`                  | commits new block proposals and sends block execution proofs to be verified | ✅      |
-|           | Deposit transactions handling | new transaction type for minting funds corresponding to deposits            | ✅      |
-| CLI       | `stack`                       | Support commands for initializing the network                               | ✅      |
-| CLI       | `config`                      | Support commands for network config management                              | ✅      |
-| CLI       | `wallet deposit`              | Support command por depositing funds on L2                                  | ✅      |
-| CLI       | `wallet transfer`             | Support command for transferring funds on L2                                | ✅      |
-
+| Contracts | `CommonBridge`                | Deposit method implementation                                               | ✅     |
+|           | `OnChainOperator`             | Commit and verify methods (placeholders for this stage)                     | ✅     |
+| VM        |                               | Adapt EVM to handle deposits                                                | ✅     |
+| Proposer  | `Proposer`                    | Proposes new blocks to be executed                                          | ✅     |
+|           | `L1Watcher`                   | Listens for and handles L1 deposits                                         | ✅     |
+|           | `L1TxSender`                  | commits new block proposals and sends block execution proofs to be verified | ✅     |
+|           | Deposit transactions handling | new transaction type for minting funds corresponding to deposits            | ✅     |
+| CLI       | `stack`                       | Support commands for initializing the network                               | ✅     |
+| CLI       | `config`                      | Support commands for network config management                              | ✅     |
+| CLI       | `wallet deposit`              | Support command por depositing funds on L2                                  | ✅     |
+| CLI       | `wallet transfer`             | Support command for transferring funds on L2                                | ✅     |
 
 ### Milestone 1: MVP
 
@@ -73,13 +71,13 @@ The network supports basic L2 functionality, allowing users to deposit and withd
 
 #### Status
 
-|           | Name                           | Description                                                                                                        | Status |
-| --------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------ |
-| Contracts | `CommonBridge`                 | Withdraw method implementation                                                                                     | ❌      |
-|           | `OnChainOperator`              | Commit and verify implementation                                                                                   | 🏗️      |
-|           | `Verifier`                     | verifier                                                                                                           | 🏗️      |
-|           | Withdraw transactions handling | New transaction type for burning funds on L2 and unlock funds on L1                                                | 🏗️      |
-| Prover    | `Prover Client`                | Asks for block execution data to prove, generates proofs of execution and submits proofs to the `Prover Server`    | 🏗️      |
+|           | Name                           | Description                                                                                                     | Status |
+| --------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------ |
+| Contracts | `CommonBridge`                 | Withdraw method implementation                                                                                  | ❌     |
+|           | `OnChainOperator`              | Commit and verify implementation                                                                                | 🏗️     |
+|           | `Verifier`                     | verifier                                                                                                        | 🏗️     |
+|           | Withdraw transactions handling | New transaction type for burning funds on L2 and unlock funds on L1                                             | 🏗️     |
+| Prover    | `Prover Client`                | Asks for block execution data to prove, generates proofs of execution and submits proofs to the `Prover Server` | 🏗️     |
 
 ### Milestone 2: Block Execution Proofs
 
@@ -87,12 +85,12 @@ The L2's block execution is proven with a RISC-V zkVM and the proof is verified 
 
 #### Status
 
-|           | Name                           | Description                                                                                                        | Status |
-| --------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------ |
-| VM |                 | `Return` the storage touched on block execution to pass the prover as a witness                                                                                     | 🏗️      |
-| Contracts          | `OnChainOperator`              | Call the actual SNARK proof verification on the `verify` function implementation                                                                                   | 🏗️      |
-| Proposer  | `Prover Server`                | Feeds the `Prover Client` with block data to be proven and delivers proofs to the `L1TxSender` for L1 verification | 🏗️      |
-| Prover    | `Prover Client`                | Asks for block execution data to prove, generates proofs of execution and submits proofs to the `Prover Server`    | 🏗️      |
+|           | Name              | Description                                                                                                        | Status |
+| --------- | ----------------- | ------------------------------------------------------------------------------------------------------------------ | ------ |
+| VM        |                   | `Return` the storage touched on block execution to pass the prover as a witness                                    | 🏗️     |
+| Contracts | `OnChainOperator` | Call the actual SNARK proof verification on the `verify` function implementation                                   | 🏗️     |
+| Proposer  | `Prover Server`   | Feeds the `Prover Client` with block data to be proven and delivers proofs to the `L1TxSender` for L1 verification | 🏗️     |
+| Prover    | `Prover Client`   | Asks for block execution data to prove, generates proofs of execution and submits proofs to the `Prover Server`    | 🏗️     |
 
 ### Milestone 3: State diffs + Data compression + EIP 4844 (Blobs)
 
@@ -104,15 +102,15 @@ It also supports EIP 4844 for L1 commit transactions, which means state diffs ar
 
 |           | Name                | Description                                                                 | Status |
 | --------- | ------------------- | --------------------------------------------------------------------------- | ------ |
-| Contracts | OnChainOperator     | Differentiate whether to execute in calldata or blobs mode                  | ❌      |
-| Prover    | RISC-V zkVM         | Prove state diffs compression                                               | ❌      |
-|           | RISC-V zkVM         | Adapt state proofs                                                          | ❌      |
-| VM        |                     | The VM should return which storage slots were modified                      | ❌      |
-| Proposer  | Prover Server       | Sends state diffs to the prover                                             | ❌      |
-|           | L1TxSender          | Differentiate whether to send the commit transaction with calldata or blobs | ❌      |
-|           |                     | Add program for proving blobs                                               | ❌      |
-| CLI       | `reconstruct-state` | Add a command for reconstructing the state                                  | ❌      |
-|           | `init`              | Adapt network initialization to either send blobs or calldata               | ❌      |
+| Contracts | OnChainOperator     | Differentiate whether to execute in calldata or blobs mode                  | ❌     |
+| Prover    | RISC-V zkVM         | Prove state diffs compression                                               | ❌     |
+|           | RISC-V zkVM         | Adapt state proofs                                                          | ❌     |
+| VM        |                     | The VM should return which storage slots were modified                      | ❌     |
+| Proposer  | Prover Server       | Sends state diffs to the prover                                             | ❌     |
+|           | L1TxSender          | Differentiate whether to send the commit transaction with calldata or blobs | ❌     |
+|           |                     | Add program for proving blobs                                               | ❌     |
+| CLI       | `reconstruct-state` | Add a command for reconstructing the state                                  | ❌     |
+|           | `init`              | Adapt network initialization to either send blobs or calldata               | ❌     |
 
 ### Milestone 4: Custom Native token
 
@@ -122,11 +120,11 @@ The L2 can also be deployed using a custom native token, meaning that a certain 
 
 |     | Name           | Description                                                                               | Status |
 | --- | -------------- | ----------------------------------------------------------------------------------------- | ------ |
-|     | `CommonBridge` | For native token withdrawals, infer the native token and reimburse the user in that token | ❌      |
-|     | `CommonBridge` | For native token deposits, msg.value = 0 and valueToMintOnL2 > 0                          | ❌      |
-|     | `CommonBridge` | Keep track of chain's native token                                                        | ❌      |
-|     | `deposit`      | Handle native token deposits                                                              | ❌      |
-|     | `withdraw`     | Handle native token withdrawals                                                           | ❌      |
+|     | `CommonBridge` | For native token withdrawals, infer the native token and reimburse the user in that token | ❌     |
+|     | `CommonBridge` | For native token deposits, msg.value = 0 and valueToMintOnL2 > 0                          | ❌     |
+|     | `CommonBridge` | Keep track of chain's native token                                                        | ❌     |
+|     | `deposit`      | Handle native token deposits                                                              | ❌     |
+|     | `withdraw`     | Handle native token withdrawals                                                           | ❌     |
 
 ### Milestone 5: Security (TEEs and Multi Prover support)
 
@@ -136,11 +134,11 @@ The L2 has added security mechanisms in place, running on Trusted Execution Envi
 
 |           | Name | Description                                          | Status |
 | --------- | ---- | ---------------------------------------------------- | ------ |
-| VM/Prover |      | Support proving with multiple different zkVMs        | ❌      |
-| Contracts |      | Support verifying multiple different zkVM executions | ❌      |
-| VM        |      | Support running the operator on a TEE environment    | ❌      |
+| VM/Prover |      | Support proving with multiple different zkVMs        | ❌     |
+| Contracts |      | Support verifying multiple different zkVM executions | ❌     |
+| VM        |      | Support running the operator on a TEE environment    | ❌     |
 
-### Milestone 6: Account Abstraction 
+### Milestone 6: Account Abstraction
 
 The L2 supports native account abstraction following EIP 7702, allowing for custom transaction validation logic and paymaster flows.
 
@@ -171,27 +169,15 @@ The L2 can be initialized in Validium Mode, meaning the Data Availability layer 
 
 |           | Name          | Description                                          | Status |
 | --------- | ------------- | ---------------------------------------------------- | ------ |
-| Contracts | BlockExecutor | Do not check data availability in Validium mode      | ❌      |
-| Proposer  | L1TxSender    | Do not send data in commit transactions              | ❌      |
-| CLI       | `init`        | Adapt network initialization to support Validium L2s | ❌      |
-| Misc      |               | Add a DA integration example for Validium mode       | ❌      |
+| Contracts | BlockExecutor | Do not check data availability in Validium mode      | ❌     |
+| Proposer  | L1TxSender    | Do not send data in commit transactions              | ❌     |
+| CLI       | `init`        | Adapt network initialization to support Validium L2s | ❌     |
+| Misc      |               | Add a DA integration example for Validium mode       | ❌     |
 
 ## Prerequisites
 
 - [Rust (explained in the repo's main README)](../../README.md)
 - [Docker](https://docs.docker.com/engine/install/) (with [Docker Compose](https://docs.docker.com/compose/install/))
-- [Foundry](#foundry)
-
-### Foundry
-
-1. First, install `foundryup`:
-    ```shell
-    curl -L https://foundry.paradigm.xyz | bash
-    ```
-2. Then run `foundryup`:
-    ```shell
-    foundryup
-    ```
 
 ## How to run
 
@@ -199,6 +185,7 @@ The L2 can be initialized in Validium Mode, meaning the Data Availability layer 
 
 > [!IMPORTANT]
 > Before this step:
+>
 > 1. make sure the Docker daemon is running.
 > 2. make sure you have created a `.env` file following the `.env.example` file.
 
