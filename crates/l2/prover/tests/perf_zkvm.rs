@@ -19,7 +19,7 @@ async fn test_performance_zkvm() {
     let genesis_file_path = path.join("genesis-execution-api.json");
     let chain_file_path = path.join("chain.rlp");
 
-    let store = Store::new("", EngineType::InMemory).expect("Failed to create Store");
+    let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
 
     let genesis = ethereum_rust_l2::utils::test_files_read::read_genesis_file(
         genesis_file_path.to_str().unwrap(),
