@@ -1,5 +1,6 @@
 use crate::utils::eth_client::RpcResponse;
 use ethereum_rust_storage::Store;
+use ethereum_rust_vm::execution_db::ExecutionDB;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -10,18 +11,13 @@ use std::{
 use tokio::signal::unix::{signal, SignalKind};
 use tracing::{debug, info, warn};
 
-use ethereum_rust_core::types::{Block, BlockHeader};
+use ethereum_rust_core::types::Block;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ProverInputData {
-    pub db: MemoryDB,
-    pub parent_block_header: BlockHeader,
+    pub db: ExecutionDB,
     pub block: Block,
 }
-
-// Placeholder structure until we have ExecutionDB on L1
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct MemoryDB;
 
 use crate::utils::config::prover_server::ProverServerConfig;
 
@@ -177,22 +173,22 @@ impl ProverServer {
     ) -> Result<(), String> {
         debug!("Request received");
 
-        //let last_block_number = Self::get_last_block_number().await?;
         let last_block_number = self
             .store
             .get_latest_block_number()
             .map_err(|e| e.to_string())?
             .ok_or("missing latest block number".to_string())?;
+        let input = self.create_prover_input(last_block_number)?;
 
         let response = if last_block_number > last_proved_block {
             ProofData::Response {
                 block_number: Some(last_block_number),
-                input: ProverInputData::default(),
+                input,
             }
         } else {
             ProofData::Response {
                 block_number: None,
-                input: ProverInputData::default(),
+                input,
             }
         };
         let writer = BufWriter::new(stream);
@@ -210,5 +206,25 @@ impl ProverServer {
         let response = ProofData::SubmitAck { block_number };
         let writer = BufWriter::new(stream);
         serde_json::to_writer(writer, &response).map_err(|e| e.to_string())
+    }
+
+    fn create_prover_input(&self, block_number: u64) -> Result<ProverInputData, String> {
+        let block = Block {
+            header: self
+                .store
+                .get_block_header(block_number)
+                .map_err(|err| err.to_string())?
+                .ok_or("block header not found")?,
+            body: self
+                .store
+                .get_block_body(block_number)
+                .map_err(|err| err.to_string())?
+                .ok_or("block body not found")?,
+        };
+        let db = ExecutionDB::from_exec(&block, &self.store).map_err(|err| err.to_string())?;
+
+        debug!("Created prover input for block {block_number}");
+
+        Ok(ProverInputData { db, block })
     }
 }
