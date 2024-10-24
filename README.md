@@ -67,7 +67,7 @@ The main differences between this mode and regular Ethereum Rust are:
 
 [](https://github.com/user-attachments/assets/99c96831-a641-4978-b70c-4acb519d0098)
 
-TEST
+
 
 # Lambda Ethereum Rust L1
 
@@ -97,8 +97,6 @@ TEST
         - [Ethereum Foundation Tests](#ethereum-foundation-tests)
         - [Crate Specific Tests](#crate-specific-tests)
         - [Hive Tests](#hive-tests)
-          - [Prereqs](#prereqs)
-          - [Running Simulations](#running-simulations)
     - [Run](#run)
     - [CLI Commands](#cli-commands)
 - [Crates documentation](#crates-documentation)
