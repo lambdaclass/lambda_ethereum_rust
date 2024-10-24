@@ -1,8 +1,13 @@
 use crate::{commands::utils::encode_calldata, config::EthereumRustL2Config};
 use bytes::Bytes;
 use clap::Subcommand;
-use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
-use ethereum_rust_l2::utils::eth_client::{eth_sender::Overrides, EthClient};
+use ethereum_rust_core::types::{
+    EIP1559Transaction, PrivilegedL2Transaction, PrivilegedTxType, Transaction, TxKind,
+};
+use ethereum_rust_l2::utils::{
+    eth_client::{eth_sender::Overrides, EthClient},
+    merkle_tree::merkle_proof,
+};
 use ethereum_types::{Address, H256, U256};
 use eyre::OptionExt;
 use hex::FromHexError;
@@ -250,24 +255,17 @@ impl Command {
                     false
                 )?;
 
-                println!("{}", hex::encode(&claim_withdrawal_data));
-
-                let tx = make_eip1559_transaction(
-                    &eth_client,
-                    TxKind::Call(cfg.contracts.common_bridge),
-                    from,
-                    claim_withdrawal_data.into(),
-                    U256::from(0),
-                    cfg.network.l1_chain_id,
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-                .await?;
-
                 let tx_hash = eth_client
-                    .send_eip1559_transaction(tx, cfg.wallet.private_key)
+                    .send(
+                        claim_withdrawal_data.into(),
+                        from,
+                        TxKind::Call(cfg.contracts.common_bridge),
+                        cfg.wallet.private_key,
+                        Overrides {
+                            chain_id: Some(cfg.network.l1_chain_id),
+                            ..Default::default()
+                        },
+                    )
                     .await?;
 
                 println!("Withdrawal claim sent: {tx_hash:#x}");

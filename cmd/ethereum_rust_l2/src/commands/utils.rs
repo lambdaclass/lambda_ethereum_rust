@@ -142,7 +142,7 @@ pub fn encode_calldata(
     args: &str,
     only_args: bool,
 ) -> Result<Vec<u8>, eyre::Error> {
-    let (name, params) = parse_signature(&signature);
+    let (name, params) = parse_signature(signature);
     let function_selector = compute_function_selector(&name, params.clone());
 
     let args: Vec<&str> = args.split(' ').collect();

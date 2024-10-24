@@ -1,9 +1,12 @@
 use crate::utils::config::eth::EthConfig;
 use errors::{
-    EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError, GetGasPriceError,
-    GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
+    EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockByHashError,
+    GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError, GetTransactionReceiptError,
+    SendRawTransactionError,
 };
-use ethereum_rust_core::types::{EIP1559Transaction, TxKind};
+use ethereum_rust_core::types::{
+    BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
+};
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_rpc::{
     types::receipt::{RpcLog, RpcReceipt},
