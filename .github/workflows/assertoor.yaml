@@ -20,7 +20,7 @@ env:
 
 jobs:
   test-run:
-    name: CI Check
+    name: Stability Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
