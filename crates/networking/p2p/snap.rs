@@ -10,21 +10,14 @@ pub fn process_account_range_request(
     let mut accounts = vec![];
     // Fetch account range
     let mut iter = store.iter_accounts(request.root_hash);
-    let mut start_found = false;
     let mut bytes_used = 0;
     while let Some((k, v)) = iter.next() {
         if k >= request.starting_hash {
-            start_found = true;
-        }
-        if start_found {
             let acc = AccountStateSlim::from(v);
             bytes_used += bytes_per_entry(&acc);
             accounts.push((k, acc));
         }
-        if k >= request.limit_hash {
-            break;
-        }
-        if bytes_used >= request.response_bytes {
+        if k >= request.limit_hash || bytes_used >= request.response_bytes {
             break;
         }
     }
@@ -64,6 +57,7 @@ mod tests {
     use lazy_static::lazy_static;
 
     lazy_static! {
+        // Constant values for hive `AccountRange` tests
         static ref HASH_MIN: H256 = H256::zero();
         static ref HASH_MAX: H256 =
             H256::from_str("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",)
