@@ -32,6 +32,10 @@ revm = { version = "14.0.3", features = [
   "kzg-rs",
 ], default-features = false }
 
+[dev-dependencies]
+ethereum_rust-vm.workspace = true
+ethereum_rust-storage.workspace = true
+
 [lib]
 name = "ethereum_rust_prover_lib"
 path = "src/lib.rs"
