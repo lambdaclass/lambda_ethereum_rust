@@ -13,9 +13,10 @@ pub fn process_account_range_request(
     let mut bytes_used = 0;
     while let Some((k, v)) = iter.next() {
         if k >= request.starting_hash {
-            let acc = AccountStateSlim::from(v);
-            bytes_used += bytes_per_entry(&acc);
-            accounts.push((k, acc));
+            let account = AccountStateSlim::from(v).encode_to_vec();
+            // size of hash + size of account
+            bytes_used += 32 + account.len() as u64;
+            accounts.push((k, account));
         }
         if k >= request.limit_hash || bytes_used >= request.response_bytes {
             break;
@@ -32,11 +33,6 @@ pub fn process_account_range_request(
         accounts,
         proof,
     })
-}
-
-// TODO: write response bytes directly here so we dont need to encode twice
-fn bytes_per_entry(state: &AccountStateSlim) -> u64 {
-    state.encode_to_vec().len() as u64 + 32
 }
 
 #[cfg(test)]
@@ -93,7 +89,6 @@ mod tests {
             H256::from_str("0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099")
                 .unwrap()
         );
-        // Check proofs against geth values
     }
 
     #[test]

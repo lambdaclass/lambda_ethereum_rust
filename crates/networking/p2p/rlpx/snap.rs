@@ -137,7 +137,8 @@ pub(crate) struct AccountRange {
     // id is a u64 chosen by the requesting peer, the responding peer must mirror the value for the response
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     pub id: u64,
-    pub accounts: Vec<(H256, AccountStateSlim)>,
+    // List of (hash, account) pairs, accounts consis of RLP-encoded slim accounts
+    pub accounts: Vec<(H256, Vec<u8>)>,
     pub proof: Vec<Vec<u8>>,
 }
 
