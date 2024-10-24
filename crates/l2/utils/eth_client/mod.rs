@@ -1,7 +1,8 @@
 use crate::utils::config::eth::EthConfig;
 use errors::{
-    EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError, GetGasPriceError,
-    GetLogsError, GetNonceError, GetTransactionReceiptError, SendRawTransactionError,
+    CallError, EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockNumberError,
+    GetGasPriceError, GetLogsError, GetNonceError, GetTransactionReceiptError,
+    SendRawTransactionError,
 };
 use ethereum_rust_core::types::{
     EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
@@ -128,6 +129,36 @@ impl EthClient {
         data.append(&mut encoded_tx);
 
         self.send_raw_transaction(data.as_slice()).await
+    }
+
+    pub async fn call(&self, transaction: GenericTransaction) -> Result<String, EthClientError> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_call".to_string(),
+            params: Some(vec![
+                json!({
+                    "to": match transaction.to {
+                        TxKind::Call(addr) => format!("{addr:#x}"),
+                        TxKind::Create => format!("{:#x}", Address::zero()),
+                    },
+                    "input": format!("{:#x}", transaction.input),
+                    "value": format!("{}", transaction.value),
+                    "from": format!("{:#x}", transaction.from),
+                }),
+                json!("latest"),
+            ]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(CallError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(CallError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn estimate_gas(
