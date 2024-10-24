@@ -45,9 +45,13 @@ pub(crate) enum Command {
         explorer_url: bool,
     },
     #[clap(about = "Finalize a pending withdrawal.")]
-    FinalizeWithdraw {
+    ClaimWithdraw {
         #[clap(long = "hash")]
         l2_withdrawal_tx_hash: H256,
+        #[clap(long = "amount", value_parser = U256::from_dec_str)]
+        claimed_amount: U256,
+        #[clap(long = "block-number", value_parser = U256::from_dec_str)]
+        withdrawal_l2_block_number: U256,
     },
     #[clap(about = "Transfer funds to another wallet.")]
     Transfer {
@@ -276,10 +280,49 @@ impl Command {
                 })
                 .await?;
             }
-            Command::FinalizeWithdraw {
-                l2_withdrawal_tx_hash: _,
+            Command::ClaimWithdraw {
+                l2_withdrawal_tx_hash,
+                claimed_amount,
+                withdrawal_l2_block_number,
             } => {
-                todo!()
+                let claim_withdrawal_selector: [u8; 4] =
+                    keccak(b"function claimWithdrawal(bytes32,uint256,uint256,bytes32[])")
+                        .as_bytes()[..4]
+                        .try_into()
+                        .unwrap();
+                let mut amount = [0u8; 32];
+                claimed_amount.to_big_endian(&mut amount);
+                let mut l2_block_number = [0u8; 32];
+                withdrawal_l2_block_number.to_big_endian(&mut l2_block_number);
+
+                let mut claim_withdrawal_data = Vec::new();
+                claim_withdrawal_data.extend_from_slice(&claim_withdrawal_selector);
+                claim_withdrawal_data.extend_from_slice(l2_withdrawal_tx_hash.as_bytes());
+                claim_withdrawal_data.extend_from_slice(&amount);
+                claim_withdrawal_data.extend_from_slice(&l2_block_number);
+                claim_withdrawal_data.extend_from_slice(l2_withdrawal_tx_hash.as_bytes());
+
+                println!("{}", hex::encode(&claim_withdrawal_data));
+
+                let tx = make_eip1559_transaction(
+                    &eth_client,
+                    TxKind::Call(cfg.contracts.common_bridge),
+                    from,
+                    claim_withdrawal_data.into(),
+                    U256::from(0),
+                    cfg.network.l1_chain_id,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+                .await?;
+
+                let tx_hash = eth_client
+                    .send_eip1559_transaction(tx, cfg.wallet.private_key)
+                    .await?;
+
+                println!("Withdrawal claim sent: {tx_hash:#x}");
             }
             Command::Transfer {
                 amount,
