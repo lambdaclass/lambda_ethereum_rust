@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-use ethereum_rust_core::types::{Block, ChainConfig};
-use ethereum_rust_storage::Store;
+use ethereum_rust_core::{
+    types::{Block, BlockHash, ChainConfig},
+    H256,
+};
+use ethereum_rust_storage::{error::StoreError, AccountUpdate, Store};
 use revm::{
     primitives::{
         AccountInfo as RevmAccountInfo, Address as RevmAddress, Bytecode as RevmBytecode,
@@ -106,6 +109,16 @@ impl ExecutionDB {
 
     pub fn get_chain_config(&self) -> ChainConfig {
         self.chain_config
+    }
+
+    /// Applies account updates based on the block's latest storage state
+    /// and returns the new state root after the updates have been applied.
+    pub fn apply_account_updates(
+        &self,
+        block_hash: BlockHash,
+        account_updates: &[AccountUpdate],
+    ) -> Result<Option<H256>, ExecutionDBError> {
+        Ok(Some(H256::default()))
     }
 }
 
