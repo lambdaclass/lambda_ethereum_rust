@@ -35,6 +35,7 @@ revm = { version = "14.0.3", features = [
 [dev-dependencies]
 ethereum_rust-vm.workspace = true
 ethereum_rust-storage.workspace = true
+ethereum_rust-blockchain.workspace = true
 
 [lib]
 name = "ethereum_rust_prover_lib"
