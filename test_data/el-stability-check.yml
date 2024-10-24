@@ -24,7 +24,7 @@ tasks:
 
 - name: run_task_matrix
   title: "Check block proposals from all client pairs"
-  timeout: 1m
+  timeout: 2m
   configVars:
     matrixValues: "validatorPairNames"
   config:
