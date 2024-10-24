@@ -244,11 +244,13 @@ pub fn parse_json_hex(hex: &serde_json::Value) -> Result<u64, String> {
 
 #[cfg(test)]
 pub mod test_utils {
-    use std::{net::SocketAddr, str::FromStr, sync::Arc};
+    use std::{net::SocketAddr, str::FromStr};
 
-    use ethereum_rust_core::{types::Genesis, H512};
+    use ethereum_rust_core::H512;
     use ethereum_rust_net::types::Node;
-    use ethereum_rust_storage::Store;
+    use ethereum_rust_storage::{EngineType, Store};
+
+    use crate::start_api;
 
     pub const TEST_GENESIS: &str = include_str!("../../../test_data/genesis-l1.json");
     pub fn example_p2p_node() -> Node {
@@ -259,18 +261,6 @@ pub mod test_utils {
             tcp_port: 30303,
             node_id: node_id_1,
         }
-    }
-    pub fn test_store() -> (
-        Arc<dyn ethereum_rust_storage::engines::api::StoreEngine>,
-        Store,
-    ) {
-        let (db_pointer, store) = ethereum_rust_storage::new_for_tests();
-        let genesis: Genesis =
-            serde_json::from_str(TEST_GENESIS).expect("Fatal: failed to parse test genesis");
-        store
-            .add_initial_state(genesis)
-            .expect("Failed to add genesis in test");
-        (db_pointer, store)
     }
 
     // Util to start an api for testing on ports 8500 and 8501,
@@ -287,17 +277,12 @@ pub mod test_utils {
     pub async fn start_test_api() {
         let http_addr: SocketAddr = "127.0.0.1:8500".parse().unwrap();
         let authrpc_addr: SocketAddr = "127.0.0.1:8501".parse().unwrap();
-        let jwt_secret = Default::default();
-        let local_p2p_node = example_p2p_node();
-        let (_, store) = test_store();
-        crate::start_api(http_addr, authrpc_addr, store, jwt_secret, local_p2p_node).await;
-    }
+        let storage =
+            Store::new("", EngineType::InMemory).expect("Failed to create in-memory storage");
+        storage.add_initial_state(serde_json::from_str(TEST_GENESIS).unwrap()).expect("Failed to build test genesis");
 
-    pub async fn start_test_api_with_storage(db: Store) {
-        let http_addr: SocketAddr = "127.0.0.1:8500".parse().unwrap();
-        let authrpc_addr: SocketAddr = "127.0.0.1:8501".parse().unwrap();
         let jwt_secret = Default::default();
         let local_p2p_node = example_p2p_node();
-        crate::start_api(http_addr, authrpc_addr, db, jwt_secret, local_p2p_node).await;
+        start_api(http_addr, authrpc_addr, storage, jwt_secret, local_p2p_node).await;
     }
 }

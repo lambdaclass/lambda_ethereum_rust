@@ -698,22 +698,6 @@ fn hash_key(key: &H256) -> Vec<u8> {
         .to_vec()
 }
 
-// USED ONLY FOR TESTS.
-// This function is useful when you want to test
-// logic that expects a state change (like the filter endpoints),
-// do NOT use it to test the DB.
-// This function returns a tuple where each coordinate is:
-// - Pointer to the actual in memory store.
-// - The storage structure.
-// You can then use the pointer to modify the store as needed
-// for testing.
-#[cfg(feature = "test")]
-pub fn new_for_tests() -> (Arc<dyn StoreEngine>, Store) {
-    let store = Store::new("in-mem-db", EngineType::InMemory).unwrap();
-    let db_pointer = store.engine.clone();
-    (db_pointer, store)
-}
-
 #[cfg(test)]
 mod tests {
     use std::{fs, panic, str::FromStr};

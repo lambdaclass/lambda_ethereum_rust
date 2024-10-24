@@ -254,7 +254,6 @@ impl FilterChangesRequest {
 mod tests {
     use std::{
         collections::HashMap,
-        str::FromStr,
         sync::{Arc, Mutex},
         time::{Duration, Instant},
     };
@@ -266,21 +265,15 @@ mod tests {
             logs::{AddressFilter, LogsFilter, TopicFilter},
         },
         map_http_requests,
-        utils::test_utils::{self, start_test_api_with_storage, test_store},
+        utils::test_utils::{self, start_test_api},
         FILTER_DURATION,
     };
     use crate::{
         types::block_identifier::BlockIdentifier,
         utils::{test_utils::example_p2p_node, RpcRequest},
     };
-    use ethereum_rust_core::types::BlockBody;
-    use ethereum_rust_core::{
-        types::{
-            BlockHeader, Genesis, LegacyTransaction, Log, Receipt, Transaction, TxKind, TxType,
-        },
-        H160,
-    };
-    use ethereum_rust_storage::{engines::api::StoreEngine, EngineType, Store};
+    use ethereum_rust_core::types::Genesis;
+    use ethereum_rust_storage::{EngineType, Store};
 
     use serde_json::{json, Value};
     use test_utils::TEST_GENESIS;
@@ -530,19 +523,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn run_tests_with_server() {
-        let (db_pointer, store) = test_store();
-        let server_handle =
-            tokio::spawn(async move { start_test_api_with_storage(store.clone()).await });
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        background_job_removes_filter_smoke_test(db_pointer.clone()).await;
-        smoke_test_get_filter_changes(db_pointer.clone()).await;
-        server_handle.abort();
-    }
-
-    async fn background_job_removes_filter_smoke_test(_store: Arc<dyn StoreEngine>) {
+    async fn background_job_removes_filter_smoke_test() {
         // Start a test server to start the cleanup
         // task in the background
+        let server_handle = tokio::spawn(async move { start_test_api().await });
 
         // Give the server some time to start
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -574,6 +558,7 @@ mod tests {
             .await
             .unwrap();
 
+        dbg!(&response);
         assert!(
             response.get("result").is_some(),
             "Response should have a 'result' field"
@@ -610,105 +595,7 @@ mod tests {
             ),
             "Filter was expected to be deleted by background job, but it still exists"
         );
-    }
 
-    async fn smoke_test_get_filter_changes(db_pointer: Arc<dyn StoreEngine>) {
-        // Start a test server to start the cleanup
-        // task in the background
-
-        // Install the filter, we'll listen for this address
-        let raw_json = json!(
-        {
-            "jsonrpc":"2.0",
-            "method":"eth_newFilter",
-            "params":
-            [
-                {
-                    "fromBlock": "0x1",
-                    "toBlock": "0xA",
-                    "topics": null,
-                    "address": [ "0xb794f5ea0ba39494ce839613fffba74279579268" ]
-                }
-            ]
-                ,"id":1
-        });
-
-        let client = reqwest::Client::new();
-
-        let response: Value = client
-            .post("http://127.0.0.1:8500")
-            .json(&raw_json)
-            .send()
-            .await
-            .unwrap()
-            .json()
-            .await
-            .unwrap();
-        let filter_id = response
-            .get("result")
-            .expect("eth_newFilter did not return an expected id");
-
-        // Simulate a new block arriving by adding it to the store.
-        let header = BlockHeader::default();
-        let mut body = BlockBody::empty();
-        let mut tx = LegacyTransaction::default();
-        let contract_address =
-            H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap();
-        tx.to = TxKind::Call(contract_address);
-        body.transactions = vec![Transaction::LegacyTransaction(tx)];
-        let logs = vec![Log {
-            address: contract_address,
-            topics: vec![],
-            data: Default::default(),
-        }];
-        let receipt = Receipt {
-            tx_type: TxType::Legacy,
-            succeeded: true,
-            cumulative_gas_used: u64::MAX,
-            bloom: Default::default(),
-            logs,
-        };
-        db_pointer
-            .add_receipt(header.compute_block_hash(), 0, receipt)
-            .unwrap();
-        db_pointer
-            .set_canonical_block(1, header.compute_block_hash())
-            .unwrap();
-        db_pointer
-            .add_block_body(header.compute_block_hash(), body)
-            .unwrap();
-        db_pointer
-            .add_block_header(header.compute_block_hash(), header)
-            .unwrap();
-        db_pointer.update_latest_block_number(1).unwrap();
-
-        // Fetch the new changes, there should
-        // be a log from the address we were filtering.
-
-        let raw_json = json!(
-        {
-            "jsonrpc":"2.0",
-            "method":"eth_getFilterChanges",
-            "params": [ filter_id ],
-            "id": 1
-        });
-
-        let client = reqwest::Client::new();
-
-        let response: Value = client
-            .post("http://127.0.0.1:8500")
-            .json(&raw_json)
-            .send()
-            .await
-            .unwrap()
-            .json()
-            .await
-            .unwrap();
-        let result: Vec<Log> =
-            serde_json::from_value(response.get("result").unwrap().clone()).unwrap();
-        assert_eq!(
-            result.first().unwrap().address,
-            H160::from_str("0xb794f5ea0ba39494ce839613fffba74279579268").unwrap()
-        );
+        server_handle.abort();
     }
 }

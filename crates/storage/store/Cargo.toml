@@ -28,7 +28,6 @@ libmdbx = [
     "ethereum_rust-trie/libmdbx",
     "ethereum_rust-core/libmdbx",
 ]
-test = []
 
 [dev-dependencies]
 hex.workspace = true

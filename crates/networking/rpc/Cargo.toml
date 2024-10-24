@@ -28,7 +28,6 @@ reqwest.workspace = true
 
 [dev-dependencies]
 hex-literal = "0.4.1"
-ethereum_rust-storage = { path = "../../storage/store", features = ["test"] }
 
 
 [lib]
