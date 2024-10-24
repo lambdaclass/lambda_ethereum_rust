@@ -289,7 +289,7 @@ impl Command {
             } => {
                 let claim_withdrawal_data = encode_calldata(
                     CLAIM_WITHDRAWAL_SIGNATURE,
-                    &format!("{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {l2_withdrawal_tx_hash}"),
+                    &format!("{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {l2_withdrawal_tx_hash:#x}"),
                     false
                 )?;
 

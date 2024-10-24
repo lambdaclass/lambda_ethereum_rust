@@ -70,30 +70,41 @@ fn parse_arg(arg_type: &str, arg: &str) -> Vec<u8> {
 
 fn parse_vec_arg(arg_type: &str, arg: &str) -> Vec<u8> {
     let args = arg.split(',');
+    let length = &mut [0u8; 32];
+    U256::from(args.clone().count()).to_big_endian(length);
+    let length = length.to_vec();
+
     match arg_type {
         "address[]" => {
-            return args
-                .map(|arg| {
+            return [
+                length,
+                args.map(|arg| {
                     H256::from(Address::from_str(arg).expect("Cannot parse address[]"))
                         .0
                         .to_vec()
                 })
                 .collect::<Vec<Vec<u8>>>()
-                .concat();
+                .concat(),
+            ]
+            .concat();
         }
         "uint8[]" => {
-            return args
-                .map(|arg| {
+            return [
+                length,
+                args.map(|arg| {
                     let buf: &mut [u8] = &mut [0u8; 32];
                     U256::from(u8::from_str(arg).expect("Cannot parse u8[]")).to_big_endian(buf);
                     buf.to_vec()
                 })
                 .collect::<Vec<Vec<u8>>>()
-                .concat();
+                .concat(),
+            ]
+            .concat();
         }
         "uint256[]" => {
-            return args
-                .map(|arg| {
+            return [
+                length,
+                args.map(|arg| {
                     let buf: &mut [u8] = &mut [0u8; 32];
                     U256::from_dec_str(arg)
                         .expect("Cannot parse u256[]")
@@ -101,18 +112,23 @@ fn parse_vec_arg(arg_type: &str, arg: &str) -> Vec<u8> {
                     buf.to_vec()
                 })
                 .collect::<Vec<Vec<u8>>>()
-                .concat();
+                .concat(),
+            ]
+            .concat();
         }
         "bytes32[]" => {
-            return args
-                .map(|arg| {
+            return [
+                length,
+                args.map(|arg| {
                     H256::from_str(arg)
                         .expect("Cannot parse bytes32[]")
                         .0
                         .to_vec()
                 })
                 .collect::<Vec<Vec<u8>>>()
-                .concat();
+                .concat(),
+            ]
+            .concat();
         }
         _ => {
             println!("Unsupported type: {arg_type}");
@@ -132,12 +148,11 @@ pub fn encode_calldata(
     let args: Vec<&str> = args.split(' ').collect();
 
     if params.len() != args.len() {
-        println!(
+        return Err(eyre!(
             "Number of arguments does not match ({} != {})",
             params.len(),
             args.len()
-        );
-        return Err(eyre!("Number of arguments does not match"));
+        ));
     }
 
     let mut calldata: Vec<u8> = vec![];
