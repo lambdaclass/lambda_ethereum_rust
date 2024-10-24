@@ -88,7 +88,7 @@ impl Account {
 
 pub type Storage = HashMap<U256, H256>;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
     // contracts: HashMap<B256, Bytecode>,
@@ -155,6 +155,8 @@ impl Db {
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
     pub warm_addresses: HashSet<Address>,
+    pub created_contract_addresses: HashSet<Address>, // Maybe not necessary
+    pub self_destruct_set: HashSet<Address>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -273,10 +275,13 @@ impl VM {
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
-        // let mut current_call_frame = self
-        //     .call_frames
-        //     .pop()
-        //     .expect("Fatal Error: This should not happen"); // if this happens during execution, we are cooked 💀
+        // Backup of Database, Substate and Gas Refunds if sub-context is reverted
+        let (backup_db, backup_substate, backup_refunded_gas) = (
+            self.db.clone(),
+            self.accrued_substate.clone(),
+            self.env.refunded_gas,
+        );
+
         loop {
             let opcode = current_call_frame.next_opcode().unwrap_or(Opcode::STOP);
             let op_result: Result<OpcodeSuccess, VMError> = match opcode {
@@ -372,6 +377,10 @@ impl VM {
                 Opcode::EXTCODESIZE => self.op_extcodesize(current_call_frame),
                 Opcode::EXTCODECOPY => self.op_extcodecopy(current_call_frame),
                 Opcode::EXTCODEHASH => self.op_extcodehash(current_call_frame),
+                Opcode::REVERT => self.op_revert(current_call_frame),
+                Opcode::INVALID => self.op_invalid(),
+                Opcode::SELFDESTRUCT => self.op_selfdestruct(current_call_frame),
+
                 _ => Err(VMError::OpcodeNotFound),
             };
 
@@ -394,19 +403,23 @@ impl VM {
                 Err(error) => {
                     self.call_frames.push(current_call_frame.clone());
 
-                    // CONSUME ALL GAS UNLESS THE ERROR IS FROM REVERT OPCODE
+                    // Unless error is from Revert opcode, all gas is consumed
                     if error != VMError::RevertOpcode {
                         let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
                         current_call_frame.gas_used += left_gas;
                         self.env.consumed_gas += left_gas;
                     }
 
+                    // Restore previous state
+                    (self.accrued_substate, self.db, self.env.refunded_gas) =
+                        (backup_substate, backup_db, backup_refunded_gas);
+
                     return TransactionReport {
                         result: TxResult::Revert(error),
                         new_state: self.db.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
-                        output: current_call_frame.returndata.clone(),
+                        output: current_call_frame.returndata.clone(), // Bytes::new() if error is not RevertOpcode
                         logs: current_call_frame.logs.clone(),
                         created_address: None,
                     };
@@ -536,7 +549,7 @@ impl VM {
         // self.call_frames.push(new_call_frame.clone());
         let tx_report = self.execute(&mut new_call_frame);
 
-        current_call_frame.gas_used += tx_report.gas_used.into(); // We add the gas used by the sub-context to the current one after it's execution.
+        current_call_frame.gas_used += tx_report.gas_used.into(); // Add gas used by the sub-context to the current one after it's execution.
         current_call_frame.logs.extend(tx_report.logs);
         current_call_frame
             .memory
@@ -550,10 +563,8 @@ impl VM {
                     .stack
                     .push(U256::from(SUCCESS_FOR_CALL))?;
             }
-            TxResult::Revert(_error) => {
-                // Behavior for revert between contexts goes here if necessary
-                // It is also possible to differentiate between RevertOpcode error and other kinds of revert.
-
+            TxResult::Revert(_) => {
+                // Push 0 to stack
                 current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
         }
