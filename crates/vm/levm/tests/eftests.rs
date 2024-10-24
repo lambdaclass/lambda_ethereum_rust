@@ -2,11 +2,11 @@ use std::{
     collections::HashMap,
     fs::{self, read_dir},
     path::PathBuf,
+    str::FromStr,
 };
 
 use bytes::Bytes;
-use ethereum_types::{Address, U256};
-use keccak_hash::H256;
+use ethereum_types::{Address, U256, U512, H256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
