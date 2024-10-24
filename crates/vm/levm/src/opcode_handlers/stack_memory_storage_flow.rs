@@ -1,4 +1,7 @@
-use crate::{constants::WORD_SIZE, vm::{Db, StorageSlot}};
+use crate::{
+    constants::WORD_SIZE,
+    vm::{Db, StorageSlot},
+};
 
 use super::*;
 

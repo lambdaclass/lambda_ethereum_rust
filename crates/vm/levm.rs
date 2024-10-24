@@ -1,4 +1,4 @@
-use crate::EvmError;
+use crate::{db::StoreWrapper, EvmError};
 use ethereum_rust_core::{
     types::{Block, BlockHeader, Receipt, Transaction, TxKind},
     Address, U256,
@@ -7,7 +7,6 @@ use ethereum_rust_levm::{
     report::TransactionReport,
     vm::{Db, StorageSlot, VM},
 };
-use ethereum_rust_storage::Store;
 
 pub trait Db {
     fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
@@ -27,20 +26,27 @@ pub trait Db {
     fn get_account(&mut self, address: &Address) -> Result<&Account, VMError>;
 }
 
-impl Db for Store {
-    fn read_account_storage(&self, _address: &Address, _key: &U256) -> Option<StorageSlot> {
-        // self.get_storage_at(block_number, address, key);
-        // let _storage_slot = StorageSlot { original_value: todo!(), current_value: todo!(), is_cold: todo!() };
-        todo!()
+impl Db for StoreWrapper {
+    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+        let value = self.store
+            .get_storage_at_hash(self.block_hash, address, key)
+            .unwrap()
+            .unwrap();
+        let storage_slot = StorageSlot {
+            original_value: todo!(),
+            current_value: todo!(),
+            is_cold: todo!(),
+        };
+        Ok(storage_slot)
     }
 
     fn write_account_storage(&mut self, _address: &Address, _key: U256, _slot: StorageSlot) {
         todo!()
     }
 
-    fn get_account_bytecode(&self, _address: &Address) -> bytes::Bytes {
-        // self.get_code_by_account_address(block_number, address).unwrap().unwrap()
-        todo!()
+    fn get_account_bytecode(&self, address: &Address) -> bytes::Bytes {
+        let block_number = self.store.get_block_number(self.block_hash);
+        self.store.get_code_by_account_address(block_number, address).unwrap().unwrap()
     }
 
     fn balance(&mut self, _address: &Address) -> U256 {
@@ -56,7 +62,10 @@ impl Db for Store {
         // self.apply_account_updates(block_hash, account_updates)
     }
 
-    fn get_account(&mut self, _address: &Address) -> Result<&ethereum_rust_levm::vm::Account, ethereum_rust_levm::errors::VMError> {
+    fn get_account(
+        &mut self,
+        _address: &Address,
+    ) -> Result<&ethereum_rust_levm::vm::Account, ethereum_rust_levm::errors::VMError> {
         todo!()
     }
 }
@@ -104,7 +113,7 @@ pub fn execute_tx(
         tx.chain_id().unwrap().into(),
         block_header.base_fee_per_gas.unwrap_or_default().into(), // TODO: check this
         tx.gas_price().into(),
-        state,  // TODO: change this
+        state, // TODO: change this
         block_header.blob_gas_used.map(U256::from),
         block_header.excess_blob_gas.map(U256::from),
     );

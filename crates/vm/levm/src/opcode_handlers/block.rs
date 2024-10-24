@@ -1,6 +1,7 @@
 use crate::{
     block::LAST_AVAILABLE_BLOCK_LIMIT,
-    constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS}, vm::Db,
+    constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
+    vm::Db,
 };
 
 // Block Information (11)
