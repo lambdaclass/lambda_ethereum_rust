@@ -213,6 +213,48 @@ fn ethereum_foundation_general_state_tests() {
         for (test_name, test_args) in test_case {
             // Initialize
 
+            //                                                  Be careful with clone (performance)
+            let accounts = test_args
+                .pre
+                .clone()
+                .into_iter()
+                .map(|(add, mut acc)| {
+                    acc.address = add;
+                    (add, acc)
+                })
+                .collect();
+
+            let db = Db {
+                accounts,
+                block_hashes: Default::default(), // Dont know where is set
+            };
+
+            let destination = match test_args.transaction.to {
+                TxDestination::Some(address) => address,
+                TxDestination::None => panic!("EIP4844Transaction cannot be contract creation"),
+            };
+
+            let mut vm: VM = VM::new(
+                destination,
+                test_args.transaction.sender,
+                test_args.transaction.value[0], // Maybe there's more than one value, see GeneralStateTests/stTransactionTest/NoSrcAccount.json
+                test_args.transaction.data[0].clone(), // There's more than one values in vector, see GeneralStateTests/Cancun/stEIP1153-transientStorage/transStorageOK.json
+                test_args.transaction.gas_limit[0],    // currentGasLimit or gasLimit?
+                test_args.env.current_number,
+                test_args.env.current_coinbase,
+                test_args.env.current_timestamp,
+                test_args.env.current_random, // Not sure if is the right attribute
+                test_args.env.current_difficulty, // Dont know where is set really
+                test_args.env.current_base_fee.unwrap(),
+                test_args
+                    .transaction
+                    .gas_price
+                    .unwrap_or(test_args.transaction.max_fee_per_gas.unwrap_or_default()),
+                db,
+                Default::default(), // Dont know where is set
+                test_args.env.current_excess_blob_gas,
+            );
+
             // Execute
 
             // Verify
