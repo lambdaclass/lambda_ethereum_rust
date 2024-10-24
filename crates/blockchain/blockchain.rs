@@ -47,7 +47,7 @@ pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let new_state_root = state
         .database()
         .apply_account_updates(block.header.parent_hash, &account_updates)?
-        .unwrap_or_default();
+        .ok_or(ChainError::ParentStateNotFound)?;
 
     // Check state root matches the one in block header after execution
     validate_state_root(&block.header, new_state_root)?;

@@ -5,7 +5,7 @@ use ethereum_rust_core::types::Fork;
 use ethereum_rust_core::{H256, U256};
 use ethereum_rust_storage::Store;
 use serde_json::Value;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use crate::types::payload::ExecutionPayloadResponse;
 use crate::utils::RpcRequest;
@@ -127,8 +127,16 @@ impl RpcHandler for NewPayloadV3Request {
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
         let payload_status = match add_block(&block, &storage) {
-            Err(ChainError::NonCanonicalParent) => Ok(PayloadStatus::syncing()),
             Err(ChainError::ParentNotFound) => Ok(PayloadStatus::syncing()),
+            // Under the current implementation this is not possible: we always calculate the state
+            // transition of any new payload as long as the parent is present. If we received the
+            // parent payload but it was stashed, then new payload would stash this one too, with a
+            // ParentNotFoundError.
+            Err(ChainError::ParentStateNotFound) => {
+                let e = "Failed to obtain parent state";
+                error!("{e} for block {block_hash}");
+                Err(RpcErr::Internal(e.to_string()))
+            }
             Err(ChainError::InvalidBlock(error)) => {
                 warn!("Error adding block: {error}");
                 // If we got to this point it means that the parent is present and valid, as we
