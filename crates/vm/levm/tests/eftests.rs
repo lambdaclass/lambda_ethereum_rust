@@ -195,6 +195,77 @@ fn parse_contents(json_contents: Vec<String>) -> Vec<HashMap<String, TestArgs>> 
         .collect()
 }
 
+fn init_environment(test_args: &TestArgs) -> VM {
+    // Be careful with clone (performance)
+    let accounts = test_args
+        .pre
+        .clone()
+        .into_iter()
+        .map(|(add, acc)| {
+            let storage: HashMap<U256, StorageSlot> = acc
+                .storage
+                .into_iter()
+                .map(|(key, val)| {
+                    let slot = StorageSlot {
+                        original_value: val,
+                        current_value: val,
+                        is_cold: true,
+                    };
+                    (key, slot)
+                })
+                .collect();
+            let new_acc = Account {
+                address: add,
+                balance: acc.balance,
+                bytecode: acc.code,
+                storage,
+                nonce: acc.nonce.as_u64(),
+            };
+            (add, new_acc)
+        })
+        .collect();
+
+    let db = Db {
+        accounts,
+        block_hashes: Default::default(), // Dont know where is set
+    };
+
+    let destination = match test_args.transaction.to {
+        TxDestination::Some(address) => address,
+        TxDestination::None => panic!("EIP4844Transaction cannot be contract creation"),
+    };
+    // Note: here TxDestination should be matched to an Address Option (when creating is Null)
+    // but Vm does not support an option in address, so create is not supported currently
+
+    // Convertir U256 a un array de bytes
+    let mut bytes = [0u8; 32];
+    test_args.env.current_difficulty.to_big_endian(&mut bytes);
+
+    // Crear H256 a partir del array de bytes
+    let randao = H256::from_slice(&bytes);
+
+    VM::new(
+        destination,
+        test_args.transaction.sender,
+        test_args.transaction.value[0], // Maybe there's more than one value, see GeneralStateTests/stTransactionTest/NoSrcAccount.json
+        test_args.transaction.data[0].clone(), // There's more than one values in vector, see GeneralStateTests/Cancun/stEIP1153-transientStorage/transStorageOK.json
+        test_args.transaction.gas_limit[0],    // currentGasLimit or gasLimit?
+        test_args.env.current_number,
+        test_args.env.current_coinbase,
+        test_args.env.current_timestamp,
+        Some(randao), // Conversions problem
+        U256::one(),  // What if dont want to use mainnet?
+        test_args.env.current_base_fee.unwrap(),
+        test_args
+            .transaction
+            .gas_price
+            .unwrap_or(test_args.transaction.max_fee_per_gas.unwrap_or_default()),
+        db,
+        Default::default(), // Dont know where is set
+        test_args.env.current_excess_blob_gas,
+    )
+}
+
 #[test]
 fn ethereum_foundation_general_state_tests() {
     // At this point Ethereum foundation tests should be already downloaded.
@@ -211,48 +282,8 @@ fn ethereum_foundation_general_state_tests() {
 
         for (test_name, test_args) in test_case {
             // Initialize
-
-            //                                                  Be careful with clone (performance)
-            let accounts = test_args
-                .pre
-                .clone()
-                .into_iter()
-                .map(|(add, mut acc)| {
-                    acc.address = add;
-                    (add, acc)
-                })
-                .collect();
-
-            let db = Db {
-                accounts,
-                block_hashes: Default::default(), // Dont know where is set
-            };
-
-            let destination = match test_args.transaction.to {
-                TxDestination::Some(address) => address,
-                TxDestination::None => panic!("EIP4844Transaction cannot be contract creation"),
-            };
-
-            let mut vm: VM = VM::new(
-                destination,
-                test_args.transaction.sender,
-                test_args.transaction.value[0], // Maybe there's more than one value, see GeneralStateTests/stTransactionTest/NoSrcAccount.json
-                test_args.transaction.data[0].clone(), // There's more than one values in vector, see GeneralStateTests/Cancun/stEIP1153-transientStorage/transStorageOK.json
-                test_args.transaction.gas_limit[0],    // currentGasLimit or gasLimit?
-                test_args.env.current_number,
-                test_args.env.current_coinbase,
-                test_args.env.current_timestamp,
-                test_args.env.current_random, // Not sure if is the right attribute
-                test_args.env.current_difficulty, // Dont know where is set really
-                test_args.env.current_base_fee.unwrap(),
-                test_args
-                    .transaction
-                    .gas_price
-                    .unwrap_or(test_args.transaction.max_fee_per_gas.unwrap_or_default()),
-                db,
-                Default::default(), // Dont know where is set
-                test_args.env.current_excess_blob_gas,
-            );
+            println!("Parseando el test {:?}", test_name);
+            let mut vm = init_environment(test_args);
 
             // Execute
             println!("Executing testcase {test_name}");
