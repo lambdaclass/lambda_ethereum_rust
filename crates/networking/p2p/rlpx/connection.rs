@@ -145,13 +145,12 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                 info!("Started peer main loop");
                 loop {
                     match self.receive().await {
+                        // TODO: implement handlers for each message type
                         Message::Disconnect(_) => info!("Received Disconnect"),
                         Message::Ping(_) => info!("Received Ping"),
                         Message::Pong(_) => info!("Received Pong"),
-                        Message::Status(_) => {
-                            info!("Received Status");
-                            info!("Sent Status");
-                        }
+                        Message::Status(_) => info!("Received Status"),
+                        // TODO: Add new message types and handlers as they are implemented
                         message => return Err(RLPxError::UnexpectedMessage(message)),
                     };
                 }
@@ -177,6 +176,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
             info!("Status message sent: {status:?}");
             self.send(Message::Status(status)).await;
         }
+        // TODO: add new capabilities startup when required (eg. snap)
         Ok(())
     }
 
