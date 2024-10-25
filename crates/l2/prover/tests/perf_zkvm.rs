@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 use ethereum_rust_blockchain::add_block;
-use ethereum_rust_core::types::{Block, Receipt};
+use ethereum_rust_core::types::Receipt;
 use ethereum_rust_l2::proposer::prover_server::ProverInputData;
 use ethereum_rust_prover_lib::prover::Prover;
 use ethereum_rust_storage::{EngineType, Store};
@@ -33,7 +33,7 @@ async fn test_performance_zkvm() {
 
     // Another use is genesis-execution-api.json in conjunction with chain.rlp(20 blocks not too loaded).
     let genesis_file_path = path.join("genesis-l2.json");
-    // l2-loadtest.rlp has loaded blocks.
+    // l2-loadtest.rlp has blocks with many txs.
     let chain_file_path = path.join("l2-loadtest.rlp");
 
     let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
@@ -47,16 +47,12 @@ async fn test_performance_zkvm() {
         ethereum_rust_l2::utils::test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
     info!("Number of blocks to insert: {}", blocks.len());
 
-    let mut block_to_prove = Block::default();
-    for (i, block) in blocks.iter().enumerate() {
+    for block in &blocks {
         add_block(block, &store).unwrap();
-        // Fix, depends on the l2-loadtest.rlp file
-        if i == 3 {
-            block_to_prove = block.clone();
-        }
     }
+    let block_to_prove = blocks.last().unwrap();
 
-    let db = ExecutionDB::from_exec(&block_to_prove, &store).unwrap();
+    let db = ExecutionDB::from_exec(block_to_prove, &store).unwrap();
 
     let input = ProverInputData {
         db,
