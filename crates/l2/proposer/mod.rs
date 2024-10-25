@@ -26,7 +26,7 @@ pub mod prover_server;
 pub mod errors;
 
 const COMMIT_FUNCTION_SELECTOR: [u8; 4] = [28, 217, 139, 206];
-const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [142, 118, 10, 254];
+const VERIFY_FUNCTION_SELECTOR: [u8; 4] = [133, 133, 44, 228];
 
 pub struct Proposer {
     eth_client: EthClient,
@@ -157,8 +157,8 @@ impl Proposer {
                 );
                 }
                 Err(error) => {
-                    error!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
-                    panic!("Failed to send commitment to block {head_block_hash:#x}. Manual intervention required: {error}");
+                    error!("Failed to send proof to block {head_block_hash:#x}. Manual intervention required: {error}");
+                    panic!("Failed to send proof to block {head_block_hash:#x}. Manual intervention required: {error}");
                 }
             }
 
@@ -279,7 +279,9 @@ impl Proposer {
         info!("Sending proof");
         let mut calldata = Vec::new();
         calldata.extend(VERIFY_FUNCTION_SELECTOR);
-        calldata.extend(H256::from_low_u64_be(block_number).as_bytes());
+        let mut block_number_bytes = [0_u8; 32];
+        U256::from(block_number).to_big_endian(&mut block_number_bytes);
+        calldata.extend(block_number_bytes);
         calldata.extend(H256::from_low_u64_be(32).as_bytes());
         calldata.extend(H256::from_low_u64_be(block_proof.len() as u64).as_bytes());
         calldata.extend(block_proof);
