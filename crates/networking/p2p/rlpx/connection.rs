@@ -1,7 +1,5 @@
 use crate::{
-    rlpx::{
-        eth::StatusMessage, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey,
-    },
+    rlpx::{eth::backend, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
     MAX_DISC_PACKET_SIZE,
 };
 
@@ -172,7 +170,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
         if self.capabilities.contains(&("eth".to_string(), 68u8)) {
-            let status = StatusMessage::new(&self.storage).unwrap();
+            let status = backend::get_status(&self.storage).unwrap();
             info!("Status message sent: {status:?}");
             self.send(Message::Status(status)).await;
         }

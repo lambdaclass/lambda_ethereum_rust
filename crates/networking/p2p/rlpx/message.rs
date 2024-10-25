@@ -2,7 +2,7 @@ use bytes::BufMut;
 use ethereum_rust_rlp::error::{RLPDecodeError, RLPEncodeError};
 use std::fmt::Display;
 
-use super::eth::StatusMessage;
+use super::eth::status::StatusMessage;
 use super::p2p::{DisconnectMessage, HelloMessage, PingMessage, PongMessage};
 
 pub trait RLPxMessage: Sized {
