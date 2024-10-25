@@ -200,11 +200,154 @@ pub fn word_to_address(word: U256) -> Address {
     Address::from_slice(&bytes[12..])
 }
 
+fn create_transaction(
+    to: Address,
+    msg_sender: Address,
+    value: U256,
+    calldata: Bytes,
+    gas_limit: U256,
+    block_number: U256,
+    coinbase: Address,
+    timestamp: U256,
+    prev_randao: Option<H256>,
+    chain_id: U256,
+    base_fee_per_gas: U256,
+    gas_price: U256,
+    db: Db,
+    block_blob_gas_used: Option<U256>,
+    block_excess_blob_gas: Option<U256>,
+    tx_blob_hashes: Option<Vec<H256>>,
+) -> Result<VM, VMError> {
+    let bytecode = db.get_account_bytecode(&to);
+
+    let initial_call_frame = CallFrame::new(
+        msg_sender,
+        to,
+        to,
+        None,
+        bytecode,
+        value,
+        calldata.clone(),
+        false,
+        gas_limit,
+        TX_BASE_COST,
+        0,
+    );
+
+    let env = Environment {
+        consumed_gas: TX_BASE_COST,
+        origin: msg_sender,
+        refunded_gas: U256::zero(),
+        gas_limit,
+        block_number,
+        coinbase,
+        timestamp,
+        prev_randao,
+        chain_id,
+        base_fee_per_gas,
+        gas_price,
+        block_blob_gas_used,
+        block_excess_blob_gas,
+        tx_blob_hashes,
+    };
+
+    Ok(VM {
+        call_frames: vec![initial_call_frame],
+        db,
+        env,
+        accrued_substate: Substate::default(),
+    })
+}
+
+fn create_contract(
+    sender: Address,
+    secret_key: H256,
+    db: Db,
+    value: U256,
+    calldata: Bytes,
+    block_number: U256,
+    coinbase: Address,
+    timestamp: U256,
+    prev_randao: Option<H256>,
+    chain_id: U256,
+    base_fee_per_gas: U256,
+    gas_price: U256,
+    block_blob_gas_used: Option<U256>,
+    block_excess_blob_gas: Option<U256>,
+    tx_blob_hashes: Option<Vec<H256>>,
+) -> Result<VM, VMError> {
+    let mut db_copy = db.clone();
+    let mut sender_account = match db_copy.accounts.get(&sender) {
+        Some(acc) => acc,
+        None => {
+            return Err(VMError::SenderAccountDoesNotExist);
+        }
+    }
+    .clone();
+
+    if sender_account.balance < value {
+        return Err(VMError::OutOfGas); // Maybe a more personalized error
+    }
+
+    let new_nonce = sender_account.nonce + 1;
+
+    // Check for nonce errors?
+
+    sender_account.nonce = new_nonce;
+    sender_account.balance -= value;
+
+    let code: Bytes = sender_account.bytecode.clone(); // It's not this but has to compile
+
+    let new_address = match None {
+        // Fix
+        Some(salt) => VM::calculate_create2_address(sender, &code, salt),
+        None => VM::calculate_create_address(sender, sender_account.nonce),
+    };
+
+    // If address is already in db, there's an error
+    if db_copy.accounts.contains_key(&new_address) {
+        return Err(VMError::AddressAlreadyOccuped); // Kinda this
+    }
+
+    // Create the contract
+    let contract_address = Account::new(new_address, value, code.clone(), 0, Default::default());
+    db_copy.add_account(new_address, contract_address.clone());
+
+    // Push address to stack?
+    /*     current_call_frame
+           .stack
+           .push(address_to_word(new_address))?;
+    */
+
+    // Call the contract
+    let vm = VM::new(
+        Some(contract_address.address),
+        sender,
+        value,
+        calldata,
+        sender_account.balance,
+        block_number,
+        coinbase,
+        timestamp,
+        prev_randao,
+        chain_id,
+        base_fee_per_gas,
+        gas_price,
+        db_copy.clone(),
+        block_blob_gas_used,
+        block_excess_blob_gas,
+        tx_blob_hashes,
+        secret_key,
+    )?;
+
+    Ok(vm)
+}
+
 impl VM {
     // TODO: Refactor this.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        to: Address,
+        to: Option<Address>,
         msg_sender: Address,
         value: U256,
         calldata: Bytes,
@@ -220,55 +363,45 @@ impl VM {
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
-    ) -> Self {
-        // TODO: This handles only CALL transactions.
-        let bytecode = db.get_account_bytecode(&to);
-
-        // TODO: This handles only CALL transactions.
-        // TODO: Remove this allow when CREATE is implemented.
-        #[allow(clippy::redundant_locals)]
-        let to = to;
-
-        // TODO: In CALL this is the `to`, in CREATE it is not.
-        let code_addr = to;
-
-        // TODO: this is mostly placeholder
-        let initial_call_frame = CallFrame::new(
-            msg_sender,
-            to,
-            code_addr,
-            None,
-            bytecode,
-            value,
-            calldata.clone(),
-            false,
-            gas_limit,
-            TX_BASE_COST,
-            0,
-        );
-
-        let env = Environment {
-            consumed_gas: TX_BASE_COST,
-            origin: msg_sender,
-            refunded_gas: U256::zero(),
-            gas_limit,
-            block_number,
-            coinbase,
-            timestamp,
-            prev_randao,
-            chain_id,
-            base_fee_per_gas,
-            gas_price,
-            block_blob_gas_used,
-            block_excess_blob_gas,
-            tx_blob_hashes,
-        };
-
-        Self {
-            call_frames: vec![initial_call_frame],
-            db,
-            env,
-            accrued_substate: Substate::default(),
+        secret_key: H256,
+    ) -> Result<Self, VMError> {
+        // Maybe this desicion should be made in an upper layer
+        match to {
+            Some(add) => create_transaction(
+                add,
+                msg_sender,
+                value,
+                calldata,
+                gas_limit,
+                block_number,
+                coinbase,
+                timestamp,
+                prev_randao,
+                chain_id,
+                base_fee_per_gas,
+                gas_price,
+                db,
+                block_blob_gas_used,
+                block_excess_blob_gas,
+                tx_blob_hashes,
+            ),
+            None => create_contract(
+                msg_sender,
+                secret_key,
+                db,
+                value,
+                calldata,
+                block_number,
+                coinbase,
+                timestamp,
+                prev_randao,
+                chain_id,
+                base_fee_per_gas,
+                gas_price,
+                block_blob_gas_used,
+                block_excess_blob_gas,
+                tx_blob_hashes,
+            ),
         }
     }
 
