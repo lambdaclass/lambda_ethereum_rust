@@ -155,7 +155,7 @@ impl Db {
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
-    pub warm_addresses: HashSet<Address>,
+    pub warm_addresses: HashSet<Address>, // Should be a hashmap <Address, AccountInfo>
 }
 
 #[derive(Debug, Default, Clone)]
