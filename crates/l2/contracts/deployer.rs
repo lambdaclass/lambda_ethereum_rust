@@ -241,23 +241,6 @@ async fn initialize_contracts(
     bridge: Address,
     eth_client: &EthClient,
 ) {
-    let deployer = std::env::var("DEPLOYER_ADDRESS")
-        .expect("DEPLOYER_ADDRESS not set")
-        .parse()
-        .expect("Malformed DEPLOYER_ADDRESS");
-
-    let deployer_private_key = SecretKey::parse(
-        H256::from_str(
-            std::env::var("DEPLOYER_PRIVATE_KEY")
-                .expect("DEPLOYER_PRIVATE_KEY not set")
-                .strip_prefix("0x")
-                .expect("Malformed DEPLOYER_ADDRESS (strip_prefix(\"0x\"))"),
-        )
-        .expect("Malformed DEPLOYER_ADDRESS (H256::from_str)")
-        .as_fixed_bytes(),
-    )
-    .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
-
     initialize_on_chain_proposer(
         on_chain_proposer,
         bridge,

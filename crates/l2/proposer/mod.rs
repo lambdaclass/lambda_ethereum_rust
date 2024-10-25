@@ -116,7 +116,7 @@ impl Proposer {
                 })
                 .collect();
 
-            let withdrawals_logs_merkle_root = if withdrawal_data_hashes.len() > 0 {
+            let withdrawals_logs_merkle_root = if !withdrawal_data_hashes.is_empty() {
                 merkelize(withdrawal_data_hashes.clone())
             } else {
                 H256::zero()
