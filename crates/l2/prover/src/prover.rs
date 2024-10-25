@@ -1,4 +1,3 @@
-use ethereum_rust_core::types::Block;
 use tracing::info;
 
 // risc0
@@ -64,12 +63,7 @@ impl<'a> Prover<'a> {
         // extract the receipt.
         let receipt = prove_info.receipt;
 
-        let executed_block: Block = receipt.journal.decode().map_err(|err| err.to_string())?;
-
-        info!(
-            "Successfully generated execution proof receipt for block {}",
-            executed_block.header.compute_block_hash()
-        );
+        info!("Successfully generated execution receipt.");
         Ok(receipt)
     }
 

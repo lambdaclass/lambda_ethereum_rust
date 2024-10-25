@@ -10,6 +10,8 @@ use tracing::info;
 
 #[tokio::test]
 async fn test_performance_zkvm() {
+    tracing_subscriber::fmt::init();
+
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     // Go back 3 levels (Go to the root of the project)
     for _ in 0..3 {
