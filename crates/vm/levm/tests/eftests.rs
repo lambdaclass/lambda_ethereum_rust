@@ -24,16 +24,14 @@ pub struct Env {
     previous_hash: Option<H256>,
 }
 
-/*
 // Taken from cmd/ef_tests/types.rs
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub struct Account {
+pub struct ReadedAccount {
     pub balance: U256,
     pub code: Bytes,
     pub nonce: U256,
     pub storage: HashMap<U256, U256>,
 }
-*/
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -127,7 +125,7 @@ struct TestArgs {
     /// Contains the environment, the block just before the one that runs the VM or executes the transaction
     env: Env,
     /// Contains the state of the accounts before the transaction execution
-    pre: HashMap<Address, Account>,
+    pre: HashMap<Address, ReadedAccount>,
     /// Contains the state of the environment and db after the transaction execution
     post: HashMap<String, Vec<TransactionResults>>,
     /// Contains the transaction to execute
