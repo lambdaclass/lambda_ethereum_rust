@@ -1,7 +1,7 @@
 use ethereum_rust_rlp::{decode::RLPDecode, error::RLPDecodeError};
 use risc0_zkvm::guest::env;
 
-use ethereum_rust_blockchain::{validate_block, validate_gas_used, validate_state_root};
+use ethereum_rust_blockchain::{validate_block, validate_gas_used};
 use ethereum_rust_core::types::{Block, BlockHeader};
 use ethereum_rust_vm::{execute_block, execution_db::ExecutionDB, get_state_transitions, EvmState};
 
@@ -16,16 +16,10 @@ fn main() {
 
     validate_gas_used(&receipts, &block.header).expect("invalid gas used");
 
-    let account_updates = get_state_transitions(&mut state);
+    let _account_updates = get_state_transitions(&mut state);
 
-    // Apply the account updates over the last block's state and compute the new state root
-    let new_state_root = execution_db
-        .apply_account_updates(block.header.parent_hash, &account_updates)
-        .expect("failed to apply account updates")
-        .unwrap_or_default();
-
-    // Check state root matches the one in block header after execution
-    // validate_state_root(&block.header, new_state_root).expect("invalid state root");
+    // TODO: compute new state root from account updates and check it matches with the block's
+    // header one.
 }
 
 fn read_inputs() -> Result<(Block, ExecutionDB, BlockHeader), RLPDecodeError> {
