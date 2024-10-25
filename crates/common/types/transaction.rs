@@ -1274,11 +1274,14 @@ mod serde_impl {
                     .ok_or_else(|| serde::de::Error::missing_field("input"))?,
             )
             .map_err(serde::de::Error::custom)?;
-            let access_list = serde_json::from_value(
+            let access_list = serde_json::from_value::<Vec<AccessListEntry>>(
                 map.remove("accessList")
                     .ok_or_else(|| serde::de::Error::missing_field("accessList"))?,
             )
-            .map_err(serde::de::Error::custom)?;
+            .map_err(serde::de::Error::custom)?
+            .into_iter()
+            .map(|v| (v.address, v.storage_keys))
+            .collect::<Vec<_>>();
             let max_fee_per_blob_gas = serde_json::from_value::<U256>(
                 map.remove("maxFeePerBlobGas")
                     .ok_or_else(|| serde::de::Error::missing_field("maxFeePerBlobGas"))?,
@@ -1447,6 +1450,8 @@ mod mempool {
 
 #[cfg(test)]
 mod tests {
+
+    use std::str::FromStr;
 
     use crate::types::{compute_receipts_root, compute_transactions_root, BlockBody, Receipt};
 
@@ -1674,6 +1679,65 @@ mod tests {
         assert_eq!(
             deserialized_generic_transaction,
             serde_json::from_str(generic_transaction).unwrap()
+        )
+    }
+
+    #[test]
+    fn deserialize_eip4844_transaction() {
+        let eip4844_transaction = r#"{
+            "chainId":"0x01",
+            "nonce":"0x02",
+            "maxPriorityFeePerGas":"0x01",
+            "maxFeePerGas":"0x01",
+            "gas":"0x5208",
+            "to":"0x6177843db3138ae69679A54b95cf345ED759450d",
+            "value":"0x01",
+            "input":"0x",
+            "accessList": [
+                {
+                    "address": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
+                    "storageKeys": [
+                        "0x000000000000000000000000000000000000000000000000000000000000000c",
+                        "0x000000000000000000000000000000000000000000000000000000000000200b"
+                    ]
+                }
+            ],
+            "maxFeePerBlobGas":"0x03",
+            "blobVersionedHashes": [
+                    "0x0000000000000000000000000000000000000000000000000000000000000001",
+                    "0x0000000000000000000000000000000000000000000000000000000000000002"
+            ],
+            "yParity":"0",
+            "r": "0x01",
+            "s": "0x02"
+        }"#;
+        let deserialized_eip4844_transaction = EIP4844Transaction {
+            chain_id: 0x01,
+            nonce: 0x02,
+            to: Address::from_slice(
+                &hex::decode("6177843db3138ae69679A54b95cf345ED759450d").unwrap(),
+            ),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 1,
+            max_fee_per_blob_gas: U256::from(0x03),
+            gas: 0x5208,
+            value: U256::from(0x01),
+            data: Bytes::from_static(b"0x"),
+            access_list: vec![(
+                Address::from_slice(
+                    &hex::decode("000f3df6d732807ef1319fb7b8bb8522d0beac02").unwrap(),
+                ),
+                vec![H256::from_low_u64_be(12), H256::from_low_u64_be(8203)],
+            )],
+            blob_versioned_hashes: vec![H256::from_low_u64_be(1), H256::from_low_u64_be(2)],
+            signature_y_parity: false,
+            signature_r: U256::from(0x01),
+            signature_s: U256::from(0x02),
+        };
+        
+        assert_eq!(
+            deserialized_eip4844_transaction,
+            serde_json::from_str(eip4844_transaction).unwrap()
         )
     }
 }
