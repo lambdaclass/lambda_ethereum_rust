@@ -11,8 +11,10 @@ use ethereum_rust_l2::utils::{
 use ethereum_types::{Address, H256, U256};
 use eyre::OptionExt;
 use hex::FromHexError;
+use itertools::Itertools;
 
-const CLAIM_WITHDRAWAL_SIGNATURE: &str = "claimWithdrawal(bytes32 l2WithdrawalTxHash, uint256 claimedAmount, uint256 l2WithdrawalBlockNumber, bytes32[] calldata withdrawalProof)";
+const CLAIM_WITHDRAWAL_SIGNATURE: &str =
+    "claimWithdrawal(bytes32,uint256,uint256,uint256,bytes32[])";
 
 #[derive(Subcommand)]
 pub(crate) enum Command {
@@ -185,6 +187,50 @@ fn decode_hex(s: &str) -> Result<Bytes, FromHexError> {
     }
 }
 
+async fn get_withdraw_merkle_proof(
+    client: &EthClient,
+    tx_hash: H256,
+) -> Result<(u64, Vec<H256>), eyre::Error> {
+    let tx_receipt = client
+        .get_transaction_receipt(tx_hash)
+        .await?
+        .ok_or_eyre("Transaction receipt not found")?;
+
+    let transactions = client
+        .get_block_by_hash(tx_receipt.block_info.block_hash)
+        .await?
+        .transactions;
+
+    let (index, tx_withdrawal_hash) = transactions
+        .iter()
+        .filter(|tx| match tx {
+            Transaction::PrivilegedL2Transaction(tx) => tx.tx_type == PrivilegedTxType::Withdrawal,
+            _ => false,
+        })
+        .find_position(|tx| tx.compute_hash() == tx_hash)
+        .map(|(i, tx)| match tx {
+            Transaction::PrivilegedL2Transaction(tx) => {
+                (i as u64, tx.get_withdrawal_hash().unwrap())
+            }
+            _ => unreachable!(),
+        })
+        .ok_or_eyre("Transaction is not a Withdrawal")?;
+
+    let path = merkle_proof(
+        transactions
+            .iter()
+            .filter_map(|tx| match tx {
+                Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
+                _ => None,
+            })
+            .collect(),
+        tx_withdrawal_hash,
+    )
+    .ok_or_eyre("Transaction's WithdrawalData is not in block's WithdrawalDataMerkleRoot")?;
+
+    Ok((index, path))
+}
+
 impl Command {
     pub async fn run(self, cfg: EthereumRustL2Config) -> eyre::Result<()> {
         let eth_client = EthClient::new(&cfg.network.l1_rpc_url);
@@ -253,11 +299,21 @@ impl Command {
                     }
                 };
 
+                let (index, proof) =
+                    get_withdraw_merkle_proof(&rollup_client, l2_withdrawal_tx_hash).await?;
+
                 let claim_withdrawal_data = encode_calldata(
                     CLAIM_WITHDRAWAL_SIGNATURE,
-                    &format!("{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {l2_withdrawal_tx_hash:#x}"),
+                    &format!(
+                        "{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {index} {}",
+                        proof.iter().map(|hash| hex::encode(hash)).join(",")
+                    ),
                     false
                 )?;
+                println!(
+                    "ClaimWithdrawalData: {}",
+                    hex::encode(claim_withdrawal_data.clone())
+                );
 
                 let tx_hash = eth_client
                     .send(
@@ -340,45 +396,7 @@ impl Command {
                 println!("Withdrawal sent: {tx_hash:#x}");
             }
             Command::WithdrawalProof { tx_hash } => {
-                let tx_receipt = rollup_client
-                    .get_transaction_receipt(tx_hash)
-                    .await?
-                    .ok_or_eyre("Transaction receipt not found")?;
-
-                let transactions = rollup_client
-                    .get_block_by_hash(tx_receipt.block_info.block_hash)
-                    .await?
-                    .transactions;
-
-                let tx_withdrawal_hash = transactions
-                    .iter()
-                    .find_map(|tx| {
-                        if tx.compute_hash() != tx_hash {
-                            return None;
-                        }
-                        match tx {
-                            Transaction::PrivilegedL2Transaction(tx) => {
-                                Some(tx.get_withdrawal_hash())
-                            }
-                            _ => None,
-                        }
-                    })
-                    .flatten()
-                    .ok_or_eyre("Transaction is not a Withdrawal")?;
-
-                let path = merkle_proof(
-                    transactions
-                        .iter()
-                        .filter_map(|tx| match tx {
-                            Transaction::PrivilegedL2Transaction(tx) => tx.get_withdrawal_hash(),
-                            _ => None,
-                        })
-                        .collect(),
-                    tx_withdrawal_hash,
-                )
-                .ok_or_eyre(
-                    "Transaction's WithdrawalData is not in block's WithdrawalDataMerkleRoot",
-                )?;
+                let (_index, path) = get_withdraw_merkle_proof(&rollup_client, tx_hash).await?;
                 println!("{path:?}");
             }
             Command::Address => {
