@@ -127,10 +127,7 @@ impl RpcHandler for NewPayloadV3Request {
             }
             Err(ChainError::InvalidBlock(error)) => {
                 warn!("Error adding block: {error}");
-                // If we got to this point it means that the parent is present and valid, as we
-                // only save valid blocks. That means that the parent is the latest valid hash.
-
-                // We should actually find it here, the parent might not be present and the block may already be invalid.
+                // TODO(#982): this is only valid for the cases where the parent was found, but fully invalid ones may also happen.
                 Ok(PayloadStatus::invalid_with(
                     block.header.parent_hash,
                     error.to_string(),
