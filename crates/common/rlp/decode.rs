@@ -51,8 +51,10 @@ impl RLPDecode for u8 {
 
         match rlp[0] {
             // Single byte in the range [0x00, 0x7f]
+            // FIXME: This slice can fail if out of bounds
             0..=0x7f => Ok((rlp[0], &rlp[1..])),
 
+            // FIXME: This slice can fail if out of bounds
             // RLP_NULL represents zero
             RLP_NULL => Ok((0, &rlp[1..])),
 

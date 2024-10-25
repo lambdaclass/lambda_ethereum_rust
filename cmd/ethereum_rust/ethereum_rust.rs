@@ -134,7 +134,12 @@ async fn main() {
                     "Failed to add block {} with hash {:#x}: {:?}.",
                     block.header.number, hash, result
                 );
+                // FIXME: Remove and/or discuss this before PR REVIEW
+                break;
             }
+            // FIXME: Remove and/or discuss this before PR REVIEW
+            store.update_latest_block_number(block.header.number).unwrap();
+            store.set_canonical_block(block.header.number, hash).unwrap();
         }
         info!("Added {} blocks to blockchain", size);
     }
