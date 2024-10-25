@@ -31,19 +31,20 @@ async fn test_performance_zkvm() {
     }
     path.push("test_data");
 
-    let genesis_file_path = path.join("genesis-execution-api.json");
-    let chain_file_path = path.join("chain.rlp");
+    let genesis_file_path = path.join("genesis-l2.json");
+    let chain_file_path = path.join("l2-loadtest.rlp");
 
     let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
 
-    let genesis = ethereum_rust_l2::utils::test_files_read::read_genesis_file(
+    let genesis = ethereum_rust_l2::utils::test_data_io::read_genesis_file(
         genesis_file_path.to_str().unwrap(),
     );
     store.add_initial_state(genesis.clone()).unwrap();
 
-    let blocks = ethereum_rust_l2::utils::test_files_read::read_chain_file(
+    let blocks = ethereum_rust_l2::utils::test_data_io::read_chain_file(
         chain_file_path.to_str().unwrap(),
     );
+    info!("Blocks: {:?}", blocks);
     info!("Number of blocks to insert: {}", blocks.len());
 
     let mut last_block = Block::default();
