@@ -34,6 +34,8 @@ pub enum InvalidBlockError {
     GasUsedMismatch,
     #[error("Blob gas used doesn't match value in header")]
     BlobGasUsedMismatch,
+    #[error("Block marked as invalid")]
+    AlreadyInvalid,
 }
 
 #[derive(Debug, Error)]
@@ -85,4 +87,6 @@ pub enum InvalidForkChoice {
     Unordered,
     #[error("The following blocks are not connected between each other: {:?}, {:?}", ._0, ._1)]
     Disconnected(ForkChoiceElement, ForkChoiceElement),
+    #[error("Requested head is an invalid block.")]
+    InvalidHead,
 }

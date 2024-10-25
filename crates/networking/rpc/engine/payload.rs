@@ -112,18 +112,6 @@ impl RpcHandler for NewPayloadV3Request {
                 .map_err(|error| RpcErr::Internal(error.to_string()));
         }
 
-        // Check that the incoming block extends the current chain
-        let last_block_number = storage.get_latest_block_number()?.ok_or(RpcErr::Internal(
-            "Could not get latest block number".to_owned(),
-        ))?;
-
-        // NOTE: We should check if it's connected instead of future.
-        if block.header.number > last_block_number + 1 {
-            let result = PayloadStatus::syncing();
-            return serde_json::to_value(result)
-                .map_err(|error| RpcErr::Internal(error.to_string()));
-        }
-
         // Execute and store the block
         info!("Executing payload with block hash: {block_hash:#x}");
         let payload_status = match add_block(&block, &storage) {
@@ -141,6 +129,8 @@ impl RpcHandler for NewPayloadV3Request {
                 warn!("Error adding block: {error}");
                 // If we got to this point it means that the parent is present and valid, as we
                 // only save valid blocks. That means that the parent is the latest valid hash.
+
+                // We should actually find it here, the parent might not be present and the block may already be invalid.
                 Ok(PayloadStatus::invalid_with(
                     block.header.parent_hash,
                     error.to_string(),
