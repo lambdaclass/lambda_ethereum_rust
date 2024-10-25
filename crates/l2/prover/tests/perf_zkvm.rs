@@ -17,6 +17,7 @@ struct ProverOutputData {
     /// Block::decode(&prover_output_data.block).unwrap());
     _block: Vec<u8>,
     _execution_db: ExecutionDB,
+    _parent_block_header: Vec<u8>,
     block_receipts: Vec<Receipt>,
 }
 
@@ -54,9 +55,15 @@ async fn test_performance_zkvm() {
 
     let db = ExecutionDB::from_exec(block_to_prove, &store).unwrap();
 
+    let parent_header = store
+        .get_block_header_by_hash(block_to_prove.header.parent_hash)
+        .unwrap()
+        .unwrap();
+
     let input = ProverInputData {
         db,
         block: block_to_prove.clone(),
+        parent_header,
     };
 
     let mut prover = Prover::new();
