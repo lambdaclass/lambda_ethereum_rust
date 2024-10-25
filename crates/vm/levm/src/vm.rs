@@ -264,9 +264,9 @@ fn new_contract_address(sender: Address, nonce: u64) -> Address {
     let mut addr = vec![];
     addr.extend_from_slice(&sender.0);
     addr.extend_from_slice(&nonce.to_be_bytes());
-    
+
     keccak256(&mut addr);
-    H160::from_slice(&&addr[12..])
+    H160::from_slice(&addr[12..])
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -325,13 +325,12 @@ fn create_contract(
         return Err(VMError::AddressAlreadyOccuped); // Kinda this
     }
 
-    
     // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
-    let contract_address = Account::new(new_address, value, calldata.clone(), 0, Default::default());
+    let contract_address =
+        Account::new(new_address, value, calldata.clone(), 0, Default::default());
     db_copy.add_account(new_address, contract_address.clone());
 
     // 4. Transfer the initial Ether endowment from caller to the new contract
-
 
     // 5. Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
     let code: Bytes = calldata.clone();
@@ -360,10 +359,9 @@ fn create_contract(
     let res = vm.transact();
 
     // The ret variable is the returned contract code ?????????
-    let contract_code = res.unwrap().output;
+    let _contract_code = res.unwrap().output;
 
     //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
-
 
     Ok(vm)
 }
