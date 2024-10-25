@@ -15,7 +15,7 @@ interface IOnChainProposer {
 
     /// @notice A block has been verified.
     /// @dev Event emitted when a block is verified.
-    event BlockVerified(bytes32 indexed blockHash);
+    event BlockVerified(uint256 indexed blockNumber);
 
     /// @notice Initializes the contract.
     /// @dev This method is called only once after the contract is deployed.
@@ -39,6 +39,7 @@ interface IOnChainProposer {
     /// @notice Method used to verify an L2 block proof.
     /// @dev This method is used by the operator when a block is ready to be
     /// verified (this is after proved).
+    /// @param blockNumber is the number of the block to be verified.
     /// @param blockProof is the proof of the block to be verified.
-    function verify(bytes calldata blockProof) external;
+    function verify(uint256 blockNumber, bytes calldata blockProof) external;
 }

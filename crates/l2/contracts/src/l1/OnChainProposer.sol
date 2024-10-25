@@ -69,8 +69,19 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
     }
 
     /// @inheritdoc IOnChainProposer
-    function verify(bytes calldata blockProof) external override {
-        bytes32 blockHash = keccak256(abi.encode(blockProof));
-        emit BlockVerified(blockHash);
+    function verify(
+        uint256 blockNumber,
+        bytes calldata // blockProof
+    ) external override {
+        require(
+            blockCommitments[blockNumber] != bytes32(0),
+            "OnChainProposer: block not committed"
+        );
+        require(
+            !verifiedBlocks[blockNumber],
+            "OnChainProposer: block already verified"
+        );
+        verifiedBlocks[blockNumber] = true;
+        emit BlockVerified(blockNumber);
     }
 }

@@ -94,14 +94,14 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         bytes32[] calldata withdrawalProof
     ) public nonReentrant {
         require(
+            blockWithdrawalsLogs[withdrawalBlockNumber] != bytes32(0),
+            "CommonBridge: the block that emitted the withdrawal logs was not committed"
+        );
+        require(
             IOnChainProposer(ON_CHAIN_PROPOSER).verifiedBlocks(
                 withdrawalBlockNumber
             ),
             "CommonBridge: the block that emitted the withdrawal logs was not verified"
-        );
-        require(
-            blockWithdrawalsLogs[withdrawalBlockNumber] != bytes32(0),
-            "CommonBridge: the block that emitted the withdrawal logs was not committed"
         );
         require(
             claimedWithdrawals[l2WithdrawalTxHash] == false,

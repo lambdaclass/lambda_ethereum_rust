@@ -150,7 +150,7 @@ impl Proposer {
 
             let proof = Vec::new();
 
-            match self.send_proof(&proof).await {
+            match self.send_proof(block.header.number, &proof).await {
                 Ok(verify_tx_hash) => {
                     info!(
                     "Sent proof for block {head_block_hash}, with transaction hash {verify_tx_hash:#x}"
@@ -271,10 +271,15 @@ impl Proposer {
         Ok(commit_tx_hash)
     }
 
-    pub async fn send_proof(&self, block_proof: &[u8]) -> Result<H256, ProposerError> {
+    pub async fn send_proof(
+        &self,
+        block_number: u64,
+        block_proof: &[u8],
+    ) -> Result<H256, ProposerError> {
         info!("Sending proof");
         let mut calldata = Vec::new();
         calldata.extend(VERIFY_FUNCTION_SELECTOR);
+        calldata.extend(H256::from_low_u64_be(block_number).as_bytes());
         calldata.extend(H256::from_low_u64_be(32).as_bytes());
         calldata.extend(H256::from_low_u64_be(block_proof.len() as u64).as_bytes());
         calldata.extend(block_proof);
