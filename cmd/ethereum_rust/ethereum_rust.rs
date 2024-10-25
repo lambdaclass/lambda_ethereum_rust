@@ -8,6 +8,7 @@ use ethereum_rust_net::node_id_from_signing_key;
 use ethereum_rust_net::types::Node;
 use ethereum_rust_storage::{EngineType, Store};
 use k256::ecdsa::SigningKey;
+use local_ip_address::local_ip;
 use std::future::IntoFuture;
 use std::path::Path;
 use std::str::FromStr as _;
@@ -15,7 +16,7 @@ use std::time::Duration;
 use std::{
     fs::File,
     io,
-    net::{SocketAddr, ToSocketAddrs},
+    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
 };
 use tokio_util::task::TaskTracker;
 use tracing::{info, warn};
@@ -57,14 +58,12 @@ async fn main() {
 
     let http_addr = matches
         .get_one::<String>("http.addr")
-        .and_then(|addr| map_to_actual_ip(addr))
         .expect("http.addr is required");
     let http_port = matches
         .get_one::<String>("http.port")
         .expect("http.port is required");
     let authrpc_addr = matches
         .get_one::<String>("authrpc.addr")
-        .and_then(|addr| map_to_actual_ip(addr))
         .expect("authrpc.addr is required");
     let authrpc_port = matches
         .get_one::<String>("authrpc.port")
@@ -75,14 +74,12 @@ async fn main() {
 
     let tcp_addr = matches
         .get_one::<String>("p2p.addr")
-        .and_then(|addr| map_to_actual_ip(addr))
         .expect("addr is required");
     let tcp_port = matches
         .get_one::<String>("p2p.port")
         .expect("port is required");
     let udp_addr = matches
         .get_one::<String>("discovery.addr")
-        .and_then(|addr| map_to_actual_ip(addr))
         .expect("discovery.addr is required");
     let udp_port = matches
         .get_one::<String>("discovery.port")
@@ -151,8 +148,16 @@ async fn main() {
     let signer = SigningKey::from_slice(key_bytes.as_bytes()).unwrap();
     let local_node_id = node_id_from_signing_key(&signer);
 
+    // TODO: If hhtp.addr is 0.0.0.0 we get the local ip as the one of the node, otherwise we use the provided one.
+    // This is fine for now, but we might need to support more options in the future.
+    let p2p_node_ip = if udp_socket_addr.ip() == Ipv4Addr::new(0, 0, 0, 0) {
+        local_ip().expect("Failed to get local ip")
+    } else {
+        udp_socket_addr.ip()
+    };
+
     let local_p2p_node = Node {
-        ip: udp_socket_addr.ip(),
+        ip: p2p_node_ip,
         udp_port: udp_socket_addr.port(),
         tcp_port: tcp_socket_addr.port(),
         node_id: local_node_id,
@@ -215,16 +220,6 @@ async fn main() {
     }
 }
 
-fn map_to_actual_ip(addr: &str) -> Option<String> {
-    use local_ip_address::local_ip;
-
-    if addr == "0.0.0.0" {
-        local_ip().map(|ip| ip.to_string()).ok().or(Some(addr.to_string()))
-    } else {
-        Some(addr.to_string())
-    }
-}
-
 fn read_jwtsecret_file(jwt_secret_path: &str) -> Bytes {
     match File::open(jwt_secret_path) {
         Ok(mut file) => decode::jwtsecret_file(&mut file),
@@ -257,7 +252,7 @@ fn read_genesis_file(genesis_file_path: &str) -> Genesis {
     decode::genesis_file(genesis_file).expect("Failed to decode genesis file")
 }
 
-fn parse_socket_addr(addr: String, port: &str) -> io::Result<SocketAddr> {
+fn parse_socket_addr(addr: &str, port: &str) -> io::Result<SocketAddr> {
     // NOTE: this blocks until hostname can be resolved
     format!("{addr}:{port}")
         .to_socket_addrs()?
