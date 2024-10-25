@@ -44,14 +44,7 @@ pub(crate) enum Command {
         explorer_url: bool,
     },
     #[clap(about = "Finalize a pending withdrawal.")]
-    ClaimWithdraw {
-        #[clap(long = "hash")]
-        l2_withdrawal_tx_hash: H256,
-        #[clap(long = "amount", value_parser = U256::from_dec_str)]
-        claimed_amount: U256,
-        #[clap(long = "block-number", value_parser = U256::from_dec_str)]
-        withdrawal_l2_block_number: U256,
-    },
+    ClaimWithdraw { l2_withdrawal_tx_hash: H256 },
     #[clap(about = "Transfer funds to another wallet.")]
     Transfer {
         // TODO: Parse ether instead.
@@ -246,9 +239,20 @@ impl Command {
             }
             Command::ClaimWithdraw {
                 l2_withdrawal_tx_hash,
-                claimed_amount,
-                withdrawal_l2_block_number,
             } => {
+                let (withdrawal_l2_block_number, claimed_amount) = match rollup_client
+                    .get_transaction_by_hash(l2_withdrawal_tx_hash)
+                    .await?
+                {
+                    Some(l2_withdrawal_tx) => {
+                        (l2_withdrawal_tx.block_number, l2_withdrawal_tx.value)
+                    }
+                    None => {
+                        println!("Withdrawal transaction not found in L2");
+                        return Ok(());
+                    }
+                };
+
                 let claim_withdrawal_data = encode_calldata(
                     CLAIM_WITHDRAWAL_SIGNATURE,
                     &format!("{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {l2_withdrawal_tx_hash:#x}"),
