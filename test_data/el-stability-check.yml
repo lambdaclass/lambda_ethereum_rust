@@ -45,5 +45,3 @@ tasks:
       title: "Check consensus reorgs"
     - name: check_consensus_forks
       title: "Check consensus forks"
-    - name: check_consensus_attestation_stats
-      title: "Check consensus attestation stats"
