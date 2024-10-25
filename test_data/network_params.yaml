@@ -18,6 +18,7 @@ additional_services:
 assertoor_params:
   run_stability_check: false
   run_block_proposal_check: false
+  run_transaction_test: true
   run_blob_transaction_test: true
   tests:
     - 'https://raw.githubusercontent.com/lambdaclass/lambda_ethereum_rust/refs/heads/enhance-el-assertoor-ci-test/test_data/el-stability-check.yml'
