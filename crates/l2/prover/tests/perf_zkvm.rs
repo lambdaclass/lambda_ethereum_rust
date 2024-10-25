@@ -31,7 +31,9 @@ async fn test_performance_zkvm() {
     }
     path.push("test_data");
 
+    // Another use is genesis-execution-api.json in conjunction with chain.rlp(20 blocks not too loaded).
     let genesis_file_path = path.join("genesis-l2.json");
+    // l2-loadtest.rlp has loaded blocks.
     let chain_file_path = path.join("l2-loadtest.rlp");
 
     let store = Store::new("memory", EngineType::InMemory).expect("Failed to create Store");
@@ -41,24 +43,24 @@ async fn test_performance_zkvm() {
     );
     store.add_initial_state(genesis.clone()).unwrap();
 
-    let blocks = ethereum_rust_l2::utils::test_data_io::read_chain_file(
-        chain_file_path.to_str().unwrap(),
-    );
-    info!("Blocks: {:?}", blocks);
+    let blocks =
+        ethereum_rust_l2::utils::test_data_io::read_chain_file(chain_file_path.to_str().unwrap());
     info!("Number of blocks to insert: {}", blocks.len());
 
-    let mut last_block = Block::default();
+    let mut block_to_prove = Block::default();
     for (i, block) in blocks.iter().enumerate() {
         add_block(block, &store).unwrap();
-        if i == (blocks.len() - 1) {
-            last_block = block.clone();
+        // Fix, depends on the l2-loadtest.rlp file
+        if i == 3 {
+            block_to_prove = block.clone();
         }
     }
 
-    let db = ExecutionDB::from_exec(&last_block, &store).unwrap();
+    let db = ExecutionDB::from_exec(&block_to_prove, &store).unwrap();
+
     let input = ProverInputData {
         db,
-        block: last_block,
+        block: block_to_prove.clone(),
     };
 
     let mut prover = Prover::new();
@@ -69,6 +71,10 @@ async fn test_performance_zkvm() {
     let receipt = prover.prove().unwrap();
 
     let duration = start.elapsed();
+    info!(
+        "Number of EIP1559 transactions in the proven block: {}",
+        block_to_prove.body.transactions.len()
+    );
     info!("[SECONDS] Proving Took: {:?}", duration);
     info!("[MINUTES] Proving Took: {}[m]", duration.as_secs() / 60);
 
