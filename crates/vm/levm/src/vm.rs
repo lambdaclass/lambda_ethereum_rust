@@ -1,10 +1,9 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
-    errors::{OpcodeSuccess, ResultReason, VMError},
+    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
-    report::{TransactionReport, TxResult},
 };
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -193,8 +192,9 @@ pub struct Environment {
     pub tx_gas_price: U256,
     pub tx_chain_id: U256,
     pub tx_gas_limit: U256,
+    pub tx_blob_hashes: Option<Vec<H256>>,
     pub consumed_gas: U256, // TODO: move this 2 to VM
-    refunded_gas: U256,
+    pub refunded_gas: U256,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -240,6 +240,7 @@ impl VM {
         db: LevmDb,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
+        tx_blob_hashes: Option<Vec<H256>>,
     ) -> Self {
         // TODO: This handles only CALL transactions.
         let bytecode = db.get_account_bytecode(&to);
@@ -263,6 +264,7 @@ impl VM {
             calldata.clone(),
             false,
             tx_gas_limit,
+            TX_BASE_COST,
             0,
         );
 
@@ -279,6 +281,7 @@ impl VM {
             tx_gas_price,
             tx_chain_id,
             tx_gas_limit,
+            tx_blob_hashes,
             consumed_gas: TX_BASE_COST,
             refunded_gas: U256::zero(),
         };
@@ -291,10 +294,7 @@ impl VM {
         }
     }
 
-    pub fn execute(
-        &mut self,
-        current_call_frame: &mut CallFrame,
-    ) -> Result<OpcodeSuccess, VMError> {
+    pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
         // let mut current_call_frame = self
         //     .call_frames
         //     .pop()
@@ -397,16 +397,47 @@ impl VM {
                 _ => Err(VMError::OpcodeNotFound),
             };
 
+            // Gas refunds are applied at the end of a transaction. Should it be implemented here?
+
             match op_result {
                 Ok(OpcodeSuccess::Continue) => {}
-                Ok(OpcodeSuccess::Result(_)) | Err(_) => {
+                Ok(OpcodeSuccess::Result(_)) => {
                     self.call_frames.push(current_call_frame.clone());
-                    return op_result;
+                    return TransactionReport {
+                        result: TxResult::Success,
+                        new_state: self.db.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.return_data.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
+                }
+                Err(error) => {
+                    self.call_frames.push(current_call_frame.clone());
+
+                    // CONSUME ALL GAS UNLESS THE ERROR IS FROM REVERT OPCODE
+                    if error != VMError::RevertOpcode {
+                        let left_gas = current_call_frame.gas_limit - current_call_frame.gas_used;
+                        current_call_frame.gas_used += left_gas;
+                        self.env.consumed_gas += left_gas;
+                    }
+
+                    return TransactionReport {
+                        result: TxResult::Revert(error),
+                        new_state: self.db.accounts.clone(),
+                        gas_used: current_call_frame.gas_used.low_u64(),
+                        gas_refunded: self.env.refunded_gas.low_u64(),
+                        output: current_call_frame.return_data.clone(),
+                        logs: current_call_frame.logs.clone(),
+                        created_address: None,
+                    };
                 }
             }
         }
     }
 
+    // let account = self.db.accounts.get(&self.env.origin).unwrap();
     /// Based on Ethereum yellow paper's initial tests of intrinsic validity (Section 6). The last version is
     /// Shanghai, so there are probably missing Cancun validations. The intrinsic validations are:
     ///
@@ -453,28 +484,7 @@ impl VM {
         self.env.consumed_gas = initial_gas;
 
         let mut current_call_frame = self.call_frames.pop().unwrap();
-        let result = self.execute(&mut current_call_frame)?;
-
-        match result {
-            OpcodeSuccess::Continue => {
-                panic!("should never reach this point") // remove this in the future
-            }
-            OpcodeSuccess::Result(reason) => {
-                let report = TransactionReport {
-                    result: if reason == ResultReason::Stop || reason == ResultReason::Return {
-                        TxResult::Success
-                    } else {
-                        TxResult::Revert
-                    },
-                    new_state: self.db.accounts.clone(),
-                    gas_used: self.env.consumed_gas.as_u64(), // TODO: check these conversions
-                    gas_refunded: self.env.refunded_gas.as_u64(),
-                    output: current_call_frame.return_data,
-                    logs: current_call_frame.logs, // TODO: accumulate all call frames' logs in VM
-                };
-                Ok(report)
-            }
-        }
+        Ok(self.execute(&mut current_call_frame))
     }
 
     pub fn current_call_frame_mut(&mut self) -> &mut CallFrame {
@@ -538,52 +548,39 @@ impl VM {
             calldata,
             is_static,
             gas_limit,
+            U256::zero(),
             current_call_frame.depth + 1,
         );
 
-        current_call_frame.return_data_offset = Some(ret_offset);
-        current_call_frame.return_data_size = Some(ret_size);
+        current_call_frame.sub_return_data_offset = ret_offset;
+        current_call_frame.sub_return_data_size = ret_size;
 
         // self.call_frames.push(new_call_frame.clone());
-        let result = self.execute(&mut new_call_frame);
+        let tx_report = self.execute(&mut new_call_frame);
 
-        // After this we should do current_call_frame.gas_used += new_call_frame.gas_used. Instead of consuming all gas and then returning unused gas, we just consume all gas the sub-context used. If an error happened then we consume all gas.
+        current_call_frame.gas_used += tx_report.gas_used.into(); // We add the gas used by the sub-context to the current one after it's execution.
+        current_call_frame.logs.extend(tx_report.logs);
+        current_call_frame
+            .memory
+            .store_n_bytes(ret_offset, &tx_report.output, ret_size);
+        current_call_frame.sub_return_data = tx_report.output;
 
-        match result {
-            Ok(OpcodeSuccess::Result(reason)) => match reason {
-                ResultReason::Stop | ResultReason::Return => {
-                    let logs = new_call_frame.logs.clone();
-                    let return_data = new_call_frame.return_data.clone();
-
-                    current_call_frame.logs.extend(logs);
-                    current_call_frame
-                        .memory
-                        .store_bytes(ret_offset, &return_data);
-                    current_call_frame.return_data = return_data;
-                    current_call_frame
-                        .stack
-                        .push(U256::from(SUCCESS_FOR_CALL))?;
-                    Ok(OpcodeSuccess::Continue)
-                }
-                ResultReason::Revert => {
-                    let output = new_call_frame.return_data.clone();
-
-                    current_call_frame.memory.store_bytes(ret_offset, &output);
-                    current_call_frame.return_data = output;
-                    current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
-                    // current_call_frame.gas -= self.env.consumed_gas;
-                    self.env.refunded_gas += self.env.consumed_gas;
-                    Ok(OpcodeSuccess::Continue)
-                }
-            },
-            Ok(OpcodeSuccess::Continue) => Ok(OpcodeSuccess::Continue),
-            Err(error) => {
+        // What to do, depending on TxResult
+        match tx_report.result {
+            TxResult::Success => {
                 current_call_frame
                     .stack
-                    .push(U256::from(error.clone() as u8))?;
-                Err(error)
+                    .push(U256::from(SUCCESS_FOR_CALL))?;
+            }
+            TxResult::Revert(_error) => {
+                // Behavior for revert between contexts goes here if necessary
+                // It is also possible to differentiate between RevertOpcode error and other kinds of revert.
+
+                current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             }
         }
+
+        Ok(OpcodeSuccess::Continue)
     }
 
     /// Calculates the address of a new conctract using the CREATE opcode as follow

@@ -7,6 +7,5 @@ pub mod opcode_handlers;
 pub mod opcodes;
 pub mod operations;
 pub mod primitives;
-pub mod report;
 pub mod utils;
 pub mod vm;

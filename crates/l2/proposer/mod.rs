@@ -41,7 +41,7 @@ pub async fn start_proposer(store: Store) {
     }
 
     let l1_watcher = tokio::spawn(l1_watcher::start_l1_watcher(store.clone()));
-    let prover_server = tokio::spawn(prover_server::start_prover_server());
+    let prover_server = tokio::spawn(prover_server::start_prover_server(store.clone()));
     let proposer = tokio::spawn(async move {
         let eth_config = EthConfig::from_env().expect("EthConfig::from_env");
         let proposer_config = ProposerConfig::from_env().expect("ProposerConfig::from_env");
@@ -271,7 +271,7 @@ impl Proposer {
             .saturating_add(TX_GAS_COST);
 
         self.eth_client
-            .send_eip1559_transaction(tx, self.l1_private_key)
+            .send_eip1559_transaction(&mut tx, self.l1_private_key)
             .await
             .map_err(ProposerError::from)
     }

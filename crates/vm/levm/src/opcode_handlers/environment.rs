@@ -310,7 +310,7 @@ impl VM {
 
         current_call_frame
             .stack
-            .push(U256::from(current_call_frame.return_data.len()))?;
+            .push(U256::from(current_call_frame.sub_return_data.len()))?;
 
         Ok(OpcodeSuccess::Continue)
     }
@@ -351,7 +351,7 @@ impl VM {
         }
 
         let data = current_call_frame
-            .return_data
+            .sub_return_data
             .slice(return_data_offset..return_data_offset + size);
         current_call_frame.memory.store_bytes(dest_offset, &data);
 

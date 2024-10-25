@@ -6,8 +6,7 @@ use ethereum_rust_core::{
     Address, H256, U256,
 };
 use ethereum_rust_levm::{
-    errors::VMError,
-    report::TransactionReport,
+    errors::{TransactionReport, VMError},
     vm::{Account as LevmAccount, Db, LevmDb, StorageSlot, VM},
 };
 use ethereum_rust_storage::Store;
@@ -149,6 +148,7 @@ pub fn execute_tx(
         LevmDb::default(), // TODO: change this
         block_header.blob_gas_used.map(U256::from),
         block_header.excess_blob_gas.map(U256::from),
+        None,
     );
     vm.transact()
         .map_err(|_| EvmError::Transaction("Levm error".to_string()))
