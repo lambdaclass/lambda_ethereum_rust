@@ -455,7 +455,7 @@ impl VM {
     /// the block’s base fee;
     /// (8) For type 2 transactions, max priority fee per fas, must be no larger
     /// than max fee per fas.
-    fn validate_transaction(&self) -> Result<(), VMError> {
+    fn _validate_transaction(&self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
         let sender_account = match self.db.accounts.get(&self.env.tx_origin) {
             Some(acc) => acc,
@@ -477,7 +477,7 @@ impl VM {
     }
 
     pub fn transact(&mut self) -> Result<TransactionReport, VMError> {
-        self.validate_transaction()?;
+        // self.validate_transaction()?;
 
         let initial_gas = Default::default();
 
