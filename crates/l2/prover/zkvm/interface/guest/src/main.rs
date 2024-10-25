@@ -1,4 +1,5 @@
 use ethereum_rust_rlp::decode::RLPDecode;
+use ethereum_rust_rlp::encode::RLPEncode;
 use risc0_zkvm::guest::env;
 
 use ethereum_rust_core::types::Block;
@@ -11,8 +12,7 @@ fn main() {
 
     let block = Block::decode(&head_block_bytes).unwrap();
 
-    // Make inputs public
-    env::commit(&block);
+    env::commit(&block.encode_to_vec());
     env::commit(&execution_db);
 
     // Execute block
