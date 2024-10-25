@@ -24,7 +24,7 @@ tasks:
 
 - name: run_task_matrix
   title: "Check block proposals from all client pairs"
-  timeout: 1m
+  timeout: 2m
   configVars:
     matrixValues: "validatorPairNames"
   config:
@@ -45,3 +45,5 @@ tasks:
       title: "Check consensus reorgs"
     - name: check_consensus_forks
       title: "Check consensus forks"
+    - name: check_consensus_attestation_stats
+      title: "Check consensus attestation stats"
