@@ -336,23 +336,17 @@ impl VM {
             .unwrap()
             .balance = U256::zero();
 
-        // 3. Get the target account, checking if it is empty and if it is cold. Update gas cost accordingly.
-
-        // If address is cold, there is an additional cost of 2600. AFAIK accessList has not been implemented yet.
-
-        // If a positive balance is sent to an empty account, the dynamic gas is 25000.
-        let target_account = match self.db.accounts.get_mut(&target_address) {
-            Some(acc) => acc,
-            None => {
-                // I'm considering that if address is not in the database, it means that it is an empty account.
-                gas_cost += dynamic_gas_cost;
-                self.db.accounts.insert(target_address, Account::default());
-                self.db.accounts.get_mut(&target_address).unwrap()
-            }
-        };
-
-        // 4. Add the balance of the current account to the target account
-        target_account.balance += current_account_balance;
+        // 3 & 4. Get target account and add the balance of the current account to it
+        // TODO: If address is cold, there is an additional cost of 2600. AFAIK accessList has not been implemented yet.
+        if self.db.account_is_empty(&target_address) {
+            gas_cost += dynamic_gas_cost;
+            self.db.accounts.insert(target_address, Account::default().with_balance(current_account_balance));
+        }
+        else {
+            let target_account = self.db.accounts.get_mut(&target_address).unwrap();
+            
+            target_account.balance += current_account_balance;
+        }
 
         // 5. Register account to be destroyed in accrued substate IF executed in the same transaction a contract was created
         // This is temporary because it is not necessarily right but we should just check if the current account was created in this transaction.

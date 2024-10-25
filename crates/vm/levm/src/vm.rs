@@ -149,6 +149,10 @@ impl Db {
 
         Ok(self.accounts.get(address).unwrap())
     }
+
+    pub fn account_is_empty(&self, address: &Address) -> bool {
+        !self.accounts.contains_key(address)
+    }
 }
 
 #[derive(Debug, Clone, Default)]
