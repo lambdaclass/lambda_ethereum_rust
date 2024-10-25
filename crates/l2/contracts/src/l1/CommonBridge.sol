@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/ICommonBridge.sol";
+import "./interfaces/IOnChainProposer.sol";
 
 /// @title CommonBridge contract.
 /// @author LambdaClass
@@ -92,6 +93,12 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         uint256 withdrawalLogIndex,
         bytes32[] calldata withdrawalProof
     ) public nonReentrant {
+        require(
+            IOnChainProposer(ON_CHAIN_PROPOSER).verifiedBlocks(
+                withdrawalBlockNumber
+            ),
+            "CommonBridge: the block that emitted the withdrawal logs was not verified"
+        );
         require(
             blockWithdrawalsLogs[withdrawalBlockNumber] != bytes32(0),
             "CommonBridge: the block that emitted the withdrawal logs was not committed"

@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 /// @title Interface for the OnChainProposer contract.
 /// @author LambdaClass
 /// @notice A OnChainProposer contract ensures the advancement of the L2. It is used
 /// by the proposer to commit blocks and verify block proofs.
 interface IOnChainProposer {
+    /// @notice The commitments of the committed blocks.
+    function verifiedBlocks(uint256) external view returns (bool);
+
     /// @notice A block has been committed.
     /// @dev Event emitted when a block is committed.
     event BlockCommitted(bytes32 indexed currentBlockCommitment);

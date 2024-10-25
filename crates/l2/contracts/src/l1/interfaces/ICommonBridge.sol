@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 /// @title Interface for the CommonBridge contract.
 /// @author LambdaClass
 /// @notice A CommonBridge contract is a contract that allows L1<->L2 communication
 /// from L1. It both sends messages from L1 to L2 and receives messages from L2.
 interface ICommonBridge {
-    struct WithdrawalTransaction {
-        address to;
-        uint256 amount;
-        bytes32 l2TxHash;
-    }
-
     /// @notice A deposit to L2 has initiated.
     /// @dev Event emitted when a deposit is initiated.
     /// @param amount the amount of tokens being deposited.
