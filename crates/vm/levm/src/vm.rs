@@ -200,6 +200,7 @@ pub fn word_to_address(word: U256) -> Address {
     Address::from_slice(&bytes[12..])
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_transaction(
     to: Address,
     msg_sender: Address,
@@ -259,6 +260,7 @@ fn create_transaction(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_contract(
     sender: Address,
     secret_key: H256,
