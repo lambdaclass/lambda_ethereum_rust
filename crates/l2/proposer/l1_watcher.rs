@@ -73,7 +73,7 @@ impl L1Watcher {
         let logs = self
             .eth_client
             .get_logs(
-                self.last_block_fetched,
+                self.last_block_fetched + 1,
                 new_last_block,
                 self.address,
                 self.topics[0],
