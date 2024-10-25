@@ -8,7 +8,7 @@ use crate::{
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_types::H160;
-use keccak_hash::keccak;
+use keccak_hash::{keccak, keccak256};
 use sha3::{Digest, Keccak256};
 use std::{
     collections::{HashMap, HashSet},
@@ -260,6 +260,15 @@ fn create_transaction(
     })
 }
 
+fn new_contract_address(sender: Address, nonce: u64) -> Address {
+    let mut addr = vec![];
+    addr.extend_from_slice(&sender.0);
+    addr.extend_from_slice(&nonce.to_be_bytes());
+    
+    keccak256(&mut addr);
+    H160::from_slice(&&addr[12..])
+}
+
 #[allow(clippy::too_many_arguments)]
 fn create_contract(
     sender: Address,
@@ -297,6 +306,7 @@ fn create_contract(
     }
     .clone();
 
+    // 1. Check whether caller has enough balance to make a transfer
     if sender_account.balance < value {
         return Err(VMError::OutOfGas); // Maybe a more personalized error
     }
@@ -308,35 +318,30 @@ fn create_contract(
     sender_account.nonce = new_nonce;
     sender_account.balance -= value;
 
-    let code: Bytes = sender_account.bytecode.clone(); // It's not this but has to compile
-
-    let new_address = match None {
-        // Fix
-        Some(salt) => VM::calculate_create2_address(sender, &code, salt),
-        None => VM::calculate_create_address(sender, sender_account.nonce),
-    };
-
+    // 2. Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
+    let new_address = new_contract_address(sender, sender_account.nonce);
     // If address is already in db, there's an error
     if db_copy.accounts.contains_key(&new_address) {
         return Err(VMError::AddressAlreadyOccuped); // Kinda this
     }
 
-    // Create the contract
-    let contract_address = Account::new(new_address, value, code.clone(), 0, Default::default());
+    
+    // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
+    let contract_address = Account::new(new_address, value, calldata.clone(), 0, Default::default());
     db_copy.add_account(new_address, contract_address.clone());
 
-    // Push address to stack?
-    /*     current_call_frame
-           .stack
-           .push(address_to_word(new_address))?;
-    */
+    // 4. Transfer the initial Ether endowment from caller to the new contract
+
+
+    // 5. Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
+    let code: Bytes = calldata.clone();
 
     // Call the contract
-    let vm = VM::new(
+    let mut vm = VM::new(
         Some(contract_address.address),
         sender,
         value,
-        calldata,
+        code,
         sender_account.balance,
         block_number,
         coinbase,
@@ -351,6 +356,14 @@ fn create_contract(
         tx_blob_hashes,
         secret_key,
     )?;
+
+    let res = vm.transact();
+
+    // The ret variable is the returned contract code ?????????
+    let contract_code = res.unwrap().output;
+
+    //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
+
 
     Ok(vm)
 }
