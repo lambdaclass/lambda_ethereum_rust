@@ -36,6 +36,9 @@ pub struct EthClient {
     url: String,
 }
 
+// 0x08c379a0 == Error(String)
+pub const ERROR_FUNCTION_SELECTOR: [u8; 4] = [0x08, 0xc3, 0x79, 0xa0];
+
 impl EthClient {
     pub fn new(url: &str) -> Self {
         Self {
@@ -163,7 +166,25 @@ impl EthClient {
             .map_err(EstimateGasPriceError::ParseIntError)
             .map_err(EthClientError::from),
             Ok(RpcResponse::Error(error_response)) => {
-                Err(EstimateGasPriceError::RPCError(error_response.error.message).into())
+                let error_data = if let Some(error_data) = error_response.error.data {
+                    if &error_data == "0x" {
+                        "unknown error".to_owned()
+                    } else {
+                        let abi_decoded_error_data =
+                            hex::decode(error_data.strip_prefix("0x").unwrap()).unwrap();
+                        let string_length = U256::from_big_endian(&abi_decoded_error_data[36..68]);
+                        let string_data =
+                            &abi_decoded_error_data[68..68 + string_length.as_usize()];
+                        String::from_utf8(string_data.to_vec()).unwrap()
+                    }
+                } else {
+                    "unknown error".to_owned()
+                };
+                Err(EstimateGasPriceError::RPCError(format!(
+                    "{}: {}",
+                    error_response.error.message, error_data
+                ))
+                .into())
             }
             Err(error) => Err(error),
         }
