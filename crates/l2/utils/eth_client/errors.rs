@@ -28,6 +28,8 @@ pub enum EthClientError {
     FailedToSerializeRequestBody(String),
     #[error("Failed to deserialize response body: {0}")]
     GetBalanceError(#[from] GetBalanceError),
+    #[error("eth_getTransactionByHash request error: {0}")]
+    GetTransactionByHashError(#[from] GetTransactionByHashError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -140,6 +142,18 @@ pub enum GetTransactionReceiptError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum GetBalanceError {
+    #[error("{0}")]
+    ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    SerdeJSONError(#[from] serde_json::Error),
+    #[error("{0}")]
+    RPCError(String),
+    #[error("{0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum GetTransactionByHashError {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
     #[error("{0}")]

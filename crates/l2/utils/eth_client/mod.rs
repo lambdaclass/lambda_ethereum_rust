@@ -1,8 +1,8 @@
 use crate::utils::config::eth::EthConfig;
 use errors::{
     EstimateGasPriceError, EthClientError, GetBalanceError, GetBlockByHashError,
-    GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError, GetTransactionReceiptError,
-    SendRawTransactionError,
+    GetBlockNumberError, GetGasPriceError, GetLogsError, GetNonceError, GetTransactionByHashError,
+    GetTransactionReceiptError, SendRawTransactionError,
 };
 use ethereum_rust_core::types::{
     BlockBody, EIP1559Transaction, GenericTransaction, PrivilegedL2Transaction, TxKind, TxType,
@@ -16,7 +16,7 @@ use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
 use libsecp256k1::{sign, Message, SecretKey};
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use transaction::PayloadRLPEncode;
 
@@ -340,4 +340,67 @@ impl EthClient {
             Err(error) => Err(error),
         }
     }
+
+    pub async fn get_transaction_by_hash(
+        &self,
+        tx_hash: H256,
+    ) -> Result<Option<GetTransactionByHashTransaction>, EthClientError> {
+        let request = RpcRequest {
+            id: RpcRequestId::Number(1),
+            jsonrpc: "2.0".to_string(),
+            method: "eth_getTransactionByHash".to_string(),
+            params: Some(vec![json!(format!("{tx_hash:#x}"))]),
+        };
+
+        match self.send_request(request).await {
+            Ok(RpcResponse::Success(result)) => serde_json::from_value(result.result)
+                .map_err(GetTransactionByHashError::SerdeJSONError)
+                .map_err(EthClientError::from),
+            Ok(RpcResponse::Error(error_response)) => {
+                Err(GetTransactionByHashError::RPCError(error_response.error.message).into())
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTransactionByHashTransaction {
+    #[serde(default)]
+    pub chain_id: u64,
+    #[serde(default)]
+    pub nonce: u64,
+    #[serde(default)]
+    pub max_priority_fee_per_gas: u64,
+    #[serde(default)]
+    pub max_fee_per_gas: u64,
+    #[serde(default)]
+    pub gas_limit: u64,
+    #[serde(default)]
+    pub to: Address,
+    #[serde(default)]
+    pub value: U256,
+    #[serde(default)]
+    pub data: Vec<u8>,
+    #[serde(default)]
+    pub access_list: Vec<(Address, Vec<H256>)>,
+    #[serde(default)]
+    pub r#type: TxType,
+    #[serde(default)]
+    pub signature_y_parity: bool,
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    pub signature_r: u64,
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    pub signature_s: u64,
+    #[serde(default)]
+    pub block_number: U256,
+    #[serde(default)]
+    pub block_hash: H256,
+    #[serde(default)]
+    pub from: Address,
+    #[serde(default)]
+    pub hash: H256,
+    #[serde(default, with = "ethereum_rust_core::serde_utils::u64::hex_str")]
+    pub transaction_index: u64,
 }
