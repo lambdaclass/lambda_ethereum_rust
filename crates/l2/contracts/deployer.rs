@@ -18,11 +18,41 @@ const SALT: H256 = H256::zero();
 
 #[tokio::main]
 async fn main() {
-    read_env_file().expect("Failed to read .env file");
+    let (deployer, deployer_private_key, eth_client) = setup();
     download_contract_deps();
     compile_contracts();
-    let (on_chain_proposer_address, bridge_address) = deploy_contracts().await;
-    initialize_contracts(bridge_address, on_chain_proposer_address).await;
+    let (on_chain_proposer, bridge_address) =
+        deploy_contracts(deployer, deployer_private_key, &eth_client).await;
+    initialize_contracts(
+        deployer,
+        deployer_private_key,
+        on_chain_proposer,
+        bridge_address,
+        &eth_client,
+    )
+    .await;
+}
+
+fn setup() -> (Address, SecretKey, EthClient) {
+    read_env_file().expect("Failed to read .env file");
+    let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
+    let deployer = std::env::var("DEPLOYER_ADDRESS")
+        .expect("DEPLOYER_ADDRESS not set")
+        .parse()
+        .expect("Malformed DEPLOYER_ADDRESS");
+    let deployer_private_key = SecretKey::parse(
+        H256::from_str(
+            std::env::var("DEPLOYER_PRIVATE_KEY")
+                .expect("DEPLOYER_PRIVATE_KEY not set")
+                .strip_prefix("0x")
+                .expect("Malformed DEPLOYER_ADDRESS (strip_prefix(\"0x\"))"),
+        )
+        .expect("Malformed DEPLOYER_ADDRESS (H256::from_str)")
+        .as_fixed_bytes(),
+    )
+    .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
+
+    (deployer, deployer_private_key, eth_client)
 }
 
 fn download_contract_deps() {
@@ -70,42 +100,27 @@ fn compile_contracts() {
     );
 }
 
-async fn deploy_contracts() -> (Address, Address) {
-    let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
-
-    let deployer = std::env::var("DEPLOYER_ADDRESS")
-        .expect("DEPLOYER_ADDRESS not set")
-        .parse()
-        .expect("Malformed DEPLOYER_ADDRESS");
-    let deployer_private_key = SecretKey::parse(
-        H256::from_str(
-            std::env::var("DEPLOYER_PRIVATE_KEY")
-                .expect("DEPLOYER_PRIVATE_KEY not set")
-                .strip_prefix("0x")
-                .expect("Malformed DEPLOYER_ADDRESS (strip_prefix(\"0x\"))"),
-        )
-        .expect("Malformed DEPLOYER_ADDRESS (H256::from_str)")
-        .as_fixed_bytes(),
-    )
-    .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
-
+async fn deploy_contracts(
+    deployer: Address,
+    deployer_private_key: SecretKey,
+    eth_client: &EthClient,
+) -> (Address, Address) {
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
         gas_price: Some(1_000_000_000),
         ..Default::default()
     };
 
-    let (on_chain_proposer_deployment_tx_hash, on_chain_proposer_address) =
-        deploy_on_chain_proposer(
-            deployer,
-            deployer_private_key,
-            overrides.clone(),
-            &eth_client,
-        )
-        .await;
+    let (on_chain_proposer_deployment_tx_hash, on_chain_proposer) = deploy_on_chain_proposer(
+        deployer,
+        deployer_private_key,
+        overrides.clone(),
+        &eth_client,
+    )
+    .await;
     println!(
         "OnChainProposer deployed at address {:#x} with tx hash {:#x}\n",
-        on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
+        on_chain_proposer, on_chain_proposer_deployment_tx_hash
     );
 
     let (bridge_deployment_tx_hash, bridge_address) =
@@ -115,7 +130,7 @@ async fn deploy_contracts() -> (Address, Address) {
         bridge_address, bridge_deployment_tx_hash
     );
 
-    (on_chain_proposer_address, bridge_address)
+    (on_chain_proposer, bridge_address)
 }
 
 async fn deploy_on_chain_proposer(
@@ -131,7 +146,7 @@ async fn deploy_on_chain_proposer(
     .expect("Failed to decode on_chain_proposer_init_code")
     .into();
 
-    let (deploy_tx_hash, on_chain_proposer_address) = create2_deploy(
+    let (deploy_tx_hash, on_chain_proposer) = create2_deploy(
         deployer,
         deployer_private_key,
         &on_chain_proposer_init_code,
@@ -140,7 +155,7 @@ async fn deploy_on_chain_proposer(
     )
     .await;
 
-    (deploy_tx_hash, on_chain_proposer_address)
+    (deploy_tx_hash, on_chain_proposer)
 }
 
 async fn deploy_bridge(
@@ -195,14 +210,7 @@ async fn create2_deploy(
         .await
         .unwrap();
 
-    while eth_client
-        .get_transaction_receipt(deploy_tx_hash)
-        .await
-        .expect("Failed to get transaction receipt")
-        .is_none()
-    {
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    }
+    wait_for_transaction_receipt(deploy_tx_hash, eth_client).await;
 
     let deployed_address = create2_address(keccak(init_code));
 
@@ -226,9 +234,13 @@ fn create2_address(init_code_hash: H256) -> Address {
     )
 }
 
-async fn initialize_contracts(bridge: Address, on_chain_proposer_address: Address) {
-    let eth_client = EthClient::new(&std::env::var("ETH_RPC_URL").expect("ETH_RPC_URL not set"));
-
+async fn initialize_contracts(
+    deployer: Address,
+    deployer_private_key: SecretKey,
+    on_chain_proposer: Address,
+    bridge: Address,
+    eth_client: &EthClient,
+) {
     let deployer = std::env::var("DEPLOYER_ADDRESS")
         .expect("DEPLOYER_ADDRESS not set")
         .parse()
@@ -246,15 +258,80 @@ async fn initialize_contracts(bridge: Address, on_chain_proposer_address: Addres
     )
     .expect("Malformed DEPLOYER_PRIVATE_KEY (SecretKey::parse)");
 
+    initialize_on_chain_proposer(
+        on_chain_proposer,
+        bridge,
+        deployer,
+        deployer_private_key,
+        &eth_client,
+    )
+    .await;
+    initialize_bridge(
+        on_chain_proposer,
+        bridge,
+        deployer,
+        deployer_private_key,
+        eth_client,
+    )
+    .await;
+}
+
+async fn initialize_on_chain_proposer(
+    on_chain_proposer: Address,
+    bridge: Address,
+    deployer: Address,
+    deployer_private_key: SecretKey,
+    eth_client: &EthClient,
+) {
+    let on_chain_proposer_initialize_selector = keccak(b"initialize(address)")
+        .as_bytes()
+        .get(..4)
+        .expect("Failed to get initialize selector")
+        .to_vec();
+    let encoded_bridge = {
+        let offset = 32 - bridge.as_bytes().len() % 32;
+        let mut encoded_bridge = vec![0; offset];
+        encoded_bridge.extend_from_slice(bridge.as_bytes());
+        encoded_bridge
+    };
+
+    let mut on_chain_proposer_initialization_calldata = Vec::new();
+    on_chain_proposer_initialization_calldata
+        .extend_from_slice(&on_chain_proposer_initialize_selector);
+    on_chain_proposer_initialization_calldata.extend_from_slice(&encoded_bridge);
+
+    let initialize_tx_hash = eth_client
+        .send(
+            on_chain_proposer_initialization_calldata.into(),
+            deployer,
+            TxKind::Call(on_chain_proposer),
+            deployer_private_key,
+            Overrides::default(),
+        )
+        .await
+        .expect("Failed to send initialize transaction");
+
+    wait_for_transaction_receipt(initialize_tx_hash, eth_client).await;
+
+    println!("OnChainProposer initialized with tx hash {initialize_tx_hash:#x}\n");
+}
+
+async fn initialize_bridge(
+    on_chain_proposer: Address,
+    bridge: Address,
+    deployer: Address,
+    deployer_private_key: SecretKey,
+    eth_client: &EthClient,
+) {
     let bridge_initialize_selector = keccak(b"initialize(address)")
         .as_bytes()
         .get(..4)
         .expect("Failed to get initialize selector")
         .to_vec();
     let encoded_on_chain_proposer = {
-        let offset = 32 - on_chain_proposer_address.as_bytes().len() % 32;
+        let offset = 32 - on_chain_proposer.as_bytes().len() % 32;
         let mut encoded_owner = vec![0; offset];
-        encoded_owner.extend_from_slice(on_chain_proposer_address.as_bytes());
+        encoded_owner.extend_from_slice(on_chain_proposer.as_bytes());
         encoded_owner
     };
 
@@ -273,14 +350,18 @@ async fn initialize_contracts(bridge: Address, on_chain_proposer_address: Addres
         .await
         .expect("Failed to send initialize transaction");
 
+    wait_for_transaction_receipt(initialize_tx_hash, eth_client).await;
+
+    println!("Bridge initialized with tx hash {initialize_tx_hash:#x}\n");
+}
+
+async fn wait_for_transaction_receipt(tx_hash: H256, eth_client: &EthClient) {
     while eth_client
-        .get_transaction_receipt(initialize_tx_hash)
+        .get_transaction_receipt(tx_hash)
         .await
         .expect("Failed to get transaction receipt")
         .is_none()
     {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
-
-    println!("Bridge initialized with tx hash {initialize_tx_hash:#x}\n");
 }
