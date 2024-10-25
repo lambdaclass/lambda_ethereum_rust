@@ -16,7 +16,7 @@ clean: clean-contract-deps ## 🧹 Cleans the localnet
 restart: restart-local-l1 restart-contract-deps deploy-l1 restart-l2 ## 🔄 Restarts the localnet
 
 cli: ## 🛠️ Builds the L2 Lambda Ethereum Rust CLI
-	cargo build --release --manifest-path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust/Cargo.toml
+	cargo install --path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust/Cargo.toml --force
 
 # Variables
 
