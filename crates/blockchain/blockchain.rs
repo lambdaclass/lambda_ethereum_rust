@@ -30,7 +30,7 @@ use ethereum_rust_vm::{
 pub fn add_block(block: &Block, storage: &Store) -> Result<(), ChainError> {
     let block_hash = block.header.compute_block_hash();
 
-    if let Some(_) = storage.get_invalid_block(block_hash)? {
+    if storage.get_invalid_block(block_hash)?.is_some() {
         return Err(ChainError::InvalidBlock(InvalidBlockError::AlreadyInvalid));
     }
 
