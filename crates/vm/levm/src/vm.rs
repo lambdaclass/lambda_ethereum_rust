@@ -278,6 +278,16 @@ fn create_contract(
     block_excess_blob_gas: Option<U256>,
     tx_blob_hashes: Option<Vec<H256>>,
 ) -> Result<VM, VMError> {
+    /*
+    Functionality should be:
+    1. Check whether caller has enough balance to make a transfer
+    2. Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
+    3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
+    4. Transfer the initial Ether endowment from caller to the new contract
+    5. Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
+    6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
+    Source: https://medium.com/@hayeah/diving-into-the-ethereum-vm-part-5-the-smart-contract-creation-process-cb7b6133b855
+     */
     let mut db_copy = db.clone();
     let mut sender_account = match db_copy.accounts.get(&sender) {
         Some(acc) => acc,
