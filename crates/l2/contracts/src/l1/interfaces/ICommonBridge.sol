@@ -90,12 +90,17 @@ interface ICommonBridge {
     /// @param l2WithdrawalTxHash the hash of the L2 withdrawal transaction.
     /// @param claimedAmount the amount that will be claimed.
     /// @param withdrawalProof the merkle path to the withdrawal log.
+    /// @param withdrawalLogIndex the index of the withdrawal log in the block.
+    /// This is the index of the withdraw transaction relative to the block's
+    /// withdrawal transctions.
+    /// A pseudocode would be [tx if tx is withdrawx for tx in block.txs()].index(leaf_tx).
     /// @param l2WithdrawalBlockNumber the block number where the withdrawal log
     /// was emitted.
     function claimWithdrawal(
         bytes32 l2WithdrawalTxHash,
         uint256 claimedAmount,
         uint256 l2WithdrawalBlockNumber,
+        uint256 withdrawalLogIndex,
         bytes32[] calldata withdrawalProof
     ) external;
 }

@@ -24,8 +24,7 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
 
     address public BRIDGE;
 
-    constructor() {}
-
+    /// @inheritdoc IOnChainProposer
     function initialize(address bridge) public nonReentrant {
         require(
             BRIDGE == address(0),

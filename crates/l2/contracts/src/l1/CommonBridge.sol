@@ -35,6 +35,7 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
 
     constructor(address owner) Ownable(owner) {}
 
+    /// @inheritdoc ICommonBridge
     function initialize(address onChainProposer) public nonReentrant {
         require(
             ON_CHAIN_PROPOSER == address(0),
@@ -88,7 +89,8 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         bytes32 l2WithdrawalTxHash,
         uint256 claimedAmount,
         uint256 withdrawalBlockNumber,
-        bytes32[] calldata //withdrawalProof
+        uint256 withdrawalLogIndex,
+        bytes32[] calldata withdrawalProof
     ) public nonReentrant {
         require(
             blockWithdrawalsLogs[withdrawalBlockNumber] != bytes32(0),
@@ -98,8 +100,16 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
             claimedWithdrawals[l2WithdrawalTxHash] == false,
             "CommonBridge: the withdrawal was already claimed"
         );
-        // TODO: Verify the proof.
-        require(true, "CommonBridge: invalid withdrawal proof");
+        require(
+            _verifyWithdrawProof(
+                l2WithdrawalTxHash,
+                claimedAmount,
+                withdrawalBlockNumber,
+                withdrawalLogIndex,
+                withdrawalProof
+            ),
+            "CommonBridge: invalid withdrawal proof"
+        );
 
         (bool success, ) = payable(msg.sender).call{value: claimedAmount}("");
 
@@ -108,5 +118,30 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         claimedWithdrawals[l2WithdrawalTxHash] = true;
 
         emit WithdrawalClaimed(l2WithdrawalTxHash, msg.sender, claimedAmount);
+    }
+
+    function _verifyWithdrawProof(
+        bytes32 l2WithdrawalTxHash,
+        uint256 claimedAmount,
+        uint256 withdrawalBlockNumber,
+        uint256 withdrawalLogIndex,
+        bytes32[] calldata withdrawalProof
+    ) internal view returns (bool) {
+        bytes32 withdrawalLeaf = keccak256(
+            abi.encodePacked(msg.sender, claimedAmount, l2WithdrawalTxHash)
+        );
+        for (uint256 i = 0; i < withdrawalProof.length; i++) {
+            if (withdrawalLogIndex % 2 == 0) {
+                withdrawalLeaf = keccak256(
+                    abi.encodePacked(withdrawalLeaf, withdrawalProof[i])
+                );
+            } else {
+                withdrawalLeaf = keccak256(
+                    abi.encodePacked(withdrawalProof[i], withdrawalLeaf)
+                );
+            }
+            withdrawalLogIndex /= 2;
+        }
+        return withdrawalLeaf == blockWithdrawalsLogs[withdrawalBlockNumber];
     }
 }
