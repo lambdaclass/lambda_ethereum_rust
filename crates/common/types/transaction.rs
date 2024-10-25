@@ -1224,13 +1224,109 @@ mod serde_impl {
     }
 
     impl<'de> Deserialize<'de> for EIP4844Transaction {
-        fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
             D: serde::Deserializer<'de>,
         {
-            Err(serde::de::Error::custom(
-                "EIP4844Transaction deserialization unimplemented",
-            ))
+            let mut map = <HashMap<String, serde_json::Value>>::deserialize(deserializer)?;
+            let chain_id = serde_json::from_value::<U256>(
+                map.remove("chainId")
+                    .ok_or_else(|| serde::de::Error::missing_field("chainId"))?,
+            )
+            .map_err(serde::de::Error::custom)?
+            .as_u64();
+            let nonce = serde_json::from_value::<U256>(
+                map.remove("nonce")
+                    .ok_or_else(|| serde::de::Error::missing_field("nonce"))?,
+            )
+            .map_err(serde::de::Error::custom)?
+            .as_u64();
+            let max_priority_fee_per_gas = serde_json::from_value::<U256>(
+                map.remove("maxPriorityFeePerGas")
+                    .ok_or_else(|| serde::de::Error::missing_field("maxPriorityFeePerGas"))?,
+            )
+            .map_err(serde::de::Error::custom)?
+            .as_u64();
+            let max_fee_per_gas = serde_json::from_value::<U256>(
+                map.remove("maxFeePerGas")
+                    .ok_or_else(|| serde::de::Error::missing_field("maxFeePerGas"))?,
+            )
+            .map_err(serde::de::Error::custom)?
+            .as_u64();
+            let gas = serde_json::from_value::<U256>(
+                map.remove("gas")
+                    .ok_or_else(|| serde::de::Error::missing_field("gas"))?,
+            )
+            .map_err(serde::de::Error::custom)?
+            .as_u64();
+            let to = serde_json::from_value(
+                map.remove("to")
+                    .ok_or_else(|| serde::de::Error::missing_field("to"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let value = serde_json::from_value(
+                map.remove("value")
+                    .ok_or_else(|| serde::de::Error::missing_field("value"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let data = serde_json::from_value(
+                map.remove("input")
+                    .ok_or_else(|| serde::de::Error::missing_field("input"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let access_list = serde_json::from_value(
+                map.remove("accessList")
+                    .ok_or_else(|| serde::de::Error::missing_field("accessList"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let max_fee_per_blob_gas = serde_json::from_value::<U256>(
+                map.remove("maxFeePerBlobGas")
+                    .ok_or_else(|| serde::de::Error::missing_field("maxFeePerBlobGas"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let blob_versioned_hashes = serde_json::from_value(
+                map.remove("blobVersionedHashes")
+                    .ok_or_else(|| serde::de::Error::missing_field("blobVersionedHashes"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let signature_y_parity = u8::from_str_radix(
+                serde_json::from_value::<String>(
+                    map.remove("yParity")
+                        .ok_or_else(|| serde::de::Error::missing_field("yParity"))?,
+                )
+                .map_err(serde::de::Error::custom)?
+                .trim_start_matches("0x"),
+                16,
+            )
+            .map_err(serde::de::Error::custom)?
+                != 0;
+            let signature_r = serde_json::from_value(
+                map.remove("r")
+                    .ok_or_else(|| serde::de::Error::missing_field("r"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+            let signature_s = serde_json::from_value(
+                map.remove("s")
+                    .ok_or_else(|| serde::de::Error::missing_field("s"))?,
+            )
+            .map_err(serde::de::Error::custom)?;
+
+            Ok(EIP4844Transaction {
+                chain_id,
+                nonce,
+                max_priority_fee_per_gas,
+                max_fee_per_gas,
+                gas,
+                to,
+                value,
+                data,
+                access_list,
+                max_fee_per_blob_gas,
+                blob_versioned_hashes,
+                signature_y_parity,
+                signature_r,
+                signature_s,
+            })
         }
     }
 
