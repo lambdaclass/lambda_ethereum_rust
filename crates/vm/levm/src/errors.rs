@@ -26,6 +26,7 @@ pub enum VMError {
     SenderAccountShouldNotHaveBytecode,
     SenderBalanceShouldContainTransferValue,
     GasPriceIsLowerThanBaseFee,
+    AddressAlreadyOccuped,
 }
 
 pub enum OpcodeSuccess {
