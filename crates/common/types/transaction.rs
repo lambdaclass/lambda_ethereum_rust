@@ -1734,7 +1734,7 @@ mod tests {
             signature_r: U256::from(0x01),
             signature_s: U256::from(0x02),
         };
-        
+
         assert_eq!(
             deserialized_eip4844_transaction,
             serde_json::from_str(eip4844_transaction).unwrap()
