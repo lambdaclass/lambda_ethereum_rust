@@ -2,7 +2,7 @@ use bytes::Bytes;
 use ethereum_rust_core::types::{TxKind, GAS_LIMIT_ADJUSTMENT_FACTOR, GAS_LIMIT_MINIMUM};
 use ethereum_rust_l2::utils::{
     config::read_env_file,
-    eth_client::{self, eth_sender::Overrides, EthClient},
+    eth_client::{eth_sender::Overrides, EthClient},
 };
 use ethereum_types::{Address, H160, H256};
 use keccak_hash::keccak;
@@ -272,6 +272,15 @@ async fn initialize_contracts(bridge: Address, on_chain_proposer_address: Addres
         )
         .await
         .expect("Failed to send initialize transaction");
+
+    while eth_client
+        .get_transaction_receipt(initialize_tx_hash)
+        .await
+        .expect("Failed to get transaction receipt")
+        .is_none()
+    {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
 
     println!("Bridge initialized with tx hash {initialize_tx_hash:#x}\n");
 }
