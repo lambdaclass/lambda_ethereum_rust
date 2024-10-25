@@ -5,8 +5,8 @@ use std::{
     str::FromStr,
 };
 
-use bytes::Bytes; 
-use ethereum_rust_levm::vm::{Account, Db, VM};
+use bytes::Bytes;
+use ethereum_rust_levm::vm::{Account, Db, StorageSlot, VM};
 use ethereum_types::{Address, H256, U256};
 use serde::{Deserialize, Serialize};
 
@@ -189,7 +189,7 @@ fn parse_contents(json_contents: Vec<String>) -> Vec<HashMap<String, TestArgs>> 
     json_contents
         .into_iter()
         .map(|json_content| {
-            // println!("{}", &json_content[..55]);
+            //println!("{}", &json_content[..55]);
             serde_json::from_str(&json_content).expect("Unable to parse JSON")
         })
         .collect()
@@ -255,6 +255,7 @@ fn ethereum_foundation_general_state_tests() {
             );
 
             // Execute
+            println!("Executing testcase {test_name}");
             let _result = vm.transact();
 
             // Verify
@@ -263,6 +264,7 @@ fn ethereum_foundation_general_state_tests() {
             - Verify the result of the execution
             - Verify the hash state
             - Verify the result of the accounts individually (possibly require equal )
+            - Check if gas costs have been applied to the sender
              */
 
             /*
@@ -279,7 +281,7 @@ fn ethereum_foundation_general_state_tests() {
                }
             */
 
-            println!("Test name: {}, Arg: {:#?}", test_name, test_args.env);
+            println!("Test name: {}", test_name);
         }
     }
 
