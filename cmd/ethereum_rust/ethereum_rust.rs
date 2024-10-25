@@ -1,4 +1,3 @@
-use anyhow::Context;
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;

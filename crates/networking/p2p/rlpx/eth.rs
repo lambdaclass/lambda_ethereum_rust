@@ -2,7 +2,7 @@ use super::{message::RLPxMessage, utils::snappy_encode};
 use bytes::BufMut;
 use ethereum_rust_core::{
     types::{BlockHash, ForkId},
-    H256, U256,
+    U256,
 };
 use ethereum_rust_rlp::{
     encode::RLPEncode,
@@ -30,8 +30,6 @@ pub(crate) struct StatusMessage {
     fork_id: ForkId,
 }
 
-// TODO remove this allow once we construct StatusMessages
-#[allow(unused)]
 impl StatusMessage {
     pub fn new(storage: &Store) -> Result<Self, StoreError> {
         let chain_config = storage.get_chain_config()?;
@@ -43,7 +41,7 @@ impl StatusMessage {
         let genesis_header = storage.get_block_header(0)?.unwrap();
         let block_number = storage.get_latest_block_number()?.unwrap();
         info!("last block number {block_number}");
-        let block_header = storage.get_block_header(500)?.unwrap();
+        let block_header = storage.get_block_header(block_number)?.unwrap();
 
         let genesis = genesis_header.compute_block_hash();
         let block_hash = block_header.compute_block_hash();
