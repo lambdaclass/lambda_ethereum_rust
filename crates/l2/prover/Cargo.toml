@@ -16,6 +16,7 @@ hex.workspace = true
 
 # ethereum_rust
 ethereum_rust-core.workspace = true
+ethereum_rust-vm.workspace = true
 ethereum_rust-rlp.workspace = true
 
 # l2

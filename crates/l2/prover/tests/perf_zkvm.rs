@@ -1,25 +1,11 @@
-use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::info;
 
 use ethereum_rust_blockchain::add_block;
-use ethereum_rust_core::types::Receipt;
 use ethereum_rust_l2::proposer::prover_server::ProverInputData;
 use ethereum_rust_prover_lib::prover::Prover;
 use ethereum_rust_storage::{EngineType, Store};
 use ethereum_rust_vm::execution_db::ExecutionDB;
-
-// The order of variables in this structure should match the order in which they were
-// committed in the zkVM, with each variable represented by a field.
-#[derive(Debug, Deserialize)]
-struct ProverOutputData {
-    /// It is rlp encoded, it has to be decoded.
-    /// Block::decode(&prover_output_data.block).unwrap());
-    _block: Vec<u8>,
-    _execution_db: ExecutionDB,
-    _parent_block_header: Vec<u8>,
-    block_receipts: Vec<Receipt>,
-}
 
 #[tokio::test]
 async fn test_performance_zkvm() {
@@ -83,7 +69,7 @@ async fn test_performance_zkvm() {
 
     prover.verify(&receipt).unwrap();
 
-    let output: ProverOutputData = receipt.journal.decode().unwrap();
+    let output = Prover::get_commitment(&receipt).unwrap();
 
     let execution_cumulative_gas_used = output.block_receipts.last().unwrap().cumulative_gas_used;
     info!("Cumulative Gas Used {execution_cumulative_gas_used}");
