@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     constants::{call_opcode, WORD_SIZE},
-    vm::word_to_address,
+    vm::{word_to_address, Database},
 };
 use sha3::{Digest, Keccak256};
 
@@ -237,7 +237,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
-        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+        let gas_cost = if self.accrued_substate.accessed_addresses.contains(&address) {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
@@ -277,7 +277,7 @@ impl VM {
         let memory_expansion_cost = current_call_frame
             .memory
             .expansion_cost(dest_offset + size)?;
-        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+        let address_access_cost = if self.accrued_substate.accessed_addresses.contains(&address) {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
@@ -364,7 +364,7 @@ impl VM {
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
-        let gas_cost = if self.accrued_substate.warm_addresses.contains(&address) {
+        let gas_cost = if self.accrued_substate.accessed_addresses.contains(&address) {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST

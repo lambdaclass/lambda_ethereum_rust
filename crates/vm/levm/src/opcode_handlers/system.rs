@@ -1,6 +1,6 @@
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason,
+    errors::ResultReason, vm::Database,
 };
 
 use super::*;
@@ -41,7 +41,7 @@ impl VM {
         let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
-        let address_access_cost = if self.accrued_substate.warm_addresses.contains(&code_address) {
+        let address_access_cost = if self.accrued_substate.accessed_addresses.contains(&code_address) {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         } else {
             call_opcode::COLD_ADDRESS_ACCESS_COST
@@ -66,7 +66,7 @@ impl VM {
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
 
-        self.accrued_substate.warm_addresses.insert(code_address);
+        self.accrued_substate.accessed_addresses.insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
         let to = current_call_frame.to;

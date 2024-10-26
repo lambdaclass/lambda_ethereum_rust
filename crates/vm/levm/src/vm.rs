@@ -88,6 +88,16 @@ impl Account {
 
 pub type Storage = HashMap<U256, H256>;
 
+pub trait Database: Clone + std::fmt::Debug + Default {
+    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
+    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot);
+    fn get_account_bytecode(&self, address: &Address) -> Bytes;
+    fn balance(&mut self, address: &Address) -> U256;
+    fn add_account(&mut self, address: Address, account: Account);
+    fn increment_account_nonce(&mut self, address: &Address);
+    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError>;
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Db {
     pub accounts: HashMap<Address, Account>,
@@ -95,15 +105,15 @@ pub struct Db {
     pub block_hashes: HashMap<U256, H256>,
 }
 
-impl Db {
-    pub fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
+impl Database for Db {
+    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
         self.accounts
             .get(address)
             .and_then(|account| account.storage.get(key))
             .cloned()
     }
 
-    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
         self.accounts
             .entry(*address)
             .or_default()
@@ -111,23 +121,23 @@ impl Db {
             .insert(key, slot);
     }
 
-    pub fn get_account_bytecode(&self, address: &Address) -> Bytes {
+    fn get_account_bytecode(&self, address: &Address) -> Bytes {
         self.accounts
             .get(address)
             .map_or(Bytes::new(), |acc| acc.bytecode.clone())
     }
 
-    pub fn balance(&mut self, address: &Address) -> U256 {
+    fn balance(&mut self, address: &Address) -> U256 {
         self.accounts
             .get(address)
             .map_or(U256::zero(), |acc| acc.balance)
     }
 
-    pub fn add_account(&mut self, address: Address, account: Account) {
+    fn add_account(&mut self, address: Address, account: Account) {
         self.accounts.insert(address, account);
     }
 
-    pub fn increment_account_nonce(&mut self, address: &Address) {
+    fn increment_account_nonce(&mut self, address: &Address) {
         if let Some(acc) = self.accounts.get_mut(address) {
             acc.increment_nonce()
         }
@@ -135,7 +145,7 @@ impl Db {
 
     /// Returns the account associated with the given address.
     /// If the account does not exist in the Db, it creates a new one with the given address.
-    pub fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
+    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
         if self.accounts.contains_key(address) {
             return Ok(self.accounts.get(address).unwrap());
         }
@@ -154,7 +164,9 @@ impl Db {
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
-    pub warm_addresses: HashSet<Address>,
+    // accessed addresses and storage keys are considered WARM
+    pub accessed_addresses: HashSet<Address>,
+    pub accessed_storage_keys: HashSet<(Address, U256)>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -177,6 +189,12 @@ pub struct Environment {
     pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
+
+#[derive(Debug, Default, Clone)]
+pub struct Cache {
+    pub accounts: HashMap<Address, Account>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
@@ -187,6 +205,7 @@ pub struct VM {
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
     pub db: Db,
+    pub cache: Cache,
 }
 
 fn address_to_word(address: Address) -> U256 {
@@ -269,7 +288,9 @@ impl VM {
             db,
             env,
             accrued_substate: Substate::default(),
+            cache: Cache::default(),
         }
+        // TODO: Substate and Cache should be initialized with the right values.
     }
 
     pub fn execute(&mut self, current_call_frame: &mut CallFrame) -> TransactionReport {
