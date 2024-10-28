@@ -25,7 +25,7 @@ pub struct ExecutionDB {
     accounts: HashMap<RevmAddress, RevmAccountInfo>,
     /// indexed by code hash
     code: HashMap<RevmB256, RevmBytecode>,
-    /// indexed by account address and storage slot
+    /// indexed by account address and storage key
     storage: HashMap<RevmAddress, HashMap<RevmU256, RevmU256>>,
     /// indexed by block number
     block_hashes: HashMap<u64, RevmB256>,
