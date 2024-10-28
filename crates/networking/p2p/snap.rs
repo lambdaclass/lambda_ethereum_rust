@@ -853,10 +853,10 @@ mod tests {
         let store = Store::new("null", EngineType::InMemory).unwrap();
         let mut state_trie = store.new_state_trie_for_test();
         for (address, account) in accounts {
-            let hashed_address = H256::from_str(address).unwrap();
+            let hashed_address = H256::from_str(address).unwrap().as_bytes().to_vec();
             let account = AccountState::from(AccountStateSlim::decode(&account).unwrap());
             state_trie
-                .insert(hashed_address.encode_to_vec(), account.encode_to_vec())
+                .insert(hashed_address, account.encode_to_vec())
                 .unwrap();
         }
         (store, state_trie.hash().unwrap())

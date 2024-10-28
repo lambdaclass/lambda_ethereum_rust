@@ -686,7 +686,7 @@ impl Store {
             .content()
             .map_while(|(path, value)| {
                 Some((
-                    H256::decode(&path).ok()?,
+                    H256::from_slice(&path),
                     AccountState::decode(&value).ok()?,
                 ))
             })
