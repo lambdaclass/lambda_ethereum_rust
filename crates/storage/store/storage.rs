@@ -699,8 +699,8 @@ impl Store {
         limit_hash: H256,
     ) -> Result<Vec<Vec<u8>>, StoreError> {
         let state_trie = self.engine.open_state_trie(state_root);
-        let mut proof = state_trie.get_proof(&starting_hash.encode_to_vec())?;
-        proof.extend_from_slice(&state_trie.get_proof(&limit_hash.encode_to_vec())?);
+        let mut proof = state_trie.get_proof(&starting_hash.as_bytes().to_vec())?;
+        proof.extend_from_slice(&state_trie.get_proof(&limit_hash.as_bytes().to_vec())?);
         Ok(proof)
     }
 
