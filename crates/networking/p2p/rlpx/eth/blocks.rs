@@ -97,12 +97,9 @@ impl RLPxMessage for GetBlockHeaders {
             .map_err(|e| RLPDecodeError::Custom(e.to_string()))?;
         let decoder = Decoder::new(&decompressed_data)?;
         let (id, decoder): (u64, _) = decoder.decode_field("request-id")?;
-        let (startblock, decoder): (HashOrNumber, _) = decoder.decode_field("startblock")?;
-        let (limit, decoder): (u64, _) = decoder.decode_field("limit")?;
-        let (skip, decoder): (u64, _) = decoder.decode_field("skip")?;
-        let (reverse, _): (bool, _) = decoder.decode_field("reverse")?;
-
-        Ok(Self::new(id, startblock, limit, skip, reverse))
+        let ((start_block, limit, skip, reverse), _): ((HashOrNumber, u64, u64, bool), _) =
+            decoder.decode_field("get headers request params")?;
+        Ok(Self::new(id, start_block, limit, skip, reverse))
     }
 }
 

@@ -272,6 +272,8 @@ impl<T: RLPDecode> RLPDecode for Vec<T> {
 
         let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
         if !is_list {
+            println!("THE PAYLOAD = {payload:?}");
+            println!("REST OF INPUT = {input_rest:?}");
             return Err(RLPDecodeError::MalformedData);
         }
 
@@ -329,6 +331,41 @@ impl<T1: RLPDecode, T2: RLPDecode, T3: RLPDecode> RLPDecode for (T1, T2, T3) {
         }
 
         Ok(((first, second, third), input_rest))
+    }
+}
+
+// FIXME: Clean up this code
+impl<
+        T1: RLPDecode + std::fmt::Debug,
+        T2: RLPDecode + std::fmt::Debug,
+        T3: RLPDecode + std::fmt::Debug,
+        T4: RLPDecode + std::fmt::Debug,
+    > RLPDecode for (T1, T2, T3, T4)
+{
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        if rlp.is_empty() {
+            return Err(RLPDecodeError::InvalidLength);
+        }
+        let (is_list, payload, input_rest) = decode_rlp_item(rlp)?;
+        if !is_list {
+            return Err(RLPDecodeError::MalformedData);
+        }
+        // FIXME: Remove the prints
+        let (first, first_rest) = T1::decode_unfinished(payload)?;
+        println!("FIRST DECODED = {first:x?}");
+        let (second, second_rest) = T2::decode_unfinished(first_rest)?;
+        println!("SECOND DECODED = {second:x?}");
+        let (third, third_rest) = T3::decode_unfinished(second_rest)?;
+        println!("THIRD DECODED = {third:x?}");
+        let (fourth, fourth_rest) = T4::decode_unfinished(third_rest)?;
+        println!("FOURTH DECODED = {fourth:x?}");
+        // check that there is no more data to decode after the fourth element.
+        if !fourth_rest.is_empty() {
+            println!("LIST IS NOT EMPTY = {fourth_rest:?}");
+            return Err(RLPDecodeError::MalformedData);
+        }
+
+        Ok(((first, second, third, fourth), input_rest))
     }
 }
 
