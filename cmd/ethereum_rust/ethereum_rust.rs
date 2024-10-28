@@ -129,10 +129,10 @@ async fn main() {
                 block.header.number, hash
             );
             let result = add_block(&block, &store);
-            if result.is_err() {
+            if let Some(error) = result.err() {
                 warn!(
-                    "Failed to add block {} with hash {:#x}: {:?}.",
-                    block.header.number, hash, result
+                    "Failed to add block {} with hash {:#x}: {}.",
+                    block.header.number, hash, error
                 );
             }
             store
