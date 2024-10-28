@@ -9,3 +9,4 @@ pub mod operations;
 pub mod primitives;
 pub mod utils;
 pub mod vm;
+pub mod db;

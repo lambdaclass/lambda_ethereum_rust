@@ -1,9 +1,5 @@
 use crate::{
-    call_frame::CallFrame,
-    constants::*,
-    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
-    opcodes::Opcode,
-    primitives::{Address, Bytes, H256, U256},
+    call_frame::CallFrame, constants::*, db::{Database, Db, Cache}, errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError}, opcodes::Opcode, primitives::{Address, Bytes, H256, U256}
 };
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -88,78 +84,7 @@ impl Account {
 
 pub type Storage = HashMap<U256, H256>;
 
-pub trait Database: Clone + std::fmt::Debug + Default {
-    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
-    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot);
-    fn get_account_bytecode(&self, address: &Address) -> Bytes;
-    fn balance(&mut self, address: &Address) -> U256;
-    fn add_account(&mut self, address: Address, account: Account);
-    fn increment_account_nonce(&mut self, address: &Address);
-    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError>;
-}
 
-#[derive(Clone, Debug, Default)]
-pub struct Db {
-    pub accounts: HashMap<Address, Account>,
-    // contracts: HashMap<B256, Bytecode>,
-    pub block_hashes: HashMap<U256, H256>,
-}
-
-impl Database for Db {
-    fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
-        self.accounts
-            .get(address)
-            .and_then(|account| account.storage.get(key))
-            .cloned()
-    }
-
-    fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
-        self.accounts
-            .entry(*address)
-            .or_default()
-            .storage
-            .insert(key, slot);
-    }
-
-    fn get_account_bytecode(&self, address: &Address) -> Bytes {
-        self.accounts
-            .get(address)
-            .map_or(Bytes::new(), |acc| acc.bytecode.clone())
-    }
-
-    fn balance(&mut self, address: &Address) -> U256 {
-        self.accounts
-            .get(address)
-            .map_or(U256::zero(), |acc| acc.balance)
-    }
-
-    fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
-    }
-
-    fn increment_account_nonce(&mut self, address: &Address) {
-        if let Some(acc) = self.accounts.get_mut(address) {
-            acc.increment_nonce()
-        }
-    }
-
-    /// Returns the account associated with the given address.
-    /// If the account does not exist in the Db, it creates a new one with the given address.
-    fn get_account(&mut self, address: &Address) -> Result<&Account, VMError> {
-        if self.accounts.contains_key(address) {
-            return Ok(self.accounts.get(address).unwrap());
-        }
-
-        let new_account = Account {
-            address: *address,
-            ..Default::default()
-        };
-
-        self.accounts.insert(*address, new_account);
-
-        Ok(self.accounts.get(address).unwrap())
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
@@ -189,13 +114,7 @@ pub struct Environment {
     pub tx_blob_hashes: Option<Vec<H256>>,
 }
 
-
-#[derive(Debug, Default, Clone)]
-pub struct Cache {
-    pub accounts: HashMap<Address, Account>,
-}
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub struct VM {
     pub call_frames: Vec<CallFrame>,
     pub env: Environment,
@@ -204,7 +123,7 @@ pub struct VM {
     pub accrued_substate: Substate,
     /// Mapping between addresses (160-bit identifiers) and account
     /// states.
-    pub db: Db,
+    pub db: Box<dyn Database>,
     pub cache: Cache,
 }
 
@@ -285,7 +204,7 @@ impl VM {
 
         Self {
             call_frames: vec![initial_call_frame],
-            db,
+            db: Box::new(db),
             env,
             accrued_substate: Substate::default(),
             cache: Cache::default(),
@@ -404,7 +323,7 @@ impl VM {
                     self.call_frames.push(current_call_frame.clone());
                     return TransactionReport {
                         result: TxResult::Success,
-                        new_state: self.db.accounts.clone(),
+                        new_state: self.cache.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
                         output: current_call_frame.returndata.clone(),
@@ -424,7 +343,7 @@ impl VM {
 
                     return TransactionReport {
                         result: TxResult::Revert(error),
-                        new_state: self.db.accounts.clone(),
+                        new_state: self.cache.accounts.clone(),
                         gas_used: current_call_frame.gas_used.low_u64(),
                         gas_refunded: self.env.refunded_gas.low_u64(),
                         output: current_call_frame.returndata.clone(),
@@ -454,11 +373,11 @@ impl VM {
     /// the block’s base fee;
     /// (8) For type 2 transactions, max priority fee per fas, must be no larger
     /// than max fee per fas.
-    fn validate_transaction(&self) -> Result<(), VMError> {
+    fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-        let sender_account = match self.db.accounts.get(&self.env.origin) {
-            Some(acc) => acc,
-            None => return Err(VMError::SenderAccountDoesNotExist),
+        let sender_account = match self.db.get_account(&self.env.origin) {
+            Ok(acc) => acc,
+            Err(_) => return Err(VMError::SenderAccountDoesNotExist),
         };
         // (4)
         if sender_account.has_code() {
@@ -642,9 +561,8 @@ impl VM {
         }
 
         let sender_account = self
-            .db
-            .accounts
-            .get_mut(&current_call_frame.msg_sender)
+            .cache
+            .get_account(&current_call_frame.msg_sender)
             .unwrap();
 
         if sender_account.balance < value_in_wei_to_send {
@@ -676,8 +594,9 @@ impl VM {
                 Self::calculate_create_address(current_call_frame.msg_sender, sender_account.nonce)
             }
         };
+        self.cache.add_account(sender_account);
 
-        if self.db.accounts.contains_key(&new_address) {
+        if self.cache.accounts.contains_key(&new_address) {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;

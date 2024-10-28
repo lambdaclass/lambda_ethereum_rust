@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     constants::{call_opcode, WORD_SIZE},
-    vm::{word_to_address, Database},
+    vm::word_to_address,
 };
 use sha3::{Digest, Keccak256};
 

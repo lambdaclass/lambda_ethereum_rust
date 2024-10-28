@@ -1,6 +1,6 @@
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason, vm::Database,
+    errors::ResultReason,
 };
 
 use super::*;

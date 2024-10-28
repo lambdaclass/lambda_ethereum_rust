@@ -1,6 +1,6 @@
 use crate::{
     block::LAST_AVAILABLE_BLOCK_LIMIT,
-    constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS}, vm::Database,
+    constants::{BLOB_BASE_FEE_UPDATE_FRACTION, MIN_BASE_FEE_PER_BLOB_GAS},
 };
 use keccak_hash::H256;
 
@@ -30,7 +30,7 @@ impl VM {
             return Ok(OpcodeSuccess::Continue);
         }
 
-        if let Some(block_hash) = self.db.block_hashes.get(&block_number) {
+        if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
                 .stack
                 .push(U256::from_big_endian(&block_hash.0))?;
