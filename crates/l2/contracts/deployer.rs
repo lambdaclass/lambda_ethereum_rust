@@ -105,32 +105,37 @@ async fn deploy_contracts(
     deployer_private_key: SecretKey,
     eth_client: &EthClient,
 ) -> (Address, Address) {
+    if std::fs::exists("contracts/solc_out").expect("Could not determine if solc_out exists") {
+        std::fs::remove_dir_all("contracts/solc_out").expect("Failed to remove solc_out");
+    }
+
     let overrides = Overrides {
         gas_limit: Some(GAS_LIMIT_MINIMUM * GAS_LIMIT_ADJUSTMENT_FACTOR),
         gas_price: Some(1_000_000_000),
         ..Default::default()
     };
 
-    let (on_chain_proposer_deployment_tx_hash, on_chain_proposer) = deploy_on_chain_proposer(
-        deployer,
-        deployer_private_key,
-        overrides.clone(),
-        &eth_client,
-    )
-    .await;
+    let (on_chain_proposer_deployment_tx_hash, on_chain_proposer_address) =
+        deploy_on_chain_proposer(
+            deployer,
+            deployer_private_key,
+            overrides.clone(),
+            &eth_client,
+        )
+        .await;
     println!(
-        "OnChainProposer deployed at address {:#x} with tx hash {:#x}\n",
-        on_chain_proposer, on_chain_proposer_deployment_tx_hash
+        "OnChainProposer deployed at address {:#x} with tx hash {:#x}",
+        on_chain_proposer_address, on_chain_proposer_deployment_tx_hash
     );
 
     let (bridge_deployment_tx_hash, bridge_address) =
         deploy_bridge(deployer, deployer_private_key, overrides, &eth_client).await;
     println!(
-        "Bridge deployed at address {:#x} with tx hash {:#x}\n",
+        "Bridge deployed at address {:#x} with tx hash {:#x}",
         bridge_address, bridge_deployment_tx_hash
     );
 
-    (on_chain_proposer, bridge_address)
+    (on_chain_proposer_address, bridge_address)
 }
 
 async fn deploy_on_chain_proposer(
