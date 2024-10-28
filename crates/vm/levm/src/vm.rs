@@ -381,16 +381,16 @@ impl VM {
     /// than max fee per fas.
     fn validate_transaction(&mut self) -> Result<(), VMError> {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
-        let sender_account = match self.db.get_account(&self.env.origin) {
-            Ok(acc) => acc,
-            Err(_) => return Err(VMError::SenderAccountDoesNotExist),
+        let sender_account = match self.cache.get_account(self.env.origin) {
+            Some(acc) => acc,
+            None => return Err(VMError::SenderAccountDoesNotExist),
         };
         // (4)
         if sender_account.has_code() {
             return Err(VMError::SenderAccountShouldNotHaveBytecode);
         }
         // (6)
-        if sender_account.balance < self.call_frames[0].msg_value {
+        if sender_account.info.balance < self.call_frames[0].msg_value {
             return Err(VMError::SenderBalanceShouldContainTransferValue);
         }
         // (7)
@@ -433,7 +433,7 @@ impl VM {
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
         // check balance
-        if self.db.balance(&current_call_frame.msg_sender) < value {
+        if self.cache.get_account(current_call_frame.msg_sender).unwrap().info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
         }
@@ -441,7 +441,7 @@ impl VM {
         // transfer value
         // transfer(&current_call_frame.msg_sender, &address, value);
 
-        let code_address_bytecode = self.db.get_account_bytecode(&code_address);
+        let code_address_bytecode = self.cache.get_account(code_address).unwrap().info.bytecode.clone();
         if code_address_bytecode.is_empty() {
             // should stop
             current_call_frame
@@ -450,7 +450,7 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Stop));
         }
 
-        self.db.increment_account_nonce(&code_address);
+        self.cache.increment_account_nonce(&code_address);
 
         let calldata = current_call_frame
             .memory
@@ -568,24 +568,24 @@ impl VM {
 
         let sender_account = self
             .cache
-            .get_account(&current_call_frame.msg_sender)
+            .get_mut_account(current_call_frame.msg_sender)
             .unwrap();
 
-        if sender_account.balance < value_in_wei_to_send {
+        if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let Some(new_nonce) = sender_account.nonce.checked_add(1) else {
+        let Some(new_nonce) = sender_account.info.nonce.checked_add(1) else {
             current_call_frame
                 .stack
                 .push(U256::from(REVERT_FOR_CREATE))?;
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         };
-        sender_account.nonce = new_nonce;
-        sender_account.balance -= value_in_wei_to_send;
+        sender_account.info.nonce = new_nonce;
+        sender_account.info.balance -= value_in_wei_to_send;
         let code = Bytes::from(
             current_call_frame
                 .memory
@@ -597,10 +597,9 @@ impl VM {
                 Self::calculate_create2_address(current_call_frame.msg_sender, &code, salt)
             }
             None => {
-                Self::calculate_create_address(current_call_frame.msg_sender, sender_account.nonce)
+                Self::calculate_create_address(current_call_frame.msg_sender, sender_account.info.nonce)
             }
         };
-        self.cache.add_account(sender_account);
 
         if self.cache.accounts.contains_key(&new_address) {
             current_call_frame
@@ -610,13 +609,12 @@ impl VM {
         }
 
         let new_account = Account::new(
-            new_address,
             value_in_wei_to_send,
             code.clone(),
             0,
             Default::default(),
         );
-        self.db.add_account(new_address, new_account);
+        self.cache.add_account(&new_address, &new_account);
 
         current_call_frame
             .stack
