@@ -566,10 +566,11 @@ impl VM {
             return Ok(OpcodeSuccess::Result(ResultReason::Revert));
         }
 
-        let sender_account = self
-            .cache
-            .get_mut_account(current_call_frame.msg_sender)
-            .unwrap();
+        if !self.cache.is_account_cached(&current_call_frame.msg_sender){
+            self.get_from_db_then_cache(&current_call_frame.msg_sender);
+        };
+
+        let sender_account = self.cache.get_mut_account(current_call_frame.msg_sender).unwrap();
 
         if sender_account.info.balance < value_in_wei_to_send {
             current_call_frame
