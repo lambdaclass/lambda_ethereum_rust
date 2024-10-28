@@ -1,7 +1,7 @@
 use crate::{
     db::Db,
     operations::Operation,
-    vm::{Account, VM},
+    vm::{Account, AccountInfo, VM},
 };
 use bytes::Bytes;
 use ethereum_types::{Address, U256};
@@ -28,21 +28,23 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         (
             Address::from_low_u64_be(42),
             Account {
-                address: Address::from_low_u64_be(42),
-                balance: U256::MAX,
-                bytecode,
+                info: AccountInfo {
+                    nonce: 0,
+                    balance: U256::MAX,
+                    bytecode
+                },
                 storage: HashMap::new(),
-                nonce: 0,
             },
         ),
         (
             address,
             Account {
-                address,
-                balance,
-                bytecode: Bytes::default(),
+                info: AccountInfo {
+                    nonce: 0,
+                    balance,
+                    bytecode: Bytes::default(),
+                },                
                 storage: HashMap::new(),
-                nonce: 0,
             },
         ),
     ];
@@ -69,7 +71,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         U256::one(),
         Default::default(),
         Default::default(),
-        state,
+        Box::new(state),
         Default::default(),
         Default::default(),
         Default::default(),

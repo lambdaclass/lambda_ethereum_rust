@@ -160,13 +160,13 @@ impl VM {
         chain_id: U256,
         base_fee_per_gas: U256,
         gas_price: U256,
-        db: &dyn Database,
+        db: Box<dyn Database>,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
     ) -> Self {
         // TODO: This handles only CALL transactions.
-        let bytecode = db.get_account_bytecode(&to);
+        let bytecode = db.get_account_info(to).bytecode.clone();
 
         // TODO: This handles only CALL transactions.
         // TODO: Remove this allow when CREATE is implemented.
@@ -210,7 +210,7 @@ impl VM {
 
         Self {
             call_frames: vec![initial_call_frame],
-            db: Box::new(db),
+            db,
             env,
             accrued_substate: Substate::default(),
             cache: Cache::default(),

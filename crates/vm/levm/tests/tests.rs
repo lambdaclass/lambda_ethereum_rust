@@ -1956,7 +1956,6 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     let slot = StorageSlot {
         original_value: U256::from(0xBBBBBBB),
         current_value: U256::from(0xBBBBBBB),
-        is_cold: false,
     };
 
     assert_eq!(storage_slot, Some(slot));
@@ -2012,7 +2011,6 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
     let slot = StorageSlot {
         original_value: U256::from(0xAAAAAAA),
         current_value: U256::from(0xAAAAAAA),
-        is_cold: false,
     };
 
     assert_eq!(storage_slot, Some(slot));
@@ -2125,7 +2123,6 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
     let slot = StorageSlot {
         original_value: U256::from(0xAAAAAAA),
         current_value: U256::from(0xAAAAAAA),
-        is_cold: false,
     };
     assert_eq!(storage_slot, Some(slot));
     assert_eq!(
@@ -3167,7 +3164,6 @@ fn logs_from_multiple_callers() {
         .flat_map(Operation::to_bytecode)
         .collect::<Bytes>();
     let callee_account = Account::new(
-        callee_address,
         U256::from(500000),
         callee_bytecode,
         0,
@@ -3656,7 +3652,6 @@ fn cant_create_if_sender_nonce_would_overflow() {
     vm.db.insert_account(
         sender_addr,
         Account::new(
-            sender_addr,
             sender_balance,
             Bytes::new(),
             sender_nonce,
@@ -3854,7 +3849,7 @@ fn caller_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -3896,7 +3891,7 @@ fn origin_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -3964,7 +3959,7 @@ fn address_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -4008,7 +4003,7 @@ fn selfbalance_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -4048,7 +4043,7 @@ fn callvalue_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -4087,7 +4082,7 @@ fn codesize_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -4128,7 +4123,7 @@ fn gasprice_op() {
         Default::default(),
         Default::default(),
         U256::from(0x9876),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
@@ -4186,7 +4181,7 @@ fn codecopy_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        db,
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),

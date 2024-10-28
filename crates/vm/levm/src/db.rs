@@ -10,8 +10,8 @@ pub trait Database: std::fmt::Debug {
 
 #[derive(Debug, Default)]
 pub struct Db {
-    accounts: HashMap<Address, Account>,
-    block_hashes: HashMap<U256, H256>,
+    pub accounts: HashMap<Address, Account>,
+    pub block_hashes: HashMap<U256, H256>,
 }
 
 // Methods here are for testing purposes only, for initializing the Db with some values
