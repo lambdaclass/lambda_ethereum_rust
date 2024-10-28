@@ -306,8 +306,6 @@ fn create_contract(
     db_copy.increment_account_nonce(&sender);
     // Check for nonce errors?
 
-    sender_account.balance -= value;
-
     // (2)
     let new_contract_address = match salt {
         Some(salt) => VM::calculate_create2_address(sender, &calldata, salt),
@@ -375,11 +373,9 @@ fn create_contract(
     // If the initialization code completes successfully, a final contract-creation cost is paid,
     // the code-deposit cost, c, proportional to the size of the created contract’s code
     let creation_cost = 200 * contract_code.len();
-    if creation_cost > sender_account.balance.as_usize() {
-        return Err(VMError::OutOfGas);
-    }
 
-    sender_account.balance -= U256::from(creation_cost);
+    sender_account.balance.checked_sub(U256::from(creation_cost)).ok_or(VMError::OutOfGas)?;
+
     created_contract.bytecode = contract_code;
 
     let mut acc = db_copy.accounts.get_mut(&sender).unwrap();
