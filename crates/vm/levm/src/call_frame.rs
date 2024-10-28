@@ -59,9 +59,10 @@ impl Stack {
 /// A call frame, or execution environment, is the context in which
 /// the EVM is currently executing.
 pub struct CallFrame {
-    pub gas: U256,
+    pub gas_limit: U256,
+    pub gas_used: U256,
     pub pc: usize,
-    pub msg_sender: Address,
+    pub msg_sender: Address, // Origin address?
     pub to: Address,
     pub code_address: Address,
     pub delegate: Option<Address>,
@@ -70,10 +71,13 @@ pub struct CallFrame {
     pub stack: Stack, // max 1024 in the future
     pub memory: Memory,
     pub calldata: Bytes,
+    /// Return data of the CURRENT CONTEXT (see docs for more details)
     pub returndata: Bytes,
-    // where to store return data of subcall
-    pub return_data_offset: Option<usize>,
-    pub return_data_size: Option<usize>,
+    /// Return data of the SUB-CONTEXT (see docs for more details)
+    pub sub_return_data: Bytes,
+    /// where to store return data of sub-context in memory
+    pub sub_return_data_offset: usize,
+    pub sub_return_data_size: usize,
     pub is_static: bool,
     pub transient_storage: TransientStorage,
     pub logs: Vec<Log>,
@@ -84,6 +88,7 @@ impl CallFrame {
     pub fn new_from_bytecode(bytecode: Bytes) -> Self {
         Self {
             bytecode,
+            gas_limit: U256::MAX,
             ..Default::default()
         }
     }
@@ -98,11 +103,12 @@ impl CallFrame {
         msg_value: U256,
         calldata: Bytes,
         is_static: bool,
-        gas: U256,
+        gas_limit: U256,
+        gas_used: U256,
         depth: usize,
     ) -> Self {
         Self {
-            gas,
+            gas_limit,
             msg_sender,
             to,
             code_address,
@@ -112,6 +118,7 @@ impl CallFrame {
             calldata,
             is_static,
             depth,
+            gas_used,
             ..Default::default()
         }
     }

@@ -111,11 +111,6 @@ pub const MEMORY_EXPANSION_QUOTIENT: usize = 512;
 
 // Transaction costs in gas (in wei)
 pub const TX_BASE_COST: U256 = U256([21000, 0, 0, 0]);
-pub const TX_DATA_COST_PER_NON_ZERO: u64 = 16;
-pub const TX_DATA_COST_PER_ZERO: u64 = 4;
-pub const TX_CREATE_COST: u64 = 32000;
-pub const TX_ACCESS_LIST_ADDRESS_COST: u64 = 2400;
-pub const TX_ACCESS_LIST_STORAGE_KEY_COST: u64 = 1900;
 
 pub const MAX_CODE_SIZE: usize = 0x6000;
 pub const MAX_CREATE_CODE_SIZE: usize = 2 * MAX_CODE_SIZE;
@@ -129,3 +124,8 @@ pub fn init_code_cost(init_code_length: usize) -> u64 {
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
 pub const MAX_BLOB_NUMBER_PER_BLOCK: usize = 6;
+
+// Blob consts
+pub const TARGET_BLOB_GAS_PER_BLOCK: U256 = U256([393216, 0, 0, 0]);
+pub const MIN_BASE_FEE_PER_BLOB_GAS: U256 = U256([1, 0, 0, 0]);
+pub const BLOB_BASE_FEE_UPDATE_FRACTION: U256 = U256([3338477, 0, 0, 0]);
