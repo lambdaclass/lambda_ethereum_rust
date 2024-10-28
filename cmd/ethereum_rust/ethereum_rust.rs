@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
+use ethereum_rust_blockchain::fork_choice::apply_fork_choice;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
@@ -135,13 +136,9 @@ async fn main() {
                     block.header.number, hash, error
                 );
             }
-            store
-                .set_canonical_block(block.header.number, hash)
-                .unwrap();
-            store
-                .update_latest_block_number(block.header.number)
-                .unwrap();
+            apply_fork_choice(&store, hash, hash, hash).unwrap();
         }
+
         info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
