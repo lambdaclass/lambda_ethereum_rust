@@ -40,7 +40,7 @@ impl RLPDecode for Capability {
             "p2p" => Ok((Capability::P2p, rest)),
             "eth" => Ok((Capability::Eth, rest)),
             "snap" => Ok((Capability::Snap, rest)),
-            _ => return Err(RLPDecodeError::UnexpectedString),
+            _ => Err(RLPDecodeError::UnexpectedString),
         }
     }
 }
