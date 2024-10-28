@@ -281,12 +281,12 @@ fn create_contract(
 ) -> Result<VM, VMError> {
     /*
     Functionality should be:
-    1. Check whether caller has enough balance to make a transfer
-    2. Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
-    3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
-    4. Transfer the initial Ether endowment from caller to the new contract
-    5. Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
-    6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
+    (1) Check whether caller has enough balance to make a transfer
+    (2) Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
+    (3) Create the new contract account using the derived contract address (changing the “world state” StateDB)
+    (4) Transfer the initial Ether endowment from caller to the new contract
+    (5) Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
+    (6) Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
     Source: https://medium.com/@hayeah/diving-into-the-ethereum-vm-part-5-the-smart-contract-creation-process-cb7b6133b855
      */
     let mut db_copy = db.clone();
@@ -298,7 +298,7 @@ fn create_contract(
     }
     .clone();
 
-    // 1. Check whether caller has enough balance to make a transfer
+    // (1)
     if sender_account.balance < value {
         return Err(VMError::OutOfGas); // Maybe a more personalized error
     }
@@ -308,7 +308,7 @@ fn create_contract(
 
     sender_account.balance -= value;
 
-    // 2. Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
+    // (2)
     let new_contract_address = match salt {
         Some(salt) => VM::calculate_create2_address(sender, &calldata, salt),
         None => VM::calculate_create_address(sender, sender_account.nonce),
@@ -319,7 +319,7 @@ fn create_contract(
         return Err(VMError::AddressAlreadyOccuped);
     }
 
-    // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
+    // (3)
     let mut created_contract = Account::new(
         new_contract_address,
         value,
@@ -329,11 +329,11 @@ fn create_contract(
     );
     db_copy.add_account(new_contract_address, created_contract.clone());
 
-    // 4. Transfer the initial Ether endowment from caller to the new contract
+    // (4) 
     sender_account.balance -= value;
     created_contract.balance += value;
 
-    // 5. Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
+    // (5) 
     let code: Bytes = calldata.clone();
 
     // Call the contract
@@ -363,7 +363,7 @@ fn create_contract(
 
     let contract_code = res.output;
 
-    //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
+    // (6)
     if contract_code.len() > 24576 {
         return Err(VMError::ContractOutputTooBig);
     }
