@@ -359,8 +359,7 @@ fn create_contract(
     )?;
 
     let res = vm.transact()?;
-    // Maybe should not use a ?, instead make a manual revert on accounts and db and
-    // then propagate the error. Same in VM::new()
+    // Don't use a revert bc work with clones, so don't have to save previous state
 
     let contract_code = res.output;
 
