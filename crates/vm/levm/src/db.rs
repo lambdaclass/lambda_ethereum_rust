@@ -23,6 +23,16 @@ impl Db {
         }
     }
 
+    /// Add accounts to database
+    pub fn add_accounts(&mut self, accounts: Vec<(Address, Account)>) {
+        self.accounts.extend(accounts);
+    }
+
+    /// Add block hashes to database
+    pub fn add_block_hashes(&mut self, block_hashes: Vec<(U256, H256)>) {
+        self.block_hashes.extend(block_hashes);
+    }
+
     /// Builder method with accounts [for testing only]
     pub fn with_accounts(mut self, accounts: HashMap<Address, Account>) -> Self {
         self.accounts = accounts;

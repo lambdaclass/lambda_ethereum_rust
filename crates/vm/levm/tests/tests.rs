@@ -4,7 +4,7 @@ use ethereum_rust_levm::{
     errors::{TxResult, VMError},
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
-    utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
+    utils::{new_vm_with_ops, new_vm_with_ops_addr_bal_db},
     vm::{word_to_address, Account, Storage, StorageSlot, VM},
 };
 use ethereum_types::H32;

@@ -15,15 +15,16 @@ pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
 }
 
 pub fn new_vm_with_bytecode(bytecode: Bytes) -> VM {
-    new_vm_with_ops_addr_bal(bytecode, Address::from_low_u64_be(100), U256::MAX)
+    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new())
 }
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = ops_to_bytecde(operations);
-    new_vm_with_ops_addr_bal(bytecode, Address::from_low_u64_be(100), U256::MAX)
+    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new())
 }
 
-pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256) -> VM {
+/// This function is for testing purposes only.
+pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db) -> VM {
     let accounts = [
         (
             Address::from_low_u64_be(42),
@@ -49,10 +50,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         ),
     ];
 
-    let state = Db {
-        accounts: accounts.into(),
-        block_hashes: Default::default(),
-    };
+    db.add_accounts(accounts.iter().cloned().collect());
 
     // add the account with code to call
 
@@ -71,7 +69,7 @@ pub fn new_vm_with_ops_addr_bal(bytecode: Bytes, address: Address, balance: U256
         U256::one(),
         Default::default(),
         Default::default(),
-        Box::new(state),
+        Box::new(db),
         Default::default(),
         Default::default(),
         Default::default(),
