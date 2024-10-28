@@ -9,6 +9,7 @@ use super::{
     frame,
     handshake::{decode_ack_message, decode_auth_message, encode_auth_message},
     message as rlpx,
+    p2p::Capability,
     utils::{ecdh_xchng, pubkey2id},
 };
 use aes::cipher::KeyIvInit;
@@ -23,7 +24,10 @@ use k256::{
 use sha3::{Digest, Keccak256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::{error, info};
-pub const SUPPORTED_CAPABILITIES: [(&str, u8); 3] = [("p2p", 5), ("eth", 68), ("snap", 1)];
+const CAP_P2P: (Capability, u8) = (Capability::P2p, 5);
+const CAP_ETH: (Capability, u8) = (Capability::Eth, 68);
+const CAP_SNAP: (Capability, u8) = (Capability::Snap, 1);
+const SUPPORTED_CAPABILITIES: [(Capability, u8); 3] = [CAP_P2P, CAP_ETH, CAP_SNAP];
 
 pub(crate) type Aes256Ctr64BE = ctr::Ctr64BE<aes::Aes256>;
 
@@ -33,7 +37,7 @@ pub(crate) struct RLPxConnection<S> {
     state: RLPxConnectionState,
     stream: S,
     storage: Store,
-    capabilities: Vec<(String, u8)>,
+    capabilities: Vec<(Capability, u8)>,
 }
 
 impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
@@ -98,12 +102,8 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
     }
 
     pub async fn exchange_hello_messages(&mut self) -> Result<(), RLPxError> {
-        let supported_capabilities: Vec<(String, u8)> = SUPPORTED_CAPABILITIES
-            .into_iter()
-            .map(|(name, version)| (name.to_string(), version))
-            .collect();
         let hello_msg = Message::Hello(p2p::HelloMessage::new(
-            supported_capabilities.clone(),
+            SUPPORTED_CAPABILITIES.to_vec(),
             PublicKey::from(self.signer.verifying_key()),
         ));
 
@@ -118,7 +118,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
                 // Check if we have any capability in common
                 for cap in self.capabilities.clone() {
-                    if supported_capabilities.contains(&cap) {
+                    if SUPPORTED_CAPABILITIES.contains(&cap) {
                         return Ok(());
                     }
                 }
@@ -174,7 +174,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
 
     async fn start_capabilities(&mut self) -> Result<(), RLPxError> {
         // Sending eth Status if peer supports it
-        if self.capabilities.contains(&("eth".to_string(), 68u8)) {
+        if self.capabilities.contains(&CAP_ETH) {
             let status = backend::get_status(&self.storage).unwrap();
             info!("Status message sent: {status:?}");
             self.send(Message::Status(status)).await;
