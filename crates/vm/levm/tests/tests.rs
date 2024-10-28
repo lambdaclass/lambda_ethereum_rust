@@ -3910,7 +3910,7 @@ fn caller_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&caller, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -3953,7 +3953,7 @@ fn origin_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&msg_sender, &Account::default());
+    cache.add_account(&msg_sender, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4024,7 +4024,7 @@ fn address_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&address_that_has_the_code, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4067,7 +4067,9 @@ fn selfbalance_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)).with_balance(balance))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&address_that_has_the_code, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)).with_balance(balance));
+
+    dbg!(&cache);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4108,7 +4110,7 @@ fn callvalue_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&address_that_has_the_code, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4148,7 +4150,7 @@ fn codesize_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&address_that_has_the_code, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4190,7 +4192,7 @@ fn gasprice_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&address_that_has_the_code, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4249,7 +4251,7 @@ fn codecopy_op() {
     db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut cache = Cache::default();
-    cache.add_account(&address_that_has_the_code, &Account::default());
+    cache.add_account(&address_that_has_the_code, &Account::default().with_bytecode(ops_to_bytecde(&operations)));
 
     let mut vm = VM::new(
         address_that_has_the_code,
