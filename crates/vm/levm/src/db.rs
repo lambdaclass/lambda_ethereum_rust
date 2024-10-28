@@ -6,6 +6,7 @@ use std::collections::HashMap;
 pub trait Database: std::fmt::Debug {
     fn get_account_info(&self, address: Address) -> AccountInfo;
     fn get_storage_slot(&self, address: Address, key: U256) -> U256;
+    fn get_block_hash(&self, block_number: U256) -> Option<H256>;
 }
 
 #[derive(Debug, Default)]
@@ -66,6 +67,10 @@ impl Database for Db {
             .original_value
     }
 
+    fn get_block_hash(&self, block_number: U256) -> Option<H256> {
+        self.block_hashes.get(&block_number).cloned()
+    }
+    
     // fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot> {
     //     self.accounts
     //         .get(address)
