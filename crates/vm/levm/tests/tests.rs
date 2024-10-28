@@ -3934,8 +3934,6 @@ fn balance_op() {
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
-    dbg!(&vm);
-
     assert_eq!(
         vm.current_call_frame_mut().stack.pop().unwrap(),
         U256::from(1234)

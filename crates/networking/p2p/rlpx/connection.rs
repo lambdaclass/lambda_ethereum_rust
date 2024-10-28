@@ -151,7 +151,7 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::GetAccountRange(req) => {
                             let response =
                                 process_account_range_request(req, self.storage.clone())?;
-                            dbg!(self.send(Message::AccountRange(response)).await)
+                                self.send(Message::AccountRange(response)).await
                         }
                         // TODO: Add new message types and handlers as they are implemented
                         message => return Err(RLPxError::UnexpectedMessage(message)),

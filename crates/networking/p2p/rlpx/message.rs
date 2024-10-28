@@ -27,7 +27,7 @@ pub(crate) enum Message {
 
 impl Message {
     pub fn decode(msg_id: u8, msg_data: &[u8]) -> Result<Message, RLPDecodeError> {
-        match dbg!(msg_id) {
+        match msg_id {
             0x00 => Ok(Message::Hello(HelloMessage::decode(msg_data)?)),
             0x01 => Ok(Message::Disconnect(DisconnectMessage::decode(msg_data)?)),
             0x02 => Ok(Message::Ping(PingMessage::decode(msg_data)?)),

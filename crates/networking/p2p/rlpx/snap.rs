@@ -210,3 +210,21 @@ impl RLPDecode for AccountStateSlim {
         ))
     }
 }
+
+impl RLPEncode for AccountRangeUnit {
+    fn encode(&self, buf: &mut dyn BufMut) {
+        Encoder::new(buf)
+            .encode_field(&self.hash)
+            .encode_field(&self.account)
+            .finish();
+    }
+}
+
+impl RLPDecode for AccountRangeUnit {
+    fn decode_unfinished(rlp: &[u8]) -> Result<(Self, &[u8]), RLPDecodeError> {
+        let decoder = Decoder::new(rlp)?;
+        let (hash, decoder) = decoder.decode_field("hash")?;
+        let (account, decoder) = decoder.decode_field("account")?;
+        Ok((Self { hash, account }, decoder.finish()?))
+    }
+}
