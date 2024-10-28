@@ -314,7 +314,7 @@ impl Proposer {
         calldata.extend(H256::from_low_u64_be(32).as_bytes());
         calldata.extend(H256::from_low_u64_be(block_proof.len() as u64).as_bytes());
         calldata.extend(block_proof);
-        let leading_zeros = 32 - (calldata.len() % 32);
+        let leading_zeros = 32 - ((calldata.len() - 4) % 32);
         calldata.extend(vec![0; leading_zeros]);
 
         let verify_tx_hash = self

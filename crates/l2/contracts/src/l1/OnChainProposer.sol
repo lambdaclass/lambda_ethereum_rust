@@ -95,11 +95,16 @@ contract OnChainProposer is IOnChainProposer, ReentrancyGuard {
             !verifiedBlocks[blockNumber],
             "OnChainProposer: block already verified"
         );
+
         verifiedBlocks[blockNumber] = true;
         ICommonBridge(BRIDGE).removeDepositLogs(
             // The first 2 bytes are the number of deposits.
             uint16(uint256(blockCommitments[blockNumber].depositLogs >> 240))
         );
+
+        // Remove previous block commitment as it is no longer needed.
+        delete blockCommitments[blockNumber - 1];
+
         emit BlockVerified(blockNumber);
     }
 }
