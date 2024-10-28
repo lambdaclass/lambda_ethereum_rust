@@ -1,5 +1,5 @@
 use crate::{
-    db::Db,
+    db::{Cache, Db},
     operations::Operation,
     vm::{Account, AccountInfo, VM},
 };
@@ -15,21 +15,21 @@ pub fn ops_to_bytecde(operations: &[Operation]) -> Bytes {
 }
 
 pub fn new_vm_with_bytecode(bytecode: Bytes) -> VM {
-    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new())
+    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new(), Cache::default())
 }
 
 pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     let bytecode = ops_to_bytecde(operations);
-    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new())
+    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new(), Cache::default())
 }
 
 pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> VM {
     let bytecode = ops_to_bytecde(operations);
-    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, db)
+    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, db, Cache::default())
 }
 
 /// This function is for testing purposes only.
-pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db) -> VM {
+pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db, cache: Cache) -> VM {
     let accounts = [
         (
             Address::from_low_u64_be(42),
@@ -75,6 +75,7 @@ pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U
         Default::default(),
         Default::default(),
         Box::new(db),
+        cache,
         Default::default(),
         Default::default(),
         Default::default(),

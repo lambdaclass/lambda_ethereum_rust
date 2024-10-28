@@ -161,6 +161,7 @@ impl VM {
         base_fee_per_gas: U256,
         gas_price: U256,
         db: Box<dyn Database>,
+        cache: Cache,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
@@ -213,7 +214,7 @@ impl VM {
             db,
             env,
             accrued_substate: Substate::default(),
-            cache: Cache::default(),
+            cache,
         }
         // TODO: Substate and Cache should be initialized with the right values.
     }
