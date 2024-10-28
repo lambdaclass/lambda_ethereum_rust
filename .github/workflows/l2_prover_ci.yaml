@@ -1,8 +1,10 @@
 name: L2_PROVER_CI
 on:
-  merge_group:
   push:
-    branches: [main]
+    branches:
+      - main
+      - l2/**
+      - prover/**
     paths:
       - "crates/l2/prover/**"
   pull_request:
@@ -20,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Rust toolchain install
         uses: dtolnay/rust-toolchain@stable
       - name: RISC-V zkVM toolchain install
