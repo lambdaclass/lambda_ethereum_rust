@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use revm::{
     primitives::{EVMError, Spec},
     Context, Database, FrameResult,
@@ -21,7 +20,7 @@ pub fn deduct_caller<SPEC: Spec, EXT, DB: Database>(
     // in wei to the caller's balance. This should be persisted to the database
     // prior to the rest of execution.
     if context.evm.inner.env.tx.caller == Address::ZERO
-        && context.evm.inner.env.tx.data == Bytes::from(DEPOSIT_MAGIC_DATA)
+        && context.evm.inner.env.tx.data == *DEPOSIT_MAGIC_DATA
     {
         info!("TX from privileged account with `mint` data");
         caller_account.info.balance = caller_account

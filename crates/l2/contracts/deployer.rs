@@ -120,7 +120,7 @@ async fn deploy_contracts(
             deployer,
             deployer_private_key,
             overrides.clone(),
-            &eth_client,
+            eth_client,
         )
         .await;
     println!(
@@ -129,7 +129,7 @@ async fn deploy_contracts(
     );
 
     let (bridge_deployment_tx_hash, bridge_address) =
-        deploy_bridge(deployer, deployer_private_key, overrides, &eth_client).await;
+        deploy_bridge(deployer, deployer_private_key, overrides, eth_client).await;
     println!(
         "Bridge deployed at address {:#x} with tx hash {:#x}",
         bridge_address, bridge_deployment_tx_hash
@@ -251,7 +251,7 @@ async fn initialize_contracts(
         bridge,
         deployer,
         deployer_private_key,
-        &eth_client,
+        eth_client,
     )
     .await;
     initialize_bridge(

@@ -306,7 +306,7 @@ impl Command {
                     CLAIM_WITHDRAWAL_SIGNATURE,
                     &format!(
                         "{l2_withdrawal_tx_hash:#x} {claimed_amount} {withdrawal_l2_block_number} {index} {}",
-                        proof.iter().map(|hash| hex::encode(hash)).join(",")
+                        proof.iter().map(hex::encode).join(",")
                     ),
                     false
                 )?;
