@@ -1,7 +1,7 @@
 use crate::{
+    db::Db,
     operations::Operation,
     vm::{Account, VM},
-    db::Db,
 };
 use bytes::Bytes;
 use ethereum_types::{Address, U256};

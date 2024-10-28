@@ -1,11 +1,11 @@
 use ethereum_rust_levm::{
     constants::*,
+    db::{Database, Db},
     errors::{TxResult, VMError},
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
     utils::{new_vm_with_ops, new_vm_with_ops_addr_bal},
     vm::{word_to_address, Account, Storage, StorageSlot, VM},
-    db::{Database, Db},
 };
 use ethereum_types::H32;
 use std::collections::HashMap;
@@ -2443,8 +2443,7 @@ fn blockhash_op() {
 
     let mut vm =
         new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
-    vm.db
-        .insert_block_hash(block_number, block_hash);
+    vm.db.insert_block_hash(block_number, block_hash);
     vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2504,8 +2503,7 @@ fn blockhash_block_number_not_from_recent_256() {
 
     let mut vm =
         new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
-    vm.db
-        .insert_block_hash(block_number, block_hash);
+    vm.db.insert_block_hash(block_number, block_hash);
     vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3655,7 +3653,8 @@ fn cant_create_if_sender_nonce_would_overflow() {
     let operations = create_opcodes(size, offset, value_to_transfer);
 
     let mut vm = new_vm_with_ops(&operations);
-    vm.db.insert_account(sender_addr,
+    vm.db.insert_account(
+        sender_addr,
         Account::new(
             sender_addr,
             sender_balance,

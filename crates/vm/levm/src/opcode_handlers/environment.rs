@@ -1,7 +1,12 @@
+use std::collections::HashMap;
+
 use super::*;
 use crate::{
-    constants::{call_opcode, WORD_SIZE},
-    vm::word_to_address,
+    constants::{
+        call_opcode::{self, COLD_ADDRESS_ACCESS_COST, WARM_ADDRESS_ACCESS_COST},
+        WORD_SIZE,
+    },
+    vm::{word_to_address, Account},
 };
 use sha3::{Digest, Keccak256};
 
@@ -32,12 +37,23 @@ impl VM {
         &mut self,
         current_call_frame: &mut CallFrame,
     ) -> Result<OpcodeSuccess, VMError> {
-        self.increase_consumed_gas(current_call_frame, gas_cost::BALANCE)?;
+        let address = &word_to_address(current_call_frame.stack.pop()?);
 
-        let addr = current_call_frame.stack.pop()?;
-
-        let balance = self.db.balance(&word_to_address(addr));
+        let balance = if self.cache.is_account_cached(address) {
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
+            self.cache.get_account(address).unwrap().info.balance
+        } else {
+            let acc_info = self.db.get_account_info(*address);
+            self.cache.add_account(&Account {
+                info: acc_info.clone(),
+                storage: HashMap::new(),
+            });
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            acc_info.balance
+        };
         current_call_frame.stack.push(balance)?;
+
+        self.increase_consumed_gas(current_call_frame, gas_cost::BALANCE)?;
 
         Ok(OpcodeSuccess::Continue)
     }

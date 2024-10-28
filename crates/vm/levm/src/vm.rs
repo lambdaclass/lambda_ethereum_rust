@@ -1,5 +1,10 @@
 use crate::{
-    call_frame::CallFrame, constants::*, db::{Database, Db, Cache}, errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError}, opcodes::Opcode, primitives::{Address, Bytes, H256, U256}
+    call_frame::CallFrame,
+    constants::*,
+    db::{Cache, Database, Db},
+    errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
+    opcodes::Opcode,
+    primitives::{Address, Bytes, H256, U256},
 };
 use ethereum_rust_rlp;
 use ethereum_rust_rlp::encode::RLPEncode;
@@ -12,58 +17,61 @@ use std::{
 };
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct Account {
-    pub address: Address,
+pub struct AccountInfo {
     pub balance: U256,
     pub bytecode: Bytes,
-    pub storage: HashMap<U256, StorageSlot>,
     pub nonce: u64,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq)]
+pub struct Account {
+    pub info: AccountInfo,
+    pub storage: HashMap<U256, StorageSlot>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct StorageSlot {
     pub original_value: U256,
     pub current_value: U256,
-    pub is_cold: bool,
 }
 
 impl Account {
     pub fn new(
-        address: Address,
         balance: U256,
         bytecode: Bytes,
         nonce: u64,
         storage: HashMap<U256, StorageSlot>,
     ) -> Self {
         Self {
-            address,
-            balance,
-            bytecode,
+            info: AccountInfo {
+                balance,
+                bytecode,
+                nonce,
+            },
             storage,
-            nonce,
         }
     }
 
     pub fn has_code(&self) -> bool {
-        !(self.bytecode.is_empty()
+        !(self.info.bytecode.is_empty()
             || self.bytecode_hash() == H256::from_str(EMPTY_CODE_HASH_STR).unwrap())
     }
 
     pub fn bytecode_hash(&self) -> H256 {
-        keccak(self.bytecode.as_ref())
+        keccak(self.info.bytecode.as_ref())
     }
 
     pub fn is_empty(&self) -> bool {
-        self.balance.is_zero() && self.nonce == 0 && self.bytecode.is_empty()
+        self.info.balance.is_zero() && self.info.nonce == 0 && self.info.bytecode.is_empty()
     }
 
     pub fn with_balance(mut self, balance: U256) -> Self {
-        self.balance = balance;
+        self.info.balance = balance;
         self
     }
 
     pub fn with_bytecode(mut self, bytecode: Bytes) -> Self {
-        self.bytecode = bytecode;
+        self.info.bytecode = bytecode;
         self
     }
 
@@ -73,18 +81,16 @@ impl Account {
     }
 
     pub fn with_nonce(mut self, nonce: u64) -> Self {
-        self.nonce = nonce;
+        self.info.nonce = nonce;
         self
     }
 
     pub fn increment_nonce(&mut self) {
-        self.nonce += 1;
+        self.info.nonce += 1;
     }
 }
 
 pub type Storage = HashMap<U256, H256>;
-
-
 
 #[derive(Debug, Clone, Default)]
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
@@ -154,7 +160,7 @@ impl VM {
         chain_id: U256,
         base_fee_per_gas: U256,
         gas_price: U256,
-        db: Db,
+        db: &dyn Database,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
