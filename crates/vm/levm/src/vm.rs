@@ -304,11 +304,9 @@ fn create_contract(
         return Err(VMError::OutOfGas); // Maybe a more personalized error
     }
 
-    let new_nonce = sender_account.nonce + 1;
-
+    sender_account.nonce += 1;
     // Check for nonce errors?
 
-    sender_account.nonce = new_nonce;
     sender_account.balance -= value;
 
     // 2. Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
@@ -323,7 +321,7 @@ fn create_contract(
     
     // If address is already in db, there's an error
     if db_copy.accounts.contains_key(&new_contract_address) {
-        return Err(VMError::AddressAlreadyOccuped); // Kinda this
+        return Err(VMError::AddressAlreadyOccuped);
     }
 
     // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
