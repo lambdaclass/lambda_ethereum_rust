@@ -115,6 +115,7 @@ impl VM {
     }
 
     // SLOAD operation
+    // TODO: add gas consumption
     pub fn op_sload(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -123,18 +124,20 @@ impl VM {
         let address = current_call_frame
             .delegate
             .unwrap_or(current_call_frame.code_address);
-        let current_value = self
-            .db
-            .read_account_storage(&address, &key)
-            .unwrap_or_default()
-            .current_value;
+
+        let current_value = if self.cache.is_slot_cached(&address, key) {
+            self.cache.get_storage_slot(address, key).unwrap_or_default().current_value
+        }
+        else {
+            self.db.get_storage_slot(address, key)
+        };
 
         current_call_frame.stack.push(current_value)?;
-
         Ok(OpcodeSuccess::Continue)
     }
 
     // SSTORE operation
+    // TODO: add gas consumption
     pub fn op_sstore(
         &mut self,
         current_call_frame: &mut CallFrame,
@@ -149,13 +152,14 @@ impl VM {
             .delegate
             .unwrap_or(current_call_frame.code_address);
 
-        let slot = self.db.read_account_storage(&address, &key);
-        let (original_value, _) = match slot {
-            Some(slot) => (slot.original_value, slot.current_value),
-            None => (value, value),
+        let original_value = if self.cache.is_slot_cached(&address, key) {
+            self.cache.get_storage_slot(address, key).expect("Storage slot should have been cached").original_value
+        }
+        else {
+            self.db.get_storage_slot(address, key)
         };
 
-        self.db.write_account_storage(
+        self.cache.write_account_storage(
             &address,
             key,
             StorageSlot {

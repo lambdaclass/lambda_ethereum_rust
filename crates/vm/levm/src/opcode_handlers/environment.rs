@@ -38,9 +38,9 @@ impl VM {
         let address = &word_to_address(current_call_frame.stack.pop()?);
 
         if self.cache.is_account_cached(address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);    
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;    
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(address);
         };
 
@@ -247,9 +247,9 @@ impl VM {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
         if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
@@ -289,9 +289,9 @@ impl VM {
             + memory_expansion_cost;
 
         if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
         
@@ -374,9 +374,9 @@ impl VM {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
         if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             self.cache_from_db(&address);
         };
 
