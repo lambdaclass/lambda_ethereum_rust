@@ -161,7 +161,6 @@ impl VM {
             StorageSlot {
                 original_value,
                 current_value: value,
-                is_cold: false,
             },
         );
 
