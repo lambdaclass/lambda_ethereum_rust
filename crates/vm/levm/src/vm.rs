@@ -1,7 +1,7 @@
 use crate::{
     call_frame::CallFrame,
     constants::*,
-    db::{Cache, Database, Db},
+    db::{Cache, Database},
     errors::{OpcodeSuccess, ResultReason, TransactionReport, TxResult, VMError},
     opcodes::Opcode,
     primitives::{Address, Bytes, H256, U256},
@@ -12,7 +12,7 @@ use ethereum_types::H160;
 use keccak_hash::keccak;
 use sha3::{Digest, Keccak256};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     str::FromStr,
 };
 

@@ -33,7 +33,7 @@ impl VM {
         if let Some(block_hash) = self.db.get_block_hash(block_number) {
             current_call_frame
                 .stack
-                .push(U256::from_big_endian(&block_hash.as_bytes()))?;
+                .push(U256::from_big_endian(block_hash.as_bytes()))?;
         } else {
             current_call_frame.stack.push(U256::zero())?;
         }
