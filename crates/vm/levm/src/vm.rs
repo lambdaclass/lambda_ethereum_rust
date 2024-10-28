@@ -374,7 +374,10 @@ fn create_contract(
     // the code-deposit cost, c, proportional to the size of the created contract’s code
     let creation_cost = 200 * contract_code.len();
 
-    sender_account.balance.checked_sub(U256::from(creation_cost)).ok_or(VMError::OutOfGas)?;
+    sender_account
+        .balance
+        .checked_sub(U256::from(creation_cost))
+        .ok_or(VMError::OutOfGas)?;
 
     created_contract.bytecode = contract_code;
 
@@ -617,7 +620,7 @@ impl VM {
         let sender_account = match self.db.accounts.get(&self.env.origin) {
             Some(acc) => acc,
             None => return Err(VMError::AddressDoesNotMatchAnAccount),
-            // This is a check for completeness. However if it were a none and 
+            // This is a check for completeness. However if it were a none and
             // it was not caught it would be caught in clause 6.
         };
         // (4)
