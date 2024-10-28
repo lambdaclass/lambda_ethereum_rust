@@ -359,7 +359,13 @@ fn create_contract(
     )?;
 
     let res = vm.transact()?;
+    // Maybe should not use a ?, instead make a manual revert on accounts and db and 
+    // then propagate the error. Same in VM::new()
+
+
     let contract_code = res.output;
+    
+    //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
     if contract_code.len() > 24576 {
         return Err(VMError::ContractOutputTooBig);
     }
@@ -373,12 +379,12 @@ fn create_contract(
     let creation_cost = 200*contract_code.len();
     if creation_cost > sender_account.balance.as_usize() {
         return Err(VMError::OutOfGas);
-    }
+    }    
 
     sender_account.balance -= U256::from(creation_cost);
-    
-    //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
-    
+
+    sender_account.bytecode = contract_code;
+
     *db = db_copy;
     Ok(vm)
 }
