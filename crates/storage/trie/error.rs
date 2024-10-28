@@ -7,6 +7,4 @@ pub enum TrieError {
     LibmdbxError(anyhow::Error),
     #[error(transparent)]
     RLPDecode(#[from] RLPDecodeError),
-    #[error("Trie root doesn't match trie structure")]
-    InconsistentRoot
 }

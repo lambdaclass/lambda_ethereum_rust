@@ -74,7 +74,7 @@ impl Trie {
             let root_node = self
                 .state
                 .get_node(root.clone())?
-                .ok_or(TrieError::InconsistentRoot)?;
+                .expect("inconsistent internal tree structure");
             root_node.get(&self.state, NibbleSlice::new(path))
         } else {
             Ok(None)
@@ -109,7 +109,7 @@ impl Trie {
             let root_node = self
                 .state
                 .get_node(root)?
-                .ok_or(TrieError::InconsistentRoot)?;
+                .expect("inconsistent internal tree structure");
             let (root_node, old_value) =
                 root_node.remove(&mut self.state, NibbleSlice::new(&path))?;
             self.root = root_node
@@ -151,7 +151,7 @@ impl Trie {
         let root_node = self
             .state
             .get_node(root.clone())?
-            .ok_or(TrieError::InconsistentRoot)?;
+            .expect("inconsistent tree structure");
         root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
         Ok(node_path)
     }
