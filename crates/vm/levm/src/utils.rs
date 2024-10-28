@@ -23,6 +23,11 @@ pub fn new_vm_with_ops(operations: &[Operation]) -> VM {
     new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, Db::new())
 }
 
+pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> VM {
+    let bytecode = ops_to_bytecde(operations);
+    new_vm_with_ops_addr_bal_db(bytecode, Address::from_low_u64_be(100), U256::MAX, db)
+}
+
 /// This function is for testing purposes only.
 pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db) -> VM {
     let accounts = [

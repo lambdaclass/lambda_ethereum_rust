@@ -3213,7 +3213,7 @@ fn logs_from_multiple_callers() {
     caller_ops.append(&mut operations);
 
     let mut db = Db::new();
-    db.add_account(callee_address, callee_account);
+    db.add_accounts(vec![(callee_address, callee_account)]);
 
     let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
@@ -3862,10 +3862,7 @@ fn caller_op() {
     let operations = [Operation::Caller, Operation::Stop];
 
     let mut db = Db::default();
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -3904,10 +3901,7 @@ fn origin_op() {
     let operations = [Operation::Origin, Operation::Stop];
 
     let mut db = Db::default();
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -3973,10 +3967,7 @@ fn address_op() {
     let operations = [Operation::Address, Operation::Stop];
 
     let mut db = Db::default();
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4015,12 +4006,7 @@ fn selfbalance_op() {
     let operations = [Operation::SelfBalance, Operation::Stop];
 
     let mut db = Db::default();
-    db.add_account(
-        address_that_has_the_code,
-        Account::default()
-            .with_bytecode(ops_to_bytecde(&operations))
-            .with_balance(balance),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)).with_balance(balance))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4057,10 +4043,7 @@ fn callvalue_op() {
 
     let mut db = Db::default();
 
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4096,10 +4079,7 @@ fn codesize_op() {
 
     let mut db = Db::default();
 
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4137,10 +4117,7 @@ fn gasprice_op() {
 
     let mut db = Db::default();
 
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4195,10 +4172,7 @@ fn codecopy_op() {
 
     let mut db = Db::default();
 
-    db.add_account(
-        address_that_has_the_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut vm = VM::new(
         address_that_has_the_code,
@@ -4238,11 +4212,9 @@ fn extcodesize_existing_account() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
-    vm.db.add_account(
-        address_with_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    let mut vm = new_vm_with_ops_db(&operations);
+
+    vm.db.add_accounts(vec![(address_with_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4281,11 +4253,9 @@ fn extcodecopy_existing_account() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
-    vm.db.add_account(
-        address_with_code,
-        Account::default().with_bytecode(ops_to_bytecde(&operations)),
-    );
+    let mut vm = new_vm_with_ops_db(&operations);
+
+    vm.db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -4330,11 +4300,9 @@ fn extcodehash_account_with_empty_code() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops(&operations);
-    vm.db.add_account(
-        address_with_code,
-        Account::default().with_bytecode(Bytes::new()),
-    );
+    let mut vm = new_vm_with_ops_db(&operations);
+
+    vm.db.add_accounts(vec![(address_that_has_the_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
