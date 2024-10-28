@@ -22,20 +22,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        action:
-          - command: check
-            args:
-          - command: build
-            args: --release
-          - command: fmt
-            args: --all -- --check
-          - command: clippy
-            args: --all-targets --all-features --workspace -- -D warnings
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
@@ -45,15 +34,28 @@ jobs:
 
       - name: Add Rust Cache
         uses: Swatinem/rust-cache@v2
-      - name: Run job
-        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
+
+      - name: Run cargo check
+        run: cargo check
+
+      - name: Run cargo build
+        run: |
+          cargo build
+
+      - name: Run cargo clippy
+        run: |
+          cargo clippy --all-targets --all-features --workspace -- -D warnings
+
+      - name: Run cargo fmt
+        run: |
+          cargo fmt --all -- --check
 
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
