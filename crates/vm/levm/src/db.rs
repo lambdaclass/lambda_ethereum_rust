@@ -133,8 +133,16 @@ impl Cache {
         self.accounts.get_mut(&address)
     }
 
+    pub fn get_storage_slot(&self, address: Address, key: U256) -> Option<StorageSlot> {
+        self.get_account(address).expect("Account should have been cached").storage.get(&key).cloned()
+    }
+
     pub fn add_account(&mut self, address: &Address, account: &Account) {
         self.accounts.insert(*address, account.clone());
+    }
+
+    pub fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot) {
+        self.accounts.get_mut(address).expect("Account should have been cached").storage.insert(key, slot);
     }
 
     pub fn increment_account_nonce(&mut self, address: &Address) {
@@ -146,6 +154,7 @@ impl Cache {
     pub fn is_account_cached(&self, address: &Address) -> bool {
         self.accounts.get(address).is_some()
     }
+
     pub fn is_slot_cached(&self, address: &Address, key: U256) -> bool {
         self.is_account_cached(address)
             && self

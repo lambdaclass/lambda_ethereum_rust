@@ -38,10 +38,10 @@ impl VM {
         let address = &word_to_address(current_call_frame.stack.pop()?);
 
         let balance = if self.cache.is_account_cached(address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
             self.cache.get_account(*address).unwrap().info.balance
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             let acc_info = self.get_from_db_then_cache(address);
             acc_info.balance
         };
@@ -247,10 +247,10 @@ impl VM {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
         let bytecode = if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
             self.cache.get_account(address).unwrap().info.bytecode.clone()
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             let acc_info = self.get_from_db_then_cache(&address);
             acc_info.bytecode
         };
@@ -289,10 +289,10 @@ impl VM {
             + memory_expansion_cost;
 
         let mut bytecode = if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST)?;
             self.cache.get_account(address).unwrap().info.bytecode.clone()
         } else {
-            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST)?;
             let acc_info = self.get_from_db_then_cache(&address);
             acc_info.bytecode
         };
@@ -374,10 +374,10 @@ impl VM {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
         let bytecode = if self.cache.is_account_cached(&address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST)?;
             self.cache.get_account(address).unwrap().info.bytecode.clone()
         } else {
-            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
+            self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST)?;
             let acc_info = self.get_from_db_then_cache(&address);
             acc_info.bytecode
         };
