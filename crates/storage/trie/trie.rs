@@ -148,11 +148,9 @@ impl Trie {
         if let NodeHash::Inline(node) = root {
             node_path.push(node.to_vec());
         }
-        let root_node = self
-            .state
-            .get_node(root.clone())?
-            .expect("inconsistent tree structure");
-        root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        if let Some(root_node) = self.state.get_node(root.clone())? {
+            root_node.get_path(&self.state, NibbleSlice::new(path), &mut node_path)?;
+        }
         Ok(node_path)
     }
 
