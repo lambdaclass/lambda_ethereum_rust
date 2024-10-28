@@ -152,7 +152,7 @@ impl Cache {
     }
 
     pub fn is_account_cached(&self, address: &Address) -> bool {
-        self.accounts.get(address).is_some()
+        self.accounts.contains_key(address)
     }
 
     pub fn is_slot_cached(&self, address: &Address, key: U256) -> bool {

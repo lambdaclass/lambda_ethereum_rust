@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason, vm::Account,
+    errors::ResultReason,
 };
-
 use super::*;
 
 // System Operations (10)

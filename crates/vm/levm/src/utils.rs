@@ -55,7 +55,7 @@ pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U
         ),
     ];
 
-    db.add_accounts(accounts.iter().cloned().collect());
+    db.add_accounts(accounts.to_vec());
 
     // add the account with code to call
 
