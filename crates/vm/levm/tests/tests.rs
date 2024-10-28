@@ -1,6 +1,6 @@
 use ethereum_rust_levm::{
     constants::*,
-    db::{self, Cache, Database, Db},
+    db::{Cache, Db},
     errors::{TxResult, VMError},
     operations::Operation,
     primitives::{Address, Bytes, H256, U256},
@@ -9,8 +9,6 @@ use ethereum_rust_levm::{
 };
 use ethereum_types::H32;
 use std::collections::HashMap;
-
-// cargo test -p 'levm'
 
 fn create_opcodes(size: usize, offset: usize, value_to_transfer: usize) -> Vec<Operation> {
     vec![
@@ -4385,10 +4383,9 @@ fn extcodehash_account_with_empty_code() {
     ];
 
     let mut db = Db::default();
-    db.add_accounts(vec![(address_with_code, Account::default().with_bytecode(ops_to_bytecde(&operations)))]);
+    db.add_accounts(vec![(address_with_code, Account::default())]);
     
-    let mut vm = new_vm_with_ops_db(&operations,db);
-
+    let mut vm = new_vm_with_ops_db(&operations, db);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
