@@ -303,7 +303,7 @@ fn create_contract(
         return Err(VMError::OutOfGas); // Maybe a more personalized error
     }
 
-    sender_account.nonce += 1;
+    db_copy.increment_account_nonce(&sender);
     // Check for nonce errors?
 
     sender_account.balance -= value;
@@ -330,6 +330,8 @@ fn create_contract(
     db_copy.add_account(new_contract_address, created_contract.clone());
 
     // 4. Transfer the initial Ether endowment from caller to the new contract
+    sender_account.balance -= value;
+    created_contract.balance += value;
 
     // 5. Set input data as contract’s deploy code, then execute it with EVM. The ret variable is the returned contract code
     let code: Bytes = calldata.clone();
