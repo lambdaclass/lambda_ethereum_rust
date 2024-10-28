@@ -123,7 +123,7 @@ async fn main() {
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
-        for block in blocks {
+        for block in &blocks {
             let hash = block.header.compute_block_hash();
             info!(
                 "Adding block {} with hash {:#x}.",
@@ -137,8 +137,10 @@ async fn main() {
                 );
             }
         }
-
-        apply_fork_choice(&store, hash, hash, hash).unwrap();
+        if let Some(last_block) = blocks.last() {
+            let hash = last_block.header.compute_block_hash();
+            apply_fork_choice(&store, hash, hash, hash).unwrap();
+        }
         info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
