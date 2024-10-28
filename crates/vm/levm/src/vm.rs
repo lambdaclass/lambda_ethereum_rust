@@ -567,7 +567,7 @@ impl VM {
         }
 
         if !self.cache.is_account_cached(&current_call_frame.msg_sender){
-            self.get_from_db_then_cache(&current_call_frame.msg_sender);
+            self.cache_from_db(&current_call_frame.msg_sender);
         };
 
         let sender_account = self.cache.get_mut_account(current_call_frame.msg_sender).unwrap();
@@ -652,7 +652,7 @@ impl VM {
         Ok(())
     }
 
-    pub fn get_from_db_then_cache(&mut self, address: &Address) -> AccountInfo {
+    pub fn cache_from_db(&mut self, address: &Address) {
         let acc_info = self.db.get_account_info(*address);
         self.cache.add_account(
             address,
@@ -661,6 +661,5 @@ impl VM {
                 storage: HashMap::new(),
             },
         );
-        acc_info
     }
 }

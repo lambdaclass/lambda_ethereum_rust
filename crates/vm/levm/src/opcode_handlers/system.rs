@@ -43,30 +43,21 @@ impl VM {
         let memory_byte_size = (args_offset + args_size).max(ret_offset + ret_size);
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
-        let address_access_cost = if self
-            .cache
-            .is_account_cached(&code_address)
-        {
-            call_opcode::WARM_ADDRESS_ACCESS_COST
-        } else {
-            call_opcode::COLD_ADDRESS_ACCESS_COST
-        };
-
         let positive_value_cost = if !value.is_zero() {
             call_opcode::NON_ZERO_VALUE_COST + call_opcode::BASIC_FALLBACK_FUNCTION_STIPEND
         } else {
             U256::zero()
         };
-
-        let account = if self.cache.is_account_cached(&code_address){
-            self.cache.get_account(code_address).unwrap().clone()
-        } else {
-            let info = self.get_from_db_then_cache(&code_address);
-            Account {
-                info,
-                storage: HashMap::new(),
-            }
+       
+        let address_access_cost = if !self.cache.is_account_cached(&code_address){
+            self.cache_from_db(&code_address);
+            call_opcode::COLD_ADDRESS_ACCESS_COST
+        }
+        else {
+            call_opcode::WARM_ADDRESS_ACCESS_COST
         };
+        let account = self.cache.get_account(code_address).unwrap().clone();
+
 
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST

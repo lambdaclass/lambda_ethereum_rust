@@ -37,14 +37,14 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = &word_to_address(current_call_frame.stack.pop()?);
 
-        let balance = if self.cache.is_account_cached(address) {
-            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
-            self.cache.get_account(*address).unwrap().info.balance
+        if self.cache.is_account_cached(address) {
+            self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);    
         } else {
             self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
-            let acc_info = self.get_from_db_then_cache(address);
-            acc_info.balance
+            self.cache_from_db(address);
         };
+
+        let balance = self.cache.get_account(*address).unwrap().info.balance;
 
         current_call_frame.stack.push(balance)?;
         Ok(OpcodeSuccess::Continue)
@@ -246,15 +246,15 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        let bytecode = if self.cache.is_account_cached(&address) {
+        if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
-            self.cache.get_account(address).unwrap().info.bytecode.clone()
         } else {
             self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
-            let acc_info = self.get_from_db_then_cache(&address);
-            acc_info.bytecode
+            self.cache_from_db(&address);
         };
-        
+
+        let bytecode = self.cache.get_account(address).unwrap().info.bytecode.clone();
+
         current_call_frame.stack.push(bytecode.len().into())?;
         Ok(OpcodeSuccess::Continue)
     }
@@ -288,14 +288,14 @@ impl VM {
         let gas_cost = gas_cost::EXTCODECOPY_DYNAMIC_BASE * minimum_word_size
             + memory_expansion_cost;
 
-        let mut bytecode = if self.cache.is_account_cached(&address) {
+        if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, gas_cost + WARM_ADDRESS_ACCESS_COST);
-            self.cache.get_account(address).unwrap().info.bytecode.clone()
         } else {
             self.increase_consumed_gas(current_call_frame, gas_cost + COLD_ADDRESS_ACCESS_COST);
-            let acc_info = self.get_from_db_then_cache(&address);
-            acc_info.bytecode
+            self.cache_from_db(&address);
         };
+        
+        let mut bytecode = self.cache.get_account(address).unwrap().info.bytecode.clone();
 
         if bytecode.len() < offset + size {
             let mut extended_code = bytecode.to_vec();
@@ -373,14 +373,14 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = word_to_address(current_call_frame.stack.pop()?);
 
-        let bytecode = if self.cache.is_account_cached(&address) {
+        if self.cache.is_account_cached(&address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
-            self.cache.get_account(address).unwrap().info.bytecode.clone()
         } else {
             self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
-            let acc_info = self.get_from_db_then_cache(&address);
-            acc_info.bytecode
+            self.cache_from_db(&address);
         };
+
+        let bytecode = self.cache.get_account(address).unwrap().info.bytecode.clone();
 
         let mut hasher = Keccak256::new();
         hasher.update(bytecode);
