@@ -138,7 +138,9 @@ async fn main() {
             store
                 .set_canonical_block(block.header.number, hash)
                 .unwrap();
-            store.update_latest_block_number(block.header.number).unwrap();
+            store
+                .update_latest_block_number(block.header.number)
+                .unwrap();
         }
         info!("Added {} blocks to blockchain", size);
     }
