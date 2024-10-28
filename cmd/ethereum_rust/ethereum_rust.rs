@@ -136,9 +136,9 @@ async fn main() {
                     block.header.number, hash, error
                 );
             }
-            apply_fork_choice(&store, hash, hash, hash).unwrap();
         }
 
+        apply_fork_choice(&store, hash, hash, hash).unwrap();
         info!("Added {} blocks to blockchain", size);
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
