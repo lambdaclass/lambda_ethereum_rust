@@ -278,7 +278,6 @@ fn create_contract(
     block_excess_blob_gas: Option<U256>,
     tx_blob_hashes: Option<Vec<H256>>,
     salt: Option<U256>,
-    
 ) -> Result<VM, VMError> {
     /*
     Functionality should be:
@@ -311,22 +310,23 @@ fn create_contract(
 
     // 2. Derive the new contract’s address from the caller’s address (passing in the creator account’s nonce)
     let new_contract_address = match salt {
-            Some(salt) => {
-                VM::calculate_create2_address(sender, &calldata, salt)
-            }
-            None => {
-                VM::calculate_create_address(sender, sender_account.nonce)
-            }
-        };
-    
+        Some(salt) => VM::calculate_create2_address(sender, &calldata, salt),
+        None => VM::calculate_create_address(sender, sender_account.nonce),
+    };
+
     // If address is already in db, there's an error
     if db_copy.accounts.contains_key(&new_contract_address) {
         return Err(VMError::AddressAlreadyOccuped);
     }
 
     // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
-    let created_contract =
-        Account::new(new_contract_address, value, calldata.clone(), 1, Default::default());
+    let created_contract = Account::new(
+        new_contract_address,
+        value,
+        calldata.clone(),
+        1,
+        Default::default(),
+    );
     db_copy.add_account(new_contract_address, created_contract.clone());
 
     // 4. Transfer the initial Ether endowment from caller to the new contract
@@ -353,31 +353,30 @@ fn create_contract(
         block_excess_blob_gas,
         tx_blob_hashes,
         secret_key,
-        None
+        None,
     )?;
 
     let res = vm.transact()?;
-    // Maybe should not use a ?, instead make a manual revert on accounts and db and 
+    // Maybe should not use a ?, instead make a manual revert on accounts and db and
     // then propagate the error. Same in VM::new()
 
-
     let contract_code = res.output;
-    
+
     //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
     if contract_code.len() > 24576 {
         return Err(VMError::ContractOutputTooBig);
     }
     // Supposing contract code has contents
     if contract_code[0] == 0xef {
-        return Err(VMError::InvalidInitialByte)
+        return Err(VMError::InvalidInitialByte);
     }
 
-    // If the initialization code completes successfully, a final contract-creation cost is paid, 
+    // If the initialization code completes successfully, a final contract-creation cost is paid,
     // the code-deposit cost, c, proportional to the size of the created contract’s code
-    let creation_cost = 200*contract_code.len();
+    let creation_cost = 200 * contract_code.len();
     if creation_cost > sender_account.balance.as_usize() {
         return Err(VMError::OutOfGas);
-    }    
+    }
 
     sender_account.balance -= U256::from(creation_cost);
 
@@ -408,7 +407,7 @@ impl VM {
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
         secret_key: H256,
-        salt: Option<U256>
+        salt: Option<U256>,
     ) -> Result<Self, VMError> {
         // Maybe this desicion should be made in an upper layer
         match to {
@@ -446,7 +445,7 @@ impl VM {
                 block_blob_gas_used,
                 block_excess_blob_gas,
                 tx_blob_hashes,
-                salt
+                salt,
             ),
         }
     }

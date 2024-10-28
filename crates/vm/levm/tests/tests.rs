@@ -3862,7 +3862,7 @@ fn caller_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -3907,7 +3907,7 @@ fn origin_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -3978,7 +3978,7 @@ fn address_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -4025,7 +4025,7 @@ fn selfbalance_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -4068,7 +4068,7 @@ fn callvalue_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -4110,7 +4110,7 @@ fn codesize_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -4154,7 +4154,7 @@ fn gasprice_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
@@ -4215,7 +4215,7 @@ fn codecopy_op() {
         Default::default(),
         Default::default(),
         Default::default(),
-        None
+        None,
     )
     .unwrap();
 
