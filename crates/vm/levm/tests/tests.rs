@@ -1635,13 +1635,16 @@ fn call_returns_if_bytecode_empty() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db
     );
 
-    vm.db.add_account(callee_address, callee_account);
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
 
@@ -1671,13 +1674,15 @@ fn call_changes_callframe_and_stores() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1762,11 +1767,13 @@ fn nested_calls() {
     let caller_address = Address::from_low_u64_be(U256::from(1).low_u64());
     let caller_balance = U256::from(1_000_000);
 
+    let mut db = Db::new();
+    db.add_accounts(vec![
+        (callee2_address, callee2_account),
+        (callee3_address, callee3_account),
+    ]);
     let mut vm =
-        new_vm_with_ops_addr_bal(ops_to_bytecde(&caller_ops), caller_address, caller_balance);
-
-    vm.db.add_account(callee2_address, callee2_account);
-    vm.db.add_account(callee3_address, callee3_account);
+        new_vm_with_ops_addr_bal_db(ops_to_bytecde(&caller_ops), caller_address, caller_balance, db);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1828,13 +1835,16 @@ fn staticcall_changes_callframe_is_static() {
         Operation::StaticCall,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db,
     );
 
-    vm.db.add_account(callee_address, callee_account);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -1934,13 +1944,17 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         Operation::DelegateCall,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::from(1000),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -1992,13 +2006,15 @@ fn delegatecall_changes_own_storage_and_regular_call_doesnt() {
         Operation::Call,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -2048,13 +2064,15 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         Operation::DelegateCall,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::from(1000),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let current_call_frame = vm.current_call_frame_mut();
     current_call_frame.msg_sender = Address::from_low_u64_be(U256::from(1).low_u64());
@@ -2103,13 +2121,15 @@ fn delegatecall_and_callcode_differ_on_value_and_msg_sender() {
         Operation::CallCode,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::from(1000),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2278,13 +2298,15 @@ fn calldataload_being_set_by_parent() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2407,13 +2429,15 @@ fn returndatacopy_being_set_by_parent() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_accounts(vec![(callee_address, callee_account)]);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -2438,9 +2462,12 @@ fn blockhash_op() {
         Operation::Stop,
     ];
 
+    let mut db = Db::new();
+    db.add_block_hashes(vec![(block_number, block_hash)]);
+
     let mut vm =
-        new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
-    vm.db.insert_block_hash(block_number, block_hash);
+        new_vm_with_ops_addr_bal_db(ops_to_bytecde(&operations), Address::default(), U256::MAX, db);
+    
     vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -2498,9 +2525,11 @@ fn blockhash_block_number_not_from_recent_256() {
         Operation::Stop,
     ];
 
+    let mut db = Db::new();
+    db.add_block_hashes(vec![(block_number, block_hash)]);
     let mut vm =
-        new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), Address::default(), U256::MAX);
-    vm.db.insert_block_hash(block_number, block_hash);
+        new_vm_with_ops_addr_bal_db(ops_to_bytecde(&operations), Address::default(), U256::MAX, db);
+    
     vm.env.block_number = current_block_number;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3183,13 +3212,15 @@ fn logs_from_multiple_callers() {
 
     caller_ops.append(&mut operations);
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut db = Db::new();
+    db.add_account(callee_address, callee_account);
+
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&caller_ops),
         Address::from_low_u64_be(U256::from(1).low_u64()),
         U256::zero(),
+        db,
     );
-
-    vm.db.add_account(callee_address, callee_account);
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
     vm.execute(&mut current_call_frame);
@@ -3534,7 +3565,7 @@ fn create_happy_path() {
     ]
     .concat();
 
-    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance, Db::new());
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3566,7 +3597,7 @@ fn cant_create_with_size_longer_than_max_code_size() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance, Db::new());
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3593,7 +3624,7 @@ fn cant_create_on_static_contexts() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance, Db::new());
     vm.current_call_frame_mut().msg_sender = sender_addr;
     vm.current_call_frame_mut().is_static = true;
 
@@ -3621,7 +3652,7 @@ fn cant_create_if_transfer_value_bigger_than_balance() {
 
     let operations = create_opcodes(size, offset, value_to_transfer);
 
-    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance, Db::new());
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3771,7 +3802,7 @@ fn create2_happy_path() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance);
+    let mut vm = new_vm_with_ops_addr_bal(ops_to_bytecde(&operations), sender_addr, sender_balance, Db::new());
     vm.current_call_frame_mut().msg_sender = sender_addr;
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
@@ -3917,10 +3948,11 @@ fn balance_op() {
         Operation::Stop,
     ];
 
-    let mut vm = new_vm_with_ops_addr_bal(
+    let mut vm = new_vm_with_ops_addr_bal_db(
         ops_to_bytecde(&operations),
         Address::from_low_u64_be(address),
         U256::from(1234),
+        Db::new()
     );
 
     let mut current_call_frame = vm.call_frames.pop().unwrap();
