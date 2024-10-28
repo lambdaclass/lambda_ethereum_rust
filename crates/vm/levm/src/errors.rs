@@ -27,6 +27,8 @@ pub enum VMError {
     SenderBalanceShouldContainTransferValue,
     GasPriceIsLowerThanBaseFee,
     AddressAlreadyOccuped,
+    ContractOutputTooBig,
+    InvalidInitialByte,
 }
 
 pub enum OpcodeSuccess {

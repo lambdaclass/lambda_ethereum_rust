@@ -322,14 +322,14 @@ fn create_contract(
         };
     
     // If address is already in db, there's an error
-    if db_copy.accounts.contains_key(&new_address) {
+    if db_copy.accounts.contains_key(&new_contract_address) {
         return Err(VMError::AddressAlreadyOccuped); // Kinda this
     }
 
     // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
-    let contract_address =
-        Account::new(new_address, value, calldata.clone(), 0, Default::default());
-    db_copy.add_account(new_address, contract_address.clone());
+    let created_contract =
+        Account::new(new_contract_address, value, calldata.clone(), 1, Default::default());
+    db_copy.add_account(new_contract_address, created_contract.clone());
 
     // 4. Transfer the initial Ether endowment from caller to the new contract
 
@@ -338,7 +338,7 @@ fn create_contract(
 
     // Call the contract
     let mut vm = VM::new(
-        Some(contract_address.address),
+        Some(created_contract.address),
         sender,
         value,
         code,
@@ -358,11 +358,25 @@ fn create_contract(
         None
     )?;
 
-    let res = vm.transact();
+    let res = vm.transact()?;
+    let contract_code = res.output;
+    if contract_code.len() > 24576 {
+        return Err(VMError::ContractOutputTooBig);
+    }
+    // Supposing contract code has contents
+    if contract_code[0] == 0xef {
+        return Err(VMError::InvalidInitialByte)
+    }
 
-    // The ret variable is the returned contract code ?????????
-    let _contract_code = res.unwrap().output;
+    // If the initialization code completes successfully, a final contract-creation cost is paid, 
+    // the code-deposit cost, c, proportional to the size of the created contract’s code
+    let creation_cost = 200*contract_code.len();
+    if creation_cost > sender_account.balance.as_usize() {
+        return Err(VMError::OutOfGas);
+    }
 
+    sender_account.balance -= U256::from(creation_cost);
+    
     //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
 
     Ok(vm)
