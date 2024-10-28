@@ -320,7 +320,7 @@ fn create_contract(
     }
 
     // 3. Create the new contract account using the derived contract address (changing the “world state” StateDB)
-    let created_contract = Account::new(
+    let mut created_contract = Account::new(
         new_contract_address,
         value,
         calldata.clone(),
@@ -381,8 +381,12 @@ fn create_contract(
     }
 
     sender_account.balance -= U256::from(creation_cost);
+    created_contract.bytecode = contract_code;
 
-    sender_account.bytecode = contract_code;
+    let mut acc = db_copy.accounts.get_mut(&sender).unwrap();
+    *acc = sender_account;
+    acc = db_copy.accounts.get_mut(&new_contract_address).unwrap();
+    *acc = created_contract;
 
     *db = db_copy;
     Ok(vm)
