@@ -652,4 +652,13 @@ impl VM {
         self.env.consumed_gas += gas;
         Ok(())
     }
+
+    pub fn get_from_db_then_cache(&mut self, address: &Address) -> AccountInfo{
+        let acc_info = self.db.get_account_info(*address);
+        self.cache.add_account(address, &Account {
+          info: acc_info.clone(),
+            storage: HashMap::new(),
+        });
+        acc_info
+    }
 }

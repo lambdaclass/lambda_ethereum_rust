@@ -39,15 +39,13 @@ impl VM {
     ) -> Result<OpcodeSuccess, VMError> {
         let address = &word_to_address(current_call_frame.stack.pop()?);
 
+
+        
         let balance = if self.cache.is_account_cached(address) {
             self.increase_consumed_gas(current_call_frame, WARM_ADDRESS_ACCESS_COST);
-            self.cache.get_account(address).unwrap().info.balance
+            self.cache.get_account(*address).unwrap().info.balance
         } else {
-            let acc_info = self.db.get_account_info(*address);
-            self.cache.add_account(&Account {
-                info: acc_info.clone(),
-                storage: HashMap::new(),
-            });
+            let acc_info = self.get_from_db_then_cache(address);
             self.increase_consumed_gas(current_call_frame, COLD_ADDRESS_ACCESS_COST);
             acc_info.balance
         };
