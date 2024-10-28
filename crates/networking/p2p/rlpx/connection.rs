@@ -1,5 +1,7 @@
 use crate::{
-    rlpx::{eth::backend, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey}, snap::process_account_range_request, MAX_DISC_PACKET_SIZE
+    rlpx::{eth::backend, handshake::encode_ack_message, message::Message, p2p, utils::id2pubkey},
+    snap::process_account_range_request,
+    MAX_DISC_PACKET_SIZE,
 };
 
 use super::{
@@ -147,9 +149,10 @@ impl<S: AsyncWrite + AsyncRead + std::marker::Unpin> RLPxConnection<S> {
                         Message::Pong(_) => info!("Received Pong"),
                         Message::Status(_) => info!("Received Status"),
                         Message::GetAccountRange(req) => {
-                            let response = process_account_range_request(req, self.storage.clone())?;
+                            let response =
+                                process_account_range_request(req, self.storage.clone())?;
                             dbg!(self.send(Message::AccountRange(response)).await)
-                        },
+                        }
                         // TODO: Add new message types and handlers as they are implemented
                         message => return Err(RLPxError::UnexpectedMessage(message)),
                     };

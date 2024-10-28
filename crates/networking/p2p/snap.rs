@@ -1,37 +1,43 @@
+use bytes::Bytes;
 use ethereum_rust_rlp::encode::RLPEncode;
 use ethereum_rust_storage::{error::StoreError, Store};
 
-use crate::rlpx::snap::{AccountRange, AccountStateSlim, GetAccountRange};
+use crate::rlpx::snap::{AccountRange, AccountRangeUnit, AccountStateSlim, GetAccountRange};
 
-#[allow(unused)]
 pub fn process_account_range_request(
     request: GetAccountRange,
     store: Store,
 ) -> Result<AccountRange, StoreError> {
     let mut accounts = vec![];
     let mut bytes_used = 0;
-    for (k, v) in store.iter_accounts(request.root_hash) {
-        if k >= request.starting_hash {
-            let account = AccountStateSlim::from(v).encode_to_vec();
+    for (hash, account) in store.iter_accounts(request.root_hash) {
+        if hash >= request.starting_hash {
+            let account = AccountStateSlim::from(account);
             // size of hash + size of account
-            bytes_used += 32 + account.len() as u64;
-            accounts.push((k, account));
+            bytes_used += 32 + account.encoded_len() as u64;
+            accounts.push(AccountRangeUnit { hash, account });
         }
-        if k >= request.limit_hash || bytes_used >= request.response_bytes {
+        if hash >= request.limit_hash || bytes_used >= request.response_bytes {
             break;
         }
     }
-    let proof = store.get_account_range_proof(
-        request.root_hash,
-        request.starting_hash,
-        request.limit_hash,
-    )?;
-
+    let proof = store
+        .get_account_range_proof(request.root_hash, request.starting_hash, request.limit_hash)?
+        .iter()
+        .map(|bytes| Bytes::copy_from_slice(bytes))
+        .collect();
     Ok(AccountRange {
         id: request.id,
         accounts,
         proof,
     })
+}
+
+impl AccountStateSlim {
+    // TODO: calculate this without encoding
+    fn encoded_len(&self) -> usize {
+        self.encode_to_vec().len()
+    }
 }
 
 #[cfg(test)]
@@ -82,9 +88,9 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 86);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
         assert_eq!(
-            res.accounts.last().unwrap().0,
+            res.accounts.last().unwrap().hash,
             H256::from_str("0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099")
                 .unwrap()
         );
@@ -103,9 +109,9 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 65);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
         assert_eq!(
-            res.accounts.last().unwrap().0,
+            res.accounts.last().unwrap().hash,
             H256::from_str("0x2e6fe1362b3e388184fd7bf08e99e74170b26361624ffd1c5f646da7067b58b6")
                 .unwrap()
         );
@@ -124,9 +130,9 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 44);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
         assert_eq!(
-            res.accounts.last().unwrap().0,
+            res.accounts.last().unwrap().hash,
             H256::from_str("0x1c3f74249a4892081ba0634a819aec9ed25f34c7653f5719b9098487e65ab595")
                 .unwrap()
         );
@@ -145,8 +151,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 1);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_FIRST);
     }
 
     #[test]
@@ -162,8 +168,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 1);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_FIRST);
     }
 
     #[test]
@@ -182,8 +188,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 2);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_SECOND);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_SECOND);
     }
 
     #[test]
@@ -201,8 +207,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 1);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_FIRST);
     }
 
     #[test]
@@ -220,8 +226,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 1);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_FIRST);
     }
 
     #[test]
@@ -237,9 +243,9 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 86);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
         assert_eq!(
-            res.accounts.last().unwrap().0,
+            res.accounts.last().unwrap().hash,
             H256::from_str("0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099")
                 .unwrap()
         );
@@ -258,9 +264,9 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 86);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_SECOND);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_SECOND);
         assert_eq!(
-            res.accounts.last().unwrap().0,
+            res.accounts.last().unwrap().hash,
             H256::from_str("0x4615e5f5df5b25349a00ad313c6cd0436b6c08ee5826e33a018661997f85ebaa")
                 .unwrap()
         );
@@ -285,8 +291,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 1);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_FIRST);
     }
 
     #[test]
@@ -304,8 +310,8 @@ mod tests {
         let res = process_account_range_request(request, store).unwrap();
         // Check test invariants
         assert_eq!(res.accounts.len(), 1);
-        assert_eq!(res.accounts.first().unwrap().0, *HASH_FIRST);
-        assert_eq!(res.accounts.last().unwrap().0, *HASH_FIRST);
+        assert_eq!(res.accounts.first().unwrap().hash, *HASH_FIRST);
+        assert_eq!(res.accounts.last().unwrap().hash, *HASH_FIRST);
     }
 
     // Initial state setup for hive snap tests

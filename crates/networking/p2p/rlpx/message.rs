@@ -22,7 +22,7 @@ pub(crate) enum Message {
     Status(StatusMessage),
     // snap capability
     GetAccountRange(GetAccountRange),
-    AccountRange(AccountRange)
+    AccountRange(AccountRange),
 }
 
 impl Message {
@@ -46,8 +46,14 @@ impl Message {
             Message::Ping(msg) => msg.encode(buf),
             Message::Pong(msg) => msg.encode(buf),
             Message::Status(msg) => msg.encode(buf),
-            Message::GetAccountRange(msg) => {0x21_u8.encode(buf); msg.encode(buf)},
-            Message::AccountRange(msg) => {0x22_u8.encode(buf); msg.encode(buf)},
+            Message::GetAccountRange(msg) => {
+                0x21_u8.encode(buf);
+                msg.encode(buf)
+            }
+            Message::AccountRange(msg) => {
+                0x22_u8.encode(buf);
+                msg.encode(buf)
+            }
         }
     }
 }

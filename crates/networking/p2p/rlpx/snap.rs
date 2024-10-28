@@ -21,6 +21,12 @@ pub struct AccountStateSlim {
     pub code_hash: Bytes,
 }
 
+#[derive(Debug)]
+pub struct AccountRangeUnit {
+    pub hash: H256,
+    pub account: AccountStateSlim,
+}
+
 impl From<AccountState> for AccountStateSlim {
     fn from(value: AccountState) -> Self {
         let storage_root = if value.storage_root == *EMPTY_TRIE_HASH {
@@ -138,8 +144,8 @@ pub(crate) struct AccountRange {
     // https://github.com/ethereum/devp2p/blob/master/caps/eth.md#protocol-messages
     pub id: u64,
     // List of (hash, account) pairs, accounts consists of RLP-encoded slim accounts
-    pub accounts: Vec<(H256, Vec<u8>)>,
-    pub proof: Vec<Vec<u8>>,
+    pub accounts: Vec<AccountRangeUnit>,
+    pub proof: Vec<Bytes>,
 }
 
 impl RLPxMessage for AccountRange {
@@ -174,6 +180,7 @@ impl RLPxMessage for AccountRange {
         })
     }
 }
+
 impl RLPEncode for AccountStateSlim {
     fn encode(&self, buf: &mut dyn BufMut) {
         Encoder::new(buf)
