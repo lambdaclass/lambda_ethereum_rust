@@ -29,7 +29,7 @@ pub fn new_vm_with_ops_db(operations: &[Operation], db: Db) -> VM {
 }
 
 /// This function is for testing purposes only.
-pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db, cache: Cache) -> VM {
+pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U256, mut db: Db, mut cache: Cache) -> VM {
     let accounts = [
         (
             Address::from_low_u64_be(42),
@@ -56,6 +56,10 @@ pub fn new_vm_with_ops_addr_bal_db(bytecode: Bytes, address: Address, balance: U
     ];
 
     db.add_accounts(accounts.to_vec());
+    
+    // add to cache accounts from list accounts
+    cache.add_account(&accounts[0].0, &accounts[0].1);
+    cache.add_account(&accounts[1].0, &accounts[1].1);
 
     // add the account with code to call
 
