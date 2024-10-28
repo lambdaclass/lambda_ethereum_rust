@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use crate::{
     constants::{call_opcode, SUCCESS_FOR_RETURN},
-    errors::ResultReason,
+    errors::ResultReason, vm::Account,
 };
 
 use super::*;
@@ -42,9 +44,8 @@ impl VM {
         let memory_expansion_cost = current_call_frame.memory.expansion_cost(memory_byte_size)?;
 
         let address_access_cost = if self
-            .accrued_substate
-            .accessed_addresses
-            .contains(&code_address)
+            .cache
+            .is_account_cached(&code_address)
         {
             call_opcode::WARM_ADDRESS_ACCESS_COST
         } else {
@@ -56,7 +57,17 @@ impl VM {
         } else {
             U256::zero()
         };
-        let account = self.db.get_account(&code_address)?;
+
+        let account = if self.cache.is_account_cached(&code_address){
+            self.cache.get_account(code_address).unwrap().clone()
+        } else {
+            let info = self.get_from_db_then_cache(&code_address);
+            Account {
+                info,
+                storage: HashMap::new(),
+            }
+        };
+
         let value_to_empty_account_cost = if !value.is_zero() && account.is_empty() {
             call_opcode::VALUE_TO_EMPTY_ACCOUNT_COST
         } else {
@@ -69,10 +80,6 @@ impl VM {
             + value_to_empty_account_cost;
 
         self.increase_consumed_gas(current_call_frame, gas_cost)?;
-
-        self.accrued_substate
-            .accessed_addresses
-            .insert(code_address);
 
         let msg_sender = current_call_frame.msg_sender;
         let to = current_call_frame.to;
