@@ -26,7 +26,7 @@ pub enum VMError {
     SenderAccountShouldNotHaveBytecode,
     SenderBalanceShouldContainTransferValue,
     GasPriceIsLowerThanBaseFee,
-    AddressAlreadyOccuped,
+    AddressAlreadyOccupied,
     ContractOutputTooBig,
     InvalidInitialByte,
 }

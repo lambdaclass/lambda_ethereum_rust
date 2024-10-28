@@ -293,7 +293,7 @@ fn create_contract(
     let mut sender_account = match db_copy.accounts.get(&sender) {
         Some(acc) => acc,
         None => {
-            return Err(VMError::SenderAccountDoesNotExist);
+            return Err(VMError::OutOfGas);
         }
     }
     .clone();
@@ -316,7 +316,7 @@ fn create_contract(
 
     // If address is already in db, there's an error
     if db_copy.accounts.contains_key(&new_contract_address) {
-        return Err(VMError::AddressAlreadyOccuped);
+        return Err(VMError::AddressAlreadyOccupied);
     }
 
     // (3)
@@ -364,11 +364,11 @@ fn create_contract(
     let contract_code = res.output;
 
     // (6)
-    if contract_code.len() > 24576 {
+    if contract_code.len() > MAX_CODE_SIZE {
         return Err(VMError::ContractOutputTooBig);
     }
     // Supposing contract code has contents
-    if contract_code[0] == 0xef {
+    if contract_code[0] == INVALID_CONTRACT_PREFIX {
         return Err(VMError::InvalidInitialByte);
     }
 
