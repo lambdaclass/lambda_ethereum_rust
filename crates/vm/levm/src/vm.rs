@@ -329,11 +329,11 @@ fn create_contract(
     );
     db_copy.add_account(new_contract_address, created_contract.clone());
 
-    // (4) 
+    // (4)
     sender_account.balance -= value;
     created_contract.balance += value;
 
-    // (5) 
+    // (5)
     let code: Bytes = calldata.clone();
 
     // Call the contract
