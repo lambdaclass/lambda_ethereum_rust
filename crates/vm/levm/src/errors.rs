@@ -22,7 +22,7 @@ pub enum VMError {
     MissingBlobHashes,
     BlobHashIndexOutOfBounds,
     RevertOpcode,
-    SenderAccountDoesNotExist,
+    AddressDoesNotMatchAnAccount,
     SenderAccountShouldNotHaveBytecode,
     SenderBalanceShouldContainTransferValue,
     GasPriceIsLowerThanBaseFee,

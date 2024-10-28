@@ -616,7 +616,9 @@ impl VM {
         // Validations (1), (2), (3), (5), and (8) are assumed done in upper layers.
         let sender_account = match self.db.accounts.get(&self.env.origin) {
             Some(acc) => acc,
-            None => return Err(VMError::SenderAccountDoesNotExist),
+            None => return Err(VMError::AddressDoesNotMatchAnAccount),
+            // This is a check for completeness. However if it were a none and 
+            // it was not caught it would be caught in clause 6.
         };
         // (4)
         if sender_account.has_code() {
