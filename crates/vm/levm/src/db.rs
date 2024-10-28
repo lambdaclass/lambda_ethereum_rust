@@ -4,16 +4,6 @@ use keccak_hash::H256;
 use std::collections::HashMap;
 
 pub trait Database: std::fmt::Debug {
-    // fn read_account_storage(&self, address: &Address, key: &U256) -> Option<StorageSlot>;
-    // fn write_account_storage(&mut self, address: &Address, key: U256, slot: StorageSlot);
-    // fn get_account_bytecode(&self, address: &Address) -> Bytes;
-    // fn balance(&mut self, address: &Address) -> U256;
-    // fn add_account(&mut self, address: Address, account: Account);
-    // fn increment_account_nonce(&mut self, address: &Address);
-    // fn get_account(&mut self, address: &Address) -> Result<Account, VMError>; // Changed from &Account to Account
-    // fn insert_account(&mut self, address: Address, account: Account);
-    // fn get_block_hash(&self, block_number: U256) -> Option<H256>;
-    // fn insert_block_hash(&mut self, block_number: U256, block_hash: u64);
     fn get_account_info(&self, address: Address) -> AccountInfo;
     fn get_storage_slot(&self, address: Address, key: U256) -> U256;
 }
@@ -21,12 +11,11 @@ pub trait Database: std::fmt::Debug {
 #[derive(Debug, Default)]
 pub struct Db {
     accounts: HashMap<Address, Account>,
-    // contracts: HashMap<B256, Bytecode>,
     block_hashes: HashMap<U256, H256>,
 }
 
+// Methods here are for testing purposes only, for initializing the Db with some values
 impl Db {
-    // Methods here are for testing purposes only, real methods are in trait Database
     pub fn new() -> Self {
         Self {
             accounts: HashMap::new(),
@@ -34,12 +23,16 @@ impl Db {
         }
     }
 
-    pub fn add_account(&mut self, address: Address, account: Account) {
-        self.accounts.insert(address, account);
+    /// Builder method with accounts [for testing only]
+    pub fn with_accounts(mut self, accounts: HashMap<Address, Account>) -> Self {
+        self.accounts = accounts;
+        self
     }
 
-    pub fn add_block_hash(&mut self, block_number: U256, block_hash: H256) {
-        self.block_hashes.insert(block_number, block_hash);
+    /// Builder method with block hashes [for testing only]
+    pub fn with_block_hashes(mut self, block_hashes: HashMap<U256, H256>) -> Self {
+        self.block_hashes = block_hashes;
+        self
     }
 }
 
