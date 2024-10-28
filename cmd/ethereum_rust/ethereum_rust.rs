@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use directories::ProjectDirs;
 use ethereum_rust_blockchain::add_block;
+use ethereum_rust_blockchain::fork_choice::apply_fork_choice;
 use ethereum_rust_core::types::{Block, Genesis};
 use ethereum_rust_core::H256;
 use ethereum_rust_net::bootnode::BootNode;
@@ -122,13 +123,13 @@ async fn main() {
     if let Some(chain_rlp_path) = matches.get_one::<String>("import") {
         let blocks = read_chain_file(chain_rlp_path);
         let size = blocks.len();
-        for block in blocks {
+        for block in &blocks {
             let hash = block.header.compute_block_hash();
             info!(
                 "Adding block {} with hash {:#x}.",
                 block.header.number, hash
             );
-            if add_block(&block, &store).is_err() {
+            if add_block(block, &store).is_err() {
                 warn!(
                     "Failed to add block {} with hash {:#x}.",
                     block.header.number, hash
@@ -136,6 +137,10 @@ async fn main() {
             }
         }
         info!("Added {} blocks to blockchain", size);
+        if let Some(last_hash) = blocks.last().map(|b| b.header.compute_block_hash()) {
+            apply_fork_choice(&store, last_hash, H256::zero(), H256::zero())
+                .expect("Failed to set fork choice");
+        }
     }
     let jwt_secret = read_jwtsecret_file(authrpc_jwtsecret);
 
