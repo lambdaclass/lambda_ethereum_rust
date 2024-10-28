@@ -22,7 +22,7 @@ pub fn process_account_range_request(
         }
     }
     let proof = store
-        .get_account_range_proof(request.root_hash, request.starting_hash, request.limit_hash)?
+        .get_account_range_proof(request.root_hash, request.starting_hash, accounts.last().map(|acc| acc.hash))?
         .iter()
         .map(|bytes| Bytes::copy_from_slice(bytes))
         .collect();
