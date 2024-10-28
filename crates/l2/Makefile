@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := init
+.DEFAULT_GOAL := help
 
 .PHONY: help init down clean init-local-l1 down-local-l1 clean-local-l1 init-l2 down-l2 deploy-l1 deploy-block-executor deploy-inbox setup-prover
 
@@ -15,8 +15,8 @@ clean: clean-contract-deps ## 🧹 Cleans the localnet
 
 restart: restart-local-l1 restart-contract-deps deploy-l1 restart-l2 ## 🔄 Restarts the localnet
 
-cli: ## 🛠️ Builds the L2 Lambda Ethereum Rust CLI
-	cargo build --release --manifest-path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust/Cargo.toml
+cli: ## 🛠️ Installs the L2 Lambda Ethereum Rust CLI
+	cargo install --path ${ETHEREUM_RUST_PATH}/cmd/ethereum_rust/Cargo.toml --force
 
 # Variables
 
