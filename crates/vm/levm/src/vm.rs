@@ -96,8 +96,8 @@ pub type Storage = HashMap<U256, H256>;
 // TODO: https://github.com/lambdaclass/ethereum_rust/issues/604
 pub struct Substate {
     // accessed addresses and storage keys are considered WARM
-    pub accessed_addresses: HashSet<Address>,
-    pub accessed_storage_keys: HashSet<(Address, U256)>,
+    // pub accessed_addresses: HashSet<Address>,
+    // pub accessed_storage_keys: HashSet<(Address, U256)>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -653,12 +653,15 @@ impl VM {
         Ok(())
     }
 
-    pub fn get_from_db_then_cache(&mut self, address: &Address) -> AccountInfo{
+    pub fn get_from_db_then_cache(&mut self, address: &Address) -> AccountInfo {
         let acc_info = self.db.get_account_info(*address);
-        self.cache.add_account(address, &Account {
-          info: acc_info.clone(),
-            storage: HashMap::new(),
-        });
+        self.cache.add_account(
+            address,
+            &Account {
+                info: acc_info.clone(),
+                storage: HashMap::new(),
+            },
+        );
         acc_info
     }
 }

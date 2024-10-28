@@ -113,6 +113,11 @@ impl Cache {
     pub fn get_account(&self, address: Address) -> Option<&Account> {
         self.accounts.get(&address)
     }
+
+    pub fn get_mut_account(&mut self, address: Address) -> Option<&mut Account> {
+        self.accounts.get_mut(&address)
+    }
+
     pub fn add_account(&mut self, address: &Address, account: &Account) {
         self.accounts.insert(*address, account.clone());
     }
