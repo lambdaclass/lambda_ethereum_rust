@@ -62,7 +62,7 @@ contract CommonBridge is ICommonBridge, Ownable, ReentrancyGuard {
         }
         // TODO: Build the tx.
         bytes32 l2MintTxHash = keccak256(abi.encodePacked("dummyl2MintTxHash"));
-        depositLogs.push(l2MintTxHash);
+        depositLogs.push(keccak256(abi.encodePacked(to, msg.value)));
         emit DepositInitiated(msg.value, to, l2MintTxHash);
     }
 

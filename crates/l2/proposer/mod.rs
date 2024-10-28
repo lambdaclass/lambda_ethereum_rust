@@ -127,10 +127,16 @@ impl Proposer {
                 .transactions
                 .iter()
                 .filter_map(|tx| match tx {
-                    Transaction::PrivilegedL2Transaction(priv_tx)
-                        if priv_tx.tx_type == PrivilegedTxType::Deposit =>
+                    Transaction::PrivilegedL2Transaction(tx)
+                        if tx.tx_type == PrivilegedTxType::Deposit =>
                     {
-                        Some(tx.compute_hash().0)
+                        let to = match tx.to {
+                            TxKind::Call(to) => to,
+                            TxKind::Create => Address::zero(),
+                        };
+                        let value_bytes = &mut [0u8; 32];
+                        tx.value.to_big_endian(value_bytes);
+                        Some(keccak([H256::from(to).0, H256::from(value_bytes).0].concat()).0)
                     }
                     _ => None,
                 })
