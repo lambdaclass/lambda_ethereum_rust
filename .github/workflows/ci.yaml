@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: ["**"]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
+      - "README.md"
+      - "LICENSE"
       - "**/README.md"
       - "**/docs/**"
 
@@ -22,6 +22,17 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        action:
+          - command: check
+            args:
+          - command: build
+            args: --release
+          - command: fmt
+            args: --all -- --check
+          - command: clippy
+            args: --all-targets --all-features --workspace -- -D warnings
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -32,20 +43,10 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           components: rustfmt, clippy
 
-      - name: Run cargo check
-        run: cargo check
-
-      - name: Run cargo build
-        run: |
-          cargo build
-
-      - name: Run cargo clippy
-        run: |
-          cargo clippy --all-targets --all-features --workspace -- -D warnings
-
-      - name: Run cargo fmt
-        run: |
-          cargo fmt --all -- --check
+      - name: Add Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Run job
+        run: cargo ${{ matrix.action.command }} ${{ matrix.action.args }}
 
   test:
     name: Test
@@ -58,6 +59,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
 
       - name: Download test vectors
         run: |
