@@ -434,6 +434,10 @@ impl VM {
         ret_size: usize,
     ) -> Result<OpcodeSuccess, VMError> {
         // check balance
+        if !self.cache.is_account_cached(&current_call_frame.msg_sender) {
+            self.cache_from_db(&current_call_frame.msg_sender);
+        }
+        
         if self.cache.get_account(current_call_frame.msg_sender).unwrap().info.balance < value {
             current_call_frame.stack.push(U256::from(REVERT_FOR_CALL))?;
             return Ok(OpcodeSuccess::Continue);
