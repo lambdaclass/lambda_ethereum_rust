@@ -264,7 +264,7 @@ fn create_transaction(
 fn create_contract(
     sender: Address,
     secret_key: H256,
-    db: Db,
+    db: &mut Db,
     value: U256,
     calldata: Bytes,
     block_number: U256,
@@ -350,7 +350,7 @@ fn create_contract(
         chain_id,
         base_fee_per_gas,
         gas_price,
-        db_copy.clone(),
+        &mut db_copy,
         block_blob_gas_used,
         block_excess_blob_gas,
         tx_blob_hashes,
@@ -378,7 +378,8 @@ fn create_contract(
     sender_account.balance -= U256::from(creation_cost);
     
     //6. Check for error. Or if the contract code is too big, fail. Charge the user gas then set the contract code
-
+    
+    *db = db_copy;
     Ok(vm)
 }
 
@@ -398,7 +399,7 @@ impl VM {
         chain_id: U256,
         base_fee_per_gas: U256,
         gas_price: U256,
-        db: Db,
+        db: &mut Db,
         block_blob_gas_used: Option<U256>,
         block_excess_blob_gas: Option<U256>,
         tx_blob_hashes: Option<Vec<H256>>,
@@ -420,7 +421,7 @@ impl VM {
                 chain_id,
                 base_fee_per_gas,
                 gas_price,
-                db,
+                db.clone(),
                 block_blob_gas_used,
                 block_excess_blob_gas,
                 tx_blob_hashes,
