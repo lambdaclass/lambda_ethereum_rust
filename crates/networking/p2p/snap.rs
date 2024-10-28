@@ -12,10 +12,12 @@ pub fn process_account_range_request(
     let mut bytes_used = 0;
     for (hash, account) in store.iter_accounts(request.root_hash) {
         if hash >= request.starting_hash {
-            let account = AccountStateSlim::from(account);
-            // size of hash + size of account
-            bytes_used += 32 + account.encoded_len() as u64;
-            accounts.push(AccountRangeUnit { hash, account });
+            let account = AccountRangeUnit {
+                hash,
+                account: AccountStateSlim::from(account),
+            };
+            bytes_used += account.length() as u64;
+            accounts.push(account);
         }
         if hash >= request.limit_hash || bytes_used >= request.response_bytes {
             break;
@@ -35,13 +37,6 @@ pub fn process_account_range_request(
         accounts,
         proof,
     })
-}
-
-impl AccountStateSlim {
-    // TODO: calculate this without encoding
-    fn encoded_len(&self) -> usize {
-        self.encode_to_vec().len()
-    }
 }
 
 #[cfg(test)]
