@@ -5,5 +5,5 @@ perf_test_proving:
 .PHONY: perf_test_proving
 
 perf_gpu:
-	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG="debug" cargo test --release --test perf_zkvm --features build_zkvm gpu -- --show-output
+	RUSTFLAGS="-C target-cpu=native" RISC0_DEV_MODE=0 RUST_LOG="debug" cargo test --release --test perf_zkvm --features "build_zkvm,gpu" -- --show-output
 .PHONY: perf_gpu
